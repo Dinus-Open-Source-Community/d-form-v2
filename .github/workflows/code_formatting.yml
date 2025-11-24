@@ -44,7 +44,7 @@ jobs:
             #       restore-keys: ${{ runner.os }}-composer-
 
             - name: Install Composer Dependencies
-              run: composer install --prefer-dist --no-progress
+              run: composer install --prefer-dist --no-progress --disable-iconv
 
             - name: 🎨 Run Laravel Pint (PHP Formatting)
               run: ./vendor/bin/pint
