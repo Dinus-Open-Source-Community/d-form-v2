@@ -44,7 +44,6 @@ class LoginForm extends Component implements HasSchemas
                 ->label('Password')
                 ->required()
                 ->password()
-                ->alpha()
                 ->revealable(),
         ])->statePath('data');
     }
@@ -62,6 +61,8 @@ class LoginForm extends Component implements HasSchemas
                 ->body(explode(', ', __('auth.login_success'))[1])
                 ->send();
 
+            $this->form->fill();
+
             return redirect()->intended('dashboard');
         }
 
@@ -70,6 +71,11 @@ class LoginForm extends Component implements HasSchemas
             ->title(explode(', ', __('auth.login_failed'))[0])
             ->body(explode(', ', __('auth.login_failed'))[1])
             ->send();
+
+        $this->form->fill([
+            'email' => $credentials['email'],
+            'password' => ''
+        ]);
 
         return null;
     }

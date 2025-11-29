@@ -3,7 +3,7 @@
         <x-auth.banners />
 
         <div class="relative max-h-dvh overflow-x-hidden overflow-y-auto pt-20 md:pt-32 xl:pt-40">
-            <x-auth.theme-toggler />
+            <x-auth.utility-bar />
 
             <section class="flex flex-col items-center" x-data="{ mode: 'login' }">
                 <picture>

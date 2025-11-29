@@ -17,6 +17,10 @@ Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.
 Route::post('/auth/logout', LogoutController::class)->name('auth.logout');
 // End of Routes for Auth
 
+// Routes for redirect to /auth
+Route::middleware('guest')->get('/admin', fn () => to_route('auth.login'));
+// End of Routes for redirect to /auth
+
 // Routes for Dashboard
 Route::name('dashboard.')->prefix('/dashboard')->middleware('auth')->group(function () {
     Route::get('/', function () {

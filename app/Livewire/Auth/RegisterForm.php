@@ -10,6 +10,7 @@ use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -49,14 +50,12 @@ class RegisterForm extends Component implements HasSchemas
                 TextInput::make('password')
                     ->label('Password')
                     ->password()
-                    ->alphaDash()
                     ->confirmed()
                     ->revealable()
                     ->required(),
                 TextInput::make('password_confirmation')
                     ->label(fn () => __("Confirm Password"))
                     ->password()
-                    ->same('password')
                     ->revealable()
                     ->required(),
             ])->statePath('data');
@@ -67,11 +66,11 @@ class RegisterForm extends Component implements HasSchemas
         return view('livewire.auth.register-form');
     }
 
-    public function submit(Request $request): ?RedirectResponse
+    public function submit(Request $request): RedirectResponse | Redirector | null
     {
-        try {
-            $newUserData = $this->form->getState();
+        $newUserData = $this->form->getState();
 
+        try {
             DB::transaction(function () use ($newUserData) {
                 $user = User::create(collect($newUserData)->only(['name', 'email', 'password'])->all());
 
@@ -88,6 +87,8 @@ class RegisterForm extends Component implements HasSchemas
                 ->body(explode(', ', __('auth.register_success'))[1])
                 ->send();
 
+            $this->form->fill();
+
             return redirect()->route('dashboard.home');
         } catch (\Exception $e) {
             Notification::make()
@@ -96,5 +97,7 @@ class RegisterForm extends Component implements HasSchemas
                 ->body(explode(', ', __('auth.register_failed'))[1])
                 ->send();
         }
+
+        return null;
     }
 }
