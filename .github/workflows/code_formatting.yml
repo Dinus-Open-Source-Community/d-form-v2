@@ -5,13 +5,13 @@ on:
         # Hanya jalankan pada push ke branch utama (misalnya main atau master)
         # Anda bisa menyesuaikannya
         branches:
-            - main
-            - master
+            - dev
+            - temp
     pull_request:
         # Jalankan pada pull request untuk memastikan kode masuk sudah bersih
         branches:
-            - main
-            - master
+            - dev
+            - temp
 
 permissions:
     contents: write # <--- TAMBAHKAN DI SINI

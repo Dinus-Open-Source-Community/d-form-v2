@@ -3,8 +3,8 @@
 namespace App\Livewire\Auth;
 
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +16,7 @@ use Livewire\Component;
 
 class LoginForm extends Component implements HasSchemas
 {
-    use InteractsWithSchemas;
+    use InteractsWithForms;
 
     public array $data = [
         'email' => '',
