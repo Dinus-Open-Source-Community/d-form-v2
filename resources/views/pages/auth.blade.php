@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layout::auth>
     <div class="grid h-dvh max-h-dvh w-full grid-cols-1 gap-4 p-0 lg:grid-cols-2">
         <x-auth.banners />
 
@@ -121,4 +121,4 @@
             </section>
         </div>
     </div>
-</x-layouts.auth>
+</x-layout::auth>

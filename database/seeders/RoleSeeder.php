@@ -41,6 +41,7 @@ class RoleSeeder extends Seeder
             'events.view',
             'events.edit',
             'events.delete',
+            'events.join',
 
             // attendances management
             'attendances.list',
@@ -48,6 +49,8 @@ class RoleSeeder extends Seeder
             'attendances.view',
             'attendances.edit',
             'attendances.delete',
+            'attendances.export',
+            'attendances.import'
 
             // recruitments management
             // 'recruitments.list',

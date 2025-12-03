@@ -1,6 +1,4 @@
-<x-layouts.app>
-    {{ $data }}
-
+<x-layout::app>
     @if (true)
         <p class="mt-4 text-xl sm:text-base md:text-lg">
             Lorem, ipsum dolor sit amet consectetur adipisicing elit. Quidem, corporis?
@@ -12,4 +10,4 @@
     @else
         <p>False</p>
     @endif
-</x-layouts.app>
+</x-layout::app>
