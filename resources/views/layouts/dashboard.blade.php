@@ -11,8 +11,11 @@
 
         @vite('resources/css/app.css')
         @filamentStyles
+        @livewireStyles
     </head>
     <body>
+        <div id="components"></div>
+
         <div class="drawer lg:drawer-open">
             <input id="main-dashboard-drawer" type="checkbox" class="drawer-toggle" />
 
@@ -20,7 +23,7 @@
                 <!-- Page content here -->
                 {{-- <label for="main-dashboard-drawer" class="btn drawer-button">Open drawer</label> --}}
 
-                <x-navbar.dashboard-navbar />
+                <x-core::navbar.dashboard-navbar :title="$title" />
 
                 {{ $slot }}
             </div>
@@ -28,14 +31,18 @@
             <div class="drawer-side">
                 <label for="main-dashboard-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 
-                <x-sidebar.dashboard-sidebar />
+                <x-core::sidebar.dashboard-sidebar />
             </div>
         </div>
 
+        @livewire('auth.logout-btn', ['teleportToSidebar' => true])
+
         @livewire('notifications')
 
-        @vite('resources/js/app.js')
-        @livewireScriptConfig
+        @stack('components')
+
         @filamentScripts
+        @livewireScriptConfig
+        @vite('resources/js/app.js')
     </body>
 </html>

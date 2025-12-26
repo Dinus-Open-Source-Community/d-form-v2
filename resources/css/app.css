@@ -100,3 +100,9 @@
     --depth: 1;
     --noise: 0;
 }
+
+@layer utilities {
+    .container {
+        @apply w-[92.5%] sm:w-[90%] lg:w-[87.5%] 2xl:w-[85%];
+    }
+}

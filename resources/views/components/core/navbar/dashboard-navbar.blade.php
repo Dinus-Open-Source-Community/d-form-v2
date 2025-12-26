@@ -1,4 +1,8 @@
-<div class="navbar bg-base-100 h-20 shadow-sm">
+@props([
+    'title' => '',
+])
+
+<div class="navbar bg-base-100 sticky top-0 z-10 h-20 shadow-sm">
     <div class="container mx-auto flex items-center">
         <div class="hidden flex-none">
             <button class="btn btn-square btn-ghost">
@@ -19,7 +23,13 @@
         </div>
 
         <div class="flex-1">
-            <h3 class="text-2xl font-bold">Dashboard</h3>
+            <h3 class="text-2xl font-bold">
+                <span class="hidden lg:inline">
+                    {{ $title }}
+                </span>
+
+                <span class="inline lg:hidden">DForm</span>
+            </h3>
         </div>
 
         <div class="flex-none">
