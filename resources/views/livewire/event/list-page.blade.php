@@ -1,6 +1,8 @@
 <div>
-    <div class="grid w-full grid-cols-3 gap-3">
-        <form class="flex w-full items-center gap-3">
+    <div class="grid w-full grid-cols-2 grid-rows-2 gap-3 md:grid-cols-3 md:grid-rows-1">
+        <form
+            class="col-span-2 row-start-2 row-end-2 flex w-full items-center gap-3 md:col-span-1 md:row-start-1 md:row-end-1"
+        >
             <div class="flex-1">
                 {{ $this->searchForm }}
             </div>
@@ -9,23 +11,14 @@
         <div>
             {{ $this->filterAction }}
             {{ $this->sortingAction }}
-            {{--
-                <button class="btn dark:btn-soft rounded-lg">
-                @svg('heroicon-o-funnel', 'size-6')
-                </button>
-            --}}
-
-            {{--
-                <button class="btn dark:btn-soft rounded-lg">
-                @svg('heroicon-o-bars-arrow-down', 'size-6')
-                </button>
-            --}}
         </div>
 
         <div class="flex justify-end gap-3">
             <a href="{{ route('dashboard.events.create') }}" class="btn btn-primary rounded-lg">
                 @svg('heroicon-o-plus', 'size-6')
-                {{ __('Create new') }}
+                <span class="hidden md:inline">
+                    {{ __('Create new') }}
+                </span>
             </a>
 
             <div class="flex" x-data>

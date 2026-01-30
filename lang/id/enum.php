@@ -10,6 +10,10 @@ return [
             'network' => 'jaringan',
             'media_creative' => 'media creative',
             'data' => 'data',
+        ],
+        'status' => [
+            'draft' => 'draft',
+            'published' => 'published'
         ]
     ]
 ];

@@ -48,5 +48,11 @@
     "Name": "Name",
     "Full Name": "Full Name",
     "Confirm Password": "Confirm Password",
-    "There is no content.": "There is no content."
+    "There is no content.": "There is no content.",
+    "Forms": "Forms",
+    "No forms found.": "No forms found.",
+    "Schedules": "Schedules",
+    "No schedules found.": "No schedules found.",
+    "Create new form": "Create new form",
+    "Create new schedule": "Create new schedule"
 }

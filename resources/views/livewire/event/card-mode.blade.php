@@ -1,4 +1,4 @@
-<div class="my-6 grid grid-cols-3 gap-4">
+<div class="my-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
     @if ($this->events->isEmpty())
         <div class="col-span-3 flex flex-col items-center pt-12 md:pt-20">
             @svg('heroicon-o-exclamation-triangle', 'text-base-content size-12 md:size-16 lg:size-24')
@@ -17,22 +17,18 @@
                     />
 
                     <div
-                        class="absolute top-0 left-0 flex h-full w-full items-start justify-end gap-3 bg-linear-to-b from-slate-800/50 to-transparent px-4 pt-4"
+                        class="absolute top-0 left-0 flex h-full w-full items-start justify-end gap-3 bg-linear-to-b from-slate-800/50 to-transparent pt-4"
                     >
-                        <div class="flex items-center gap-3">
-                            <span class="bg-accent/30 inline-flex rounded-full px-3 py-1 text-slate-100">
+                        <div
+                            @class([
+                                'relative inline-flex h-0 w-[10rem] border-[15px] border-l-[15px] border-l-transparent bg-transparent ',
+                                'border-primary text-primary-content' => $event['status'] === \App\Enums\EventStatus::Published,
+                                'border-slate-300 text-slate-900' => $event['status'] === \App\Enums\EventStatus::Draft,
+                            ])
+                        >
+                            <span class="absolute top-0 right-0 left-0 translate-y-[-50%] text-center">
                                 {{ $event['status'] }}
                             </span>
-
-                            <x-filament-actions::group
-                                :actions="[
-                                    ($this->editAction)(['id' => $event['id']]),
-                                    $this->deleteAction
-                                ]"
-                                size="lg"
-                                iconSize="2xl"
-                                color="accent"
-                            />
                         </div>
                     </div>
                 </figure>
@@ -45,7 +41,12 @@
                     </p>
 
                     <div class="card-actions items-center justify-end">
-                        <button class="btn btn-primary">Detail</button>
+                        <a
+                            href="{{ route('dashboard.events.show', ['event' => $event['id']]) }}"
+                            class="btn btn-primary"
+                        >
+                            Detail
+                        </a>
                     </div>
                 </div>
             </div>

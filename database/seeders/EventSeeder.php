@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\EventCategory;
 use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Models\Event;
-use App\Models\EventCategory;
 use Illuminate\Database\Seeder;
 
 class EventSeeder extends Seeder
@@ -15,8 +15,6 @@ class EventSeeder extends Seeder
      */
     public function run(): void
     {
-        $event_category_ids = EventCategory::all();
-
         $events = [
             [
                 'title' => 'Oprec member',
@@ -27,41 +25,41 @@ class EventSeeder extends Seeder
                 'registration_end' => now()->addDays(5),
                 'location' => "UDINUS H.4",
                 'quota' => 50,
-                'banner' => "",
+                'banner' => "events/banners/dummy.webp",
                 'price' => 20000,
                 'session' => EventSession::General,
                 'status' => EventStatus::Draft,
-                'event_category_id' => $event_category_ids[0]->id
+                'category' => EventCategory::RECRUITMENT
             ],
             [
-                'title' => 'Oprec member',
-                'description' => fake()->paragraph(4),
-                'start_date' => now()->addDays(7),
-                'end_date' => now()->addDays(10),
-                'registration_start' => now(),
-                'registration_end' => now()->addDays(5),
-                'location' => "UDINUS H.4",
-                'quota' => 50,
-                'banner' => "",
+                'title' => 'Opensource On The School',
+                'description' => fake()->paragraph(5),
+                'start_date' => now()->addDays(31),
+                'end_date' => now()->addDays(35),
+                'registration_start' => now()->addDays(31),
+                'registration_end' => now()->addDays(35),
+                'location' => "UDINUS D.2",
+                'quota' => 100,
+                'banner' => "events/banners/dummy.webp",
                 'price' => 20000,
                 'session' => EventSession::General,
                 'status' => EventStatus::Published,
-                'event_category_id' => $event_category_ids[1]->id
+                'category' => EventCategory::RKT
             ],
             [
-                'title' => 'Oprec member',
+                'title' => 'Doscom University',
                 'description' => fake()->paragraph(4),
-                'start_date' => now()->addDays(7),
-                'end_date' => now()->addDays(10),
-                'registration_start' => now(),
-                'registration_end' => now()->addDays(5),
-                'location' => "UDINUS H.4",
-                'quota' => 50,
-                'banner' => "",
-                'price' => 20000,
+                'start_date' => now()->addDays(100),
+                'end_date' => now()->addDays(130),
+                'registration_start' => now()->addDays(70),
+                'registration_end' => now()->addDays(93),
+                'location' => "UDINUS gedung H",
+                'quota' => 150,
+                'banner' => "events/banners/dummy.webp",
+                'price' => 10000,
                 'session' => EventSession::General,
                 'status' => EventStatus::Draft,
-                'event_category_id' => $event_category_ids[2]->id
+                'category' => EventCategory::RKT
             ],
         ];
 

@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Event;
 
-use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -17,24 +16,6 @@ class CardMode extends Component implements HasActions, HasSchemas
 
     #[Reactive]
     public $events = [];
-
-    public function editAction(): Action
-    {
-        return Action::make('edit')
-            ->icon('heroicon-o-pencil-square')
-            ->url(function (array $arguments) {
-                return "?id=" . $arguments['id'];
-            })
-            ->color('warning');
-    }
-
-    public function deleteAction(): Action
-    {
-        return Action::make('delete')
-            ->icon('heroicon-o-trash')
-            ->requiresConfirmation()
-            ->color('danger');
-    }
 
     public function render()
     {

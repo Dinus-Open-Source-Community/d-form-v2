@@ -19,7 +19,7 @@
         <div class="drawer lg:drawer-open">
             <input id="main-dashboard-drawer" type="checkbox" class="drawer-toggle" />
 
-            <div class="drawer-content">
+            <div class="drawer-content pb-12">
                 <!-- Page content here -->
                 {{-- <label for="main-dashboard-drawer" class="btn drawer-button">Open drawer</label> --}}
 
