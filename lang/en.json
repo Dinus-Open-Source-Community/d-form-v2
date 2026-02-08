@@ -57,5 +57,13 @@
     "Create new schedule": "Create new schedule",
     "Delete this content.": "Delete this content.",
     "Are you sure want to delete this content?": "Are you sure want to delete this content?",
-    "Show trashed": "Show trashed"
+    "Restore this content.": "Restore this content.",
+    "Are you sure want to restore this content?": "Are you sure want to restore this content?",
+    "Show trashed": "Show trashed",
+    "Delete content": "Delete content",
+    "Content deleted successfully": "Content deleted successfully",
+    "Failed to delete this content. try again!": "Failed to delete this content. try again!",
+    "Restore content": "Restore content",
+    "Content restored successfully": "Content restored successfully",
+    "Failed to restore this content. try again!": "Failed to restore this content. try again!"
 }

@@ -112,8 +112,8 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
                 if ($this->event->delete()) {
                     Notification::make()
                         ->success()
-                        ->title("test title")
-                        ->body("test body")
+                        ->title(__("Delete content"))
+                        ->body(__("Content deleted successfully"))
                         ->send();
 
                     return;
@@ -121,8 +121,8 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
 
                 Notification::make()
                     ->danger()
-                    ->title('test title')
-                    ->body('test body')
+                    ->title(__('Delete content'))
+                    ->body(__('Failed to delete this content. try again!'))
                     ->send();
             });
     }
@@ -138,8 +138,8 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
                 if ($this->event->restore()) {
                     Notification::make()
                         ->success()
-                        ->title("test title")
-                        ->body("test body")
+                        ->title(__("Restore content"))
+                        ->body(__('Content restored successfully'))
                         ->send();
 
                     return;
@@ -147,8 +147,8 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
 
                 Notification::make()
                     ->danger()
-                    ->title('test title')
-                    ->body('test body')
+                    ->title(__('Restore content'))
+                    ->body(__("Failed to restore this content. try again!"))
                     ->send();
             });
     }

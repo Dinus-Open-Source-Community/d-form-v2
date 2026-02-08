@@ -61,5 +61,13 @@
     "Create new schedule": "Buat jadwal baru",
     "Delete this content.": "Hapus konten",
     "Are you sure want to delete this content?": "Apakah anda yakin ingin menghapus konten ini?",
-    "Show trashed": "Lihatkan sampah"
+    "Restore this content.": "Pulihkan konten.",
+    "Are you sure want to restore this content?": "Apakah anda yakin ingn memulihkan konten ini?",
+    "Show trashed": "Lihatkan sampah",
+    "Delete content": "Hapus konten",
+    "Content deleted successfully": "Konten berhasil dihapus",
+    "Failed to delete this content. try again!": "konten gagal dihapus, silahkan coba lagi!",
+    "Restore content": "Pulihkan konten",
+    "Content restored successfully": "Konten berhasil dipulihkan",
+    "Failed to restore this content. try again!": "Konten gagal dipulihkan, silahkan coba lagi!"
 }
