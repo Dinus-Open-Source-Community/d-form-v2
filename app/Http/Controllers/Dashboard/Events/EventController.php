@@ -26,16 +26,22 @@ class EventController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Event $event)
+    public function show(string $id)
     {
+        $event = Event::query()->where('id', $id);
+
+        // if (auth()->guard()->user())
+        $event = $event->withTrashed()->get()->first();
+        //}
+
         return view('pages.dashboard.events.view', compact('event'));
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Event $event)
     {
-        //
+        return view('pages.dashboard.events.edit', compact('event'));
     }
 }

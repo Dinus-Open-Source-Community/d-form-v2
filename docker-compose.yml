@@ -16,12 +16,12 @@ services:
         networks:
             - default
         depends_on:
-            db:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-            # - db
-            # - redis
+            # db:
+            #     condition: service_healthy
+            # redis:
+            #     condition: service_healthy
+            - db
+            - redis
         restart: unless-stopped
         ports:
             - 80:8000
@@ -38,15 +38,15 @@ services:
             MYSQL_DATABASE: ${DB_DATABASE}
         volumes:
             - mysql_db:/var/lib/mysql
-            - ./docker/mysql/healthcheck.cnf:/etc/mysql/healthcheck.cnf:ro
+            # - ./docker/mysql/healthcheck.cnf:/etc/mysql/healthcheck.cnf:ro
         ports:
             - ${DB_PORT}:3306
         networks:
             - default
-        healthcheck:
-            test: ['CMD', 'mysqladmin', '-p${DB_PASSWORD}', 'ping', '-h', 'localhost']
-            timeout: 5s
-            retries: 3
+        # healthcheck:
+        #     test: ['CMD', 'mysqladmin', '-p${DB_PASSWORD}', 'ping', '-h', 'localhost']
+        #     timeout: 5s
+        #     retries: 3
 
     phpmyadmin:
         image: phpmyadmin:apache
@@ -58,8 +58,9 @@ services:
         networks:
             - default
         depends_on:
-            db:
-                condition: service_healthy
+            # db:
+            #     condition: service_healthy
+            - db
         environment:
             - PMA_HOST=db
             - PMA_PORT=3306
@@ -76,10 +77,10 @@ services:
         networks:
             - default
         command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-        healthcheck:
-            test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
-            timeout: 5s
-            retries: 3
+        # healthcheck:
+        #     test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+        #     timeout: 5s
+        #     retries: 3
 
 networks:
     default:

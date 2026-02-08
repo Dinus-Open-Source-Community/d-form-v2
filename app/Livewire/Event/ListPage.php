@@ -2,16 +2,23 @@
 
 namespace App\Livewire\Event;
 
+use App\Enums\EventCategory;
+use App\Enums\EventSession;
 use App\Models\Event;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\IconSize;
 use Filament\Support\Enums\Size;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 
 class ListPage extends Component implements HasSchemas, HasActions
@@ -22,8 +29,9 @@ class ListPage extends Component implements HasSchemas, HasActions
     public string $mode = "card";
 
     public array $filter = [
-        'category' => 0,
-        'session' => null,
+        'categories' => [],
+        'sessions' => [],
+        'showTrashed' => false
     ];
 
     public array $sort = [
@@ -33,9 +41,7 @@ class ListPage extends Component implements HasSchemas, HasActions
 
     public string $search = '';
 
-    public mixed $data;
-    public int $dataCount = 0;
-    public int $allDataCount = 0;
+    public Collection $data;
 
     public function searchForm(Schema $schema): Schema
     {
@@ -45,25 +51,36 @@ class ListPage extends Component implements HasSchemas, HasActions
                 ->inputMode('search')
                 ->placeholder(fn () => __('Search by title'))
                 ->debounce(1500)
-                ->disabled(function () {
-                    return $this->allDataCount === 0;
-                }),
         ]);
     }
 
     public function filterAction(): Action
     {
         return Action::make('filter')
-            ->color('ghost')
-            ->extraAttributes([
-                'class' => 'btn dark:btn-soft'
+            ->color('primary')
+            ->schema([
+                Grid::make()
+                    ->columns([
+                        'default' => 2
+                    ])
+                    ->components([
+                        CheckboxList::make('categories')
+                            ->label(ucfirst(__('events.category')))
+                            ->options(EventCategory::class)
+                            ->default($this->filter['categories']),
+                        CheckboxList::make('sessions')
+                            ->label(ucfirst(__('events.session')))
+                            ->options(EventSession::class)
+                            ->default($this->filter['sessions']),
+                        Toggle::make('showTrashed')
+                            ->label(__("Show trashed"))
+                            ->default($this->filter['showTrashed'])
+                    ])
             ])
-            ->icon('heroicon-o-funnel')
-            ->hiddenLabel()
-            ->size(Size::Small)
-            ->iconSize(IconSize::Large)
-            ->disabled(function () {
-                return $this->allDataCount === 0;
+            ->action(function (array $data) {
+                $this->filter = $data;
+
+                $this->queryEvents();
             });
     }
 
@@ -85,9 +102,26 @@ class ListPage extends Component implements HasSchemas, HasActions
 
     public function queryEvents(): void
     {
-        $this->data = Event::query()
+        $query = Event::query();
+
+        if ($this->filter['showTrashed']) {
+            $query = $query->withTrashed();
+        }
+
+        $this->data = $query
             ->orderBy($this->sort['by'], $this->sort['order'])
-            ->whereLike('title', '%' . $this->search . '%')
+            ->where(function (Builder $query) {
+                if (count($this->filter['categories']) > 0) {
+                    $query = $query->whereIn('category', $this->filter['categories']);
+                }
+
+                if (count($this->filter['sessions']) > 0) {
+                    $query = $query->whereIn('session', $this->filter['sessions']);
+                }
+
+                return $query
+                    ->whereLike('title', '%' . $this->search . '%');
+            })
             ->get();
     }
 
@@ -95,8 +129,9 @@ class ListPage extends Component implements HasSchemas, HasActions
     {
         $this->fill([
             'filter' => [
-                'category' => 0,
-                'session' => null
+                'categories' => [],
+                'sessions' => [],
+                'showTrashed' => false
             ],
             'sort' => [
                 'by' => 'title',
@@ -117,7 +152,6 @@ class ListPage extends Component implements HasSchemas, HasActions
     {
         $this->fill([
             'data' => collect([]),
-            'allDataCount' => Event::count()
         ]);
 
         $this->resetOptions();

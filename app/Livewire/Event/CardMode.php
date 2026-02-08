@@ -6,6 +6,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Reactive;
 use Livewire\Component;
 
@@ -15,7 +16,7 @@ class CardMode extends Component implements HasActions, HasSchemas
     use InteractsWithSchemas;
 
     #[Reactive]
-    public $events = [];
+    public array | Collection $events = [];
 
     public function render()
     {

@@ -54,5 +54,8 @@
     "Schedules": "Schedules",
     "No schedules found.": "No schedules found.",
     "Create new form": "Create new form",
-    "Create new schedule": "Create new schedule"
+    "Create new schedule": "Create new schedule",
+    "Delete this content.": "Delete this content.",
+    "Are you sure want to delete this content?": "Are you sure want to delete this content?",
+    "Show trashed": "Show trashed"
 }

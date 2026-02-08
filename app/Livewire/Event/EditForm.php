@@ -3,33 +3,32 @@
 namespace App\Livewire\Event;
 
 use App\Enums\EventCategory;
+use App\Enums\EventSession;
 use App\Enums\EventStatus;
+use App\Models\Event;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\FileUpload;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
-use Illuminate\Contracts\View\View;
-use Livewire\Component;
-use App\Enums\EventSession;
-use App\Models\Event;
-use Filament\Notifications\Notification;
 use Filament\Support\RawJs;
-use Livewire\Features\SupportRedirects\Redirector;
+use Livewire\Component;
 use Livewire\WithFileUploads;
 use NumberFormatter;
 
-class CreateForm extends Component implements HasSchemas
+class EditForm extends Component implements HasSchemas
 {
     use InteractsWithSchemas;
     use WithFileUploads;
 
-    public array $newEventData = [];
+    public Event $event;
+    public array $eventData = [];
 
-    public function createSchema(Schema $schema): Schema
+    public function editSchema(Schema $schema): Schema
     {
         $today = now()->startOfDay();
         $tomorrow = now()->startOfDay()->addDay();
@@ -86,6 +85,7 @@ class CreateForm extends Component implements HasSchemas
                 ->label(ucfirst(__('events.price')))
                 ->prefix("Rp. ")
                 ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                ->dehydrateStateUsing(fn (string $state) => (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->parse(str_replace('.', '', $state)))
                 ->required(),
             Select::make('session')
                 ->label(ucfirst(__('events.session')))
@@ -112,66 +112,55 @@ class CreateForm extends Component implements HasSchemas
                 'default' => 1,
                 'md' => 2
             ])
-            ->statePath('newEventData');
+            ->statePath('eventData');
     }
 
-    public function save(bool $isPublished = false): ?Redirector
+    public function save(bool $isPublished = false)
     {
-        // $validatedData = $this->createSchema->getState();
-        $validatedData = $this->newEventData;
+        $validatedData = $this->editSchema->getState();
 
         $validatedData['status'] = $isPublished ? EventStatus::Published : EventStatus::Draft;
 
-        $validatedData['price'] = (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->parse($validatedData['price']);
+        $this->event->fill($validatedData);
 
-        dd($validatedData);
-
-        if (Event::create($validatedData)) {
+        if ($this->event->isDirty() && $this->event->save()) {
             Notification::make()
                 ->success()
                 ->title('Notification')
-                ->body('Berhasil membuat event baru')
+                ->body('Berhasil mengedit event')
                 ->send();
 
-            $this->createSchema->fill([
+            $this->editSchema->fill([
                 'banner' => ''
             ]);
 
-            return to_route('dashboard.events.index');
+            return to_route('dashboard.events.show', [$this->event->id]);
         }
-
-        $this->createSchema->fill([
-            'banner' => ''
-        ]);
 
         Notification::make()
             ->danger()
             ->title('Alert')
-            ->body('Gagal membuat event baru')
+            ->body('Gagal mengedit event')
             ->send();
 
         return null;
     }
 
-    public function mount()
+    public function mount(Event $event): void
     {
-        $this->createSchema->fill([
-            'title' => '',
-            'description' => '',
-            'start_date' => '',
-            'end_date' => '',
-            'registration_start' => '',
-            'registration_end' => '',
-            'location' => '',
-            'quota' => '',
-            'banner' => '',
-            'price' => '',
-            'session' => ''
-        ]);
+        // dd((new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->format((float)$event['price']));
+        $this->eventData = [
+            ...$event->except('banner', 'price'),
+            'banner' => [$event->banner],
+            'price' => (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->format((float)$event['price'])
+        ];
+        // dd($this->eventData);
+
+        $this->event = $event;
     }
 
-    public function render(): View
+    public function render()
     {
-        return view('livewire.event.create-form');
+        return view('livewire.event.edit-form');
     }
 }

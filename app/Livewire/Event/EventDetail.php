@@ -4,10 +4,14 @@ namespace App\Livewire\Event;
 
 use App\Models\Event;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Concerns\InteractsWithInfolists;
 use Filament\Infolists\Contracts\HasInfolists;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -16,11 +20,13 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Livewire\Component;
+use NumberFormatter;
 
-class EventDetail extends Component implements HasSchemas, HasInfolists
+class EventDetail extends Component implements HasSchemas, HasInfolists, HasActions
 {
     use InteractsWithSchemas;
     use InteractsWithInfolists;
+    use InteractsWithActions;
 
     public Event $event;
 
@@ -53,6 +59,7 @@ class EventDetail extends Component implements HasSchemas, HasInfolists
                     ->components([
                         TextEntry::make('price')
                             ->label(ucfirst(__('events.price')))
+                            ->formatStateUsing(fn (string $state) => (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->format($state))
                             ->prefix('Rp. '),
                         TextEntry::make('quota')
                             ->label(ucfirst(__('events.quota'))),
@@ -94,7 +101,59 @@ class EventDetail extends Component implements HasSchemas, HasInfolists
             ]);
     }
 
-    public function mount()
+    public function deleteAction(): Action
+    {
+        return Action::make('delete')
+            ->requiresConfirmation()
+            ->color('danger')
+            ->modalHeading(__("Delete this content."))
+            ->modalDescription(__("Are you sure want to delete this content?"))
+            ->action(function () {
+                if ($this->event->delete()) {
+                    Notification::make()
+                        ->success()
+                        ->title("test title")
+                        ->body("test body")
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->danger()
+                    ->title('test title')
+                    ->body('test body')
+                    ->send();
+            });
+    }
+
+    public function restoreAction(): Action
+    {
+        return Action::make('restore')
+            ->requiresConfirmation()
+            ->color('warning')
+            ->modal(__("Restore this content."))
+            ->modalDescription(__("Are you sure want to restore this content?"))
+            ->action(function () {
+                if ($this->event->restore()) {
+                    Notification::make()
+                        ->success()
+                        ->title("test title")
+                        ->body("test body")
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->danger()
+                    ->title('test title')
+                    ->body('test body')
+                    ->send();
+            });
+    }
+
+    public function mount(): void
     {
     }
 

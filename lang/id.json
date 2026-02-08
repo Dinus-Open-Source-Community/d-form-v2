@@ -58,5 +58,8 @@
     "Schedules": "Daftar jadwal",
     "No schedules found.": "Tidak ada jadwal.",
     "Create new form": "Buat form baru",
-    "Create new schedule": "Buat jadwal baru"
+    "Create new schedule": "Buat jadwal baru",
+    "Delete this content.": "Hapus konten",
+    "Are you sure want to delete this content?": "Apakah anda yakin ingin menghapus konten ini?",
+    "Show trashed": "Lihatkan sampah"
 }
