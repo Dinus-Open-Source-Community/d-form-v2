@@ -148,10 +148,20 @@ class ListPage extends Component implements HasSchemas, HasActions
         $this->queryEvents();
     }
 
+    public function setMode(string $value): void
+    {
+        if (!in_array($value, ['card', 'table'])) {
+            return;
+        }
+
+        $this->mode = $value;
+    }
+
     public function mount(): void
     {
         $this->fill([
             'data' => collect([]),
+            'mode' => 'card'
         ]);
 
         $this->resetOptions();

@@ -14,5 +14,8 @@ return [
     'banner' => 'banner',
     'price' => 'price',
     'session' => 'session',
-    'category' => 'category'
+    'category' => 'category',
+    'status' => 'status',
+    'date' => 'date',
+    'options' => 'options'
 ];

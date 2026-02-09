@@ -14,5 +14,8 @@ return [
     'banner' => 'banner',
     'price' => 'harga',
     'session' => 'sesi',
-    'category' => 'kategori'
+    'category' => 'kategori',
+    'status' => 'status',
+    'date' => 'tanggal',
+    'options' => 'opsi'
 ];
