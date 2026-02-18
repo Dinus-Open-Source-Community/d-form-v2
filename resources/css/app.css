@@ -72,7 +72,7 @@
     prefersdark: false;
     color-scheme: 'dark';
     --color-base-100: oklch(27% 0.041 260.031);
-    --color-base-200: oklch(20% 0.042 265.755);
+    --color-base-200: oklch(32% 0.042 265.755);
     --color-base-300: oklch(44% 0.043 257.281);
     --color-base-content: oklch(96% 0.007 247.896);
     --color-primary: oklch(54% 0.245 262.881);
@@ -99,4 +99,10 @@
     --border: 1px;
     --depth: 1;
     --noise: 0;
+}
+
+@layer utilities {
+    .container {
+        @apply w-[92.5%] sm:w-[90%] lg:w-[87.5%] 2xl:w-[85%];
+    }
 }

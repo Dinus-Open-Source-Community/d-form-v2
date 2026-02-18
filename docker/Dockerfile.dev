@@ -1,5 +1,8 @@
 FROM dunglas/frankenphp:php8.3-alpine
 
+ARG UID=1000
+ARG GID=1000
+
 RUN install-php-extensions \
     pcntl \
     zip \
@@ -11,6 +14,13 @@ RUN install-php-extensions \
 
 COPY . /app
 
+# RUN groupadd -g $GID appuser && useradd -u $UID -g appuser -ms /bin/bash appuser
+RUN addgroup -g $GID -S appuser && adduser -u $UID -G appuser -s /bin/sh -D -S appuser
+
+RUN chown -R appuser:appuser /app
+
 ENTRYPOINT ["php", "artisan", "octane:frankenphp"]
+
+USER appuser
 
 CMD ["--watch", "--workers=1", "--max-requests=1"]

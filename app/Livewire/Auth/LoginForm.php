@@ -39,7 +39,8 @@ class LoginForm extends Component implements HasSchemas
             TextInput::make('email')
                 ->label('Email')
                 ->required()
-                ->email(),
+                ->email()
+                ->autofocus(),
             TextInput::make('password')
                 ->label('Password')
                 ->required()

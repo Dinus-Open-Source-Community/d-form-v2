@@ -13,8 +13,8 @@ on:
             - dev
             - temp
 
-permissions:
-    contents: write # <--- TAMBAHKAN DI SINI
+# permissions:
+#     contents: write # <--- TAMBAHKAN DI SINI
 
 jobs:
     format-code:
@@ -50,7 +50,8 @@ jobs:
               run: composer install --prefer-dist --no-progress
 
             - name: 🎨 Run Laravel Pint (PHP Formatting)
-              run: ./vendor/bin/pint
+              run: ./vendor/bin/pint --test
+              continue-on-error: true
               # Pint akan memformat file in-place
 
             # --- SETUP NODE & PRETTIER ---
@@ -65,29 +66,30 @@ jobs:
               run: npm install
 
             - name: 💅 Run Prettier (HTML, CSS, JS, Blade Formatting)
-              run: npx prettier --write .
+              run: npx prettier --check .
+              continue-on-error: true
               # Perintah ini akan memformat semua file yang didukung oleh Prettier in-place
 
             # --- COMMIT & PUSH BALIK PERUBAHAN ---
-            - name: ⚙️ Check for changes and Commit
-              id: git-check
-              run: |
-                  if [ -n "$(git status --porcelain)" ]; then
-                    echo "changes_detected=true" >> $GITHUB_OUTPUT
-                    echo "::notice title=Formatting Changes::Changes detected after running formatters."
-                  else
-                    echo "changes_detected=false" >> $GITHUB_OUTPUT
-                    echo "::notice title=Formatting Clean::No formatting changes needed."
-                  fi
+            # - name: ⚙️ Check for changes and Commit
+            #   id: git-check
+            #   run: |
+            #       if [ -n "$(git status --porcelain)" ]; then
+            #         echo "changes_detected=true" >> $GITHUB_OUTPUT
+            #         echo "::notice title=Formatting Changes::Changes detected after running formatters."
+            #       else
+            #         echo "changes_detected=false" >> $GITHUB_OUTPUT
+            #         echo "::notice title=Formatting Clean::No formatting changes needed."
+            #       fi
 
-            - name: 📤 Push Formatting Changes
-              if: steps.git-check.outputs.changes_detected == 'true'
-              uses: EndBug/add-and-commit@v9
-              with:
-                  # File yang di-commit adalah semua perubahan
-                  message: '🖌️ Style: Apply automatic code formatting via GitHub Actions'
-                  # Gunakan token GITHUB_TOKEN bawaan untuk push
-                  github_token: ${{ secrets.GITHUB_TOKEN }}
-                  # Nama dan email bot
-                  author_name: GitHub Actions Bot
-                  author_email: actions-bot@users.noreply.github.com
+            # - name: 📤 Push Formatting Changes
+            #   if: steps.git-check.outputs.changes_detected == 'true'
+            #   uses: EndBug/add-and-commit@v9
+            #   with:
+            #       # File yang di-commit adalah semua perubahan
+            #       message: '🖌️ Style: Apply automatic code formatting via GitHub Actions'
+            #       # Gunakan token GITHUB_TOKEN bawaan untuk push
+            #       github_token: ${{ secrets.GITHUB_TOKEN }}
+            #       # Nama dan email bot
+            #       author_name: GitHub Actions Bot
+            #       author_email: actions-bot@users.noreply.github.com

@@ -2,12 +2,15 @@
 
 namespace Database\Seeders;
 
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class RoleSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     /**
      * Run the database seeds.
      */
@@ -41,6 +44,7 @@ class RoleSeeder extends Seeder
             'events.view',
             'events.edit',
             'events.delete',
+            'events.join',
 
             // attendances management
             'attendances.list',
@@ -48,6 +52,8 @@ class RoleSeeder extends Seeder
             'attendances.view',
             'attendances.edit',
             'attendances.delete',
+            'attendances.export',
+            'attendances.import',
 
             // recruitments management
             // 'recruitments.list',
@@ -85,7 +91,7 @@ class RoleSeeder extends Seeder
         }
 
         // update cache to know about the newly created permissions (required if using WithoutModelEvents in seeders)
-        // app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         Role::create(['name' => 'admin'])
             ->givePermissionTo($roles['admin']);

@@ -1,9 +1,9 @@
-<x-layouts.auth>
+<x-layout::auth>
     <div class="grid h-dvh max-h-dvh w-full grid-cols-1 gap-4 p-0 lg:grid-cols-2">
-        <x-auth.banners />
+        <x-module::auth.banners />
 
         <div class="relative max-h-dvh overflow-x-hidden overflow-y-auto pt-20 md:pt-32 xl:pt-40">
-            <x-auth.utility-bar />
+            <x-module::auth.utility-bar />
 
             <section class="flex flex-col items-center" x-data="{ mode: 'login' }">
                 <picture>
@@ -121,4 +121,4 @@
             </section>
         </div>
     </div>
-</x-layouts.auth>
+</x-layout::auth>
