@@ -20,11 +20,13 @@ use Filament\Support\Enums\IconSize;
 use Filament\Support\Enums\Size;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class ListPage extends Component implements HasSchemas, HasActions
 {
     use InteractsWithSchemas;
     use InteractsWithActions;
+    use WithPagination;
 
     public string $mode = "card";
 
@@ -40,6 +42,8 @@ class ListPage extends Component implements HasSchemas, HasActions
     ];
 
     public string $search = '';
+
+    private int $perPage = 25;
 
     public function searchForm(Schema $schema): Schema
     {
@@ -115,7 +119,7 @@ class ListPage extends Component implements HasSchemas, HasActions
 
             // sorting
             ->orderBy($this->sort['by'], $this->sort['order'])
-            ->get();
+            ->paginate($this->perPage);
     }
 
     public function resetOptions(): void
