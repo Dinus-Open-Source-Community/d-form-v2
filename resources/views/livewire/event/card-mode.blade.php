@@ -1,5 +1,5 @@
 <div class="my-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-    @empty($this->events)
+    @if ($this->events->isEmpty())
         <div class="col-span-3 flex flex-col items-center pt-12 md:pt-20">
             @svg('heroicon-o-exclamation-triangle', 'text-base-content size-12 md:size-16 lg:size-24')
             <h4 class="text-base-content text-3xl md:text-4xl">
@@ -53,7 +53,7 @@
                 </div>
             </div>
         @endforeach
-    @endempty
+    @endif
 
     <x-filament-actions::modals />
 </div>
