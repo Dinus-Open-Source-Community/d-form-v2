@@ -15,10 +15,10 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\IconSize;
 use Filament\Support\Enums\Size;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class ListPage extends Component implements HasSchemas, HasActions
@@ -41,8 +41,6 @@ class ListPage extends Component implements HasSchemas, HasActions
 
     public string $search = '';
 
-    public Collection $data;
-
     public function searchForm(Schema $schema): Schema
     {
         return $schema->components([
@@ -58,6 +56,7 @@ class ListPage extends Component implements HasSchemas, HasActions
     {
         return Action::make('filter')
             ->color('primary')
+            ->modalFooterActionsAlignment(Alignment::End)
             ->schema([
                 Grid::make()
                     ->columns([
@@ -79,8 +78,6 @@ class ListPage extends Component implements HasSchemas, HasActions
             ])
             ->action(function (array $data) {
                 $this->filter = $data;
-
-                $this->queryEvents();
             });
     }
 
@@ -95,33 +92,29 @@ class ListPage extends Component implements HasSchemas, HasActions
             ->hiddenLabel()
             ->size(Size::Small)
             ->iconSize(IconSize::Large)
-            ->disabled(function () {
-                return $this->allDataCount === 0;
-            });
+            ->disabled(fn () => $this->allDataCount === 0);
     }
 
-    public function queryEvents(): void
+    #[Computed]
+    public function events()
     {
         $query = Event::query();
 
-        if ($this->filter['showTrashed']) {
-            $query = $query->withTrashed();
-        }
+        return $query
+            // get trashed events
+            ->when($this->filter['showTrashed'], fn ($q) => $q->withTrashed())
 
-        $this->data = $query
+            // filtering by categories
+            ->when(count($this->filter['categories']) > 0, fn ($q) => $q->whereIn('category', $this->filter['categories']))
+
+            // filtering by sessions
+            ->when(count($this->filter['sessions']) > 0, fn ($q) => $q->whereIn('session', $this->filter['sessions']))
+
+            // search by title
+            ->when($this->search, fn ($q) => $q->whereLike('title', "%{$this->search}%"))
+
+            // sorting
             ->orderBy($this->sort['by'], $this->sort['order'])
-            ->where(function (Builder $query) {
-                if (count($this->filter['categories']) > 0) {
-                    $query = $query->whereIn('category', $this->filter['categories']);
-                }
-
-                if (count($this->filter['sessions']) > 0) {
-                    $query = $query->whereIn('session', $this->filter['sessions']);
-                }
-
-                return $query
-                    ->whereLike('title', '%' . $this->search . '%');
-            })
             ->get();
     }
 
@@ -144,8 +137,6 @@ class ListPage extends Component implements HasSchemas, HasActions
     public function clearSearch(): void
     {
         $this->reset('search');
-
-        $this->queryEvents();
     }
 
     public function setMode(string $value): void
@@ -165,13 +156,6 @@ class ListPage extends Component implements HasSchemas, HasActions
         ]);
 
         $this->resetOptions();
-
-        $this->queryEvents();
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->queryEvents();
     }
 
     public function render()

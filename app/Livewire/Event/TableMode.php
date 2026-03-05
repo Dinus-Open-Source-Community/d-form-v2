@@ -27,7 +27,7 @@ class TableMode extends Component implements HasSchemas, HasInfolists
     use InteractsWithInfolists;
 
     #[Reactive]
-    public array | Collection $events = [];
+    public Collection $events;
 
     public function eventsInfolist(Schema $schema): Schema
     {

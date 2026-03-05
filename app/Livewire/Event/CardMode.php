@@ -16,7 +16,7 @@ class CardMode extends Component implements HasActions, HasSchemas
     use InteractsWithSchemas;
 
     #[Reactive]
-    public array | Collection $events = [];
+    public Collection $events ;
 
     public function render()
     {
