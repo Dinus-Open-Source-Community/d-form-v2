@@ -40,10 +40,12 @@
     </div>
 
     @if ($this->mode === 'card')
-        <livewire:event.card-mode :events="$this->events" />
+        <livewire:event.card-mode :events="$this->events->getCollection()" />
     @elseif ($this->mode === 'table')
-        <livewire:event.table-mode :events="$this->events" />
+        <livewire:event.table-mode :events="$this->events->getCollection()" />
     @endif
+
+    {{ $this->events->links() }}
 
     <x-filament-actions::modals />
 </div>
