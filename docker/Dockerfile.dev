@@ -3,7 +3,8 @@ FROM dunglas/frankenphp:php8.3-alpine
 ARG UID=1000
 ARG GID=1000
 
-# Install required PHP extensions
+WORKDIR /app
+
 RUN install-php-extensions \
     pcntl \
     zip \

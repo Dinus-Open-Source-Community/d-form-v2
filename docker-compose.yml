@@ -14,7 +14,6 @@ services:
             - ./storage:/app/storage:rw
             - caddy_data:/data
             - caddy_config:/config
-<<<<<<< HEAD
             - ./docker/php/php.ini:/usr/local/etc/php/conf.d/php.ini:ro
             - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini:ro
             # Let Octane generate Caddyfile automatically for FrankenPHP
@@ -22,11 +21,6 @@ services:
         environment:
             - PHP_OPCACHE_VALIDATE_TIMESTAMPS=1
             - PHP_OPCACHE_REVALIDATE_FREQ=0
-=======
-            - ./docker/php/php.ini:/usr/local/etc/php/conf.d/php.ini # main config php
-            - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini # config opcache
-            # - ./docker/caddy/Caddyfile:/etc/frankenphp/Caddyfile # config caddy
->>>>>>> 918d6ae (🔧 Fix: configuration for wsl)
         networks:
             - default
         depends_on:
@@ -34,19 +28,11 @@ services:
             - redis
         restart: unless-stopped
         ports:
-<<<<<<< HEAD
-            - "80:8000"
-            - "443:443"
-            - "443:443/udp"
+            - '80:8000'
+            - '443:443'
+            - '443:443/udp'
         # Command untuk development dengan watch mode
         command: --watch --workers=1 --max-requests=1
-=======
-            - 8000:8000
-            - 8443:443
-            - 8443:443/udp
-        # command untuk development
-        command: --watch
->>>>>>> 918d6ae (🔧 Fix: configuration for wsl)
 
     db:
         container_name: d_form_db
@@ -88,18 +74,18 @@ services:
         container_name: d_form_redis
         image: redis:8.0-alpine
         ports:
-            - "${REDIS_PORT:-6379}:6379"
+            - '${REDIS_PORT:-6379}:6379'
         restart: unless-stopped
         volumes:
             - redis_data:/data
         networks:
             - default
-        command: 
+        command:
             - redis-server
             - --appendonly
-            - "yes"
+            - 'yes'
             - --requirepass
-            - "${REDIS_PASSWORD}"
+            - '${REDIS_PASSWORD}'
 
 networks:
     default:
