@@ -3,6 +3,8 @@ FROM dunglas/frankenphp:php8.3-alpine
 ARG UID=1000
 ARG GID=1000
 
+WORKDIR /app
+
 RUN install-php-extensions \
     pcntl \
     zip \
@@ -12,12 +14,17 @@ RUN install-php-extensions \
     pdo_mysql \
     redis
 
-COPY . /app
+# COPY . .
 
 # RUN groupadd -g $GID appuser && useradd -u $UID -g appuser -ms /bin/bash appuser
-RUN addgroup -g $GID -S appuser && adduser -u $UID -G appuser -s /bin/sh -D -S appuser
+# RUN addgroup -g $GID -S appuser && adduser -u $UID -G appuser -s /bin/sh -D -S appuser
+RUN adduser -D -u 1000 -g www-data -s /bin/sh appuser
 
-RUN chown -R appuser:appuser /app
+COPY --chown=appuser:www-data . .
+
+RUN chmod -R 775 /app/storage /app/bootstrap/cache
+
+# RUN chown -R appuser:appuser .
 
 ENTRYPOINT ["php", "artisan", "octane:frankenphp"]
 

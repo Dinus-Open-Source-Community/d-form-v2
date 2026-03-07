@@ -2,8 +2,8 @@ services:
     app:
         container_name: d_form_app
         build:
-            context: ./docker
-            dockerfile: Dockerfile.dev
+            context: .
+            dockerfile: docker/Dockerfile.dev
         volumes:
             - .:/app
             - ./bootstrap/cache:/app/bootstrap/cache:rw
