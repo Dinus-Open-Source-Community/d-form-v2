@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
 use App\Http\Controllers\Controller;
+use App\Models\Event;
 use App\Models\Form;
 
 class FormController extends Controller
@@ -10,7 +11,7 @@ class FormController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): \Illuminate\Contracts\View\Factory | \Illuminate\Contracts\View\View
     {
         return view('pages.dashboard.events.forms.index');
     }
@@ -18,15 +19,17 @@ class FormController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(string $event): \Illuminate\Contracts\View\Factory | \Illuminate\Contracts\View\View
     {
-        return view('pages.dashboard.events.forms.create');
+        $event = Event::query()->where('id', $event)->get(['id', 'title'])->first();
+
+        return view('pages.dashboard.events.forms.create', compact('event'));
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): \Illuminate\Contracts\View\Factory | \Illuminate\Contracts\View\View
     {
         $form = Form::query()->where('id', $id);
 
@@ -40,7 +43,7 @@ class FormController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Form $form)
+    public function edit(Form $form): \Illuminate\Contracts\View\Factory | \Illuminate\Contracts\View\View
     {
         return view('pages.dashboard.events.forms.edit', compact('form'));
     }

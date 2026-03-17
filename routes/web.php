@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\PageController as AuthPageController;
 use App\Http\Controllers\Dashboard\Events\EventController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/info', function () {
@@ -34,5 +35,7 @@ Route::name('dashboard.')->prefix('/dashboard')->middleware('auth')->group(funct
     })->name('home');
 
     Route::resource('/events', EventController::class)->only(['index', 'create', 'show', 'edit']);
+    Route::resource('/events/{event}/forms', EventFormController::class)->only(['index', 'create', 'show', 'edit'])
+        ->names('events.forms');
 });
 // End of Routes for Dashboard

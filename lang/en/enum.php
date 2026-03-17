@@ -14,6 +14,11 @@ return [
         'status' => [
             'draft' => 'draft',
             'published' => 'published'
+        ],
+        'forms' => [
+            'public' => 'public',
+            'participant' => 'participant',
+            'admin' => 'admin'
         ]
     ]
 ];

@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             // EventCategorySeeder::class,
-            // EventSeeder::class
+            EventSeeder::class
         ]);
 
         $admin->assignRole('admin');

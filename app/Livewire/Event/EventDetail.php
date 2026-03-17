@@ -3,6 +3,7 @@
 namespace App\Livewire\Event;
 
 use App\Models\Event;
+use App\Models\Form;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -159,6 +160,15 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
 
     public function render()
     {
-        return view('livewire.event.event-detail');
+        $event_id = request()->route('event');
+
+        $forms = Form::query()
+            ->orderBy('title')
+            ->get(['id', 'title'])
+            ->all();
+
+        return view('livewire.event.event-detail', [
+            'forms' => $forms
+        ]);
     }
 }
