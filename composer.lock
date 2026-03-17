@@ -2989,6 +2989,7 @@
             "time": "2024-09-21T08:32:55+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "league/oauth1-client",
             "version": "v1.11.0",
             "source": {
@@ -3079,6 +3080,22 @@
                 "shasum": ""
             },
             "require": {
+=======
+            "name": "league/uri",
+            "version": "7.8.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/thephpleague/uri.git",
+                "reference": "08cf38e3924d4f56238125547b5720496fac8fd4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/thephpleague/uri/zipball/08cf38e3924d4f56238125547b5720496fac8fd4",
+                "reference": "08cf38e3924d4f56238125547b5720496fac8fd4",
+                "shasum": ""
+            },
+            "require": {
+>>>>>>> 2706a60 (🔧 Fix: filament upgrade)
                 "league/uri-interfaces": "^7.8.1",
                 "php": "^8.1",
                 "psr/http-factory": "^1"
