@@ -1,5 +1,5 @@
 <div>
-    <form enctype="multipart/form-data">
+    <form enctype="multipart/form-data" wire:submit="$wire.save(true)">
         {{ $this->createSchema }}
 
         <div class="my-4 flex flex-col justify-end gap-3 md:flex-row">
@@ -10,7 +10,7 @@
                 Cancel
             </a>
             <button class="btn btn-ghost" type="button" x-on:click="$wire.save(false)">Save as Draft</button>
-            <button class="btn btn-primary" type="button" x-on:click="$wire.save(true)">Save and Publish</button>
+            <button class="btn btn-primary" type="submit">Save and Publish</button>
         </div>
     </form>
 </div>

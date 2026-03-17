@@ -17,5 +17,13 @@ return [
     'category' => 'category',
     'status' => 'status',
     'date' => 'date',
-    'options' => 'options'
+    'options' => 'options',
+    'forms' => [
+        'title' => 'title',
+        'description' => 'description',
+        'closed_at' => "closed at",
+        'closed_date' => 'closed date',
+        'closed_time' => 'closed Time',
+        'visible_for' => 'visible for'
+    ]
 ];

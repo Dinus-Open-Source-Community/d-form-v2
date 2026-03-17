@@ -124,13 +124,11 @@ class CreateForm extends Component implements HasSchemas
 
         $validatedData['price'] = (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->parse($validatedData['price']);
 
-        dd($validatedData);
-
         if (Event::create($validatedData)) {
             Notification::make()
                 ->success()
-                ->title('Notification')
-                ->body('Berhasil membuat event baru')
+                ->title(__('Notification'))
+                ->body(__('messages.event.create.success'))
                 ->send();
 
             $this->createSchema->fill([
@@ -147,7 +145,7 @@ class CreateForm extends Component implements HasSchemas
         Notification::make()
             ->danger()
             ->title('Alert')
-            ->body('Gagal membuat event baru')
+            ->body(__('messages.event.create.failed'))
             ->send();
 
         return null;

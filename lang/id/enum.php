@@ -14,6 +14,12 @@ return [
         'status' => [
             'draft' => 'draft',
             'published' => 'published'
+        ],
+        'form' => [
+            'all' => 'semua',
+            'public' => 'publik',
+            'participant' => 'peserta',
+            'admin' => 'admin'
         ]
     ]
 ];

@@ -17,5 +17,13 @@ return [
     'category' => 'kategori',
     'status' => 'status',
     'date' => 'tanggal',
-    'options' => 'opsi'
+    'options' => 'opsi',
+    'forms' => [
+        'title' => 'judul',
+        'description' => 'deskripsi',
+        'closed_at' => "ditutup pada",
+        'closed_date' => 'tanggal penutupan form',
+        'closed_time' => 'jam penutupan form',
+        'visible_for' => 'bisa dilihat oleh'
+    ]
 ];
