@@ -1,0 +1,45 @@
+@props([
+    'event',
+])
+
+<div class="border-base-300 grid grid-cols-2 gap-4 rounded-lg md:grid-cols-1 md:border md:p-6 2xl:grid-cols-2">
+    <a href="{{ route('dashboard.events.edit', $event['id']) }}" class="btn btn-warning btn-soft group md:relative">
+        @svg('heroicon-o-pencil-square', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+        <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Edit</span>
+    </a>
+
+    @if ($event->deleted_at !== null)
+        <button
+            class="btn btn-success btn-soft group relative"
+            x-on:click="$wire.mountAction('restore')"
+            wire:key="restore-btn-{{ $event->id }}"
+        >
+            @svg('heroicon-o-arrow-path', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+            <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Restore</span>
+        </button>
+    @else
+        <button
+            class="btn btn-error btn-soft group relative"
+            x-on:click="$wire.mountAction('delete')"
+            wire:key="delete-btn-{{ $event->id }}"
+        >
+            @svg('heroicon-o-trash', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+            <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Delete</span>
+        </button>
+    @endif
+
+    <button class="btn btn-primary btn-soft group relative">
+        @svg('heroicon-o-arrow-down-tray', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+        <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Export</span>
+    </button>
+
+    <button class="btn btn-primary btn-soft group relative">
+        @svg('heroicon-o-arrow-up-tray', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+        <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Import</span>
+    </button>
+
+    <button class="btn btn-success btn-soft group relative">
+        @svg('heroicon-o-qr-code', 'size-[1.4em] opacity-100 transition-all duration-300 md:absolute lg:group-hover:opacity-0')
+        <span class="transition-all duration-300 md:opacity-0 lg:group-hover:opacity-100">Show QR</span>
+    </button>
+</div>
