@@ -117,8 +117,7 @@ class CreateForm extends Component implements HasSchemas
 
     public function save(bool $isPublished = false): ?Redirector
     {
-        // $validatedData = $this->createSchema->getState();
-        $validatedData = $this->newEventData;
+        $validatedData = $this->createSchema->getState();
 
         $validatedData['status'] = $isPublished ? EventStatus::Published : EventStatus::Draft;
 
@@ -164,7 +163,8 @@ class CreateForm extends Component implements HasSchemas
             'quota' => '',
             'banner' => '',
             'price' => '',
-            'session' => ''
+            'session' => '',
+            'category' => ''
         ]);
     }
 
