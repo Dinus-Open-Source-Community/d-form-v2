@@ -132,8 +132,8 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
     {
         return Action::make('restore')
             ->requiresConfirmation()
-            ->color('warning')
-            ->modal(__("Restore this content."))
+            ->color('success')
+            ->modalHeading(__("Restore this content."))
             ->modalDescription(__("Are you sure want to restore this content?"))
             ->action(function () {
                 if ($this->event->restore()) {

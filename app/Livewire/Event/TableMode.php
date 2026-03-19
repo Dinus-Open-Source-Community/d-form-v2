@@ -17,7 +17,6 @@ use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Livewire\Attributes\Reactive;
 use Livewire\Component;
 
@@ -27,7 +26,7 @@ class TableMode extends Component implements HasSchemas, HasInfolists
     use InteractsWithInfolists;
 
     #[Reactive]
-    public Collection $events;
+    public array $events;
 
     public function eventsInfolist(Schema $schema): Schema
     {
@@ -71,6 +70,18 @@ class TableMode extends Component implements HasSchemas, HasInfolists
                                 }
 
                                 return EventStatus::tryFrom($state);
+                            })
+                            ->badge()
+                            ->color(function (Get $get) {
+                                $deleted_at = $get->string('deleted_at', isNullable: true);
+
+                                $status = (is_null($deleted_at)) ? $get->string('status') : 'trashed';
+
+                                return match ($status) {
+                                    'published' => 'primary',
+                                    'draft' => 'secondary',
+                                    default => 'danger'
+                                };
                             }),
                         Flex::make([
                             Action::make('edit')
@@ -89,11 +100,10 @@ class TableMode extends Component implements HasSchemas, HasInfolists
                                 }),
                         ])
                     ])
-                    ->contained(false)
                     ->hiddenLabel(),
             ])
                 ->record([
-                    'events' => $this->events->toArray()
+                    'events' => $this->events
                 ]);
     }
 

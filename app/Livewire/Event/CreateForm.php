@@ -17,10 +17,9 @@ use Livewire\Component;
 use App\Enums\EventSession;
 use App\Models\Event;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\RawJs;
-use Livewire\Features\SupportRedirects\Redirector;
 use Livewire\WithFileUploads;
-use NumberFormatter;
 
 class CreateForm extends Component implements HasSchemas
 {
@@ -48,33 +47,49 @@ class CreateForm extends Component implements HasSchemas
                 ->autosize()
                 ->required()
                 ->columnSpanFull(),
-            DatePicker::make('start_date')
-                ->label(ucfirst(__('events.start_date')))
-                ->native(false)
-                ->minDate($today)
-                ->displayFormat('l, d F Y')
-                ->placeholder($today->translatedFormat('l, d F Y'))
-                ->required(),
-            DatePicker::make('end_date')
-                ->label(ucfirst(__('events.end_date')))
-                ->native(false)
-                ->minDate($tomorrow)
-                ->displayFormat('l, d F Y')
-                ->placeholder($tomorrow->translatedFormat('l, d F Y'))
-                ->required(),
             DatePicker::make('registration_start')
                 ->label(ucfirst(__('events.registration_start')))
                 ->native(false)
                 ->minDate($today)
                 ->displayFormat('l, d F Y')
                 ->placeholder($today->translatedFormat('l, d F Y'))
-                ->required(),
+                ->closeOnDateSelection()
+                ->required()
+                ->live(onBlur: true),
             DatePicker::make('registration_end')
                 ->label(ucfirst(__('events.registration_end')))
                 ->native(false)
-                ->minDate($tomorrow)
+                ->minDate(function (Get $get) use ($tomorrow) {
+                    $registrationStart = $get->date('registration_start', isNullable: true);
+
+                    return ($registrationStart)
+                        ? $registrationStart->copy()->addDay()
+                        : $tomorrow;
+                })
                 ->displayFormat('l, d F Y')
                 ->placeholder($tomorrow->translatedFormat('l, d F Y'))
+                ->closeOnDateSelection()
+                ->required(),
+            DatePicker::make('start_date')
+                ->label(ucfirst(__('events.start_date')))
+                ->native(false)
+                ->live(onBlur: true)
+                ->minDate($today)
+                ->displayFormat('l, d F Y')
+                ->placeholder($today->translatedFormat('l, d F Y'))
+                ->closeOnDateSelection()
+                ->required(),
+            DatePicker::make('end_date')
+                ->label(ucfirst(__('events.end_date')))
+                ->native(false)
+                ->minDate(function (Get $get) use ($tomorrow) {
+                    $startDate = $get->date('start_date', isNullable: true);
+
+                    return $startDate ?? $tomorrow;
+                })
+                ->displayFormat('l, d F Y')
+                ->placeholder($tomorrow->translatedFormat('l, d F Y'))
+                ->closeOnDateSelection()
                 ->required(),
             TextInput::make('quota')
                 ->label(ucfirst(__('events.quota')))
@@ -86,6 +101,7 @@ class CreateForm extends Component implements HasSchemas
                 ->label(ucfirst(__('events.price')))
                 ->prefix("Rp. ")
                 ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                ->dehydrateStateUsing(fn ($state) => (float) str_replace(['.', ','], ['', '.'], $state))
                 ->required(),
             Select::make('session')
                 ->label(ucfirst(__('events.session')))
@@ -106,7 +122,7 @@ class CreateForm extends Component implements HasSchemas
                 ->image()
                 ->helperText('Aspect ratio 16:9')
                 ->maxSize(10 * 1024)
-                ->required(),
+                ->required()
         ])
             ->columns([
                 'default' => 1,
@@ -115,13 +131,11 @@ class CreateForm extends Component implements HasSchemas
             ->statePath('newEventData');
     }
 
-    public function save(bool $isPublished = false): ?Redirector
+    public function save(bool $isPublished = false)
     {
         $validatedData = $this->createSchema->getState();
 
         $validatedData['status'] = $isPublished ? EventStatus::Published : EventStatus::Draft;
-
-        $validatedData['price'] = (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->parse($validatedData['price']);
 
         if (Event::create($validatedData)) {
             Notification::make()
@@ -152,20 +166,7 @@ class CreateForm extends Component implements HasSchemas
 
     public function mount()
     {
-        $this->createSchema->fill([
-            'title' => '',
-            'description' => '',
-            'start_date' => '',
-            'end_date' => '',
-            'registration_start' => '',
-            'registration_end' => '',
-            'location' => '',
-            'quota' => '',
-            'banner' => '',
-            'price' => '',
-            'session' => '',
-            'category' => ''
-        ]);
+        $this->createSchema->fill();
     }
 
     public function render(): View

@@ -12,13 +12,13 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\RawJs;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use NumberFormatter;
 
 class EditForm extends Component implements HasSchemas
 {
@@ -47,23 +47,10 @@ class EditForm extends Component implements HasSchemas
                 ->autosize()
                 ->required()
                 ->columnSpanFull(),
-            DatePicker::make('start_date')
-                ->label(ucfirst(__('events.start_date')))
-                ->native(false)
-                ->minDate($today)
-                ->displayFormat('l, d F Y')
-                ->placeholder($today->translatedFormat('l, d F Y'))
-                ->required(),
-            DatePicker::make('end_date')
-                ->label(ucfirst(__('events.end_date')))
-                ->native(false)
-                ->minDate($tomorrow)
-                ->displayFormat('l, d F Y')
-                ->placeholder($tomorrow->translatedFormat('l, d F Y'))
-                ->required(),
             DatePicker::make('registration_start')
                 ->label(ucfirst(__('events.registration_start')))
                 ->native(false)
+                ->live(onBlur: true)
                 ->minDate($today)
                 ->displayFormat('l, d F Y')
                 ->placeholder($today->translatedFormat('l, d F Y'))
@@ -71,7 +58,32 @@ class EditForm extends Component implements HasSchemas
             DatePicker::make('registration_end')
                 ->label(ucfirst(__('events.registration_end')))
                 ->native(false)
-                ->minDate($tomorrow)
+                ->minDate(function (Get $get) use ($tomorrow) {
+                    $registrationStart = $get->date('registration_start', isNullable: true);
+
+                    return $registrationStart
+                        ? $registrationStart->copy()->addDay()
+                        : $tomorrow;
+                })
+                ->displayFormat('l, d F Y')
+                ->placeholder($tomorrow->translatedFormat('l, d F Y'))
+                ->required(),
+            DatePicker::make('start_date')
+                ->label(ucfirst(__('events.start_date')))
+                ->native(false)
+                ->live(onBlur: true)
+                ->minDate($today)
+                ->displayFormat('l, d F Y')
+                ->placeholder($today->translatedFormat('l, d F Y'))
+                ->required(),
+            DatePicker::make('end_date')
+                ->label(ucfirst(__('events.end_date')))
+                ->native(false)
+                ->minDate(function (Get $get) use ($tomorrow) {
+                    $startDate = $get->date('start_date', isNullable: true);
+
+                    return $startDate ?? $tomorrow;
+                })
                 ->displayFormat('l, d F Y')
                 ->placeholder($tomorrow->translatedFormat('l, d F Y'))
                 ->required(),
@@ -85,7 +97,7 @@ class EditForm extends Component implements HasSchemas
                 ->label(ucfirst(__('events.price')))
                 ->prefix("Rp. ")
                 ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
-                ->dehydrateStateUsing(fn (string $state) => (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->parse(str_replace('.', '', $state)))
+                ->dehydrateStateUsing(fn ($state) => (float) str_replace(['.', ','], ['', '.'], $state))
                 ->required(),
             Select::make('session')
                 ->label(ucfirst(__('events.session')))
@@ -104,15 +116,16 @@ class EditForm extends Component implements HasSchemas
                 ->directory('events/banners')
                 ->visibility('public')
                 ->image()
-                ->helperText('Aspect ratio 16:9')
+                ->helperText(__('Aspect ratio 16:9') . " | " . __('Leave blank if unchanged'))
                 ->maxSize(10 * 1024)
-                ->required(),
+                ->dehydrated(fn ($state) => filled($state)),
         ])
             ->columns([
                 'default' => 1,
                 'md' => 2
             ])
-            ->statePath('eventData');
+            ->statePath('eventData')
+            ->model($this->event);
     }
 
     public function save(bool $isPublished = false)
@@ -121,26 +134,25 @@ class EditForm extends Component implements HasSchemas
 
         $validatedData['status'] = $isPublished ? EventStatus::Published : EventStatus::Draft;
 
-        $this->event->fill($validatedData);
-
-        if ($this->event->isDirty() && $this->event->save()) {
+        if ($this->event->update($validatedData)) {
             Notification::make()
                 ->success()
-                ->title('Notification')
-                ->body('Berhasil mengedit event')
+                ->title(__('Notification'))
+                ->body(__('messages.event.edit.success'))
                 ->send();
 
-            $this->editSchema->fill([
-                'banner' => ''
-            ]);
-
-            return to_route('dashboard.events.show', [$this->event->id]);
+            return to_route('dashboard.events.show', $this->event);
         }
+
+        $this->editSchema->fill([
+            ...$this->eventData,
+            'banner' => null
+        ]);
 
         Notification::make()
             ->danger()
-            ->title('Alert')
-            ->body('Gagal mengedit event')
+            ->title(__('Alert'))
+            ->body(__('messages.event.edit.failed'))
             ->send();
 
         return null;
@@ -148,15 +160,13 @@ class EditForm extends Component implements HasSchemas
 
     public function mount(Event $event): void
     {
-        // dd((new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->format((float)$event['price']));
-        $this->eventData = [
-            ...$event->except('banner', 'price'),
-            'banner' => [$event->banner],
-            'price' => (new NumberFormatter('id_ID', NumberFormatter::DECIMAL))->format((float)$event['price'])
-        ];
-        // dd($this->eventData);
-
         $this->event = $event;
+
+        $this->editSchema->fill([
+            ...$event->toArray(),
+            'banner' => null,
+            'price' => (float) $event->price
+        ]);
     }
 
     public function render()

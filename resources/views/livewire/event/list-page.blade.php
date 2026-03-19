@@ -40,9 +40,9 @@
     </div>
 
     @if ($this->mode === 'card')
-        <livewire:event.card-mode :events="$this->events->getCollection()" />
+        <livewire:event.card-mode :events="$this->events->getCollection()->toArray()" />
     @elseif ($this->mode === 'table')
-        <livewire:event.table-mode :events="$this->events->getCollection()" />
+        <livewire:event.table-mode :events="$this->events->getCollection()->toArray()" />
     @endif
 
     {{ $this->events->links() }}
