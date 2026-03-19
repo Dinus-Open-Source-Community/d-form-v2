@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\IconSize;
 use Filament\Support\Enums\Size;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -43,7 +44,7 @@ class ListPage extends Component implements HasSchemas, HasActions
 
     public string $search = '';
 
-    private int $perPage = 25;
+    private int $perPage = 2;
 
     public function searchForm(Schema $schema): Schema
     {
@@ -102,24 +103,39 @@ class ListPage extends Component implements HasSchemas, HasActions
     #[Computed]
     public function events()
     {
-        $query = Event::query();
+        $hashedQuery = md5(json_encode([
+            'filter' => $this->filter,
+            'sort' => $this->sort,
+            'search' => $this->search,
+            'pagination' => [
+                'per_page' => $this->perPage,
+                'page' => $this->getPage()
+            ]
+        ]));
 
-        return $query
-            // get trashed events
-            ->when($this->filter['showTrashed'], fn ($q) => $q->withTrashed())
+        return Cache::tags(['events'])->remember("list-page:events:{$hashedQuery}", 3600, function () {
 
-            // filtering by categories
-            ->when(count($this->filter['categories']) > 0, fn ($q) => $q->whereIn('category', $this->filter['categories']))
+            $query = Event::query();
 
-            // filtering by sessions
-            ->when(count($this->filter['sessions']) > 0, fn ($q) => $q->whereIn('session', $this->filter['sessions']))
+            return $query
+                // get trashed events
+                ->when($this->filter['showTrashed'], fn ($q) => $q->withTrashed())
 
-            // search by title
-            ->when($this->search, fn ($q) => $q->whereLike('title', "%{$this->search}%"))
+                // filtering by categories
+                ->when(count($this->filter['categories']) > 0, fn ($q) => $q->whereIn('category', $this->filter['categories']))
 
-            // sorting
-            ->orderBy($this->sort['by'], $this->sort['order'])
-            ->paginate($this->perPage);
+                // filtering by sessions
+                ->when(count($this->filter['sessions']) > 0, fn ($q) => $q->whereIn('session', $this->filter['sessions']))
+
+                // search by title
+                ->when($this->search, fn ($q) => $q->whereLike('title', "%{$this->search}%"))
+
+                ->forListPage()
+
+                // sorting
+                ->orderBy($this->sort['by'], $this->sort['order'])
+                ->paginate($this->perPage);
+        });
     }
 
     public function resetOptions(): void

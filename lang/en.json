@@ -68,5 +68,13 @@
     "Whoops!": "Whoops!",
     "You are receiving this email because we received a password reset request for your account.": "You are receiving this email because we received a password reset request for your account.",
     "Notification": "Notification",
-    "Can fill more than one": "Can fill more than one."
+    "Can fill more than one": "Can fill more than one.",
+    "Aspect ratio 16:9": "Aspect ratio 16:9",
+    "Leave blank if unchanged": "Leave blank if unchanged",
+    "Edit": "Edit",
+    "Delete": "Delete",
+    "Restore": "Restore",
+    "Export": "Export",
+    "Import": "Import",
+    "Show QR": "Show QR"
 }

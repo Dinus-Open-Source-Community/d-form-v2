@@ -72,5 +72,13 @@
     "Whoops!": "Aduh!",
     "You are receiving this email because we received a password reset request for your account.": "Anda menerima surel ini karena kami menerima permintaan pengaturan ulang kata sandi untuk akun anda.",
     "Notification": "Notifikasi",
-    "Can fill more than one": "Bisa mengisi lebih dari satu."
+    "Can fill more than one": "Bisa mengisi lebih dari satu.",
+    "Aspect ratio 16:9": "Aspek rasio 16:9",
+    "Leave blank if unchanged": "Kosongkan jika tidak diubah",
+    "Edit": "Edit",
+    "Delete": "Hapus",
+    "Restore": "Pulihkan",
+    "Export": "Ekspor",
+    "Import": "Impor",
+    "Show QR": "Tampilkan QR"
 }

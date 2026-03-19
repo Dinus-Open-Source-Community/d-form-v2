@@ -1,5 +1,5 @@
 <div class="my-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-    @if ($this->events->isEmpty())
+    @empty($this->events)
         <div class="col-span-3 flex flex-col items-center pt-12 md:pt-20">
             @svg('heroicon-o-exclamation-triangle', 'text-base-content size-12 md:size-16 lg:size-24')
             <h4 class="text-base-content text-3xl md:text-4xl">
@@ -23,8 +23,9 @@
                             @class([
                                 'relative inline-flex h-0 w-[10rem] border-[15px] border-l-[15px] border-l-transparent bg-transparent ',
                                 'border-primary text-primary-content' =>
-                                    ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Published,
-                                'border-slate-300 text-slate-900' => ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Draft,
+                                    ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Published->value,
+                                'border-slate-300 text-slate-900' =>
+                                    ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Draft->value,
                                 'border-error text-error-content' => $event['deleted_at'],
                             ])
                         >
@@ -53,7 +54,7 @@
                 </div>
             </div>
         @endforeach
-    @endif
+    @endempty
 
     <x-filament-actions::modals />
 </div>
