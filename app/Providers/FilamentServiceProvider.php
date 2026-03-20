@@ -22,12 +22,13 @@ class FilamentServiceProvider extends ServiceProvider
     public function boot(): void
     {
         FilamentColor::register([
-            'primary' => Color::Blue,
-            'secondary' => Color::Gray,
-            'accent' => Color::Cyan,
-            'success' => Color::Green,
-            'warning' => Color::Yellow,
-            'danger' => Color::Red,
+            'gray' => Color::Neutral,
+            'primary' => Color::hex('#748eb4'),
+            'secondary' => Color::hex('#9ea2ad'),
+            'accent' => Color::hex('#68a2ae'),
+            'success' => Color::hex('#7da57f'),
+            'warning' => Color::hex('#c6ac71'),
+            'danger' => Color::hex('#ba7e84'),
         ]);
     }
 }

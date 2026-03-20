@@ -36,24 +36,30 @@
     default: true;
     prefersdark: false;
     color-scheme: 'light';
-    --color-base-100: oklch(100% 0 0);
-    --color-base-200: oklch(98% 0 0);
-    --color-base-300: oklch(95% 0 0);
+    --color-base-100: oklch(98% 0.008 262.881);
+    --color-base-200: oklch(96% 0.012 262.881); /* Untuk area samping/sidebar */
+    --color-base-300: oklch(92% 0.015 262.881);
     --color-base-content: oklch(21% 0.006 285.885);
-    --color-primary: oklch(54% 0.245 262.881);
+    --color-primary: oklch(62% 0.09 262.881);
     --color-primary-content: oklch(93% 0.034 272.788);
     --color-secondary: oklch(86% 0.022 252.894);
     --color-secondary-content: oklch(27% 0.041 260.031);
+
     --color-accent: oklch(77% 0.152 181.912);
     --color-accent-content: oklch(38% 0.063 188.416);
+
     --color-neutral: oklch(37% 0.034 259.733);
     --color-neutral-content: oklch(92% 0.004 286.32);
+
     --color-info: oklch(74% 0.16 232.661);
     --color-info-content: oklch(29% 0.066 243.157);
+
     --color-success: oklch(69% 0.17 162.48);
     --color-success-content: oklch(37% 0.077 168.94);
+
     --color-warning: oklch(82% 0.189 84.429);
     --color-warning-content: oklch(41% 0.112 45.904);
+
     --color-error: oklch(71% 0.194 13.428);
     --color-error-content: oklch(27% 0.105 12.094);
     --radius-selector: 0.5rem;
@@ -71,26 +77,36 @@
     default: false;
     prefersdark: false;
     color-scheme: 'dark';
-    --color-base-100: oklch(27% 0.041 260.031);
-    --color-base-200: oklch(32% 0.042 265.755);
-    --color-base-300: oklch(44% 0.043 257.281);
+    --color-base-100: oklch(25% 0.018 262.881);
+
+    /* Background card/sidebar - Terlihat lebih menonjol */
+    --color-base-200: oklch(29% 0.021 262.881);
+
+    /* Border & Hover state - Jelas tapi halus */
+    --color-base-300: oklch(33% 0.024 262.881);
     --color-base-content: oklch(96% 0.007 247.896);
-    --color-primary: oklch(54% 0.245 262.881);
+    --color-primary: oklch(48% 0.11 262.881);
     --color-primary-content: oklch(93% 0.034 272.788);
-    --color-secondary: oklch(86% 0.022 252.894);
-    --color-secondary-content: oklch(27% 0.041 260.031);
-    --color-accent: oklch(77% 0.152 181.912);
-    --color-accent-content: oklch(38% 0.063 188.416);
-    --color-neutral: oklch(37% 0.034 259.733);
-    --color-neutral-content: oklch(92% 0.004 286.32);
-    --color-info: oklch(74% 0.16 232.661);
-    --color-info-content: oklch(29% 0.066 243.157);
-    --color-success: oklch(69% 0.17 162.48);
-    --color-success-content: oklch(37% 0.077 168.94);
-    --color-warning: oklch(82% 0.189 84.429);
-    --color-warning-content: oklch(41% 0.112 45.904);
-    --color-error: oklch(71% 0.194 13.428);
-    --color-error-content: oklch(27% 0.105 12.094);
+    --color-secondary: oklch(48% 0.025 252.894);
+    --color-secondary-content: oklch(92% 0.015 252.894);
+
+    --color-accent: oklch(55% 0.11 181.912);
+    --color-accent-content: oklch(94% 0.025 181.912);
+
+    --color-neutral: oklch(25% 0.03 259.733);
+    --color-neutral-content: oklch(85% 0.015 259.733);
+
+    --color-info: oklch(58% 0.12 232.661);
+    --color-info-content: oklch(95% 0.02 232.661);
+
+    --color-success: oklch(52% 0.13 162.48);
+    --color-success-content: oklch(95% 0.025 162.48);
+
+    --color-warning: oklch(65% 0.14 84.429);
+    --color-warning-content: oklch(15% 0.05 84.429); /* Tetap gelap agar kontras di atas kuning muted */
+
+    --color-error: oklch(52% 0.15 13.428);
+    --color-error-content: oklch(95% 0.025 13.428);
     --radius-selector: 0.5rem;
     --radius-field: 0.25rem;
     --radius-box: 0.5rem;
