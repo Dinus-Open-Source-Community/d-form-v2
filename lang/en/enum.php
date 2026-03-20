@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 return [
     'event' => [
+        'category' => [
+            'rkt' => 'RKT',
+            'non-rkt' => "non RKT",
+            'recruitment' => 'recruitment',
+            'etc' => 'etc'
+        ],
         'session' => [
             'general' => 'general',
             'programming' => 'programming',
@@ -13,7 +19,8 @@ return [
         ],
         'status' => [
             'draft' => 'draft',
-            'published' => 'published'
+            'published' => 'published',
+            'trashed' => 'trashed'
         ],
         'forms' => [
             'public' => 'public',

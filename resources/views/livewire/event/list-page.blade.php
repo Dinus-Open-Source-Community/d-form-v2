@@ -12,6 +12,16 @@
             <button @class(['btn dark:btn-soft rounded-lg']) x-on:click="$wire.mountAction('filter')">
                 @svg('heroicon-o-funnel', 'size-6')
             </button>
+
+            <button @class(['btn dark:btn-soft rounded-lg']) wire:click="toggleSortOrder">
+                @if ($this->sort['order'] === 'asc')
+                    @svg('heroicon-o-bars-arrow-down', 'size-6')
+                @elseif ($this->sort['order'] === 'desc')
+                    @svg('heroicon-o-bars-arrow-up', 'size-6')
+                @else
+                    @svg('heroicon-o-arrows-up-down', 'size-6')
+                @endif
+            </button>
         </div>
 
         <div class="flex justify-end gap-3">
