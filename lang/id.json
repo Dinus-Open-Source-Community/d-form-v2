@@ -80,5 +80,9 @@
     "Restore": "Pulihkan",
     "Export": "Ekspor",
     "Import": "Impor",
-    "Show QR": "Tampilkan QR"
+    "Show QR": "Tampilkan QR",
+    "Ascending": "Naik",
+    "Descending": "Menurun",
+    "Sort by": "Diurutkan berdasarkan",
+    "Sort order": "Urutan"
 }

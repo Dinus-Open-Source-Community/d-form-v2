@@ -2,7 +2,7 @@
     <div class="grid h-dvh max-h-dvh w-full grid-cols-1 gap-4 p-0 lg:grid-cols-2">
         <x-module::auth.banners />
 
-        <div class="relative max-h-dvh overflow-x-hidden overflow-y-auto pt-20 md:pt-32 xl:pt-40">
+        <div class="relative max-h-dvh overflow-x-hidden overflow-y-auto pt-16 md:pt-24 xl:pt-32">
             <x-module::auth.utility-bar />
 
             <section class="flex flex-col items-center" x-data="{ mode: 'login' }">

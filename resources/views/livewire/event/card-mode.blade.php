@@ -13,24 +13,36 @@
                     <img
                         src="{{ asset('storage/' . $event['banner']) }}"
                         alt="{{ $event['title'] }}"
-                        class="aspect-video"
+                        class="aspect-video object-cover object-center"
                     />
 
                     <div
-                        class="absolute top-0 left-0 flex h-full w-full items-start justify-end gap-3 bg-linear-to-b from-slate-800/50 to-transparent pt-4"
+                        class="absolute top-0 left-0 flex h-full w-full items-start justify-end gap-3 bg-linear-to-b from-slate-800/50 to-transparent"
                     >
-                        <div
-                            @class([
-                                'relative inline-flex h-0 w-[10rem] border-[15px] border-l-[15px] border-l-transparent bg-transparent ',
-                                'border-primary text-primary-content' =>
-                                    ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Published->value,
-                                'border-slate-300 text-slate-900' =>
-                                    ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Draft->value,
-                                'border-error text-error-content' => $event['deleted_at'],
-                            ])
-                        >
-                            <span class="absolute top-0 right-0 left-0 translate-y-[-50%] text-center">
-                                {{ $event['deleted_at'] ? 'Trashed' : $event['status'] }}
+                        <div class="relative h-full w-full">
+                            <span
+                                class="badge badge-sm bg-secondary/80 text-secondary-content border-secondary absolute top-4 left-4 capitalize shadow-sm backdrop-blur-md"
+                            >
+                                {{ __("enum.event.category.{$event['category']}") }}
+                            </span>
+
+                            <span
+                                @class([
+                                    'badge badge-sm absolute top-4 right-4 capitalize backdrop-blur-md',
+                                    'bg-primary/80 border-primary text-primary-content shadow-sm' =>
+                                        ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Published->value,
+                                    'bg-secondary/80 border-secondary text-secondary-content shadow-sm' =>
+                                        ! $event['deleted_at'] && $event['status'] === \App\Enums\EventStatus::Draft->value,
+                                    'bg-error/80 border-error text-error-content shadow-sm' => $event['deleted_at'],
+                                ])
+                            >
+                                {{ $event['deleted_at'] ? __('enum.event.status.trashed') : __("enum.event.status.{$event['status']}") }}
+                            </span>
+
+                            <span
+                                class="badge badge-sm bg-accent/70 text-accent-content border-accent absolute bottom-4 left-4 shadow-sm backdrop-blur-md"
+                            >
+                                {{ \Carbon\Carbon::parse($event['end_date'])->isoFormat('DD MMM YYYY') }}
                             </span>
                         </div>
                     </div>
@@ -39,9 +51,26 @@
                     <h2 class="card-title">
                         {{ $event['title'] }}
                     </h2>
+
                     <p>
                         {{ str($event['description'])->limit(100) }}
                     </p>
+
+                    <div class="flex justify-end gap-3">
+                        <span class="badge-sm badge badge-ghost">
+                            {{ __("enum.event.session.{$event['session']}") }}
+                        </span>
+
+                        <span
+                            @class([
+                                'badge-sm badge badge-soft',
+                                'badge-success' => $event['price'] < 50000,
+                                'badge-error' => $event['price'] >= 50000,
+                            ])
+                        >
+                            {{ 'Rp. ' . number_format($event['price'], thousands_separator: '.') }}
+                        </span>
+                    </div>
 
                     <div class="card-actions items-center justify-end">
                         <a
