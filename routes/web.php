@@ -14,7 +14,8 @@ Route::get('/info', function () {
 
 // Routes for Landing page
 Route::get('/', function () {
-    return view('pages.home');
+    // return view('pages.home');
+    return inertia('index');
 })->name('home');
 
 // End of Routes for Landing page
