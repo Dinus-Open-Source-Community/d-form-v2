@@ -1,0 +1,6 @@
+[install]
+# Bun akan mengupdate package-lock.json setiap kali kamu tambah library
+lockfile = ["package-lock.json"]
+
+[remove]
+lockfile = ["package-lock.json"]
