@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGoogle
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 export const redirectToGoogle = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ redirectToGoogle.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGoogle
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 redirectToGoogle.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ redirectToGoogle.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGoogle
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 redirectToGoogle.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ redirectToGoogle.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => 
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGoogle
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 redirectToGoogle.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ redirectToGoogle.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGoogleCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:26
+* @see Http/Controllers/Auth/OAuthController.php:26
 * @route '/auth/google/callback'
 */
 export const handleGoogleCallback = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ handleGoogleCallback.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGoogleCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:26
+* @see Http/Controllers/Auth/OAuthController.php:26
 * @route '/auth/google/callback'
 */
 handleGoogleCallback.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ handleGoogleCallback.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGoogleCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:26
+* @see Http/Controllers/Auth/OAuthController.php:26
 * @route '/auth/google/callback'
 */
 handleGoogleCallback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ handleGoogleCallback.get = (options?: RouteQueryOptions): RouteDefinition<'get'>
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGoogleCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:26
+* @see Http/Controllers/Auth/OAuthController.php:26
 * @route '/auth/google/callback'
 */
 handleGoogleCallback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -89,7 +89,7 @@ handleGoogleCallback.head = (options?: RouteQueryOptions): RouteDefinition<'head
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGithub
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 export const redirectToGithub = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -104,7 +104,7 @@ redirectToGithub.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGithub
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 redirectToGithub.url = (options?: RouteQueryOptions) => {
@@ -113,7 +113,7 @@ redirectToGithub.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGithub
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 redirectToGithub.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -123,7 +123,7 @@ redirectToGithub.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => 
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::redirectToGithub
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 redirectToGithub.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -133,7 +133,7 @@ redirectToGithub.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGithubCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 export const handleGithubCallback = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -148,7 +148,7 @@ handleGithubCallback.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGithubCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 handleGithubCallback.url = (options?: RouteQueryOptions) => {
@@ -157,7 +157,7 @@ handleGithubCallback.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGithubCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 handleGithubCallback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -167,7 +167,7 @@ handleGithubCallback.get = (options?: RouteQueryOptions): RouteDefinition<'get'>
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::handleGithubCallback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 handleGithubCallback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

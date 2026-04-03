@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 const LogoutController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ LogoutController.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 LogoutController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ LogoutController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 LogoutController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::index
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:13
+* @see Http/Controllers/Dashboard/Events/EventController.php:13
 * @route '/dashboard/events'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::index
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:13
+* @see Http/Controllers/Dashboard/Events/EventController.php:13
 * @route '/dashboard/events'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::index
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:13
+* @see Http/Controllers/Dashboard/Events/EventController.php:13
 * @route '/dashboard/events'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::index
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:13
+* @see Http/Controllers/Dashboard/Events/EventController.php:13
 * @route '/dashboard/events'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::create
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:21
+* @see Http/Controllers/Dashboard/Events/EventController.php:21
 * @route '/dashboard/events/create'
 */
 export const create = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ create.definition = {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::create
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:21
+* @see Http/Controllers/Dashboard/Events/EventController.php:21
 * @route '/dashboard/events/create'
 */
 create.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ create.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::create
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:21
+* @see Http/Controllers/Dashboard/Events/EventController.php:21
 * @route '/dashboard/events/create'
 */
 create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::create
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:21
+* @see Http/Controllers/Dashboard/Events/EventController.php:21
 * @route '/dashboard/events/create'
 */
 create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -89,7 +89,7 @@ create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::show
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:29
+* @see Http/Controllers/Dashboard/Events/EventController.php:29
 * @route '/dashboard/events/{event}'
 */
 export const show = (args: { event: string | number } | [event: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -104,7 +104,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::show
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:29
+* @see Http/Controllers/Dashboard/Events/EventController.php:29
 * @route '/dashboard/events/{event}'
 */
 show.url = (args: { event: string | number } | [event: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -131,7 +131,7 @@ show.url = (args: { event: string | number } | [event: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::show
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:29
+* @see Http/Controllers/Dashboard/Events/EventController.php:29
 * @route '/dashboard/events/{event}'
 */
 show.get = (args: { event: string | number } | [event: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -141,7 +141,7 @@ show.get = (args: { event: string | number } | [event: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::show
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:29
+* @see Http/Controllers/Dashboard/Events/EventController.php:29
 * @route '/dashboard/events/{event}'
 */
 show.head = (args: { event: string | number } | [event: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -151,10 +151,10 @@ show.head = (args: { event: string | number } | [event: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::edit
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:43
+* @see Http/Controllers/Dashboard/Events/EventController.php:43
 * @route '/dashboard/events/{event}/edit'
 */
-export const edit = (args: { event: string | number | { id: string | number } } | [event: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const edit = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: edit.url(args, options),
     method: 'get',
 })
@@ -166,10 +166,10 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::edit
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:43
+* @see Http/Controllers/Dashboard/Events/EventController.php:43
 * @route '/dashboard/events/{event}/edit'
 */
-edit.url = (args: { event: string | number | { id: string | number } } | [event: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+edit.url = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { event: args }
     }
@@ -199,20 +199,20 @@ edit.url = (args: { event: string | number | { id: string | number } } | [event:
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::edit
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:43
+* @see Http/Controllers/Dashboard/Events/EventController.php:43
 * @route '/dashboard/events/{event}/edit'
 */
-edit.get = (args: { event: string | number | { id: string | number } } | [event: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+edit.get = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: edit.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::edit
-* @see app/Http/Controllers/Dashboard/Events/EventController.php:43
+* @see Http/Controllers/Dashboard/Events/EventController.php:43
 * @route '/dashboard/events/{event}/edit'
 */
-edit.head = (args: { event: string | number | { id: string | number } } | [event: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+edit.head = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: edit.url(args, options),
     method: 'head',
 })

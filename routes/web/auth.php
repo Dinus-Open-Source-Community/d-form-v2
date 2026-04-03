@@ -7,7 +7,11 @@ use App\Http\Controllers\Auth\PageController as AuthPageController;
 
 // Routes for login and register
 Route::middleware('guest')->group(function () {
-    Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.login');
+    // Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.login');
+
+    Route::get('/auth', function () {
+        return inertia('Auth');
+    })->middleware('guest')->name('auth.login');
 
     Route::get('/auth/google', [OAuthController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('/auth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');

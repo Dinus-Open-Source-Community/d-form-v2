@@ -2,8 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import google723582 from './google'
 import githubF226c8 from './github'
 /**
-* @see \App\Http\Controllers\Auth\PageController::__invoke
-* @see app/Http/Controllers/Auth/PageController.php:15
+* @see routes/web/auth.php:12
 * @route '/auth'
 */
 export const login = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,8 +16,7 @@ login.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \App\Http\Controllers\Auth\PageController::__invoke
-* @see app/Http/Controllers/Auth/PageController.php:15
+* @see routes/web/auth.php:12
 * @route '/auth'
 */
 login.url = (options?: RouteQueryOptions) => {
@@ -26,8 +24,7 @@ login.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \App\Http\Controllers\Auth\PageController::__invoke
-* @see app/Http/Controllers/Auth/PageController.php:15
+* @see routes/web/auth.php:12
 * @route '/auth'
 */
 login.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -36,8 +33,7 @@ login.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \App\Http\Controllers\Auth\PageController::__invoke
-* @see app/Http/Controllers/Auth/PageController.php:15
+* @see routes/web/auth.php:12
 * @route '/auth'
 */
 login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -47,7 +43,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::google
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 export const google = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -62,7 +58,7 @@ google.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::google
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 google.url = (options?: RouteQueryOptions) => {
@@ -71,7 +67,7 @@ google.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::google
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 google.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -81,7 +77,7 @@ google.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::google
-* @see app/Http/Controllers/Auth/OAuthController.php:18
+* @see Http/Controllers/Auth/OAuthController.php:18
 * @route '/auth/google'
 */
 google.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -91,7 +87,7 @@ google.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::github
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 export const github = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -106,7 +102,7 @@ github.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::github
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 github.url = (options?: RouteQueryOptions) => {
@@ -115,7 +111,7 @@ github.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::github
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 github.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -125,7 +121,7 @@ github.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::github
-* @see app/Http/Controllers/Auth/OAuthController.php:96
+* @see Http/Controllers/Auth/OAuthController.php:96
 * @route '/auth/github'
 */
 github.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -135,7 +131,7 @@ github.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 export const logout = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -150,7 +146,7 @@ logout.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 logout.url = (options?: RouteQueryOptions) => {
@@ -159,7 +155,7 @@ logout.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\LogoutController::__invoke
-* @see app/Http/Controllers/Auth/LogoutController.php:11
+* @see Http/Controllers/Auth/LogoutController.php:11
 * @route '/auth/logout'
 */
 logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

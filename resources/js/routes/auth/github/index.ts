@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::callback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 export const callback = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ callback.definition = {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::callback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 callback.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ callback.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::callback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ callback.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Auth\OAuthController::callback
-* @see app/Http/Controllers/Auth/OAuthController.php:104
+* @see Http/Controllers/Auth/OAuthController.php:104
 * @route '/auth/github/callback'
 */
 callback.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
