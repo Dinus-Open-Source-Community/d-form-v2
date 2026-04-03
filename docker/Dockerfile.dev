@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:php8.5-alpine
+FROM dunglas/frankenphp:php8.4-alpine
 
 ARG UID=1000
 ARG GID=1000

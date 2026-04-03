@@ -18,6 +18,22 @@ Route::get('/', function () {
     return inertia('index');
 })->name('home');
 
+Route::get('/features', function () {
+    return inertia('Features');
+})->name('features');
+
+Route::get('/events', function () {
+    return inertia('Event');
+})->name('events');
+
+Route::get('/events/{id}', function ($id) {
+    return inertia('EventDetail', ['eventId' => $id]);
+})->name('events.show');
+
+Route::get('/docs', function () {
+    return inertia('Docs');
+})->name('docs');
+
 // End of Routes for Landing page
 
 // Routes for Auth

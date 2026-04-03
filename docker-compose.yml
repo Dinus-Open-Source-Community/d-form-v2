@@ -28,9 +28,10 @@ services:
             - redis
         restart: unless-stopped
         ports:
-            - '80:8000'
+            - '3000:8000'
             - '443:443'
             - '443:443/udp'
+            - '5173:5173'
         # Command untuk development dengan watch mode
         command: --watch --workers=1 --max-requests=1
 
@@ -38,7 +39,7 @@ services:
         container_name: d_form_db
         image: mysql:9.0
         environment:
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
             MYSQL_DATABASE: ${DB_DATABASE}
         volumes:
             - mysql_db:/var/lib/mysql
@@ -80,12 +81,9 @@ services:
             - redis_data:/data
         networks:
             - default
-        command:
-            - redis-server
-            - --appendonly
-            - 'yes'
-            - --requirepass
-            - '${REDIS_PASSWORD}'
+        command: >-
+            redis-server
+            --appendonly yes
 
 networks:
     default:

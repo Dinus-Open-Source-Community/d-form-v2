@@ -21,6 +21,18 @@ if [ -d "storage" ]; then
     chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 fi
 
+# Generate APP_KEY if not set
+if grep -q "^APP_KEY=$" .env 2>/dev/null; then
+    echo "APP_KEY is empty. Generating a new key..."
+    php artisan key:generate --force
+fi
+
+# Build frontend assets if manifest doesn't exist
+if [ ! -f "public/build/manifest.json" ]; then
+    echo "Vite manifest not found. Building frontend assets..."
+    npm run build
+fi
+
 # Execute the main command (octane:frankenphp with arguments)
 exec php artisan octane:frankenphp "$@"
 
