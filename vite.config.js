@@ -3,6 +3,7 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import eslint from 'vite-plugin-eslint2';
+import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import path from 'path';
 
 export default defineConfig({
@@ -12,6 +13,7 @@ export default defineConfig({
         },
     },
     plugins: [
+        wayfinder(),
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
