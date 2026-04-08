@@ -1,6 +1,8 @@
 services:
     app:
         container_name: d_form_app
+        env_file:
+            - .env
         build:
             context: .
             dockerfile: ./docker/Dockerfile.dev
