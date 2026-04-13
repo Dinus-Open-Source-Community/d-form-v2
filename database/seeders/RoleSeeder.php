@@ -67,7 +67,56 @@ class RoleSeeder extends Seeder
             'form_submissions.create',
             'form_submissions.view',
             'form_submissions.edit',
-            'form_submissions.delete'
+            'form_submissions.delete',
+        ];
+
+        $superAdminPermissions = [
+            // super admin special access
+            'super-admin.list',
+
+            // user management
+            'users.create',
+            'users.view',
+            'users.edit',
+            'users.delete',
+
+            // role management
+            'roles.list',
+            'roles.create',
+            'roles.view',
+            'roles.edit',
+            'roles.delete',
+
+            // permission management
+            'permissions.list',
+            'permissions.create',
+            'permissions.view',
+            'permissions.edit',
+            'permissions.delete',
+
+            // events management
+            'events.list',
+            'events.create',
+            'events.view',
+            'events.edit',
+            'events.delete',
+            'events.join',
+
+            // attendances management
+            'attendances.list',
+            'attendances.create',
+            'attendances.view',
+            'attendances.edit',
+            'attendances.delete',
+            'attendances.export',
+            'attendances.import',
+
+            // form submissions management
+            'form_submissions.list',
+            'form_submissions.create',
+            'form_submissions.view',
+            'form_submissions.edit',
+            'form_submissions.delete',
         ];
 
         $roles = [

@@ -12,7 +12,7 @@ class EventObserver
      */
     public function created(Event $event): void
     {
-        Cache::tags(['events'])->flush();
+        $this->invalidateEventListCache();
     }
 
     /**
@@ -20,7 +20,7 @@ class EventObserver
      */
     public function updated(Event $event): void
     {
-        Cache::tags(['events'])->flush();
+        $this->invalidateEventListCache();
     }
 
     /**
@@ -28,7 +28,7 @@ class EventObserver
      */
     public function deleted(Event $event): void
     {
-        Cache::tags(['events'])->flush();
+        $this->invalidateEventListCache();
     }
 
     /**
@@ -36,7 +36,7 @@ class EventObserver
      */
     public function restored(Event $event): void
     {
-        Cache::tags(['events'])->flush();
+        $this->invalidateEventListCache();
     }
 
     /**
@@ -45,5 +45,18 @@ class EventObserver
     public function forceDeleted(Event $event): void
     {
         //
+    }
+
+    private function invalidateEventListCache(): void
+    {
+        try {
+            Cache::tags(['events'])->flush();
+
+            return;
+        } catch (\BadMethodCallException|\RuntimeException) {
+            //
+        }
+
+        Cache::forever('events:list:cache:buster', (int) Cache::get('events:list:cache:buster', 0) + 1);
     }
 }

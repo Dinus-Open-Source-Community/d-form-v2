@@ -15,6 +15,10 @@ return [
         'delete' => [
             'success' => 'event deleted successfully',
             'failed' => 'failed to delete this event'
+        ],
+        'restore' => [
+            'success' => 'event restored successfully',
+            'failed' => 'failed to restore this event'
         ]
     ],
     'form' => [
