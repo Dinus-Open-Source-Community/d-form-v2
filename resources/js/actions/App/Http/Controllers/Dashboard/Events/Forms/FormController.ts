@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Dashboard\Events\Forms\FormController::index
 * @see Http/Controllers/Dashboard/Events/Forms/FormController.php:14
@@ -247,11 +247,6 @@ edit.head = (args: { event: string | number, form: string | { id: string } } | [
     method: 'head',
 })
 
-const forms = {
-    index: Object.assign(index, index),
-    create: Object.assign(create, create),
-    show: Object.assign(show, show),
-    edit: Object.assign(edit, edit),
-}
+const FormController = { index, create, show, edit }
 
-export default forms
+export default FormController
