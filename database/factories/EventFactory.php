@@ -26,6 +26,7 @@ class EventFactory extends Factory
             'registration_end' => now()->addDays(5),
             'location' => fake()->streetAddress(),
             'quota' => 50,
+            'registered_count' => 0,
             'banner' => 'events/banners/placeholder.jpg',
             'price' => 10000,
             'session' => EventSession::General,

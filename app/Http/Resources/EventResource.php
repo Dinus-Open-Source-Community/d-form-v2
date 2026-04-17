@@ -22,6 +22,7 @@ class EventResource extends JsonResource
             'banner_url' => $this->banner ? Storage::disk('public')->url($this->banner) : null,
             'price' => $this->price,
             'quota' => $this->quota,
+            'registered_count' => $this->registered_count,
             'session' => $this->session->value,
             'category' => $this->category->value,
             'status' => $this->status->value,

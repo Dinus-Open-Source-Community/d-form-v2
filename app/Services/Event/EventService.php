@@ -27,8 +27,9 @@ class EventService
         return (float) str_replace(['.', ','], ['', '.'], $string);
     }
 
-    public function registrationStatus(Event $event, int $registeredCount = 0): EventRegistrationStatus
+    public function registrationStatus(Event $event, ?int $registeredCount = null): EventRegistrationStatus
     {
+        $registeredCount ??= $this->resolveRegisteredCount($event);
         $registrationStart = Carbon::parse($event->registration_start);
         $registrationEnd = Carbon::parse($event->registration_end);
         $now = Carbon::now();
@@ -46,6 +47,11 @@ class EventService
         }
 
         return EventRegistrationStatus::Open;
+    }
+
+    public function resolveRegisteredCount(Event $event): int
+    {
+        return min(max(0, (int) $event->registered_count), (int) $event->quota);
     }
 
     /**
@@ -118,6 +124,7 @@ class EventService
         $status = ! empty($data['publish']) ? EventStatus::Published : EventStatus::Draft;
         unset($data['publish']);
 
+        $data['registered_count'] = 0;
         $data['banner'] = $path;
         $data['status'] = $status;
 
@@ -143,6 +150,10 @@ class EventService
             $data['banner'] = $banner->store('events/banners', 'public');
         }
 
+        if (array_key_exists('quota', $data) && ! array_key_exists('registered_count', $data)) {
+            $data['registered_count'] = min($this->resolveRegisteredCount($event), (int) $data['quota']);
+        }
+
         $event->update($data);
 
         return $event->fresh();
@@ -161,8 +172,10 @@ class EventService
     /**
      * @return array<string, mixed>
      */
-    public function eventToInertiaArray(Event $event, int $registeredCount = 0): array
+    public function eventToInertiaArray(Event $event, ?int $registeredCount = null): array
     {
+        $registeredCount ??= $this->resolveRegisteredCount($event);
+
         return array_merge(
             (new EventResource($event))->resolve(request()),
             [

@@ -12,6 +12,7 @@ use App\Http\Requests\UpdateEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Form;
+use Illuminate\Http\JsonResponse;
 use App\Services\Event\EventService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -32,7 +33,7 @@ class EventController extends Controller
 
         $paginator->setCollection(
             $paginator->getCollection()->map(
-                fn (Event $event) => (new EventResource($event))->resolve()
+                fn (Event $event) => $this->eventService->eventToInertiaArray($event)
             )
         );
 
@@ -71,17 +72,24 @@ class EventController extends Controller
     {
         $this->authorize('view', $event);
 
-        $registeredCount = 0;
-
         $forms = Form::query()
             ->where('event_id', $event->id)
             ->orderBy('title')
             ->get(['id', 'title']);
 
         return Inertia::render('Dashboard/Events/Show', [
-            'event' => $this->eventService->eventToInertiaArray($event, $registeredCount),
+            'event' => $this->eventService->eventToInertiaArray($event),
             'forms' => $forms,
         ]);
+    }
+
+    public function registrationStatus(Event $event): JsonResponse
+    {
+        $this->authorize('view', $event);
+
+        return response()->json(
+            $this->eventService->eventToInertiaArray($event)
+        );
     }
 
     public function edit(Event $event): Response
