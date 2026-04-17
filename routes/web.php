@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Route;
 use Symfony\Component\Finder\Finder;
 
 $path = __DIR__ . '/web';
@@ -11,11 +9,6 @@ $finder = new Finder();
 $finder->files()->in("{$path}")->name('/^.*\.php$/');
 
 // $files = File::glob("{$path}/{*.php,**/*.php,**/**/*.php}");
-
-foreach ($finder as $file) {
-    echo $file->getRealPath();
-}
-
 
 // End of Routes for Landing page
 

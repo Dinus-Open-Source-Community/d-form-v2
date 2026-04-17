@@ -33,6 +33,12 @@ class DatabaseSeeder extends Seeder
             'password' => 'admin password'
         ]);
 
+        $superAdmin = User::create([
+            'name' => 'super admin',
+            'email' => 'superadmin@gmail.com',
+            'password' => 'superadmin password'
+        ]);
+
         $this->call([
             RoleSeeder::class,
             // EventCategorySeeder::class,
@@ -40,5 +46,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $admin->assignRole('admin');
+
+        $superAdmin->assignRole('super-admin');
     }
 }

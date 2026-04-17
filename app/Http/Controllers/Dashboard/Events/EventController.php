@@ -2,46 +2,178 @@
 
 namespace App\Http\Controllers\Dashboard\Events;
 
+use App\Enums\EventCategory;
+use App\Enums\EventSession;
+use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexEventRequest;
+use App\Http\Requests\StoreEventRequest;
+use App\Http\Requests\UpdateEventRequest;
+use App\Http\Resources\EventResource;
 use App\Models\Event;
+use App\Models\Form;
+use App\Services\Event\EventService;
+use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class EventController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function __construct(
+        private readonly EventService $eventService
+    ) {}
+
+    public function index(IndexEventRequest $request): Response
     {
-        return view('pages.dashboard.events.index');
+        $validated = $request->validated();
+        $page = $request->integer('page', 1);
+
+        $paginator = $this->eventService->paginateForAdminIndex($validated, $page);
+
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (Event $event) => (new EventResource($event))->resolve()
+            )
+        );
+
+        return Inertia::render('Dashboard/Events/Index', [
+            'events' => $paginator,
+            'filterOptions' => $this->filterOptions(),
+            'query' => $validated,
+        ]);
+    }
+
+    public function create(): Response
+    {
+        $this->authorize('create', Event::class);
+
+        return Inertia::render('Dashboard/Events/Create', [
+            'options' => $this->formOptions(),
+        ]);
+    }
+
+    public function store(StoreEventRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $banner = $request->file('banner');
+
+        $event = $this->eventService->create($data, $banner);
+
+        Inertia::flash('toast', [
+            'message' => __('messages.event.create.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.show', $event);
+    }
+
+    public function show(Event $event): Response
+    {
+        $this->authorize('view', $event);
+
+        $registeredCount = 0;
+
+        $forms = Form::query()
+            ->where('event_id', $event->id)
+            ->orderBy('title')
+            ->get(['id', 'title']);
+
+        return Inertia::render('Dashboard/Events/Show', [
+            'event' => $this->eventService->eventToInertiaArray($event, $registeredCount),
+            'forms' => $forms,
+        ]);
+    }
+
+    public function edit(Event $event): Response
+    {
+        $this->authorize('update', $event);
+
+        return Inertia::render('Dashboard/Events/Edit', [
+            'event' => (new EventResource($event))->resolve(request()),
+            'options' => $this->formOptions(),
+        ]);
+    }
+
+    public function update(UpdateEventRequest $request, Event $event): RedirectResponse
+    {
+        $data = $request->validated();
+        $banner = $request->file('banner');
+
+        $this->eventService->update($event, $data, $banner);
+
+        Inertia::flash('toast', [
+            'message' => __('messages.event.edit.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.show', $event);
+    }
+
+    public function destroy(Event $event): RedirectResponse
+    {
+        $this->authorize('delete', $event);
+
+        $this->eventService->delete($event);
+
+        Inertia::flash('toast', [
+            'message' => __('messages.event.delete.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.index');
+    }
+
+    public function restore(Event $event): RedirectResponse
+    {
+        $this->authorize('restore', $event);
+
+        $this->eventService->restore($event);
+
+        Inertia::flash('toast', [
+            'message' => __('messages.event.restore.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.show', $event);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * @return array<string, array<int, array{value: string, label: string}>>
      */
-    public function create()
+    private function formOptions(): array
     {
-        return view('pages.dashboard.events.create');
+        return [
+            'categories' => collect(EventCategory::cases())
+                ->map(fn (EventCategory $c) => [
+                    'value' => $c->value,
+                    'label' => strip_tags((string) $c->getLabel()),
+                ])
+                ->values()
+                ->all(),
+            'sessions' => collect(EventSession::cases())
+                ->map(fn (EventSession $s) => [
+                    'value' => $s->value,
+                    'label' => $s->getLabel(),
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     /**
-     * Display the specified resource.
+     * @return array<string, array<int, array{value: string, label: string}>>
      */
-    public function show(string $id)
+    private function filterOptions(): array
     {
-        $event = Event::query()->where('id', $id);
-
-        // if (auth()->guard()->user())
-        $event = $event->withTrashed()->get()->first();
-        //}
-
-        return view('pages.dashboard.events.view', compact('event'));
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Event $event)
-    {
-        return view('pages.dashboard.events.edit', compact('event'));
+        return [
+            ...$this->formOptions(),
+            'statuses' => collect(EventStatus::cases())
+                ->map(fn (EventStatus $s) => [
+                    'value' => $s->value,
+                    'label' => $s->getLabel(),
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 }

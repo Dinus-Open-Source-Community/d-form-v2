@@ -7,15 +7,19 @@ use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Observers\EventObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy(EventObserver::class)]
 class Event extends Model
 {
+    /** @use HasFactory<\Database\Factories\EventFactory> */
+    use HasFactory;
     use HasUuids;
     use SoftDeletes;
 
@@ -44,8 +48,33 @@ class Event extends Model
             'status' => EventStatus::class,
             'category' => EventCategory::class,
             'price' => 'decimal:2',
-            'quota' => 'integer'
+            'quota' => 'integer',
+            'start_date' => 'date',
+            'end_date' => 'date',
+            'registration_start' => 'datetime',
+            'registration_end' => 'datetime',
         ];
+    }
+
+    public function forms(): HasMany
+    {
+        return $this->hasMany(Form::class);
+    }
+
+    /**
+     * @param  mixed  $value
+     * @param  string|null  $field
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->where($field ?? $this->getRouteKeyName(), $value);
+
+        if (request()->routeIs('dashboard.events.*')) {
+            $query->withTrashed();
+        }
+
+        return $query->firstOrFail();
     }
 
     #[Scope]

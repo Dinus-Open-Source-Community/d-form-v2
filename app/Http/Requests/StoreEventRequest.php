@@ -1,0 +1,49 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Enums\EventCategory;
+use App\Enums\EventSession;
+use App\Services\Event\EventService;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreEventRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()->can('events.create');
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'title' => ['required', 'string', 'max:100'],
+            'location' => ['required', 'string', 'max:100'],
+            'description' => ['required', 'string'],
+            'registration_start' => ['required', 'date'],
+            'registration_end' => ['required', 'date', 'after:registration_start'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'quota' => ['required', 'integer', 'min:1', 'max:65535'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'session' => ['required', Rule::enum(EventSession::class)],
+            'category' => ['required', Rule::enum(EventCategory::class)],
+            'banner' => ['required', 'image', 'max:10240'],
+            'publish' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('price') && is_string($this->input('price'))) {
+            $this->merge([
+                'price' => EventService::normalizePriceInput($this->input('price')),
+            ]);
+        }
+    }
+}
