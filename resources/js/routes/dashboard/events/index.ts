@@ -127,6 +127,64 @@ restore.post = (args: { event: string | { id: string } } | [event: string | { id
 })
 
 /**
+* @see \App\Http\Controllers\Dashboard\Events\EventController::restore
+* @see Http/Controllers/Dashboard/Events/EventController.php:126
+* @route '/dashboard/events/{event}/restore'
+*/
+export const restore = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: restore.url(args, options),
+    method: 'post',
+})
+
+restore.definition = {
+    methods: ["post"],
+    url: '/dashboard/events/{event}/restore',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Dashboard\Events\EventController::restore
+* @see Http/Controllers/Dashboard/Events/EventController.php:126
+* @route '/dashboard/events/{event}/restore'
+*/
+restore.url = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { event: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { event: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            event: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        event: typeof args.event === 'object'
+        ? args.event.id
+        : args.event,
+    }
+
+    return restore.definition.url
+            .replace('{event}', parsedArgs.event.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Dashboard\Events\EventController::restore
+* @see Http/Controllers/Dashboard/Events/EventController.php:126
+* @route '/dashboard/events/{event}/restore'
+*/
+restore.post = (args: { event: string | { id: string } } | [event: string | { id: string } ] | string | { id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: restore.url(args, options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Dashboard\Events\EventController::index
 * @see Http/Controllers/Dashboard/Events/EventController.php:27
 * @route '/dashboard/events'
