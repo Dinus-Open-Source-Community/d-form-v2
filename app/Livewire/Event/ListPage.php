@@ -156,10 +156,10 @@ class ListPage extends Component implements HasSchemas, HasActions
                 ->when($this->filter['showTrashed'], fn ($q) => $q->withTrashed())
 
                 // filtering by categories
-                ->when(count($this->filter['categories']) > 0, fn ($q) => $q->whereIn('category', $this->filter['categories']))
+                ->when(count($this->filter['categories']) > 0, fn ($q) => $q->forCategoryTokens($this->filter['categories']))
 
                 // filtering by sessions
-                ->when(count($this->filter['sessions']) > 0, fn ($q) => $q->whereIn('session', $this->filter['sessions']))
+                ->when(count($this->filter['sessions']) > 0, fn ($q) => $q->forSessionTokens($this->filter['sessions']))
 
                 ->when(count($this->filter['statuses']) > 0, fn ($q) => $q->whereIn('status', $this->filter['statuses']))
 

@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\EventCategory;
-use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Observers\EventObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -45,9 +43,7 @@ class Event extends Model
     protected function casts(): array
     {
         return [
-            'session' => EventSession::class,
             'status' => EventStatus::class,
-            'category' => EventCategory::class,
             'price' => 'decimal:2',
             'quota' => 'integer',
             'registered_count' => 'integer',
@@ -77,6 +73,54 @@ class Event extends Model
         }
 
         return $query->firstOrFail();
+    }
+
+    /**
+     * Match events whose `category` CSV contains every given backing value (e.g. `rkt` matches `rkt`, `rkt,etc`, `etc,rkt`).
+     *
+     * @param  list<string>  $tokens
+     */
+    #[Scope]
+    public function forCategoryTokens(Builder $query, array $tokens): void
+    {
+        if ($tokens === []) {
+            return;
+        }
+
+        $query->where(function (Builder $outer) use ($tokens): void {
+            foreach ($tokens as $cat) {
+                $outer->where(function (Builder $inner) use ($cat): void {
+                    $inner->where('category', $cat)
+                        ->orWhere('category', 'like', $cat.',%')
+                        ->orWhere('category', 'like', '%,'.$cat.',%')
+                        ->orWhere('category', 'like', '%,'.$cat);
+                });
+            }
+        });
+    }
+
+    /**
+     * Match events whose `session` CSV contains every given backing value.
+     *
+     * @param  list<string>  $tokens
+     */
+    #[Scope]
+    public function forSessionTokens(Builder $query, array $tokens): void
+    {
+        if ($tokens === []) {
+            return;
+        }
+
+        $query->where(function (Builder $outer) use ($tokens): void {
+            foreach ($tokens as $session) {
+                $outer->where(function (Builder $inner) use ($session): void {
+                    $inner->where('session', $session)
+                        ->orWhere('session', 'like', $session.',%')
+                        ->orWhere('session', 'like', '%,'.$session.',%')
+                        ->orWhere('session', 'like', '%,'.$session);
+                });
+            }
+        });
     }
 
     #[Scope]

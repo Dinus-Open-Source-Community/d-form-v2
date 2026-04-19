@@ -2,15 +2,19 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\EventCategory;
-use App\Enums\EventSession;
+use App\Http\Requests\Concerns\NormalizesEventCategoryRequest;
+use App\Http\Requests\Concerns\NormalizesEventSessionRequest;
+use App\Rules\CommaSeparatedEventCategories;
+use App\Rules\CommaSeparatedEventSessions;
 use App\Services\Event\EventService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreEventRequest extends FormRequest
 {
+    use NormalizesEventCategoryRequest;
+    use NormalizesEventSessionRequest;
+
     public function authorize(): bool
     {
         return $this->user()->can('events.create');
@@ -31,8 +35,8 @@ class StoreEventRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'quota' => ['required', 'integer', 'min:1', 'max:65535'],
             'price' => ['required', 'numeric', 'min:0'],
-            'session' => ['required', Rule::enum(EventSession::class)],
-            'category' => ['required', Rule::enum(EventCategory::class)],
+            'session' => ['required', 'string', 'max:2048', new CommaSeparatedEventSessions()],
+            'category' => ['required', 'string', 'max:2048', new CommaSeparatedEventCategories()],
             'banner' => ['required', 'image', 'max:10240'],
             'publish' => ['sometimes', 'boolean'],
         ];
@@ -40,6 +44,9 @@ class StoreEventRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->mergeNormalizedCategoryFromRequest();
+        $this->mergeNormalizedSessionFromRequest();
+
         if ($this->has('price') && is_string($this->input('price'))) {
             $this->merge([
                 'price' => EventService::normalizePriceInput($this->input('price')),

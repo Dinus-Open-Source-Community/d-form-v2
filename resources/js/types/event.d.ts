@@ -13,8 +13,8 @@ declare global {
         banner: string
         banner_url: string | null
         price: number
-        session: string
-        category: string
+        session: string[]
+        category: string[]
         status: 'draft' | 'published'
         registration_status: 'not_yet_open' | 'open' | 'closed' | 'full'
         deleted_at: string | null

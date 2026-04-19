@@ -15,6 +15,7 @@ return [
     'price' => 'price',
     'session' => 'session',
     'category' => 'category',
+    'categories' => 'Categories',
     'status' => 'status',
     'date' => 'date',
     'options' => 'options',

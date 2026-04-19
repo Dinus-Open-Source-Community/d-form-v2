@@ -85,11 +85,11 @@ class EventService
                 }
 
                 if (count($filter['categories'] ?? []) > 0) {
-                    $query->whereIn('category', $filter['categories']);
+                    $query->forCategoryTokens($filter['categories']);
                 }
 
                 if (count($filter['sessions'] ?? []) > 0) {
-                    $query->whereIn('session', $filter['sessions']);
+                    $query->forSessionTokens($filter['sessions']);
                 }
 
                 if (count($filter['statuses'] ?? []) > 0) {

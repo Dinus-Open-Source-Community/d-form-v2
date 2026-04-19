@@ -75,6 +75,12 @@ const defaultSessions = [
 const categoryOptions = computed(() => props.filterOptions?.categories ?? defaultCategories)
 const sessionOptions = computed(() => props.filterOptions?.sessions ?? defaultSessions)
 
+function eventTokenList(v: unknown): string[] {
+    if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean)
+    if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean)
+    return []
+}
+
 function buildQueryParams(page?: number) {
     const params: Record<string, unknown> = {}
     if (searchQuery.value.trim()) params.search = searchQuery.value.trim()
@@ -132,8 +138,10 @@ const filteredEvents = computed(() => {
         const q = searchQuery.value.toLowerCase()
         events = events.filter(e => e.title.toLowerCase().includes(q))
     }
-    if (filterCategory.value !== 'all') events = events.filter(e => e.category === filterCategory.value)
-    if (filterSession.value !== 'all') events = events.filter(e => e.session === filterSession.value)
+    if (filterCategory.value !== 'all') {
+        events = events.filter((e) => eventTokenList(e.category).includes(filterCategory.value))
+    }
+    if (filterSession.value !== 'all') events = events.filter(e => eventTokenList(e.session).includes(filterSession.value))
 
     return events
 })
@@ -215,9 +223,14 @@ const totalEvents = computed(() => props.events?.total ?? filteredEvents.value.l
                             <EventBannerImage :src="event.banner_url" :alt="event.title" />
                         </div>
                         <div class="pointer-events-none absolute inset-0 z-1 bg-linear-to-t from-black/35 via-transparent to-transparent" />
-                        <div class="absolute left-2.5 top-2.5 z-2 flex gap-1.5">
-                            <Badge class="text-[10px] text-white shadow-xs" :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }">
-                                {{ categoryLabelMap[event.category] ?? event.category }}
+                        <div class="absolute left-2.5 top-2.5 z-2 flex flex-wrap gap-1">
+                            <Badge
+                                v-for="(cat, idx) in eventTokenList(event.category)"
+                                :key="`${event.id}-cat-${idx}`"
+                                class="text-[10px] text-white shadow-xs"
+                                :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                            >
+                                {{ categoryLabelMap[cat] ?? cat }}
                             </Badge>
                             <Badge v-if="event.deleted_at" variant="destructive" class="text-[10px]">Archived</Badge>
                         </div>

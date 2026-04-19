@@ -15,6 +15,7 @@ return [
     'price' => 'harga',
     'session' => 'sesi',
     'category' => 'kategori',
+    'categories' => 'Kategori',
     'status' => 'status',
     'date' => 'tanggal',
     'options' => 'opsi',

@@ -106,13 +106,33 @@ class CreateForm extends Component implements HasSchemas
             Select::make('session')
                 ->label(ucfirst(__('events.session')))
                 ->options(EventSession::class)
+                ->multiple()
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->dehydrateStateUsing(function (mixed $state): string {
+                    if (! is_array($state)) {
+                        return is_string($state) ? trim($state) : '';
+                    }
+
+                    $parts = array_values(array_unique(array_filter(array_map('trim', $state))));
+
+                    return implode(',', $parts);
+                }),
             Select::make('category')
-                ->label(ucfirst(__('events.category')))
+                ->label(__('events.categories'))
                 ->options(EventCategory::class)
+                ->multiple()
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->dehydrateStateUsing(function (mixed $state): string {
+                    if (! is_array($state)) {
+                        return is_string($state) ? trim($state) : '';
+                    }
+
+                    $parts = array_values(array_unique(array_filter(array_map('trim', $state))));
+
+                    return implode(',', $parts);
+                }),
             FileUpload::make('banner')
                 ->label(ucfirst(__('events.banner')))
                 ->columnSpanFull()

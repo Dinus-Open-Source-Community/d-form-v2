@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Search, MapPin, CalendarDays, Users } from 'lucide-vue-next'
 import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 
 defineOptions({ layout: DashboardLayout })
@@ -38,7 +39,7 @@ const filteredEvents = computed(() => {
         const q = searchQuery.value.toLowerCase()
         list = list.filter((e) => e.title.toLowerCase().includes(q))
     }
-    if (filterCategory.value !== 'all') list = list.filter((e) => e.category === filterCategory.value)
+    if (filterCategory.value !== 'all') list = list.filter((e) => toCategoryList(e.category).includes(filterCategory.value))
     return list
 })
 </script>
@@ -86,9 +87,14 @@ const filteredEvents = computed(() => {
                             <EventBannerImage :src="event.banner_url" :alt="event.title" />
                         </div>
                         <div class="pointer-events-none absolute inset-0 z-1 bg-linear-to-t from-black/35 via-transparent to-transparent" />
-                        <div class="absolute left-2.5 top-2.5 z-2 flex gap-1.5">
-                            <Badge class="text-[10px] text-white shadow-xs" :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }">
-                                {{ categoryLabelMap[event.category] ?? event.category }}
+                        <div class="absolute left-2.5 top-2.5 z-2 flex flex-wrap gap-1.5">
+                            <Badge
+                                v-for="cat in toCategoryList(event.category)"
+                                :key="cat"
+                                class="text-[10px] text-white shadow-xs"
+                                :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                            >
+                                {{ categoryLabelMap[cat] ?? cat }}
                             </Badge>
                         </div>
                     </div>

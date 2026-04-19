@@ -17,6 +17,7 @@ import {
     dummyEvents, dummyForms, dummyFormFields, formatDate,
     categoryLabelMap, categoryColorMap,
 } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -163,9 +164,16 @@ function confirmSubmit() {
                         <img :src="event.banner_url ?? ''" :alt="event.title" class="h-full w-full object-cover" />
                     </div>
                     <CardContent class="p-4">
-                        <Badge class="mb-2 text-[10px] text-white" :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }">
-                            {{ categoryLabelMap[event.category] ?? event.category }}
-                        </Badge>
+                        <div class="mb-2 flex flex-wrap gap-1">
+                            <Badge
+                                v-for="cat in toCategoryList(event.category)"
+                                :key="cat"
+                                class="text-[10px] text-white"
+                                :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                            >
+                                {{ categoryLabelMap[cat] ?? cat }}
+                            </Badge>
+                        </div>
                         <h3 class="text-sm font-semibold">{{ event.title }}</h3>
                         <div class="mt-2 flex flex-col gap-1.5 text-xs text-muted-foreground">
                             <div class="flex items-center gap-1.5"><CalendarDays class="size-3" />{{ formatDate(event.start_date) }}</div>

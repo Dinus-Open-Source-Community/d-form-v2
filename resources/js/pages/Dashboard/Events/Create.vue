@@ -48,6 +48,14 @@ const defaultCategories = [
 
 const sessions = props.options?.sessions ?? defaultSessions;
 const categories = props.options?.categories ?? defaultCategories;
+const maxCategoryTags = categories.length;
+const maxSessionTags = sessions.length;
+
+function toTokenList(v: unknown): string[] {
+    if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);
+    if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
+    return [];
+}
 
 const form = useForm({
     title: '',
@@ -90,12 +98,15 @@ function removeBanner() {
 
 function submitForm(publish: boolean) {
     form.publish = publish;
-    if (typeof form.session === 'string') form.session = form.session.trim();
-    if (typeof form.category === 'string') form.category = form.category.trim();
     if (typeof form.start_date === 'string') form.start_date = form.start_date.trim();
     if (typeof form.end_date === 'string') form.end_date = form.end_date.trim();
     if (typeof form.registration_start === 'string') form.registration_start = form.registration_start.trim();
     if (typeof form.registration_end === 'string') form.registration_end = form.registration_end.trim();
+    form.transform((data) => ({
+        ...data,
+        category: toTokenList(data.category),
+        session: toTokenList(data.session),
+    }));
 
     form.post(storeEvent().url, {
         forceFormData: true,
@@ -234,24 +245,24 @@ function submitForm(publish: boolean) {
                         </div>
                         <Separator />
                         <div class="flex flex-col gap-1.5">
-                            <Label class="text-xs">Session</Label>
+                            <Label class="text-xs">Sessions</Label>
                             <ComboboxTagInput
                                 v-model="form.session"
                                 :suggestions="sessions"
-                                :max-tags="1"
+                                :max-tags="maxSessionTags"
                                 :allow-custom="false"
-                                placeholder="Search or choose session…"
+                                placeholder="Search or select sessions…"
                             />
                             <p v-if="form.errors.session" class="text-destructive text-xs">{{ form.errors.session }}</p>
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <Label class="text-xs">Category</Label>
+                            <Label class="text-xs">Categories</Label>
                             <ComboboxTagInput
                                 v-model="form.category"
                                 :suggestions="categories"
-                                :max-tags="1"
+                                :max-tags="maxCategoryTags"
                                 :allow-custom="false"
-                                placeholder="Search or choose category…"
+                                placeholder="Search or select categories…"
                             />
                             <p v-if="form.errors.category" class="text-destructive text-xs">
                                 {{ form.errors.category }}

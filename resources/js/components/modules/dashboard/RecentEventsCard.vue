@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { dummyEvents, formatDate, categoryLabelMap } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -60,9 +61,16 @@ const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
                             {{ event.location?.split('—')[0]?.trim() ?? event.location }}
                         </span>
                     </div>
-                    <Badge variant="secondary" class="mt-1.5 text-[10px]">
-                        {{ categoryLabelMap[event.category] ?? event.category }}
-                    </Badge>
+                    <div class="mt-1.5 flex flex-wrap gap-1">
+                        <Badge
+                            v-for="cat in toCategoryList(event.category)"
+                            :key="cat"
+                            variant="secondary"
+                            class="text-[10px]"
+                        >
+                            {{ categoryLabelMap[cat] ?? cat }}
+                        </Badge>
+                    </div>
                 </div>
                 <span class="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {{ event.registered_count }}/{{ event.quota }}

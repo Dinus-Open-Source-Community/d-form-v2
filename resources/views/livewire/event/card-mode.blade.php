@@ -20,11 +20,14 @@
                         class="absolute top-0 left-0 flex h-full w-full items-start justify-end gap-3 bg-linear-to-b from-slate-800/50 to-transparent"
                     >
                         <div class="relative h-full w-full">
-                            <span
-                                class="badge badge-sm bg-secondary/80 text-secondary-content border-secondary absolute top-4 left-4 capitalize shadow-sm backdrop-blur-md"
-                            >
-                                {{ __("enum.event.category.{$event['category']}") }}
-                            </span>
+                            <div class="absolute top-4 left-4 flex flex-wrap gap-1">
+                                @foreach (array_values(array_filter(array_map('trim', explode(',', (string) ($event['category'] ?? ''))))) as $categoryToken)
+                                    @php($categoryEnum = \App\Enums\EventCategory::tryFrom($categoryToken))
+                                    <span class="badge badge-sm bg-secondary/80 text-secondary-content border-secondary capitalize shadow-sm backdrop-blur-md">
+                                        {{ $categoryEnum?->getLabel() ?? \Illuminate\Support\Str::title(\Illuminate\Support\Str::of($categoryToken)->replace(['_', '-'], ' ')) }}
+                                    </span>
+                                @endforeach
+                            </div>
 
                             <span
                                 @class([
@@ -56,10 +59,13 @@
                         {{ str($event['description'])->limit(100) }}
                     </p>
 
-                    <div class="flex justify-end gap-3">
-                        <span class="badge-sm badge badge-ghost">
-                            {{ __("enum.event.session.{$event['session']}") }}
-                        </span>
+                    <div class="flex flex-wrap justify-end gap-3">
+                        @foreach (array_values(array_filter(array_map('trim', explode(',', (string) ($event['session'] ?? ''))))) as $sessionToken)
+                            @php($sessionEnum = \App\Enums\EventSession::tryFrom($sessionToken))
+                            <span class="badge-sm badge badge-ghost">
+                                {{ $sessionEnum?->getLabel() ?? \Illuminate\Support\Str::title(\Illuminate\Support\Str::of($sessionToken)->replace(['_', '-'], ' ')) }}
+                            </span>
+                        @endforeach
 
                         <span
                             @class([

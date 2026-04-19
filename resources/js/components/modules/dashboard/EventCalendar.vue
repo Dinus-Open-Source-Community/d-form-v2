@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ChevronLeft, ChevronRight, MapPin, CalendarDays, ArrowRight } from 'lucide-vue-next'
 import { dummyEvents, categoryColorMap, categoryLabelMap, formatDate } from '@/lib/dummyData'
+import { toCategoryList, primaryCategory } from '@/lib/eventCategories'
 
 const today = new Date()
 const currentMonth = ref(today.getMonth())
@@ -64,7 +65,7 @@ function toDateStr(d: Date): string {
 
 const filteredEvents = computed(() => {
     let events = dummyEvents.filter((e) => !e.deleted_at)
-    if (filterCategory.value !== 'all') events = events.filter((e) => e.category === filterCategory.value)
+    if (filterCategory.value !== 'all') events = events.filter((e) => toCategoryList(e.category).includes(filterCategory.value))
     return events
 })
 
@@ -174,7 +175,7 @@ const weekLabel = computed(() => {
                                     v-for="ev in cell.events.slice(0, 2)"
                                     :key="ev.id"
                                     class="w-full truncate rounded-md px-1.5 py-0.5 text-left text-[10px] font-medium text-white transition-opacity hover:opacity-80"
-                                    :style="{ backgroundColor: categoryColorMap[ev.category] ?? '#6B7280' }"
+                                    :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? '#6B7280' }"
                                     @click="onEventClick(ev)"
                                 >
                                     {{ ev.title }}
@@ -201,7 +202,7 @@ const weekLabel = computed(() => {
                                 v-for="ev in day.events"
                                 :key="ev.id"
                                 class="w-full truncate rounded-md px-2 py-1 text-left text-[10px] font-medium text-white transition-opacity hover:opacity-80"
-                                :style="{ backgroundColor: categoryColorMap[ev.category] ?? '#6B7280' }"
+                                :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? '#6B7280' }"
                                 @click="onEventClick(ev)"
                             >
                                 {{ ev.title }}
@@ -225,9 +226,16 @@ const weekLabel = computed(() => {
             <DialogHeader>
                 <DialogTitle>{{ selectedEvent?.title }}</DialogTitle>
                 <DialogDescription>
-                    <Badge class="mt-1 text-[10px] text-white" :style="{ backgroundColor: categoryColorMap[selectedEvent?.category ?? ''] ?? '#6B7280' }">
-                        {{ categoryLabelMap[selectedEvent?.category ?? ''] ?? selectedEvent?.category }}
-                    </Badge>
+                    <div class="mt-1 flex flex-wrap gap-1">
+                        <Badge
+                            v-for="cat in toCategoryList(selectedEvent?.category)"
+                            :key="cat"
+                            class="text-[10px] text-white"
+                            :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                        >
+                            {{ categoryLabelMap[cat] ?? cat }}
+                        </Badge>
+                    </div>
                 </DialogDescription>
             </DialogHeader>
             <div v-if="selectedEvent" class="flex flex-col gap-3 pt-1">

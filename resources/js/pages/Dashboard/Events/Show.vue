@@ -26,8 +26,10 @@ import {
 } from '@/lib/dummyData'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 
-function parseCategories(raw: string): string[] {
-    return raw.split(',').map(s => s.trim()).filter(Boolean)
+function parseCategories(raw: unknown): string[] {
+    if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean)
+    if (typeof raw === 'string') return raw.split(',').map((s) => s.trim()).filter(Boolean)
+    return []
 }
 
 defineOptions({ layout: DashboardLayout })
@@ -88,7 +90,11 @@ const metaBlocks = [
         icon: CalendarDays,
     },
     { title: 'Location', value: event.location, icon: MapPin },
-    { title: 'Session', value: sessionLabelMap[event.session] ?? event.session, icon: Clock },
+    {
+        title: 'Session',
+        value: parseCategories(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') || '—',
+        icon: Clock,
+    },
     {
         title: 'Price',
         value: event.price > 0 ? `Rp ${Number(event.price).toLocaleString('id-ID')}` : 'Free',

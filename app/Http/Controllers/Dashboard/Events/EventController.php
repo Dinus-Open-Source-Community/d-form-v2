@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Dashboard\Events;
 
-use App\Enums\EventCategory;
-use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\IndexEventRequest;
@@ -12,8 +10,10 @@ use App\Http\Requests\UpdateEventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Form;
-use Illuminate\Http\JsonResponse;
+use App\Services\Event\EventCategoryOptionService;
 use App\Services\Event\EventService;
+use App\Services\Event\EventSessionOptionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,8 +21,11 @@ use Inertia\Response;
 class EventController extends Controller
 {
     public function __construct(
-        private readonly EventService $eventService
-    ) {}
+        private readonly EventService $eventService,
+        private readonly EventCategoryOptionService $eventCategoryOptionService,
+        private readonly EventSessionOptionService $eventSessionOptionService,
+    ) {
+    }
 
     public function index(IndexEventRequest $request): Response
     {
@@ -151,20 +154,8 @@ class EventController extends Controller
     private function formOptions(): array
     {
         return [
-            'categories' => collect(EventCategory::cases())
-                ->map(fn (EventCategory $c) => [
-                    'value' => $c->value,
-                    'label' => strip_tags((string) $c->getLabel()),
-                ])
-                ->values()
-                ->all(),
-            'sessions' => collect(EventSession::cases())
-                ->map(fn (EventSession $s) => [
-                    'value' => $s->value,
-                    'label' => $s->getLabel(),
-                ])
-                ->values()
-                ->all(),
+            'categories' => $this->eventCategoryOptionService->forForm(),
+            'sessions' => $this->eventSessionOptionService->forForm(),
         ];
     }
 

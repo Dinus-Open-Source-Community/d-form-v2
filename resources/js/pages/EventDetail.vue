@@ -6,6 +6,7 @@ import {
     dummyEvents, formatDate, formatDateTime,
     categoryLabelMap, categoryColorMap, sessionLabelMap, statusColorMap,
 } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 
 const props = defineProps<{ eventId: string }>()
 
@@ -48,10 +49,12 @@ const highlights = [
                             <div>
                                 <div class="mb-3 flex flex-wrap items-center gap-2">
                                     <span
+                                        v-for="cat in toCategoryList(event.category)"
+                                        :key="cat"
                                         class="rounded-lg px-3 py-1 text-[11px] font-semibold text-white"
-                                        :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }"
+                                        :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
                                     >
-                                        {{ categoryLabelMap[event.category] ?? event.category }}
+                                        {{ categoryLabelMap[cat] ?? cat }}
                                     </span>
                                     <span
                                         :class="[
@@ -84,7 +87,7 @@ const highlights = [
                                 </div>
                                 <div>
                                     <p class="text-xs font-semibold text-[#111827]">{{ formatDate(event.start_date) }}</p>
-                                    <p class="text-[11px] text-[#9CA3AF]">{{ sessionLabelMap[event.session] ?? event.session }}</p>
+                                    <p class="text-[11px] text-[#9CA3AF]">{{ toCategoryList(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 text-sm text-[#6B7280]">
@@ -168,7 +171,7 @@ const highlights = [
                                             <div>
                                                 <p class="text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">Date & Time</p>
                                                 <p class="text-sm font-medium text-[#111827]">{{ formatDate(event.start_date) }}</p>
-                                                <p class="text-xs text-[#6B7280]">{{ sessionLabelMap[event.session] ?? event.session }}</p>
+                                                <p class="text-xs text-[#6B7280]">{{ toCategoryList(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') }}</p>
                                             </div>
                                         </div>
                                         <div class="flex items-start gap-3">
@@ -186,8 +189,12 @@ const highlights = [
                                             </div>
                                             <div>
                                                 <p class="text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">Category</p>
-                                                <p class="text-sm font-semibold" :style="{ color: categoryColorMap[event.category] ?? '#6B7280' }">
-                                                    {{ categoryLabelMap[event.category] ?? event.category }}
+                                                <p class="flex flex-wrap gap-1 text-sm font-semibold">
+                                                    <span
+                                                        v-for="(cat, idx) in toCategoryList(event.category)"
+                                                        :key="cat"
+                                                        :style="{ color: categoryColorMap[cat] ?? '#6B7280' }"
+                                                    >{{ categoryLabelMap[cat] ?? cat }}<span v-if="idx < toCategoryList(event.category).length - 1">,</span></span>
                                                 </p>
                                             </div>
                                         </div>

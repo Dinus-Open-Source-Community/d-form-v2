@@ -23,8 +23,8 @@ class EventResource extends JsonResource
             'price' => $this->price,
             'quota' => $this->quota,
             'registered_count' => $this->registered_count,
-            'session' => $this->session->value,
-            'category' => $this->category->value,
+            'session' => $this->sessionTokens(),
+            'category' => $this->categoryTokens(),
             'status' => $this->status->value,
             'start_date' => $this->start_date?->format('Y-m-d'),
             'end_date' => $this->end_date?->format('Y-m-d'),
@@ -34,5 +34,42 @@ class EventResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Explode and normalize the stored CSV `category` into a unique list of tokens.
+     *
+     * @return list<string>
+     */
+    private function categoryTokens(): array
+    {
+        return $this->explodeCsv((string) $this->category);
+    }
+
+    /**
+     * Explode and normalize the stored CSV `session` into a unique list of tokens.
+     *
+     * @return list<string>
+     */
+    private function sessionTokens(): array
+    {
+        return $this->explodeCsv((string) $this->session);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function explodeCsv(string $raw): array
+    {
+        if ($raw === '') {
+            return [];
+        }
+
+        return collect(explode(',', $raw))
+            ->map(static fn (string $s) => trim($s))
+            ->filter(static fn (string $s) => $s !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 }

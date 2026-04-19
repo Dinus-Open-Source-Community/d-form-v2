@@ -102,13 +102,33 @@ class EditForm extends Component implements HasSchemas
             Select::make('session')
                 ->label(ucfirst(__('events.session')))
                 ->options(EventSession::class)
+                ->multiple()
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->dehydrateStateUsing(function (mixed $state): string {
+                    if (! is_array($state)) {
+                        return is_string($state) ? trim($state) : '';
+                    }
+
+                    $parts = array_values(array_unique(array_filter(array_map('trim', $state))));
+
+                    return implode(',', $parts);
+                }),
             Select::make('category')
-                ->label(ucfirst(__('events.category')))
+                ->label(__('events.categories'))
                 ->options(EventCategory::class)
+                ->multiple()
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->dehydrateStateUsing(function (mixed $state): string {
+                    if (! is_array($state)) {
+                        return is_string($state) ? trim($state) : '';
+                    }
+
+                    $parts = array_values(array_unique(array_filter(array_map('trim', $state))));
+
+                    return implode(',', $parts);
+                }),
             FileUpload::make('banner')
                 ->label(ucfirst(__('events.banner')))
                 ->columnSpanFull()
@@ -162,10 +182,21 @@ class EditForm extends Component implements HasSchemas
     {
         $this->event = $event;
 
+        $data = $event->toArray();
+        $categoryRaw = $data['category'] ?? '';
+        $data['category'] = is_string($categoryRaw) && $categoryRaw !== ''
+            ? array_values(array_filter(array_map('trim', explode(',', $categoryRaw))))
+            : [];
+
+        $sessionRaw = $data['session'] ?? '';
+        $data['session'] = is_string($sessionRaw) && $sessionRaw !== ''
+            ? array_values(array_filter(array_map('trim', explode(',', $sessionRaw))))
+            : [];
+
         $this->editSchema->fill([
-            ...$event->toArray(),
+            ...$data,
             'banner' => null,
-            'price' => (float) $event->price
+            'price' => (float) $event->price,
         ]);
     }
 

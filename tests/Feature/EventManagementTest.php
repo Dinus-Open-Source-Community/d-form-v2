@@ -84,6 +84,41 @@ class EventManagementTest extends TestCase
 
         $event = Event::query()->firstOrFail();
         Storage::disk('public')->assertExists($event->banner);
+        $this->assertSame('rkt', $event->category);
+    }
+
+    public function test_admin_can_create_event_with_multiple_categories(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $registrationStart = now()->startOfDay();
+        $registrationEnd = now()->addDays(3)->endOfDay();
+        $startDate = now()->addDays(10)->startOfDay();
+        $endDate = now()->addDays(11)->startOfDay();
+
+        $response = $this->actingAs($admin)->post(route('dashboard.events.store'), [
+            'title' => 'Multi Category Summit',
+            'location' => 'Main Hall',
+            'description' => 'Description for multi-category event.',
+            'registration_start' => $registrationStart->toDateString(),
+            'registration_end' => $registrationEnd->toDateString(),
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'quota' => 80,
+            'price' => '5000',
+            'session' => 'general',
+            'category' => 'etc, rkt, recruitment',
+            'banner' => UploadedFile::fake()->image('banner.jpg', 1200, 675),
+            'publish' => false,
+        ]);
+
+        $response->assertRedirect();
+
+        $event = Event::query()->where('title', 'Multi Category Summit')->firstOrFail();
+        $this->assertSame('rkt,recruitment,etc', $event->category);
     }
 
     public function test_store_validation_requires_banner(): void

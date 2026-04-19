@@ -56,13 +56,13 @@ class TableMode extends Component implements HasSchemas, HasInfolists
                             ->money('IDR', divideBy: 1, decimalPlaces: 2),
                         TextEntry::make('quota'),
                         TextEntry::make('category')
-                            ->formatStateUsing(function (string $state) {
-                                return EventCategory::tryFrom($state);
-                            }),
+                            ->state(fn ($record) => self::explodeCsv($record['category'] ?? ''))
+                            ->formatStateUsing(fn (string $state) => EventCategory::tryFrom($state)?->getLabel() ?? $state)
+                            ->badge(),
                         TextEntry::make('session')
-                            ->formatStateUsing(function (string $state) {
-                                return EventSession::tryFrom($state);
-                            }),
+                            ->state(fn ($record) => self::explodeCsv($record['session'] ?? ''))
+                            ->formatStateUsing(fn (string $state) => EventSession::tryFrom($state)?->getLabel() ?? $state)
+                            ->badge(),
                         TextEntry::make('status')
                             ->formatStateUsing(function (string $state, Get $get) {
                                 if ($get('deleted_at')) {
@@ -115,5 +115,24 @@ class TableMode extends Component implements HasSchemas, HasInfolists
     public function render()
     {
         return view('livewire.event.table-mode');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function explodeCsv(mixed $raw): array
+    {
+        $value = is_string($raw) ? $raw : '';
+
+        if ($value === '') {
+            return [];
+        }
+
+        return collect(explode(',', $value))
+            ->map(static fn (string $s) => trim($s))
+            ->filter(static fn (string $s) => $s !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 }

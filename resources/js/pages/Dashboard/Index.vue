@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { CalendarDays, Zap, Users, TrendingUp, Clock, MapPin, ArrowRight } from 'lucide-vue-next'
 import useAuth from '@/utils/composables/useAuth'
 import { dummyEvents, formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -113,9 +114,16 @@ const upcomingEvents = computed(() =>
                                 <span class="flex items-center gap-1"><MapPin class="size-3" />{{ event.location }}</span>
                             </div>
                         </div>
-                        <Badge class="shrink-0 text-[10px] text-white" :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }">
-                            {{ categoryLabelMap[event.category] ?? event.category }}
-                        </Badge>
+                        <div class="flex shrink-0 flex-wrap justify-end gap-1">
+                            <Badge
+                                v-for="cat in toCategoryList(event.category)"
+                                :key="cat"
+                                class="text-[10px] text-white"
+                                :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                            >
+                                {{ categoryLabelMap[cat] ?? cat }}
+                            </Badge>
+                        </div>
                     </Link>
                     <p v-if="upcomingEvents.length === 0" class="py-4 text-center text-sm text-muted-foreground">
                         No upcoming events. Browse events to find something interesting!

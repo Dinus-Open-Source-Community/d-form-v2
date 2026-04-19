@@ -12,6 +12,7 @@ import {
     formatDate, formatDateTime, statusColorMap,
     categoryLabelMap, categoryColorMap, sessionLabelMap,
 } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 
 defineOptions({ layout: DashboardLayout })
@@ -38,7 +39,11 @@ const metaBlocks = [
         icon: CalendarDays,
     },
     { title: 'Location', value: event.location, icon: MapPin },
-    { title: 'Session', value: sessionLabelMap[event.session] ?? event.session, icon: Clock },
+    {
+        title: 'Session',
+        value: toCategoryList(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') || '—',
+        icon: Clock,
+    },
     {
         title: 'Price',
         value: event.price > 0 ? `Rp ${Number(event.price).toLocaleString('id-ID')}` : 'Free',
@@ -54,8 +59,13 @@ const metaBlocks = [
         <PageHeader :title="event.title" backHref="/dashboard/user/events">
             <template #actions>
                 <div class="flex flex-wrap items-center gap-1.5">
-                    <Badge class="text-[10px] text-white" :style="{ backgroundColor: categoryColorMap[event.category] ?? '#6B7280' }">
-                        {{ categoryLabelMap[event.category] ?? event.category }}
+                    <Badge
+                        v-for="cat in toCategoryList(event.category)"
+                        :key="cat"
+                        class="text-[10px] text-white"
+                        :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                    >
+                        {{ categoryLabelMap[cat] ?? cat }}
                     </Badge>
                     <Badge variant="outline" class="text-[10px] capitalize">
                         {{ registrationStatusLabel[event.registration_status] }}

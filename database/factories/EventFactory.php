@@ -31,9 +31,9 @@ class EventFactory extends Factory
             'registered_count' => 0,
             'banner' => 'events/banners/placeholder.jpg',
             'price' => fake()->randomElement([0, 10000, 25000, 50000, 75000]),
-            'session' => fake()->randomElement(EventSession::cases()),
+            'session' => fake()->randomElement(EventSession::cases())->value,
             'status' => fake()->randomElement(EventStatus::cases()),
-            'category' => fake()->randomElement(EventCategory::cases()),
+            'category' => fake()->randomElement(EventCategory::cases())->value,
         ];
     }
 }

@@ -88,10 +88,14 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
                 Flex::make([
                     TextEntry::make('session')
                         ->hiddenLabel()
+                        ->state(fn ($record) => self::explodeCsv($record->session ?? ''))
+                        ->formatStateUsing(fn (string $state) => \App\Enums\EventSession::tryFrom($state)?->getLabel() ?? $state)
                         ->badge()
                         ->grow(false),
                     TextEntry::make('category')
                         ->hiddenLabel()
+                        ->state(fn ($record) => self::explodeCsv($record->category ?? ''))
+                        ->formatStateUsing(fn (string $state) => \App\Enums\EventCategory::tryFrom($state)?->getLabel() ?? $state)
                         ->badge()
                         ->grow(false),
                     TextEntry::make('status')
@@ -170,5 +174,24 @@ class EventDetail extends Component implements HasSchemas, HasInfolists, HasActi
         return view('livewire.event.event-detail', [
             'forms' => $forms
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function explodeCsv(mixed $raw): array
+    {
+        $value = is_string($raw) ? $raw : '';
+
+        if ($value === '') {
+            return [];
+        }
+
+        return collect(explode(',', $value))
+            ->map(static fn (string $s) => trim($s))
+            ->filter(static fn (string $s) => $s !== '')
+            ->unique()
+            ->values()
+            ->all();
     }
 }

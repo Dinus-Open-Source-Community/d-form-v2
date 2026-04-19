@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { dummyEvents, categoryColorMap } from '@/lib/dummyData'
+import { primaryCategory } from '@/lib/eventCategories'
 
 const today = new Date()
 const currentMonth = ref(today.getMonth())
@@ -83,7 +84,7 @@ const calendarDays = computed(() => {
                             v-for="ev in cell.events.slice(0, 3)"
                             :key="ev.id"
                             class="size-1 rounded-full"
-                            :style="{ backgroundColor: categoryColorMap[ev.category] ?? 'var(--muted-foreground)' }"
+                            :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)' }"
                         />
                     </div>
                 </div>
