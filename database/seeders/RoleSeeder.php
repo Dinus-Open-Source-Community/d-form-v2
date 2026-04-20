@@ -46,6 +46,11 @@ class RoleSeeder extends Seeder
             'events.delete',
             'events.join',
 
+            // events field management
+            'fields.create',
+            'fields.edit',
+            'fields.delete',
+
             // attendances management
             'attendances.list',
             'attendances.create',

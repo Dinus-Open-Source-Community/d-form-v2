@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FormField extends Model
 {
     use HasUuids;
     use SoftDeletes;
+    use HasFactory;
+
+    protected $primaryKey = 'id';
 
     protected $keyType = 'string';
 
@@ -18,19 +22,17 @@ class FormField extends Model
 
     protected $fillable = [
         'input_type',
+        'label',
+        'description',
         'metadata',
         'form_id',
+        'order'
     ];
 
-    protected function casts(): array
+    public function casts()
     {
         return [
-            'metadata' => 'array',
+            'metadata' => AsCollection::class
         ];
-    }
-
-    public function form(): BelongsTo
-    {
-        return $this->belongsTo(Form::class);
     }
 }

@@ -42,3 +42,7 @@ frankenphp
 frankenphp-worker.php
 
 bun.lock
+
+resources/js/actions
+resources/js/routes
+resources/js/wayfinder
