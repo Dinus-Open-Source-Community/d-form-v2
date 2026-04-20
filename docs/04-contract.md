@@ -51,3 +51,12 @@ null berarti boleh tidak diisi / dikirim. Otomatis tidak ada validasi untuk bagi
     "max_size": 0 | null
 }
 ```
+
+## Form answers
+
+```json
+{
+    "[name]": "Value",
+    ...
+}
+```

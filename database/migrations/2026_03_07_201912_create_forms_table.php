@@ -32,6 +32,7 @@ return new class () extends Migration {
             $table->enum('input_type', ['input', 'selectInput', 'textarea', 'datePicker', 'fileUpload'])->default('input');
             $table->string('label', 100);
             $table->text('description')->nullable();
+            $table->string('name', 100);
             $table->json('metadata');
             $table->uuid('form_id');
             $table->integer('order');

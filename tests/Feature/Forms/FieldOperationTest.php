@@ -55,6 +55,8 @@ class FieldOperationTest extends TestCase
                 [
                     'label' => 'Nama Lengkap',
                     'type' => 'input',
+                    'name' => 'nama_lengkap',
+                    'order' => 1,
                     'metadata' => [
                         'name' => 'fullname',
                         'type' => 'text',
@@ -104,8 +106,9 @@ class FieldOperationTest extends TestCase
                 [
                     'label' => 'Tanggal Pinjam',
                     'type' => 'datePicker',
+                    'name' => 'borrow_date',
+                    'order' => 1,
                     'metadata' => [
-                        'name' => 'borrow_date',
                         'rules' => [
                             'min_date' => '2026-04-15',
                             'max_date' => '2026-04-10' // Error: Lebih kecil dari min_date
@@ -132,8 +135,9 @@ class FieldOperationTest extends TestCase
                 [
                     'label' => 'Pilih Kelas',
                     'type' => 'select',
+                    'name' => 'class_id',
+                    'order' => 1,
                     'metadata' => [
-                        'name' => 'class_id',
                         // 'is_multiple' sengaja tidak dikirim
                     ]
                 ]
@@ -154,8 +158,9 @@ class FieldOperationTest extends TestCase
                 [
                     'label' => 'Umur',
                     'type' => 'input',
+                    'name' => 'age',
+                    'order' => 1,
                     'metadata' => [
-                        'name' => 'age',
                         'type' => 'number',
                         'rules' => [
                             'min' => 20,
@@ -179,6 +184,7 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Nama',
                 'type' => 'input',
+                'order' => 1,
                 'metadata' => [
                     'type' => 'text',
                     // 'name' sengaja dihilangkan
@@ -188,7 +194,7 @@ class FieldOperationTest extends TestCase
 
         $validator = Validator::make($data, $this->getRules());
         $this->assertFalse($validator->passes());
-        $this->assertArrayHasKey('fields.0.metadata.name', $validator->errors()->toArray());
+        $this->assertArrayHasKey('fields.0.name', $validator->errors()->toArray());
     }
 
     #[Test]
@@ -199,6 +205,8 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Power Level',
                 'type' => 'input',
+                'name' => 'power',
+                'order' => 1,
                 'metadata' => [
                     'name' => 'power',
                     'type' => 'invalid-type', // Tidak ada di list Laravel Rule::in
@@ -218,8 +226,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Bio',
                 'type' => 'textarea',
+                'name' => 'bio',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'bio',
                     'rules' => ['regex' => '/^[a-z]$/'] // Prohibited for textarea
                 ]
             ]]
@@ -237,8 +246,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Hobi',
                 'type' => 'select',
+                'name' => 'hobbies',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'hobbies',
                     'is_multiple' => true
                 ]
             ]]
@@ -256,8 +266,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Nama',
                 'type' => 'input',
+                'name' => 'name',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'name',
                     'type' => 'text',
                     'rules' => ['in' => 'a,b,c'] // Prohibited for input
                 ]
@@ -276,8 +287,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Foto KTP',
                 'type' => 'fileUpload',
+                'name' => 'identity_card',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'identity_card',
                     'rules' => [
                         'mimes' => 'jpg,png,pdf',
                         'max_size' => 2048
@@ -298,8 +310,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Dokumen',
                 'type' => 'fileUpload',
+                'name' => 'doc',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'doc',
                     'rules' => ['min' => 5] // Prohibited for fileUpload
                 ]
             ]]
@@ -317,8 +330,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Deadline',
                 'type' => 'datePicker',
+                'name' => 'deadline',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'deadline',
                     'rules' => ['max_date' => '2026-12-31']
                 ]
             ]]
@@ -337,17 +351,29 @@ class FieldOperationTest extends TestCase
                 [
                     'label' => 'Nama',
                     'type' => 'input',
-                    'metadata' => ['name' => 'name', 'type' => 'text']
+                    'name' => 'name',
+                    'order' => 1,
+                    'metadata' => [
+                        'type' => 'text'
+                    ]
                 ],
                 [
                     'label' => 'Umur',
                     'type' => 'input',
-                    'metadata' => ['name' => 'age', 'type' => 'number']
+                    'name' => 'age',
+                    'order' => 2,
+                    'metadata' => [
+                        'type' => 'number'
+                    ]
                 ],
                 [
                     'label' => 'Bio',
                     'type' => 'textarea',
-                    'metadata' => ['name' => 'bio']
+                    'name' => 'bio',
+                    'order' => 3,
+                    'metadata' => [
+                        'required' => false
+                    ]
                 ]
             ]
         ];
@@ -364,8 +390,9 @@ class FieldOperationTest extends TestCase
             'fields' => [[
                 'label' => 'Nama',
                 'type' => 'input',
+                'name' => 'name',
+                'order' => 1,
                 'metadata' => [
-                    'name' => 'name',
                     'type' => 'text',
                     'rules' => ['required' => 'yes'] // Harus boolean
                 ]
