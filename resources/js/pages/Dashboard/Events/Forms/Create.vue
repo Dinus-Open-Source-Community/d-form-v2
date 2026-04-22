@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, GripVertical, Trash2, Save } from 'lucide-vue-next'
 import { dummyEvents } from '@/lib/dummyData'
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardFocusLayout })
 
 const props = defineProps<{
     event?: { id: string; title: string }
@@ -60,7 +60,7 @@ function handleSave() { toast.success('Form created successfully.') }
     <Head title="Create Form" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader title="Create Form" :subtitle="`Build a dynamic form for ${eventContext.title}.`" :backHref="`/dashboard/events/${eventContext.id}/forms`" />
+        <PageHeader title="Create Form" :subtitle="`Build a dynamic form for ${eventContext.title}.`" />
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="flex flex-col gap-4 lg:col-span-2">

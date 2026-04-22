@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
-import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { store as storeEvent } from '@/actions/App/Http/Controllers/Dashboard/Ev
 import { showEventValidationToast } from '@/lib/eventValidationToast';
 import { cn } from '@/lib/utils';
 
-defineOptions({ layout: DashboardLayout });
+defineOptions({ layout: DashboardFocusLayout });
 
 const datetimeInputClass = cn(
     'border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-xs shadow-xs transition-[color,box-shadow] outline-none',
@@ -123,7 +123,6 @@ function submitForm(publish: boolean) {
         <PageHeader
             title="Create Event"
             subtitle="Fill in the details below to create a new event."
-            backHref="/dashboard/events"
         />
 
         <div class="grid gap-6 lg:grid-cols-3">

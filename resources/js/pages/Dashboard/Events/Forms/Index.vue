@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, FileText, Pencil, Trash2 } from 'lucide-vue-next'
 import { dummyForms, dummyEvents, formatDateTime } from '@/lib/dummyData'
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardFocusLayout })
 
 const props = defineProps<{
     event?: { id: string; title: string }
@@ -40,7 +40,7 @@ function handleEdit(form: IForm) { toast.info(`Editing "${form.title}"...`) }
     <Head title="Forms" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader title="Forms" :subtitle="`Manage forms for ${eventContext.title}.`" :backHref="`/dashboard/events/${eventContext.id}`">
+        <PageHeader title="Forms" :subtitle="`Manage forms for ${eventContext.title}.`">
             <template #actions>
                 <Button as-child>
                     <Link :href="`/dashboard/events/${eventContext.id}/forms/create`">
