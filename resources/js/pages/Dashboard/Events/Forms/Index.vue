@@ -9,7 +9,7 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, FileText, Pencil, Trash2 } from 'lucide-vue-next'
+import { Plus, FileText, Pencil, Trash2, ClipboardList } from 'lucide-vue-next'
 import { formatDateTime } from '@/lib/dummyData'
 
 defineOptions({ layout: DashboardFocusLayout })
@@ -87,6 +87,11 @@ function confirmDelete() {
                             </div>
                         </div>
                         <div class="flex gap-1">
+                            <Button variant="ghost" size="icon" class="size-7 text-primary hover:text-primary" as-child>
+                                <Link :href="`/dashboard/events/${event.id}/forms/${form.id}/fill`" title="Fill form">
+                                    <ClipboardList class="size-3.5" />
+                                </Link>
+                            </Button>
                             <Button variant="ghost" size="icon" class="size-7" as-child>
                                 <Link :href="`/dashboard/events/${event.id}/forms/${form.id}`" title="Edit form">
                                     <Pencil class="size-3.5" />

@@ -31,10 +31,12 @@ const visibilityOptions = [
 
 const fieldTypes: { value: FormFieldType; label: string }[] = [
     { value: 'input', label: 'Text input' },
-    { value: 'select', label: 'Select' },
+    { value: 'select', label: 'Select (dropdown)' },
+    { value: 'radio', label: 'Radio (single choice)' },
+    { value: 'checkbox', label: 'Checkbox (multiple choice)' },
     { value: 'textarea', label: 'Textarea' },
     { value: 'datePicker', label: 'Date' },
-    { value: 'fileUpload', label: 'File' },
+    { value: 'fileUpload', label: 'File upload' },
 ]
 
 const inputSubtypes = [
@@ -73,6 +75,12 @@ function normalizeMetadata(type: FormFieldType): Record<string, unknown> {
     }
     if (type === 'select') {
         return { ...base, is_multiple: false, rules: { in: '' } }
+    }
+    if (type === 'radio') {
+        return { ...base, options: '' }
+    }
+    if (type === 'checkbox') {
+        return { ...base, options: '' }
     }
     if (type === 'textarea') {
         return { ...base, placeholder: '' }
@@ -345,6 +353,21 @@ function getRules(field: IFormField): Record<string, unknown> {
                                                 @update:model-value="(v) => (getRules(field)['in'] = v as string)"
                                             />
                                         </div>
+                                    </div>
+
+                                    <div v-if="field.type === 'radio' || field.type === 'checkbox'" class="flex flex-col gap-1.5">
+                                        <Label class="text-xs">Options (comma separated)</Label>
+                                        <Input
+                                            class="text-xs"
+                                            placeholder="e.g. Option A,Option B,Option C"
+                                            :model-value="(field.metadata as { options: string }).options ?? ''"
+                                            @update:model-value="
+                                                (v) => ((field.metadata as { options: string }).options = v as string)
+                                            "
+                                        />
+                                        <p class="text-[11px] text-muted-foreground">
+                                            {{ field.type === 'radio' ? 'Respondent picks one option.' : 'Respondent can pick multiple options.' }}
+                                        </p>
                                     </div>
 
                                     <div v-if="field.type === 'datePicker'" class="grid gap-2 sm:grid-cols-2">
