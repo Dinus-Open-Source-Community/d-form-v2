@@ -29,7 +29,7 @@ return new class () extends Migration {
 
         Schema::create('form_fields', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->enum('input_type', ['input', 'selectInput', 'textarea', 'datePicker', 'fileUpload'])->default('input');
+            $table->enum('input_type', ['input', 'selectInput', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox'])->default('input');
             $table->string('label', 100);
             $table->text('description')->nullable();
             $table->string('name', 100);

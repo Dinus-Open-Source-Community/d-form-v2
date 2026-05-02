@@ -3,12 +3,12 @@
 namespace App\Support;
 
 /**
- * API / kontrak (docs/04-contract.md) memakai `select`; kolom DB `form_fields.input_type` memakai `selectInput`.
- * Radio / checkbox (PRD) belum ada di enum `form_fields.input_type` — butuh migrasi bila disetujui.
+ * API / kontrak memakai `select`; kolom DB `form_fields.input_type` memakai `selectInput`.
+ * `radio` dan `checkbox` tersimpan dengan nama yang sama di API dan DB.
  */
 final class FormFieldTypeMapping
 {
-    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload'];
+    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox'];
 
     public static function toInputType(string $apiType): string
     {

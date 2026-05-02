@@ -31,7 +31,7 @@ declare global {
         event_id: string
     }
 
-    type FormFieldType = 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload'
+    type FormFieldType = 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload' | 'radio' | 'checkbox'
 
     interface IFormField {
         id: string

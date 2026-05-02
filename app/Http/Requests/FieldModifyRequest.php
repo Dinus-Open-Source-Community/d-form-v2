@@ -132,14 +132,20 @@ class FieldModifyRequest extends FormRequest
             'fields.*.metadata.type' => [
                 'required_if:fields.*.type,input',
                 'prohibited_unless:fields.*.type,input',
-                Rule::in('text', 'number', 'email', 'password', 'tel')
+                Rule::in('text', 'number', 'email', 'password', 'tel'),
             ],
             'fields.*.metadata.is_multiple' => [
                 'required_if:fields.*.type,select',
                 'prohibited_unless:fields.*.type,select',
-                'boolean'
+                'boolean',
             ],
-
+            'fields.*.metadata.options' => [
+                'required_if:fields.*.type,radio',
+                'required_if:fields.*.type,checkbox',
+                'nullable',
+                'string',
+                'prohibited_unless:fields.*.type,radio,checkbox',
+            ],
         ];
     }
 
