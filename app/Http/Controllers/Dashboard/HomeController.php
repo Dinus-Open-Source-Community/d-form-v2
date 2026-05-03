@@ -7,6 +7,7 @@ use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Services\Event\EventService;
+use Illuminate\Http\Request;
 use Inertia\Response;
 
 class HomeController extends Controller
@@ -16,13 +17,24 @@ class HomeController extends Controller
     ) {
     }
 
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
-        $allEvents = Event::query()->whereNull('deleted_at')->get();
+        $user = $request->user();
+        $adminScope = $user !== null && $user->can('events.list');
 
-        $recentEvents = $allEvents
-            ->sortByDesc('created_at')
-            ->take(5)
+        $allEvents = $adminScope
+            ? Event::query()->whereNull('deleted_at')->get()
+            : Event::query()
+                ->where('status', EventStatus::Published)
+                ->whereNull('deleted_at')
+                ->orderByDesc('start_date')
+                ->get();
+
+        $recentSource = $adminScope
+            ? $allEvents->sortByDesc('created_at')->take(5)
+            : $allEvents->take(5);
+
+        $recentEvents = $recentSource
             ->map(fn (Event $e) => $this->eventService->eventToInertiaArray($e))
             ->values()
             ->all();

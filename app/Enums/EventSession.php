@@ -2,9 +2,7 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
-
-enum EventSession: string implements HasLabel
+enum EventSession: string
 {
     case General = 'general';
     case Programming = 'programming';

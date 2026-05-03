@@ -38,7 +38,7 @@ class RegisterController extends Controller
                 'type' => 'success'
             ]);
 
-            return to_route('dashboard.home');
+            return redirect()->route('dashboard.user.events');
         } catch (\Exception $e) {
             return Inertia::flash('toast', [
                 'message' => 'Register failed',

@@ -2,21 +2,30 @@
 import LandingLayout from '@/layouts/LandingLayout.vue';
 import { computed, ref, onMounted } from 'vue';
 import { MapPin, CalendarDays, Users, ArrowLeft, ArrowRight, Check, Shield } from 'lucide-vue-next';
-import { dummyEvents, formatDate, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import { formatDate, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
 import { toCategoryList } from '@/lib/eventCategories';
 
-const props = defineProps<{ eventId: string }>();
+const props = defineProps<{
+    event: IEvent;
+}>();
+
+const event = computed(() => props.event);
 
 const visible = ref(false);
 onMounted(() => setTimeout(() => (visible.value = true), 100));
 
-// TODO: Connect to backend when EventsController@show returns the full event object.
-// Currently it only returns eventId, so we fallback to dummy data for display.
-const event = computed<IEvent | undefined>(() => dummyEvents.find((e) => e.id === props.eventId));
-
 const capacityPercent = computed<number>(() =>
-    event.value ? Math.round((event.value.registered_count / event.value.quota) * 100) : 0
+    Math.round((event.value.registered_count / event.value.quota) * 100),
 );
+
+const registrationBadgeLabel = computed(() => {
+    const s = event.value.registration_status;
+    if (s === 'open') return 'Open';
+    if (s === 'full') return 'Full';
+    if (s === 'closed') return 'Closed';
+    if (s === 'not_yet_open') return 'Coming Soon';
+    return 'Registration';
+});
 
 const highlights = [
     'Expert-led sessions',
@@ -28,8 +37,7 @@ const highlights = [
 
 <template>
     <LandingLayout>
-        <template v-if="event">
-            <section class="relative pt-20">
+        <section class="relative pt-20">
                 <div class="bg-muted relative h-[280px] w-full overflow-hidden lg:h-[360px]">
                     <img :src="event.banner_url ?? ''" :alt="event.title" class="h-full w-full object-cover" />
                     <div class="absolute inset-0 bg-[#111827]/50" />
@@ -63,7 +71,7 @@ const highlights = [
                                                 : 'bg-[#D97706]/8 text-[#D97706]',
                                         ]"
                                     >
-                                        {{ event.registration_status === 'open' ? 'Open' : 'Coming Soon' }}
+                                        {{ registrationBadgeLabel }}
                                     </span>
                                 </div>
                                 <h1
@@ -286,24 +294,5 @@ const highlights = [
                     </div>
                 </div>
             </section>
-        </template>
-
-        <template v-else>
-            <section class="flex min-h-[60vh] flex-col items-center justify-center bg-white px-6 py-24 pt-32">
-                <div
-                    class="mb-6 flex size-16 items-center justify-center rounded-2xl border-2 border-[#101014] bg-[#FFD84D] shadow-[4px_4px_0_#101014]"
-                >
-                    <Users class="size-7 text-[#101014]" />
-                </div>
-                <h2 class="font-display text-2xl font-extrabold tracking-[-0.03em] text-[#111827]">Event Not Found</h2>
-                <p class="mt-2 text-sm font-semibold text-[#34343B]">The event you're looking for doesn't exist.</p>
-                <a
-                    href="/events"
-                    class="mt-6 inline-flex items-center gap-2 rounded-xl border-2 border-[#101014] bg-[#0A84DC] px-6 py-3 text-sm font-extrabold text-white shadow-[4px_4px_0_#101014] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#FFD84D] hover:text-[#101014] active:translate-x-1 active:translate-y-1 active:shadow-[1px_1px_0_#101014]"
-                >
-                    Browse Events
-                </a>
-            </section>
-        </template>
     </LandingLayout>
 </template>

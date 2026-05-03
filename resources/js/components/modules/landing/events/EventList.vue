@@ -1,46 +1,81 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatDate, categoryLabelMap } from '@/lib/dummyData';
+import { toCategoryList } from '@/lib/eventCategories';
+
+const props = withDefaults(
+    defineProps<{
+        events?: IEvent[];
+    }>(),
+    { events: () => [] },
+);
 
 const listVisible = ref(false);
 onMounted(() => {
     const observer = new IntersectionObserver(
-        ([entry]) => { if (entry.isIntersecting) listVisible.value = true; },
-        { threshold: 0.05 }
+        ([entry]) => {
+            if (entry.isIntersecting) listVisible.value = true;
+        },
+        { threshold: 0.05 },
     );
     const el = document.getElementById('event-list');
     if (el) observer.observe(el);
 });
 
-const events = [
-    { id: 1, title: 'Design Systems Workshop', date: 'Apr 20, 2026', location: 'Online', attendees: 342, category: 'Workshop', status: 'Open', color: '#0A84DC', image: 'https://picsum.photos/seed/dform-design-systems/800/520' },
-    { id: 2, title: 'Startup Pitch Night', date: 'Apr 25, 2026', location: 'Semarang', attendees: 189, category: 'Networking', status: 'Open', color: '#7C3AED', image: 'https://picsum.photos/seed/dform-pitch-night/800/520' },
-    { id: 3, title: 'AI & Machine Learning Summit', date: 'May 5, 2026', location: 'Bandung', attendees: 1205, category: 'Conference', status: 'Open', color: '#059669', image: 'https://picsum.photos/seed/dform-ai-summit/800/520' },
-    { id: 4, title: 'UX Research Bootcamp', date: 'May 10, 2026', location: 'Online', attendees: 567, category: 'Bootcamp', status: 'Open', color: '#D97706', image: 'https://picsum.photos/seed/dform-design-systems/800/520' },
-    { id: 5, title: 'Open Source Meetup', date: 'May 22, 2026', location: 'Yogyakarta', attendees: 156, category: 'Meetup', status: 'Open', color: '#DC2626', image: 'https://picsum.photos/seed/dform-hackathon-good/800/520' },
-    { id: 6, title: 'Cloud Architecture Day', date: 'Jun 1, 2026', location: 'Surabaya', attendees: 890, category: 'Conference', status: 'Coming Soon', color: '#0891B2', image: 'https://picsum.photos/seed/dform-cloud-day/800/520' },
-    { id: 7, title: 'Product Management Forum', date: 'Jun 8, 2026', location: 'Online', attendees: 423, category: 'Forum', status: 'Coming Soon', color: '#DB2777', image: 'https://picsum.photos/seed/dform-pitch-night/800/520' },
-    { id: 8, title: 'Hackathon: Code for Good', date: 'Jun 15, 2026', location: 'Jakarta', attendees: 300, category: 'Hackathon', status: 'Coming Soon', color: '#0D9488', image: 'https://picsum.photos/seed/dform-hackathon-good/800/520' },
-];
+type Row = {
+    id: string;
+    title: string;
+    date: string;
+    location: string;
+    attendees: number;
+    category: string;
+    status: string;
+    image: string;
+};
+
+const rows = computed<Row[]>(() =>
+    props.events.map((e) => {
+        const cats = toCategoryList(e.category);
+        const primary = cats[0] ?? '';
+        const reg = e.registration_status;
+        let status = 'Coming Soon';
+        if (reg === 'open') status = 'Open';
+        else if (reg === 'full') status = 'Full';
+        else if (reg === 'closed') status = 'Closed';
+
+        return {
+            id: e.id,
+            title: e.title,
+            date: formatDate(e.start_date),
+            location: e.location,
+            attendees: e.registered_count,
+            category: primary ? categoryLabelMap[primary] ?? primary : 'Event',
+            status,
+            image: e.banner_url ?? '',
+        };
+    }),
+);
 
 const searchQuery = ref('');
 const activeCategory = ref('All');
 
 const categories = computed(() => {
-    const cats = [...new Set(events.map(e => e.category))];
+    const cats = [...new Set(rows.value.map((e) => e.category))];
     return ['All', ...cats];
 });
 
 const filteredEvents = computed(() => {
-    let result = events;
+    let result = rows.value;
     if (activeCategory.value !== 'All') {
-        result = result.filter(e => e.category === activeCategory.value);
+        result = result.filter((e) => e.category === activeCategory.value);
     }
     if (searchQuery.value.trim()) {
         const q = searchQuery.value.toLowerCase();
-        result = result.filter(e =>
-            e.title.toLowerCase().includes(q) ||
-            e.location.toLowerCase().includes(q) ||
-            e.category.toLowerCase().includes(q)
+        result = result.filter(
+            (e) =>
+                e.title.toLowerCase().includes(q) ||
+                e.location.toLowerCase().includes(q) ||
+                e.category.toLowerCase().includes(q),
         );
     }
     return result;
@@ -68,14 +103,16 @@ const filteredEvents = computed(() => {
             <!-- Category Tabs -->
             <div class="mb-10 flex flex-wrap gap-2">
                 <button
-                    v-for="cat in categories" :key="cat"
-                    @click="activeCategory = cat"
-                    :class="[
-                        'rounded-lg border-[1.5px] border-[var(--brutal-ink)] px-3.5 py-1.5 text-xs font-bold shadow-[var(--brutal-shadow-sm)] transition-all duration-200 active:translate-y-0.5 active:shadow-none',
+                    v-for="cat in categories"
+                    :key="cat"
+                    type="button"
+                    class="rounded-lg border-[1.5px] border-[var(--brutal-ink)] px-3.5 py-1.5 text-xs font-bold shadow-[var(--brutal-shadow-sm)] transition-all duration-200 active:translate-y-0.5 active:shadow-none"
+                    :class="
                         activeCategory === cat
                             ? 'bg-[var(--brutal-blue)] text-white'
-                            : 'bg-white text-[var(--brutal-ink)] hover:bg-[var(--brutal-yellow)]/15',
-                    ]"
+                            : 'bg-white text-[var(--brutal-ink)] hover:bg-[var(--brutal-yellow)]/15'
+                    "
+                    @click="activeCategory = cat"
                 >
                     {{ cat }}
                 </button>
@@ -84,7 +121,8 @@ const filteredEvents = computed(() => {
             <!-- Event Grid -->
             <div v-if="filteredEvents.length" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <a
-                    v-for="(event, i) in filteredEvents" :key="event.id"
+                    v-for="(event, i) in filteredEvents"
+                    :key="event.id"
                     :href="`/events/${event.id}`"
                     :class="[
                         'brutal-card group flex flex-col overflow-hidden transition-all duration-300',
@@ -93,9 +131,19 @@ const filteredEvents = computed(() => {
                     :style="{ transitionDelay: `${i * 60}ms` }"
                 >
                     <!-- Card Image -->
-                    <div class="relative aspect-[16/10] overflow-hidden">
-                        <img :src="event.image" :alt="event.title" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-                        <span :class="['absolute top-3 right-3 rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-white px-2 py-0.5 text-[10px] font-bold shadow-[var(--brutal-shadow-sm)]', event.status === 'Open' ? 'text-[#059669]' : 'text-[#D97706]']">
+                    <div class="relative aspect-[16/10] overflow-hidden bg-muted">
+                        <img
+                            v-if="event.image"
+                            :src="event.image"
+                            :alt="event.title"
+                            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                        <span
+                            :class="[
+                                'absolute top-3 right-3 rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-white px-2 py-0.5 text-[10px] font-bold shadow-[var(--brutal-shadow-sm)]',
+                                event.status === 'Open' ? 'text-[#059669]' : 'text-[#D97706]',
+                            ]"
+                        >
                             {{ event.status }}
                         </span>
                     </div>
@@ -116,7 +164,7 @@ const filteredEvents = computed(() => {
                             </div>
                             <div class="flex items-center gap-1.5">
                                 <svg class="h-3 w-3 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                                {{ event.attendees.toLocaleString() }} attendees
+                                {{ event.attendees.toLocaleString() }} registered
                             </div>
                         </div>
                     </div>

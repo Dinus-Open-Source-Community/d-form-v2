@@ -2,10 +2,9 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
 use Illuminate\Contracts\Support\Htmlable;
 
-enum EventCategory: string implements HasLabel
+enum EventCategory: string
 {
     case RKT = 'rkt';
     case NON_RKT = 'non-rkt';

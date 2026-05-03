@@ -296,6 +296,7 @@ export const statusColorMap: Record<string, string> = {
     pending: '#D97706',
     approved: '#059669',
     rejected: '#DC2626',
+    submitted: '#059669',
 }
 
 export const categoryColorMap: Record<string, string> = {

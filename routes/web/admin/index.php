@@ -6,6 +6,7 @@ use App\Models\Form;
 use App\Services\Event\EventService;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
+use Inertia\Inertia;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
 
@@ -38,31 +39,24 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
 
         return inertia('Dashboard/User/EventDetail', [
             'event' => $eventService->eventToInertiaArray($event),
-            'isRegistered' => !!$registration,
-            'registrationStatus' => $registration?->status,
+            'isRegistered' => (bool) $registration,
+            'registrationStatus' => $registration ? 'submitted' : null,
         ]);
     })->name('events.show');
 
-    Route::get('/events/{event}/register', function (Event $event, EventService $eventService) {
-        $form = Form::where('event_id', $event->id)->orderBy('title')->first();
-        $fields = $form ? $form->formFields()->orderBy('order')->get()->map(function ($f) {
-            return [
-                'id' => $f->id,
-                'type' => \App\Support\FormFieldTypeMapping::toApiType($f->input_type),
-                'label' => $f->label,
-                'description' => $f->description,
-                'name' => $f->name,
-                'order' => $f->order,
-                'metadata' => $f->metadata,
-            ];
-        }) : [];
+    Route::get('/events/{event}/register', function (Event $event) {
+        $form = Form::query()->where('event_id', $event->id)->orderBy('title')->first();
 
-        return inertia('Dashboard/User/EventRegister', [
-            'event' => $eventService->eventToInertiaArray($event),
-            'form' => $form,
-            'fields' => $fields,
-            'submitUrl' => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
-        ]);
+        if ($form === null) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'No registration form has been published for this event yet.',
+            ]);
+
+            return redirect()->route('dashboard.user.events.show', $event);
+        }
+
+        return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
     })->name('events.register');
 });
 

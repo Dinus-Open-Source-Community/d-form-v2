@@ -36,7 +36,7 @@ Legenda: **UI** = tersedia / sebagian / placeholder | **BE** = belum / sebagian 
 | Dashboard admin | `pages/Dashboard/Index.vue`, `HomeController` | Sebagian | Sebagian | P1 | Stats + recent events OK; chart/KPI trend/kalender pakai dummy |
 | Dashboard admin — events | `pages/Dashboard/Events/Index.vue`, `EventController@index` | Ada | Ada | — | Terhubung; cache perlu strategi busting saat submission |
 | Form builder | `pages/Dashboard/Events/Forms/Index.vue`, `Forms/Create.vue` | Ada | Belum | P0 | Route Inertia tanpa props; `FormController` ada tapi Blade |
-| Pendaftaran member | `pages/Dashboard/User/EventRegister.vue` | Ada | Sebagian | P0 | `forms` dari DB; **fields** masih dummy |
+| Pendaftaran member | `pages/Dashboard/Events/Forms/Fill.vue` (redirect dari `/dashboard/user/events/{event}/register`) | Ada | Paritas dengan BE | P0 | Guard `accessStatus`; submit ke `dashboard.forms.submission` |
 | Member — browse events | `pages/Dashboard/User/Events.vue` | Ada | Sebagian | P1 | List OK; tab **Joined** TODO — perlu data submission |
 | Member — dashboard | `pages/Dashboard/Index.vue` (role user) | Ada | Belum | P1 | KPI & list upcoming banyak statis/dummy |
 | Registrants admin | `pages/Dashboard/Events/Registrants.vue` | Ada | Belum | P0 | `dummyRegistrants` |
@@ -208,7 +208,7 @@ Legenda: **UI** = tersedia / sebagian / placeholder | **BE** = belum / sebagian 
 **Perilaku UI saat ini**
 
 - Route closure mengirim `event` + `forms` (koleksi `Form` model).
-- `EventRegister.vue` memakai **`dummyFormFields`** jika props `fields` tidak ada.
+- Halaman pendaftaran member terpusat di **`Fill.vue`**; rute `/dashboard/user/events/{event}/register` melakukan redirect ke form fill resmi.
 - Submit: `toast.success` tanpa `router.post` ke backend.
 
 **Kebutuhan backend**

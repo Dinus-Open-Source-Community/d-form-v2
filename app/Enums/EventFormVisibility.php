@@ -2,10 +2,9 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
 use Illuminate\Contracts\Support\Htmlable;
 
-enum EventFormVisibility: string implements HasLabel
+enum EventFormVisibility: string
 {
     case Public = 'public';
     case Participant = 'participant';

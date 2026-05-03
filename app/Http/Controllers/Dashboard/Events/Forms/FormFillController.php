@@ -37,6 +37,8 @@ class FormFillController extends Controller
                 'title'       => $form->title,
                 'description' => $form->description,
                 'closed_at'   => $closed ? $closed->toISOString() : null,
+                'banner_url'  => $form->banner_url,
+                'banner_caption' => $form->banner_caption,
             ],
             'fields'       => $fields,
             'submitUrl'    => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),

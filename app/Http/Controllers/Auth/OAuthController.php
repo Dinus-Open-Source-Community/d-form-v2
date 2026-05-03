@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 use Laravel\Socialite\Facades\Socialite;
 
 class OAuthController extends Controller
@@ -51,13 +51,7 @@ class OAuthController extends Controller
 
                 Auth::login($user);
 
-                Notification::make()
-                    ->success()
-                    ->title(explode(', ', __('auth.login_success'))[0])
-                    ->body(explode(', ', __('auth.login_success'))[1])
-                    ->send();
-
-                return redirect()->intended('dashboard');
+                return $this->flashSuccessAndRedirectIntended();
             }
 
             // Create new user
@@ -70,21 +64,16 @@ class OAuthController extends Controller
                 'email_verified_at' => now(),
             ]);
 
+            $user->assignRole('member');
+
             Auth::login($user);
 
-            Notification::make()
-                ->success()
-                ->title(explode(', ', __('auth.login_success'))[0])
-                ->body(explode(', ', __('auth.login_success'))[1])
-                ->send();
-
-            return redirect()->intended('dashboard');
+            return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
-            Notification::make()
-                ->danger()
-                ->title('Authentication Failed')
-                ->body('Unable to login with Google. Please try again.')
-                ->send();
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'Unable to login with Google. Please try again.',
+            ]);
 
             return redirect()->route('auth.login');
         }
@@ -129,43 +118,51 @@ class OAuthController extends Controller
 
                 Auth::login($user);
 
-                Notification::make()
-                    ->success()
-                    ->title(explode(', ', __('auth.login_success'))[0])
-                    ->body(explode(', ', __('auth.login_success'))[1])
-                    ->send();
-
-                return redirect()->intended('dashboard');
+                return $this->flashSuccessAndRedirectIntended();
             }
 
             // Create new user
             // Note: GitHub may not always provide email if user hasn't made it public
             $user = User::create([
                 'name' => $githubUser->getName() ?? $githubUser->getNickname(),
-                'email' => $githubUser->getEmail() ?? $githubUser->getNickname() . '@github.local',
+                'email' => $githubUser->getEmail() ?? $githubUser->getNickname().'@github.local',
                 'github_id' => $githubUser->getId(),
                 'avatar' => $githubUser->getAvatar(),
                 'password' => bcrypt(Str::random(32)), // Random password since OAuth users don't need it
                 'email_verified_at' => $githubUser->getEmail() ? now() : null,
             ]);
 
+            $user->assignRole('member');
+
             Auth::login($user);
 
-            Notification::make()
-                ->success()
-                ->title(explode(', ', __('auth.login_success'))[0])
-                ->body(explode(', ', __('auth.login_success'))[1])
-                ->send();
-
-            return redirect()->intended('dashboard');
+            return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
-            Notification::make()
-                ->danger()
-                ->title('Authentication Failed')
-                ->body('Unable to login with GitHub. Please try again.')
-                ->send();
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'Unable to login with GitHub. Please try again.',
+            ]);
 
             return redirect()->route('auth.login');
         }
+    }
+
+    private function flashSuccessAndRedirectIntended(): RedirectResponse
+    {
+        $parts = explode(', ', __('auth.login_success'));
+
+        Inertia::flash('toast', [
+            'message' => ($parts[0] ?? 'Welcome').(isset($parts[1]) ? ' — '.$parts[1] : ''),
+            'type' => 'success',
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        $default = $user->hasRole('member') && ! $user->hasAnyRole(['admin', 'super-admin'])
+            ? route('dashboard.user.events', absolute: false)
+            : '/dashboard';
+
+        return redirect()->intended($default);
     }
 }

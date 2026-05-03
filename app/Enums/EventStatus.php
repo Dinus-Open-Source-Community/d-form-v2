@@ -2,9 +2,7 @@
 
 namespace App\Enums;
 
-use Filament\Support\Contracts\HasLabel;
-
-enum EventStatus: string implements HasLabel
+enum EventStatus: string
 {
     case Draft = 'draft';
     case Published = 'published';

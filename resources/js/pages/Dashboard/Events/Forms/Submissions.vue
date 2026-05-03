@@ -25,7 +25,10 @@ import {
     Users,
     CalendarClock,
     Download,
+    CheckCircle2,
+    XCircle,
 } from 'lucide-vue-next';
+import { toast } from 'vue-sonner';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -128,6 +131,15 @@ function paginationLabel(value: string): string {
 function openDetail(submission: IFormSubmission) {
     selectedSubmission.value = submission;
     isDetailOpen.value = true;
+}
+
+/** Approve / reject submission — backend API not implemented yet (no column or routes). */
+function submissionReviewStub(action: 'accept' | 'reject', submission: IFormSubmission) {
+    const title = action === 'accept' ? 'Terima pendaftar' : 'Tolak pendaftar';
+    toast.info(title, {
+        description: `Aksi untuk “${submission.user?.name ?? submission.user?.email ?? submission.id}” belum tersedia. Model form_answers belum memiliki status review. Lihat docs/milestone-m1-m4-remaining.md.`,
+        duration: 8000,
+    });
 }
 </script>
 
@@ -279,14 +291,36 @@ function openDetail(submission: IFormSubmission) {
                                         {{ formatDate(submission.submitted_at) }}
                                     </TableCell>
                                     <TableCell class="px-6 py-4 text-center">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            class="size-8 rounded-lg hover:bg-primary/10 hover:text-primary border-2 border-transparent transition-all hover:border-primary/20"
-                                            @click="openDetail(submission)"
-                                        >
-                                            <Eye class="size-4" />
-                                        </Button>
+                                        <div class="flex items-center justify-center gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Terima (UI only — backend belum ada)"
+                                                class="size-8 rounded-lg border-2 border-transparent text-success transition-all hover:border-success/30 hover:bg-success/10"
+                                                @click="submissionReviewStub('accept', submission)"
+                                            >
+                                                <CheckCircle2 class="size-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Tolak (UI only — backend belum ada)"
+                                                class="size-8 rounded-lg border-2 border-transparent text-destructive transition-all hover:border-destructive/30 hover:bg-destructive/10"
+                                                @click="submissionReviewStub('reject', submission)"
+                                            >
+                                                <XCircle class="size-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                class="size-8 rounded-lg hover:bg-primary/10 hover:text-primary border-2 border-transparent transition-all hover:border-primary/20"
+                                                @click="openDetail(submission)"
+                                            >
+                                                <Eye class="size-4" />
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             </TableBody>
@@ -340,14 +374,36 @@ function openDetail(submission: IFormSubmission) {
                                 <span class="flex items-center gap-1.5"><Clock class="size-3" /> Submitted</span>
                                 <span>{{ formatDate(submission.submitted_at) }}</span>
                             </div>
-                            <Button
-                                variant="outline"
-                                class="w-full gap-2 border-2 font-black tracking-widest uppercase"
-                                @click="openDetail(submission)"
-                            >
-                                <Eye class="size-4" />
-                                View Details
-                            </Button>
+                            <div class="flex flex-col gap-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        class="gap-1 border-2 border-success/40 font-black text-success hover:bg-success/10"
+                                        @click="submissionReviewStub('accept', submission)"
+                                    >
+                                        <CheckCircle2 class="size-4" />
+                                        Accept
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        class="gap-1 border-2 border-destructive/40 font-black text-destructive hover:bg-destructive/10"
+                                        @click="submissionReviewStub('reject', submission)"
+                                    >
+                                        <XCircle class="size-4" />
+                                        Reject
+                                    </Button>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    class="w-full gap-2 border-2 font-black tracking-widest uppercase"
+                                    @click="openDetail(submission)"
+                                >
+                                    <Eye class="size-4" />
+                                    View Details
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -451,6 +507,33 @@ function openDetail(submission: IFormSubmission) {
                                 </p>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <section v-if="selectedSubmission" class="space-y-3 border-t-[1.5px] border-foreground/10 pt-6">
+                    <h5 class="text-[10px] font-black tracking-[0.2em] text-primary uppercase">Review (preview)</h5>
+                    <p class="text-xs font-semibold text-muted-foreground">
+                        Tombol ini memanggil notifikasi saja sampai backend menambah kolom status dan route approve/reject.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            class="flex-1 gap-2 border-2 border-success/50 font-black text-success min-w-[120px]"
+                            variant="outline"
+                            @click="submissionReviewStub('accept', selectedSubmission)"
+                        >
+                            <CheckCircle2 class="size-4" />
+                            Accept
+                        </Button>
+                        <Button
+                            type="button"
+                            class="flex-1 gap-2 border-2 border-destructive/50 font-black text-destructive min-w-[120px]"
+                            variant="outline"
+                            @click="submissionReviewStub('reject', selectedSubmission)"
+                        >
+                            <XCircle class="size-4" />
+                            Reject
+                        </Button>
                     </div>
                 </section>
             </div>

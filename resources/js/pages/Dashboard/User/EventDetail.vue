@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
@@ -20,7 +20,7 @@ defineOptions({ layout: DashboardLayout })
 const props = defineProps<{
     event: IEvent
     isRegistered: boolean
-    registrationStatus: 'pending' | 'approved' | 'rejected' | null
+    registrationStatus: 'submitted' | 'pending' | 'approved' | 'rejected' | null
 }>()
 
 const event = props.event
@@ -142,13 +142,13 @@ const metaBlocks = [
                         </div>
                         <div v-else class="flex flex-col gap-4">
                             <div class="rounded-xl border bg-success/5 p-4 text-center shadow-xs border-success/20">
-                                <p class="text-sm font-bold text-success">Success Register</p>
+                                <p class="text-sm font-bold text-success">You are registered</p>
                                 <Badge
                                     variant="secondary"
                                     class="mt-1.5 text-[10px] capitalize"
-                                    :style="{ color: statusColorMap[registrationStatus ?? 'pending'] }"
+                                    :style="{ color: statusColorMap[registrationStatus ?? 'submitted'] }"
                                 >
-                                    {{ registrationStatus }}
+                                    {{ registrationStatus === 'submitted' ? 'Submitted' : registrationStatus }}
                                 </Badge>
                             </div>
 
