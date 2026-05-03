@@ -5,6 +5,7 @@ ARG GID=1000
 
 WORKDIR /app
 
+# Install PHP extensions
 RUN install-php-extensions \
     pcntl \
     zip \
@@ -12,37 +13,33 @@ RUN install-php-extensions \
     intl \
     imagick \
     pdo_mysql \
-    redis
+    redis \
+    gd \
+    opcache
 
-# Install Node.js, npm, and git
-RUN apk add --no-cache nodejs npm git
+# Install Node.js, npm, git, and netcat (for wait-for-db)
+RUN apk add --no-cache nodejs npm git netcat-openbsd
 
-# Install Composer (if not already available)
-RUN if ! command -v composer &> /dev/null; then \
-        curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer; \
-    fi
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Create app directory
-WORKDIR /app
-
-# Create appuser with proper permissions
-# Use numeric IDs that work on both Linux and Windows Docker
-# Try to create group and user, ignore errors if they already exist
-RUN addgroup -g $GID -S appuser || true && \
-    adduser -u $UID -G appuser -s /bin/sh -D -S appuser || true
-
-# Copy entrypoint script
+# Set entrypoint
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set working directory ownership
-RUN chown -R root:root /app 2>/dev/null || true
+# Ensure storage and bootstrap/cache exist and have correct permissions
+RUN mkdir -p storage bootstrap/cache && \
+    chown -R www-data:www-data /app && \
+    chmod -R 775 storage bootstrap/cache
 
-# Switch to root to ensure we have permissions for volume mounts
+# Set default environment variables for Octane
+ENV OCTANE_SERVER=frankenphp
+ENV WATCH_MODE=true
+
+# Use root to allow entrypoint to fix permissions on mounted volumes
 USER root
 
-# Set entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Default command for development
-CMD ["--watch", "--workers=1", "--max-requests=1"]
+CMD ["--watch", "--workers=1"]

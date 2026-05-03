@@ -46,7 +46,7 @@ class FormSeeder extends Seeder
     {
         $fields = [
             [
-                'input_type' => 'textInput',
+                'input_type' => 'input',
                 'metadata' => [
                     'label' => 'Full Name',
                     'placeholder' => 'Enter your full name',
@@ -54,7 +54,7 @@ class FormSeeder extends Seeder
                 ],
             ],
             [
-                'input_type' => 'textInput',
+                'input_type' => 'input',
                 'metadata' => [
                     'label' => 'Student ID (NIM)',
                     'placeholder' => 'e.g. A11.2026.xxxxx',
@@ -62,7 +62,7 @@ class FormSeeder extends Seeder
                 ],
             ],
             [
-                'input_type' => 'textInput',
+                'input_type' => 'input',
                 'metadata' => [
                     'label' => 'Phone Number',
                     'placeholder' => '08xxxxxxxxxx',
@@ -111,12 +111,15 @@ class FormSeeder extends Seeder
             ],
         ];
 
-        foreach ($fields as $field) {
+        foreach ($fields as $index => $field) {
             FormField::create([
                 'id' => Str::uuid()->toString(),
                 'input_type' => $field['input_type'],
+                'label' => $field['metadata']['label'],
+                'name' => Str::slug($field['metadata']['label'], '_'),
                 'metadata' => $field['metadata'],
                 'form_id' => $form->id,
+                'order' => $index,
             ]);
         }
     }
@@ -158,12 +161,15 @@ class FormSeeder extends Seeder
             ],
         ];
 
-        foreach ($fields as $field) {
+        foreach ($fields as $index => $field) {
             FormField::create([
                 'id' => Str::uuid()->toString(),
                 'input_type' => $field['input_type'],
+                'label' => $field['metadata']['label'],
+                'name' => Str::slug($field['metadata']['label'], '_'),
                 'metadata' => $field['metadata'],
                 'form_id' => $form->id,
+                'order' => $index,
             ]);
         }
     }

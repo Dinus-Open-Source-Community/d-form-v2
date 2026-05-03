@@ -26,19 +26,19 @@ const navLinks = [
         :class="[
             'fixed top-0 right-0 left-0 z-50 transition-all duration-300',
             scrolled
-                ? 'border-b-2 border-[#101014] bg-white/95 shadow-[0_6px_0_rgba(16,16,20,0.9)] backdrop-blur-md'
-                : 'bg-white/80 backdrop-blur-sm',
+                ? 'border-b-[1.5px] border-[var(--brutal-ink)] bg-white/95 shadow-[var(--brutal-shadow-sm)] backdrop-blur-lg'
+                : 'bg-white/70 backdrop-blur-sm',
         ]"
     >
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-8">
             <!-- Logo -->
             <a href="/" class="group flex items-center gap-2.5">
                 <div
-                    class="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#0A84DC] text-white shadow-[4px_4px_0_#101014] transition-transform group-hover:-rotate-6"
+                    class="flex h-9 w-9 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] text-white shadow-[var(--brutal-shadow-sm)] transition-transform group-hover:-rotate-3"
                 >
                     <svg
-                        width="20"
-                        height="20"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="white"
@@ -53,8 +53,8 @@ const navLinks = [
                         <path d="M10 9H8" />
                     </svg>
                 </div>
-                <span class="font-display text-2xl font-extrabold tracking-tight text-[#101014]">
-                    D<span class="text-[#0A84DC]">Form</span>
+                <span class="font-display text-xl font-bold tracking-tight text-[var(--brutal-ink)]">
+                    D<span class="text-[var(--brutal-blue)]">Form</span>
                 </span>
             </a>
 
@@ -65,10 +65,10 @@ const navLinks = [
                     :key="link.href"
                     :href="link.href"
                     :class="[
-                        'rounded-xl border-2 px-4 py-2 text-sm font-extrabold transition-all duration-150',
+                        'rounded-lg border-[1.5px] px-3.5 py-2 text-sm font-bold transition-all duration-150',
                         currentPath === link.href
-                            ? 'border-[#101014] bg-[#FFD84D] text-[#101014] shadow-[3px_3px_0_#101014]'
-                            : 'border-transparent text-[#101014] hover:border-[#101014] hover:bg-[#41F0B4] hover:shadow-[3px_3px_0_#101014]',
+                            ? 'border-[var(--brutal-ink)] bg-[var(--brutal-yellow)] text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)]'
+                            : 'border-transparent text-[var(--brutal-ink)]/70 hover:border-[var(--brutal-ink)] hover:bg-[var(--brutal-mint)]/10 hover:text-[var(--brutal-ink)] hover:shadow-[var(--brutal-shadow-sm)]',
                     ]"
                 >
                     {{ link.label }}
@@ -76,16 +76,16 @@ const navLinks = [
             </div>
 
             <!-- CTA -->
-            <div class="hidden items-center gap-3 md:flex">
+            <div class="hidden items-center gap-2.5 md:flex">
                 <a
                     href="/auth/login"
-                    class="rounded-xl border-2 border-transparent px-4 py-2 text-sm font-extrabold text-[#101014] transition-all hover:border-[#101014] hover:bg-white hover:shadow-[3px_3px_0_#101014]"
+                    class="rounded-lg px-3.5 py-2 text-sm font-bold text-[var(--brutal-ink)]/70 transition-all hover:text-[var(--brutal-ink)]"
                 >
                     Sign In
                 </a>
                 <a
                     href="/auth/register"
-                    class="rounded-xl border-2 border-[#101014] bg-[#0A84DC] px-5 py-2.5 text-sm font-extrabold text-white shadow-[4px_4px_0_#101014] transition-all duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[#FFD84D] hover:text-[#101014] active:translate-x-1 active:translate-y-1 active:shadow-[1px_1px_0_#101014]"
+                    class="rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] px-4.5 py-2 text-sm font-bold text-white shadow-[var(--brutal-shadow-sm)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[var(--brutal-shadow)] active:translate-y-0 active:shadow-[1px_1px_0_var(--brutal-ink)]"
                 >
                     Get Started
                 </a>
@@ -93,13 +93,13 @@ const navLinks = [
 
             <!-- Mobile menu button -->
             <button
-                class="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#101014] bg-white shadow-[3px_3px_0_#101014] transition-all active:translate-x-1 active:translate-y-1 active:shadow-none md:hidden"
+                class="flex h-9 w-9 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-white shadow-[var(--brutal-shadow-sm)] transition-all active:translate-y-0.5 active:shadow-none md:hidden"
                 @click="mobileMenuOpen = !mobileMenuOpen"
             >
                 <svg
                     v-if="!mobileMenuOpen"
-                    width="22"
-                    height="22"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -112,8 +112,8 @@ const navLinks = [
                 </svg>
                 <svg
                     v-else
-                    width="22"
-                    height="22"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -135,29 +135,29 @@ const navLinks = [
             leave-from-class="opacity-100 translate-y-0"
             leave-to-class="opacity-0 -translate-y-2"
         >
-            <div v-if="mobileMenuOpen" class="border-t-2 border-[#101014] bg-white px-6 py-4 shadow-[0_8px_0_#101014] md:hidden">
+            <div v-if="mobileMenuOpen" class="border-t-[1.5px] border-[var(--brutal-ink)] bg-white px-6 py-4 shadow-[0_4px_0_var(--brutal-ink)] md:hidden">
                 <div class="flex flex-col gap-1">
                     <a
                         v-for="link in navLinks"
                         :key="link.href"
                         :href="link.href"
                         :class="[
-                            'rounded-xl border-2 px-3 py-2.5 text-sm font-extrabold transition-all',
+                            'rounded-lg border-[1.5px] px-3 py-2.5 text-sm font-bold transition-all',
                             currentPath === link.href
-                                ? 'border-[#101014] bg-[#FFD84D] text-[#101014]'
-                                : 'border-transparent text-[#101014] hover:border-[#101014] hover:bg-[#41F0B4]',
+                                ? 'border-[var(--brutal-ink)] bg-[var(--brutal-yellow)] text-[var(--brutal-ink)]'
+                                : 'border-transparent text-[var(--brutal-ink)] hover:border-[var(--brutal-ink)] hover:bg-[var(--brutal-mint)]/10',
                         ]"
                         @click="mobileMenuOpen = false"
                     >
                         {{ link.label }}
                     </a>
-                    <hr class="my-2 border-[#101014]" />
-                    <a href="/auth" class="rounded-xl border-2 border-[#101014] px-3 py-2.5 text-sm font-extrabold text-[#111827]"
+                    <hr class="my-2 border-[var(--brutal-ink)]/15" />
+                    <a href="/auth" class="rounded-lg px-3 py-2.5 text-sm font-bold text-[var(--brutal-ink)]"
                         >Sign In</a
                     >
                     <a
                         href="/auth"
-                        class="mt-1 rounded-xl border-2 border-[#101014] bg-[#0A84DC] px-3 py-2.5 text-center text-sm font-extrabold text-white shadow-[3px_3px_0_#101014]"
+                        class="mt-1 rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] px-3 py-2.5 text-center text-sm font-bold text-white shadow-[var(--brutal-shadow-sm)]"
                         >Get Started</a
                     >
                 </div>

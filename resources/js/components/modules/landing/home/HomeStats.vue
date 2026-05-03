@@ -22,36 +22,25 @@ const stats = [
 </script>
 
 <template>
-    <section id="stats-bar" class="relative border-y-4 border-[#101014] bg-[#0A84DC] py-16 lg:py-20">
-        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.08]"></div>
-        <!-- Dot pattern -->
-        <div class="pointer-events-none absolute inset-0 opacity-[0.04]">
-            <svg width="100%" height="100%">
-                <defs>
-                    <pattern id="stat-dots" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <circle cx="2" cy="2" r="0.6" fill="white" />
-                    </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#stat-dots)" />
-            </svg>
-        </div>
+    <section id="stats-bar" class="relative border-y-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] py-14 lg:py-18">
+        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.04]"></div>
 
         <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="grid grid-cols-2 gap-6 lg:grid-cols-4 lg:gap-0">
+            <div class="grid grid-cols-2 gap-5 lg:grid-cols-4 lg:gap-0">
                 <div
                     v-for="(stat, i) in stats"
                     :key="stat.label"
                     :class="[
-                        'relative flex flex-col items-center rounded-2xl border-2 border-[#101014] bg-white px-4 py-6 text-[#101014] shadow-[5px_5px_0_#101014] transition-all duration-600 lg:rounded-none lg:border-0 lg:bg-transparent lg:text-white lg:shadow-none',
+                        'relative flex flex-col items-center rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-white px-4 py-5 text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)] transition-all duration-600 lg:rounded-none lg:border-0 lg:bg-transparent lg:text-white lg:shadow-none',
                         visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-                        i < 3 ? 'lg:border-r-2 lg:border-white/30' : '',
+                        i < 3 ? 'lg:border-r-[1.5px] lg:border-white/20' : '',
                     ]"
                     :style="{ transitionDelay: `${i * 100}ms` }"
                 >
-                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#FFD84D] text-[#101014] shadow-[3px_3px_0_#101014] lg:border-white lg:bg-white lg:text-[#0A84DC] lg:shadow-[3px_3px_0_#101014]">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/20 text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)] lg:border-white/30 lg:bg-white/15 lg:text-white lg:shadow-none">
                         <svg
                             v-if="stat.icon === 'calendar'"
-                            class="h-5 w-5"
+                            class="h-4.5 w-4.5"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -65,7 +54,7 @@ const stats = [
                         </svg>
                         <svg
                             v-if="stat.icon === 'form'"
-                            class="h-5 w-5"
+                            class="h-4.5 w-4.5"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -79,7 +68,7 @@ const stats = [
                         </svg>
                         <svg
                             v-if="stat.icon === 'chart'"
-                            class="h-5 w-5"
+                            class="h-4.5 w-4.5"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -93,7 +82,7 @@ const stats = [
                         </svg>
                         <svg
                             v-if="stat.icon === 'shield'"
-                            class="h-5 w-5"
+                            class="h-4.5 w-4.5"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -104,8 +93,8 @@ const stats = [
                             <path d="m9 12 2 2 4-4" />
                         </svg>
                     </div>
-                    <span class="font-display text-4xl font-extrabold tracking-tight">{{ stat.value }}</span>
-                    <span class="mt-1.5 text-[11px] font-extrabold tracking-wider uppercase opacity-80">{{
+                    <span class="font-display text-3xl font-bold tracking-tight">{{ stat.value }}</span>
+                    <span class="mt-1 text-[10px] font-bold tracking-wider uppercase opacity-70">{{
                         stat.label
                     }}</span>
                 </div>

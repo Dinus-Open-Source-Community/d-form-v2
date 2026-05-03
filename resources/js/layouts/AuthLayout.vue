@@ -14,13 +14,13 @@ import { Toaster } from '@/components/ui/sonner';
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
             <div class="brutal-card w-full max-w-md bg-white p-7 sm:p-8">
                 <!-- Logo -->
-                <a href="/" class="group mb-10 flex items-center gap-2.5">
+                <a href="/" class="group mb-9 flex items-center gap-2.5">
                     <div
-                        class="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#0A84DC] shadow-[4px_4px_0_#101014] transition-transform group-hover:-rotate-6"
+                        class="flex h-10 w-10 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] shadow-[var(--brutal-shadow-sm)] transition-transform group-hover:-rotate-3"
                     >
                         <svg
-                            width="22"
-                            height="22"
+                            width="20"
+                            height="20"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="white"
@@ -35,8 +35,8 @@ import { Toaster } from '@/components/ui/sonner';
                             <path d="M10 9H8" />
                         </svg>
                     </div>
-                    <span class="font-display text-3xl font-extrabold tracking-tight text-[#111827]">
-                        D<span class="text-[#0A84DC]">Form</span>
+                    <span class="font-display text-2xl font-bold tracking-tight text-[var(--brutal-ink)]">
+                        D<span class="text-[var(--brutal-blue)]">Form</span>
                     </span>
                 </a>
 
@@ -47,7 +47,7 @@ import { Toaster } from '@/components/ui/sonner';
                 <AuthOAuthButtons />
 
                 <!-- Mobile footer -->
-                <p class="mt-10 text-center text-xs font-bold uppercase tracking-[0.14em] text-[#6B7280] lg:hidden">
+                <p class="mt-9 text-center text-xs font-bold uppercase tracking-[0.12em] text-[var(--brutal-ink)]/40 lg:hidden">
                     Created by Dinus Open Source Community
                 </p>
             </div>

@@ -450,7 +450,7 @@ const tabItems: { value: 'all' | 'pending' | 'approved' | 'rejected'; label: str
                 v-else
                 title="No registrants match your view"
                 description="Try switching tabs or clearing the search. Registrants appear here the moment they submit the form."
-                animation-url="https://lottie.host/4e039bf3-670e-4a0f-8a6c-1bee793bfc23/JkaGBMIxOz.json"
+                animation-name="errorState"
             />
         </div>
     </TooltipProvider>

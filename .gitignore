@@ -46,6 +46,7 @@ bun.lock
 resources/js/actions
 resources/js/routes
 resources/js/wayfinder
+storage/*
 
 **/caddy
 frankenphp

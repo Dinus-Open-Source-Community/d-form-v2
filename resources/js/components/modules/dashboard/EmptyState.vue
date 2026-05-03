@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import { Vue3Lottie } from 'vue3-lottie'
+import LocalLottie from '@/components/core/LocalLottie.vue'
+import type { LottieName } from '@/lib/lotties'
 
 defineProps<{
     title: string
     description?: string
     animationUrl?: string
+    animationName?: LottieName
     size?: number
 }>()
 </script>
 
 <template>
     <div class="brutal-card brutal-noise flex flex-col items-center justify-center px-6 py-14 text-center">
-        <Vue3Lottie
-            v-if="animationUrl"
-            :animation-link="animationUrl"
+        <LocalLottie
+            v-if="animationUrl || animationName"
+            :name="animationName ?? 'errorState'"
             :height="size ?? 180"
             :width="size ?? 180"
-            :loop="true"
             class="mb-2 drop-shadow-[5px_5px_0_var(--brutal-ink)]"
         />
         <p class="font-display text-base font-extrabold text-foreground">{{ title }}</p>

@@ -115,7 +115,7 @@ function confirmDelete() {
             v-else
             title="No forms yet"
             description="Create your first form for this event."
-            animation-url="https://lottie.host/4e039bf3-670e-4a0f-8a6c-1bee793bfc23/JkaGBMIxOz.json"
+            animation-name="errorState"
         >
             <Button as-child>
                 <Link :href="`/dashboard/events/${event.id}/forms/create`"

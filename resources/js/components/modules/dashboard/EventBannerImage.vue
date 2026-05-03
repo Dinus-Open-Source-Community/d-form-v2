@@ -27,7 +27,15 @@ watch(
 
 const showImg = computed(() => Boolean(props.src) && !failed.value)
 
-const resolvedSrc = computed(() => (props.src ? String(props.src) : ''))
+const resolvedSrc = computed(() => {
+    if (!props.src) return ''
+    const value = String(props.src)
+    if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/') || value.startsWith('data:')) {
+        return value
+    }
+
+    return `/storage/${value.replace(/^storage\//, '')}`
+})
 </script>
 
 <template>

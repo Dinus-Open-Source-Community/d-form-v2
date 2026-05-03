@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Head } from '@inertiajs/vue3';
-import { Vue3Lottie } from 'vue3-lottie';
+import LocalLottie from '@/components/core/LocalLottie.vue';
 
 const props = defineProps<{
     status: number;
@@ -29,41 +29,33 @@ const description = computed(() => descriptions[props.status] ?? 'Terjadi masala
     <Head :title="title" />
 
     <main class="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-6 py-16">
-        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.04]"></div>
-        <div class="absolute left-8 top-12 h-28 w-28 -rotate-12 rounded-3xl border-4 border-[#101014] bg-[#FFD84D]"></div>
-        <div class="absolute bottom-12 right-10 h-32 w-32 rounded-full border-4 border-[#101014] bg-[#FF6BB5]"></div>
+        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.02]"></div>
 
-        <section class="brutal-card relative z-10 grid max-w-5xl items-center gap-8 p-8 md:grid-cols-[0.9fr_1.1fr] md:p-10">
-            <div class="rounded-3xl border-2 border-[#101014] bg-[#41F0B4] p-4 shadow-[6px_6px_0_#101014]">
-                <Vue3Lottie
-                    animation-link="https://lottie.host/4e039bf3-670e-4a0f-8a6c-1bee793bfc23/JkaGBMIxOz.json"
-                    :height="280"
-                    :width="280"
-                    :loop="true"
-                    class="mx-auto"
-                />
+        <section class="brutal-card relative z-10 grid max-w-4xl items-center gap-8 bg-white p-7 md:grid-cols-[0.9fr_1.1fr] md:p-9">
+            <div class="rounded-2xl border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-mint)]/10 p-4 shadow-[var(--brutal-shadow-sm)]">
+                <LocalLottie name="errorState" :height="240" :width="240" class="mx-auto" />
             </div>
 
             <div>
-                <p class="mb-4 w-fit rounded-full border-2 border-[#101014] bg-[#FFD84D] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] shadow-[3px_3px_0_#101014]">
+                <p class="mb-3.5 w-fit rounded-full border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/20 px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.14em] shadow-[var(--brutal-shadow-sm)]">
                     Something happened
                 </p>
-                <h1 class="font-display text-balance text-5xl font-extrabold leading-none tracking-[-0.04em] text-[#101014] md:text-6xl">
+                <h1 class="font-display text-balance text-4xl font-bold leading-none tracking-[-0.035em] text-[var(--brutal-ink)] md:text-5xl">
                     {{ title }}
                 </h1>
-                <p class="mt-5 max-w-xl text-lg font-semibold leading-8 text-muted-foreground">
+                <p class="mt-4 max-w-xl text-base font-medium leading-relaxed text-[var(--brutal-ink)]/60">
                     {{ description }}
                 </p>
-                <div class="mt-8 flex flex-wrap gap-3">
+                <div class="mt-7 flex flex-wrap gap-2.5">
                     <a
                         href="/"
-                        class="rounded-2xl border-2 border-[#101014] bg-[#0A84DC] px-6 py-3 text-sm font-extrabold text-white shadow-[5px_5px_0_#101014] transition-all hover:-translate-x-1 hover:-translate-y-1 hover:bg-[#FFD84D] hover:text-[#101014]"
+                        class="rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] px-5 py-2.5 text-sm font-bold text-white shadow-[var(--brutal-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--brutal-ink)]"
                     >
                         Back to Home
                     </a>
                     <a
                         href="/events"
-                        class="rounded-2xl border-2 border-[#101014] bg-white px-6 py-3 text-sm font-extrabold text-[#101014] shadow-[5px_5px_0_#101014] transition-all hover:-translate-x-1 hover:-translate-y-1 hover:bg-[#FF6BB5]"
+                        class="rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-white px-5 py-2.5 text-sm font-bold text-[var(--brutal-ink)] shadow-[var(--brutal-shadow)] transition-all hover:-translate-y-0.5 hover:bg-[var(--brutal-pink)]/8 hover:shadow-[4px_4px_0_var(--brutal-ink)]"
                     >
                         Browse Events
                     </a>

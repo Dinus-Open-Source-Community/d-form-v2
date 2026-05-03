@@ -1,43 +1,39 @@
 services:
     app:
         container_name: d_form_app
-        env_file:
-            - .env
         build:
             context: .
             dockerfile: ./docker/Dockerfile.dev
             args:
-                - UID=1000
-                - GID=1000
+                - UID=${UID:-1000}
+                - GID=${GID:-1000}
+        env_file:
+            - .env
         volumes:
-            # Use consistent path format for Windows compatibility
-            - .:/app:cached
+            - .:/app
             - /app/node_modules
             - /app/vendor
-            - ./bootstrap/cache:/app/bootstrap/cache:rw
-            - ./storage:/app/storage:rw
             - caddy_data:/data
             - caddy_config:/config
-            - ./docker/php/php.ini:/usr/local/etc/php/conf.d/php.ini:ro
-            - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini:ro
-            # Let Octane generate Caddyfile automatically for FrankenPHP
-            # - ./docker/caddy/Caddyfile:/etc/frankenphp/Caddyfile:ro
         environment:
             - PHP_OPCACHE_VALIDATE_TIMESTAMPS=1
             - PHP_OPCACHE_REVALIDATE_FREQ=0
+            - DB_HOST=db
+            - REDIS_HOST=redis
         dns:
             - 8.8.8.8
             - 8.8.4.4
         networks:
-            - default
+            - d-form-network
         depends_on:
-            - db
-            - redis
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_started
         restart: unless-stopped
         ports:
-            - '3000:8000'
+            - '${APP_PORT:-3000}:8000'
             - '5173:5173'
-        # Command untuk development dengan watch mode
         command: --watch --workers=1
 
     db:
@@ -45,36 +41,32 @@ services:
         image: mysql:9.0
         environment:
             MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
-            MYSQL_DATABASE: ${DB_DATABASE}
+            MYSQL_DATABASE: ${DB_DATABASE:-d_form}
         volumes:
             - mysql_db:/var/lib/mysql
-            # - ./docker/mysql/healthcheck.cnf:/etc/mysql/healthcheck.cnf:ro
         ports:
-            - ${DB_PORT}:3306
+            - '${DB_PORT:-3306}:3306'
         networks:
-            - default
-        # healthcheck:
-        #     test: ['CMD', 'mysqladmin', '-p${DB_PASSWORD}', 'ping', '-h', 'localhost']
-        #     timeout: 5s
-        #     retries: 3
+            - d-form-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
+            retries: 3
+            timeout: 5s
+        restart: unless-stopped
 
     phpmyadmin:
         image: phpmyadmin:apache
         container_name: d_form_phpmyadmin
         ports:
-            - 8090:80
-        expose:
-            - 8090
+            - '${PMA_PORT:-8090}:80'
         networks:
-            - default
+            - d-form-network
         depends_on:
-            # db:
-            #     condition: service_healthy
             - db
         environment:
             - PMA_HOST=db
             - PMA_PORT=3306
-            - PMA_ARBITRARY=0
+            - PMA_ARBITRARY=1
 
     redis:
         container_name: d_form_redis
@@ -85,13 +77,11 @@ services:
         volumes:
             - redis_data:/data
         networks:
-            - default
-        command: >-
-            redis-server
-            --appendonly yes
+            - d-form-network
+        command: redis-server --appendonly yes
 
 networks:
-    default:
+    d-form-network:
         driver: bridge
 
 volumes:

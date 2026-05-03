@@ -143,7 +143,7 @@ const cardShadow = 'shadow-[0_1px_2px_rgb(15_23_42/0.04),0_8px_24px_-12px_rgb(15
                 ]"
             >
                 <div class="relative h-56 w-full sm:h-64 lg:h-80">
-                    <EventBannerImage :src="event.banner_url" :alt="event.title" img-class="scale-[1.02]" />
+                    <EventBannerImage :src="event.banner_url ?? event.banner" :alt="event.title" img-class="scale-[1.02]" />
                     <!-- Atmospheric gradient wash for readability -->
                     <div
                         class="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,transparent_40%,color-mix(in_oklab,var(--card)_55%,transparent)_72%,var(--card)_100%)]"

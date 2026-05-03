@@ -271,7 +271,7 @@ const totalEvents = computed(() => props.events?.total ?? filteredEvents.value.l
             v-else
             title="No events found"
             description="Try adjusting your search or filters to find what you're looking for."
-            animation-url="https://lottie.host/4e039bf3-670e-4a0f-8a6c-1bee793bfc23/JkaGBMIxOz.json"
+            animation-name="errorState"
         />
 
         <div v-if="isServerSide && lastPage > 1" class="flex items-center justify-between">

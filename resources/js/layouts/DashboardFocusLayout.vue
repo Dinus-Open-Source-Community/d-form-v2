@@ -96,9 +96,9 @@ function handleLogout() {
     <div class="relative flex min-h-svh flex-col bg-background">
         <div
             aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[420px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_70%)]"
+            class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
         />
-        <header class="sticky top-0 z-30 border-b-2 border-foreground bg-white/90 shadow-[0_4px_0_var(--brutal-ink)] backdrop-blur-lg">
+        <header class="sticky top-0 z-30 border-b-[1.5px] border-[var(--brutal-ink)]/12 bg-white/95 shadow-[var(--shadow-sm)] backdrop-blur-lg">
             <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
                 <div class="flex items-center gap-3 min-w-0">
                     <Breadcrumb class="min-w-0">
@@ -116,28 +116,28 @@ function handleLogout() {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="ghost" class="h-10 shrink-0 gap-2 rounded-xl px-2">
-                            <Avatar class="size-8 rounded-xl border-2 border-foreground">
+                        <Button variant="ghost" class="h-10 shrink-0 gap-2 rounded-lg px-2">
+                            <Avatar class="size-7 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/15">
                                 <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
-                                <AvatarFallback class="rounded-xl bg-primary text-[10px] font-extrabold text-primary-foreground">
+                                <AvatarFallback class="rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
                                     {{ getInitials(user?.name ?? 'U') }}
                                 </AvatarFallback>
                             </Avatar>
-                            <span class="hidden text-sm font-extrabold sm:inline">{{ user?.name }}</span>
+                            <span class="hidden text-sm font-semibold sm:inline">{{ user?.name }}</span>
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent class="min-w-48 rounded-2xl" align="end" :side-offset="8">
+                    <DropdownMenuContent class="min-w-48 rounded-xl" align="end" :side-offset="8">
                         <DropdownMenuLabel class="p-0 font-normal">
                             <div class="flex items-center gap-2.5 px-3 py-2.5">
                                 <Avatar class="size-8 rounded-full">
                                     <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
-                                    <AvatarFallback class="rounded-xl bg-primary text-xs font-extrabold text-primary-foreground">
+                                    <AvatarFallback class="rounded-lg bg-primary text-xs font-bold text-primary-foreground">
                                         {{ getInitials(user?.name ?? 'U') }}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div class="grid text-left text-sm leading-tight">
-                                    <span class="truncate font-extrabold">{{ user?.name }}</span>
-                                    <span class="truncate text-xs font-semibold text-muted-foreground">{{ user?.email }}</span>
+                                    <span class="truncate font-semibold">{{ user?.name }}</span>
+                                    <span class="truncate text-xs font-medium text-muted-foreground">{{ user?.email }}</span>
                                 </div>
                             </div>
                         </DropdownMenuLabel>

@@ -19,28 +19,26 @@ const steps = [
 </script>
 
 <template>
-    <section id="feat-how" class="relative overflow-hidden bg-background py-24 lg:py-32">
-        <div class="absolute left-8 top-12 h-24 w-24 -rotate-12 rounded-3xl border-4 border-[#101014] bg-[#B9A4FF]"></div>
+    <section id="feat-how" class="relative overflow-hidden bg-background py-20 lg:py-28">
+        <div class="absolute left-8 top-12 h-20 w-20 -rotate-12 rounded-2xl bg-[var(--brutal-lilac)]/8 blur-md"></div>
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
             <div :class="['mx-auto max-w-2xl text-center transition-all duration-700', visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0']">
-                <h2 class="font-display text-4xl font-extrabold tracking-[-0.04em] text-[#101014] sm:text-5xl">
-                    How it <span class="text-[#0A84DC]">works</span>
+                <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)] sm:text-4xl lg:text-5xl">
+                    How it <span class="text-[var(--brutal-blue)]">works</span>
                 </h2>
-                <p class="mt-3 text-base font-semibold text-[#34343B]">From design to insights in three punchy steps.</p>
+                <p class="mt-3 text-base font-medium text-[var(--brutal-ink)]/60">From design to insights in three punchy steps.</p>
             </div>
-
-            <div class="mt-16 grid gap-8 lg:grid-cols-3">
+            <div class="mt-14 grid gap-6 lg:grid-cols-3">
                 <div
                     v-for="(s, i) in steps" :key="s.num"
-                    :class="['brutal-card relative p-8 transition-all duration-700', visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0']"
+                    :class="['brutal-card relative p-7 transition-all duration-700', visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0']"
                     :style="{ transitionDelay: `${200 + i * 150}ms` }"
                 >
-                    <span class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#FFD84D] text-sm font-extrabold text-[#101014] shadow-[3px_3px_0_#101014]">{{ s.num }}</span>
-                    <h3 class="font-display mb-2 text-xl font-extrabold text-[#101014]">{{ s.title }}</h3>
-                    <p class="text-sm font-semibold leading-relaxed text-[#34343B]">{{ s.desc }}</p>
-                    <!-- Connector arrow between cards (desktop) -->
+                    <span class="mb-3.5 inline-flex h-9 w-9 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/15 text-xs font-bold text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)]">{{ s.num }}</span>
+                    <h3 class="font-display mb-1.5 text-lg font-bold text-[var(--brutal-ink)]">{{ s.title }}</h3>
+                    <p class="text-sm font-medium leading-relaxed text-[var(--brutal-ink)]/60">{{ s.desc }}</p>
                     <div v-if="i < 2" class="pointer-events-none absolute -right-4 top-1/2 z-10 hidden -translate-y-1/2 lg:block">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#0A84DC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="var(--brutal-blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.25"/></svg>
                     </div>
                 </div>
             </div>

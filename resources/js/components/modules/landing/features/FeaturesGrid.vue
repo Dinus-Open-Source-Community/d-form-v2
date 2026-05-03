@@ -25,24 +25,24 @@ const features = [
 </script>
 
 <template>
-    <section id="features-grid" class="relative overflow-hidden border-y-4 border-[#101014] bg-[#FFD84D] py-24 lg:py-32">
-        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.06]"></div>
+    <section id="features-grid" class="relative overflow-hidden border-y-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/10 py-20 lg:py-28">
+        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.02]"></div>
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
-            <div class="relative mb-12 text-center">
-                <h2 class="font-display text-4xl font-extrabold tracking-[-0.04em] text-[#101014] sm:text-5xl">
-                    All the tools, <span class="text-[#0A84DC]">one platform.</span>
+            <div class="relative mb-10 text-center">
+                <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)] sm:text-4xl lg:text-5xl">
+                    All the tools, <span class="text-[var(--brutal-blue)]">one platform.</span>
                 </h2>
-                <p class="mt-3 text-base font-semibold text-[#34343B]">Everything you need to run events at any scale.</p>
+                <p class="mt-3 text-base font-medium text-[var(--brutal-ink)]/60">Everything you need to run events at any scale.</p>
             </div>
 
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 <div
                     v-for="(f, i) in features" :key="f.title"
-                    :class="['brutal-card group bg-white p-7 transition-all duration-500', visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0']"
+                    :class="['brutal-card group bg-white p-6 transition-all duration-500', visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0']"
                     :style="{ transitionDelay: `${i * 80}ms` }"
                 >
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#41F0B4] text-[#101014] shadow-[3px_3px_0_#101014] transition-colors group-hover:bg-[#FF6BB5]">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <div class="mb-3.5 flex h-10 w-10 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-mint)]/12 text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)] transition-colors group-hover:bg-[var(--brutal-pink)]/12">
+                        <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <template v-if="f.icon === 'form'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></template>
                             <template v-if="f.icon === 'event'"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></template>
                             <template v-if="f.icon === 'chart'"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></template>
@@ -54,8 +54,8 @@ const features = [
                             <template v-if="f.icon === 'mobile'"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></template>
                         </svg>
                     </div>
-                    <h3 class="font-display mb-2 text-lg font-extrabold text-[#101014]">{{ f.title }}</h3>
-                    <p class="text-sm font-semibold leading-relaxed text-[#34343B]">{{ f.desc }}</p>
+                    <h3 class="font-display mb-1.5 text-base font-bold text-[var(--brutal-ink)]">{{ f.title }}</h3>
+                    <p class="text-sm font-medium leading-relaxed text-[var(--brutal-ink)]/55">{{ f.desc }}</p>
                 </div>
             </div>
         </div>

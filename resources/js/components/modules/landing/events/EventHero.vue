@@ -7,7 +7,7 @@ onMounted(() => setTimeout(() => (visible.value = true), 100));
 
 <template>
     <section class="bg-background relative overflow-hidden pt-32 pb-24 lg:pt-40 lg:pb-28">
-        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.035]"></div>
+        <div class="brutal-grid pointer-events-none absolute inset-0 opacity-[0.02]"></div>
         <div class="pointer-events-none absolute inset-0 opacity-[0.025]">
             <svg width="100%" height="100%">
                 <defs>
@@ -28,18 +28,18 @@ onMounted(() => setTimeout(() => (visible.value = true), 100));
                 ]"
             >
                 <h1
-                    class="font-display text-[3.1rem] leading-[0.96] font-extrabold tracking-[-0.055em] text-[#101014] sm:text-6xl lg:text-7xl"
+                    class="font-display text-[2.8rem] leading-[0.96] font-bold tracking-[-0.045em] text-[var(--brutal-ink)] sm:text-6xl lg:text-7xl"
                 >
                     Discover what's<br />
                     <span class="relative inline-block">
-                        <span class="text-[#0A84DC]">happening next</span>
+                        <span class="text-[var(--brutal-blue)]">happening next</span>
                         <span
-                            class="evt-underline absolute -bottom-1 left-0 h-[3px] w-full rounded-full bg-[#0A84DC]/30"
+                            class="evt-underline absolute -bottom-1 left-0 h-[3px] w-full rounded-full bg-[var(--brutal-blue)]/20"
                         ></span>
                     </span>
                 </h1>
 
-                <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed font-semibold text-[#34343B] lg:text-lg">
+                <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed font-medium text-[var(--brutal-ink)]/60 lg:text-lg">
                     Browse curated events from the community, register instantly, and never miss an opportunity to learn
                     and connect.
                 </p>
