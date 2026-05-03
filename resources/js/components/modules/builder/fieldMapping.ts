@@ -4,45 +4,42 @@
  */
 
 /** Choice label only, or label + optional image (URL or data URL) for dropdown / radio / checkbox. */
-export type FieldOptionEntry = string | { label: string; imageUrl?: string }
+export interface FieldOptionEntry {
+    id: string
+    type: 'text' | 'image'
+    label: string
+    imageUrl?: string
+}
 
 export function optionLabel(entry: FieldOptionEntry): string {
-    if (typeof entry === 'string') return entry.trim()
     return String(entry.label ?? '').trim()
 }
 
 export function optionImageUrl(entry: FieldOptionEntry): string | undefined {
-    if (typeof entry === 'string') return undefined
-    const u = entry.imageUrl?.trim()
-    return u || undefined
+    return entry.imageUrl?.trim() || undefined
 }
 
-function serializeOptionChoices(options: readonly FieldOptionEntry[]): { label: string; imageUrl: string }[] {
-    const rows: { label: string; imageUrl: string }[] = []
-    for (const o of options) {
-        const label = optionLabel(o)
-        if (!label) continue
-        const img = optionImageUrl(o)
-        rows.push({ label, imageUrl: img ?? '' })
-    }
-    return rows
+function serializeOptionChoices(options: readonly FieldOptionEntry[]): Record<string, unknown>[] {
+    return options.map(o => ({
+        id: o.id,
+        type: o.type,
+        label: o.label,
+        imageUrl: o.imageUrl ?? ''
+    }))
 }
 
 function parseOptionChoices(raw: unknown): FieldOptionEntry[] | null {
     if (!Array.isArray(raw)) return null
     const out: FieldOptionEntry[] = []
     for (const item of raw) {
-        if (typeof item === 'string') {
-            const s = item.trim()
-            if (s) out.push(s)
-        } else if (item && typeof item === 'object' && item !== null && 'label' in item) {
-            const label = String((item as { label: unknown }).label ?? '').trim()
-            if (!label) continue
-            const imageUrl =
-                typeof (item as { imageUrl?: unknown }).imageUrl === 'string'
-                    ? String((item as { imageUrl: string }).imageUrl).trim()
-                    : ''
-            out.push(imageUrl ? { label, imageUrl } : label)
+        if (item && typeof item === 'object' && item !== null) {
+            const id = String((item as any).id ?? crypto.randomUUID())
+            const type = (item as any).type === 'image' ? 'image' : 'text'
+            const label = String((item as any).label ?? '').trim()
+            const imageUrl = String((item as any).imageUrl ?? '').trim()
+            out.push({ id, type, label, imageUrl })
+        } else if (typeof item === 'string') {
+            out.push({ id: crypto.randomUUID(), type: 'text', label: item.trim() })
         }
     }
     return out.length > 0 ? out : null
@@ -112,7 +109,7 @@ export function toBackendField(f: BuilderField, order: number): BackendField {
             const inCsv = choices.map((c) => c.label).join(',')
             return {
                 ...base,
-                type: 'select',
+                type: 'checkbox',
                 metadata: {
                     is_multiple: true,
                     rules: { ...req, in: inCsv },
@@ -126,7 +123,7 @@ export function toBackendField(f: BuilderField, order: number): BackendField {
             const inCsv = choices.map((c) => c.label).join(',')
             return {
                 ...base,
-                type: 'select',
+                type: 'radio',
                 metadata: {
                     is_multiple: false,
                     rules: { ...req, in: inCsv },

@@ -19,16 +19,16 @@ defineOptions({ layout: DashboardLayout })
 const page = usePage()
 const user = useAuth(page.props)
 
-const initials = computed(() =>
+const initials = computed<string>(() =>
     user.value?.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) ?? '??',
 )
 
-const memberSince = computed(() => {
+const memberSince = computed<string>(() => {
     if (!user.value?.created_at) return 'Unknown'
     return new Date(user.value.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 })
 
-const profileForm = useForm({
+const profileForm = useForm<{ name: string; email: string }>({
     name: user.value?.name ?? '',
     email: user.value?.email ?? '',
 })

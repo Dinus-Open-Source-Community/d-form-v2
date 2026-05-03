@@ -87,7 +87,9 @@ class FormSubmissionController extends Controller
             'message' => 'Your registration has been submitted successfully.',
         ]);
 
-        return redirect()->route('dashboard.events.show', ['event' => $event]);
+        $redirectRoute = $user->can('events.view') ? 'dashboard.events.show' : 'dashboard.user.events.show';
+
+        return redirect()->route($redirectRoute, ['event' => $event]);
     }
 
     /**

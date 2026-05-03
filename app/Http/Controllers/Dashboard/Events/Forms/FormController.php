@@ -43,7 +43,28 @@ class FormController extends Controller
 
     public function store(StoreEventFormRequest $request, Event $event): RedirectResponse
     {
-        $form = $event->forms()->create($request->validated());
+        $data = $request->validated();
+        $form = $event->forms()->create([
+            'title' => $data['title'],
+            'description' => $data['description'],
+            'closed_at' => $data['closed_at'],
+            'visible_for' => $data['visible_for'],
+            'banner_url' => $data['banner_url'] ?? null,
+            'banner_caption' => $data['banner_caption'] ?? null,
+        ]);
+
+        if (!empty($data['fields'])) {
+            foreach ($data['fields'] as $fieldData) {
+                $form->formFields()->create([
+                    'id' => $fieldData['id'] ?? \Illuminate\Support\Str::uuid()->toString(),
+                    'input_type' => FormFieldTypeMapping::toInputType($fieldData['type']),
+                    'label' => $fieldData['label'],
+                    'name' => $fieldData['name'],
+                    'metadata' => $fieldData['metadata'] ?? [],
+                    'order' => $fieldData['order'],
+                ]);
+            }
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -85,7 +106,48 @@ class FormController extends Controller
     public function update(UpdateEventFormRequest $request, Event $event, Form $form): RedirectResponse
     {
         $this->guardFormOnEvent($event, $form);
-        $form->update($request->validated());
+        $data = $request->validated();
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($form, $data) {
+            $form->update([
+                'title' => $data['title'],
+                'description' => $data['description'],
+                'closed_at' => $data['closed_at'],
+                'visible_for' => $data['visible_for'],
+                'banner_url' => $data['banner_url'] ?? null,
+                'banner_caption' => $data['banner_caption'] ?? null,
+            ]);
+
+            if (isset($data['fields'])) {
+                $oldById = $form->formFields->keyBy('id');
+                $incomingIds = collect($data['fields'])->pluck('id')->filter()->all();
+
+                $toDelete = $oldById->keys()->diff($incomingIds);
+                if ($toDelete->isNotEmpty()) {
+                    $form->formFields()->whereIn('id', $toDelete)->delete();
+                }
+
+                foreach ($data['fields'] as $fieldData) {
+                    $id = $fieldData['id'] ?? null;
+                    $attrs = [
+                        'input_type' => FormFieldTypeMapping::toInputType($fieldData['type']),
+                        'label' => $fieldData['label'],
+                        'name' => $fieldData['name'],
+                        'metadata' => $fieldData['metadata'] ?? [],
+                        'order' => $fieldData['order'],
+                        'description' => $fieldData['description'] ?? null,
+                    ];
+
+                    if (is_string($id) && $id !== '' && $oldById->has($id)) {
+                        $oldById->get($id)->update($attrs);
+                    } else {
+                        $form->formFields()->create(array_merge($attrs, [
+                            'id' => (is_string($id) && $id !== '') ? $id : (string) \Illuminate\Support\Str::uuid(),
+                        ]));
+                    }
+                }
+            }
+        });
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -138,6 +200,8 @@ class FormController extends Controller
                 ? $form->visible_for->map(fn (EventFormVisibility $e) => $e->value)->values()->all()
                 : [],
             'event_id' => $form->event_id,
+            'banner_url' => $form->banner_url,
+            'banner_caption' => $form->banner_caption,
         ];
     }
 

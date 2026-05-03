@@ -10,9 +10,11 @@ const props = defineProps<{ eventId: string }>();
 const visible = ref(false);
 onMounted(() => setTimeout(() => (visible.value = true), 100));
 
-const event = computed(() => dummyEvents.find((e) => e.id === props.eventId));
+// TODO: Connect to backend when EventsController@show returns the full event object.
+// Currently it only returns eventId, so we fallback to dummy data for display.
+const event = computed<IEvent | undefined>(() => dummyEvents.find((e) => e.id === props.eventId));
 
-const capacityPercent = computed(() =>
+const capacityPercent = computed<number>(() =>
     event.value ? Math.round((event.value.registered_count / event.value.quota) * 100) : 0
 );
 

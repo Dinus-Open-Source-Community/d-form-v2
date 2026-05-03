@@ -25,7 +25,9 @@ class Form extends Model
         'description',
         'closed_at',
         'visible_for',
-        'event_id'
+        'event_id',
+        'banner_url',
+        'banner_caption'
     ];
 
     public function casts(): array

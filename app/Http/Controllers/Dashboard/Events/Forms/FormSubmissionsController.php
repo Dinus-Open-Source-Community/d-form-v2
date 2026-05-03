@@ -51,6 +51,9 @@ class FormSubmissionsController extends Controller
                 'id'    => $form->id,
                 'title' => $form->title,
             ],
+            'fields'      => $form->formFields()
+                ->orderBy('order')
+                ->get(['id', 'name', 'label', 'input_type']),
             'submissions' => $submissions,
         ]);
     }

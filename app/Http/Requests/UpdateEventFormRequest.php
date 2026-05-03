@@ -44,6 +44,15 @@ class UpdateEventFormRequest extends FormRequest
             'closed_at' => 'required|date',
             'visible_for' => 'required|array|min:1',
             'visible_for.*' => [Rule::enum(EventFormVisibility::class)],
+            'banner_url' => 'nullable|string',
+            'banner_caption' => 'nullable|string|max:255',
+            'fields' => 'nullable|array',
+            'fields.*.id' => 'nullable|string',
+            'fields.*.type' => 'required|string',
+            'fields.*.label' => 'required|string',
+            'fields.*.name' => 'required|string',
+            'fields.*.order' => 'required|integer',
+            'fields.*.metadata' => 'nullable|array',
         ];
     }
 }

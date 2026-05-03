@@ -24,6 +24,8 @@ class FormSeeder extends Seeder
                 'visible_for' => [EventFormVisibility::Public->value],
                 'closed_at' => $event->registration_end,
                 'event_id' => $event->id,
+                'banner_url' => 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
+                'banner_caption' => 'Fill out the form below to secure your spot!',
             ]);
 
             $this->createRegistrationFields($registrationForm);
@@ -35,6 +37,8 @@ class FormSeeder extends Seeder
                     'visible_for' => [EventFormVisibility::Participant->value],
                     'closed_at' => $event->end_date->copy()->addDays(7),
                     'event_id' => $event->id,
+                    'banner_url' => 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=1200',
+                    'banner_caption' => 'Your feedback helps us improve future events.',
                 ]);
 
                 $this->createFeedbackFields($feedbackForm);

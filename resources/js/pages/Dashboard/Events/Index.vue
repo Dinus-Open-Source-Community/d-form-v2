@@ -32,13 +32,13 @@ interface Paginator {
 }
 
 const props = defineProps<{
-    events?: Paginator
-    filterOptions?: {
+    events: Paginator
+    filterOptions: {
         categories: { value: string; label: string }[]
         sessions: { value: string; label: string }[]
         statuses: { value: string; label: string }[]
     }
-    query?: {
+    query: {
         search?: string
         filter?: {
             categories?: string[]
@@ -51,29 +51,13 @@ const props = defineProps<{
     }
 }>()
 
-const isServerSide = computed(() => !!props.events)
-
 const searchQuery = ref(props.query?.search ?? '')
 const filterCategory = ref(props.query?.filter?.categories?.[0] ?? 'all')
 const filterSession = ref(props.query?.filter?.sessions?.[0] ?? 'all')
 const activeTab = ref(props.query?.filter?.showTrashed ? 'archived' : 'all')
 
-const defaultCategories = [
-    { value: 'rkt', label: 'RKT' },
-    { value: 'non-rkt', label: 'NON RKT' },
-    { value: 'recruitment', label: 'Recruitment' },
-    { value: 'etc', label: 'Etc' },
-]
-const defaultSessions = [
-    { value: 'general', label: 'General' },
-    { value: 'programming', label: 'Programming' },
-    { value: 'network', label: 'Networking' },
-    { value: 'media_creative', label: 'Media Creative' },
-    { value: 'data', label: 'Data' },
-]
-
-const categoryOptions = computed(() => props.filterOptions?.categories ?? defaultCategories)
-const sessionOptions = computed(() => props.filterOptions?.sessions ?? defaultSessions)
+const categoryOptions = computed(() => props.filterOptions.categories)
+const sessionOptions = computed(() => props.filterOptions.sessions)
 
 function eventTokenList(v: unknown): string[] {
     if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean)
@@ -96,13 +80,11 @@ function buildQueryParams(page?: number) {
 }
 
 function applyFilters() {
-    if (!isServerSide.value) return
     router.get(eventsIndex().url, buildQueryParams(), { preserveState: true, preserveScroll: true })
 }
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 function onSearchInput() {
-    if (!isServerSide.value) return
     if (searchTimeout) clearTimeout(searchTimeout)
     searchTimeout = setTimeout(applyFilters, 400)
 }
@@ -111,44 +93,21 @@ watch([filterCategory, filterSession], applyFilters)
 watch(activeTab, applyFilters)
 
 function goToPage(page: number) {
-    if (!isServerSide.value) return
     router.get(eventsIndex().url, buildQueryParams(page), { preserveState: true, preserveScroll: true })
 }
 
 const filteredEvents = computed(() => {
-    if (isServerSide.value) {
-        let events = props.events!.data
-        const now = new Date().toISOString().split('T')[0]
-        if (activeTab.value === 'upcoming') events = events.filter(e => e.start_date > now && !e.deleted_at)
-        else if (activeTab.value === 'ongoing') events = events.filter(e => e.start_date <= now && e.end_date >= now && !e.deleted_at)
-        else if (activeTab.value === 'completed') events = events.filter(e => e.end_date < now && !e.deleted_at)
-        return events
-    }
-
-    let events = [...dummyEvents]
+    let events = props.events.data
     const now = new Date().toISOString().split('T')[0]
-
     if (activeTab.value === 'upcoming') events = events.filter(e => e.start_date > now && !e.deleted_at)
     else if (activeTab.value === 'ongoing') events = events.filter(e => e.start_date <= now && e.end_date >= now && !e.deleted_at)
     else if (activeTab.value === 'completed') events = events.filter(e => e.end_date < now && !e.deleted_at)
-    else if (activeTab.value === 'archived') events = events.filter(e => e.deleted_at !== null)
-    else events = events.filter(e => !e.deleted_at)
-
-    if (searchQuery.value.trim()) {
-        const q = searchQuery.value.toLowerCase()
-        events = events.filter(e => e.title.toLowerCase().includes(q))
-    }
-    if (filterCategory.value !== 'all') {
-        events = events.filter((e) => eventTokenList(e.category).includes(filterCategory.value))
-    }
-    if (filterSession.value !== 'all') events = events.filter(e => eventTokenList(e.session).includes(filterSession.value))
-
     return events
 })
 
-const currentPage = computed(() => props.events?.current_page ?? 1)
-const lastPage = computed(() => props.events?.last_page ?? 1)
-const totalEvents = computed(() => props.events?.total ?? filteredEvents.value.length)
+const currentPage = computed(() => props.events.current_page)
+const lastPage = computed(() => props.events.last_page)
+const totalEvents = computed(() => props.events.total)
 </script>
 
 <template>
