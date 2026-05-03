@@ -29,16 +29,39 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
     })->name('events');
 
     Route::get('/events/{event}', function (Event $event, EventService $eventService) {
+        $user = auth()->user();
+        $registration = \App\Models\FormAnswer::where('user_id', $user->id)
+            ->whereHas('form', function ($q) use ($event) {
+                $q->where('event_id', $event->id);
+            })
+            ->first();
+
         return inertia('Dashboard/User/EventDetail', [
             'event' => $eventService->eventToInertiaArray($event),
+            'isRegistered' => !!$registration,
+            'registrationStatus' => $registration?->status,
         ]);
     })->name('events.show');
 
     Route::get('/events/{event}/register', function (Event $event, EventService $eventService) {
-        $forms = Form::where('event_id', $event->id)->orderBy('title')->get();
+        $form = Form::where('event_id', $event->id)->orderBy('title')->first();
+        $fields = $form ? $form->formFields()->orderBy('order')->get()->map(function ($f) {
+            return [
+                'id' => $f->id,
+                'type' => \App\Support\FormFieldTypeMapping::toApiType($f->input_type),
+                'label' => $f->label,
+                'description' => $f->description,
+                'name' => $f->name,
+                'order' => $f->order,
+                'metadata' => $f->metadata,
+            ];
+        }) : [];
+
         return inertia('Dashboard/User/EventRegister', [
             'event' => $eventService->eventToInertiaArray($event),
-            'forms' => $forms,
+            'form' => $form,
+            'fields' => $fields,
+            'submitUrl' => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
         ]);
     })->name('events.register');
 });

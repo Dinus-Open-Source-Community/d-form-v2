@@ -155,19 +155,20 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <div v-else-if="field.type === 'checkbox'" class="flex flex-col gap-2">
                     <label
                         v-for="(opt, i) in choiceOptions"
-                        :key="i"
+                        :key="opt.id || i"
                         class="flex items-center gap-2.5 text-xs text-[var(--brutal-ink)]/70"
                     >
                         <div
                             class="flex size-4 shrink-0 items-center justify-center rounded border-[1.5px] border-[var(--brutal-ink)]/20 bg-white"
                         ></div>
-                        <img
-                            v-if="choiceImageSrc(opt)"
-                            :src="choiceImageSrc(opt)"
-                            alt=""
-                            class="size-7 shrink-0 rounded-md border border-[var(--brutal-ink)]/10 object-cover"
-                        />
-                        <span>{{ optionLabel(opt) }}</span>
+                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                            <img
+                                :src="choiceImageSrc(opt)"
+                                alt=""
+                                class="size-full object-cover"
+                            />
+                        </div>
+                        <span v-else>{{ optionLabel(opt) }}</span>
                     </label>
                 </div>
 
@@ -175,19 +176,20 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <div v-else-if="field.type === 'radio'" class="flex flex-col gap-2">
                     <label
                         v-for="(opt, i) in choiceOptions"
-                        :key="i"
+                        :key="opt.id || i"
                         class="flex items-center gap-2.5 text-xs text-[var(--brutal-ink)]/70"
                     >
                         <div
                             class="flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--brutal-ink)]/20 bg-white"
                         ></div>
-                        <img
-                            v-if="choiceImageSrc(opt)"
-                            :src="choiceImageSrc(opt)"
-                            alt=""
-                            class="size-7 shrink-0 rounded-full border border-[var(--brutal-ink)]/10 object-cover"
-                        />
-                        <span>{{ optionLabel(opt) }}</span>
+                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-full border border-[var(--brutal-ink)]/10">
+                            <img
+                                :src="choiceImageSrc(opt)"
+                                alt=""
+                                class="size-full object-cover"
+                            />
+                        </div>
+                        <span v-else>{{ optionLabel(opt) }}</span>
                     </label>
                 </div>
 

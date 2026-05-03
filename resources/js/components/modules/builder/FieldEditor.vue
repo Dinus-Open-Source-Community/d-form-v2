@@ -63,8 +63,7 @@ function emitOptions(next: FieldOptionEntry[]) {
 
 function addOption() {
     const text = newOption.value.trim()
-    if (!text) return
-    emitOptions([...optionRows(), { label: text, imageUrl: '' }])
+    emitOptions([...optionRows(), { id: crypto.randomUUID(), type: 'text', label: text || 'New Option', imageUrl: '' }])
     newOption.value = ''
 }
 
@@ -74,27 +73,22 @@ function removeOption(index: number) {
     emitOptions(opts)
 }
 
-function setOptionLabel(index: number, label: string) {
+function toggleOptionType(index: number) {
     const opts = [...optionRows()]
     const cur = opts[index]
-    const img = optionImageUrl(cur as FieldOptionEntry)?.trim() ?? ''
-    const trimmed = label.trim()
-    if (!trimmed) {
-        opts.splice(index, 1)
-        emitOptions(opts)
-        return
-    }
-    opts[index] = img ? { label: trimmed, imageUrl: img } : trimmed
+    opts[index] = { ...cur, type: cur.type === 'text' ? 'image' : 'text' }
+    emitOptions(opts)
+}
+
+function setOptionLabel(index: number, label: string) {
+    const opts = [...optionRows()]
+    opts[index] = { ...opts[index], label: label.trim() }
     emitOptions(opts)
 }
 
 function setOptionImageUrl(index: number, url: string) {
     const opts = [...optionRows()]
-    const cur = opts[index]
-    const lab = optionLabel(cur as FieldOptionEntry)
-    if (!lab) return
-    const u = url.trim()
-    opts[index] = u ? { label: lab, imageUrl: u } : lab
+    opts[index] = { ...opts[index], imageUrl: url.trim() }
     emitOptions(opts)
 }
 
@@ -229,45 +223,71 @@ const isContent = computed(() =>
         <div v-if="hasOptions" class="flex flex-col gap-2">
             <Label class="text-xs font-semibold">Options</Label>
             <p class="text-[10px] text-muted-foreground">
-                Add text for each choice. Optionally add an image URL or upload a picture — shown next to the label for respondents.
+                Define the choices available. Each option can be text-only or image-only.
             </p>
             <div class="flex flex-col gap-2">
                 <div
                     v-for="(opt, i) in optionRows()"
-                    :key="i"
+                    :key="opt.id || i"
                     class="rounded-xl border border-[var(--brutal-ink)]/12 bg-muted/15 p-2.5"
                 >
                     <div class="flex items-start gap-2">
-                        <div
-                            v-if="optionImageUrl(opt as FieldOptionEntry)"
-                            class="size-11 shrink-0 overflow-hidden rounded-lg border border-[var(--brutal-ink)]/15 bg-white"
-                        >
-                            <img
-                                :src="optionImageUrl(opt as FieldOptionEntry) ?? ''"
-                                alt=""
-                                class="size-full object-cover"
-                            />
+                        <div class="flex min-w-0 flex-1 flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    Option {{ i + 1 }} — {{ opt.type }}
+                                </span>
+                                <button
+                                    type="button"
+                                    @click="toggleOptionType(i)"
+                                    class="text-[9px] font-bold text-primary underline-offset-2 hover:underline"
+                                >
+                                    Switch to {{ opt.type === 'text' ? 'Image' : 'Text' }}
+                                </button>
+                            </div>
+
+                            <div v-if="opt.type === 'text'">
+                                <Input
+                                    :model-value="opt.label"
+                                    placeholder="Choice label"
+                                    class="text-xs"
+                                    @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
+                                />
+                            </div>
+                            <div v-else class="flex flex-col gap-1.5">
+                                <div
+                                    v-if="opt.imageUrl"
+                                    class="h-20 w-full overflow-hidden rounded-lg border border-[var(--brutal-ink)]/15 bg-white"
+                                >
+                                    <img
+                                        :src="opt.imageUrl"
+                                        alt=""
+                                        class="size-full object-cover"
+                                    />
+                                </div>
+                                <Input
+                                    :model-value="opt.imageUrl"
+                                    placeholder="Image URL"
+                                    class="text-[11px]"
+                                    @update:model-value="(v) => setOptionImageUrl(i, String(v ?? ''))"
+                                />
+                                <div class="hidden">
+                                    <!-- Keep label synced for accessibility or fallback -->
+                                    <Input
+                                        :model-value="opt.label"
+                                        placeholder="Internal label"
+                                        @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-                            <Input
-                                :model-value="optionLabel(opt as FieldOptionEntry)"
-                                placeholder="Choice label"
-                                class="text-xs"
-                                @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
-                            />
-                            <Input
-                                :model-value="optionImageUrl(opt as FieldOptionEntry) ?? ''"
-                                placeholder="Image URL (optional)"
-                                class="text-[11px]"
-                                @update:model-value="(v) => setOptionImageUrl(i, String(v ?? ''))"
-                            />
-                        </div>
+
                         <div class="flex shrink-0 flex-col gap-1">
                             <label
+                                v-if="opt.type === 'image'"
                                 class="flex cursor-pointer items-center justify-center rounded-lg border border-[var(--brutal-ink)]/15 bg-white px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted/50"
                             >
                                 <ImagePlus class="mr-1 size-3.5" />
-                                Upload
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -287,20 +307,11 @@ const isContent = computed(() =>
                     </div>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <Input
-                    v-model="newOption"
-                    placeholder="New option label..."
-                    class="text-xs"
-                    @keydown.enter.prevent="addOption"
-                />
-                <Button variant="outline" size="sm" class="shrink-0 text-xs" type="button" @click="addOption">
-                    <Plus class="mr-1 size-3" />Add
+            <div class="mt-1 flex gap-2">
+                <Button variant="outline" size="sm" class="w-full text-xs font-bold" type="button" @click="addOption">
+                    <Plus class="mr-1 size-3.5" />Add New Option
                 </Button>
             </div>
-            <p class="text-[10px] text-muted-foreground">
-                Press Enter or click Add. Images appear in dropdowns and choice lists.
-            </p>
         </div>
 
         <!-- Required toggle (not for content types) -->

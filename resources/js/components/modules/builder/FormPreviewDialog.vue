@@ -80,7 +80,11 @@ function metaNumber(field: FormPreviewField, key: string, fallback: number): num
 
 function optionEntries(field: FormPreviewField): FieldOptionEntry[] {
     const raw = field.options
-    return Array.isArray(raw) ? raw : []
+    if (!Array.isArray(raw)) return []
+    return raw.map(opt => {
+        if (typeof opt === 'object' && opt !== null) return opt as FieldOptionEntry
+        return { id: crypto.randomUUID(), type: 'text', label: String(opt) } as FieldOptionEntry
+    })
 }
 
 function choiceThumb(url: string): string {
@@ -88,7 +92,7 @@ function choiceThumb(url: string): string {
 }
 
 function optKey(opt: FieldOptionEntry, i: number): string {
-    return `${optionLabel(opt)}_${i}`
+    return `${opt.id || i}`
 }
 
 function ratingStars(field: FormPreviewField): number[] {
@@ -278,13 +282,14 @@ function ratingStars(field: FormPreviewField): number[] {
                                                         :name="`preview_${field.id}`"
                                                         tabindex="-1"
                                                     />
-                                                    <img
-                                                        v-if="optionImageUrl(opt)"
-                                                        :src="choiceThumb(optionImageUrl(opt)!)"
-                                                        alt=""
-                                                        class="size-8 shrink-0 rounded-full border border-[var(--brutal-ink)]/10 object-cover"
-                                                    />
-                                                    <span>{{ optionLabel(opt) }}</span>
+                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                                                        <img
+                                                            :src="choiceThumb(optionImageUrl(opt)!)"
+                                                            alt=""
+                                                            class="size-full object-cover"
+                                                        />
+                                                    </div>
+                                                    <span v-else>{{ optionLabel(opt) }}</span>
                                                 </label>
                                             </div>
 
@@ -299,13 +304,14 @@ function ratingStars(field: FormPreviewField): number[] {
                                                         disabled
                                                         class="pointer-events-none opacity-80"
                                                     />
-                                                    <img
-                                                        v-if="optionImageUrl(opt)"
-                                                        :src="choiceThumb(optionImageUrl(opt)!)"
-                                                        alt=""
-                                                        class="size-8 shrink-0 rounded-md border border-[var(--brutal-ink)]/10 object-cover"
-                                                    />
-                                                    <span>{{ optionLabel(opt) }}</span>
+                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                                                        <img
+                                                            :src="choiceThumb(optionImageUrl(opt)!)"
+                                                            alt=""
+                                                            class="size-full object-cover"
+                                                        />
+                                                    </div>
+                                                    <span v-else>{{ optionLabel(opt) }}</span>
                                                 </label>
                                             </div>
 

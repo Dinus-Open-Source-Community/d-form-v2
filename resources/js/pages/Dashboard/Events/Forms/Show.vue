@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { ref, reactive, computed, watch, onMounted, type Component } from 'vue';
+import { Head, useForm, Link } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import DraggableItem from '@/components/modules/builder/DraggableItem.vue';
@@ -8,7 +8,12 @@ import FieldRenderer from '@/components/modules/builder/FieldRenderer.vue';
 import FieldEditor from '@/components/modules/builder/FieldEditor.vue';
 import FormBannerSettings from '@/components/modules/builder/FormBannerSettings.vue';
 import FormPreviewDialog from '@/components/modules/builder/FormPreviewDialog.vue';
-import { fromBackendField, toBackendFields } from '@/components/modules/builder/fieldMapping';
+import {
+    fromBackendField,
+    toBackendFields,
+    type BackendField,
+    type BuilderField,
+} from '@/components/modules/builder/fieldMapping';
 import {
     defaultFormBannerState,
     prependFormBannerToBackendPayload,
@@ -51,16 +56,30 @@ import {
 
 defineOptions({ layout: DashboardFocusLayout });
 
-const props = defineProps({
-    event: Object,
-    form: Object,
-    fields: Array,
-    saveFieldsUrl: String,
-    updateFormUrl: String,
-});
+const props = defineProps<{
+    event: { id: string; title: string };
+    form: IForm;
+    fields: BackendField[];
+    saveFieldsUrl: string;
+    updateFormUrl: string;
+}>();
 
 // ─── Field Categories ──────────────────────────────────────────
-const fieldCategories = [
+interface FieldTemplate {
+    type: string;
+    label: string;
+    icon: Component;
+    description: string;
+}
+
+interface FieldCategory {
+    name: string;
+    icon: Component;
+    isOpen: boolean;
+    fields: FieldTemplate[];
+}
+
+const fieldCategories: FieldCategory[] = [
     {
         name: 'Text Inputs',
         icon: Type,
@@ -121,35 +140,42 @@ const visibilityOptions = [
 ];
 
 // ─── State ─────────────────────────────────────────────────────
-const categories = ref(fieldCategories.map((c) => ({ ...c })));
+const categories = ref<FieldCategory[]>(fieldCategories.map((c) => ({ ...c })));
 const searchQuery = ref('');
-const selectedFieldId = ref(null);
+const selectedFieldId = ref<string | null>(null);
 const dropIndicatorIndex = ref(-1);
 const isDraggingOverCanvas = ref(false);
-const dragSourceId = ref(null);
-const activePanel = ref('fields'); // 'fields' | 'settings'
+const dragSourceId = ref<string | null>(null);
+const activePanel = ref<'fields' | 'settings'>('fields'); // 'fields' | 'settings'
 const showPreview = ref(false);
 
 // Form settings
 const settingsForm = useForm({
     _method: 'put',
-    title: props?.form?.title,
-    description: props?.form?.description,
-    closed_at: props?.form?.closed_at ?? '',
-    visible_for: [...props?.form?.visible_for],
+    title: props.form.title,
+    description: props.form.description,
+    closed_at: props.form.closed_at ?? '',
+    visible_for: [...props.form.visible_for],
+    banner_url: props.form.banner_url ?? '',
+    banner_caption: props.form.banner_caption ?? '',
 });
 
 /** Form banner (synced separately from draggable fields — persisted as synthetic field metadata). */
 const bannerState = reactive(defaultFormBannerState());
 
 // Builder fields (convert from backend)
-const formFields = ref([]);
+const formFields = ref<BuilderField[]>([]);
 function syncFieldsFromProps() {
-    const raw = JSON.parse(JSON.stringify(props.fields || []));
+    const raw: BackendField[] = JSON.parse(JSON.stringify(props.fields || []));
     raw.sort((a, b) => a.order - b.order);
     const mapped = raw.map((f) => fromBackendField(f));
-    const { banner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
-    Object.assign(bannerState, banner);
+    const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
+
+    bannerState.id = syntheticBanner.id;
+    bannerState.bannerUrl = props.form.banner_url ?? syntheticBanner.bannerUrl;
+    bannerState.caption = props.form.banner_caption ?? syntheticBanner.caption;
+    bannerState.bannerFileName = syntheticBanner.bannerFileName;
+
     formFields.value = canvasFields;
 }
 
@@ -165,38 +191,15 @@ watch(
         settingsForm.description = f?.description;
         settingsForm.closed_at = f?.closed_at ?? '';
         settingsForm.visible_for = [...f?.visible_for];
+        settingsForm.banner_url = f?.banner_url ?? '';
+        settingsForm.banner_caption = f?.banner_caption ?? '';
     },
     { deep: true }
 );
 
-// Auto-save pending fields from Create flow
+// Auto-save pending fields from Create flow (DEPRECATED: Now handled in Create.vue store)
 onMounted(() => {
-    const pb = sessionStorage.getItem('pendingFormBanner');
-    if (pb) {
-        sessionStorage.removeItem('pendingFormBanner');
-        try {
-            const parsed = JSON.parse(pb) as Record<string, unknown>;
-            Object.assign(bannerState, {
-                ...defaultFormBannerState(),
-                id: typeof parsed.id === 'string' ? parsed.id : null,
-                bannerUrl: typeof parsed.bannerUrl === 'string' ? parsed.bannerUrl : '',
-                bannerFileName: typeof parsed.bannerFileName === 'string' ? parsed.bannerFileName : '',
-                caption: typeof parsed.caption === 'string' ? parsed.caption : '',
-            });
-        } catch {
-            /* ignore */
-        }
-    }
-    const pending = sessionStorage.getItem('pendingBuilderFields');
-    if (pending) {
-        sessionStorage.removeItem('pendingBuilderFields');
-        try {
-            formFields.value = JSON.parse(pending);
-            saveFields();
-        } catch {
-            /* ignore */
-        }
-    }
+    // Left intentionally empty or remove if no other onMounted tasks exist.
 });
 
 // ─── Computed ──────────────────────────────────────────────────
@@ -227,11 +230,11 @@ function addFieldFromPicker() {
     mobileFieldType.value = '';
 }
 
-function createField(type, label) {
-    const defaults = {
-        dropdown: { options: ['Option 1', 'Option 2'] },
-        checkbox: { options: ['Choice A', 'Choice B', 'Choice C'] },
-        radio: { options: ['Option 1', 'Option 2', 'Option 3'] },
+function createField(type: string, label: string): BuilderField {
+    const defaults: Record<string, Partial<BuilderField>> = {
+        dropdown: { metadata: { options: 'Option 1, Option 2' } },
+        checkbox: { metadata: { options: 'Choice A, Choice B, Choice C' } },
+        radio: { metadata: { options: 'Option 1, Option 2, Option 3' } },
         rating: { metadata: { maxStars: 5 } },
         heading: { metadata: { content: 'Section Heading' } },
         image_upload: { metadata: { accepts: 'png, jpg, jpeg' } },
@@ -243,32 +246,32 @@ function createField(type, label) {
         label: label || 'Untitled Field',
         name: `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
         description: '',
-        placeholder: '',
-        required: false,
-        options: [],
+        order: 0,
         metadata: {},
         ...(defaults[type] || {}),
-    };
+    } as BuilderField;
 }
 
 // ─── DnD: Sidebar → Canvas ────────────────────────────────────
-function onGapDragEnter(index) {
+function onGapDragEnter(index: number) {
     dropIndicatorIndex.value = index;
 }
-function onCanvasDragOver(e) {
+function onCanvasDragOver(e: DragEvent) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = isDraggingOverCanvas.value ? 'move' : 'copy';
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = isDraggingOverCanvas.value ? 'move' : 'copy';
+    }
     if (dropIndicatorIndex.value === -1 && isEmpty.value) dropIndicatorIndex.value = 0;
 }
-function onCanvasDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
+function onCanvasDragLeave(e: DragEvent) {
+    if (!e.currentTarget || !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
         dropIndicatorIndex.value = -1;
         isDraggingOverCanvas.value = false;
     }
 }
-function onCanvasDrop(e) {
+function onCanvasDrop(e: DragEvent) {
     e.preventDefault();
-    const raw = e.dataTransfer.getData('application/json');
+    const raw = e.dataTransfer?.getData('application/json');
     if (!raw) return;
     const data = JSON.parse(raw);
     const insertAt = dropIndicatorIndex.value < 0 ? formFields.value.length : dropIndicatorIndex.value;
@@ -287,10 +290,12 @@ function onCanvasDrop(e) {
     isDraggingOverCanvas.value = false;
     dragSourceId.value = null;
 }
-function onCanvasDragStart(e, field, index) {
+function onCanvasDragStart(e: DragEvent, field: BuilderField, index: number) {
     dragSourceId.value = field.id;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/json', JSON.stringify({ id: field.id, fromIndex: index, isNew: false }));
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/json', JSON.stringify({ id: field.id, fromIndex: index, isNew: false }));
+    }
     requestAnimationFrame(() => {
         isDraggingOverCanvas.value = true;
     });
@@ -302,18 +307,18 @@ function onDragEnd() {
 }
 
 // ─── Field actions ─────────────────────────────────────────────
-function selectField(id) {
+function selectField(id: string) {
     selectedFieldId.value = selectedFieldId.value === id ? null : id;
     activePanel.value = 'fields';
 }
-function deleteField(id) {
+function deleteField(id: string) {
     formFields.value = formFields.value.filter((f) => f.id !== id);
     if (selectedFieldId.value === id) selectedFieldId.value = null;
 }
-function duplicateField(id) {
+function duplicateField(id: string) {
     const i = formFields.value.findIndex((f) => f.id === id);
     if (i === -1) return;
-    const copy = {
+    const copy: BuilderField = {
         ...JSON.parse(JSON.stringify(formFields.value[i])),
         id: crypto.randomUUID(),
         label: `${formFields.value[i].label} (copy)`,
@@ -322,14 +327,14 @@ function duplicateField(id) {
     formFields.value.splice(i + 1, 0, copy);
     selectedFieldId.value = copy.id;
 }
-function updateField(updated) {
+function updateField(updated: BuilderField) {
     const i = formFields.value.findIndex((f) => f.id === updated.id);
     if (i !== -1) formFields.value[i] = updated;
 }
-function toggleCategory(idx) {
+function toggleCategory(idx: number) {
     categories.value[idx].isOpen = !categories.value[idx].isOpen;
 }
-function toggleVisibility(value, checked) {
+function toggleVisibility(value: string, checked: boolean) {
     const isChecked = checked === true;
     if (isChecked) {
         if (!settingsForm.visible_for.includes(value)) settingsForm.visible_for = [...settingsForm.visible_for, value];
@@ -339,21 +344,24 @@ function toggleVisibility(value, checked) {
 }
 
 // ─── Save actions ──────────────────────────────────────────────
-function saveSettings() {
-    settingsForm.put(props.updateFormUrl, {
-        preserveScroll: true,
-        onSuccess: () => toast.success('Form settings saved.'),
-    });
-}
-const fieldForm = useForm({ fields: [] });
-function saveFields() {
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState);
-    fieldForm.fields = toBackendFields(merged);
-    fieldForm.post(props.saveFieldsUrl, { preserveScroll: true, onSuccess: () => toast.success('Fields saved!') });
-}
 function saveAll() {
-    saveSettings();
-    saveFields();
+    settingsForm.banner_url = bannerState.bannerUrl;
+    settingsForm.banner_caption = bannerState.caption;
+
+    // Prepare fields for backend
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState);
+    const backendFields = toBackendFields(merged);
+
+    // Send in one unified request
+    settingsForm
+        .transform((data) => ({
+            ...data,
+            fields: backendFields,
+        }))
+        .put(props.updateFormUrl, {
+            preserveScroll: true,
+            onSuccess: () => toast.success('Form and fields saved successfully.'),
+        });
 }
 </script>
 
@@ -456,7 +464,7 @@ function saveAll() {
                         >
                             <Checkbox
                                 :checked="settingsForm.visible_for.includes(opt.value)"
-                                @update:checked="(v) => toggleVisibility(opt.value, v)"
+                                @update:checked="(v: boolean) => toggleVisibility(opt.value, v)"
                             />
                             <span>{{ opt.label }}</span>
                         </div>
@@ -469,23 +477,20 @@ function saveAll() {
                         Simpan banner bersama struktur formulir menggunakan tombol
                         <span class="text-foreground font-semibold">Save All</span> di atas.
                     </p>
-                    <Button size="sm" :disabled="settingsForm.processing" @click="saveSettings">
-                        <Save class="mr-1.5 size-3.5" />Update settings
-                    </Button>
                 </div>
             </div>
         </aside>
 
         <!-- CENTER CANVAS -->
         <main class="bg-background relative flex-1 overflow-y-auto">
-            <div class="border-b border-(--brutal-ink)/8 bg-[var(--brutal-cream)]/70 px-4 py-3 lg:hidden">
+            <div class="border-b border-(--brutal-ink)/8 bg-(--brutal-cream)/70 px-4 py-3 lg:hidden">
                 <label class="text-muted-foreground mb-1 block text-[10px] font-bold tracking-[0.16em] uppercase"
                     >Add field on mobile</label
                 >
                 <div class="flex gap-2">
                     <select
                         v-model="mobileFieldType"
-                        class="min-w-0 flex-1 rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-white px-3 py-2 text-xs font-semibold"
+                        class="min-w-0 flex-1 rounded-xl border-[1.5px] border-(--brutal-ink) bg-white px-3 py-2 text-xs font-semibold"
                     >
                         <option value="">Choose field type</option>
                         <option v-for="fieldType in allFieldTypes" :key="fieldType.type" :value="fieldType.type">
@@ -504,41 +509,54 @@ function saveAll() {
             </div>
 
             <div
-                class="sticky top-0 z-10 flex items-center justify-between border-b border-(--brutal-ink)/8 bg-white/90 px-6 py-2 backdrop-blur-md"
+                class="sticky top-0 z-20 border-b border-(--brutal-ink)/8 bg-white/90 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-2"
             >
-                <div class="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" class="h-8 text-xs" as-child>
-                        <a :href="`/dashboard/events/${event.id}/forms`"><ArrowLeft class="mr-1 size-3.5" />Back</a>
-                    </Button>
-                    <span class="text-muted-foreground text-xs font-semibold">{{
-                        settingsForm.title || 'Untitled'
-                    }}</span>
-                    <span class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        >{{ formFields.length }} field{{ formFields.length !== 1 ? 's' : '' }}</span
-                    >
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <Button variant="outline" size="sm" class="h-8 text-xs" as-child>
-                        <a :href="`/dashboard/events/${event.id}/forms/${form.id}/submissions`">
-                            <FileText class="mr-1 size-3.5" />Submissions
-                        </a>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        class="h-8 text-xs"
-                        :disabled="formFields.length === 0"
-                        @click="showPreview = true"
-                    >
-                        <Eye class="mr-1 size-3.5" />Preview
-                    </Button>
-                    <Button size="sm" class="h-8 text-xs" :disabled="fieldForm.processing" @click="saveAll">
-                        <Save class="mr-1 size-3.5" />Save All
-                    </Button>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                        <Link
+                            :href="`/dashboard/events/${event.id}/forms`"
+                            class="text-foreground hover:border-foreground hover:bg-accent inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-transparent px-3 text-xs font-extrabold tracking-tight transition-all hover:shadow-[4px_4px_0_var(--brutal-ink)]"
+                        >
+                            <ArrowLeft class="size-3.5" />
+                            Back
+                        </Link>
+                        <span class="text-muted-foreground min-w-0 truncate text-xs font-semibold">
+                            {{ settingsForm.title || 'Untitled' }}
+                        </span>
+                        <span class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                            {{ formFields.length }} field{{ formFields.length !== 1 ? 's' : '' }}
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        <Link
+                            :href="`/dashboard/events/${event.id}/forms/${form.id}/submissions`"
+                            class="border-foreground bg-background text-foreground inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border-2 px-3 text-xs font-extrabold tracking-tight shadow-[4px_4px_0_var(--brutal-ink)] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-(--brutal-mint) hover:shadow-[6px_6px_0_var(--brutal-ink)] active:translate-x-1 active:translate-y-1 active:shadow-[1px_1px_0_var(--brutal-ink)]"
+                        >
+                            <FileText class="size-3.5" />
+                            Submissions
+                        </Link>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="h-8 shrink-0 text-xs whitespace-nowrap"
+                            :disabled="formFields.length === 0"
+                            @click="showPreview = true"
+                        >
+                            <Eye class="mr-1 size-3.5" />Preview
+                        </Button>
+                        <Button
+                            size="sm"
+                            class="h-8 shrink-0 text-xs whitespace-nowrap"
+                            :disabled="settingsForm.processing"
+                            @click="saveAll"
+                        >
+                            <Save class="mr-1 size-3.5" />Save All
+                        </Button>
+                    </div>
                 </div>
             </div>
-            <div class="flex justify-center px-6 py-8">
-                <div class="w-full max-w-[420px]">
+            <div class="flex justify-center px-3 py-6 sm:px-6 sm:py-8">
+                <div class="w-full max-w-full sm:max-w-[420px]">
                     <div
                         class="overflow-hidden rounded-2xl border-[1.5px] border-(--brutal-ink)/12 bg-white shadow-(--shadow-md)"
                     >
@@ -550,7 +568,7 @@ function saveAll() {
                                 v-if="bannerPreviewSrc"
                                 :src="bannerPreviewSrc"
                                 alt=""
-                                class="aspect-[3/1] w-full object-cover"
+                                class="aspect-3/1 w-full object-cover"
                             />
                             <p
                                 v-if="bannerState.caption.trim()"

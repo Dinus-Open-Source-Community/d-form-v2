@@ -29,27 +29,62 @@ declare global {
         visible_for: string[]
         closed_at: string
         event_id: string
+        banner_url: string | null
+        banner_caption: string | null
     }
 
-    type FormFieldType = 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload' | 'radio' | 'checkbox'
+    type FormFieldOptionType = 'text' | 'image'
+
+    interface IFormFieldOption {
+        id: string
+        type: FormFieldOptionType
+        label: string
+        imageUrl?: string
+    }
+
+    // Rich types used in the Builder UI
+    type FormBuilderType = 
+        | 'short_text' | 'long_text' | 'email' | 'phone' | 'number' | 'time'
+        | 'dropdown' | 'checkbox' | 'radio'
+        | 'image_upload' | 'file_upload'
+        | 'date' | 'rating'
+        | 'heading' | 'paragraph' | 'divider' | 'banner'
+
+    // Simple types stored in the Database
+    type FormApiType = 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload' | 'radio' | 'checkbox'
 
     interface IFormField {
         id: string
-        type: FormFieldType
+        type: FormApiType | FormBuilderType
         label: string
         description?: string | null
         name: string
         order: number
-        metadata: Record<string, unknown>
+        metadata: Record<string, any> // Using any for complex nested metadata like rules
+        required?: boolean
+        placeholder?: string
+        options?: IFormFieldOption[]
     }
 
     interface IRegistrant {
         id: string
-        user: IUser
+        user: {
+            id: string
+            name: string
+            email: string
+            avatar: string | null
+        }
         event_id: string
         status: 'pending' | 'approved' | 'rejected'
         submitted_at: string
         answers: Record<string, string>
+    }
+
+    interface IFormSubmission {
+        id: string
+        user: { id: string; name: string; email: string } | null
+        answers: Record<string, any>
+        submitted_at: string
     }
 
     interface IKpiCard {

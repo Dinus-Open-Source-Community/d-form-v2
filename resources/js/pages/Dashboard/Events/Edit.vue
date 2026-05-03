@@ -13,7 +13,6 @@ import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue
 import ComboboxTagInput from '@/components/modules/dashboard/events/ComboboxTagInput.vue';
 import { Upload, X, Save, Send } from 'lucide-vue-next';
 import { update as updateEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
-import { dummyEvents } from '@/lib/dummyData';
 import { showEventValidationToast } from '@/lib/eventValidationToast';
 import { cn } from '@/lib/utils';
 
@@ -26,31 +25,16 @@ const datetimeInputClass = cn(
 );
 
 const props = defineProps<{
-    event?: IEvent;
-    options?: { categories: { value: string; label: string }[]; sessions: { value: string; label: string }[] };
+    event: IEvent;
+    options: { categories: { value: string; label: string }[]; sessions: { value: string; label: string }[] };
 }>();
 
-const defaultSessions = [
-    { value: 'general', label: 'General' },
-    { value: 'programming', label: 'Programming' },
-    { value: 'network', label: 'Networking' },
-    { value: 'media_creative', label: 'Media Creative' },
-    { value: 'data', label: 'Data' },
-];
-
-const defaultCategories = [
-    { value: 'rkt', label: 'RKT' },
-    { value: 'non-rkt', label: 'NON RKT' },
-    { value: 'recruitment', label: 'Recruitment' },
-    { value: 'etc', label: 'Etc' },
-];
-
-const sessions = props.options?.sessions ?? defaultSessions;
-const categories = props.options?.categories ?? defaultCategories;
+const sessions = props.options.sessions;
+const categories = props.options.categories;
 const maxCategoryTags = categories.length;
 const maxSessionTags = sessions.length;
 
-const eventData = props.event ?? dummyEvents[0];
+const eventData = props.event;
 
 function toTokenList(v: unknown): string[] {
     if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);

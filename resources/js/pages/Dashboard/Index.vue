@@ -20,8 +20,8 @@ import { toCategoryList } from '@/lib/eventCategories'
 defineOptions({ layout: DashboardLayout })
 
 const props = defineProps<{
-    recentEvents?: IEvent[]
-    stats?: {
+    recentEvents: IEvent[]
+    stats: {
         totalEvents: number
         activeEvents: number
         totalRegistrants: number
@@ -38,12 +38,12 @@ const isAdmin = computed(() => {
     return roles.includes('admin') || roles.includes('super-admin')
 })
 
-const events = computed(() => props.recentEvents ?? dummyEvents.filter(e => !e.deleted_at).slice(0, 5))
+const events = computed(() => props.recentEvents)
 
-const totalEvents = computed(() => props.stats?.totalEvents ?? dummyEvents.filter(e => !e.deleted_at).length)
-const activeEvents = computed(() => props.stats?.activeEvents ?? dummyEvents.filter(e => e.status === 'published' && !e.deleted_at).length)
-const totalRegistrants = computed(() => props.stats?.totalRegistrants ?? dummyEvents.reduce((s, e) => s + e.registered_count, 0))
-const completionRate = computed(() => props.stats?.completionRate ?? 0)
+const totalEvents = computed(() => props.stats.totalEvents)
+const activeEvents = computed(() => props.stats.activeEvents)
+const totalRegistrants = computed(() => props.stats.totalRegistrants)
+const completionRate = computed(() => props.stats.completionRate)
 
 const upcomingEvents = computed(() =>
     events.value.filter(e => new Date(e.start_date) > new Date()).slice(0, 3),

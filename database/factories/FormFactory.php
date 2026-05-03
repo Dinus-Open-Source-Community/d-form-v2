@@ -22,6 +22,8 @@ class FormFactory extends Factory
             'visible_for' => [EventFormVisibility::Public->value],
             'closed_at' => now()->addDays(30),
             'event_id' => Event::factory(),
+            'banner_url' => null,
+            'banner_caption' => null,
         ];
     }
 }

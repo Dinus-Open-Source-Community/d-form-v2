@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
@@ -19,11 +19,13 @@ defineOptions({ layout: DashboardLayout })
 
 const props = defineProps<{
     event: IEvent
+    isRegistered: boolean
+    registrationStatus: 'pending' | 'approved' | 'rejected' | null
 }>()
 
 const event = props.event
-const isRegistered = ref(false)
-const registrationStatus = ref<'pending' | 'approved' | 'rejected' | null>(null)
+const isRegistered = computed(() => props.isRegistered)
+const registrationStatus = computed(() => props.registrationStatus)
 
 const registrationStatusLabel: Record<IEvent['registration_status'], string> = {
     not_yet_open: 'Coming soon',
@@ -138,15 +140,29 @@ const metaBlocks = [
                         <div v-else-if="!isRegistered" class="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-center text-xs text-muted-foreground">
                             Registration is not available yet or has ended.
                         </div>
-                        <div v-else class="rounded-xl border bg-muted/20 p-4 text-center shadow-xs">
-                            <p class="text-sm font-medium text-foreground">You have registered</p>
-                            <Badge
-                                variant="secondary"
-                                class="mt-1.5 text-[10px] capitalize"
-                                :style="{ color: statusColorMap[registrationStatus ?? 'pending'] }"
-                            >
-                                {{ registrationStatus }}
-                            </Badge>
+                        <div v-else class="flex flex-col gap-4">
+                            <div class="rounded-xl border bg-success/5 p-4 text-center shadow-xs border-success/20">
+                                <p class="text-sm font-bold text-success">Success Register</p>
+                                <Badge
+                                    variant="secondary"
+                                    class="mt-1.5 text-[10px] capitalize"
+                                    :style="{ color: statusColorMap[registrationStatus ?? 'pending'] }"
+                                >
+                                    {{ registrationStatus }}
+                                </Badge>
+                            </div>
+
+                            <!-- QR Code Section -->
+                            <div class="flex flex-col items-center gap-2 rounded-xl border border-dashed p-4 bg-white shadow-sm">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your Entry Ticket</p>
+                                <div class="bg-muted size-32 rounded-lg flex items-center justify-center border">
+                                    <!-- Placeholder QR Code -->
+                                    <svg class="size-24 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01"/><path d="M17 7h.01"/><path d="M7 17h.01"/><path d="M17 17h.01"/><path d="M12 12h.01"/><path d="M12 7h.01"/><path d="M12 17h.01"/><path d="M7 12h.01"/><path d="M17 12h.01"/>
+                                    </svg>
+                                </div>
+                                <p class="text-[9px] text-center text-muted-foreground leading-tight">Show this QR code at the event entrance for check-in.</p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

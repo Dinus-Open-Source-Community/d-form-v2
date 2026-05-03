@@ -16,20 +16,20 @@ import {
     Search, CheckCircle2, XCircle, Eye, Download, Users,
     Clock, ShieldCheck, ShieldX, ArrowUpRight, Sparkles, CalendarDays, MapPin,
 } from 'lucide-vue-next'
-import { dummyRegistrants, dummyEvents, formatDate, formatDateTime } from '@/lib/dummyData'
+import { formatDate, formatDateTime } from '@/lib/dummyData'
 
 defineOptions({ layout: DashboardFocusLayout })
 
 const props = defineProps<{
-    event?: IEvent
-    registrants?: IRegistrant[]
+    event: IEvent
+    registrants: IRegistrant[]
 }>()
 
-const event = props.event ?? dummyEvents[0]
-
+const event = props.event
 const searchQuery = ref('')
 const activeStatusTab = ref<'all' | 'pending' | 'approved' | 'rejected'>('all')
-const registrants = ref<IRegistrant[]>([...(props.registrants ?? dummyRegistrants)])
+const viewType = ref<'table' | 'form'>('table')
+const registrants = ref<IRegistrant[]>([...props.registrants])
 
 const selectedRegistrant = ref<IRegistrant | null>(null)
 const showDetailSheet = ref(false)
@@ -284,29 +284,42 @@ const tabItems: { value: 'all' | 'pending' | 'approved' | 'rejected'; label: str
 
             <!-- TOOLBAR -->
             <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <Tabs v-model="activeStatusTab" class="w-full md:w-auto">
-                    <TabsList class="h-10 rounded-full bg-muted/60 p-1">
-                        <TabsTrigger
-                            v-for="t in tabItems"
-                            :key="t.value"
-                            :value="t.value"
-                            class="gap-1.5 rounded-full px-4 text-xs font-medium data-[state=active]:shadow-sm"
-                        >
-                            {{ t.label }}
-                            <span
-                                :class="[
-                                    'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                                    t.value === 'pending' && 'bg-warning/15 text-warning-foreground',
-                                    t.value === 'approved' && 'bg-success/10 text-success',
-                                    t.value === 'rejected' && 'bg-destructive/10 text-destructive',
-                                    t.value === 'all' && 'bg-muted text-muted-foreground',
-                                ]"
+                <div class="flex flex-wrap items-center gap-3">
+                    <Tabs v-model="activeStatusTab" class="w-full md:w-auto">
+                        <TabsList class="h-10 rounded-full bg-muted/60 p-1">
+                            <TabsTrigger
+                                v-for="t in tabItems"
+                                :key="t.value"
+                                :value="t.value"
+                                class="gap-1.5 rounded-full px-4 text-xs font-medium data-[state=active]:shadow-sm"
                             >
-                                {{ statusCounts[t.value] }}
-                            </span>
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                                {{ t.label }}
+                                <span
+                                    :class="[
+                                        'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                                        t.value === 'pending' && 'bg-warning/15 text-warning-foreground',
+                                        t.value === 'approved' && 'bg-success/10 text-success',
+                                        t.value === 'rejected' && 'bg-destructive/10 text-destructive',
+                                        t.value === 'all' && 'bg-muted text-muted-foreground',
+                                    ]"
+                                >
+                                    {{ statusCounts[t.value] }}
+                                </span>
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+
+                    <Tabs v-model="viewType" class="hidden md:block">
+                        <TabsList class="h-10 rounded-full bg-muted/60 p-1">
+                            <TabsTrigger value="table" class="rounded-full px-3">
+                                <List class="size-3.5" />
+                            </TabsTrigger>
+                            <TabsTrigger value="form" class="rounded-full px-3">
+                                <LayoutGrid class="size-3.5" />
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
 
                 <div class="flex items-center gap-2">
                     <div class="relative w-full md:w-64">
@@ -348,103 +361,167 @@ const tabItems: { value: 'all' | 'pending' | 'approved' | 'rejected'; label: str
                 </Button>
             </div>
 
-            <!-- TABLE -->
-            <section
-                v-if="filteredRegistrants.length > 0"
-                :class="['overflow-hidden rounded-2xl border border-border/60 bg-card', cardShadow]"
-            >
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-border/60 bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                                <th class="px-5 py-3.5">Registrant</th>
-                                <th class="px-5 py-3.5">Status</th>
-                                <th class="px-5 py-3.5">Submitted</th>
-                                <th class="px-5 py-3.5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="reg in filteredRegistrants"
-                                :key="reg.id"
-                                class="group border-b border-border/40 transition-colors last:border-0 hover:bg-muted/30"
-                            >
-                                <td class="px-5 py-3.5">
-                                    <button type="button" class="flex items-center gap-3 text-left" @click="openDetail(reg)">
-                                        <Avatar class="size-9 ring-2 ring-background transition-transform group-hover:scale-[1.03]">
-                                            <AvatarImage :src="reg.user.avatar ?? ''" :alt="reg.user.name" />
-                                            <AvatarFallback class="bg-primary/10 text-[11px] font-semibold text-primary">
-                                                {{ getInitials(reg.user.name) }}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div class="min-w-0">
-                                            <p class="truncate text-sm font-semibold text-foreground">{{ reg.user.name }}</p>
-                                            <p class="truncate text-xs text-muted-foreground">{{ reg.user.email }}</p>
+            <!-- CONTENT VIEWS -->
+            <template v-if="filteredRegistrants.length > 0">
+                <!-- TABLE VIEW -->
+                <section
+                    v-if="viewType === 'table'"
+                    :class="['overflow-hidden rounded-2xl border border-border/60 bg-card', cardShadow]"
+                >
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border/60 bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                    <th class="px-5 py-3.5">Registrant</th>
+                                    <th class="px-5 py-3.5">Status</th>
+                                    <th class="px-5 py-3.5">Submitted</th>
+                                    <th class="px-5 py-3.5 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="reg in filteredRegistrants"
+                                    :key="reg.id"
+                                    class="group border-b border-border/40 transition-colors last:border-0 hover:bg-muted/30"
+                                >
+                                    <td class="px-5 py-3.5">
+                                        <button type="button" class="flex items-center gap-3 text-left" @click="openDetail(reg)">
+                                            <Avatar class="size-9 ring-2 ring-background transition-transform group-hover:scale-[1.03]">
+                                                <AvatarImage :src="reg.user.avatar ?? ''" :alt="reg.user.name" />
+                                                <AvatarFallback class="bg-primary/10 text-[11px] font-semibold text-primary">
+                                                    {{ getInitials(reg.user.name) }}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-semibold text-foreground">{{ reg.user.name }}</p>
+                                                <p class="truncate text-xs text-muted-foreground">{{ reg.user.email }}</p>
+                                            </div>
+                                        </button>
+                                    </td>
+                                    <td class="px-5 py-3.5">
+                                        <span
+                                            :class="[
+                                                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ring-1',
+                                                statusBadge(reg.status),
+                                            ]"
+                                        >
+                                            <span class="size-1.5 rounded-full bg-current" />
+                                            {{ reg.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-5 py-3.5">
+                                        <div class="flex flex-col">
+                                            <span class="text-xs font-medium text-foreground">{{ relativeTime(reg.submitted_at) }}</span>
+                                            <span class="text-[11px] text-muted-foreground">{{ formatDateTime(reg.submitted_at) }}</span>
                                         </div>
-                                    </button>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <span
-                                        :class="[
-                                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ring-1',
-                                            statusBadge(reg.status),
-                                        ]"
-                                    >
-                                        <span class="size-1.5 rounded-full bg-current" />
-                                        {{ reg.status }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-col">
-                                        <span class="text-xs font-medium text-foreground">{{ relativeTime(reg.submitted_at) }}</span>
-                                        <span class="text-[11px] text-muted-foreground">{{ formatDateTime(reg.submitted_at) }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <Tooltip>
-                                            <TooltipTrigger as-child>
-                                                <Button variant="ghost" size="icon" class="size-8 rounded-full" @click="openDetail(reg)">
-                                                    <Eye class="size-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>View submission</TooltipContent>
-                                        </Tooltip>
-                                        <template v-if="reg.status === 'pending'">
+                                    </td>
+                                    <td class="px-5 py-3.5">
+                                        <div class="flex items-center justify-end gap-1">
                                             <Tooltip>
                                                 <TooltipTrigger as-child>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        class="size-8 rounded-full text-success hover:bg-success/10 hover:text-success"
-                                                        @click="startApprove(reg)"
-                                                    >
-                                                        <CheckCircle2 class="size-4" />
+                                                    <Button variant="ghost" size="icon" class="size-8 rounded-full" @click="openDetail(reg)">
+                                                        <Eye class="size-4" />
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>Approve</TooltipContent>
+                                                <TooltipContent>View submission</TooltipContent>
                                             </Tooltip>
-                                            <Tooltip>
-                                                <TooltipTrigger as-child>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        class="size-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        @click="startReject(reg)"
-                                                    >
-                                                        <XCircle class="size-4" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Reject</TooltipContent>
-                                            </Tooltip>
-                                        </template>
+                                            <template v-if="reg.status === 'pending'">
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            class="size-8 rounded-full text-success hover:bg-success/10 hover:text-success"
+                                                            @click="startApprove(reg)"
+                                                        >
+                                                            <CheckCircle2 class="size-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Approve</TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            class="size-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            @click="startReject(reg)"
+                                                        >
+                                                            <XCircle class="size-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Reject</TooltipContent>
+                                                </Tooltip>
+                                            </template>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- FORM/CARD VIEW -->
+                <section v-else class="grid gap-4 sm:grid-cols-2">
+                    <Card
+                        v-for="reg in filteredRegistrants"
+                        :key="reg.id"
+                        class="overflow-hidden rounded-2xl border border-border/60 shadow-xs transition-all hover:shadow-sm"
+                    >
+                        <CardHeader class="border-b bg-muted/20 pb-3 pt-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <Avatar class="size-10 ring-2 ring-background">
+                                        <AvatarImage :src="reg.user.avatar ?? ''" :alt="reg.user.name" />
+                                        <AvatarFallback class="bg-primary/10 text-xs font-semibold text-primary">
+                                            {{ getInitials(reg.user.name) }}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-foreground">{{ reg.user.name }}</p>
+                                        <p class="truncate text-[11px] text-muted-foreground">{{ reg.user.email }}</p>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                                </div>
+                                <span
+                                    :class="[
+                                        'inline-flex items-center gap-1 size-2 rounded-full',
+                                        reg.status === 'approved' && 'bg-success',
+                                        reg.status === 'rejected' && 'bg-destructive',
+                                        reg.status === 'pending' && 'bg-warning',
+                                    ]"
+                                />
+                            </div>
+                        </CardHeader>
+                        <CardContent class="p-0">
+                            <div class="flex flex-col divide-y divide-border/40">
+                                <div v-for="(val, key) in reg.answers" :key="key" class="px-4 py-2.5">
+                                    <p class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{{ key }}</p>
+                                    <p class="mt-0.5 line-clamp-2 text-xs font-medium text-foreground/90">{{ val || '—' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-border/40 bg-muted/5 px-4 py-3">
+                                <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <Clock class="size-3" />
+                                    {{ relativeTime(reg.submitted_at) }}
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <Button variant="ghost" size="xs" class="h-7 px-2 text-[10px]" @click="openDetail(reg)">
+                                        Details
+                                    </Button>
+                                    <template v-if="reg.status === 'pending'">
+                                        <Button variant="ghost" size="xs" class="h-7 px-2 text-[10px] text-success hover:bg-success/10 hover:text-success" @click="startApprove(reg)">
+                                            Approve
+                                        </Button>
+                                        <Button variant="ghost" size="xs" class="h-7 px-2 text-[10px] text-destructive hover:bg-destructive/10 hover:text-destructive" @click="startReject(reg)">
+                                            Reject
+                                        </Button>
+                                    </template>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
+            </template>
 
             <EmptyState
                 v-else

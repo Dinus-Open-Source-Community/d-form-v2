@@ -18,14 +18,14 @@ import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vu
 defineOptions({ layout: DashboardLayout })
 
 const props = defineProps<{
-    events?: IEvent[]
+    events: IEvent[]
 }>()
 
 const searchQuery = ref('')
 const filterCategory = ref('all')
 const activeTab = ref('all')
 
-const allEvents = computed(() => props.events ?? [])
+const allEvents = computed(() => props.events)
 
 const filteredEvents = computed(() => {
     let list = allEvents.value

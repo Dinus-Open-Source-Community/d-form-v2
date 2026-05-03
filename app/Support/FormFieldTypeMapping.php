@@ -8,7 +8,7 @@ namespace App\Support;
  */
 final class FormFieldTypeMapping
 {
-    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox'];
+    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox', 'banner'];
 
     public static function toInputType(string $apiType): string
     {

@@ -210,12 +210,12 @@ export const dummyForms: IForm[] = [
 ]
 
 export const dummyFormFields: IFormField[] = [
-    { id: 'ff-001', input_type: 'textInput', metadata: { label: 'Full Name', placeholder: 'Enter your full name', required: true }, form_id: 'form-001' },
-    { id: 'ff-002', input_type: 'textInput', metadata: { label: 'Student ID (NIM)', placeholder: 'e.g. A11.2026.xxxxx', required: true }, form_id: 'form-001' },
-    { id: 'ff-003', input_type: 'selectInput', metadata: { label: 'Faculty', options: ['Engineering', 'Computer Science', 'Design', 'Business'], required: true }, form_id: 'form-001' },
-    { id: 'ff-004', input_type: 'textarea', metadata: { label: 'Motivation', placeholder: 'Why do you want to join?', required: false }, form_id: 'form-001' },
-    { id: 'ff-005', input_type: 'fileUpload', metadata: { label: 'CV / Resume', accept: '.pdf,.doc,.docx', maxSize: 5120, required: false }, form_id: 'form-001' },
-    { id: 'ff-006', input_type: 'datePicker', metadata: { label: 'Preferred Date', required: false }, form_id: 'form-001' },
+    { id: 'ff-001', type: 'input', label: 'Full Name', name: 'full_name', order: 1, metadata: { placeholder: 'Enter your full name', required: true } },
+    { id: 'ff-002', type: 'input', label: 'Student ID (NIM)', name: 'nim', order: 2, metadata: { placeholder: 'e.g. A11.2026.xxxxx', required: true } },
+    { id: 'ff-003', type: 'select', label: 'Faculty', name: 'faculty', order: 3, metadata: { options: ['Engineering', 'Computer Science', 'Design', 'Business'], required: true } },
+    { id: 'ff-004', type: 'textarea', label: 'Motivation', name: 'motivation', order: 4, metadata: { placeholder: 'Why do you want to join?', required: false } },
+    { id: 'ff-005', type: 'fileUpload', label: 'CV / Resume', name: 'cv', order: 5, metadata: { accept: '.pdf,.doc,.docx', maxSize: 5120, required: false } },
+    { id: 'ff-006', type: 'datePicker', label: 'Preferred Date', name: 'preferred_date', order: 6, metadata: { required: false } },
 ]
 
 export const dummyRegistrants: IRegistrant[] = [

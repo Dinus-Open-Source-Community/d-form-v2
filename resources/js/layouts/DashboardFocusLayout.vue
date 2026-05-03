@@ -98,10 +98,10 @@ function handleLogout() {
             aria-hidden="true"
             class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
         />
-        <header class="sticky top-0 z-30 border-b-[1.5px] border-[var(--brutal-ink)]/12 bg-white/95 shadow-[var(--shadow-sm)] backdrop-blur-lg">
+        <header class="sticky top-0 z-30 border-b-2 border-foreground bg-white/95 shadow-[var(--shadow-xs)] backdrop-blur-lg">
             <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
                 <div class="flex items-center gap-3 min-w-0">
-                    <Breadcrumb class="min-w-0">
+                    <Breadcrumb class="min-w-0 hidden sm:flex">
                         <BreadcrumbList>
                             <template v-for="(crumb, idx) in breadcrumbs" :key="idx">
                                 <BreadcrumbSeparator v-if="idx > 0" />

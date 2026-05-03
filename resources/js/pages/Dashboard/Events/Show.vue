@@ -21,7 +21,7 @@ import {
     edit as editEvent,
 } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController'
 import {
-    dummyEvents, dummyForms, dummyRegistrants, formatDate, formatDateTime,
+    dummyEvents, formatDate, formatDateTime,
     categoryLabelMap, categoryColorMap, sessionLabelMap,
 } from '@/lib/dummyData'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
@@ -29,14 +29,14 @@ import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vu
 defineOptions({ layout: DashboardFocusLayout })
 
 const props = defineProps<{
-    event?: IEvent
-    forms?: { id: string; title: string }[]
+    event: IEvent
+    forms: { id: string; title: string }[]
 }>()
 
-const event = props.event ?? dummyEvents[0]
-const forms = props.forms ?? dummyForms.filter((f) => f.event_id === event.id)
-const previewRegistrants = dummyRegistrants.filter((r) => r.event_id === event.id).slice(0, 5)
-const totalRegistrants = dummyRegistrants.filter((r) => r.event_id === event.id).length
+const event = props.event
+const forms = props.forms
+const previewRegistrants = [] as IRegistrant[] // Backend doesn't send this yet, so we'll start with empty and maybe add later if needed.
+const totalRegistrants = event.registered_count
 
 function parseCategories(raw: unknown): string[] {
     if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean)
