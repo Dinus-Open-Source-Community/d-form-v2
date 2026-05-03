@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormAnswer extends Model
 {
@@ -41,5 +42,13 @@ class FormAnswer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return HasMany<EmailLog, $this>
+     */
+    public function emailLogs(): HasMany
+    {
+        return $this->hasMany(EmailLog::class, 'form_answer_id');
     }
 }

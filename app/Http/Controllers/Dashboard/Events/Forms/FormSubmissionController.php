@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendRegistrationConfirmationJob;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
@@ -54,7 +55,7 @@ class FormSubmissionController extends Controller
         $isAdmin = $user->can('events.list');
         $answers = $this->buildAnswers($request, $fields, $form);
 
-        DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): void {
+        $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
             // Lock the event row to prevent concurrent over-quota submissions.
             $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
 
@@ -68,14 +69,18 @@ class FormSubmissionController extends Controller
                 throw new \App\Exceptions\QuotaExceededException();
             }
 
-            FormAnswer::create([
+            $submission = FormAnswer::create([
                 'answers' => $answers,
                 'form_id' => $form->id,
                 'user_id' => (string) $user->id,
             ]);
 
             $lockedEvent->increment('registered_count');
+
+            return $submission;
         });
+
+        SendRegistrationConfirmationJob::dispatch($submission->id)->afterCommit();
 
         Inertia::flash('toast', [
             'type'    => 'success',

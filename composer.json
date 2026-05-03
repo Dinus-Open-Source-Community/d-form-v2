@@ -10,6 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "endroid/qr-code": "6.0",
         "filament/actions": "^5.0",
         "filament/forms": "^5.0",
         "filament/infolists": "^5.0",

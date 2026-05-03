@@ -37,6 +37,15 @@ project dari Dinus Open Source Community dimana project ini merupakan sebuah web
 - [Pedoman Front-end](docs/rules/front-end.md)
 - [Pedoman Back-end](docs/rules/back-end.md)
 
+## Email antrean dan konfirmasi pendaftaran (M5)
+
+Setelah pendaftaran berhasil, [`SendRegistrationConfirmationJob`](app/Jobs/SendRegistrationConfirmationJob.php) mengantre email konfirmasi (QR + ringkasan jawaban) dan menulis audit ke tabel `email_logs`.
+
+- **Antrean:** pastikan `QUEUE_CONNECTION` di `.env` sesuai lingkungan (misalnya `redis` atau `database`) dan worker berjalan dengan `php artisan queue:work`, atau di lokal gunakan `composer run dev` (sudah menyertakan `queue:listen`).
+- **SMTP:** untuk pengiriman nyata, set `MAIL_MAILER=smtp` dan isi `MAIL_HOST`, `MAIL_USERNAME`, dan `MAIL_PASSWORD`; untuk pengembangan, `MAIL_MAILER=log` atau Mailpit sesuai port di `MAIL_PORT`.
+- **Migrasi:** jalankan `php artisan migrate` agar tabel `email_logs` tersedia.
+- **QR di email:** paket [`endroid/qr-code`](https://github.com/endroid/qr-code) membuat PNG lewat **GD** (`extension=gd` di PHP). Tidak memerlukan Imagick.
+
 ## Daftar isi
 
 - [01. Instalasi projek](docs/01-installation.md)
