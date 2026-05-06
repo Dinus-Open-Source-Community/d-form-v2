@@ -1,71 +1,67 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-import AuthToast from '@/components/modules/auth/AuthToast.vue';
-import AuthIllustration from '@/components/modules/auth/AuthIllustration.vue';
-import AuthLoginForm from '@/components/modules/auth/AuthLoginForm.vue';
-import AuthRegisterForm from '@/components/modules/auth/AuthRegisterForm.vue';
-import AuthOAuthButtons from '@/components/modules/auth/AuthOAuthButtons.vue';
+import { ref, watch, computed } from 'vue'
+import { usePage } from '@inertiajs/vue3'
+import AuthToast from '@/components/modules/auth/AuthToast.vue'
+import AuthIllustration from '@/components/modules/auth/AuthIllustration.vue'
+import AuthLoginForm from '@/components/modules/auth/AuthLoginForm.vue'
+import AuthRegisterForm from '@/components/modules/auth/AuthRegisterForm.vue'
+import AuthOAuthButtons from '@/components/modules/auth/AuthOAuthButtons.vue'
+import type { AuthToastPayload, AuthToastType } from '@/types/auth'
 
-const mode = ref<'login' | 'register'>('login');
+const mode = ref<'login' | 'register'>('login')
 
-// Toast system
-const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null);
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
+const toast = ref<AuthToastPayload | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
-function showToast(type: 'success' | 'error', message: string) {
-    if (toastTimer) clearTimeout(toastTimer);
-    toast.value = { type, message };
+function showToast(type: AuthToastType, message: string): void {
+    if (toastTimer) clearTimeout(toastTimer)
+    toast.value = { type, message }
     toastTimer = setTimeout(() => {
-        toast.value = null;
-    }, 4000);
+        toast.value = null
+    }, 4000)
 }
 
-function dismissToast() {
-    toast.value = null;
+function dismissToast(): void {
+    toast.value = null
 }
 
-// Watch for server errors
-const page = usePage();
-const errors = computed((): Record<string, string> => {
-    const p = page.props as { errors?: Record<string, string> };
-    return p.errors ?? {};
-});
+const page = usePage()
+const errors = computed<Record<string, string>>(() => {
+    const p = page.props as { errors?: Record<string, string> }
+    return p.errors ?? {}
+})
 watch(
     errors,
     (newErrors) => {
-        const keys = Object.keys(newErrors);
-        if (keys.length > 0) showToast('error', newErrors[keys[0]]);
+        const keys = Object.keys(newErrors)
+        if (keys.length > 0) showToast('error', newErrors[keys[0]])
     },
-    { deep: true }
-);
+    { deep: true },
+)
 </script>
 
 <template>
-    <!-- Toast -->
     <AuthToast :toast="toast" @dismiss="dismissToast" />
 
     <div class="grid min-h-dvh w-full grid-cols-1 bg-background lg:grid-cols-2">
-        <!-- Left: Illustration -->
         <AuthIllustration />
 
-        <!-- Right: Auth Forms -->
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
-            <div class="brutal-card w-full max-w-md bg-white p-7 sm:p-8">
-                <!-- Logo -->
-                <a href="/" class="group mb-10 flex items-center gap-2.5">
+            <div class="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-8">
+                <a href="/" class="group mb-10 inline-flex items-center gap-2.5">
                     <div
-                        class="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-[#101014] bg-[#0A84DC] shadow-[4px_4px_0_#101014] transition-transform group-hover:-rotate-6"
+                        class="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs transition-transform group-hover:-translate-y-px"
                     >
                         <svg
-                            width="22"
-                            height="22"
+                            width="20"
+                            height="20"
                             viewBox="0 0 24 24"
                             fill="none"
-                            stroke="white"
-                            stroke-width="2.5"
+                            stroke="currentColor"
+                            stroke-width="2.2"
                             stroke-linecap="round"
                             stroke-linejoin="round"
+                            aria-hidden="true"
                         >
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
                             <path d="M14 2v6h6" />
@@ -74,20 +70,17 @@ watch(
                             <path d="M10 9H8" />
                         </svg>
                     </div>
-                    <span class="font-display text-3xl font-extrabold tracking-tight text-[#111827]">
-                        D<span class="text-[#0A84DC]">Form</span>
+                    <span class="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+                        D<span class="text-primary">Form</span>
                     </span>
                 </a>
 
-                <!-- Forms -->
                 <AuthLoginForm v-if="mode === 'login'" @toast="showToast" @switch-mode="mode = 'register'" />
                 <AuthRegisterForm v-else @toast="showToast" @switch-mode="mode = 'login'" />
 
-                <!-- OAuth -->
                 <AuthOAuthButtons />
 
-                <!-- Mobile footer -->
-                <p class="mt-10 text-center text-xs font-bold uppercase tracking-[0.14em] text-[#6B7280] lg:hidden">
+                <p class="mt-10 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground lg:hidden">
                     Created by Dinus Open Source Community
                 </p>
             </div>

@@ -12,15 +12,16 @@ const { form } = defineProps<Props>();
 
 <template>
     <Button
-        class="w-full cursor-pointer transition-all active:scale-[.98] disabled:cursor-not-allowed"
+        size="lg"
+        class="w-full disabled:cursor-not-allowed"
         :disabled="form.processing"
     >
-        <span v-if="form.processing" class="flex items-center gap-1">
+        <span v-if="form.processing" class="flex items-center gap-2">
             <Spinner />
             <slot name="processing"></slot>
         </span>
 
-        <span v-else class="flex items-center gap-1">
+        <span v-else class="flex items-center gap-2">
             <slot></slot>
         </span>
     </Button>

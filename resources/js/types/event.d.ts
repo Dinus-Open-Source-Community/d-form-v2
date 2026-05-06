@@ -60,7 +60,7 @@ declare global {
         description?: string | null
         name: string
         order: number
-        metadata: Record<string, any> // Using any for complex nested metadata like rules
+        metadata: Record<string, unknown>
         required?: boolean
         placeholder?: string
         options?: IFormFieldOption[]
@@ -83,7 +83,7 @@ declare global {
     interface IFormSubmission {
         id: string
         user: { id: string; name: string; email: string } | null
-        answers: Record<string, any>
+        answers: Record<string, unknown>
         submitted_at: string
     }
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { optionLabel, optionImageUrl, type FieldOptionEntry } from '@/components/modules/builder/fieldMapping'
+import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping'
 import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
 import {
     Type,
     AlignLeft,
@@ -23,12 +24,19 @@ import {
     Copy,
 } from 'lucide-vue-next'
 
-const props = defineProps({
-    field: { type: Object, required: true },
-    isSelected: { type: Boolean, default: false },
-})
+const props = withDefaults(
+    defineProps<{
+        field: BuilderField
+        isSelected?: boolean
+    }>(),
+    { isSelected: false },
+)
 
-const emit = defineEmits(['select', 'delete', 'duplicate'])
+const emit = defineEmits<{
+    (event: 'select'): void
+    (event: 'delete'): void
+    (event: 'duplicate'): void
+}>()
 
 const TYPE_CONFIG = {
     short_text: { icon: Type, label: 'Short Text', accent: '#2563eb' },
@@ -49,14 +57,18 @@ const TYPE_CONFIG = {
     divider: { icon: Minus, label: 'Divider', accent: '#9ca3af' },
 }
 
-const config = computed(() => TYPE_CONFIG[props.field.type] || TYPE_CONFIG.short_text)
+const config = computed(() => TYPE_CONFIG[props.field.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.short_text)
 
 const filledStars = computed(() => props.field.metadata?.maxStars ?? 5)
 
 const choiceOptions = computed((): FieldOptionEntry[] => {
     const raw = props.field.options
     if (Array.isArray(raw) && raw.length > 0) return raw as FieldOptionEntry[]
-    return ['Option 1', 'Option 2', 'Option 3']
+    return ['Option 1', 'Option 2', 'Option 3'].map((label) => ({
+        id: label.toLowerCase().replace(/\s+/g, '-'),
+        type: 'text',
+        label,
+    }))
 })
 
 function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
@@ -67,11 +79,11 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
 
 <template>
     <div
-        class="group relative cursor-pointer rounded-xl border-[1.5px] transition-all duration-200"
+        class="group relative cursor-pointer rounded-xl border transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
         :class="[
             isSelected
-                ? 'border-[var(--brutal-blue)] bg-[var(--brutal-blue)]/[0.03] shadow-[0_0_0_3px_rgba(37,99,235,0.12)]'
-                : 'border-[var(--brutal-ink)]/10 bg-white hover:border-[var(--brutal-ink)]/20',
+                ? 'border-primary bg-primary/[0.04] shadow-sm ring-3 ring-primary/15'
+                : 'border-border bg-card shadow-xs hover:border-primary/30',
         ]"
         @click="emit('select')"
     >
@@ -86,14 +98,14 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
             </span>
             <div class="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
-                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-[var(--brutal-ink)]"
+                    class="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     title="Duplicate"
                     @click.stop="emit('duplicate')"
                 >
                     <Copy class="size-3.5" />
                 </button>
                 <button
-                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    class="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     title="Delete"
                     @click.stop="emit('delete')"
                 >
@@ -105,7 +117,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
         <!-- Field content -->
         <div class="px-4 pt-1 pb-4">
             <!-- Label -->
-            <label class="mb-0.5 block font-display text-sm font-bold text-[var(--brutal-ink)]">
+            <label class="mb-0.5 block font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                 {{ field.label || 'Untitled Field' }}
                 <span v-if="field.required" class="text-destructive">*</span>
             </label>
@@ -118,7 +130,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- Short text / Email / Phone / Number -->
                 <div
                     v-if="['short_text', 'email', 'phone', 'number'].includes(field.type)"
-                    class="flex items-center gap-2 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/10 bg-muted/20 px-3 py-2.5"
+                    class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5"
                 >
                     <component :is="config.icon" class="size-4 shrink-0 text-muted-foreground/50" />
                     <span class="text-xs text-muted-foreground/60">
@@ -129,23 +141,23 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- Long text -->
                 <div
                     v-else-if="field.type === 'long_text'"
-                    class="rounded-lg border-[1.5px] border-[var(--brutal-ink)]/10 bg-muted/20 px-3 py-2.5"
+                    class="rounded-lg border border-border bg-muted/30 px-3 py-2.5"
                 >
                     <span class="text-xs text-muted-foreground/60">
                         {{ field.placeholder || 'Enter your answer here...' }}
                     </span>
-                    <div class="mt-3 border-t border-dashed border-[var(--brutal-ink)]/8 pt-2">
-                        <div class="h-1.5 w-2/3 rounded-full bg-[var(--brutal-ink)]/6"></div>
+                    <div class="mt-3 border-t border-dashed border-border/60 pt-2">
+                        <div class="h-1.5 w-2/3 rounded-full bg-muted/60"></div>
                     </div>
                     <div class="mt-1.5">
-                        <div class="h-1.5 w-1/2 rounded-full bg-[var(--brutal-ink)]/4"></div>
+                        <div class="h-1.5 w-1/2 rounded-full bg-muted/40"></div>
                     </div>
                 </div>
 
                 <!-- Dropdown -->
                 <div
                     v-else-if="field.type === 'dropdown'"
-                    class="flex items-center justify-between rounded-lg border-[1.5px] border-[var(--brutal-ink)]/10 bg-muted/20 px-3 py-2.5"
+                    class="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2.5"
                 >
                     <span class="text-xs text-muted-foreground/60">Select an option...</span>
                     <ChevronDown class="size-4 text-muted-foreground/40" />
@@ -156,12 +168,12 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                     <label
                         v-for="(opt, i) in choiceOptions"
                         :key="opt.id || i"
-                        class="flex items-center gap-2.5 text-xs text-[var(--brutal-ink)]/70"
+                        class="flex items-center gap-2.5 text-xs text-foreground/80"
                     >
                         <div
-                            class="flex size-4 shrink-0 items-center justify-center rounded border-[1.5px] border-[var(--brutal-ink)]/20 bg-white"
+                            class="flex size-4 shrink-0 items-center justify-center rounded border border-input bg-card"
                         ></div>
-                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-md border border-border">
                             <img
                                 :src="choiceImageSrc(opt)"
                                 alt=""
@@ -177,12 +189,12 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                     <label
                         v-for="(opt, i) in choiceOptions"
                         :key="opt.id || i"
-                        class="flex items-center gap-2.5 text-xs text-[var(--brutal-ink)]/70"
+                        class="flex items-center gap-2.5 text-xs text-foreground/80"
                     >
                         <div
-                            class="flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--brutal-ink)]/20 bg-white"
+                            class="flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-card"
                         ></div>
-                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-full border border-[var(--brutal-ink)]/10">
+                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-full border border-border">
                             <img
                                 :src="choiceImageSrc(opt)"
                                 alt=""
@@ -196,7 +208,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- Image upload -->
                 <div
                     v-else-if="field.type === 'image_upload'"
-                    class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--brutal-ink)]/15 bg-muted/10 py-6"
+                    class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-6"
                 >
                     <div
                         class="mb-2 flex size-10 items-center justify-center rounded-xl bg-primary/8 text-primary"
@@ -210,7 +222,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- File upload -->
                 <div
                     v-else-if="field.type === 'file_upload'"
-                    class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--brutal-ink)]/15 bg-muted/10 py-6"
+                    class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-6"
                 >
                     <div
                         class="mb-2 flex size-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground"
@@ -224,7 +236,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- File upload -->
                 <div
                     v-else-if="field.type === 'date'"
-                    class="flex items-center gap-2 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/10 bg-muted/20 px-3 py-2.5"
+                    class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5"
                 >
                     <Calendar class="size-4 shrink-0 text-muted-foreground/50" />
                     <span class="text-xs text-muted-foreground/60">dd/mm/yyyy</span>
@@ -233,7 +245,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                 <!-- Time -->
                 <div
                     v-else-if="field.type === 'time'"
-                    class="flex items-center gap-2 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/10 bg-muted/20 px-3 py-2.5"
+                    class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5"
                 >
                     <Clock class="size-4 shrink-0 text-muted-foreground/50" />
                     <span class="text-xs text-muted-foreground/60">--:-- AM</span>
@@ -251,7 +263,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
 
                 <!-- Heading -->
                 <div v-else-if="field.type === 'heading'">
-                    <h3 class="font-display text-lg font-bold text-[var(--brutal-ink)]">
+                    <h3 class="font-display text-lg font-bold text-foreground">
                         {{ field.metadata?.content || 'Section Heading' }}
                     </h3>
                 </div>
@@ -265,7 +277,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
 
                 <!-- Divider -->
                 <div v-else-if="field.type === 'divider'" class="py-1">
-                    <hr class="brutal-divider" />
+                    <hr class="app-divider" />
                 </div>
             </div>
         </div>

@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Zap, Users, TrendingUp, Clock, MapPin, ArrowRight } from 'lucide-vue-next'
 import useAuth from '@/utils/composables/useAuth'
-import { dummyEvents, formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
+import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
 import { toCategoryList } from '@/lib/eventCategories'
 
 defineOptions({ layout: DashboardLayout })

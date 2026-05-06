@@ -98,7 +98,7 @@ function handleLogout() {
             aria-hidden="true"
             class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
         />
-        <header class="sticky top-0 z-30 border-b-2 border-foreground bg-white/95 shadow-[var(--shadow-xs)] backdrop-blur-lg">
+        <header class="sticky top-0 z-30 border-b border-border bg-card/85 backdrop-blur-xl">
             <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
                 <div class="flex items-center gap-3 min-w-0">
                     <Breadcrumb class="min-w-0 hidden sm:flex">
@@ -117,9 +117,9 @@ function handleLogout() {
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                         <Button variant="ghost" class="h-10 shrink-0 gap-2 rounded-lg px-2">
-                            <Avatar class="size-7 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/15">
+                            <Avatar class="size-7 rounded-lg border border-border">
                                 <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
-                                <AvatarFallback class="rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
+                                <AvatarFallback class="rounded-lg bg-primary text-[10px] font-semibold text-primary-foreground">
                                     {{ getInitials(user?.name ?? 'U') }}
                                 </AvatarFallback>
                             </Avatar>

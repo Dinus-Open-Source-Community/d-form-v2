@@ -51,9 +51,9 @@ const previewSrc = () => normalizeBannerSrc(props.modelValue.bannerUrl)
 </script>
 
 <template>
-    <div class="flex flex-col gap-3 rounded-xl border-[1.5px] border-[var(--brutal-ink)]/15 bg-[var(--brutal-cream)]/40 p-3">
+    <div class="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
         <div>
-            <p class="text-xs font-bold text-[var(--brutal-ink)]">Banner form</p>
+            <p class="text-xs font-semibold text-foreground">Banner form</p>
             <p class="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
                 Tampil di paling atas (sebelum judul). Hanya pembuat form yang mengisinya — bukan kolom pengisian peserta.
             </p>
@@ -112,12 +112,12 @@ const previewSrc = () => normalizeBannerSrc(props.modelValue.bannerUrl)
 
         <div
             v-if="previewSrc() !== ''"
-            class="overflow-hidden rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white"
+            class="overflow-hidden rounded-xl border border-border bg-card"
         >
             <img :src="previewSrc()" alt="Banner form" class="aspect-[3/1] w-full object-cover" />
             <p
                 v-if="modelValue.bannerFileName && modelValue.bannerUrl.startsWith('data:')"
-                class="border-t border-[var(--brutal-ink)]/10 px-3 py-1.5 text-[10px] text-muted-foreground"
+                class="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground"
             >
                 {{ modelValue.bannerFileName }}
             </p>

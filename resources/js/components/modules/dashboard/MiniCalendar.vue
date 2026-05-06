@@ -49,22 +49,22 @@ const calendarDays = computed(() => {
     <Card>
         <CardHeader class="pb-2">
             <div class="flex items-center justify-between">
-                <CardTitle class="font-display text-xl font-extrabold">
+                <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">
                     {{ monthNames[currentMonth] }} {{ currentYear }}
                 </CardTitle>
                 <div class="flex items-center gap-0.5">
-                    <Button variant="ghost" size="icon" class="size-7" @click="prevMonth">
-                        <ChevronLeft class="size-4" />
+                    <Button variant="ghost" size="icon-sm" @click="prevMonth">
+                        <ChevronLeft class="size-4" :stroke-width="2" />
                     </Button>
-                    <Button variant="ghost" size="icon" class="size-7" @click="nextMonth">
-                        <ChevronRight class="size-4" />
+                    <Button variant="ghost" size="icon-sm" @click="nextMonth">
+                        <ChevronRight class="size-4" :stroke-width="2" />
                     </Button>
                 </div>
             </div>
         </CardHeader>
         <CardContent class="pt-0">
             <div class="grid grid-cols-7 gap-0">
-                <div v-for="day in dayNames" :key="day" class="py-2 text-center text-[11px] font-extrabold text-muted-foreground">
+                <div v-for="day in dayNames" :key="day" class="py-2 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     {{ day }}
                 </div>
             </div>
@@ -72,9 +72,9 @@ const calendarDays = computed(() => {
                 <div v-for="(cell, idx) in calendarDays" :key="idx" class="relative flex h-9 items-center justify-center">
                     <span
                         :class="[
-                            'flex size-7 items-center justify-center rounded-lg border border-transparent text-xs font-bold transition-colors',
+                            'flex size-7 items-center justify-center rounded-lg text-xs font-medium transition-colors',
                             cell.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/30',
-                            cell.isToday ? 'border-foreground bg-primary font-extrabold text-primary-foreground shadow-[2px_2px_0_var(--brutal-ink)]' : 'hover:border-foreground hover:bg-(--brutal-yellow)',
+                            cell.isToday ? 'bg-primary font-semibold text-primary-foreground shadow-xs' : 'hover:bg-muted',
                         ]"
                     >
                         {{ cell.day }}

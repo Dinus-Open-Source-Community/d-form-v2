@@ -14,8 +14,8 @@ const { error } = defineProps<Props>();
 </script>
 
 <template>
-    <div class="flex flex-col gap-2">
-        <Label :for="id">
+    <div class="flex flex-col gap-1.5">
+        <Label :for="id" class="text-sm font-medium text-foreground">
             {{ label }}
         </Label>
 
@@ -23,6 +23,6 @@ const { error } = defineProps<Props>();
         <EmailInput :id="id" v-else-if="type === 'email'" :focus="focus" v-bind="$attrs" />
         <PasswordInput v-else :id="id" v-bind="$attrs" />
 
-        <p v-if="error" class="text-destructive mt-1.5 text-xs">{{ error }}</p>
+        <p v-if="error" class="mt-0.5 text-xs font-medium text-destructive">{{ error }}</p>
     </div>
 </template>

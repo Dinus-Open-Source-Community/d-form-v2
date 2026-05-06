@@ -3,13 +3,9 @@
  * Backend API_TYPES: input, select, textarea, datePicker, fileUpload
  */
 
-/** Choice label only, or label + optional image (URL or data URL) for dropdown / radio / checkbox. */
-export interface FieldOptionEntry {
-    id: string
-    type: 'text' | 'image'
-    label: string
-    imageUrl?: string
-}
+import type { BackendField, BuilderField, FieldOptionEntry } from '@/types/form-builder'
+
+export type { BackendField, BuilderField, FieldOptionEntry }
 
 export function optionLabel(entry: FieldOptionEntry): string {
     return String(entry.label ?? '').trim()
@@ -33,38 +29,17 @@ function parseOptionChoices(raw: unknown): FieldOptionEntry[] | null {
     const out: FieldOptionEntry[] = []
     for (const item of raw) {
         if (item && typeof item === 'object' && item !== null) {
-            const id = String((item as any).id ?? crypto.randomUUID())
-            const type = (item as any).type === 'image' ? 'image' : 'text'
-            const label = String((item as any).label ?? '').trim()
-            const imageUrl = String((item as any).imageUrl ?? '').trim()
+            const row = item as Record<string, unknown>
+            const id = String(row.id ?? crypto.randomUUID())
+            const type = row.type === 'image' ? 'image' : 'text'
+            const label = String(row.label ?? '').trim()
+            const imageUrl = String(row.imageUrl ?? '').trim()
             out.push({ id, type, label, imageUrl })
         } else if (typeof item === 'string') {
             out.push({ id: crypto.randomUUID(), type: 'text', label: item.trim() })
         }
     }
     return out.length > 0 ? out : null
-}
-
-export interface BuilderField {
-    id: string
-    type: string
-    label: string
-    description: string
-    name: string
-    placeholder: string
-    required: boolean
-    options: FieldOptionEntry[]
-    metadata: Record<string, unknown>
-}
-
-export interface BackendField {
-    id: string
-    type: 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload'
-    label: string
-    description: string | null
-    name: string
-    order: number
-    metadata: Record<string, unknown>
 }
 
 export function toBackendField(f: BuilderField, order: number): BackendField {
@@ -164,6 +139,8 @@ function guessType(apiType: string, m: Record<string, unknown>): string {
     }
     if (apiType === 'textarea') return 'long_text'
     if (apiType === 'select') return m.is_multiple ? 'checkbox' : 'dropdown'
+    if (apiType === 'checkbox') return 'checkbox'
+    if (apiType === 'radio') return 'radio'
     if (apiType === 'datePicker') return 'date'
     if (apiType === 'fileUpload') return 'file_upload'
     return 'short_text'
@@ -178,7 +155,11 @@ export function fromBackendField(bf: BackendField): BuilderField {
     const opts: FieldOptionEntry[] =
         parsedChoices ??
         (['dropdown', 'checkbox', 'radio'].includes(bt)
-            ? inStr.split(',').map((s) => s.trim()).filter(Boolean)
+            ? inStr
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                  .map((label) => ({ id: crypto.randomUUID(), type: 'text' as const, label }))
             : [])
 
     return {

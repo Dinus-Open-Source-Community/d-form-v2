@@ -25,7 +25,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LayoutDashboard, CalendarDays, Users, LogOut, ChevronsUpDown, Settings, FileText } from 'lucide-vue-next';
+import { LayoutDashboard, CalendarDays, Users, LogOut, ChevronsUpDown, Settings } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import useAuth from '@/utils/composables/useAuth';
 
@@ -71,37 +71,33 @@ function handleLogout() {
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="sidebar" class="border-[var(--brutal-ink)]/12 bg-sidebar border-r-[1.5px]">
+    <Sidebar collapsible="icon" variant="sidebar" class="border-r border-sidebar-border bg-sidebar">
         <SidebarHeader class="px-3 pt-3 pb-1">
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
                         <a
                             href="/dashboard"
-                            class="flex items-center gap-3 rounded-xl border-[1.5px] border-[var(--brutal-ink)]/15 bg-white p-2 shadow-[var(--shadow-sm)]"
+                            class="flex items-center gap-3 rounded-xl border border-sidebar-border bg-card p-2 shadow-xs"
                         >
-                            <div
-                                class="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)]"
-                            >
-                                <FileText class="size-3.5" />
+                            <div class="grid size-8 place-items-center rounded-lg bg-primary text-xs font-semibold text-primary-foreground">
+                                DF
                             </div>
                             <div class="grid leading-none">
-                                <span class="font-display text-base font-bold tracking-tight">
+                                <span class="font-display text-base font-bold tracking-[-0.02em]">
                                     D<span class="text-primary">Form</span>
                                 </span>
-                                <span
-                                    class="text-muted-foreground text-[9px] font-bold tracking-[0.1em] uppercase"
-                                    >Event Manager</span
-                                >
+                                <span class="text-muted-foreground text-[9px] font-semibold tracking-[0.14em] uppercase">
+                                    Event Manager
+                                </span>
                             </div>
                         </a>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
 
-            <div
-                class="mt-2 rounded-lg border-[1.5px] border-[var(--brutal-ink)]/15 bg-[var(--brutal-yellow)]/10 px-2.5 py-1.5 text-[9px] font-bold tracking-[0.1em] text-[var(--brutal-ink)]/60 uppercase"
-            >
+            <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-2.5 py-1 text-[9px] font-semibold tracking-[0.14em] text-primary uppercase group-data-[collapsible=icon]:hidden">
+                <span class="size-1.5 rounded-full bg-primary"></span>
                 Workspace Ready
             </div>
         </SidebarHeader>
@@ -109,10 +105,8 @@ function handleLogout() {
         <SidebarSeparator class="mx-3 my-2" />
 
         <SidebarContent class="px-2">
-            <SidebarGroup
-                class="rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white p-2 shadow-[var(--shadow-xs)]"
-            >
-                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-bold tracking-widest uppercase">
+            <SidebarGroup class="rounded-xl border border-sidebar-border bg-card/60 p-2">
+                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-semibold tracking-[0.14em] uppercase">
                     Main
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -129,10 +123,8 @@ function handleLogout() {
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarGroup
-                class="mt-2.5 rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white p-2 shadow-[var(--shadow-xs)]"
-            >
-                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-bold tracking-widest uppercase">
+            <SidebarGroup class="mt-2 rounded-xl border border-sidebar-border bg-card/60 p-2">
+                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-semibold tracking-[0.14em] uppercase">
                     Management
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -146,7 +138,7 @@ function handleLogout() {
                             </SidebarMenuButton>
                             <SidebarMenuBadge
                                 v-if="'badge' in item && item.badge"
-                                class="border-[var(--brutal-ink)]/15 text-[var(--brutal-ink)]/60 border-[1.5px] bg-[var(--brutal-mint)]/12 px-1.5 text-[9px] font-bold shadow-none"
+                                class="border border-primary/20 bg-primary/10 px-1.5 text-[10px] font-semibold text-primary shadow-none"
                             >
                                 {{ item.badge }}
                             </SidebarMenuBadge>
@@ -155,10 +147,8 @@ function handleLogout() {
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarGroup
-                class="mt-auto rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white p-2 shadow-[var(--shadow-xs)]"
-            >
-                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-bold tracking-widest uppercase">
+            <SidebarGroup class="mt-auto rounded-xl border border-sidebar-border bg-card/60 p-2">
+                <SidebarGroupLabel class="text-sidebar-foreground/50 text-[9px] font-semibold tracking-[0.14em] uppercase">
                     Account
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -195,7 +185,7 @@ function handleLogout() {
                         <DropdownMenuTrigger as-child>
                             <SidebarMenuButton
                                 size="lg"
-                                class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white shadow-[var(--shadow-xs)]"
+                                class="rounded-xl border border-sidebar-border bg-card/80 shadow-xs data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                             >
                                 <Avatar class="size-7 rounded-md">
                                     <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />

@@ -11,14 +11,14 @@ defineProps<{
 </script>
 
 <template>
-    <div class="brutal-card brutal-noise flex flex-wrap items-center justify-between gap-4 bg-white p-5">
+    <div class="app-surface flex flex-wrap items-center justify-between gap-4 p-5">
         <div class="flex items-center gap-3">
-            <Button v-if="backHref" variant="ghost" size="icon" class="size-8 rounded-lg" as-child>
+            <Button v-if="backHref" variant="ghost" size="icon-sm" class="rounded-lg" as-child>
                 <Link :href="backHref"><ArrowLeft class="size-4" /></Link>
             </Button>
             <div>
-                <h1 class="font-display text-3xl font-extrabold tracking-[-0.04em]">{{ title }}</h1>
-                <p v-if="subtitle" class="mt-1 text-sm font-semibold text-muted-foreground">{{ subtitle }}</p>
+                <h1 class="font-display text-2xl font-bold tracking-[-0.025em] sm:text-3xl">{{ title }}</h1>
+                <p v-if="subtitle" class="mt-1 text-sm leading-relaxed text-muted-foreground">{{ subtitle }}</p>
             </div>
         </div>
         <div class="flex items-center gap-2">

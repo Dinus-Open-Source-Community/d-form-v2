@@ -12,7 +12,7 @@ const props = defineProps<{
     data-slot="input-group"
     role="group"
     :class="cn(
-      'group/input-group border-input relative flex w-full items-center rounded-xl border-2 bg-white shadow-[3px_3px_0_var(--brutal-ink)] transition-[color,box-shadow,transform] outline-none',
+      'group/input-group border-input relative flex w-full items-center rounded-xl border bg-card shadow-xs transition-[color,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none hover:border-primary/30',
       'h-10 min-w-0 has-[>textarea]:h-auto',
 
       // Variants based on alignment.
@@ -22,7 +22,7 @@ const props = defineProps<{
       'has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-end]]:[&>input]:pt-3',
 
       // Focus state.
-      'has-[[data-slot=input-group-control]:focus-visible]:-translate-x-0.5 has-[[data-slot=input-group-control]:focus-visible]:-translate-y-0.5 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot=input-group-control]:focus-visible]:ring-[3px]',
+      'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-ring/30 has-[[data-slot=input-group-control]:focus-visible]:ring-[3px]',
 
       // Error state.
       'has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[[data-slot][aria-invalid=true]]:border-destructive dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40',

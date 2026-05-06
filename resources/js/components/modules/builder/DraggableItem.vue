@@ -1,36 +1,40 @@
 <script setup lang="ts">
 import { GripVertical } from 'lucide-vue-next'
+import type { IconComponent } from '@/types/icons'
 
-const props = defineProps({
-    type: { type: String, required: true },
-    label: { type: String, required: true },
-    icon: { type: [Object, Function], required: true },
-    description: { type: String, default: '' },
-})
+const props = withDefaults(
+    defineProps<{
+        type: string
+        label: string
+        icon: IconComponent
+        description?: string
+    }>(),
+    { description: '' },
+)
 
-const onDragStart = (e) => {
-    e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData(
+const onDragStart = (event: DragEvent) => {
+    if (!event.dataTransfer || !(event.target instanceof Element)) return
+
+    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.setData(
         'application/json',
         JSON.stringify({ type: props.type, label: props.label, isNew: true }),
     )
-    e.dataTransfer.setDragImage(e.target, e.target.offsetWidth / 2, 20)
+    event.dataTransfer.setDragImage(event.target, event.target.clientWidth / 2, 20)
 }
 </script>
 
 <template>
     <div
-        class="group flex cursor-grab items-center gap-2.5 rounded-xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white px-3 py-2.5 shadow-[var(--shadow-xs)] transition-all duration-200 select-none hover:-translate-y-0.5 hover:border-[var(--brutal-ink)]/25 hover:shadow-[var(--shadow-sm)] active:cursor-grabbing active:translate-y-0 active:shadow-[var(--shadow-xs)]"
+        class="group flex cursor-grab items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 shadow-xs transition-[transform,border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] select-none hover:-translate-y-px hover:border-primary/30 hover:bg-accent active:cursor-grabbing active:scale-[0.98]"
         draggable="true"
         @dragstart="onDragStart"
     >
-        <div
-            class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary transition-colors group-hover:bg-primary/12"
-        >
-            <component :is="icon" class="size-4" />
+        <div class="grid size-8 shrink-0 place-items-center rounded-lg border border-primary/15 bg-primary/8 text-primary transition-colors group-hover:border-primary/30 group-hover:bg-primary/12">
+            <component :is="icon" class="size-4" :stroke-width="2" />
         </div>
         <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] font-semibold text-[var(--brutal-ink)]">{{ label }}</p>
+            <p class="truncate text-[13px] font-semibold text-foreground">{{ label }}</p>
             <p v-if="description" class="truncate text-[10px] leading-tight text-muted-foreground">
                 {{ description }}
             </p>

@@ -12,17 +12,18 @@ defineProps<{
 </script>
 
 <template>
-    <div class="brutal-card brutal-noise flex flex-col items-center justify-center px-6 py-14 text-center">
+    <div class="app-surface flex flex-col items-center justify-center px-6 py-14 text-center">
         <LocalLottie
             v-if="animationUrl || animationName"
-            :name="animationName ?? 'errorState'"
+            :name="animationUrl ? undefined : (animationName ?? 'emptyData')"
+            :animation-link="animationUrl"
             :height="size ?? 180"
             :width="size ?? 180"
-            class="mb-2 drop-shadow-[5px_5px_0_var(--brutal-ink)]"
+            class="mb-2"
         />
-        <p class="font-display text-base font-extrabold text-foreground">{{ title }}</p>
-        <p v-if="description" class="mt-2 max-w-xs text-sm font-medium text-muted-foreground">{{ description }}</p>
-        <div class="mt-4">
+        <p class="font-display text-base font-bold tracking-[-0.015em] text-foreground">{{ title }}</p>
+        <p v-if="description" class="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{{ description }}</p>
+        <div class="mt-5">
             <slot />
         </div>
     </div>

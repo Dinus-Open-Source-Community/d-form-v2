@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress'
 import { Plus, Search, MapPin, CalendarDays, Users, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
 import { index as eventsIndex } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController'
 import {
-    dummyEvents, formatDate, statusColorMap,
+    formatDate, statusColorMap,
     categoryLabelMap, categoryColorMap,
 } from '@/lib/dummyData'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
@@ -80,7 +80,7 @@ function buildQueryParams(page?: number) {
 }
 
 function applyFilters() {
-    router.get(eventsIndex().url, buildQueryParams(), { preserveState: true, preserveScroll: true })
+    router.get(eventsIndex().url, buildQueryParams() as never, { preserveState: true, preserveScroll: true })
 }
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -93,7 +93,7 @@ watch([filterCategory, filterSession], applyFilters)
 watch(activeTab, applyFilters)
 
 function goToPage(page: number) {
-    router.get(eventsIndex().url, buildQueryParams(page), { preserveState: true, preserveScroll: true })
+    router.get(eventsIndex().url, buildQueryParams(page) as never, { preserveState: true, preserveScroll: true })
 }
 
 const filteredEvents = computed(() => {
@@ -233,7 +233,7 @@ const totalEvents = computed(() => props.events.total)
             animation-name="errorState"
         />
 
-        <div v-if="isServerSide && lastPage > 1" class="flex items-center justify-between">
+        <div v-if="lastPage > 1" class="flex items-center justify-between">
             <p class="text-sm text-muted-foreground">
                 Showing {{ props.events!.from }}–{{ props.events!.to }} of {{ totalEvents }} events
             </p>

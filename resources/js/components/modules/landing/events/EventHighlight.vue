@@ -1,75 +1,101 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { formatDate } from '@/lib/dummyData';
+import { computed } from 'vue'
+import { ArrowRight, Calendar, MapPin, Users, Star } from 'lucide-vue-next'
+import { formatDate, categoryLabelMap } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
+
+interface Highlight {
+    readonly id: string
+    readonly title: string
+    readonly description: string
+    readonly date: string
+    readonly location: string
+    readonly attendees: number
+    readonly status: string
+    readonly image: string
+    readonly categoryLabel: string
+}
 
 const props = defineProps<{
-    events: IEvent[];
-}>();
+    events: IEvent[]
+}>()
 
-const featured = computed(() => props.events[0] ?? null);
+const featured = computed<IEvent | null>(() => props.events[0] ?? null)
 
-const highlight = computed(() => {
-    const e = featured.value;
-    if (!e) {
-        return null;
-    }
+const highlight = computed<Highlight | null>(() => {
+    const e = featured.value
+    if (!e) return null
+    const description = e.description?.replace(/<[^>]+>/g, '') ?? ''
+    const trimmed = description.length > 220 ? `${description.slice(0, 220)}…` : description
+    const cats = toCategoryList(e.category)
+    const primary = cats[0] ?? ''
     return {
         id: e.id,
         title: e.title,
-        desc: e.description?.replace(/<[^>]+>/g, '').slice(0, 220) + (e.description && e.description.length > 220 ? '…' : ''),
+        description: trimmed,
         date: `${formatDate(e.start_date)} — ${formatDate(e.end_date)}`,
         location: e.location,
         attendees: e.registered_count,
         status: e.registration_status === 'open' ? 'Open' : 'Featured',
         image: e.banner_url ?? '',
-        categoryLabel: cat ? categoryLabelMap[cat] ?? cat : '',
-        sessionLabel: session ? sessionLabelMap[session] ?? session : '',
-    };
-});
+        categoryLabel: primary ? categoryLabelMap[primary] ?? primary : 'Event',
+    }
+})
 </script>
 
 <template>
-    <section v-if="highlight" class="border-y-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/10 py-14">
+    <section v-if="highlight" class="border-y border-border bg-muted/30 py-14">
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
             <div class="mb-8 flex items-center gap-3">
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-pink)]/15 text-[var(--brutal-ink)] shadow-[var(--brutal-shadow-sm)]">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <div class="grid size-9 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                    <Star class="size-4" :stroke-width="2.4" />
                 </div>
-                <h2 class="font-display text-2xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)]">Highlighted Event</h2>
+                <h2 class="font-display text-2xl font-bold tracking-[-0.025em] text-foreground">Highlighted Event</h2>
             </div>
 
-            <div class="brutal-card overflow-hidden bg-white">
+            <div class="app-surface overflow-hidden p-0">
                 <div class="grid lg:grid-cols-5">
-                    <div class="lg:col-span-2">
-                        <img :src="highlight.image" :alt="highlight.title" class="h-full w-full object-cover" style="min-height: 280px;" />
+                    <div class="relative bg-muted lg:col-span-2">
+                        <img
+                            v-if="highlight.image"
+                            :src="highlight.image"
+                            :alt="highlight.title"
+                            class="h-full min-h-[280px] w-full object-cover"
+                        />
+                        <span class="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full border border-border bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur">
+                            {{ highlight.categoryLabel }}
+                        </span>
                     </div>
                     <div class="flex flex-col justify-center p-8 lg:col-span-3 lg:p-10">
-                        <div class="mb-3.5 inline-flex w-fit items-center gap-1.5 rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-mint)]/15 px-3 py-1 shadow-[var(--brutal-shadow-sm)]">
-                            <span class="relative flex h-1.5 w-1.5">
-                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brutal-blue)] opacity-75"></span>
-                                <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--brutal-blue)]"></span>
+                        <div class="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
+                            <span class="relative flex size-1.5">
+                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60"></span>
+                                <span class="relative inline-flex size-1.5 rounded-full bg-success"></span>
                             </span>
-                            <span class="text-[10px] font-bold text-[var(--brutal-ink)]">{{ highlight.status }}</span>
+                            <span>{{ highlight.status }}</span>
                         </div>
-                        <h3 class="font-display text-2xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)] sm:text-3xl">{{ highlight.title }}</h3>
-                        <p class="mt-3 max-w-xl text-sm font-medium leading-relaxed text-[var(--brutal-ink)]/60">{{ highlight.desc }}</p>
-                        <div class="mt-6 flex flex-wrap items-center gap-6 text-xs font-bold text-[#34343B]">
-                            <span class="flex items-center gap-1.5">
-                                <svg class="h-3.5 w-3.5 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+                        <h3 class="font-display text-2xl font-bold tracking-[-0.025em] text-foreground sm:text-3xl">{{ highlight.title }}</h3>
+                        <p class="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">{{ highlight.description }}</p>
+                        <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
+                            <span class="inline-flex items-center gap-1.5">
+                                <Calendar class="size-3.5" :stroke-width="2" />
                                 {{ highlight.date }}
                             </span>
-                            <span class="flex items-center gap-1.5">
-                                <svg class="h-3.5 w-3.5 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span class="inline-flex items-center gap-1.5">
+                                <MapPin class="size-3.5" :stroke-width="2" />
                                 {{ highlight.location }}
                             </span>
-                            <span class="flex items-center gap-1.5">
-                                <svg class="h-3.5 w-3.5 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span class="inline-flex items-center gap-1.5">
+                                <Users class="size-3.5" :stroke-width="2" />
                                 {{ highlight.attendees.toLocaleString() }} registered
                             </span>
                         </div>
-                        <a :href="`/events/${highlight.id}`" class="mt-7 inline-flex w-fit items-center gap-2 rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-blue)] px-6 py-3 text-sm font-bold text-white shadow-[var(--brutal-shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--brutal-ink)] active:translate-y-0 active:shadow-[1px_1px_0_var(--brutal-ink)]">
+                        <a
+                            :href="`/events/${highlight.id}`"
+                            class="mt-7 inline-flex w-fit items-center gap-2 rounded-xl border border-primary/15 bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-primary/92 active:scale-[0.98]"
+                        >
                             View event
-                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            <ArrowRight class="size-3.5" :stroke-width="2.4" />
                         </a>
                     </div>
                 </div>

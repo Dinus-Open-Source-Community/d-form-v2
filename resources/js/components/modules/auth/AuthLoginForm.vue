@@ -1,41 +1,41 @@
 <script setup lang="ts">
-import { useForm, Link, usePage } from '@inertiajs/vue3';
-import { AuthSubmitButton } from '@/components/core/button';
-import { AuthField } from '@/components/core/field';
-import { store as login } from '@/actions/App/Http/Controllers/Auth/LoginController';
-import { index as registerPage } from '@/actions/App/Http/Controllers/Auth/RegisterController';
-import { toast } from 'vue-sonner';
+import { useForm, Link, usePage } from '@inertiajs/vue3'
+import { AuthSubmitButton } from '@/components/core/button'
+import { AuthField } from '@/components/core/field'
+import { store as login } from '@/actions/App/Http/Controllers/Auth/LoginController'
+import { index as registerPage } from '@/actions/App/Http/Controllers/Auth/RegisterController'
+import { toast } from 'vue-sonner'
 
-const page = usePage();
+const page = usePage()
 
-const form = useForm({ email: '', password: '' }).dontRemember('password');
+const form = useForm({ email: '', password: '' }).dontRemember('password')
 
-function submit() {
+function submit(): void {
     form.submit(login(), {
         onFinish: () => {
-            const t = page.flash.toast;
-            if (!t) return;
+            const t = page.flash.toast
+            if (!t) return
             if (t.type === 'success') {
-                toast.success(t.message);
+                toast.success(t.message)
             } else {
-                toast.error(t.message);
+                toast.error(t.message)
             }
         },
-    });
+    })
 }
 </script>
 
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-extrabold tracking-[-0.04em] text-[#101014]">Welcome back</h1>
-            <p class="mt-1.5 text-sm font-semibold text-[#34343B]">
+            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Welcome back</h1>
+            <p class="mt-2 text-sm text-muted-foreground">
                 Don't have an account?
                 <Link
                     :href="registerPage()"
-                    class="text-primary font-extrabold underline decoration-[#FFD84D] decoration-4 underline-offset-4"
+                    class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
                 >
-                    Sign Up
+                    Sign up
                 </Link>
             </p>
         </div>
@@ -44,7 +44,7 @@ function submit() {
             <AuthField
                 type="email"
                 :error="form.errors.email"
-                label="E-mail"
+                label="Email"
                 id="login-email"
                 v-model="form.email"
                 required
@@ -65,9 +65,8 @@ function submit() {
             />
 
             <AuthSubmitButton :form="form">
-                <template #processing> Loading </template>
-
-                Submit
+                <template #processing>Signing you in</template>
+                Sign in
             </AuthSubmitButton>
         </form>
     </div>

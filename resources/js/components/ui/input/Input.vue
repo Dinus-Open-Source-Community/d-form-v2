@@ -25,8 +25,8 @@ const modelValue = useVModel(props, 'modelValue', emits, {
         data-slot="input"
         :class="
             cn(
-                'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input h-10 w-full min-w-0 rounded-xl border-2 bg-white px-3 py-1 text-sm font-semibold shadow-[3px_3px_0_var(--brutal-ink)] transition-[color,box-shadow,transform] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-bold disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
-                'focus-visible:border-ring focus-visible:ring-ring/50 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--brutal-ink)] focus-visible:-translate-x-0.5 focus-visible:-translate-y-0.5 focus-visible:ring-[3px] active:translate-x-1 active:translate-y-1 active:shadow-[1px_1px_0_var(--brutal-ink)]',
+                'file:text-foreground placeholder:text-muted-foreground selection:bg-primary/20 selection:text-foreground border-input h-10 w-full min-w-0 rounded-xl border bg-card px-3 py-1 text-sm font-medium text-foreground shadow-xs transition-[border-color,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+                'hover:border-primary/30 focus-visible:border-ring focus-visible:ring-ring/30 focus-visible:ring-[3px]',
                 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                 props.class
             )

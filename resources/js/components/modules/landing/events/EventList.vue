@@ -1,48 +1,58 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { formatDate, categoryLabelMap } from '@/lib/dummyData';
-import { toCategoryList } from '@/lib/eventCategories';
+import { ref, computed, onMounted } from 'vue'
+import { Search, Calendar, MapPin, Users } from 'lucide-vue-next'
+import { formatDate, categoryLabelMap } from '@/lib/dummyData'
+import { toCategoryList } from '@/lib/eventCategories'
+
+interface Row {
+    readonly id: string
+    readonly title: string
+    readonly date: string
+    readonly location: string
+    readonly attendees: number
+    readonly category: string
+    readonly status: string
+    readonly statusTone: 'success' | 'warning' | 'muted' | 'destructive'
+    readonly image: string
+}
 
 const props = withDefaults(
     defineProps<{
-        events?: IEvent[];
+        events?: IEvent[]
     }>(),
     { events: () => [] },
-);
+)
 
-const listVisible = ref(false);
+const listVisible = ref(false)
 onMounted(() => {
     const observer = new IntersectionObserver(
         ([entry]) => {
-            if (entry.isIntersecting) listVisible.value = true;
+            if (entry.isIntersecting) listVisible.value = true
         },
         { threshold: 0.05 },
-    );
-    const el = document.getElementById('event-list');
-    if (el) observer.observe(el);
-});
+    )
+    const el = document.getElementById('event-list')
+    if (el) observer.observe(el)
+})
 
-type Row = {
-    id: string;
-    title: string;
-    date: string;
-    location: string;
-    attendees: number;
-    category: string;
-    status: string;
-    image: string;
-};
+function statusFor(reg: IEvent['registration_status']): { label: string; tone: Row['statusTone'] } {
+    switch (reg) {
+        case 'open':
+            return { label: 'Open', tone: 'success' }
+        case 'full':
+            return { label: 'Full', tone: 'warning' }
+        case 'closed':
+            return { label: 'Closed', tone: 'muted' }
+        default:
+            return { label: 'Coming Soon', tone: 'muted' }
+    }
+}
 
 const rows = computed<Row[]>(() =>
     props.events.map((e) => {
-        const cats = toCategoryList(e.category);
-        const primary = cats[0] ?? '';
-        const reg = e.registration_status;
-        let status = 'Coming Soon';
-        if (reg === 'open') status = 'Open';
-        else if (reg === 'full') status = 'Full';
-        else if (reg === 'closed') status = 'Closed';
-
+        const cats = toCategoryList(e.category)
+        const primary = cats[0] ?? ''
+        const s = statusFor(e.registration_status)
         return {
             id: e.id,
             title: e.title,
@@ -50,67 +60,76 @@ const rows = computed<Row[]>(() =>
             location: e.location,
             attendees: e.registered_count,
             category: primary ? categoryLabelMap[primary] ?? primary : 'Event',
-            status,
+            status: s.label,
+            statusTone: s.tone,
             image: e.banner_url ?? '',
-        };
+        }
     }),
-);
+)
 
-const searchQuery = ref('');
-const activeCategory = ref('All');
+const searchQuery = ref('')
+const activeCategory = ref('All')
 
-const categories = computed(() => {
-    const cats = [...new Set(rows.value.map((e) => e.category))];
-    return ['All', ...cats];
-});
+const categories = computed<string[]>(() => {
+    const cats = [...new Set(rows.value.map((e) => e.category))]
+    return ['All', ...cats]
+})
 
-const filteredEvents = computed(() => {
-    let result = rows.value;
+const filteredEvents = computed<Row[]>(() => {
+    let result = rows.value
     if (activeCategory.value !== 'All') {
-        result = result.filter((e) => e.category === activeCategory.value);
+        result = result.filter((e) => e.category === activeCategory.value)
     }
     if (searchQuery.value.trim()) {
-        const q = searchQuery.value.toLowerCase();
+        const q = searchQuery.value.toLowerCase()
         result = result.filter(
             (e) =>
                 e.title.toLowerCase().includes(q) ||
                 e.location.toLowerCase().includes(q) ||
                 e.category.toLowerCase().includes(q),
-        );
+        )
     }
-    return result;
-});
+    return result
+})
+
+const statusClasses: Record<Row['statusTone'], string> = {
+    success: 'border-success/25 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/15 text-warning-foreground',
+    muted: 'border-border bg-muted text-muted-foreground',
+    destructive: 'border-destructive/25 bg-destructive/10 text-destructive',
+}
 </script>
 
 <template>
     <section id="event-list" class="relative overflow-hidden bg-background py-20 lg:py-28">
-        <div class="absolute right-8 top-10 h-20 w-20 rounded-full bg-[var(--brutal-mint)]/8 blur-md"></div>
-        <div class="mx-auto max-w-7xl px-6 lg:px-8">
-            <!-- Header + Search -->
+        <div class="pointer-events-none absolute right-8 top-10 h-72 w-72 rounded-full bg-primary/8 blur-3xl"></div>
+        <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)]">All Events</h2>
-                <div class="flex items-center gap-3 rounded-xl border-[1.5px] border-[var(--brutal-ink)] bg-white px-4 py-2 shadow-[var(--brutal-shadow-sm)] transition-all focus-within:-translate-y-0.5">
-                    <svg class="h-4 w-4 text-[#101014]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <div>
+                    <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-foreground">All events</h2>
+                    <p class="mt-1 text-sm text-muted-foreground">{{ filteredEvents.length }} events available</p>
+                </div>
+                <label class="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2 shadow-xs transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/15">
+                    <Search class="size-4 text-muted-foreground" :stroke-width="2.2" />
                     <input
                         v-model="searchQuery"
                         type="text"
                         placeholder="Search events..."
-                        class="w-full min-w-[200px] border-0 bg-transparent text-sm font-bold text-[#101014] shadow-none placeholder-[#6B7280] outline-none"
+                        class="w-full min-w-[200px] border-0 bg-transparent text-sm font-medium text-foreground shadow-none outline-none placeholder:text-muted-foreground"
                     />
-                </div>
+                </label>
             </div>
 
-            <!-- Category Tabs -->
             <div class="mb-10 flex flex-wrap gap-2">
                 <button
                     v-for="cat in categories"
                     :key="cat"
                     type="button"
-                    class="rounded-lg border-[1.5px] border-[var(--brutal-ink)] px-3.5 py-1.5 text-xs font-bold shadow-[var(--brutal-shadow-sm)] transition-all duration-200 active:translate-y-0.5 active:shadow-none"
+                    class="rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                     :class="
                         activeCategory === cat
-                            ? 'bg-[var(--brutal-blue)] text-white'
-                            : 'bg-white text-[var(--brutal-ink)] hover:bg-[var(--brutal-yellow)]/15'
+                            ? 'border-primary/30 bg-primary text-primary-foreground'
+                            : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground'
                     "
                     @click="activeCategory = cat"
                 >
@@ -118,52 +137,49 @@ const filteredEvents = computed(() => {
                 </button>
             </div>
 
-            <!-- Event Grid -->
             <div v-if="filteredEvents.length" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <a
                     v-for="(event, i) in filteredEvents"
                     :key="event.id"
                     :href="`/events/${event.id}`"
                     :class="[
-                        'brutal-card group flex flex-col overflow-hidden transition-all duration-300',
+                        'app-surface group flex flex-col overflow-hidden p-0 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]',
                         listVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
                     ]"
                     :style="{ transitionDelay: `${i * 60}ms` }"
                 >
-                    <!-- Card Image -->
                     <div class="relative aspect-[16/10] overflow-hidden bg-muted">
                         <img
                             v-if="event.image"
                             :src="event.image"
                             :alt="event.title"
-                            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                            class="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                         />
                         <span
-                            :class="[
-                                'absolute top-3 right-3 rounded-lg border-[1.5px] border-[var(--brutal-ink)] bg-white px-2 py-0.5 text-[10px] font-bold shadow-[var(--brutal-shadow-sm)]',
-                                event.status === 'Open' ? 'text-[#059669]' : 'text-[#D97706]',
-                            ]"
+                            class="absolute right-3 top-3 rounded-full border bg-card/95 px-2 py-0.5 text-[10px] font-semibold backdrop-blur"
+                            :class="statusClasses[event.statusTone]"
                         >
                             {{ event.status }}
                         </span>
                     </div>
-                    <!-- Card Content -->
                     <div class="flex flex-1 flex-col p-5">
-                        <span class="mb-2.5 w-fit rounded-md border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/12 px-2 py-0.5 text-[10px] font-bold text-[var(--brutal-ink)] shadow-[var(--shadow-xs)]">
+                        <span class="mb-2.5 inline-flex w-fit items-center rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                             {{ event.category }}
                         </span>
-                        <h3 class="font-display mb-2 text-base font-bold text-[var(--brutal-ink)] transition-colors group-hover:text-[var(--brutal-blue)]">{{ event.title }}</h3>
-                        <div class="mt-auto space-y-1.5 pt-3 text-[11px] font-bold text-[#34343B]">
+                        <h3 class="font-display mb-2 line-clamp-2 text-base font-bold tracking-[-0.015em] text-foreground transition-colors group-hover:text-primary">
+                            {{ event.title }}
+                        </h3>
+                        <div class="mt-auto space-y-1.5 pt-3 text-[11px] font-medium text-muted-foreground">
                             <div class="flex items-center gap-1.5">
-                                <svg class="h-3 w-3 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+                                <Calendar class="size-3" :stroke-width="2" />
                                 {{ event.date }}
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <svg class="h-3 w-3 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                {{ event.location }}
+                                <MapPin class="size-3" :stroke-width="2" />
+                                <span class="truncate">{{ event.location }}</span>
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <svg class="h-3 w-3 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                <Users class="size-3" :stroke-width="2" />
                                 {{ event.attendees.toLocaleString() }} registered
                             </div>
                         </div>
@@ -171,11 +187,10 @@ const filteredEvents = computed(() => {
                 </a>
             </div>
 
-            <!-- Empty state -->
             <div v-else class="flex flex-col items-center justify-center py-20 text-center">
-                <svg class="mb-4 h-12 w-12 text-[#101014]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <p class="font-display text-lg font-extrabold text-[#101014]">No events found</p>
-                <p class="mt-1 text-sm font-semibold text-[#34343B]">Try adjusting your search or filter.</p>
+                <Search class="mb-4 size-10 text-muted-foreground/40" :stroke-width="1.5" />
+                <p class="font-display text-lg font-bold text-foreground">No events found</p>
+                <p class="mt-1 text-sm text-muted-foreground">Try adjusting your search or filter.</p>
             </div>
         </div>
     </section>

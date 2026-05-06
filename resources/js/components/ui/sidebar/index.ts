@@ -36,13 +36,13 @@ export { default as SidebarTrigger } from "./SidebarTrigger.vue"
 export { useSidebar } from "./utils"
 
 export const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-xl border-2 border-transparent p-2 text-left text-sm font-bold outline-hidden ring-sidebar-ring transition-[width,height,padding,box-shadow,background-color] hover:border-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[3px_3px_0_var(--brutal-ink)] focus-visible:ring-2 active:translate-x-0.5 active:translate-y-0.5 active:bg-sidebar-accent active:text-sidebar-accent-foreground active:shadow-[1px_1px_0_var(--brutal-ink)] disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:border-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-extrabold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-[3px_3px_0_var(--brutal-ink)] data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-xl border border-transparent p-2 text-left text-sm font-medium outline-hidden ring-sidebar-ring transition-[width,height,padding,box-shadow,background-color,transform] hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-xs focus-visible:ring-2 active:scale-[0.99] active:bg-sidebar-accent active:text-sidebar-accent-foreground active:shadow-xs disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:border-primary/15 data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-xs data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
         default: "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         outline:
-          "border-foreground bg-background shadow-[3px_3px_0_var(--brutal-ink)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          "border-sidebar-border bg-background shadow-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
       },
       size: {
         default: "h-9 text-sm",

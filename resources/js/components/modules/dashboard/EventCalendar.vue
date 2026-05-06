@@ -130,20 +130,32 @@ const weekLabel = computed(() => {
         <CardHeader class="pb-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
-                    <CardTitle class="font-display text-xl font-extrabold">
+                    <CardTitle class="font-display text-xl font-bold tracking-[-0.02em]">
                         <template v-if="viewMode === 'month'">{{ monthNames[currentMonth] }} {{ currentYear }}</template>
                         <template v-else>{{ weekLabel }}</template>
                     </CardTitle>
                     <div class="flex items-center gap-0.5">
-                        <Button variant="ghost" size="icon" class="size-7" @click="viewMode === 'month' ? prevMonth() : prevWeek()"><ChevronLeft class="size-4" /></Button>
-                        <Button variant="ghost" size="icon" class="size-7" @click="viewMode === 'month' ? nextMonth() : nextWeek()"><ChevronRight class="size-4" /></Button>
+                        <Button variant="ghost" size="icon-sm" @click="viewMode === 'month' ? prevMonth() : prevWeek()"><ChevronLeft class="size-4" :stroke-width="2" /></Button>
+                        <Button variant="ghost" size="icon-sm" @click="viewMode === 'month' ? nextMonth() : nextWeek()"><ChevronRight class="size-4" :stroke-width="2" /></Button>
                     </div>
-                    <Button variant="outline" size="sm" class="h-7 text-xs" @click="goToday">Today</Button>
+                    <Button variant="outline" size="sm" class="h-8 text-xs" @click="goToday">Today</Button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="flex h-9 items-center overflow-hidden rounded-xl border-2 border-foreground bg-white shadow-[3px_3px_0_var(--brutal-ink)]">
-                        <button :class="['px-3 py-1 text-xs font-extrabold transition-colors', viewMode === 'month' ? 'bg-(--brutal-yellow)' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'month'">Month</button>
-                        <button :class="['px-3 py-1 text-xs font-extrabold transition-colors', viewMode === 'week' ? 'bg-(--brutal-yellow)' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'week'">Week</button>
+                    <div class="inline-flex items-center gap-0.5 rounded-xl border border-border bg-muted/40 p-0.5">
+                        <button
+                            :class="[
+                                'rounded-lg px-3 py-1 text-xs font-semibold transition-[background-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                                viewMode === 'month' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            ]"
+                            @click="viewMode = 'month'"
+                        >Month</button>
+                        <button
+                            :class="[
+                                'rounded-lg px-3 py-1 text-xs font-semibold transition-[background-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                                viewMode === 'week' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            ]"
+                            @click="viewMode = 'week'"
+                        >Week</button>
                     </div>
                     <Select v-model="filterCategory">
                         <SelectTrigger class="h-8 w-36 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger>
@@ -161,21 +173,21 @@ const weekLabel = computed(() => {
         <CardContent class="pt-0">
             <!-- Month View -->
             <template v-if="viewMode === 'month'">
-                <div class="grid grid-cols-7 border-b-2 border-foreground bg-(--brutal-yellow)">
-                    <div v-for="day in dayNames" :key="day" class="py-2 text-center text-xs font-extrabold text-foreground">{{ day }}</div>
+                <div class="grid grid-cols-7 rounded-t-xl border border-border bg-muted/40">
+                    <div v-for="day in dayNames" :key="day" class="py-2 text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{{ day }}</div>
                 </div>
-                <div class="divide-y">
-                    <div v-for="(week, wIdx) in calendarWeeks" :key="wIdx" class="grid grid-cols-7 divide-x-2 divide-foreground">
-                        <div v-for="(cell, dIdx) in week" :key="dIdx" :class="['min-h-20 p-1.5', !cell.isCurrentMonth ? 'bg-muted/20' : 'bg-white']">
-                            <span :class="['mb-1 inline-flex size-6 items-center justify-center rounded-md text-xs font-bold', cell.isToday ? 'border-2 border-foreground bg-primary font-extrabold text-primary-foreground shadow-[2px_2px_0_var(--brutal-ink)]' : cell.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/30']">
+                <div class="divide-y divide-border rounded-b-xl border-x border-b border-border bg-card">
+                    <div v-for="(week, wIdx) in calendarWeeks" :key="wIdx" class="grid grid-cols-7 divide-x divide-border">
+                        <div v-for="(cell, dIdx) in week" :key="dIdx" :class="['min-h-20 p-1.5 transition-colors', !cell.isCurrentMonth ? 'bg-muted/20' : 'hover:bg-muted/30']">
+                            <span :class="['mb-1 inline-flex size-6 items-center justify-center rounded-md text-xs font-medium', cell.isToday ? 'bg-primary font-semibold text-primary-foreground shadow-xs' : cell.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/30']">
                                 {{ cell.day }}
                             </span>
                             <div class="flex flex-col gap-0.5">
                                 <button
                                     v-for="ev in cell.events.slice(0, 2)"
                                     :key="ev.id"
-                                    class="w-full truncate rounded-lg border border-foreground px-1.5 py-0.5 text-left text-[10px] font-extrabold text-white transition-opacity hover:opacity-80"
-                                    :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? '#6B7280' }"
+                                    class="w-full truncate rounded-md px-1.5 py-0.5 text-left text-[10px] font-semibold text-white transition-opacity hover:opacity-85"
+                                    :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)' }"
                                     @click="onEventClick(ev)"
                                 >
                                     {{ ev.title }}
@@ -189,11 +201,11 @@ const weekLabel = computed(() => {
 
             <!-- Week View -->
             <template v-else>
-                <div class="grid grid-cols-7 divide-x-2 divide-foreground border-y-2 border-foreground">
-                    <div v-for="day in weekDays" :key="day.dayName" class="min-h-40 p-2">
+                <div class="grid grid-cols-7 divide-x divide-border rounded-xl border border-border bg-card">
+                    <div v-for="day in weekDays" :key="day.dayName" class="min-h-40 p-2.5">
                         <div class="mb-2 text-center">
-                            <div class="text-[10px] font-extrabold uppercase text-muted-foreground">{{ day.dayName }}</div>
-                            <span :class="['inline-flex size-7 items-center justify-center rounded-md text-sm font-bold', day.isToday ? 'border-2 border-foreground bg-primary font-extrabold text-primary-foreground shadow-[2px_2px_0_var(--brutal-ink)]' : '']">
+                            <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{{ day.dayName }}</div>
+                            <span :class="['mt-1 inline-flex size-7 items-center justify-center rounded-md text-sm font-medium', day.isToday ? 'bg-primary font-semibold text-primary-foreground shadow-xs' : '']">
                                 {{ day.day }}
                             </span>
                         </div>
@@ -201,8 +213,8 @@ const weekLabel = computed(() => {
                             <button
                                 v-for="ev in day.events"
                                 :key="ev.id"
-                                class="w-full truncate rounded-lg border border-foreground px-2 py-1 text-left text-[10px] font-extrabold text-white transition-opacity hover:opacity-80"
-                                :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? '#6B7280' }"
+                                class="w-full truncate rounded-md px-2 py-1 text-left text-[10px] font-semibold text-white transition-opacity hover:opacity-85"
+                                :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)' }"
                                 @click="onEventClick(ev)"
                             >
                                 {{ ev.title }}

@@ -198,8 +198,8 @@ watch(open, (val) => {
     <div ref="containerRef" class="relative">
         <div
             :class="[
-                'flex min-h-10 flex-wrap items-center gap-1 rounded-xl border-2 bg-white px-2.5 py-1.5 text-sm font-bold shadow-[3px_3px_0_var(--brutal-ink)] transition-colors',
-                open ? 'border-ring ring-2 ring-ring/30' : 'border-input',
+                'flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border bg-card px-2.5 py-1.5 text-sm font-medium shadow-xs transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                open ? 'border-ring ring-3 ring-ring/15' : 'border-input hover:border-primary/30',
                 disabled ? 'pointer-events-none opacity-50' : 'cursor-text',
             ]"
             @click="inputRef?.focus()"
@@ -207,16 +207,16 @@ watch(open, (val) => {
             <span
                 v-for="(tag, idx) in tags"
                 :key="tag"
-                class="inline-flex items-center gap-0.5 rounded-lg border-2 border-foreground bg-(--brutal-yellow) px-1.5 py-0.5 text-xs font-extrabold text-secondary-foreground shadow-[2px_2px_0_var(--brutal-ink)] transition-colors"
+                class="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary"
             >
                 {{ labelFor(tag) }}
                 <button
                     type="button"
                     tabindex="-1"
-                    class="ml-0.5 inline-flex size-3.5 items-center justify-center rounded-sm opacity-60 hover:opacity-100 focus:outline-none"
+                    class="inline-flex size-3.5 items-center justify-center rounded text-primary/70 transition-colors hover:bg-primary/15 hover:text-primary focus:outline-none"
                     @click.stop="removeTag(idx)"
                 >
-                    <X class="size-2.5" />
+                    <X class="size-2.5" :stroke-width="2.5" />
                 </button>
             </span>
 
@@ -250,7 +250,7 @@ watch(open, (val) => {
         >
             <div
                 v-if="open && totalOptions > 0"
-                class="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-xl border-2 border-foreground bg-popover text-popover-foreground shadow-[6px_6px_0_var(--brutal-ink)]"
+                class="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-sm"
             >
                 <div class="max-h-48 overflow-y-auto p-1">
                     <button
@@ -258,10 +258,10 @@ watch(open, (val) => {
                         :key="s.value"
                         type="button"
                         :class="[
-                            'flex w-full items-center rounded-lg px-2 py-1.5 text-xs font-extrabold outline-none transition-colors',
+                            'flex w-full items-center rounded-lg px-2 py-1.5 text-xs font-medium outline-none transition-colors',
                             idx === highlightIndex
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-accent hover:text-accent-foreground',
+                                ? 'bg-primary/10 text-foreground'
+                                : 'text-foreground/80 hover:bg-primary/8 hover:text-foreground',
                         ]"
                         @pointerdown.prevent="addTag(s.value)"
                         @pointerenter="highlightIndex = idx"
@@ -273,16 +273,16 @@ watch(open, (val) => {
                         v-if="showCustomOption"
                         type="button"
                         :class="[
-                            'flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-extrabold outline-none transition-colors',
+                            'flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium outline-none transition-colors',
                             filteredSuggestions.length === highlightIndex
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-accent hover:text-accent-foreground',
+                                ? 'bg-primary/10 text-foreground'
+                                : 'text-foreground/80 hover:bg-primary/8 hover:text-foreground',
                         ]"
                         @pointerdown.prevent="addTag(query)"
                         @pointerenter="highlightIndex = filteredSuggestions.length"
                     >
-                        <Plus class="size-3" />
-                        <span>Add "<span class="font-medium">{{ query.trim() }}</span>"</span>
+                        <Plus class="size-3" :stroke-width="2.5" />
+                        <span>Add "<span class="font-semibold">{{ query.trim() }}</span>"</span>
                     </button>
                 </div>
             </div>

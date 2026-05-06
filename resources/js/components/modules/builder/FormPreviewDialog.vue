@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { X, Star, Upload, ImagePlus, Send, Sparkles } from 'lucide-vue-next'
+import { X, Star, Upload, ImagePlus, Send } from 'lucide-vue-next'
 import { optionLabel, optionImageUrl, type FieldOptionEntry } from '@/components/modules/builder/fieldMapping'
 import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-/** Mirrors canvas builder field shape used by Show/Create — loose typing for metadata without `any`. */
+/** Mirrors canvas builder field shape used by Show/Create with unknown metadata values. */
 export interface FormPreviewField {
     id: string
     type: string
@@ -112,19 +112,19 @@ function ratingStars(field: FormPreviewField): number[] {
                 aria-label="Form respondent preview"
             >
                 <div
-                    class="absolute inset-0 bg-[var(--brutal-ink)]/35 backdrop-blur-[2px]"
+                    class="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]"
                     @click="emit('close')"
                 />
 
                 <div
-                    class="relative z-10 flex max-h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border-[1.5px] border-[var(--brutal-ink)] bg-[var(--card)] shadow-[var(--shadow-md)]"
+                    class="relative z-10 flex max-h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
                 >
                     <!-- Chrome: matches dashboard “tool” panels -->
                     <div
-                        class="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--brutal-ink)]/12 bg-gradient-to-r from-[var(--brutal-cream)]/80 via-white to-primary/[0.04] px-4 py-3 sm:px-5"
+                        class="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-gradient-to-r from-muted/60 via-card to-primary/5 px-4 py-3 sm:px-5"
                     >
                         <div class="flex w-full h-full items-start ">
-                            <p class=" text-base font-extrabold uppercase tracking-wider text-[var(--brutal-ink)]/80">
+                            <p class=" text-base font-extrabold uppercase tracking-wider text-muted-foreground">
                                 Respondent preview
                             </p>
                            
@@ -132,7 +132,7 @@ function ratingStars(field: FormPreviewField): number[] {
                         <Button
                             variant="ghost"
                             size="icon"
-                            class="size-9 shrink-0 rounded-xl border border-transparent hover:border-[var(--brutal-ink)]/12 hover:bg-muted/60"
+                            class="size-9 shrink-0 rounded-xl border border-transparent hover:border-border hover:bg-muted/60"
                             type="button"
                             aria-label="Close preview"
                             @click="emit('close')"
@@ -146,7 +146,7 @@ function ratingStars(field: FormPreviewField): number[] {
                             <!-- Banner — matches Fill.vue -->
                             <div
                                 v-if="bannerResolved || bannerCaptionTrim"
-                                class="overflow-hidden rounded-2xl border-[1.5px] border-[var(--brutal-ink)]/12 bg-white shadow-[var(--shadow-sm)]"
+                                class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
                                 :class="hasFormDescription ? 'mb-6' : 'mb-4'"
                             >
                                 <img
@@ -157,7 +157,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                 />
                                 <p
                                     v-if="bannerCaptionTrim"
-                                    class="border-t border-[var(--brutal-ink)]/10 px-5 py-4 text-sm leading-relaxed text-muted-foreground"
+                                    class="border-t border-border px-5 py-4 text-sm leading-relaxed text-muted-foreground"
                                 >
                                     {{ bannerCaptionTrim }}
                                 </p>
@@ -165,8 +165,8 @@ function ratingStars(field: FormPreviewField): number[] {
 
                             <PageHeader :title="titleText" :subtitle="description || undefined" />
 
-                            <div v-if="fieldsSafe.length === 0" class="neo-muted-panel py-12 text-center" :class="hasFormDescription ? 'mt-6' : 'mt-3'">
-                                <p class="text-sm font-semibold text-[var(--brutal-ink)]">No questions yet</p>
+                            <div v-if="fieldsSafe.length === 0" class="app-surface-soft py-12 text-center" :class="hasFormDescription ? 'mt-6' : 'mt-3'">
+                                <p class="text-sm font-semibold text-foreground">No questions yet</p>
                                 <p class="mt-1.5 max-w-sm mx-auto text-xs leading-relaxed text-muted-foreground">
                                     Add fields from the canvas — they’ll show up here exactly as respondents will see them.
                                 </p>
@@ -181,9 +181,9 @@ function ratingStars(field: FormPreviewField): number[] {
                                     <!-- Heading -->
                                     <div
                                         v-if="field.type === 'heading'"
-                                        class="rounded-2xl border-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-yellow)]/15 px-5 py-4 shadow-[var(--shadow-sm)]"
+                                        class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 shadow-xs"
                                     >
-                                        <h2 class="font-display text-2xl font-bold tracking-tight text-[var(--brutal-ink)]">
+                                        <h2 class="font-display text-2xl font-bold tracking-tight text-foreground">
                                             {{ metaString(field, 'content') || field.label }}
                                         </h2>
                                         <p v-if="field.description" class="mt-1 text-sm text-muted-foreground">
@@ -194,18 +194,18 @@ function ratingStars(field: FormPreviewField): number[] {
                                     <!-- Paragraph -->
                                     <div
                                         v-else-if="field.type === 'paragraph'"
-                                        class="rounded-2xl border border-[var(--brutal-ink)]/15 bg-white/80 px-5 py-4 text-sm leading-relaxed text-muted-foreground shadow-[var(--shadow-xs)]"
+                                        class="rounded-2xl border border-border bg-muted/30 px-5 py-4 text-sm leading-relaxed text-muted-foreground shadow-xs"
                                     >
                                         {{ metaString(field, 'content') || field.description || field.label }}
                                     </div>
 
                                     <!-- Divider -->
-                                    <hr v-else-if="field.type === 'divider'" class="brutal-divider my-1" />
+                                    <hr v-else-if="field.type === 'divider'" class="app-divider my-1" />
 
                                     <!-- Answer fields — Card shell like Fill.vue -->
-                                    <Card v-else class="rounded-2xl border-[1.5px] border-[var(--brutal-ink)]/12 shadow-[var(--shadow-xs)]">
+                                    <Card v-else class="rounded-2xl border border-border shadow-xs">
                                         <CardHeader class="pb-2 pt-4">
-                                            <CardTitle class="flex items-start gap-1 text-sm font-semibold text-[var(--brutal-ink)]">
+                                            <CardTitle class="flex items-start gap-1 text-sm font-semibold text-foreground">
                                                 {{ field.label }}
                                                 <span v-if="field.required" class="text-destructive">*</span>
                                             </CardTitle>
@@ -261,7 +261,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                                 v-if="optionImageUrl(opt)"
                                                                 :src="choiceThumb(optionImageUrl(opt)!)"
                                                                 alt=""
-                                                                class="size-7 shrink-0 rounded-md border border-[var(--brutal-ink)]/10 object-cover"
+                                                                class="size-7 shrink-0 rounded-md border border-border object-cover"
                                                             />
                                                             <span>{{ optionLabel(opt) }}</span>
                                                         </span>
@@ -273,7 +273,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                 <label
                                                     v-for="(opt, oi) in optionEntries(field)"
                                                     :key="optKey(opt, oi)"
-                                                    class="flex cursor-default items-center gap-2.5 rounded-xl border border-[var(--brutal-ink)]/10 px-3 py-2 text-sm text-muted-foreground"
+                                                    class="flex cursor-default items-center gap-2.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"
                                                 >
                                                     <input
                                                         type="radio"
@@ -282,7 +282,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                         :name="`preview_${field.id}`"
                                                         tabindex="-1"
                                                     />
-                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
                                                         <img
                                                             :src="choiceThumb(optionImageUrl(opt)!)"
                                                             alt=""
@@ -297,14 +297,14 @@ function ratingStars(field: FormPreviewField): number[] {
                                                 <label
                                                     v-for="(opt, oi) in optionEntries(field)"
                                                     :key="optKey(opt, oi)"
-                                                    class="flex cursor-default items-center gap-2.5 rounded-xl border border-[var(--brutal-ink)]/10 px-3 py-2 text-sm"
+                                                    class="flex cursor-default items-center gap-2.5 rounded-xl border border-border px-3 py-2 text-sm"
                                                 >
                                                     <Checkbox
                                                         :id="`pv_${field.id}_${oi}`"
                                                         disabled
                                                         class="pointer-events-none opacity-80"
                                                     />
-                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-[var(--brutal-ink)]/10">
+                                                    <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
                                                         <img
                                                             :src="choiceThumb(optionImageUrl(opt)!)"
                                                             alt=""
@@ -347,7 +347,7 @@ function ratingStars(field: FormPreviewField): number[] {
 
                                             <div
                                                 v-else-if="field.type === 'image_upload'"
-                                                class="rounded-xl border border-dashed border-[var(--brutal-ink)]/25 bg-muted/25 p-4 text-center"
+                                                class="rounded-xl border border-dashed border-border bg-muted/25 p-4 text-center"
                                             >
                                                 <ImagePlus class="mx-auto size-8 text-muted-foreground/35" />
                                                 <p class="mt-2 text-xs font-medium text-muted-foreground">
@@ -360,7 +360,7 @@ function ratingStars(field: FormPreviewField): number[] {
 
                                             <div
                                                 v-else-if="field.type === 'file_upload'"
-                                                class="rounded-xl border border-dashed border-[var(--brutal-ink)]/25 bg-muted/25 p-4 text-center"
+                                                class="rounded-xl border border-dashed border-border bg-muted/25 p-4 text-center"
                                             >
                                                 <Upload class="mx-auto size-8 text-muted-foreground/35" />
                                                 <p class="mt-2 text-xs font-medium text-muted-foreground">
@@ -382,7 +382,7 @@ function ratingStars(field: FormPreviewField): number[] {
                             <!-- Stub submit row — mirrors Fill footer rhythm -->
                             <div
                                 v-if="fieldsSafe.length > 0"
-                                class="flex flex-wrap items-center justify-end gap-3 border-t border-[var(--brutal-ink)]/10"
+                                class="flex flex-wrap items-center justify-end gap-3 border-t border-border"
                                 :class="hasFormDescription ? 'mt-8 pt-6' : 'mt-5 pt-5'"
                             >
                                 <Button variant="outline" type="button" disabled class="opacity-70">
@@ -396,14 +396,14 @@ function ratingStars(field: FormPreviewField): number[] {
                         </div>
                     </div>
 
-                    <div class="shrink-0 border-t border-[var(--brutal-ink)]/12 bg-[var(--brutal-cream)]/55 px-4 py-3 sm:px-5">
+                    <div class="shrink-0 border-t border-border bg-muted/30 px-4 py-3 sm:px-5">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <p class="text-[11px] leading-relaxed text-muted-foreground">
                                 Preview mode — nothing is saved. Close when you’re happy with the layout.
                             </p>
                             <Button
                                 type="button"
-                                class="shrink-0 rounded-xl border-[1.5px] border-[var(--brutal-ink)]/15 shadow-[var(--shadow-xs)]"
+                                class="shrink-0 rounded-xl border border-border shadow-xs"
                                 @click="emit('close')"
                             >
                                 Done

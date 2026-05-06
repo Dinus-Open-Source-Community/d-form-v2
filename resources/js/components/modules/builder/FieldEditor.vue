@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { optionLabel, optionImageUrl, type FieldOptionEntry } from '@/components/modules/builder/fieldMapping'
+import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,11 +12,13 @@ import {
     Heading as HeadingIcon, TextCursorInput, Minus, Plus, X,
 } from 'lucide-vue-next'
 
-const props = defineProps({
-    field: { type: Object, required: true },
-})
+const props = defineProps<{
+    field: BuilderField
+}>()
 
-const emit = defineEmits(['update:field'])
+const emit = defineEmits<{
+    (event: 'update:field', field: BuilderField): void
+}>()
 
 const TYPE_CONFIG = {
     short_text: { icon: Type, label: 'Short Text', accent: '#2563eb' },
@@ -37,13 +39,13 @@ const TYPE_CONFIG = {
     divider: { icon: Minus, label: 'Divider', accent: '#9ca3af' },
 }
 
-const config = computed(() => TYPE_CONFIG[props.field.type] || TYPE_CONFIG.short_text)
+const config = computed(() => TYPE_CONFIG[props.field.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.short_text)
 
 // --- helpers to mutate without losing reactivity ---
-function update(key, value) {
+function update<K extends keyof BuilderField>(key: K, value: BuilderField[K]) {
     emit('update:field', { ...props.field, [key]: value })
 }
-function updateMeta(key, value) {
+function updateMeta(key: string, value: unknown) {
     const meta = { ...(props.field.metadata || {}) }
     meta[key] = value
     emit('update:field', { ...props.field, metadata: meta })
@@ -121,20 +123,18 @@ const isContent = computed(() =>
         <!-- Header -->
         <div class="flex items-center gap-3">
             <div
-                class="flex size-9 shrink-0 items-center justify-center rounded-xl text-white"
+                class="grid size-9 shrink-0 place-items-center rounded-xl text-white"
                 :style="{ backgroundColor: config.accent }"
             >
-                <component :is="config.icon" class="size-4.5" />
+                <component :is="config.icon" class="size-4" :stroke-width="2" />
             </div>
             <div>
-                <h3 class="font-display text-base font-bold text-[var(--brutal-ink)]">Field Properties</h3>
-                <p class="text-[11px] font-medium text-muted-foreground">
-                    {{ config.label }} field
-                </p>
+                <h3 class="font-display text-base font-bold tracking-[-0.02em] text-foreground">Field properties</h3>
+                <p class="text-[11px] text-muted-foreground">{{ config.label }} field</p>
             </div>
         </div>
 
-        <hr class="brutal-divider" />
+        <hr class="app-divider" />
 
         <!-- Label -->
         <div class="flex flex-col gap-1.5">
@@ -143,7 +143,7 @@ const isContent = computed(() =>
                 :model-value="field.label"
                 placeholder="e.g. Full Name"
                 class="text-xs"
-                @update:model-value="(v) => update('label', v)"
+                @update:model-value="(v) => update('label', String(v))"
             />
             <p class="text-[10px] text-muted-foreground">
                 The label shown above the field.
@@ -158,7 +158,7 @@ const isContent = computed(() =>
                 placeholder="Brief instruction for the user"
                 rows="2"
                 class="text-xs"
-                @update:model-value="(v) => update('description', v)"
+                @update:model-value="(v) => update('description', String(v))"
             />
         </div>
 
@@ -169,7 +169,7 @@ const isContent = computed(() =>
                 :model-value="field.placeholder"
                 placeholder="e.g. Enter your name..."
                 class="text-xs"
-                @update:model-value="(v) => update('placeholder', v)"
+                @update:model-value="(v) => update('placeholder', String(v))"
             />
         </div>
 
@@ -177,20 +177,20 @@ const isContent = computed(() =>
         <div v-if="field.type === 'heading'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Heading Text</Label>
             <Input
-                :model-value="field.metadata?.content ?? ''"
+                :model-value="String(field.metadata?.content ?? '')"
                 placeholder="Section Heading"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('content', v)"
+                @update:model-value="(v) => updateMeta('content', String(v))"
             />
         </div>
         <div v-if="field.type === 'paragraph'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Paragraph Text</Label>
             <Textarea
-                :model-value="field.metadata?.content ?? ''"
+                :model-value="String(field.metadata?.content ?? '')"
                 placeholder="Descriptive text..."
                 rows="3"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('content', v)"
+                @update:model-value="(v) => updateMeta('content', String(v))"
             />
         </div>
 
@@ -199,7 +199,7 @@ const isContent = computed(() =>
             <Label class="text-xs font-semibold">Max Stars</Label>
             <Input
                 type="number"
-                :model-value="field.metadata?.maxStars ?? 5"
+                :model-value="Number(field.metadata?.maxStars ?? 5)"
                 min="1"
                 max="10"
                 class="text-xs"
@@ -211,10 +211,10 @@ const isContent = computed(() =>
         <div v-if="['image_upload', 'file_upload'].includes(field.type)" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Accepted Formats</Label>
             <Input
-                :model-value="field.metadata?.accepts ?? ''"
+                :model-value="String(field.metadata?.accepts ?? '')"
                 :placeholder="field.type === 'banner' ? 'gif, png, jpg' : 'pdf, jpg, png'"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('accepts', v)"
+                @update:model-value="(v) => updateMeta('accepts', String(v))"
             />
             <p class="text-[10px] text-muted-foreground">Comma-separated file extensions.</p>
         </div>
@@ -229,7 +229,7 @@ const isContent = computed(() =>
                 <div
                     v-for="(opt, i) in optionRows()"
                     :key="opt.id || i"
-                    class="rounded-xl border border-[var(--brutal-ink)]/12 bg-muted/15 p-2.5"
+                    class="rounded-xl border border-border bg-muted/30 p-2.5"
                 >
                     <div class="flex items-start gap-2">
                         <div class="flex min-w-0 flex-1 flex-col gap-2">
@@ -257,7 +257,7 @@ const isContent = computed(() =>
                             <div v-else class="flex flex-col gap-1.5">
                                 <div
                                     v-if="opt.imageUrl"
-                                    class="h-20 w-full overflow-hidden rounded-lg border border-[var(--brutal-ink)]/15 bg-white"
+                                    class="h-20 w-full overflow-hidden rounded-lg border border-border bg-card"
                                 >
                                     <img
                                         :src="opt.imageUrl"
@@ -285,7 +285,7 @@ const isContent = computed(() =>
                         <div class="flex shrink-0 flex-col gap-1">
                             <label
                                 v-if="opt.type === 'image'"
-                                class="flex cursor-pointer items-center justify-center rounded-lg border border-[var(--brutal-ink)]/15 bg-white px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted/50"
+                                class="flex cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
                             >
                                 <ImagePlus class="mr-1 size-3.5" />
                                 <input
@@ -316,15 +316,15 @@ const isContent = computed(() =>
 
         <!-- Required toggle (not for content types) -->
         <div v-if="!isContent" class="mt-1">
-            <hr class="brutal-divider mb-4" />
-            <div class="flex items-center justify-between">
+            <hr class="app-divider mb-4" />
+            <div class="flex items-center justify-between gap-3">
                 <div>
                     <Label class="text-xs font-semibold">Required</Label>
                     <p class="text-[10px] text-muted-foreground">User must fill this field</p>
                 </div>
                 <Switch
                     :checked="!!field.required"
-                    @update:checked="(v) => update('required', v)"
+                    @update:checked="(v: boolean) => update('required', v)"
                 />
             </div>
         </div>

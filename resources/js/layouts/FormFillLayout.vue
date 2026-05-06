@@ -14,13 +14,13 @@ import {
 
 const page = usePage()
 
-const breadcrumbs = computed<{ label: string; href?: string }[]>(() => {
+const breadcrumbs = computed((): { label: string; href?: string }[] => {
     // Explicitly check for event data in props or fallback to URL-based
     const event = (page.props.event as { id: string; title: string } | undefined)
     const form = (page.props.form as { id: string; title: string } | undefined)
     
-    const crumbs = [
-        { label: 'Events', href: '/dashboard/user/events' }
+    const crumbs: { label: string; href?: string }[] = [
+        { label: 'Events', href: '/dashboard/user/events' },
     ]
 
     if (event) {
@@ -40,25 +40,24 @@ const breadcrumbs = computed<{ label: string; href?: string }[]>(() => {
 <template>
     <div class="relative flex min-h-svh flex-col bg-background font-sans">
         <!-- Minimal Header with only Breadcrumbs -->
-        <header class="sticky top-0 z-30 border-b-[2px] border-foreground bg-white/95 px-4 py-3 shadow-[var(--shadow-xs)] backdrop-blur-lg lg:px-8">
-            <div class="mx-auto flex max-w-3xl items-center justify-between">
+        <header class="sticky top-0 z-30 border-b border-border bg-card/85 px-4 py-3 backdrop-blur-xl lg:px-8">
+            <div class="mx-auto flex max-w-3xl items-center justify-between gap-4">
                 <Breadcrumb>
                     <BreadcrumbList>
                         <template v-for="(crumb, idx) in breadcrumbs" :key="idx">
                             <BreadcrumbSeparator v-if="idx > 0" />
                             <BreadcrumbItem>
-                                <BreadcrumbLink v-if="crumb.href" :href="crumb.href" class="font-bold text-muted-foreground hover:text-foreground">
+                                <BreadcrumbLink v-if="crumb.href" :href="crumb.href" class="font-medium text-muted-foreground transition-colors hover:text-foreground">
                                     {{ crumb.label }}
                                 </BreadcrumbLink>
-                                <BreadcrumbPage v-else class="font-extrabold text-foreground">{{ crumb.label }}</BreadcrumbPage>
+                                <BreadcrumbPage v-else class="font-semibold text-foreground">{{ crumb.label }}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </template>
                     </BreadcrumbList>
                 </Breadcrumb>
 
-                <!-- Small Logo on right -->
                 <Link href="/" class="hidden sm:block">
-                    <span class="font-display text-lg font-black tracking-tight">
+                    <span class="font-display text-lg font-bold tracking-[-0.02em]">
                         D<span class="text-primary">Form</span>
                     </span>
                 </Link>

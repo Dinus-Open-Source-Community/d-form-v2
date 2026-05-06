@@ -39,7 +39,7 @@ const resolvedSrc = computed(() => {
 </script>
 
 <template>
-    <div class="brutal-noise relative size-full min-h-20 bg-(--brutal-yellow)">
+    <div class="relative size-full min-h-20 bg-muted">
         <img
             v-if="showImg"
             :src="resolvedSrc"
@@ -51,10 +51,10 @@ const resolvedSrc = computed(() => {
         />
         <div
             v-else
-            class="flex size-full min-h-[inherit] flex-col items-center justify-center gap-1 px-2 text-center font-bold text-foreground"
+            class="flex size-full min-h-[inherit] flex-col items-center justify-center gap-1.5 px-2 text-center text-muted-foreground"
         >
-            <ImageOff class="size-7 shrink-0 opacity-45" aria-hidden="true" />
-            <span class="text-[10px] leading-tight">No banner</span>
+            <ImageOff class="size-6 shrink-0 opacity-50" :stroke-width="1.8" aria-hidden="true" />
+            <span class="text-[10px] font-medium leading-tight">No banner</span>
         </div>
     </div>
 </template>

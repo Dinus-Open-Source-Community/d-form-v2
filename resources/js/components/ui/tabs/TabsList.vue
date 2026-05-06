@@ -9,7 +9,7 @@ const props = defineProps<TabsListProps & { class?: HTMLAttributes['class'] }>()
 <template>
     <TabsList
         data-slot="tabs-list"
-        :class="cn('inline-flex h-10 items-center justify-center rounded-xl border-2 border-foreground bg-white p-1 text-muted-foreground shadow-[4px_4px_0_var(--brutal-ink)]', props.class)"
+        :class="cn('inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-border bg-muted/40 p-1 text-muted-foreground', props.class)"
         v-bind="{ ...props, class: undefined }"
     >
         <slot />

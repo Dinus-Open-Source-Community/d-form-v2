@@ -15,18 +15,18 @@ onMounted(() => {
 </script>
 
 <template>
-    <section id="feat-integrations" class="overflow-hidden border-y-[1.5px] border-[var(--brutal-ink)] bg-[var(--brutal-lilac)]/8 py-20 lg:py-28">
+    <section id="feat-integrations" class="overflow-hidden border-y border-border bg-muted/30 py-20 lg:py-28">
         <div class="mx-auto max-w-7xl px-6 lg:px-8">
             <div
                 :class="[
-                    'mx-auto max-w-2xl text-center transition-all duration-700',
+                    'mx-auto max-w-2xl text-center transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
                     visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0',
                 ]"
             >
-                <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-[var(--brutal-ink)] sm:text-4xl lg:text-5xl">
-                    Connects with your <span class="text-[var(--brutal-blue)]">favorite tools</span>
+                <h2 class="font-display text-3xl font-bold tracking-[-0.035em] text-foreground sm:text-4xl lg:text-5xl">
+                    Connects with your <span class="text-primary">favorite tools</span>
                 </h2>
-                <p class="mt-3 text-base font-medium text-[var(--brutal-ink)]/60">
+                <p class="mt-3 text-base leading-relaxed text-muted-foreground">
                     Seamlessly integrate DForm with the tools you already use.
                 </p>
             </div>
@@ -157,15 +157,17 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid var(--brutal-ink);
-    box-shadow: var(--brutal-shadow-sm);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid var(--app-border);
+    background: var(--card);
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease;
     cursor: default;
 }
 
 .logo-tile:hover {
-    transform: translateY(-2px) rotate(-1deg) scale(1.03);
-    box-shadow: var(--brutal-shadow);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: var(--shadow-sm);
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--app-border));
 }
 
 .logo-icon {

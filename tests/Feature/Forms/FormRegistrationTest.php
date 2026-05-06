@@ -91,6 +91,14 @@ class FormRegistrationTest extends TestCase
         return route('dashboard.events.forms.submissions', ['event' => $event, 'form' => $form], false);
     }
 
+    /** Post-submit redirect matches {@see FormSubmissionController} (members use the user portal). */
+    private function submitSuccessRedirect(Event $event, User $user): string
+    {
+        return $user->can('events.view')
+            ? route('dashboard.events.show', $event)
+            : route('dashboard.user.events.show', $event);
+    }
+
     // =========================================================================
     // FILL CONTROLLER — accessStatus prop
     // =========================================================================
@@ -104,7 +112,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->component('Dashboard/Events/Forms/Fill')
                      ->where('accessStatus', 'allowed')
                      ->where('accessMessage', '')
@@ -120,7 +129,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'form_closed')
                  );
     }
@@ -137,7 +147,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'registration_not_open')
                  );
     }
@@ -154,7 +165,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'registration_not_open')
                  );
     }
@@ -168,7 +180,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'quota_full')
                  );
     }
@@ -188,7 +201,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'already_submitted')
                  );
     }
@@ -204,7 +218,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($member)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'not_visible')
                  );
     }
@@ -220,7 +235,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($admin)->get($this->fillPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->where('accessStatus', 'allowed')
                  );
     }
@@ -258,7 +274,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Jane Doe'])
-             ->assertRedirect(route('dashboard.events.show', $event));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member));
 
         $this->assertDatabaseHas('form_answers', [
             'form_id' => $form->id,
@@ -302,7 +318,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['interests' => ['design', 'coding']])
-             ->assertRedirect(route('dashboard.events.show', $event));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertIsArray($answer->answers['interests']);
@@ -326,7 +342,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['skills' => ['php', 'vue']])
-             ->assertRedirect(route('dashboard.events.show', $event));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertIsArray($answer->answers['skills']);
@@ -354,7 +370,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['cv' => $file])
-             ->assertRedirect(route('dashboard.events.show', $event));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertStringStartsWith("form-uploads/{$form->id}/", $answer->answers['cv']);
@@ -547,7 +563,8 @@ class FormRegistrationTest extends TestCase
         $response = $this->actingAs($admin)->get($this->submissionsPath($event, $form));
 
         $response->assertOk()
-                 ->assertInertia(fn ($page) => $page
+                 ->assertInertia(
+                     fn ($page) => $page
                      ->component('Dashboard/Events/Forms/Submissions')
                      ->has('submissions.data', 1)
                      ->where('submissions.data.0.user.email', $member->email)

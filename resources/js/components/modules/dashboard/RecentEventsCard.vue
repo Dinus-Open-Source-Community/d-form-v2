@@ -29,35 +29,35 @@ const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
 <template>
     <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-3">
-            <CardTitle class="font-display text-xl font-extrabold">Recent Events</CardTitle>
+            <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">Recent events</CardTitle>
             <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" as-child>
                 <Link :href="allHref">
                     View all
-                    <ArrowRight class="ml-1 size-3" />
+                    <ArrowRight class="ml-1 size-3" :stroke-width="2.4" />
                 </Link>
             </Button>
         </CardHeader>
-        <CardContent class="flex flex-col gap-2 pt-0">
+        <CardContent class="flex flex-col gap-1 pt-0">
             <Link
                 v-for="event in recentEvents"
                 :key="event.id"
                 :href="`${baseHref}/${event.id}`"
-                class="group flex items-start gap-3 rounded-xl border-2 border-transparent p-3 transition-all hover:border-foreground hover:bg-(--brutal-yellow) hover:shadow-[3px_3px_0_var(--brutal-ink)]"
+                class="group flex items-start gap-3 rounded-xl border border-transparent p-2.5 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border hover:bg-muted/40"
             >
                 <img
                     :src="event.banner_url ?? ''"
                     :alt="event.title"
-                    class="size-12 shrink-0 rounded-xl border-2 border-foreground object-cover shadow-[2px_2px_0_var(--brutal-ink)]"
+                    class="size-11 shrink-0 rounded-lg border border-border object-cover"
                 />
                 <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-extrabold group-hover:text-primary">{{ event.title }}</p>
-                    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-semibold text-muted-foreground">
+                    <p class="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">{{ event.title }}</p>
+                    <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
                         <span class="inline-flex items-center gap-1">
-                            <CalendarDays class="size-3" />
+                            <CalendarDays class="size-3" :stroke-width="2" />
                             {{ formatDate(event.start_date) }}
                         </span>
                         <span class="inline-flex items-center gap-1">
-                            <MapPin class="size-3" />
+                            <MapPin class="size-3" :stroke-width="2" />
                             {{ event.location?.split('—')[0]?.trim() ?? event.location }}
                         </span>
                     </div>
@@ -72,7 +72,7 @@ const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
                         </Badge>
                     </div>
                 </div>
-                <span class="shrink-0 rounded-lg border-2 border-foreground bg-white px-2 py-1 text-xs font-extrabold tabular-nums shadow-[2px_2px_0_var(--brutal-ink)]">
+                <span class="shrink-0 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold tabular-nums text-foreground shadow-xs">
                     {{ event.registered_count }}/{{ event.quota }}
                 </span>
             </Link>

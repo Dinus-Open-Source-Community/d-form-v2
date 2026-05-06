@@ -4,7 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
+        "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
