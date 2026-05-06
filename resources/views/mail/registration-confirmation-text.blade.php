@@ -17,3 +17,6 @@
 - {{ $label }}: {{ $display }}
 @endforeach
 @endif
+
+{{ __('View registration details') }}:
+{{ $registrationDetailsUrl }}

@@ -31,7 +31,7 @@ class FormFillController extends Controller
         $closed = $form->closed_at;
 
         return Inertia::render('Dashboard/Events/Forms/Fill', [
-            'event'        => ['id' => $event->id, 'title' => $event->title],
+            'event'        => ['id' => $event->id, 'slug' => $event->slug, 'title' => $event->title],
             'form'         => [
                 'id'          => $form->id,
                 'title'       => $form->title,

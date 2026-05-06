@@ -138,7 +138,7 @@ const metaBlocks = [
                         </div>
                         <div v-if="!isRegistered && event.registration_status === 'open'">
                             <Button class="w-full" as-child>
-                                <Link :href="`/dashboard/user/events/${event.id}/register`">
+                                <Link :href="`/dashboard/user/events/${event.slug}/register`">
                                     <Send class="mr-1.5 size-4" />Register for this event
                                 </Link>
                             </Button>
@@ -147,6 +147,11 @@ const metaBlocks = [
                             Registration is not available yet or has ended.
                         </div>
                         <div v-else class="flex flex-col gap-4">
+                            <Button class="w-full" variant="secondary" as-child>
+                                <Link :href="`/dashboard/user/events/${event.slug}/registration`">
+                                    View registration details
+                                </Link>
+                            </Button>
                             <div class="rounded-xl border bg-success/5 p-4 text-center shadow-xs border-success/20">
                                 <p class="text-sm font-bold text-success">You are registered</p>
                                 <Badge

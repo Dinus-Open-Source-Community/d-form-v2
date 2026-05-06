@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EventStatus;
 use App\Observers\EventObserver;
+use App\Services\Event\EventSlugGenerator;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,6 +53,23 @@ class Event extends Model
             'registration_start' => 'datetime',
             'registration_end' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Event $event): void {
+            $generator = app(EventSlugGenerator::class);
+
+            if ($event->slug === null || $event->slug === '') {
+                $event->slug = $generator->generateForTitle($event->title, $event->exists ? $event->id : null);
+
+                return;
+            }
+
+            if ($event->isDirty('title')) {
+                $event->slug = $generator->generateForTitle($event->title, $event->id);
+            }
+        });
     }
 
     public function forms(): HasMany

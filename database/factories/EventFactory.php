@@ -6,6 +6,7 @@ use App\Enums\EventCategory;
 use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Models\Event;
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,9 +19,11 @@ class EventFactory extends Factory
     public function definition(): array
     {
         $startDate = now()->addDays(fake()->numberBetween(-30, 60));
+        $title = fake()->sentence(3);
 
         return [
-            'title' => fake()->sentence(3),
+            'title' => $title,
+            'slug' => Str::slug($title).'-'.fake()->unique()->numberBetween(1000, 999999),
             'description' => '<p>' . fake()->paragraph(3) . '</p>',
             'start_date' => $startDate->toDateString(),
             'end_date' => $startDate->copy()->addDays(fake()->numberBetween(0, 3))->toDateString(),

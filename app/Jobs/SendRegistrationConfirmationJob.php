@@ -7,7 +7,7 @@ use App\Enums\EmailNotificationType;
 use App\Mail\RegistrationConfirmationMail;
 use App\Models\EmailLog;
 use App\Models\FormAnswer;
-use App\Models\FormField;
+use App\Services\Registration\RegistrationAnswersSummarizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +21,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         public string $formAnswerId,
     ) {}
 
-    public function handle(): void
+    public function handle(RegistrationAnswersSummarizer $summarizer): void
     {
         $submission = FormAnswer::query()
             ->with(['form.event', 'user'])
@@ -65,7 +65,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
             return;
         }
 
-        $answersSummary = $this->buildAnswersSummary($submission);
+        $answersSummary = $summarizer->summarize($submission);
 
         try {
             Mail::to($user->email)->send(
@@ -101,48 +101,5 @@ class SendRegistrationConfirmationJob implements ShouldQueue
 
             throw $e;
         }
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function buildAnswersSummary(FormAnswer $submission): array
-    {
-        $answers = is_array($submission->answers) ? $submission->answers : [];
-
-        $fields = FormField::query()
-            ->where('form_id', $submission->form_id)
-            ->orderBy('order')
-            ->get(['name', 'label', 'input_type']);
-
-        $lines = [];
-        foreach ($fields as $field) {
-            if (! array_key_exists($field->name, $answers)) {
-                continue;
-            }
-            $value = $answers[$field->name];
-
-            if ($field->input_type === 'fileUpload') {
-                $lines[$field->label] = is_string($value) && $value !== ''
-                    ? __('File uploaded')
-                    : '—';
-
-                continue;
-            }
-
-            if (is_array($value)) {
-                $lines[$field->label] = implode(', ', array_map(fn ($v) => (string) $v, $value));
-
-                continue;
-            }
-
-            if ($value === null || $value === '') {
-                $lines[$field->label] = '—';
-            } else {
-                $lines[$field->label] = (string) $value;
-            }
-        }
-
-        return $lines;
     }
 }

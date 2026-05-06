@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\FormAnswer;
+use App\Support\RegistrationPortalLinks;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -40,6 +41,7 @@ class RegistrationConfirmationMail extends Mailable
                 'form' => $this->submission->form,
                 'user' => $this->submission->user,
                 'answersSummary' => $this->answersSummary,
+                'registrationDetailsUrl' => RegistrationPortalLinks::registrationDetailsUrl($this->submission->form->event),
             ],
         );
     }

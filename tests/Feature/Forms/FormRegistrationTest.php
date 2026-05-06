@@ -116,7 +116,7 @@ class FormRegistrationTest extends TestCase
     {
         return $user->can('events.view')
             ? route('dashboard.events.show', $event)
-            : route('dashboard.user.events.show', $event);
+            : route('dashboard.user.events.show', ['event_segment' => $event->slug]);
     }
 
     // =========================================================================

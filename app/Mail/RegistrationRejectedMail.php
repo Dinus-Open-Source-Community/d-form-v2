@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\FormAnswer;
+use App\Support\RegistrationPortalLinks;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -35,6 +36,7 @@ class RegistrationRejectedMail extends Mailable
                 'event' => $this->submission->form->event,
                 'form' => $this->submission->form,
                 'user' => $this->submission->user,
+                'registrationDetailsUrl' => RegistrationPortalLinks::registrationDetailsUrl($this->submission->form->event),
             ],
         );
     }

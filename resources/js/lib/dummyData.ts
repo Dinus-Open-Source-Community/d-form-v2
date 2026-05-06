@@ -6,6 +6,7 @@
 export const dummyEvents: IEvent[] = [
     {
         id: '1a2b3c4d-0001',
+        slug: 'design-systems-workshop',
         title: 'Design Systems Workshop',
         description: '<p>A hands-on workshop covering modern design systems, component libraries, and design tokens. Learn how to build scalable and consistent UIs across products.</p><h3>What You Will Learn</h3><ul><li>Atomic design methodology</li><li>Design token systems</li><li>Component library architecture</li></ul>',
         start_date: '2026-04-25',
@@ -28,6 +29,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0002',
+        slug: 'startup-pitch-night',
         title: 'Startup Pitch Night',
         description: '<p>Connect with founders, investors, and mentors. Watch live startup pitches and network with the entrepreneurial community in Central Java.</p>',
         start_date: '2026-04-28',
@@ -50,6 +52,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0003',
+        slug: 'ai-machine-learning-summit',
         title: 'AI & Machine Learning Summit',
         description: '<p>Explore the latest in AI research, machine learning applications, and ethical AI frameworks. Keynotes from industry leaders.</p>',
         start_date: '2026-05-05',
@@ -72,6 +75,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0004',
+        slug: 'ux-research-bootcamp',
         title: 'UX Research Bootcamp',
         description: '<p>Intensive 2-day bootcamp on user research methods, usability testing, and data-driven design decisions.</p>',
         start_date: '2026-05-10',
@@ -94,6 +98,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0005',
+        slug: 'open-source-meetup',
         title: 'Open Source Meetup',
         description: '<p>Monthly meetup for open source contributors. Share projects, get code reviews, and contribute to popular repositories.</p>',
         start_date: '2026-05-22',
@@ -116,6 +121,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0006',
+        slug: 'cloud-architecture-day',
         title: 'Cloud Architecture Day',
         description: '<p>Deep-dive into cloud-native architectures, serverless patterns, and distributed systems design.</p>',
         start_date: '2026-03-10',
@@ -138,6 +144,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0007',
+        slug: 'doscom-recruitment-2026',
         title: 'DOSCOM Recruitment 2026',
         description: '<p>Annual recruitment for new DOSCOM members. Join the community and grow together.</p>',
         start_date: '2026-06-01',
@@ -160,6 +167,7 @@ export const dummyEvents: IEvent[] = [
     },
     {
         id: '1a2b3c4d-0008',
+        slug: 'hackathon-code-for-good-archived',
         title: 'Hackathon: Code for Good (Archived)',
         description: '<p>48-hour hackathon focused on building technology solutions for social impact.</p>',
         start_date: '2026-02-15',
