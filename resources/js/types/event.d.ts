@@ -68,6 +68,7 @@ declare global {
 
     interface IRegistrant {
         id: string
+        form_id: string
         user: {
             id: string
             name: string
@@ -75,9 +76,11 @@ declare global {
             avatar: string | null
         }
         event_id: string
-        status: 'pending' | 'approved' | 'rejected'
+        status: 'pending' | 'accepted' | 'rejected'
         submitted_at: string
         answers: Record<string, string>
+        registration_code?: string | null
+        reviewed_at?: string | null
     }
 
     interface IFormSubmission {

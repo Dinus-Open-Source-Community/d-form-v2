@@ -58,7 +58,7 @@ defineProps<{
                         <span
                             :class="[
                                 'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium capitalize',
-                                reg.status === 'approved' && 'bg-success/10 text-success',
+                                reg.status === 'accepted' && 'bg-success/10 text-success',
                                 reg.status === 'pending' && 'bg-warning/15 text-warning-foreground',
                                 reg.status === 'rejected' && 'bg-destructive/10 text-destructive',
                             ]"

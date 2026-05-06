@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EmailLogStatus;
+use App\Enums\EmailNotificationType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ class EmailLog extends Model
         'user_id',
         'recipient_email',
         'status',
+        'notification_type',
         'error_message',
         'sent_at',
     ];
@@ -29,6 +31,7 @@ class EmailLog extends Model
     {
         return [
             'status' => EmailLogStatus::class,
+            'notification_type' => EmailNotificationType::class,
             'sent_at' => 'datetime',
         ];
     }

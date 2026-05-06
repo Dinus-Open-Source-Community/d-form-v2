@@ -19,6 +19,7 @@ defineOptions({ layout: DashboardFocusLayout })
 const props = defineProps<{
     event: IEvent
     registrants: IRegistrant[]
+    registrationForm: { id: string; title: string } | null
 }>()
 
 const p = reactive(useEventRegistrantsPage(props))
@@ -36,10 +37,6 @@ function onRejectFromSheet(): void {
     p.showDetailSheet = false
     if (r) p.startReject(r)
 }
-
-function setStatTab(key: 'all' | 'pending' | 'approved' | 'rejected'): void {
-    p.activeStatusTab = key
-}
 </script>
 
 <template>
@@ -53,7 +50,7 @@ function setStatTab(key: 'all' | 'pending' | 'approved' | 'rejected'): void {
                 :tone-styles="p.toneStyles"
                 :active-status-tab="p.activeStatusTab"
                 :card-shadow="cardShadow"
-                @select-stat="setStatTab"
+                @select-stat="p.setStatTab"
             />
 
             <RegistrantsToolbar
@@ -91,7 +88,7 @@ function setStatTab(key: 'all' | 'pending' | 'approved' | 'rejected'): void {
             <EmptyState
                 v-else
                 title="No registrants match your view"
-                description="Try switching tabs or clearing the search. Registrants appear here the moment they submit the form."
+                description="Try switching tabs or clearing the search. Registrants appear here once they submit the registration form."
                 animation-name="errorState"
             />
         </div>
@@ -107,7 +104,7 @@ function setStatTab(key: 'all' | 'pending' | 'approved' | 'rejected'): void {
     <ConfirmationModal
         :open="p.showApproveModal"
         title="Approve this registrant?"
-        :description="`We’ll mark ${p.actionTarget?.user.name} as approved and send them a confirmation email.`"
+        :description="`We’ll mark ${p.actionTarget?.user.name} as approved and send them an email with check-in QR and manual registration code.`"
         confirm-text="Approve"
         @confirm="p.confirmApprove"
         @cancel="() => (p.showApproveModal = false)"

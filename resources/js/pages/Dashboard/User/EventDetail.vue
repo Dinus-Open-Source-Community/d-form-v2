@@ -20,7 +20,7 @@ defineOptions({ layout: DashboardLayout })
 const props = defineProps<{
     event: IEvent
     isRegistered: boolean
-    registrationStatus: 'submitted' | 'pending' | 'approved' | 'rejected' | null
+    registrationStatus: 'pending' | 'accepted' | 'rejected' | null
 }>()
 
 const event = props.event
@@ -32,6 +32,12 @@ const registrationStatusLabel: Record<IEvent['registration_status'], string> = {
     open: 'Registration open',
     closed: 'Closed',
     full: 'Full',
+}
+
+const myRegistrationLabel: Record<NonNullable<typeof props.registrationStatus>, string> = {
+    pending: 'Awaiting review',
+    accepted: 'Accepted',
+    rejected: 'Not accepted',
 }
 
 const metaBlocks = [
@@ -146,24 +152,61 @@ const metaBlocks = [
                                 <Badge
                                     variant="secondary"
                                     class="mt-1.5 text-[10px] capitalize"
-                                    :style="{ color: statusColorMap[registrationStatus ?? 'submitted'] }"
+                                    :style="{
+                                        color:
+                                            registrationStatus != null
+                                                ? statusColorMap[registrationStatus]
+                                                : undefined,
+                                    }"
                                 >
-                                    {{ registrationStatus === 'submitted' ? 'Submitted' : registrationStatus }}
+                                    {{
+                                        registrationStatus != null
+                                            ? myRegistrationLabel[registrationStatus]
+                                            : 'Registered'
+                                    }}
                                 </Badge>
                             </div>
 
-                            <!-- FE-only: guidance until BE exposes in-app QR + optional flash (see docs/be-m5-email-qr-backend-followups.md) -->
                             <div
+                                v-if="registrationStatus === 'pending'"
                                 class="grid gap-3 rounded-xl border border-border bg-muted/15 p-4 md:grid-cols-2 md:items-start"
                             >
                                 <div class="min-w-0 space-y-2">
                                     <p class="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                                         <Mail class="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-                                        Email confirmation
+                                        Email updates
                                     </p>
                                     <ul class="text-muted-foreground list-inside list-disc space-y-1 text-[11px] font-medium leading-relaxed">
-                                        <li>Check your inbox and spam folder for the confirmation message.</li>
-                                        <li>The email includes your answers and a scannable QR for check-in.</li>
+                                        <li>You should receive a confirmation that we received your answers.</li>
+                                        <li>If your registration is accepted, a separate email will include a check-in QR code and a manual registration code.</li>
+                                        <li class="flex flex-wrap items-center gap-1.5">
+                                            <Server class="inline size-3.5 shrink-0 text-foreground/70" aria-hidden="true" />
+                                            If nothing arrives, confirm a queue worker is running when the queue driver is not sync.
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="min-w-0 space-y-2">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        Next steps
+                                    </p>
+                                    <p class="text-[11px] font-medium leading-relaxed text-foreground/85">
+                                        Watch your inbox for the decision email. You do not have a check-in QR until you are accepted.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                v-else-if="registrationStatus === 'accepted'"
+                                class="grid gap-3 rounded-xl border border-border bg-muted/15 p-4 md:grid-cols-2 md:items-start"
+                            >
+                                <div class="min-w-0 space-y-2">
+                                    <p class="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                        <Mail class="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                                        Check-in email
+                                    </p>
+                                    <ul class="text-muted-foreground list-inside list-disc space-y-1 text-[11px] font-medium leading-relaxed">
+                                        <li>Open the acceptance email for your attendance QR image.</li>
+                                        <li>Save the manual registration code from that email in case scanning fails.</li>
                                         <li class="flex flex-wrap items-center gap-1.5">
                                             <Server class="inline size-3.5 shrink-0 text-foreground/70" aria-hidden="true" />
                                             If email never arrives, confirm a queue worker is running when the queue driver is not sync.
@@ -175,15 +218,27 @@ const metaBlocks = [
                                         At the venue
                                     </p>
                                     <p class="text-[11px] font-medium leading-relaxed text-foreground/85">
-                                        Bring the QR from your confirmation email. Staff will scan it at the entrance.
+                                        Show the QR from your acceptance email at the entrance. Staff can enter your manual code if needed.
                                     </p>
                                 </div>
                             </div>
 
-                            <div class="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-white p-4 shadow-sm">
+                            <div
+                                v-else-if="registrationStatus === 'rejected'"
+                                class="rounded-xl border border-border bg-muted/15 p-4"
+                            >
+                                <p class="text-[11px] font-medium leading-relaxed text-muted-foreground">
+                                    We emailed you about this decision. If you did not receive it, check spam or contact the organizers.
+                                </p>
+                            </div>
+
+                            <div
+                                v-if="registrationStatus === 'accepted'"
+                                class="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-white p-4 shadow-sm"
+                            >
                                 <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your entry ticket</p>
                                 <p class="max-w-[220px] text-center text-[10px] leading-snug text-muted-foreground">
-                                    Preview only. Your real QR is attached in the confirmation email.
+                                    Preview only. Your real QR and manual code are in the acceptance email.
                                 </p>
                                 <div class="bg-muted flex size-32 items-center justify-center rounded-lg border" aria-hidden="true">
                                     <svg class="size-24 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
@@ -200,7 +255,7 @@ const metaBlocks = [
                                     </svg>
                                 </div>
                                 <p class="text-[9px] text-center text-muted-foreground leading-tight">
-                                    Show the QR from your email at the event entrance for check-in.
+                                    Use the QR from your acceptance email at the event entrance for check-in.
                                 </p>
                             </div>
                         </div>

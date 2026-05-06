@@ -7,12 +7,12 @@ defineProps<{
         'primary' | 'warning' | 'success' | 'destructive',
         { chip: string; ring: string; bar: string; dot: string }
     >
-    activeStatusTab: 'all' | 'pending' | 'approved' | 'rejected'
+    activeStatusTab: 'all' | 'pending' | 'accepted' | 'rejected'
     cardShadow: string
 }>()
 
 const emit = defineEmits<{
-    selectStat: [key: 'all' | 'pending' | 'approved' | 'rejected']
+    selectStat: [key: 'all' | 'pending' | 'accepted' | 'rejected']
 }>()
 </script>
 

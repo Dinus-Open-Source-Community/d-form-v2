@@ -1,10 +1,10 @@
-{{ __('Registration confirmed') }}: {{ $event->title }}
+{{ __('Registration received') }}: {{ $event->title }}
 
 {{ __('Form') }}: {{ $form->title }}
 
 {{ __('Hello') }} {{ $user->name }},
 
-{{ __('Your registration has been received.') }}
+{{ __('Thank you — we have received your registration. Our team will review it and you will receive another email once a decision has been made.') }}
 
 ---
 {{ __('Event details') }}
@@ -17,6 +17,3 @@
 - {{ $label }}: {{ $display }}
 @endforeach
 @endif
-
-{{ __('Attendance QR code') }}: {{ __('See HTML version of this email for the image.') }}
-{{ __('Submission ID') }}: {{ $submission->id }}
