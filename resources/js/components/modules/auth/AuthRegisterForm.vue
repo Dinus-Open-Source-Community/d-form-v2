@@ -124,6 +124,7 @@ function submit(): void {
                 required
                 autocomplete="email"
                 placeholder="you@example.com"
+                :focus="false"
             />
             <AuthField
                 label="Password"
@@ -134,6 +135,7 @@ function submit(): void {
                 required
                 autocomplete="new-password"
                 placeholder="••••••••"
+                :focus="false"
             />
 
             <Transition
@@ -184,6 +186,7 @@ function submit(): void {
                 required
                 autocomplete="new-password"
                 placeholder="••••••••"
+                :focus="false"
             />
 
             <AuthSubmitButton :form="form">

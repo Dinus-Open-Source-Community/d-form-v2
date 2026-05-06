@@ -14,13 +14,13 @@ import {
 
 const page = usePage()
 
-const breadcrumbs = computed<{ label: string; href?: string }[]>(() => {
+const breadcrumbs = computed((): { label: string; href?: string }[] => {
     // Explicitly check for event data in props or fallback to URL-based
     const event = (page.props.event as { id: string; title: string } | undefined)
     const form = (page.props.form as { id: string; title: string } | undefined)
     
-    const crumbs = [
-        { label: 'Events', href: '/dashboard/user/events' }
+    const crumbs: { label: string; href?: string }[] = [
+        { label: 'Events', href: '/dashboard/user/events' },
     ]
 
     if (event) {

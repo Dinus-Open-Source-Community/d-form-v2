@@ -63,7 +63,7 @@ function updatePassword() {
             <Card class="rounded-xl border shadow-xs">
                 <CardContent class="flex flex-col items-center gap-4 p-6">
                     <Avatar class="size-24">
-                        <AvatarImage :src="user?.avatar" :alt="user?.name" />
+                        <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
                         <AvatarFallback class="bg-primary/10 text-xl font-semibold text-primary">{{ initials }}</AvatarFallback>
                     </Avatar>
                     <div class="text-center">

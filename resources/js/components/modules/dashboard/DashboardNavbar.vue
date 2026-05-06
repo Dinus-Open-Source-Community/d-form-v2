@@ -105,7 +105,7 @@ const initials = computed(() =>
                 <DropdownMenuTrigger as-child>
                     <button class="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <Avatar class="size-7">
-                            <AvatarImage :src="user?.avatar" :alt="user?.name" />
+                            <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
                             <AvatarFallback class="bg-primary/10 text-[10px] font-semibold text-primary">{{ initials }}</AvatarFallback>
                         </Avatar>
                         <span class="hidden max-w-[120px] truncate text-sm font-medium md:inline">{{ firstName }}</span>

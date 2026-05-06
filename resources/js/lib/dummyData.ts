@@ -190,6 +190,8 @@ export const dummyForms: IForm[] = [
         visible_for: ['public'],
         closed_at: '2026-04-23T23:59:59+07:00',
         event_id: '1a2b3c4d-0001',
+        banner_url: null,
+        banner_caption: null,
     },
     {
         id: 'form-002',
@@ -198,6 +200,8 @@ export const dummyForms: IForm[] = [
         visible_for: ['participant'],
         closed_at: '2026-05-01T23:59:59+07:00',
         event_id: '1a2b3c4d-0001',
+        banner_url: null,
+        banner_caption: null,
     },
     {
         id: 'form-003',
@@ -206,6 +210,8 @@ export const dummyForms: IForm[] = [
         visible_for: ['public'],
         closed_at: '2026-04-26T23:59:59+07:00',
         event_id: '1a2b3c4d-0002',
+        banner_url: null,
+        banner_caption: null,
     },
 ]
 

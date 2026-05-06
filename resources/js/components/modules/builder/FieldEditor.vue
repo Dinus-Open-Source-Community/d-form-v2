@@ -143,7 +143,7 @@ const isContent = computed(() =>
                 :model-value="field.label"
                 placeholder="e.g. Full Name"
                 class="text-xs"
-                @update:model-value="(v) => update('label', v)"
+                @update:model-value="(v) => update('label', String(v))"
             />
             <p class="text-[10px] text-muted-foreground">
                 The label shown above the field.
@@ -158,7 +158,7 @@ const isContent = computed(() =>
                 placeholder="Brief instruction for the user"
                 rows="2"
                 class="text-xs"
-                @update:model-value="(v) => update('description', v)"
+                @update:model-value="(v) => update('description', String(v))"
             />
         </div>
 
@@ -169,7 +169,7 @@ const isContent = computed(() =>
                 :model-value="field.placeholder"
                 placeholder="e.g. Enter your name..."
                 class="text-xs"
-                @update:model-value="(v) => update('placeholder', v)"
+                @update:model-value="(v) => update('placeholder', String(v))"
             />
         </div>
 
@@ -177,20 +177,20 @@ const isContent = computed(() =>
         <div v-if="field.type === 'heading'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Heading Text</Label>
             <Input
-                :model-value="field.metadata?.content ?? ''"
+                :model-value="String(field.metadata?.content ?? '')"
                 placeholder="Section Heading"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('content', v)"
+                @update:model-value="(v) => updateMeta('content', String(v))"
             />
         </div>
         <div v-if="field.type === 'paragraph'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Paragraph Text</Label>
             <Textarea
-                :model-value="field.metadata?.content ?? ''"
+                :model-value="String(field.metadata?.content ?? '')"
                 placeholder="Descriptive text..."
                 rows="3"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('content', v)"
+                @update:model-value="(v) => updateMeta('content', String(v))"
             />
         </div>
 
@@ -199,7 +199,7 @@ const isContent = computed(() =>
             <Label class="text-xs font-semibold">Max Stars</Label>
             <Input
                 type="number"
-                :model-value="field.metadata?.maxStars ?? 5"
+                :model-value="Number(field.metadata?.maxStars ?? 5)"
                 min="1"
                 max="10"
                 class="text-xs"
@@ -211,10 +211,10 @@ const isContent = computed(() =>
         <div v-if="['image_upload', 'file_upload'].includes(field.type)" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Accepted Formats</Label>
             <Input
-                :model-value="field.metadata?.accepts ?? ''"
+                :model-value="String(field.metadata?.accepts ?? '')"
                 :placeholder="field.type === 'banner' ? 'gif, png, jpg' : 'pdf, jpg, png'"
                 class="text-xs"
-                @update:model-value="(v) => updateMeta('accepts', v)"
+                @update:model-value="(v) => updateMeta('accepts', String(v))"
             />
             <p class="text-[10px] text-muted-foreground">Comma-separated file extensions.</p>
         </div>
@@ -324,7 +324,7 @@ const isContent = computed(() =>
                 </div>
                 <Switch
                     :checked="!!field.required"
-                    @update:checked="(v) => update('required', v)"
+                    @update:checked="(v: boolean) => update('required', v)"
                 />
             </div>
         </div>
