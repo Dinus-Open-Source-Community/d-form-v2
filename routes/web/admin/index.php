@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
@@ -62,5 +63,5 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
 
 Route::middleware('auth')->prefix('/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/scan', fn () => inertia('Dashboard/Events/Scan'))->name('scan');
-    Route::get('/registrants', fn () => inertia('Dashboard/Events/Registrants'))->name('registrants');
+    Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

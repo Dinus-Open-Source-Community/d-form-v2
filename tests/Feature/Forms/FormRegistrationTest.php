@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Forms;
 
+use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
 use App\Models\Event;
@@ -9,9 +10,13 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
+use App\Mail\RegistrationAcceptedMail;
+use App\Mail\RegistrationConfirmationMail;
+use App\Mail\RegistrationRejectedMail;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -99,6 +104,11 @@ class FormRegistrationTest extends TestCase
             'form' => $form,
             'formAnswer' => $answer,
         ], false);
+    }
+
+    private function registrantsPath(Event $event): string
+    {
+        return route('dashboard.events.registrants', ['event' => $event], false);
     }
 
     /** Post-submit redirect matches {@see FormSubmissionController} (members use the user portal). */
@@ -600,18 +610,81 @@ class FormRegistrationTest extends TestCase
             'review_status' => FormAnswerReviewStatus::Pending,
         ]);
 
+        Mail::fake();
+
         $this->actingAs($admin)
             ->patchJson($this->reviewPath($event, $form, $answer), [
                 'review_status' => FormAnswerReviewStatus::Accepted->value,
             ])
             ->assertOk()
-            ->assertJsonPath('review_status', FormAnswerReviewStatus::Accepted->value);
+            ->assertJsonPath('review_status', FormAnswerReviewStatus::Accepted->value)
+            ->assertJsonStructure([
+                'id',
+                'review_status',
+                'reviewed_at',
+                'reviewed_by',
+                'registration_code',
+            ]);
+
+        $answer->refresh();
+
+        $this->assertMatchesRegularExpression(
+            '/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/',
+            (string) $answer->registration_code,
+        );
+
+        Mail::assertSent(RegistrationAcceptedMail::class, function (RegistrationAcceptedMail $mail) use ($answer): bool {
+            return $mail->submission->id === $answer->id
+                && $mail->registrationCode === $answer->registration_code
+                && strlen($mail->qrPngBinary) > 100;
+        });
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $answer->id,
+            'notification_type' => EmailNotificationType::RegistrationAccepted->value,
+        ]);
 
         $this->assertDatabaseHas('form_answers', [
             'id' => $answer->id,
             'review_status' => FormAnswerReviewStatus::Accepted->value,
             'reviewed_by' => $admin->id,
         ]);
+    }
+
+    public function test_admin_reject_pending_submission_sends_rejected_mail(): void
+    {
+        Mail::fake();
+
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $member = $this->member();
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => FormAnswerReviewStatus::Rejected->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('review_status', FormAnswerReviewStatus::Rejected->value);
+
+        Mail::assertSent(RegistrationRejectedMail::class, function (RegistrationRejectedMail $mail) use ($answer): bool {
+            return $mail->submission->id === $answer->id;
+        });
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $answer->id,
+            'notification_type' => EmailNotificationType::RegistrationRejected->value,
+        ]);
+
+        $answer->refresh();
+        $this->assertNull($answer->registration_code);
     }
 
     public function test_review_is_immutable_and_second_review_returns_409(): void
@@ -709,6 +782,57 @@ class FormRegistrationTest extends TestCase
 
         $this->get($this->submissionsPath($event, $form))
              ->assertRedirect(route('auth.login'));
+    }
+
+    public function test_successful_submission_sends_registration_confirmation_mail(): void
+    {
+        Mail::fake();
+
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $this->textField($form);
+
+        $this->actingAs($member)
+             ->post($this->submitPath($event, $form), ['full_name' => 'Jane Doe'])
+             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+
+        Mail::assertSent(RegistrationConfirmationMail::class);
+        Mail::assertNotSent(RegistrationAcceptedMail::class);
+
+        $submission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
+        $this->assertNotNull($submission);
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $submission->id,
+            'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
+        ]);
+    }
+
+    public function test_admin_can_view_event_registrants_page(): void
+    {
+        $admin = $this->admin();
+        $event = $this->openEvent();
+        $form  = $this->openForm($event);
+        $member = $this->member();
+        $this->textField($form);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+             ->get($this->registrantsPath($event))
+             ->assertOk()
+             ->assertInertia(
+                 fn ($page) => $page
+                     ->component('Dashboard/Events/Registrants')
+                     ->has('registrants', 1)
+                     ->where('registrationForm.id', $form->id),
+             );
     }
 
     // =========================================================================

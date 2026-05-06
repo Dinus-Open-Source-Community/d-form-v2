@@ -26,6 +26,7 @@ class FormAnswer extends Model
         'review_status',
         'reviewed_at',
         'reviewed_by',
+        'registration_code',
     ];
 
     /**

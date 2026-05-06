@@ -4,16 +4,17 @@ namespace App\Jobs;
 
 use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
-use App\Mail\RegistrationConfirmationMail;
+use App\Enums\FormAnswerReviewStatus;
+use App\Mail\RegistrationAcceptedMail;
 use App\Models\EmailLog;
 use App\Models\FormAnswer;
-use App\Models\FormField;
+use App\Services\Registration\RegistrationQrPngGenerator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendRegistrationConfirmationJob implements ShouldQueue
+class SendRegistrationAcceptedJob implements ShouldQueue
 {
     use Queueable;
 
@@ -21,15 +22,33 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         public string $formAnswerId,
     ) {}
 
-    public function handle(): void
+    public function handle(RegistrationQrPngGenerator $qrGenerator): void
     {
         $submission = FormAnswer::query()
             ->with(['form.event', 'user'])
             ->find($this->formAnswerId);
 
         if ($submission === null) {
-            Log::warning('[SendRegistrationConfirmationJob] FormAnswer not found.', [
+            Log::warning('[SendRegistrationAcceptedJob] FormAnswer not found.', [
                 'form_answer_id' => $this->formAnswerId,
+            ]);
+
+            return;
+        }
+
+        if ($submission->review_status !== FormAnswerReviewStatus::Accepted) {
+            Log::warning('[SendRegistrationAcceptedJob] Submission is not accepted.', [
+                'form_answer_id' => $submission->id,
+                'review_status' => $submission->review_status?->value,
+            ]);
+
+            return;
+        }
+
+        $registrationCode = $submission->registration_code;
+        if ($registrationCode === null || $registrationCode === '') {
+            Log::warning('[SendRegistrationAcceptedJob] Missing registration_code.', [
+                'form_answer_id' => $submission->id,
             ]);
 
             return;
@@ -37,7 +56,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
 
         $user = $submission->user;
         if ($user === null) {
-            Log::warning('[SendRegistrationConfirmationJob] Submission has no user.', [
+            Log::warning('[SendRegistrationAcceptedJob] Submission has no user.', [
                 'form_answer_id' => $submission->id,
             ]);
 
@@ -53,23 +72,22 @@ class SendRegistrationConfirmationJob implements ShouldQueue
                 'user_id' => $user->id,
                 'recipient_email' => '',
                 'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
+                'notification_type' => EmailNotificationType::RegistrationAccepted,
                 'error_message' => 'User has no email address configured.',
                 'sent_at' => null,
             ]);
 
-            Log::warning('[SendRegistrationConfirmationJob] No recipient email.', [
+            Log::warning('[SendRegistrationAcceptedJob] No recipient email.', [
                 'form_answer_id' => $submission->id,
             ]);
 
             return;
         }
 
-        $answersSummary = $this->buildAnswersSummary($submission);
-
         try {
+            $png = $qrGenerator->pngForSubmission($submission->id);
             Mail::to($user->email)->send(
-                new RegistrationConfirmationMail($submission, $answersSummary)
+                new RegistrationAcceptedMail($submission, $png, $registrationCode)
             );
 
             EmailLog::query()->create([
@@ -78,7 +96,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
                 'user_id' => $user->id,
                 'recipient_email' => $user->email,
                 'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
+                'notification_type' => EmailNotificationType::RegistrationAccepted,
                 'error_message' => null,
                 'sent_at' => now(),
             ]);
@@ -89,60 +107,17 @@ class SendRegistrationConfirmationJob implements ShouldQueue
                 'user_id' => $user->id,
                 'recipient_email' => $user->email,
                 'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
+                'notification_type' => EmailNotificationType::RegistrationAccepted,
                 'error_message' => $e->getMessage(),
                 'sent_at' => null,
             ]);
 
-            Log::error('[SendRegistrationConfirmationJob] Send failed.', [
+            Log::error('[SendRegistrationAcceptedJob] Send failed.', [
                 'form_answer_id' => $submission->id,
                 'exception' => $e,
             ]);
 
             throw $e;
         }
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function buildAnswersSummary(FormAnswer $submission): array
-    {
-        $answers = is_array($submission->answers) ? $submission->answers : [];
-
-        $fields = FormField::query()
-            ->where('form_id', $submission->form_id)
-            ->orderBy('order')
-            ->get(['name', 'label', 'input_type']);
-
-        $lines = [];
-        foreach ($fields as $field) {
-            if (! array_key_exists($field->name, $answers)) {
-                continue;
-            }
-            $value = $answers[$field->name];
-
-            if ($field->input_type === 'fileUpload') {
-                $lines[$field->label] = is_string($value) && $value !== ''
-                    ? __('File uploaded')
-                    : '—';
-
-                continue;
-            }
-
-            if (is_array($value)) {
-                $lines[$field->label] = implode(', ', array_map(fn ($v) => (string) $v, $value));
-
-                continue;
-            }
-
-            if ($value === null || $value === '') {
-                $lines[$field->label] = '—';
-            } else {
-                $lines[$field->label] = (string) $value;
-            }
-        }
-
-        return $lines;
     }
 }

@@ -7,13 +7,13 @@ import { Search, Download, LayoutGrid, List } from 'lucide-vue-next'
 import { REGISTRANTS_TAB_ITEMS } from '@/lib/registrantsUi'
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
-const activeStatusTab = defineModel<'all' | 'pending' | 'approved' | 'rejected'>('activeStatusTab', {
+const activeStatusTab = defineModel<'all' | 'pending' | 'accepted' | 'rejected'>('activeStatusTab', {
     required: true,
 })
 const viewType = defineModel<'table' | 'form'>('viewType', { required: true })
 
 defineProps<{
-    statusCounts: Record<'all' | 'pending' | 'approved' | 'rejected', number>
+    statusCounts: Record<'all' | 'pending' | 'accepted' | 'rejected', number>
 }>()
 
 defineEmits<{
@@ -37,7 +37,7 @@ defineEmits<{
                             :class="[
                                 'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
                                 t.value === 'pending' && 'bg-warning/15 text-warning-foreground',
-                                t.value === 'approved' && 'bg-success/10 text-success',
+                                t.value === 'accepted' && 'bg-success/10 text-success',
                                 t.value === 'rejected' && 'bg-destructive/10 text-destructive',
                                 t.value === 'all' && 'bg-muted text-muted-foreground',
                             ]"

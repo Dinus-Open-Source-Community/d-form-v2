@@ -1,13 +1,13 @@
 import { formatDate } from '@/lib/dummyData'
 
 export const REGISTRANTS_TAB_ITEMS: {
-    value: 'all' | 'pending' | 'approved' | 'rejected'
+    value: 'all' | 'pending' | 'accepted' | 'rejected'
     label: string
     tone: 'default' | 'warning' | 'success' | 'destructive'
 }[] = [
     { value: 'all', label: 'All', tone: 'default' },
     { value: 'pending', label: 'Pending', tone: 'warning' },
-    { value: 'approved', label: 'Approved', tone: 'success' },
+    { value: 'accepted', label: 'Approved', tone: 'success' },
     { value: 'rejected', label: 'Rejected', tone: 'destructive' },
 ]
 
@@ -42,7 +42,7 @@ export const REGISTRANTS_TONE_STYLES: Record<
 }
 
 export function registrantStatusBadgeClass(s: IRegistrant['status']): string {
-    if (s === 'approved') return 'bg-success/10 text-success ring-success/15'
+    if (s === 'accepted') return 'bg-success/10 text-success ring-success/15'
     if (s === 'rejected') return 'bg-destructive/10 text-destructive ring-destructive/15'
     return 'bg-warning/15 text-warning-foreground ring-warning/20'
 }

@@ -4,7 +4,7 @@ import { Clock, ArrowUpRight } from 'lucide-vue-next'
 
 defineProps<{
     pendingCount: number
-    activeStatusTab: 'all' | 'pending' | 'approved' | 'rejected'
+    activeStatusTab: 'all' | 'pending' | 'accepted' | 'rejected'
 }>()
 
 const emit = defineEmits<{

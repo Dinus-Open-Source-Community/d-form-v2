@@ -73,6 +73,21 @@ const emit = defineEmits<{
                     </div>
                 </div>
 
+                <div
+                    v-if="registrant.status === 'accepted' && registrant.registration_code"
+                    class="rounded-2xl border border-success/25 bg-success/5 px-4 py-3"
+                >
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Manual registration code
+                    </p>
+                    <p class="mt-1 font-mono text-lg font-bold tracking-widest text-foreground">
+                        {{ registrant.registration_code }}
+                    </p>
+                    <p class="mt-1 text-[11px] leading-snug text-muted-foreground">
+                        Staff can enter this at check-in if QR scanning is unavailable.
+                    </p>
+                </div>
+
                 <div v-if="registrant.status === 'pending'" class="flex items-center gap-2 pt-2">
                     <Button
                         class="flex-1 rounded-xl bg-success text-success-foreground hover:bg-success/90"

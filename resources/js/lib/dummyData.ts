@@ -227,14 +227,17 @@ export const dummyFormFields: IFormField[] = [
 export const dummyRegistrants: IRegistrant[] = [
     {
         id: 'reg-001',
+        form_id: 'form-dummy-001',
         user: { id: 'u-001', name: 'Ahmad Fauzi', email: 'ahmad@student.dinus.ac.id', avatar: '' },
         event_id: '1a2b3c4d-0001',
-        status: 'approved',
+        status: 'accepted',
         submitted_at: '2026-04-12T08:30:00+07:00',
         answers: { 'Full Name': 'Ahmad Fauzi', 'Student ID (NIM)': 'A11.2026.12345', 'Faculty': 'Computer Science', 'Motivation': 'I want to learn design systems.' },
+        registration_code: 'WK9F-7Q3P',
     },
     {
         id: 'reg-002',
+        form_id: 'form-dummy-001',
         user: { id: 'u-002', name: 'Siti Nurhaliza', email: 'siti@student.dinus.ac.id', avatar: '' },
         event_id: '1a2b3c4d-0001',
         status: 'pending',
@@ -243,6 +246,7 @@ export const dummyRegistrants: IRegistrant[] = [
     },
     {
         id: 'reg-003',
+        form_id: 'form-dummy-001',
         user: { id: 'u-003', name: 'Budi Santoso', email: 'budi@student.dinus.ac.id', avatar: '' },
         event_id: '1a2b3c4d-0001',
         status: 'rejected',
@@ -251,6 +255,7 @@ export const dummyRegistrants: IRegistrant[] = [
     },
     {
         id: 'reg-004',
+        form_id: 'form-dummy-001',
         user: { id: 'u-004', name: 'Dewi Lestari', email: 'dewi@student.dinus.ac.id', avatar: '' },
         event_id: '1a2b3c4d-0001',
         status: 'pending',
@@ -259,11 +264,13 @@ export const dummyRegistrants: IRegistrant[] = [
     },
     {
         id: 'reg-005',
+        form_id: 'form-dummy-001',
         user: { id: 'u-005', name: 'Rizky Pratama', email: 'rizky@student.dinus.ac.id', avatar: '' },
         event_id: '1a2b3c4d-0001',
-        status: 'approved',
+        status: 'accepted',
         submitted_at: '2026-04-11T16:30:00+07:00',
         answers: { 'Full Name': 'Rizky Pratama', 'Student ID (NIM)': 'A11.2026.12349', 'Faculty': 'Computer Science', 'Motivation': 'Building my portfolio.' },
+        registration_code: 'N8TY-4HZ2',
     },
 ]
 
@@ -301,6 +308,7 @@ export const statusColorMap: Record<string, string> = {
     published: '#059669',
     pending: '#D97706',
     approved: '#059669',
+    accepted: '#059669',
     rejected: '#DC2626',
     submitted: '#059669',
 }

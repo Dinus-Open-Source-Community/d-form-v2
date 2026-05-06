@@ -40,7 +40,7 @@ const emit = defineEmits<{
                     <span
                         :class="[
                             'inline-flex items-center gap-1 size-2 rounded-full',
-                            reg.status === 'approved' && 'bg-success',
+                            reg.status === 'accepted' && 'bg-success',
                             reg.status === 'rejected' && 'bg-destructive',
                             reg.status === 'pending' && 'bg-warning',
                         ]"
