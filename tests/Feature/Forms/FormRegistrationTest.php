@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Forms;
 
+use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
 use App\Models\Event;
 use App\Models\Form;
@@ -89,6 +90,15 @@ class FormRegistrationTest extends TestCase
     private function submissionsPath(Event $event, Form $form): string
     {
         return route('dashboard.events.forms.submissions', ['event' => $event, 'form' => $form], false);
+    }
+
+    private function reviewPath(Event $event, Form $form, FormAnswer $answer): string
+    {
+        return route('dashboard.events.forms.submissions.review', [
+            'event' => $event,
+            'form' => $form,
+            'formAnswer' => $answer,
+        ], false);
     }
 
     /** Post-submit redirect matches {@see FormSubmissionController} (members use the user portal). */
@@ -570,6 +580,103 @@ class FormRegistrationTest extends TestCase
                      ->where('submissions.data.0.user.email', $member->email)
                      ->where('submissions.data.0.answers.full_name', 'Jane Doe')
                  );
+    }
+
+    // =========================================================================
+    // REVIEW SUBMISSION (Accept/Reject)
+    // =========================================================================
+
+    public function test_admin_can_accept_pending_submission(): void
+    {
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $member = $this->member();
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => FormAnswerReviewStatus::Accepted->value,
+            ])
+            ->assertOk()
+            ->assertJsonPath('review_status', FormAnswerReviewStatus::Accepted->value);
+
+        $this->assertDatabaseHas('form_answers', [
+            'id' => $answer->id,
+            'review_status' => FormAnswerReviewStatus::Accepted->value,
+            'reviewed_by' => $admin->id,
+        ]);
+    }
+
+    public function test_review_is_immutable_and_second_review_returns_409(): void
+    {
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $member = $this->member();
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Rejected,
+            'reviewed_by' => $admin->id,
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => FormAnswerReviewStatus::Accepted->value,
+            ])
+            ->assertStatus(409);
+    }
+
+    public function test_member_cannot_review_submission(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => [],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($member)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => FormAnswerReviewStatus::Accepted->value,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_review_returns_404_when_submission_not_belong_to_form_or_event(): void
+    {
+        $admin = $this->admin();
+        $event = $this->openEvent();
+        $form  = $this->openForm($event);
+
+        $otherEvent = $this->openEvent();
+        $otherForm  = $this->openForm($otherEvent);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $otherForm->id,
+            'user_id' => $this->member()->id,
+            'answers' => [],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => FormAnswerReviewStatus::Accepted->value,
+            ])
+            ->assertNotFound();
     }
 
     public function test_member_cannot_view_submissions_list(): void

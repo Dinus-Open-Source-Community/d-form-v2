@@ -25,7 +25,7 @@ class FormSubmissionsController extends Controller
         abort_unless($form->event_id === $event->id, 404);
 
         $submissions = FormAnswer::query()
-            ->with('user:id,name,email')
+            ->with(['user:id,name,email', 'reviewer:id,name,email'])
             ->where('form_id', $form->id)
             ->orderByDesc('created_at')
             ->paginate(25)
@@ -40,6 +40,16 @@ class FormSubmissionsController extends Controller
                     : null,
                 'answers'      => $answer->answers,
                 'submitted_at' => $answer->created_at->toISOString(),
+                'review_status' => $answer->review_status?->value,
+                'reviewed_at' => $answer->reviewed_at?->toIso8601String(),
+                'reviewed_by' => $answer->reviewed_by,
+                'reviewer' => $answer->reviewer
+                    ? [
+                        'id' => $answer->reviewer->id,
+                        'name' => $answer->reviewer->name,
+                        'email' => $answer->reviewer->email,
+                    ]
+                    : null,
             ]);
 
         return Inertia::render('Dashboard/Events/Forms/Submissions', [

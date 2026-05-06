@@ -10,6 +10,10 @@ return new class () extends Migration {
      */
     public function up(): void
     {
+        if (Schema::hasTable('form_answers')) {
+            return;
+        }
+
         Schema::create('form_answers', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->json('answers');

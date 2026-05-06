@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FormAnswerReviewStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,9 @@ class FormAnswer extends Model
         'answers',
         'form_id',
         'user_id',
+        'review_status',
+        'reviewed_at',
+        'reviewed_by',
     ];
 
     /**
@@ -31,6 +35,8 @@ class FormAnswer extends Model
     {
         return [
             'answers' => 'array',
+            'review_status' => FormAnswerReviewStatus::class,
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -42,6 +48,11 @@ class FormAnswer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /**
