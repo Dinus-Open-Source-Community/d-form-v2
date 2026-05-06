@@ -40,7 +40,7 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
         return inertia('Dashboard/User/EventDetail', [
             'event' => $eventService->eventToInertiaArray($event),
             'isRegistered' => (bool) $registration,
-            'registrationStatus' => $registration ? 'submitted' : null,
+            'registrationStatus' => $registration?->review_status?->value,
         ]);
     })->name('events.show');
 
