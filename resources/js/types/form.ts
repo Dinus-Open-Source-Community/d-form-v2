@@ -16,6 +16,7 @@ export type FormAccessStatus =
 
 export interface FormFillPageEvent {
     id: string
+    slug: string
     title: string
 }
 

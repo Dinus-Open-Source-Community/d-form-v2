@@ -78,7 +78,7 @@ const filteredEvents = computed(() => {
             <Link
                 v-for="event in filteredEvents"
                 :key="event.id"
-                :href="`/dashboard/user/events/${event.id}`"
+                :href="`/dashboard/user/events/${event.slug}`"
                 class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
                 <Card class="overflow-hidden rounded-xl border shadow-xs transition-colors duration-150 hover:border-primary/25 hover:shadow-sm">

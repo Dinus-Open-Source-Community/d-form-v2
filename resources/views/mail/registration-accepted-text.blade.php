@@ -14,3 +14,6 @@
 {{ __('Manual registration code') }}: {{ $registrationCode }}
 
 {{ __('Submission ID') }}: {{ $submission->id }}
+
+{{ __('View registration details') }}:
+{{ $registrationDetailsUrl }}

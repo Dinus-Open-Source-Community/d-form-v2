@@ -1,6 +1,7 @@
 declare global {
     interface IEvent {
         id: string
+        slug: string
         title: string
         description: string
         start_date: string

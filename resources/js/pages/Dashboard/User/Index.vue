@@ -41,7 +41,7 @@ const upcomingEvents = dummyEvents
                 <Link
                     v-for="event in upcomingEvents"
                     :key="event.id"
-                    :href="`/dashboard/user/events/${event.id}`"
+                        :href="`/dashboard/user/events/${event.slug}`"
                     class="flex items-center gap-4 rounded-lg border p-3 transition-colors hover:bg-muted/30"
                 >
                     <div class="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-muted">

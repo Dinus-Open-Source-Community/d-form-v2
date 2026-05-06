@@ -2,9 +2,11 @@
 
 use App\Enums\EventStatus;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
+use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
+use App\Services\Event\UserPortalEventResolver;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use Inertia\Inertia;
@@ -30,7 +32,29 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
         ]);
     })->name('events');
 
-    Route::get('/events/{event}', function (Event $event, EventService $eventService) {
+    Route::get('/events/{event_segment}/registration', UserEventRegistrationController::class)
+        ->name('events.registration');
+
+    Route::get('/events/{event_segment}/register', function (string $event_segment) {
+        $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
+
+        $form = Form::query()->where('event_id', $event->id)->orderBy('title')->first();
+
+        if ($form === null) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'No registration form has been published for this event yet.',
+            ]);
+
+            return redirect()->route('dashboard.user.events.show', ['event_segment' => $event->slug ?? $event->getKey()]);
+        }
+
+        return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
+    })->name('events.register');
+
+    Route::get('/events/{event_segment}', function (string $event_segment, EventService $eventService) {
+        $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
+
         $user = auth()->user();
         $registration = \App\Models\FormAnswer::where('user_id', $user->id)
             ->whereHas('form', function ($q) use ($event) {
@@ -44,21 +68,6 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
             'registrationStatus' => $registration?->review_status?->value,
         ]);
     })->name('events.show');
-
-    Route::get('/events/{event}/register', function (Event $event) {
-        $form = Form::query()->where('event_id', $event->id)->orderBy('title')->first();
-
-        if ($form === null) {
-            Inertia::flash('toast', [
-                'type' => 'error',
-                'message' => 'No registration form has been published for this event yet.',
-            ]);
-
-            return redirect()->route('dashboard.user.events.show', $event);
-        }
-
-        return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
-    })->name('events.register');
 });
 
 Route::middleware('auth')->prefix('/dashboard/events/{event}')->name('dashboard.events.')->group(function () {

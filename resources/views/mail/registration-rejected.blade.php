@@ -27,6 +27,7 @@
                             </p>
                         </td>
                     </tr>
+                    @include('mail.partials.registration-details-button')
                     <tr>
                         <td style="padding:0 28px 24px;">
                             <p style="margin:0;font-size:12px;color:#9ca3af;">{{ __('This message was sent because you registered for an event on :app.', ['app' => config('app.name')]) }}</p>
