@@ -21,6 +21,8 @@ const props = defineProps<{
     event: IEvent
     isRegistered: boolean
     registrationStatus: 'pending' | 'accepted' | 'rejected' | null
+    qr_base64: string | null
+    registration_code: string | null
 }>()
 
 const event = props.event
@@ -210,8 +212,9 @@ const metaBlocks = [
                                         Check-in email
                                     </p>
                                     <ul class="text-muted-foreground list-inside list-disc space-y-1 text-[11px] font-medium leading-relaxed">
-                                        <li>Open the acceptance email for your attendance QR image.</li>
-                                        <li>Save the manual registration code from that email in case scanning fails.</li>
+                                        <li>Your check-in QR and manual code also appear on this page below.</li>
+                                        <li>The acceptance email has the same QR image if you need it on your phone.</li>
+                                        <li>Save the manual registration code in case scanning fails.</li>
                                         <li class="flex flex-wrap items-center gap-1.5">
                                             <Server class="inline size-3.5 shrink-0 text-foreground/70" aria-hidden="true" />
                                             If email never arrives, confirm a queue worker is running when the queue driver is not sync.
@@ -223,7 +226,7 @@ const metaBlocks = [
                                         At the venue
                                     </p>
                                     <p class="text-[11px] font-medium leading-relaxed text-foreground/85">
-                                        Show the QR from your acceptance email at the entrance. Staff can enter your manual code if needed.
+                                        Show the QR below at the entrance. Staff can enter your manual code if needed.
                                     </p>
                                 </div>
                             </div>
@@ -238,30 +241,36 @@ const metaBlocks = [
                             </div>
 
                             <div
-                                v-if="registrationStatus === 'accepted'"
-                                class="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-white p-4 shadow-sm"
+                                v-if="registrationStatus === 'accepted' && props.qr_base64"
+                                class="flex flex-col items-center gap-3 rounded-xl border border-success/25 bg-success/5 p-4 shadow-xs"
                             >
-                                <p class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your entry ticket</p>
-                                <p class="max-w-[220px] text-center text-[10px] leading-snug text-muted-foreground">
-                                    Preview only. Your real QR and manual code are in the acceptance email.
-                                </p>
-                                <div class="bg-muted flex size-32 items-center justify-center rounded-lg border" aria-hidden="true">
-                                    <svg class="size-24 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                                        <path d="M7 7h.01" />
-                                        <path d="M17 7h.01" />
-                                        <path d="M7 17h.01" />
-                                        <path d="M17 17h.01" />
-                                        <path d="M12 12h.01" />
-                                        <path d="M12 7h.01" />
-                                        <path d="M12 17h.01" />
-                                        <path d="M7 12h.01" />
-                                        <path d="M17 12h.01" />
-                                    </svg>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-success">Check-in QR</p>
+                                <img
+                                    :src="`data:image/png;base64,${props.qr_base64}`"
+                                    alt="Attendance QR code"
+                                    width="240"
+                                    height="240"
+                                    class="rounded-xl border border-border bg-white p-2 shadow-sm"
+                                />
+                                <div v-if="props.registration_code" class="w-full space-y-1 text-center">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Manual code</p>
+                                    <p class="font-mono text-lg font-bold tracking-[0.12em] text-foreground">
+                                        {{ props.registration_code }}
+                                    </p>
                                 </div>
-                                <p class="text-[9px] text-center text-muted-foreground leading-tight">
-                                    Use the QR from your acceptance email at the event entrance for check-in.
+                                <p class="max-w-[260px] text-center text-[10px] leading-snug text-muted-foreground">
+                                    Same QR as in your acceptance email. If scanning fails, give staff your manual code.
                                 </p>
+                            </div>
+                            <div
+                                v-else-if="registrationStatus === 'accepted'"
+                                class="rounded-xl border border-dashed border-border bg-muted/15 p-4 text-center text-[11px] text-muted-foreground"
+                            >
+                                QR could not be loaded. Open
+                                <Link :href="`/dashboard/user/events/${event.slug}/registration`" class="font-medium text-primary underline-offset-4 hover:underline">
+                                    registration details
+                                </Link>
+                                or use the acceptance email.
                             </div>
                         </div>
                     </CardContent>

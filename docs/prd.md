@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD) — D-Form v2
 
-**Versi dokumen:** 1.1  
+**Versi dokumen:** 1.2  
 **Sumber:** Project Brief D-Form v2 (PDF), diselaraskan dengan keadaan repositori, keputusan stack frontend, dan **skema basis data terbaru** (`database/migrations/`, termasuk perubahan Mei 2026).
 
 Dokumen ini mendefinisikan *apa* yang dibangun dan kriteria utamanya. Detail implementasi mengikuti [pedoman front-end](rules/front-end.md), [pedoman back-end](rules/back-end.md), dan [struktur folder](02-directory-structure.md). Tahapan pengiriman diuraikan di [milestone.md](milestone.md).
@@ -29,7 +29,7 @@ D-Form v2 adalah aplikasi web untuk **membuat, mengelola, dan memproses formulir
 ### 3.1 Admin / Event organizer
 
 - Membuat dan mengatur event (metadata dan jadwal pendaftaran).
-- Mendesain **form pendaftaran dinamis** per event.
+- Mendesain **form pendaftaran dinamis** per event, termasuk (jika dipakai) **mode tim**, **`team_size`** di metadata form, dan penandaan field **`is_append`** untuk data yang boleh disunting anggota saat konfirmasi.
 - (Fase lanjutan) Mengirim **siaran email** terkait event mendatang atau perubahan informasi.
 - Melihat **daftar peserta** dan statistik kehadiran.
 - Melakukan **pemindaian QR** untuk absensi (kamera perangkat melalui web app).
@@ -38,7 +38,8 @@ D-Form v2 adalah aplikasi web untuk **membuat, mengelola, dan memproses formulir
 
 - Mendaftar ke event yang dibuka.
 - Mengisi **form dinamis** sesuai konfigurasi admin.
-- Menerima **email konfirmasi** (detail event + QR).
+- Pada **mode pendaftaran tim**: dapat diundang oleh **leader tim** (pemilik submission utama); menerima **notifikasi undangan**; membuka **halaman khusus** untuk meninjau, mengoreksi (pada field yang diizinkan), dan **memvalidasi / menyetujui** data `form_answer` yang awalnya diisi leader.
+- Menerima **email konfirmasi** (detail event + QR) sesuai alur produk (biasanya setelah submission diterima admin, untuk jalur individu atau leader tim).
 - Menghadiri event dan menunjukkan QR untuk discan.
 
 ---
@@ -49,16 +50,32 @@ D-Form v2 adalah aplikasi web untuk **membuat, mengelola, dan memproses formulir
 
 | Area | Deskripsi |
 |------|-----------|
+| **Autentikasi & peran** | Multi-peran: Admin dan Member. Alur login, registrasi akun, lupa password; akun dapat menautkan
 | **Autentikasi & peran** | Multi-peran: Admin dan Member. Alur login, registrasi akun, lupa password; akun dapat menautkan **Google** dan/atau **GitHub** (`google_id`, `github_id` pada `users`). Akses dibatasi middleware berdasarkan peran / permission. |
 | **Manajemen event** | Admin membuat event dengan: judul, deskripsi, lokasi, rentang tanggal event, jendela buka–tutup pendaftaran, kuota, **harga (`price`)**, **banner**, **status**, **kategori** dan **sesi/informasi sesi** (kolom teks panjang di skema), serta **`registered_count`** (counter denormalisasi jumlah pendaftar). Halaman daftar event, detail event, dan indikator status pendaftaran (buka/tutup/kuota). |
-| **Form per event** | Satu event dapat memiliki **satu atau lebih** entri `forms`: judul/deskripsi form, **`closed_at`** (penutupan form), **`visible_for`** (siapa yang boleh melihat/mengisi — disimpan sebagai JSON dipetakan ke enum aplikasi), dan opsional **banner form** (`banner_url` berbasis teks panjang untuk URL/data URL, plus `banner_caption`). |
-| **Form builder dinamis** | Per form: label, nama field internal, **`input_type`** di basis data: `input`, `selectInput`, `textarea`, `datePicker`, `fileUpload`, **`radio`**, **`checkbox`** (perluasan enum di migrasi MySQL/MariaDB; SQLite mengikuti definisi tabel), deskripsi field opsional, **`metadata` JSON** untuk opsi, validasi, dan perilaku tambahan, serta **`order`** urutan field. |
-| **Pendaftaran (Member)** | Pemilihan event dan form yang relevan, render form otomatis, penyimpanan jawaban dalam **kolom JSON `answers`** pada **`form_answers`**, upload file jika ada field file, validasi sesuai aturan admin. **Constraint unik `(user_id, form_id)`**: satu pengguna hanya boleh **satu submission** per form (pendaftaran ganda dicegah di basis data). |
-| **Notifikasi email** | Email sukses pendaftaran berisi detail event, ringkasan data peserta, dan **QR unik** terikat pada submission (`form_answers`). Pengiriman melalui **SMTP**. Pengiriman non-blocking memakai **antrean (queue)**. **Audit pengiriman** pada tabel **`email_logs`**: tautan ke `form_answer_id` (nullable jika submission dihapus), `event_id`, `user_id`, alamat penerima, **status**, pesan error opsional, **`sent_at`**. |
+| **Form per event** | Satu event dapat memiliki **satu atau lebih** entri `forms`: judul/deskripsi form, **`closed_at`** (penutupan form), **`visible_for`** (siapa yang boleh melihat/mengisi — disimpan sebagai JSON dipetakan ke enum aplikasi), opsional **banner form** (`banner_url` berbasis teks panjang untuk URL/data URL, plus `banner_caption`), dan **`metadata`** JSON untuk **`registration_mode`**, **`team_size`**, dan parameter mode tim lain bila diperlukan. |
+| **Form builder dinamis** | Per form: label, nama field internal, **`input_type`** di basis data: `input`, `selectInput`, `textarea`, `datePicker`, `fileUpload`, **`radio`**, **`checkbox`** (perluasan enum di migrasi MySQL/MariaDB; SQLite mengikuti definisi tabel), deskripsi field opsional, **`metadata` JSON** untuk opsi, validasi, dan perilaku tambahan, **`is_append`** (opsional: field yang boleh disunting anggota pada alur konfirmasi tim), serta **`order`** urutan field. |
+| **Pendaftaran (Member)** | Pemilihan event dan form yang relevan, render form otomatis, penyimpanan jawaban dalam **kolom JSON `answers`** pada **`form_answers`**, upload file jika ada field file, validasi sesuai aturan admin. **Constraint unik `(user_id, form_id)`**: satu pengguna hanya boleh **satu submission** per form (pendaftaran ganda dicegah di basis data). **Mode tim:** satu pengajuan leader dapat membuat **beberapa** `form_answer` (loop / batch), dengan anggota memiliki **`status_confirmation_member` false** sampai memvalidasi di halaman khusus; notifikasi **undangan leader → anggota** dikirim sesuai desain teknis. |
+| **Notifikasi email** | Email sukses pendaftaran berisi detail event, ringkasan data peserta, dan **QR unik** terikat pada submission (`form_answers`); serta (pada mode tim) **notifikasi undangan** dari leader ke anggota sesuai PRD §4.2. Pengiriman melalui **SMTP**. Pengiriman non-blocking memakai **antrean (queue)**. **Audit pengiriman** pada tabel **`email_logs`** (untuk email yang dilog-kan di sistem): tautan ke `form_answer_id` (nullable jika submission dihapus), `event_id`, `user_id`, alamat penerima, **status**, pesan error opsional, **`sent_at`**. |
 | **Absensi QR** | Satu QR unik per **submission** (`form_answers`); pemindaian untuk kehadiran merupakan sasaran produk (waktu, event, **admin yang memproses scan**). **Catatan skema:** belum ada tabel dedikasi `event_attendances` (atau setara) di migrasi saat ini — implementasi pencatatan per scan dapat mengikuti milestone teknis terpisah. |
 | **Dasbor & pelaporan** | Admin melihat jumlah pendaftar per event, statistik kehadiran, data peserta, dan log/rekaman absensi (minimal tampilan tabular; ekspor dapat berupa CSV pada MVP). |
 
-### 4.2 Fase lanjutan (di luar MVP inti)
+### 4.2 Pendaftaran tim (leader & anggota)
+
+Fitur ini memperluas **Pendaftaran (Member)** ketika form dikonfigurasi untuk mode tim.
+
+| Aspek | Requirement |
+|--------|-------------|
+| **Metadata form (`forms.metadata`)** | Kolom **JSON** di tabel `forms` menyimpan konfigurasi mode pendaftaran, minimal: **`registration_mode`** (mis. individu vs tim) dan **`team_size`** (ukuran tim / jumlah peserta per satu pengajuan tim, sesuai keputusan implementasi). |
+| **Field `is_append` (`form_fields`)** | Flag **`is_append`** menyatakan apakah suatu field **boleh diubah/ditambahkan** oleh anggota saat memvalidasi data yang awalnya diisi leader — dipakai untuk validasi server-side dan batasan UI di halaman konfirmasi anggota. |
+| **Penyimpanan banyak `form_answer` sekaligus** | Satu aksi simpan dari **leader** menghasilkan **beberapa baris** `form_answers` (satu per pengguna terlibat, dalam transaksi / loop yang terkontrol). **Leader** memiliki baris utama; setiap **anggota yang diundang** mendapat baris sendiri dengan jawaban yang disalin atau diselaraskan dengan submission leader. |
+| **`status_confirmation_member`** | Pada setiap `form_answer` anggota (bukan leader), nilai **`status_confirmation_member`** awalnya **false / 0** sampai anggota **menerima atau memvalidasi** datanya di halaman khusus member. Leader (submission utama) memiliki status konfirmasi yang sesuai aturan bisnis (biasanya **true** sejak tersimpan). |
+| **Notifikasi undangan** | Sistem mengirim **notifikasi baru** (email dan/atau saluran lain yang disepakati teknis) kepada anggota ketika leader menambahkan mereka ke tim — isi pesan menjelaskan bahwa data pendaftaran perlu ditinjau dan disetujui. |
+| **Rute & halaman member** | **Route** dan **halaman Inertia/Vue** baru di area portal member untuk: melihat data `form_answer` terkait undangan, mengedit bagian yang diizinkan (`is_append`), dan menyelesaikan **validasi / konfirmasi** sehingga `status_confirmation_member` menjadi **true**. |
+
+**Catatan integrasi:** Alur review admin (`review_status`), email konfirmasi registrasi, dan QR harus konsisten dengan aturan “anggota hanya dianggap ‘siap’ untuk langkah berikutnya setelah konfirmasi” bila produk mewajibkan hal itu (detail disepakati di milestone terkait).
+
+### 4.3 Fase lanjutan (di luar MVP inti)
 
 - **Email broadcast:** pengingat event mendatang, pemberitahuan perubahan jadwal/lokasi/deskripsi.
 - Pelaporan lanjutan (filter lanjutan, agregasi, unduhan format tambahan).
@@ -118,9 +135,9 @@ Entitas utama mengikuti **migrasi aktual** di `database/migrations/` (Laravel). 
 |-----------------|--------|
 | `users` | Akun pengguna (UUID); `google_id`, **`github_id`** untuk OAuth; peran Admin/Member lewat **Spatie Laravel Permission** (`permissions`, `roles`, pivot terkait). |
 | `events` | Metadata event: tanggal, lokasi, kuota, **`registered_count`**, banner, harga, status, kategori & sesi (tipe teks panjang setelah migrasi perluasan kolom), jendela pendaftaran; soft delete. |
-| `forms` | Form pendaftaran terikat **`event_id`**; judul, deskripsi, **`visible_for`** (JSON), **`closed_at`**, **`banner_url`** (longText, nullable), **`banner_caption`** (nullable); soft delete. |
-| `form_fields` | Definisi field per **`form_id`**: **`input_type`** (enum/string sesuai driver: `input`, `selectInput`, `textarea`, `datePicker`, `fileUpload`, `radio`, `checkbox`), label, nama internal, **`metadata`** JSON, **`order`**; soft delete. |
-| `form_answers` | Satu baris **submission** per kombinasi **user + form** (unik di basis data); kolom **`answers`** JSON; foreign key ke `users` dan `forms`. |
+| `forms` | Form pendaftaran terikat **`event_id`**; judul, deskripsi, **`visible_for`** (JSON), **`closed_at`**, **`banner_url`** (longText, nullable), **`banner_caption`** (nullable), **`metadata`** JSON (nullable) untuk **`registration_mode`**, **`team_size`**, dan konfigurasi terkait mode tim; soft delete. |
+| `form_fields` | Definisi field per **`form_id`**: **`input_type`** (enum/string sesuai driver: `input`, `selectInput`, `textarea`, `datePicker`, `fileUpload`, `radio`, `checkbox`), label, nama internal, **`metadata`** JSON, **`is_append`** (boolean: field boleh disunting anggota saat validasi undangan), **`order`**; soft delete. |
+| `form_answers` | Satu baris **submission** per kombinasi **user + form** (unik di basis data); kolom **`answers`** JSON; foreign key ke `users` dan `forms`; untuk tim: relasi ke submission leader (mis. **`leader_form_answer_id`**) dan **`status_confirmation_member`** (anggota belum konfirmasi = false sampai memvalidasi di halaman member). Satu submit leader dapat menciptakan banyak baris melalui penyimpanan berulang per pengguna. |
 | `email_logs` | Audit pengiriman email: `form_answer_id` (nullable, `nullOnDelete`), `event_id`, `user_id`, `recipient_email`, `status`, `error_message`, `sent_at`; indeks pada `form_answer_id` dan `(event_id, status)`. |
 
 **Infra Laravel (bukan domain bisnis inti, tetapi ada di migrasi):** `jobs`, `job_batches`, `failed_jobs`, `cache`, `cache_locks`, `sessions`, `password_reset_tokens`.
@@ -130,7 +147,7 @@ Entitas utama mengikuti **migrasi aktual** di `database/migrations/` (Laravel). 
 ## 8. Kriteria sukses (definisi “selesai” tingkat produk)
 
 - Alur **Admin**: buat event → bangun form → buka pendaftaran → lihat peserta → scan QR → lihat statistik kehadiran berjalan tanpa error kritikal pada jalur utama.
-- Alur **Member**: daftar → isi form dinamis → terima email dengan QR → hadir dan tercatat absensi.
+- Alur **Member**: daftar → isi form dinamis → terima email dengan QR → hadir dan tercatat absensi; **mode tim:** anggota yang diundang membuka halaman konfirmasi, menyesuaikan data (field `is_append`), lalu memvalidasi sebelum mengikuti alur berikutnya.
 - Kebijakan akses: Member tidak mengakses panel admin; Admin tidak mengubah data orang lain tanpa alur yang disengaja (sesuai desain permission).
 - Dokumentasi operasional minimal: cara set SMTP, queue worker, dan menjalankan build front-end (mengacu [README](../README.md) dan [instalasi](01-installation.md)).
 

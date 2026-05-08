@@ -6,6 +6,7 @@ use App\Enums\EventCategory;
 use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Services\Event\EventSlugGenerator;
 use Illuminate\Database\Seeder;
 
 class EventSeeder extends Seeder
@@ -185,6 +186,8 @@ class EventSeeder extends Seeder
             ],
         ];
 
+        $slugGenerator = app(EventSlugGenerator::class);
+
         foreach ($events as $eventData) {
             $event = Event::withTrashed()->firstOrNew([
                 'title' => $eventData['title'],
@@ -192,6 +195,10 @@ class EventSeeder extends Seeder
             $event->fill($eventData);
             if ($event->trashed()) {
                 $event->restore();
+            }
+            // Model observers are skipped when DatabaseSeeder uses WithoutModelEvents; slug is required in DB.
+            if ($event->slug === null || $event->slug === '') {
+                $event->slug = $slugGenerator->generateForTitle($eventData['title'], $event->id);
             }
             $event->save();
         }

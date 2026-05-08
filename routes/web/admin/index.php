@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\FormAnswerReviewStatus;
 use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
@@ -8,6 +9,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
 use App\Services\Event\UserPortalEventResolver;
+use App\Services\Registration\RegistrationQrPngGenerator;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\EventReportingController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
@@ -58,7 +60,11 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
         return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
     })->name('events.register');
 
-    Route::get('/events/{event_segment}', function (string $event_segment, EventService $eventService) {
+    Route::get('/events/{event_segment}', function (
+        string $event_segment,
+        EventService $eventService,
+        RegistrationQrPngGenerator $qrGenerator,
+    ) {
         $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
 
         $user = auth()->user();
@@ -68,10 +74,20 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
             })
             ->first();
 
+        $qrBase64 = null;
+        $registrationCode = null;
+        if ($registration && $registration->review_status === FormAnswerReviewStatus::Accepted) {
+            $registrationCode = $registration->registration_code;
+            $png = $qrGenerator->pngForSubmission($registration->id);
+            $qrBase64 = base64_encode($png);
+        }
+
         return inertia('Dashboard/User/EventDetail', [
             'event' => $eventService->eventToInertiaArray($event),
             'isRegistered' => (bool) $registration,
             'registrationStatus' => $registration?->review_status?->value,
+            'qr_base64' => $qrBase64,
+            'registration_code' => $registrationCode,
         ]);
     })->name('events.show');
 });
