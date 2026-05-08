@@ -7,6 +7,8 @@ interface IUser {
     email: string;
     avatar: string;
     roles?: string[];
+    /** True when the user has a password hash (email/password accounts); false for OAuth-only signups. */
+    has_local_password?: boolean;
     created_at?: string;
     updated_at?: string;
     deleted_at?: string;

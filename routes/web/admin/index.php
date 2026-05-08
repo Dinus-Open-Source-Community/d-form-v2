@@ -16,6 +16,7 @@ use App\Http\Controllers\Dashboard\EventReportingController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
+use App\Http\Controllers\Dashboard\ProfileController;
 use Inertia\Inertia;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
@@ -25,6 +26,8 @@ Route::middleware('auth')->get('/dashboard', DashboardHomeController::class)->na
 Route::middleware(['auth', 'organizer'])->get('/dashboard/reports', EventReportingController::class)->name('dashboard.reports.index');
 
 Route::middleware('auth')->get('/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
+Route::middleware(['auth', 'throttle:10,1'])->patch('/dashboard/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
+Route::middleware(['auth', 'throttle:10,1'])->put('/dashboard/profile/password', [ProfileController::class, 'updatePassword'])->name('dashboard.profile.password.update');
 
 Route::middleware(['auth', 'member_portal'])->prefix('/dashboard/user')->name('dashboard.user.')->group(function () {
     Route::get('/events', function (EventService $eventService) {

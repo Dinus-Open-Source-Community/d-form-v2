@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, usePage, useForm } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
@@ -13,11 +13,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import useAuth from '@/utils/composables/useAuth'
 import { User as UserIcon, Shield, CalendarDays, Save, Lock } from 'lucide-vue-next'
+import { update as updateProfile, updatePassword as updatePasswordRoute } from '@/actions/App/Http/Controllers/Dashboard/ProfileController'
 
 defineOptions({ layout: DashboardLayout })
 
 const page = usePage()
 const user = useAuth(page.props)
+
+const hasLocalPassword = computed<boolean>(() => user.value?.has_local_password !== false)
 
 const initials = computed<string>(() =>
     user.value?.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) ?? '??',
@@ -33,23 +36,52 @@ const profileForm = useForm<{ name: string; email: string }>({
     email: user.value?.email ?? '',
 })
 
+watch(
+    user,
+    (next) => {
+        if (!next) return
+        profileForm.defaults({
+            name: next.name,
+            email: next.email,
+        })
+        profileForm.reset()
+    },
+    { deep: true },
+)
+
 const passwordForm = useForm({
     current_password: '',
     password: '',
     password_confirmation: '',
-})
+}).dontRemember('current_password', 'password', 'password_confirmation')
 
-function updateProfile() {
-    toast.success('Profile updated successfully.')
+function flashToastFromPage(): void {
+    const t = page.flash.toast
+    if (!t) return
+    if (t.type === 'success') toast.success(t.message)
+    else toast.error(t.message)
 }
 
-function updatePassword() {
-    if (passwordForm.password !== passwordForm.password_confirmation) {
-        toast.error('Passwords do not match.')
-        return
+function updateProfileSubmit(): void {
+    profileForm.patch(updateProfile().url, {
+        preserveScroll: true,
+        onFinish: flashToastFromPage,
+    })
+}
+
+function updatePasswordSubmit(): void {
+    if (!hasLocalPassword.value) {
+        if (passwordForm.password !== passwordForm.password_confirmation) {
+            toast.error('Passwords do not match.')
+            return
+        }
     }
-    toast.success('Password updated successfully.')
-    passwordForm.reset()
+
+    passwordForm.put(updatePasswordRoute().url, {
+        preserveScroll: true,
+        onSuccess: () => passwordForm.reset(),
+        onFinish: flashToastFromPage,
+    })
 }
 </script>
 
@@ -99,14 +131,16 @@ function updatePassword() {
                             <div class="flex flex-col gap-1.5">
                                 <Label for="name" class="text-xs">Full Name</Label>
                                 <Input id="name" v-model="profileForm.name" placeholder="Your full name" />
+                                <p v-if="profileForm.errors.name" class="text-xs text-destructive">{{ profileForm.errors.name }}</p>
                             </div>
                             <div class="flex flex-col gap-1.5">
                                 <Label for="email" class="text-xs">Email Address</Label>
                                 <Input id="email" type="email" v-model="profileForm.email" placeholder="your@email.com" />
+                                <p v-if="profileForm.errors.email" class="text-xs text-destructive">{{ profileForm.errors.email }}</p>
                             </div>
                         </div>
                         <div class="flex justify-end">
-                            <Button :disabled="profileForm.processing" @click="updateProfile">
+                            <Button :disabled="profileForm.processing" @click="updateProfileSubmit">
                                 <Save class="mr-1.5 size-4" />Save Changes
                             </Button>
                         </div>
@@ -116,27 +150,32 @@ function updatePassword() {
                 <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                     <CardHeader class="pb-3">
                         <CardTitle class="flex items-center gap-2 text-base font-medium">
-                            <Lock class="size-4" />Change Password
+                            <Lock class="size-4" />{{ hasLocalPassword ? 'Change Password' : 'Set Password' }}
                         </CardTitle>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-4 pt-0">
-                        <div class="flex flex-col gap-1.5">
+                        <p v-if="!hasLocalPassword" class="text-sm text-muted-foreground">
+                            You signed in with an OAuth provider. Choose a password if you also want to sign in with email.
+                        </p>
+                        <div v-if="hasLocalPassword" class="flex flex-col gap-1.5">
                             <Label for="current_password" class="text-xs">Current Password</Label>
-                            <Input id="current_password" type="password" v-model="passwordForm.current_password" placeholder="Enter current password" />
+                            <Input id="current_password" type="password" v-model="passwordForm.current_password" placeholder="Enter current password" autocomplete="current-password" />
+                            <p v-if="passwordForm.errors.current_password" class="text-xs text-destructive">{{ passwordForm.errors.current_password }}</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="flex flex-col gap-1.5">
-                                <Label for="new_password" class="text-xs">New Password</Label>
-                                <Input id="new_password" type="password" v-model="passwordForm.password" placeholder="Enter new password" />
+                                <Label for="new_password" class="text-xs">{{ hasLocalPassword ? 'New Password' : 'Password' }}</Label>
+                                <Input id="new_password" type="password" v-model="passwordForm.password" placeholder="Enter new password" autocomplete="new-password" />
+                                <p v-if="passwordForm.errors.password" class="text-xs text-destructive">{{ passwordForm.errors.password }}</p>
                             </div>
                             <div class="flex flex-col gap-1.5">
                                 <Label for="confirm_password" class="text-xs">Confirm Password</Label>
-                                <Input id="confirm_password" type="password" v-model="passwordForm.password_confirmation" placeholder="Confirm new password" />
+                                <Input id="confirm_password" type="password" v-model="passwordForm.password_confirmation" placeholder="Confirm new password" autocomplete="new-password" />
                             </div>
                         </div>
                         <div class="flex justify-end">
-                            <Button variant="outline" :disabled="passwordForm.processing" @click="updatePassword">
-                                <Lock class="mr-1.5 size-4" />Update Password
+                            <Button variant="outline" :disabled="passwordForm.processing" @click="updatePasswordSubmit">
+                                <Lock class="mr-1.5 size-4" />{{ hasLocalPassword ? 'Update Password' : 'Save Password' }}
                             </Button>
                         </div>
                     </CardContent>

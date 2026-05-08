@@ -43,7 +43,10 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth.user' => $user ? array_merge(
                 $user->toArray(),
-                ['roles' => $user->getRoleNames()->toArray()],
+                [
+                    'roles' => $user->getRoleNames()->toArray(),
+                    'has_local_password' => filled($user->getRawOriginal('password')),
+                ],
             ) : null,
         ];
     }

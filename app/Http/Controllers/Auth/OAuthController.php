@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -60,7 +59,7 @@ class OAuthController extends Controller
                 'email' => $googleUser->getEmail(),
                 'google_id' => $googleUser->getId(),
                 'avatar' => $googleUser->getAvatar(),
-                'password' => bcrypt(Str::random(32)), // Random password since OAuth users don't need it
+                'password' => null,
                 'email_verified_at' => now(),
             ]);
 
@@ -128,7 +127,7 @@ class OAuthController extends Controller
                 'email' => $githubUser->getEmail() ?? $githubUser->getNickname().'@github.local',
                 'github_id' => $githubUser->getId(),
                 'avatar' => $githubUser->getAvatar(),
-                'password' => bcrypt(Str::random(32)), // Random password since OAuth users don't need it
+                'password' => null,
                 'email_verified_at' => $githubUser->getEmail() ? now() : null,
             ]);
 
