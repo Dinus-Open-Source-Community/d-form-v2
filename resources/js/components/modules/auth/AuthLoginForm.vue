@@ -3,6 +3,7 @@ import { useForm, Link, usePage } from '@inertiajs/vue3'
 import { AuthSubmitButton } from '@/components/core/button'
 import { AuthField } from '@/components/core/field'
 import { store as login } from '@/actions/App/Http/Controllers/Auth/LoginController'
+import { index as forgotPasswordPage } from '@/actions/App/Http/Controllers/Auth/ForgotPasswordController'
 import { index as registerPage } from '@/actions/App/Http/Controllers/Auth/RegisterController'
 import { toast } from 'vue-sonner'
 
@@ -63,6 +64,15 @@ function submit(): void {
                 placeholder="••••••••"
                 :focus="false"
             />
+
+            <div class="flex justify-end">
+                <Link
+                    :href="forgotPasswordPage()"
+                    class="text-sm font-semibold text-primary underline-offset-4 transition-colors hover:underline"
+                >
+                    Forgot password?
+                </Link>
+            </div>
 
             <AuthSubmitButton :form="form">
                 <template #processing>Signing you in</template>
