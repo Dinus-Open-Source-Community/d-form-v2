@@ -47,12 +47,12 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/auth/forgot-password', [ForgotPasswordController::class, 'index'])->name('auth.password.request');
     Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'store'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:5,1,auth-password-email')
         ->name('auth.password.email');
 
     Route::get('/auth/reset-password/{token}', [ResetPasswordController::class, 'index'])->name('password.reset');
     Route::post('/auth/reset-password/{token}', [ResetPasswordController::class, 'store'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:5,1,auth-password-reset')
         ->name('auth.password.update');
 });
 

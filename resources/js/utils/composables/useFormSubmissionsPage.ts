@@ -134,6 +134,10 @@ export function useFormSubmissionsPage(props: {
                         toast.error('Anda tidak punya izin untuk mereview submission ini.')
                     } else if (res.status === 404) {
                         toast.error('Submission tidak ditemukan.')
+                    } else if (res.status === 429) {
+                        toast.error(
+                            'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.',
+                        )
                     } else {
                         toast.error(body.message ?? 'Gagal memperbarui status review.')
                     }

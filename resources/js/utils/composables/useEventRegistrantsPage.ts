@@ -179,11 +179,15 @@ export function useEventRegistrantsPage(props: {
             toast.success(`${target.user.name} has been approved — acceptance email queued.`)
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
-                const msg =
-                    (err.response?.data as { message?: string } | undefined)?.message ??
-                    err.message ??
-                    'Could not approve this registrant.'
-                toast.error(msg)
+                if (err.response?.status === 429) {
+                    toast.error('Too many requests. Please wait a moment and try again.')
+                } else {
+                    const msg =
+                        (err.response?.data as { message?: string } | undefined)?.message ??
+                        err.message ??
+                        'Could not approve this registrant.'
+                    toast.error(msg)
+                }
             } else {
                 toast.error('Could not approve this registrant.')
             }
@@ -218,11 +222,15 @@ export function useEventRegistrantsPage(props: {
             toast.success(`${target.user.name} has been declined — notification queued.`)
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
-                const msg =
-                    (err.response?.data as { message?: string } | undefined)?.message ??
-                    err.message ??
-                    'Could not reject this registrant.'
-                toast.error(msg)
+                if (err.response?.status === 429) {
+                    toast.error('Too many requests. Please wait a moment and try again.')
+                } else {
+                    const msg =
+                        (err.response?.data as { message?: string } | undefined)?.message ??
+                        err.message ??
+                        'Could not reject this registrant.'
+                    toast.error(msg)
+                }
             } else {
                 toast.error('Could not reject this registrant.')
             }
