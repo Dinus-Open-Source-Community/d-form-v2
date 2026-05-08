@@ -32,14 +32,14 @@ const colorClasses = computed(() => {
 <template>
     <Card
         :class="cn(
-            'transition-all duration-500',
+            'rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] transition-all duration-500 dark:ring-white/[0.06]',
             visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0',
         )"
     >
-        <CardContent class="p-5">
+        <CardContent class="p-5 sm:p-6">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{{ label }}</p>
+                    <p class="text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase">{{ label }}</p>
                     <p class="font-display mt-2 text-4xl font-semibold tracking-[-0.04em]">{{ value }}</p>
                     <div v-if="trend !== undefined" class="mt-2 flex items-center gap-1">
                         <component

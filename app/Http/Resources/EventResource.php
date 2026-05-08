@@ -3,9 +3,9 @@
 namespace App\Http\Resources;
 
 use App\Models\Event;
+use App\Support\PublicStorage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class EventResource extends JsonResource
 {
@@ -21,7 +21,7 @@ class EventResource extends JsonResource
             'description' => $this->description,
             'location' => $this->location,
             'banner' => $this->banner,
-            'banner_url' => $this->banner ? Storage::disk('public')->url($this->banner) : null,
+            'banner_url' => PublicStorage::url($this->banner, $request),
             'price' => $this->price,
             'quota' => $this->quota,
             'registered_count' => $this->registered_count,

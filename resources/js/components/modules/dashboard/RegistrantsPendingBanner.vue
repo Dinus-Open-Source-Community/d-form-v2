@@ -1,36 +1,31 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import { Clock, ArrowUpRight } from 'lucide-vue-next'
+import { Clock } from 'lucide-vue-next'
 
 defineProps<{
     pendingCount: number
     activeStatusTab: 'all' | 'pending' | 'accepted' | 'rejected'
-}>()
-
-const emit = defineEmits<{
-    reviewPending: []
 }>()
 </script>
 
 <template>
     <div
         v-if="pendingCount > 0 && activeStatusTab !== 'pending'"
-        class="flex items-start gap-3 rounded-2xl border border-warning/20 bg-warning/5 px-4 py-3"
+        class="flex items-start gap-3 rounded-xl border border-warning/25 bg-warning/5 px-4 py-3"
+        role="status"
     >
-        <div class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning-foreground">
-            <Clock class="size-4" />
+        <div
+            class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-foreground"
+        >
+            <Clock class="size-4" aria-hidden="true" />
         </div>
-        <div class="flex-1 text-sm">
+        <div class="min-w-0 flex-1 text-sm">
             <p class="font-medium text-foreground">
-                {{ pendingCount }} {{ pendingCount === 1 ? 'person is' : 'people are' }} waiting for your decision.
+                {{ pendingCount === 1 ? 'Ada 1 pendaftar' : `Ada ${pendingCount} pendaftar` }} yang menunggu keputusan.
             </p>
-            <p class="mt-0.5 text-xs text-muted-foreground">
-                A quick review helps them plan — most registrants hope for a response within 24 hours.
+            <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Buka tab <span class="font-medium text-foreground">Menunggu</span> di atas untuk hanya menampilkan daftar
+                tersebut. Tinjau pendaftar dapat dilakukan dari halaman pengiriman formulir jika tersedia.
             </p>
         </div>
-        <Button variant="ghost" size="sm" class="rounded-full" @click="emit('reviewPending')">
-            Review now
-            <ArrowUpRight class="ml-1 size-3.5" />
-        </Button>
     </div>
 </template>

@@ -174,18 +174,24 @@ class Event extends Model
     {
         $query->select([
             'id',
+            'slug',
             'title',
             'description',
+            'location',
             'price',
             'start_date',
             'end_date',
+            'registration_start',
+            'registration_end',
             'quota',
             'registered_count',
             'category',
             'session',
             'status',
             'banner',
-            'deleted_at'
+            'deleted_at',
+            'created_at',
+            'updated_at',
         ]);
     }
 }

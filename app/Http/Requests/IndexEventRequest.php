@@ -33,6 +33,7 @@ class IndexEventRequest extends FormRequest
             'filter.statuses' => ['sometimes', 'array'],
             'filter.statuses.*' => [Rule::enum(EventStatus::class)],
             'filter.showTrashed' => ['sometimes', 'boolean'],
+            'filter.timeline' => ['sometimes', 'string', Rule::in(['all', 'upcoming', 'ongoing', 'completed'])],
             'sort' => ['sometimes', 'array'],
             'sort.by' => ['sometimes', 'string', Rule::in(['title', 'price', 'end_date'])],
             'sort.order' => ['sometimes', 'string', Rule::in(['asc', 'desc'])],
@@ -54,6 +55,7 @@ class IndexEventRequest extends FormRequest
                     $filter['showTrashed'] ?? false,
                     FILTER_VALIDATE_BOOLEAN
                 ),
+                'timeline' => $filter['timeline'] ?? 'all',
             ],
             'sort' => array_merge(
                 [

@@ -75,8 +75,12 @@ function formatDt(iso: string) {
 <template>
     <Head title="Reports" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader title="Reports" subtitle="Event-level registrations, attendance, and CSV exports." />
+    <div class="flex flex-col gap-8 md:gap-10">
+        <PageHeader
+            eyebrow="Pelaporan"
+            title="Laporan"
+            subtitle="Unduhan CSV pendaftaran, kehadiran, dan ringkasan per acara."
+        />
 
         <div class="grid gap-4 sm:grid-cols-3">
             <KpiCard label="Events" :value="globalSummary.total_events" :icon="BarChart3" color="primary" />

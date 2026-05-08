@@ -41,7 +41,12 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            /*
+            | URL file publik (banner, upload). Default: APP_URL + /storage.
+            | Set FILESYSTEM_PUBLIC_URL jika asal file harus beda dari APP_URL (jarang).
+            | APP_URL wajib sama dengan asal di bilah alamat browser (termasuk port).
+            */
+            'url' => rtrim(env('FILESYSTEM_PUBLIC_URL', env('APP_URL', 'http://localhost')), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

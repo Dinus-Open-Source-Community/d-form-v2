@@ -8,12 +8,20 @@ import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vu
 <template>
     <SidebarProvider>
         <DashboardSidebar />
-        <SidebarInset class="h-svh bg-background">
-            <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center border-b border-border bg-card/85 px-4 backdrop-blur-xl md:hidden">
-                <SidebarTrigger class="-ml-1" />
+        <SidebarInset class="h-svh bg-gradient-to-b from-background via-muted/20 to-background">
+            <header
+                class="border-border/60 bg-card/90 sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:hidden"
+            >
+                <SidebarTrigger />
+                <div class="min-w-0 flex-1">
+                    <p class="font-display truncate text-sm font-bold tracking-tight">
+                        D<span class="text-primary">Form</span>
+                    </p>
+                    <p class="text-muted-foreground truncate text-[10px] font-medium">Panel pengelola</p>
+                </div>
             </header>
-            <div class="flex-1 overflow-y-auto px-4 pb-8 pt-4 md:pt-6 lg:px-8">
-                <div class="mx-auto max-w-screen-2xl">
+            <div class="flex-1 overflow-y-auto px-4 pb-10 pt-5 md:px-6 md:pb-12 md:pt-8 lg:px-8">
+                <div class="w-full max-w-full">
                     <slot />
                 </div>
             </div>

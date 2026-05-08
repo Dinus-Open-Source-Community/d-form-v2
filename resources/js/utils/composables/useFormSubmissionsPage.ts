@@ -36,7 +36,6 @@ export function useFormSubmissionsPage(props: {
     fields: IFormField[]
     submissions: SubmissionPaginator
 }) {
-    const viewType = ref<'table' | 'form'>('table')
     const selectedSubmission = ref<IFormSubmission | null>(null)
     const isDetailOpen = ref(false)
     const reviewingIds = ref<Set<string>>(new Set())
@@ -172,7 +171,6 @@ export function useFormSubmissionsPage(props: {
     }
 
     return {
-        viewType,
         selectedSubmission,
         isDetailOpen,
         fieldLabelMap,

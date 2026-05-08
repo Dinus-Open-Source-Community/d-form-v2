@@ -1,39 +1,37 @@
 <script setup lang="ts">
-import { reactive } from 'vue';
-import { Head } from '@inertiajs/vue3';
-import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
-import FormSubmissionsEmptyState from '@/components/modules/dashboard/FormSubmissionsEmptyState.vue';
-import FormSubmissionsTableView from '@/components/modules/dashboard/FormSubmissionsTableView.vue';
-import FormSubmissionsCardGridView from '@/components/modules/dashboard/FormSubmissionsCardGridView.vue';
-import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmissionsPagination.vue';
-import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue';
-import { LayoutGrid, List, Download, Users, CalendarClock, ListChecks } from 'lucide-vue-next';
-import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
+import { reactive } from 'vue'
+import { Head } from '@inertiajs/vue3'
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
+import { Button } from '@/components/ui/button'
+import KpiCard from '@/components/modules/dashboard/KpiCard.vue'
+import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
+import FormSubmissionsEmptyState from '@/components/modules/dashboard/FormSubmissionsEmptyState.vue'
+import FormSubmissionsCardGridView from '@/components/modules/dashboard/FormSubmissionsCardGridView.vue'
+import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmissionsPagination.vue'
+import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue'
+import { Download, Users, CalendarClock, ListChecks } from 'lucide-vue-next'
+import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage'
 
-defineOptions({ layout: DashboardFocusLayout });
+defineOptions({ layout: DashboardFocusLayout })
 
 const props = defineProps<{
-    event: { id: string; title: string };
-    form: { id: string; title: string };
-    fields: IFormField[];
+    event: { id: string; title: string }
+    form: { id: string; title: string }
+    fields: IFormField[]
     submissions: {
-        data: IFormSubmission[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links?: { url: string | null; label: string; active: boolean }[];
-    };
-}>();
+        data: IFormSubmission[]
+        current_page: number
+        last_page: number
+        per_page: number
+        total: number
+        links?: { url: string | null; label: string; active: boolean }[]
+    }
+}>()
 
-const s = reactive(useFormSubmissionsPage(props));
+const s = reactive(useFormSubmissionsPage(props))
 
 function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission }) {
-    s.submitSubmissionReview(payload.action, payload.submission);
+    s.submitSubmissionReview(payload.action, payload.submission)
 }
 </script>
 
@@ -48,44 +46,20 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                 :back-href="`/dashboard/events/${event.id}/forms/${form.id}`"
             >
                 <template #actions>
-                    <div
-                        class="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:gap-2.5 max-md:[&>*]:min-w-0"
-                    >
-                        <Tabs
-                            v-model="s.viewType"
-                            class="col-span-2 w-full md:col-span-1 md:w-auto"
-                            aria-label="Mode tampilan daftar"
-                        >
-                            <TabsList
-                                class="border-border bg-muted/40 md:bg-muted/40 grid h-auto w-full grid-cols-2 gap-1.5 rounded-xl border p-1.5 md:inline-flex md:h-10 md:w-auto md:gap-1 md:border-0 md:p-1"
-                            >
-                                <TabsTrigger
-                                    value="table"
-                                    class="data-[state=active]:bg-card h-11 w-full justify-center gap-1.5 rounded-lg data-[state=active]:shadow-sm md:h-9 md:w-auto md:px-3"
-                                >
-                                    <List class="size-3.5 shrink-0" />
-                                    Tabel
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="form"
-                                    class="data-[state=active]:bg-card h-11 w-full justify-center gap-1.5 rounded-lg data-[state=active]:shadow-sm md:h-9 md:w-auto md:px-3"
-                                >
-                                    <LayoutGrid class="size-3.5 shrink-0" />
-                                    Kartu
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            class="col-span-2 h-11 w-full justify-center rounded-xl md:h-9 md:w-auto md:rounded-md"
-                        >
-                            <Download class="mr-1.5 size-4 shrink-0" />
-                            Ekspor
-                        </Button>
-                    </div>
+                    <Button variant="outline" size="sm" class="h-11 w-full justify-center rounded-xl md:h-9 md:w-auto md:rounded-md">
+                        <Download class="mr-1.5 size-4 shrink-0" />
+                        Ekspor
+                    </Button>
                 </template>
             </PageHeader>
+
+            <p v-if="submissions.total > 0" class="text-sm leading-relaxed text-muted-foreground">
+                Daftar jawaban yang masuk untuk formulir ini. Setiap kartu menampilkan pengirim, status review, ringkasan isian
+                (maks. 4 field), dan aksi. Buka <span class="font-medium text-foreground">Lihat detail</span> untuk semua jawaban
+                dan lampiran; gunakan
+                <span class="font-medium text-foreground">Terima</span> /
+                <span class="font-medium text-foreground">Tolak</span> bila masih menunggu review.
+            </p>
 
             <div v-if="submissions.total > 0" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <KpiCard label="Total pengiriman" :value="submissions.total" :icon="Users" color="primary" />
@@ -102,29 +76,15 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                     color="warning"
                 />
             </div>
-            <p v-if="submissions.total > 0 && submissions.last_page > 1" class="text-muted-foreground -mt-4 text-xs">
-                Angka &quot;menunggu review&quot; hanya menghitung baris di halaman saat ini. Gunakan navigasi di bawah
-                untuk halaman lain.
+            <p v-if="submissions.total > 0 && submissions.last_page > 1" class="-mt-4 text-xs text-muted-foreground">
+                Angka &quot;menunggu review&quot; hanya menghitung baris di halaman saat ini. Gunakan navigasi di bawah untuk
+                halaman lain.
             </p>
 
             <FormSubmissionsEmptyState v-if="submissions.data.length === 0" />
 
             <template v-else>
-                <FormSubmissionsTableView
-                    v-if="s.viewType === 'table'"
-                    :submissions="submissions.data"
-                    :answer-keys="s.answerKeys"
-                    :format-date="s.formatDate"
-                    :humanize-key="s.humanizeKey"
-                    :answer-preview="s.answerPreview"
-                    :file-url="s.fileUrl"
-                    :is-submission-reviewing="s.isSubmissionReviewing"
-                    @open-detail="s.openDetail"
-                    @review="onReview"
-                />
-
                 <FormSubmissionsCardGridView
-                    v-else
                     :submissions="submissions.data"
                     :answer-keys="s.answerKeys"
                     :format-date="s.formatDate"

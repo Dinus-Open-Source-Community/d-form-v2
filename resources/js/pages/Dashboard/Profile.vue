@@ -54,13 +54,17 @@ function updatePassword() {
 </script>
 
 <template>
-    <Head title="Profile" />
+    <Head title="Profil" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader title="Profile" subtitle="Manage your account settings and preferences." />
+    <div class="flex flex-col gap-8 md:gap-10">
+        <PageHeader
+            eyebrow="Akun"
+            title="Profil"
+            subtitle="Kelola data diri dan preferensi akun Anda."
+        />
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <Card class="rounded-xl border shadow-xs">
+            <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                 <CardContent class="flex flex-col items-center gap-4 p-6">
                     <Avatar class="size-24">
                         <AvatarImage :src="user?.avatar ?? ''" :alt="user?.name ?? ''" />
@@ -84,7 +88,7 @@ function updatePassword() {
             </Card>
 
             <div class="flex flex-col gap-6 lg:col-span-2">
-                <Card class="rounded-xl border shadow-xs">
+                <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                     <CardHeader class="pb-3">
                         <CardTitle class="flex items-center gap-2 text-base font-medium">
                             <UserIcon class="size-4" />Personal Information
@@ -109,7 +113,7 @@ function updatePassword() {
                     </CardContent>
                 </Card>
 
-                <Card class="rounded-xl border shadow-xs">
+                <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                     <CardHeader class="pb-3">
                         <CardTitle class="flex items-center gap-2 text-base font-medium">
                             <Lock class="size-4" />Change Password

@@ -5,10 +5,10 @@ export const REGISTRANTS_TAB_ITEMS: {
     label: string
     tone: 'default' | 'warning' | 'success' | 'destructive'
 }[] = [
-    { value: 'all', label: 'All', tone: 'default' },
-    { value: 'pending', label: 'Pending', tone: 'warning' },
-    { value: 'accepted', label: 'Approved', tone: 'success' },
-    { value: 'rejected', label: 'Rejected', tone: 'destructive' },
+    { value: 'all', label: 'Semua', tone: 'default' },
+    { value: 'pending', label: 'Menunggu', tone: 'warning' },
+    { value: 'accepted', label: 'Disetujui', tone: 'success' },
+    { value: 'rejected', label: 'Ditolak', tone: 'destructive' },
 ]
 
 export const REGISTRANTS_TONE_STYLES: Record<
@@ -47,6 +47,13 @@ export function registrantStatusBadgeClass(s: IRegistrant['status']): string {
     return 'bg-warning/15 text-warning-foreground ring-warning/20'
 }
 
+/** Label status untuk UI (Bahasa Indonesia) */
+export function registrantStatusLabel(s: IRegistrant['status']): string {
+    if (s === 'accepted') return 'Disetujui'
+    if (s === 'rejected') return 'Ditolak'
+    return 'Menunggu'
+}
+
 export function registrantInitials(name: string): string {
     return name
         .split(' ')
@@ -56,14 +63,14 @@ export function registrantInitials(name: string): string {
         .slice(0, 2)
 }
 
-export function registrantRelativeTime(dateStr: string): string {
+export function registrantRelativeTimeId(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime()
     const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return 'just now'
-    if (minutes < 60) return `${minutes}m ago`
+    if (minutes < 1) return 'Baru saja'
+    if (minutes < 60) return `${minutes} menit lalu`
     const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
+    if (hours < 24) return `${hours} jam lalu`
     const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}d ago`
+    if (days < 7) return `${days} hari lalu`
     return formatDate(dateStr)
 }

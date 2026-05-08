@@ -27,13 +27,16 @@ const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
 </script>
 
 <template>
-    <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-3">
-            <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">Recent events</CardTitle>
-            <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" as-child>
+    <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+        <CardHeader class="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
+            <div>
+                <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">Acara terbaru</CardTitle>
+                <p class="text-muted-foreground mt-1 text-xs leading-snug">Aktivitas terakhir di workspace Anda</p>
+            </div>
+            <Button variant="outline" size="sm" class="h-8 shrink-0 gap-1 rounded-lg text-xs" as-child>
                 <Link :href="allHref">
-                    View all
-                    <ArrowRight class="ml-1 size-3" :stroke-width="2.4" />
+                    Lihat semua
+                    <ArrowRight class="size-3" :stroke-width="2.4" />
                 </Link>
             </Button>
         </CardHeader>
@@ -76,8 +79,8 @@ const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
                     {{ event.registered_count }}/{{ event.quota }}
                 </span>
             </Link>
-            <p v-if="recentEvents.length === 0" class="py-4 text-center text-sm text-muted-foreground">
-                No events yet.
+            <p v-if="recentEvents.length === 0" class="text-muted-foreground py-6 text-center text-sm">
+                Belum ada acara. Buat acara pertama untuk mulai.
             </p>
         </CardContent>
     </Card>

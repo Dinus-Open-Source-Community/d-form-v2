@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CheckCircle2, Clock, XCircle } from 'lucide-vue-next'
 import { formatDateTime } from '@/lib/dummyData'
-import { registrantInitials, registrantRelativeTime, registrantStatusBadgeClass } from '@/lib/registrantsUi'
+import { registrantInitials, registrantRelativeTimeId, registrantStatusBadgeClass } from '@/lib/registrantsUi'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -51,7 +51,7 @@ const emit = defineEmits<{
 
                 <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <Clock class="size-3" />
-                    Submitted {{ registrantRelativeTime(registrant.submitted_at) }} ·
+                    Submitted {{ registrantRelativeTimeId(registrant.submitted_at) }} ·
                     {{ formatDateTime(registrant.submitted_at) }}
                 </div>
 

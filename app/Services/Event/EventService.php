@@ -55,7 +55,7 @@ class EventService
     }
 
     /**
-     * @param  array{search: string, filter: array{categories: array, sessions: array, statuses: array, showTrashed: bool}, sort: array{by: string, order: string}, per_page: int}  $queryInput
+     * @param  array{search: string, filter: array{categories: array, sessions: array, statuses: array, showTrashed: bool, timeline: string}, sort: array{by: string, order: string}, per_page: int}  $queryInput
      */
     public function paginateForAdminIndex(array $queryInput, int $page): LengthAwarePaginator
     {
@@ -94,6 +94,20 @@ class EventService
 
                 if (count($filter['statuses'] ?? []) > 0) {
                     $query->whereIn('status', $filter['statuses']);
+                }
+
+                $showTrashed = ! empty($filter['showTrashed']);
+                $timeline = $filter['timeline'] ?? 'all';
+                if (! $showTrashed && is_string($timeline) && $timeline !== 'all') {
+                    $today = now()->toDateString();
+                    match ($timeline) {
+                        'upcoming' => $query->whereDate('start_date', '>', $today),
+                        'ongoing' => $query
+                            ->whereDate('start_date', '<=', $today)
+                            ->whereDate('end_date', '>=', $today),
+                        'completed' => $query->whereDate('end_date', '<', $today),
+                        default => null,
+                    };
                 }
 
                 if ($search !== '') {

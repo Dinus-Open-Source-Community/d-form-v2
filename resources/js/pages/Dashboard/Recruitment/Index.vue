@@ -11,15 +11,19 @@ defineOptions({ layout: DashboardLayout })
 <template>
     <Head title="Recruitment" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader title="Recruitment" subtitle="Manage member recruitment campaigns." />
+    <div class="flex flex-col gap-8 md:gap-10">
+        <PageHeader
+            eyebrow="Tim"
+            title="Rekrutmen"
+            subtitle="Modul kampanye anggota sedang disiapkan."
+        />
 
-        <Card class="rounded-xl border shadow-xs">
+        <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
             <CardContent class="flex flex-col items-center justify-center px-6 py-20 text-center">
                 <LocalLottie name="comingSoon" :height="200" :width="200" class="mb-2 opacity-80" />
-                <h2 class="text-xl font-semibold">Coming Soon</h2>
-                <p class="mt-2 max-w-sm text-sm text-muted-foreground">
-                    The recruitment module is currently under development. Stay tuned for updates!
+                <h2 class="text-xl font-semibold tracking-tight">Segera hadir</h2>
+                <p class="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
+                    Modul rekrutmen masih dalam pengembangan. Nantikan pembaruan berikutnya.
                 </p>
             </CardContent>
         </Card>

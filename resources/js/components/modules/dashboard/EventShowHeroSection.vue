@@ -27,88 +27,113 @@ defineProps<{
 <template>
     <section
         :class="[
-            'relative overflow-hidden rounded-3xl border border-border/60 bg-card ring-1 ring-black/5',
+            'overflow-hidden rounded-3xl border border-border/60 bg-card ring-1 ring-black/5',
             cardShadow,
         ]"
     >
-        <div class="relative h-56 w-full sm:h-64 lg:h-80">
-            <EventBannerImage :src="event.banner_url ?? event.banner" :alt="event.title" img-class="scale-[1.02]" />
-            <div
-                class="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,transparent_40%,color-mix(in_oklab,var(--card)_55%,transparent)_72%,var(--card)_100%)]"
-            />
-            <div class="absolute left-5 top-5 flex flex-wrap items-center gap-1.5 sm:left-7 sm:top-7">
-                <span
-                    :class="[
-                        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium backdrop-blur-md',
-                        'bg-background/70 border-border/70',
-                        statusPill.classes,
-                    ]"
-                >
-                    <span class="size-1.5 rounded-full bg-current" />
-                    {{ statusPill.label }}
-                </span>
-                <Badge
-                    v-for="cat in parseEventCategories(event.category)"
-                    :key="cat"
-                    class="rounded-full border-0 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm"
-                    :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
-                >
-                    {{ categoryLabelMap[cat] ?? cat }}
-                </Badge>
-            </div>
-        </div>
-
-        <div class="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8 lg:-mt-24">
-            <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div class="min-w-0 flex-1">
-                    <p class="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
-                        <Sparkles class="size-3" />
-                        Event Overview
-                    </p>
-                    <h1 class="text-balance text-3xl font-semibold leading-[1.15] tracking-tight text-foreground sm:text-4xl lg:text-[2.6rem]">
-                        {{ event.title }}
-                    </h1>
-                    <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                        <span class="inline-flex items-center gap-1.5">
-                            <CalendarDays class="size-3.5" />
-                            {{ formatDate(event.start_date) }}
-                        </span>
-                        <span class="text-border">·</span>
-                        <span class="inline-flex items-center gap-1.5">
-                            <MapPin class="size-3.5" />
-                            {{ event.location }}
-                        </span>
-                    </p>
-                </div>
-
-                <div class="flex shrink-0 flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" class="rounded-full" as-child>
-                        <Link :href="`/dashboard/events/${event.id}/registrants`">
-                            <Users class="mr-1.5 size-3.5" />
-                            Registrants
-                        </Link>
-                    </Button>
-                    <Button size="sm" class="rounded-full" as-child>
-                        <Link :href="editEvent.url(event.id)">
-                            <Pencil class="mr-1.5 size-3.5" />
-                            Edit Event
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Banner dan konten terpisah (tanpa margin negatif / scale) agar gambar tidak menumpuk teks -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 lg:items-stretch">
+            <div class="relative isolate w-full overflow-hidden bg-muted lg:col-span-5">
                 <div
-                    v-for="m in metaBlocks"
-                    :key="m.title"
-                    :class="['group flex items-center gap-3 rounded-2xl border border-border/60 bg-background/70 p-3.5 backdrop-blur-sm transition-all hover:border-primary/30 hover:bg-background', cardShadow]"
+                    class="aspect-[5/3] w-full max-h-[220px] sm:aspect-[16/9] sm:max-h-[260px] lg:aspect-auto lg:h-full lg:min-h-[292px] lg:max-h-none"
                 >
-                    <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary ring-1 ring-primary/10 transition-colors group-hover:bg-primary/12">
-                        <component :is="m.icon" class="size-[18px]" />
+                    <EventBannerImage
+                        :src="event.banner_url ?? event.banner"
+                        :alt="event.title"
+                        class="h-full w-full"
+                    />
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 px-5 py-6 sm:px-7 sm:py-7 lg:col-span-7 lg:justify-between lg:px-8 lg:py-8">
+                <div class="flex min-w-0 flex-col gap-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span
+                            :class="[
+                                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium',
+                                'border-border/70 bg-muted/60 text-foreground',
+                                statusPill.classes,
+                            ]"
+                        >
+                            <span class="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+                            {{ statusPill.label }}
+                        </span>
+                        <Badge
+                            v-for="cat in parseEventCategories(event.category)"
+                            :key="cat"
+                            class="rounded-full border-0 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm"
+                            :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
+                        >
+                            {{ categoryLabelMap[cat] ?? cat }}
+                        </Badge>
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{{ m.title }}</p>
-                        <p class="mt-0.5 truncate text-[13.5px] font-medium leading-snug text-foreground">{{ m.value }}</p>
+
+                    <div>
+                        <p
+                            class="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-primary"
+                        >
+                            <Sparkles class="size-3 shrink-0" aria-hidden="true" />
+                            Ringkasan acara
+                        </p>
+                        <h1
+                            class="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl lg:text-[1.85rem] lg:leading-snug"
+                        >
+                            {{ event.title }}
+                        </h1>
+                        <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+                            <span class="inline-flex min-w-0 items-center gap-1.5">
+                                <CalendarDays class="size-3.5 shrink-0 text-primary/80" aria-hidden="true" />
+                                {{ formatDate(event.start_date) }}
+                            </span>
+                            <span class="text-border" aria-hidden="true">·</span>
+                            <span class="inline-flex min-w-0 items-center gap-1.5">
+                                <MapPin class="size-3.5 shrink-0 text-primary/80" aria-hidden="true" />
+                                <span class="truncate">{{ event.location }}</span>
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <Button variant="outline" size="sm" class="rounded-full" as-child>
+                            <Link :href="`/dashboard/events/${event.id}/registrants`">
+                                <Users class="mr-1.5 size-3.5" aria-hidden="true" />
+                                Pendaftar
+                            </Link>
+                        </Button>
+                        <Button size="sm" class="rounded-full" as-child>
+                            <Link :href="editEvent.url(event.id)">
+                                <Pencil class="mr-1.5 size-3.5" aria-hidden="true" />
+                                Ubah acara
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+
+                <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+                    <div
+                        v-for="m in metaBlocks"
+                        :key="m.title"
+                        :class="[
+                            'flex min-h-[4.25rem] items-center gap-3 rounded-2xl border border-border/60 bg-muted/25 p-3 sm:p-3.5',
+                            'transition-colors hover:border-primary/25 hover:bg-muted/40',
+                            cardShadow,
+                        ]"
+                    >
+                        <div
+                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15"
+                        >
+                            <component :is="m.icon" class="size-[18px]" aria-hidden="true" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                                {{ m.title }}
+                            </p>
+                            <p
+                                class="mt-0.5 line-clamp-2 text-[13px] font-medium leading-snug text-foreground sm:line-clamp-none sm:truncate"
+                            >
+                                {{ m.value }}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
