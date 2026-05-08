@@ -8,18 +8,20 @@ import { Camera, QrCode, ScanLine, ShieldAlert } from 'lucide-vue-next'
 
 defineProps<{
     scannerContainerId: string
-    eventUid: string
+    eventLabel: string
     cameras: Array<{ id: string; label: string }>
     selectedCameraId: string
     isStartingCamera: boolean
     isCameraReady: boolean
     permissionError: string
+    scanBusy: boolean
     successfulScansCount: number
     duplicateScansCount: number
     invalidScansCount: number
 }>()
 
 const manualQrInput = defineModel<string>('manualQrInput', { required: true })
+const registrationCodeInput = defineModel<string>('registrationCodeInput', { required: true })
 
 defineEmits<{
     switchCamera: [id: string | undefined]
@@ -34,7 +36,9 @@ defineEmits<{
         <CardHeader class="gap-3 border-b bg-muted/20">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle class="text-base font-semibold">Area Scanner</CardTitle>
-                <Badge variant="outline" class="text-[11px]">Event UID: {{ eventUid }}</Badge>
+                <Badge variant="outline" class="max-w-[min(100%,280px)] truncate text-[11px]" :title="eventLabel">
+                    {{ eventLabel }}
+                </Badge>
             </div>
             <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <Select :model-value="selectedCameraId" @update:model-value="$emit('switchCamera', $event)">
@@ -77,16 +81,26 @@ defineEmits<{
             </div>
 
             <div class="rounded-xl border border-border/70 p-3">
-                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fallback manual (tanpa kamera)</p>
-                <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Manual (tanpa kamera)</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Tempel JSON QR dari email (mis. <span class="font-mono text-[11px]">{{ '{"v":1,"submission_id":"…"}' }}</span>) atau isi kode registrasi. Jika keduanya diisi, kode registrasi diproses terlebih dahulu.
+                </p>
+                <div class="mt-3 grid gap-2">
                     <Input
                         v-model="manualQrInput"
-                        placeholder="Tempel isi QR di sini, contoh: DOSCOM-2026-REG-001"
+                        placeholder="Teks dari QR / JSON submission"
+                        :disabled="scanBusy"
                         @keydown.enter.prevent="$emit('submitManual')"
                     />
-                    <Button variant="outline" class="sm:min-w-36" @click="$emit('submitManual')">
+                    <Input
+                        v-model="registrationCodeInput"
+                        placeholder="Kode registrasi (manual)"
+                        :disabled="scanBusy"
+                        @keydown.enter.prevent="$emit('submitManual')"
+                    />
+                    <Button variant="outline" class="w-full sm:w-auto sm:min-w-36" :disabled="scanBusy" @click="$emit('submitManual')">
                         <QrCode data-icon="inline-start" />
-                        Proses manual
+                        {{ scanBusy ? 'Memproses…' : 'Proses check-in' }}
                     </Button>
                 </div>
             </div>

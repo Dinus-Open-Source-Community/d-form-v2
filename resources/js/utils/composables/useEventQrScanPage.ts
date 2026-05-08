@@ -1,18 +1,38 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { usePage } from '@inertiajs/vue3'
+import axios from 'axios'
 import { toast } from 'vue-sonner'
 import { Html5Qrcode } from 'html5-qrcode'
 import {
-    MOCK_REGISTRANTS,
     createScanHistoryEntry,
     extractQrCandidate,
-    normalizeQrCode,
     type ScanEntry,
     type ScanResult,
 } from '@/lib/qrScanUi'
 
-export function useEventQrScanPage(scannerContainerId: string) {
-    const page = usePage()
+interface AttendanceQueuedJson {
+    message: string
+    attendee: {
+        name: string
+        email: string
+        form_answer_id: string
+    }
+}
+
+function firstValidationMessage(errors: Record<string, string[]> | undefined): string | null {
+    if (!errors) {
+        return null
+    }
+
+    for (const messages of Object.values(errors)) {
+        if (messages.length > 0) {
+            return messages[0] ?? null
+        }
+    }
+
+    return null
+}
+
+export function useEventQrScanPage(scannerContainerId: string, attendanceScanStoreUrl: string, eventLabel: string) {
     const scanner = ref<Html5Qrcode | null>(null)
     const cameras = ref<Array<{ id: string; label: string }>>([])
     const selectedCameraId = ref('')
@@ -20,24 +40,107 @@ export function useEventQrScanPage(scannerContainerId: string) {
     const isStartingCamera = ref(false)
     const permissionError = ref('')
     const manualQrInput = ref('')
+    const registrationCodeInput = ref('')
     const scanResult = ref<ScanResult | null>(null)
     const scanHistory = ref<ScanEntry[]>([])
-    const scannedRegistrantIds = ref<Set<string>>(new Set())
     const lastDecodedText = ref('')
     const lastDecodedAt = ref(0)
-
-    const eventUid = computed(() => {
-        const pathname = page.url.split('?')[0] ?? ''
-        const segments = pathname.split('/').filter(Boolean)
-        const eventSegmentIndex = segments.findIndex((segment) => segment === 'events')
-        if (eventSegmentIndex === -1) return '-'
-
-        return segments[eventSegmentIndex + 1] ?? '-'
-    })
+    const scanBusy = ref(false)
 
     const successfulScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'success').length)
     const duplicateScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'already').length)
     const invalidScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'invalid').length)
+
+    async function submitScanPayload(
+        payload: { raw_payload?: string; registration_code?: string },
+        source: 'camera' | 'manual',
+        rawDisplay: string,
+    ) {
+        if (scanBusy.value) {
+            return
+        }
+
+        scanBusy.value = true
+
+        try {
+            const { data } = await axios.post<AttendanceQueuedJson>(attendanceScanStoreUrl, payload, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            })
+
+            const attendee = data.attendee
+            scanResult.value = {
+                name: attendee.name,
+                email: attendee.email,
+                status: 'success',
+                source,
+                rawCode: rawDisplay,
+            }
+
+            scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
+            toast.success(data.message ?? 'Check-in diproses di latar belakang.', {
+                description: `${attendee.name} · ${attendee.email}`,
+            })
+
+            if (source === 'manual') {
+                manualQrInput.value = ''
+                registrationCodeInput.value = ''
+            }
+        }
+        catch (error) {
+            if (axios.isAxiosError(error)) {
+                const status = error.response?.status
+                const body = error.response?.data as { message?: string; errors?: Record<string, string[]> } | undefined
+
+                if (status === 409) {
+                    const msg = body?.message ?? 'Peserta sudah pernah scan untuk event ini.'
+                    scanResult.value = {
+                        name: 'Sudah terdaftar hadir',
+                        email: '-',
+                        status: 'already',
+                        source,
+                        rawCode: rawDisplay,
+                    }
+                    scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
+                    toast.warning(msg)
+
+                    return
+                }
+
+                if (status === 422) {
+                    const msg =
+                        firstValidationMessage(body?.errors)
+                        ?? body?.message
+                        ?? 'Data tidak valid.'
+                    scanResult.value = {
+                        name: 'Tidak dapat diproses',
+                        email: '-',
+                        status: 'invalid',
+                        source,
+                        rawCode: rawDisplay,
+                    }
+                    scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
+                    toast.error(msg)
+
+                    return
+                }
+            }
+
+            scanResult.value = {
+                name: 'Kesalahan jaringan',
+                email: '-',
+                status: 'invalid',
+                source,
+                rawCode: rawDisplay,
+            }
+            scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
+            toast.error('Permintaan gagal', {
+                description: error instanceof Error ? error.message : 'Coba lagi dalam beberapa saat.',
+            })
+        }
+        finally {
+            scanBusy.value = false
+        }
+    }
 
     function processScan(decodedText: string, source: 'camera' | 'manual') {
         const now = Date.now()
@@ -49,53 +152,8 @@ export function useEventQrScanPage(scannerContainerId: string) {
         lastDecodedAt.value = now
 
         const qrCandidate = extractQrCandidate(decodedText)
-        const normalizedCandidate = normalizeQrCode(qrCandidate)
 
-        const registrant = MOCK_REGISTRANTS.find((item) =>
-            item.qrTokens.some((token) => normalizeQrCode(token) === normalizedCandidate),
-        )
-
-        if (!registrant) {
-            scanResult.value = {
-                name: 'QR tidak dikenali',
-                email: '-',
-                status: 'invalid',
-                source,
-                rawCode: qrCandidate,
-            }
-
-            scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
-            toast.error('QR tidak valid', {
-                description: 'Kode tidak ditemukan pada daftar peserta (mode frontend-only).',
-            })
-            return
-        }
-
-        const isDuplicate = scannedRegistrantIds.value.has(registrant.id)
-        if (!isDuplicate) {
-            scannedRegistrantIds.value.add(registrant.id)
-        }
-
-        scanResult.value = {
-            name: registrant.name,
-            email: registrant.email,
-            status: isDuplicate ? 'already' : 'success',
-            source,
-            rawCode: qrCandidate,
-        }
-
-        scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
-
-        if (isDuplicate) {
-            toast.warning('Peserta sudah pernah scan', {
-                description: `${registrant.name} sudah tercatat sebelumnya.`,
-            })
-            return
-        }
-
-        toast.success('Check-in berhasil', {
-            description: `${registrant.name} berhasil dicatat hadir.`,
-        })
+        void submitScanPayload({ raw_payload: decodedText.trim() }, source, qrCandidate)
     }
 
     async function loadCameras() {
@@ -121,9 +179,13 @@ export function useEventQrScanPage(scannerContainerId: string) {
     }
 
     async function startCameraScanner() {
-        if (isCameraReady.value || isStartingCamera.value) return
+        if (isCameraReady.value || isStartingCamera.value) {
+            return
+        }
+
         if (!selectedCameraId.value) {
             toast.error('Pilih kamera terlebih dahulu.')
+
             return
         }
 
@@ -160,7 +222,9 @@ export function useEventQrScanPage(scannerContainerId: string) {
     }
 
     async function stopCameraScanner() {
-        if (!scanner.value) return
+        if (!scanner.value) {
+            return
+        }
 
         try {
             if (isCameraReady.value) {
@@ -175,29 +239,48 @@ export function useEventQrScanPage(scannerContainerId: string) {
     }
 
     async function switchCamera(nextCameraId: string | undefined) {
-        if (nextCameraId === undefined) return
+        if (nextCameraId === undefined) {
+            return
+        }
+
         selectedCameraId.value = nextCameraId
-        if (!nextCameraId) return
-        if (!isCameraReady.value) return
+
+        if (!nextCameraId) {
+            return
+        }
+
+        if (!isCameraReady.value) {
+            return
+        }
 
         await stopCameraScanner()
         await startCameraScanner()
     }
 
     function submitManualCode() {
-        const value = manualQrInput.value.trim()
-        if (value.length === 0) {
-            toast.error('Masukkan teks QR terlebih dahulu.')
+        const raw = manualQrInput.value.trim()
+        const code = registrationCodeInput.value.trim()
+
+        if (raw.length === 0 && code.length === 0) {
+            toast.error('Tempel isi QR atau isi kode registrasi.')
+
             return
         }
 
-        processScan(value, 'manual')
-        manualQrInput.value = ''
+        const rawDisplay = raw.length > 0 ? extractQrCandidate(raw) : code
+
+        void submitScanPayload(
+            {
+                ...(raw.length > 0 ? { raw_payload: raw } : {}),
+                ...(code.length > 0 ? { registration_code: code } : {}),
+            },
+            'manual',
+            rawDisplay,
+        )
     }
 
     function clearHistory() {
         scanHistory.value = []
-        scannedRegistrantIds.value = new Set()
         scanResult.value = null
         toast('Riwayat scan dibersihkan')
     }
@@ -213,12 +296,14 @@ export function useEventQrScanPage(scannerContainerId: string) {
         isStartingCamera,
         permissionError,
         manualQrInput,
+        registrationCodeInput,
         scanResult,
         scanHistory,
-        eventUid,
+        eventLabel,
         successfulScansCount,
         duplicateScansCount,
         invalidScansCount,
+        scanBusy,
         processScan,
         startCameraScanner,
         stopCameraScanner,

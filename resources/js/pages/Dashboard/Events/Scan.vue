@@ -10,7 +10,14 @@ import { useEventQrScanPage } from '@/utils/composables/useEventQrScanPage'
 
 defineOptions({ layout: DashboardFocusLayout })
 
-const s = reactive(useEventQrScanPage('event-qr-scanner-region'))
+const props = defineProps<{
+    event: IEvent
+    attendanceScanStoreUrl: string
+}>()
+
+const s = reactive(
+    useEventQrScanPage('event-qr-scanner-region', props.attendanceScanStoreUrl, props.event.title),
+)
 </script>
 
 <template>
@@ -19,7 +26,7 @@ const s = reactive(useEventQrScanPage('event-qr-scanner-region'))
     <div class="flex flex-col gap-5">
         <PageHeader
             title="Scanner Absensi QR"
-            subtitle="Halaman ini khusus check-in peserta. Backend belum diaktifkan, jadi validasi masih berbasis data contoh di frontend."
+            subtitle="Pindai QR atau masukkan kode registrasi. Check-in valid akan diproses di latar belakang; peserta mendapat email konfirmasi setelah antrean selesai."
         />
 
         <QrScanInstructionsCard />
@@ -27,13 +34,15 @@ const s = reactive(useEventQrScanPage('event-qr-scanner-region'))
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
             <QrScanScannerCard
                 v-model:manual-qr-input="s.manualQrInput"
+                v-model:registration-code-input="s.registrationCodeInput"
                 :scanner-container-id="s.scannerContainerId"
-                :event-uid="s.eventUid"
+                :event-label="s.eventLabel"
                 :cameras="s.cameras"
                 :selected-camera-id="s.selectedCameraId"
                 :is-starting-camera="s.isStartingCamera"
                 :is-camera-ready="s.isCameraReady"
                 :permission-error="s.permissionError"
+                :scan-busy="s.scanBusy"
                 :successful-scans-count="s.successfulScansCount"
                 :duplicate-scans-count="s.duplicateScansCount"
                 :invalid-scans-count="s.invalidScansCount"
