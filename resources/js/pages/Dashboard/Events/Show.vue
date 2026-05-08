@@ -20,6 +20,7 @@ defineOptions({ layout: DashboardFocusLayout })
 const props = defineProps<{
     event: IEvent
     forms: { id: string; title: string }[]
+    exports: { registrations: string; attendance: string }
 }>()
 
 const p = reactive(useDashboardEventShowPage(props.event, props.forms))
@@ -59,7 +60,8 @@ const p = reactive(useDashboardEventShowPage(props.event, props.forms))
                     :event="props.event"
                     :forms="p.forms"
                     :card-shadow="p.cardShadow"
-                    @export-csv="p.handleExport('CSV')"
+                    :registrations-csv-href="props.exports.registrations"
+                    :attendance-csv-href="props.exports.attendance"
                     @export-excel="p.handleExport('Excel')"
                     @open-import="p.showImportModal = true"
                     @open-archive="p.showDeleteModal = true"

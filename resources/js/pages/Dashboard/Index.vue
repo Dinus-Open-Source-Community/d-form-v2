@@ -27,6 +27,10 @@ const props = defineProps<{
         totalRegistrants: number
         completionRate: number
     }
+    adminCharts?: {
+        registrationTrend: { key: string; label: string; count: number }[]
+        categoryBreakdown: { token: string; count: number }[]
+    } | null
 }>()
 
 const page = usePage()
@@ -59,10 +63,10 @@ const upcomingEvents = computed(() =>
             <PageHeader title="Dashboard" subtitle="Overview of your events and activity." />
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KpiCard label="Total Events" :value="totalEvents" :trend="12" :icon="CalendarDays" color="primary" />
-                <KpiCard label="Active Events" :value="activeEvents" :trend="8" :icon="Zap" color="warning" />
-                <KpiCard label="Total Registrants" :value="totalRegistrants.toLocaleString()" :trend="24" :icon="Users" color="success" />
-                <KpiCard label="Completion Rate" :value="completionRate + '%'" :trend="-3" :icon="TrendingUp" color="primary" />
+                <KpiCard label="Total Events" :value="totalEvents" :icon="CalendarDays" color="primary" />
+                <KpiCard label="Active Events" :value="activeEvents" :icon="Zap" color="warning" />
+                <KpiCard label="Total Registrants" :value="totalRegistrants.toLocaleString()" :icon="Users" color="success" />
+                <KpiCard label="Completion Rate" :value="completionRate + '%'" :icon="TrendingUp" color="primary" />
             </div>
 
             <div class="grid gap-4 lg:grid-cols-3">
@@ -72,9 +76,11 @@ const upcomingEvents = computed(() =>
                 <MiniCalendar />
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-2">
-                <RegistrationChart />
-                <CategoryChart />
+            <div v-if="adminCharts" class="grid gap-4 lg:grid-cols-2">
+                <RegistrationChart
+                    :points="adminCharts.registrationTrend.map(({ label, count }) => ({ label, count }))"
+                />
+                <CategoryChart :breakdown="adminCharts.categoryBreakdown" />
             </div>
 
             <EventCalendar />

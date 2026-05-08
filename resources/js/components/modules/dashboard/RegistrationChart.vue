@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Line } from 'vue-chartjs'
 import {
@@ -10,18 +11,24 @@ import {
     Filler,
     Tooltip,
 } from 'chart.js'
-import { dummyChartData } from '@/lib/dummyData'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
 
-const total = dummyChartData.registrationTrends.reduce((s, d) => s + d.count, 0)
+const props = withDefaults(
+    defineProps<{
+        points?: { label: string; count: number }[]
+    }>(),
+    { points: () => [] },
+)
 
-const chartData = {
-    labels: dummyChartData.registrationTrends.map((d) => d.month),
+const total = computed(() => props.points.reduce((s, d) => s + d.count, 0))
+
+const chartData = computed(() => ({
+    labels: props.points.map(d => d.label),
     datasets: [
         {
             label: 'Registrations',
-            data: dummyChartData.registrationTrends.map((d) => d.count),
+            data: props.points.map(d => d.count),
             borderColor: 'oklch(0.59 0.14 242)',
             backgroundColor: 'rgba(255, 216, 77, 0.28)',
             fill: true,
@@ -37,7 +44,7 @@ const chartData = {
             borderWidth: 4,
         },
     ],
-}
+}))
 
 const chartOptions = {
     responsive: true,
@@ -64,11 +71,14 @@ const chartOptions = {
 <template>
     <Card>
         <CardHeader class="pb-2">
-            <CardTitle class="font-display text-xl font-extrabold">Registration Trends</CardTitle>
-            <CardDescription class="text-xs font-bold">{{ total.toLocaleString() }} total registrations</CardDescription>
+            <CardTitle class="font-display text-xl font-extrabold">Registration trends</CardTitle>
+            <CardDescription class="text-xs font-bold">{{ total.toLocaleString() }} new submissions in range</CardDescription>
         </CardHeader>
         <CardContent class="pt-0">
-            <div class="h-52">
+            <div v-if="points.length === 0 || total === 0" class="flex h-52 items-center justify-center text-sm text-muted-foreground">
+                No submissions in the last six months.
+            </div>
+            <div v-else class="h-52">
                 <Line :data="chartData" :options="chartOptions" />
             </div>
         </CardContent>

@@ -15,6 +15,7 @@ class EventSeeder extends Seeder
         $events = [
             [
                 'title' => 'Design Systems Workshop',
+                'slug' => 'design-systems-workshop',
                 'description' => '<p>A hands-on workshop covering modern design systems, component libraries, and design tokens. Learn how to build scalable and consistent UIs across products.</p><h3>What You Will Learn</h3><ul><li>Atomic design methodology</li><li>Design token systems</li><li>Component library architecture</li></ul>',
                 'start_date' => now()->addDays(7),
                 'end_date' => now()->addDays(7),
@@ -31,6 +32,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Startup Pitch Night',
+                'slug' => 'startup-pitch-night',
                 'description' => '<p>Connect with founders, investors, and mentors. Watch live startup pitches and network with the entrepreneurial community in Central Java.</p><h3>Agenda</h3><ol><li>Opening keynote by industry leader</li><li>5 startup pitches (10 min each)</li><li>Panel Q&A with investors</li><li>Networking session</li></ol>',
                 'start_date' => now()->addDays(14),
                 'end_date' => now()->addDays(14),
@@ -47,6 +49,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'AI & Machine Learning Summit',
+                'slug' => 'ai-and-machine-learning-summit',
                 'description' => '<p>Explore the latest in AI research, machine learning applications, and ethical AI frameworks. Featuring keynotes from industry leaders and hands-on demo sessions.</p><h3>Topics</h3><ul><li>Large Language Models in production</li><li>Computer vision for real-world applications</li><li>Responsible AI development</li><li>MLOps and deployment strategies</li></ul>',
                 'start_date' => now()->addDays(21),
                 'end_date' => now()->addDays(22),
@@ -63,6 +66,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'UX Research Bootcamp',
+                'slug' => 'ux-research-bootcamp',
                 'description' => '<p>Intensive 2-day bootcamp on user research methods, usability testing, and data-driven design decisions. Perfect for designers and product managers looking to level up their research skills.</p><h3>Prerequisites</h3><ul><li>Basic understanding of UI/UX concepts</li><li>Laptop with Figma installed</li></ul>',
                 'start_date' => now()->addDays(28),
                 'end_date' => now()->addDays(29),
@@ -79,6 +83,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Open Source Meetup',
+                'slug' => 'open-source-meetup',
                 'description' => '<p>Monthly meetup for open source contributors. Share projects, get code reviews, and contribute to popular repositories together.</p><p>Bring your laptop and be ready to code! We will have mentors available for newcomers who want to make their first contribution.</p>',
                 'start_date' => now()->addDays(35),
                 'end_date' => now()->addDays(35),
@@ -95,6 +100,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Cloud Architecture Day',
+                'slug' => 'cloud-architecture-day',
                 'description' => '<p>Deep-dive into cloud-native architectures, serverless patterns, and distributed systems design. Learn best practices from certified cloud architects.</p><h3>Session Tracks</h3><ul><li>AWS vs GCP vs Azure comparison</li><li>Kubernetes in production</li><li>Serverless architecture patterns</li><li>Cost optimization strategies</li></ul>',
                 'start_date' => now()->subDays(20),
                 'end_date' => now()->subDays(20),
@@ -111,6 +117,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'DOSCOM Open Recruitment 2026',
+                'slug' => 'doscom-open-recruitment-2026',
                 'description' => '<p>Annual recruitment for new DOSCOM members. Join the largest open source community at Universitas Dian Nuswantoro and grow your skills together!</p><h3>What We Offer</h3><ul><li>Free workshops and mentorship</li><li>Real project experience</li><li>Community networking</li><li>Certificate of participation</li></ul><p><strong>Requirements:</strong> Active UDINUS student, any major welcome.</p>',
                 'start_date' => now()->addDays(45),
                 'end_date' => now()->addDays(60),
@@ -127,6 +134,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Hackathon: Code for Good',
+                'slug' => 'hackathon-code-for-good',
                 'description' => '<p>48-hour hackathon focused on building technology solutions for social impact. Form a team, pick a challenge, and build something that matters.</p><h3>Prizes</h3><ul><li>1st Place: Rp 5.000.000 + Internship opportunity</li><li>2nd Place: Rp 3.000.000</li><li>3rd Place: Rp 1.500.000</li></ul>',
                 'start_date' => now()->subDays(45),
                 'end_date' => now()->subDays(43),
@@ -143,6 +151,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Web Development Workshop',
+                'slug' => 'web-development-workshop',
                 'description' => '<p>Learn modern web development from scratch! This workshop covers HTML, CSS, JavaScript, and an introduction to frameworks like Vue.js and Laravel.</p><h3>Schedule</h3><ul><li>Day 1: HTML & CSS fundamentals</li><li>Day 2: JavaScript essentials</li><li>Day 3: Introduction to Vue.js</li><li>Day 4: Backend with Laravel</li></ul>',
                 'start_date' => now()->subDays(5),
                 'end_date' => now()->addDays(2),
@@ -159,6 +168,7 @@ class EventSeeder extends Seeder
             ],
             [
                 'title' => 'Data Science Fundamentals',
+                'slug' => 'data-science-fundamentals',
                 'description' => '<p>An introductory course to data science covering Python, pandas, data visualization, and basic machine learning concepts. No prior experience needed!</p><h3>Tools Used</h3><ul><li>Python 3.12</li><li>Jupyter Notebook</li><li>pandas & matplotlib</li><li>scikit-learn basics</li></ul>',
                 'start_date' => now()->addDays(50),
                 'end_date' => now()->addDays(52),

@@ -83,6 +83,10 @@ class EventController extends Controller
         return Inertia::render('Dashboard/Events/Show', [
             'event' => $this->eventService->eventToInertiaArray($event),
             'forms' => $forms,
+            'exports' => [
+                'registrations' => route('dashboard.events.exports.registrations-csv', $event),
+                'attendance' => route('dashboard.events.exports.attendance-csv', $event),
+            ],
         ]);
     }
 

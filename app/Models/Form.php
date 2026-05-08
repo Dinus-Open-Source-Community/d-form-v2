@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Form extends Model
@@ -46,5 +47,13 @@ class Form extends Model
     public function formFields(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(FormField::class, 'form_id');
+    }
+
+    /**
+     * @return HasMany<FormAnswer, $this>
+     */
+    public function formAnswers(): HasMany
+    {
+        return $this->hasMany(FormAnswer::class, 'form_id');
     }
 }

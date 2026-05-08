@@ -55,6 +55,26 @@ class Event extends Model
         ];
     }
 
+    /**
+     * Explode a comma-separated stored field (e.g. `category`, `session`) into unique non-empty tokens.
+     * Matches {@see \App\Http\Resources\EventResource} normalization.
+     *
+     * @return list<string>
+     */
+    public static function tokensFromCsv(string $raw): array
+    {
+        if ($raw === '') {
+            return [];
+        }
+
+        return collect(explode(',', $raw))
+            ->map(static fn (string $s) => trim($s))
+            ->filter(static fn (string $s) => $s !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     protected static function booted(): void
     {
         static::saving(function (Event $event): void {

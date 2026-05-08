@@ -85,7 +85,7 @@ export function useDashboardEventShowPage(
     }
 
     function handleExport(format: string) {
-        toast.info(`Exporting as ${format}...`)
+        toast.info(`${format} export is not implemented yet — use CSV from the Reports page or Data card.`)
     }
 
     function handleImportFileChange(e: Event) {

@@ -25,7 +25,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LayoutDashboard, CalendarDays, Users, LogOut, ChevronsUpDown, Settings } from 'lucide-vue-next';
+import { LayoutDashboard, CalendarDays, Users, LogOut, ChevronsUpDown, Settings, PieChart } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import useAuth from '@/utils/composables/useAuth';
 
@@ -46,6 +46,7 @@ const managementItems = computed(() =>
     isAdmin.value
         ? [
               { label: 'Events', href: '/dashboard/events', icon: CalendarDays, badge: '8' },
+              { label: 'Reports', href: '/dashboard/reports', icon: PieChart },
               { label: 'Recruitment', href: '/dashboard/recruitment', icon: Users },
           ]
         : [{ label: 'Events', href: '/dashboard/user/events', icon: CalendarDays }]

@@ -13,10 +13,11 @@ defineProps<{
     event: IEvent
     forms: { id: string; title: string }[]
     cardShadow: string
+    registrationsCsvHref: string
+    attendanceCsvHref: string
 }>()
 
 defineEmits<{
-    exportCsv: []
     exportExcel: []
     openImport: []
     openArchive: []
@@ -51,21 +52,29 @@ defineEmits<{
                 <div class="grid grid-cols-2 gap-2">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button variant="outline" size="sm" class="rounded-xl" @click="$emit('exportCsv')">
-                                <Download class="mr-1.5 size-3.5" />CSV
+                            <Button variant="outline" size="sm" class="rounded-xl" as-child>
+                                <a :href="registrationsCsvHref"><Download class="mr-1.5 size-3.5" />CSV</a>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Export registrants as CSV</TooltipContent>
+                        <TooltipContent>Export all form submissions for this event (CSV)</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button variant="outline" size="sm" class="rounded-xl" @click="$emit('exportExcel')">
-                                <FileSpreadsheet class="mr-1.5 size-3.5" />Excel
+                            <Button variant="outline" size="sm" class="rounded-xl" as-child>
+                                <a :href="attendanceCsvHref"><FileSpreadsheet class="mr-1.5 size-3.5" />Attendance</a>
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Export registrants as XLSX</TooltipContent>
+                        <TooltipContent>Export attendance scan log (CSV)</TooltipContent>
                     </Tooltip>
                 </div>
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <Button variant="outline" size="sm" class="w-full justify-start rounded-xl" @click="$emit('exportExcel')">
+                            <FileSpreadsheet class="mr-2 size-4" />Excel export
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Excel export not implemented yet.</TooltipContent>
+                </Tooltip>
                 <Button variant="outline" size="sm" class="w-full justify-start rounded-xl" @click="$emit('openImport')">
                     <Upload class="mr-2 size-4" />Import registrants
                 </Button>

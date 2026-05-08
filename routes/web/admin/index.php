@@ -9,12 +9,17 @@ use App\Models\Form;
 use App\Services\Event\EventService;
 use App\Services\Event\UserPortalEventResolver;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Dashboard\EventReportingController;
+use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
+use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use Inertia\Inertia;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
 
 Route::middleware('auth')->get('/dashboard', DashboardHomeController::class)->name('dashboard.home');
+
+Route::middleware('auth')->get('/dashboard/reports', EventReportingController::class)->name('dashboard.reports.index');
 
 Route::middleware('auth')->get('/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
 
@@ -72,6 +77,8 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
 });
 
 Route::middleware('auth')->prefix('/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
+    Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
+    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
     Route::get('/scan', [AttendanceScanController::class, 'show'])->name('scan');
     Route::post('/attendance-scan', [AttendanceScanController::class, 'store'])->name('attendance-scan.store');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');

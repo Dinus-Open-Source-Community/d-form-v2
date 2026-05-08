@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Event;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -44,7 +45,7 @@ class EventResource extends JsonResource
      */
     private function categoryTokens(): array
     {
-        return $this->explodeCsv((string) $this->category);
+        return Event::tokensFromCsv((string) $this->category);
     }
 
     /**
@@ -54,23 +55,6 @@ class EventResource extends JsonResource
      */
     private function sessionTokens(): array
     {
-        return $this->explodeCsv((string) $this->session);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function explodeCsv(string $raw): array
-    {
-        if ($raw === '') {
-            return [];
-        }
-
-        return collect(explode(',', $raw))
-            ->map(static fn (string $s) => trim($s))
-            ->filter(static fn (string $s) => $s !== '')
-            ->unique()
-            ->values()
-            ->all();
+        return Event::tokensFromCsv((string) $this->session);
     }
 }
