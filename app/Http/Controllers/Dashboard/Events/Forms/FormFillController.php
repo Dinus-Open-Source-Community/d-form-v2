@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
+use App\Enums\FormAccessStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
 use App\Services\Form\FormAccessGuard;
+use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,20 +32,39 @@ class FormFillController extends Controller
 
         $closed = $form->closed_at;
 
+        $teamSize    = TeamRegistrationSubmitter::isTeamForm($form) ? TeamRegistrationSubmitter::resolveTeamSize($form) : 0;
+        $memberSlots = $teamSize >= 2 ? $teamSize - 1 : 0;
+
+        $metadata        = is_array($form->metadata) ? $form->metadata : [];
+        $modeRaw         = $metadata['registration_mode'] ?? 'single';
+        $registrationMode = is_string($modeRaw) && $modeRaw !== '' ? strtolower($modeRaw) : 'single';
+        if (! in_array($registrationMode, ['single', 'team', 'bundle'], true)) {
+            $registrationMode = 'single';
+        }
+
+        $pendingInvitationUrl = null;
+
+        if ($status === FormAccessStatus::PendingTeamConfirmation) {
+            $pendingInvitationUrl = FormAccessGuard::pendingTeamInvitationUrl($form, $user);
+        }
+
         return Inertia::render('Dashboard/Events/Forms/Fill', [
-            'event'        => ['id' => $event->id, 'slug' => $event->slug, 'title' => $event->title],
-            'form'         => [
-                'id'          => $form->id,
-                'title'       => $form->title,
-                'description' => $form->description,
-                'closed_at'   => $closed ? $closed->toISOString() : null,
-                'banner_url'  => $form->banner_url,
-                'banner_caption' => $form->banner_caption,
+            'event'                 => ['id' => $event->id, 'slug' => $event->slug, 'title' => $event->title],
+            'form'                  => [
+                'id'               => $form->id,
+                'title'            => $form->title,
+                'description'      => $form->description,
+                'closed_at'        => $closed ? $closed->toISOString() : null,
+                'banner_url'       => $form->banner_url,
+                'banner_caption'   => $form->banner_caption,
             ],
-            'fields'       => $fields,
-            'submitUrl'    => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
-            'accessStatus' => $status->value,
-            'accessMessage' => $status->message(),
+            'fields'                => $fields,
+            'submitUrl'             => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
+            'accessStatus'          => $status->value,
+            'accessMessage'       => $status->message(),
+            'registrationMode'    => $registrationMode,
+            'memberSlots'         => $memberSlots,
+            'pendingInvitationUrl' => $pendingInvitationUrl,
         ]);
     }
 
@@ -66,6 +87,7 @@ class FormFillController extends Controller
             'name'        => $f->name,
             'order'       => $f->order,
             'metadata'    => $meta,
+            'is_append'   => (bool) $f->is_append,
         ];
     }
 }

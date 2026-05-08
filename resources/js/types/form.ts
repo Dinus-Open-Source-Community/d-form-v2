@@ -13,6 +13,7 @@ export type FormAccessStatus =
     | 'registration_not_open'
     | 'quota_full'
     | 'unsupported_registration_mode'
+    | 'pending_team_confirmation'
     | 'already_submitted'
 
 export interface FormFillPageEvent {

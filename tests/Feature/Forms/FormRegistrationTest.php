@@ -6,6 +6,7 @@ use App\Enums\EmailNotificationType;
 use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
+use App\Enums\RegistrationRole;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
@@ -14,6 +15,7 @@ use App\Models\User;
 use App\Mail\RegistrationAcceptedMail;
 use App\Mail\RegistrationConfirmationMail;
 use App\Mail\RegistrationRejectedMail;
+use App\Mail\TeamInvitationMail;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -39,6 +41,14 @@ class FormRegistrationTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('member');
+        return $user;
+    }
+
+    private function memberWithEmail(string $email): User
+    {
+        $user = User::factory()->create(['email' => $email]);
+        $user->assignRole('member');
+
         return $user;
     }
 
@@ -207,12 +217,15 @@ class FormRegistrationTest extends TestCase
                  );
     }
 
-    public function test_fill_returns_unsupported_registration_mode_for_team_form_when_member(): void
+    public function test_fill_returns_allowed_for_team_form_when_member_and_team_size_configured(): void
     {
         $member = $this->member();
         $event  = $this->openEvent();
         $form   = $this->openForm($event, [
-            'metadata' => ['registration_mode' => 'team'],
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
         ]);
         $this->textField($form);
 
@@ -222,8 +235,9 @@ class FormRegistrationTest extends TestCase
             ->assertInertia(
                 fn ($page) => $page
                     ->component('Dashboard/Events/Forms/Fill')
-                    ->where('accessStatus', 'unsupported_registration_mode')
-                    ->where('accessMessage', FormAccessStatus::UnsupportedRegistrationMode->message())
+                    ->where('accessStatus', 'allowed')
+                    ->where('registrationMode', 'team')
+                    ->where('memberSlots', 1)
             );
     }
 
@@ -631,20 +645,242 @@ class FormRegistrationTest extends TestCase
         $this->assertDatabaseMissing('form_answers', ['form_id' => $form->id]);
     }
 
-    public function test_submit_blocked_when_registration_mode_is_team_for_member(): void
+    public function test_team_submission_creates_leader_and_member_rows_and_sends_mails(): void
+    {
+        Mail::fake();
+
+        $leader   = $this->memberWithEmail('team-leader-'.uniqid().'@example.com');
+        $teammate = $this->memberWithEmail('team-mate-'.uniqid().'@example.com');
+        $event    = $this->openEvent();
+        $form     = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Team Leader',
+                'team_member_emails' => [$teammate->email],
+            ])
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+
+        $this->assertDatabaseCount('form_answers', 2);
+
+        $leaderRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('user_id', $leader->id)
+            ->firstOrFail();
+        $memberRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('user_id', $teammate->id)
+            ->firstOrFail();
+
+        $this->assertSame(RegistrationRole::Leader, $leaderRow->registration_role);
+        $this->assertNull($leaderRow->leader_form_answer_id);
+        $this->assertTrue($leaderRow->status_confirmation_member);
+
+        $this->assertSame(RegistrationRole::Member, $memberRow->registration_role);
+        $this->assertSame((string) $leaderRow->id, (string) $memberRow->leader_form_answer_id);
+        $this->assertFalse($memberRow->status_confirmation_member);
+        $this->assertNotNull($memberRow->invitation_token);
+
+        Mail::assertSent(RegistrationConfirmationMail::class, 1);
+        Mail::assertSent(TeamInvitationMail::class, function (TeamInvitationMail $mail) use ($memberRow): bool {
+            return (string) $mail->memberSubmission->id === (string) $memberRow->id;
+        });
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $leaderRow->id,
+            'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
+        ]);
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $memberRow->id,
+            'notification_type' => EmailNotificationType::TeamInvitation->value,
+        ]);
+    }
+
+    public function test_team_submission_increments_event_registered_count_by_team_size(): void
+    {
+        Mail::fake();
+
+        $leader   = $this->memberWithEmail('team-leader-rc-'.uniqid().'@example.com');
+        $teammate = $this->memberWithEmail('team-mate-rc-'.uniqid().'@example.com');
+        $event    = $this->openEvent(['registered_count' => 0]);
+        $form     = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Team Leader',
+                'team_member_emails' => [$teammate->email],
+            ])
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+
+        $event->refresh();
+        $this->assertSame(2, (int) $event->registered_count);
+    }
+
+    public function test_team_submission_redirects_with_errors_when_member_emails_missing(): void
+    {
+        $leader = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), ['full_name' => 'Jane'])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails');
+
+        $this->assertDatabaseMissing('form_answers', ['form_id' => $form->id]);
+    }
+
+    public function test_team_submission_redirects_with_errors_for_unknown_member_email(): void
+    {
+        $leader = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Jane',
+                'team_member_emails' => ['not-a-user@example.com'],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails.0');
+
+        $this->assertDatabaseMissing('form_answers', ['form_id' => $form->id]);
+    }
+
+    public function test_team_submission_redirects_with_errors_when_teammate_already_on_form(): void
+    {
+        $leader   = $this->memberWithEmail('team-leader-dup-'.uniqid().'@example.com');
+        $teammate = $this->memberWithEmail('team-mate-dup-'.uniqid().'@example.com');
+        $event    = $this->openEvent();
+        $form     = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $teammate->id,
+            'answers' => ['full_name' => 'Existing'],
+        ]);
+
+        $this->from($this->fillPath($event, $form))
+            ->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Jane',
+                'team_member_emails' => [$teammate->email],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails');
+
+        $this->assertDatabaseCount('form_answers', 1);
+    }
+
+    public function test_fill_returns_pending_team_confirmation_for_unconfirmed_team_member(): void
     {
         $member = $this->member();
         $event  = $this->openEvent();
         $form   = $this->openForm($event, [
-            'metadata' => ['registration_mode' => 'team'],
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
         ]);
         $this->textField($form);
 
-        $this->actingAs($member)
-            ->post($this->submitPath($event, $form), ['full_name' => 'Jane'])
-            ->assertRedirect($this->fillPath($event, $form));
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $this->member()->id,
+            'registration_role' => RegistrationRole::Leader,
+            'status_confirmation_member' => true,
+        ]);
 
-        $this->assertDatabaseMissing('form_answers', ['form_id' => $form->id]);
+        $token = 'test-invite-token-'.uniqid();
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'status_confirmation_member' => false,
+            'invitation_token' => $token,
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $form))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->where('accessStatus', 'pending_team_confirmation')
+                    ->where('accessMessage', FormAccessStatus::PendingTeamConfirmation->message())
+                    ->where('pendingInvitationUrl', '/dashboard/user/team-invitations/'.$token)
+            );
+    }
+
+    public function test_team_member_can_confirm_invitation_without_append_fields(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $this->member()->id,
+            'registration_role' => RegistrationRole::Leader,
+            'status_confirmation_member' => true,
+        ]);
+
+        $token = 'confirm-token-'.uniqid();
+
+        $row = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'status_confirmation_member' => false,
+            'invitation_token' => $token,
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [])
+            ->assertRedirect(route('dashboard.user.events.show', ['event_segment' => $event->slug], false));
+
+        $row->refresh();
+        $this->assertTrue($row->status_confirmation_member);
     }
 
     // =========================================================================
@@ -813,6 +1049,52 @@ class FormRegistrationTest extends TestCase
             'review_status' => FormAnswerReviewStatus::Accepted->value,
             'reviewed_by' => $admin->id,
         ]);
+    }
+
+    public function test_admin_cannot_accept_team_member_before_confirmation(): void
+    {
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $memberUser = $this->member();
+        $leaderUser = $this->member();
+
+        $leaderAnswer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leaderUser->id,
+            'registration_role' => RegistrationRole::Leader,
+            'status_confirmation_member' => true,
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $memberAnswer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $memberUser->id,
+            'leader_form_answer_id' => $leaderAnswer->id,
+            'registration_role' => RegistrationRole::Member,
+            'status_confirmation_member' => false,
+            'invitation_token' => 'tok-test-'.uniqid(),
+            'review_status' => FormAnswerReviewStatus::Pending,
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        Mail::fake();
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $memberAnswer), [
+                'review_status' => FormAnswerReviewStatus::Accepted->value,
+            ])
+            ->assertStatus(422);
+
+        $memberAnswer->refresh();
+        $this->assertSame(FormAnswerReviewStatus::Pending, $memberAnswer->review_status);
+
+        Mail::assertNothingSent();
     }
 
     public function test_admin_reject_pending_submission_sends_rejected_mail(): void

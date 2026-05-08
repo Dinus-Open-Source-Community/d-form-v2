@@ -10,6 +10,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Services\Registration\RegistrationCodeIssuer;
+use App\Enums\RegistrationRole;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,15 @@ class FormAnswerReviewController extends Controller
         if ($newStatus === FormAnswerReviewStatus::Pending) {
             return response()->json([
                 'message' => 'Invalid review status transition.',
+            ], 422);
+        }
+
+        // Team members must confirm (PRD §4.2) before admin can accept their submission.
+        if ($newStatus === FormAnswerReviewStatus::Accepted
+            && $formAnswer->registration_role === RegistrationRole::Member
+            && ! $formAnswer->status_confirmation_member) {
+            return response()->json([
+                'message' => __('This team member must confirm their registration before it can be accepted.'),
             ], 422);
         }
 

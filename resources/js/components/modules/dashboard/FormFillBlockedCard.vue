@@ -9,6 +9,8 @@ defineProps<{
     title: string
     body: string
     success?: boolean
+    primaryActionHref?: string | null
+    primaryActionLabel?: string
 }>()
 </script>
 
@@ -19,7 +21,10 @@ defineProps<{
             <AlertCircle v-else class="size-10 text-warning" />
             <p class="font-display text-xl font-bold tracking-[-0.02em] text-foreground">{{ title }}</p>
             <p class="max-w-md text-sm text-muted-foreground">{{ body }}</p>
-            <Button variant="outline" size="lg" class="mt-6" as-child>
+            <Button v-if="primaryActionHref" variant="default" size="lg" class="mt-4" as-child>
+                <Link :href="primaryActionHref">{{ primaryActionLabel ?? 'Continue' }}</Link>
+            </Button>
+            <Button variant="outline" size="lg" :class="primaryActionHref ? 'mt-2' : 'mt-6'" as-child>
                 <Link :href="`/dashboard/events/${eventId}`">View event</Link>
             </Button>
         </CardContent>

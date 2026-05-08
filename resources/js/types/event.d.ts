@@ -64,6 +64,8 @@ declare global {
         name: string
         order: number
         metadata: Record<string, unknown>
+        /** Team flow: member may edit on confirmation when true */
+        is_append?: boolean
         required?: boolean
         placeholder?: string
         options?: IFormFieldOption[]

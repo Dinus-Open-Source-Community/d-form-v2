@@ -4,6 +4,7 @@ use App\Enums\EventStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
+use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Models\Event;
 use App\Models\Form;
@@ -42,6 +43,11 @@ Route::middleware(['auth', 'member_portal'])->prefix('/dashboard/user')->name('d
 
     Route::get('/events/{event_segment}/registration', UserEventRegistrationController::class)
         ->name('events.registration');
+
+    Route::get('/team-invitations/{token}', [TeamInvitationController::class, 'show'])
+        ->name('team-invitations.show');
+    Route::post('/team-invitations/{token}', [TeamInvitationController::class, 'update'])
+        ->name('team-invitations.update');
 
     Route::get('/events/{event_segment}/register', function (string $event_segment) {
         $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);

@@ -33,6 +33,42 @@ function setTextAnswer(ctx: UnwrapNestedRefs<FormFillPageContext>, name: string,
 
 <template>
     <form class="flex flex-col gap-6" @submit.prevent="$emit('submit')">
+        <Card v-if="ctx.memberSlots > 0" class="overflow-hidden border-primary/30 bg-primary/5">
+            <CardHeader class="pb-2 pt-4">
+                <CardTitle class="text-sm font-semibold tracking-tight">Team member emails</CardTitle>
+                <p class="text-xs leading-relaxed text-muted-foreground">
+                    {{ ctx.memberSlots }} teammate(s) must already have accounts. We will email each person to confirm.
+                </p>
+            </CardHeader>
+            <CardContent class="flex flex-col gap-3 pb-4">
+                <div v-for="slot in ctx.memberSlots" :key="slot" class="space-y-1.5">
+                    <label class="text-xs font-medium text-foreground" :for="`team_member_emails_${slot}`">
+                        Teammate {{ slot }} email <span class="text-destructive">*</span>
+                    </label>
+                    <Input
+                        :id="`team_member_emails_${slot}`"
+                        type="email"
+                        autocomplete="email"
+                        class="min-h-11"
+                        :model-value="String((ctx.answerForm.team_member_emails as string[] | undefined)?.[slot - 1] ?? '')"
+                        @update:model-value="
+                            (v: string | number) => {
+                                const arr = [...((ctx.answerForm.team_member_emails as string[]) ?? [])]
+                                arr[slot - 1] = String(v)
+                                ctx.answerForm.team_member_emails = arr
+                            }
+                        "
+                    />
+                    <p v-if="ctx.fieldError(`team_member_emails.${slot - 1}`)" class="text-xs font-medium text-destructive">
+                        {{ ctx.fieldError(`team_member_emails.${slot - 1}`) }}
+                    </p>
+                </div>
+                <p v-if="ctx.fieldError('team_member_emails')" class="text-xs font-medium text-destructive">
+                    {{ ctx.fieldError('team_member_emails') }}
+                </p>
+            </CardContent>
+        </Card>
+
         <template v-for="field in fields" :key="field.id">
             <div v-if="ctx.builderType(field) === 'heading'" class="rounded-2xl border border-border bg-primary/8 px-5 py-4 shadow-xs">
                 <h2 class="font-display text-2xl font-bold tracking-[-0.025em] text-foreground">

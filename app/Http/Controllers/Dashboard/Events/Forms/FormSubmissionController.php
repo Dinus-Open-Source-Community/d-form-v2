@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Dashboard\Events\Forms;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\SendRegistrationConfirmationJob;
+use App\Jobs\SendTeamInvitationJob;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Models\User;
 use App\Services\Form\FormAccessGuard;
 use App\Services\Form\RulesBuilder;
+use App\Services\Registration\TeamRegistrationSubmitter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +21,10 @@ use Inertia\Inertia;
 
 class FormSubmissionController extends Controller
 {
+    public function __construct(
+        private TeamRegistrationSubmitter $teamRegistrationSubmitter,
+    ) {}
+
     public function __invoke(Request $request, Event $event, Form $form): RedirectResponse
     {
         abort_unless($form->event_id === $event->id, 404);
@@ -55,12 +62,20 @@ class FormSubmissionController extends Controller
         $isAdmin = $user->can('events.list');
         $answers = $this->buildAnswers($request, $fields, $form);
 
+        if (TeamRegistrationSubmitter::isTeamForm($form)) {
+            return $this->submitTeamRegistration(
+                $request,
+                $event,
+                $form,
+                $user,
+                $answers,
+                $isAdmin
+            );
+        }
+
         $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
-            // Lock the event row to prevent concurrent over-quota submissions.
             $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
 
-            // Re-check quota inside the transaction to handle race conditions.
-            // Admins are exempt — they may submit even when the event is full.
             if (! $isAdmin
                 && $lockedEvent->quota !== null
                 && $lockedEvent->quota > 0
@@ -87,9 +102,111 @@ class FormSubmissionController extends Controller
             'message' => 'Your registration has been submitted successfully.',
         ]);
 
-        return $user->can('events.view')
-            ? redirect()->route('dashboard.events.show', ['event' => $event])
-            : redirect()->route('dashboard.user.events.show', ['event_segment' => $event->slug]);
+        return $this->successRedirect($user, $event);
+    }
+
+    private function submitTeamRegistration(
+        Request $request,
+        Event $event,
+        Form $form,
+        User $leaderUser,
+        array $answers,
+        bool $isAdmin,
+    ): RedirectResponse {
+        $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
+
+        if ($teamSize < 2) {
+            return redirect()
+                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                ->withErrors(['team_member_emails' => __('This team form requires a team size of at least 2 in form settings.')])
+                ->withInput();
+        }
+
+        $memberSlots = $teamSize - 1;
+
+        $teamValidator = Validator::make($request->all(), [
+            'team_member_emails'   => ['required', 'array', "size:{$memberSlots}"],
+            'team_member_emails.*' => ['required', 'string', 'email:rfc'],
+        ]);
+
+        if ($teamValidator->fails()) {
+            return redirect()
+                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                ->withErrors($teamValidator)
+                ->withInput();
+        }
+
+        /** @var list<string|mixed> $rawEmails */
+        $rawEmails = $request->input('team_member_emails', []);
+        $emails    = [];
+
+        foreach ($rawEmails as $i => $value) {
+            $email = mb_strtolower(trim((string) $value));
+            $emails[$i] = $email;
+        }
+
+        $leaderLower = mb_strtolower(trim((string) $leaderUser->email));
+        foreach ($emails as $i => $email) {
+            if ($email === $leaderLower) {
+                return redirect()
+                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                    ->withErrors(["team_member_emails.{$i}" => __('You cannot list yourself as a team member.')])
+                    ->withInput();
+            }
+        }
+
+        if (count(array_unique($emails)) !== count($emails)) {
+            return redirect()
+                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                ->withErrors(['team_member_emails' => __('Each team member email must be unique.')])
+                ->withInput();
+        }
+
+        $memberUsers = [];
+
+        foreach ($emails as $i => $email) {
+            $memberUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+            if ($memberUser === null) {
+                return redirect()
+                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                    ->withErrors(["team_member_emails.{$i}" => __('No account exists for this email. The teammate must register first.')])
+                    ->withInput();
+            }
+
+            $memberUsers[] = $memberUser;
+        }
+
+        $result = $this->teamRegistrationSubmitter->submit(
+            $form,
+            $event,
+            $leaderUser,
+            $answers,
+            $memberUsers,
+            $isAdmin,
+        );
+
+        SendRegistrationConfirmationJob::dispatch($result['leader']->id)->afterCommit();
+
+        foreach ($result['members'] as $memberAnswer) {
+            SendTeamInvitationJob::dispatch($memberAnswer->id)->afterCommit();
+        }
+
+        Inertia::flash('toast', [
+            'type'    => 'success',
+            'message' => __('Your team registration has been submitted. Invitations were sent to team members.'),
+        ]);
+
+        return $this->successRedirect($leaderUser, $event);
+    }
+
+    private function successRedirect(User $user, Event $event): RedirectResponse
+    {
+        if ($user->can('events.view')) {
+            return redirect()->route('dashboard.events.show', ['event' => $event]);
+        }
+
+        return redirect()->route('dashboard.user.events.show', ['event_segment' => $event->slug]);
     }
 
     /**

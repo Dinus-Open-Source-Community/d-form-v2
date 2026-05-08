@@ -14,16 +14,42 @@ import type {
 
 defineOptions({ layout: FormFillLayout })
 
-const props = defineProps<{
-    event: FormFillPageEvent
-    form: FormFillPageForm
-    fields: IFormField[]
-    submitUrl: string
-    accessStatus: FormAccessStatus
-    accessMessage: string
-}>()
+const props = withDefaults(
+    defineProps<{
+        event: FormFillPageEvent
+        form: FormFillPageForm
+        fields: IFormField[]
+        submitUrl: string
+        accessStatus: FormAccessStatus
+        accessMessage: string
+        registrationMode?: string
+        memberSlots?: number
+        pendingInvitationUrl?: string | null
+    }>(),
+    {
+        registrationMode: 'single',
+        memberSlots: 0,
+        pendingInvitationUrl: null,
+    },
+)
 
-const ctx = reactive(useFormFillPage(props))
+const ctx = reactive(
+    useFormFillPage({
+        event: props.event,
+        form: props.form,
+        fields: props.fields,
+        submitUrl: props.submitUrl,
+        accessStatus: props.accessStatus,
+        accessMessage: props.accessMessage,
+        memberSlots: props.memberSlots,
+        registrationMode: props.registrationMode,
+    }),
+)
+
+const invitationActionHref =
+    props.accessStatus === 'pending_team_confirmation' && props.pendingInvitationUrl
+        ? props.pendingInvitationUrl
+        : undefined
 </script>
 
 <template>
@@ -44,6 +70,8 @@ const ctx = reactive(useFormFillPage(props))
             :title="ctx.blockCopy.title"
             :body="ctx.blockCopy.body"
             :success="ctx.blockCopy.success"
+            :primary-action-href="invitationActionHref"
+            primary-action-label="Review invitation"
         />
 
         <FormFillFieldsList

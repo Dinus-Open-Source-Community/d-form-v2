@@ -10,6 +10,7 @@ enum FormAccessStatus: string
     case RegistrationNotOpen = 'registration_not_open';
     case QuotaFull = 'quota_full';
     case UnsupportedRegistrationMode = 'unsupported_registration_mode';
+    case PendingTeamConfirmation = 'pending_team_confirmation';
     case AlreadySubmitted = 'already_submitted';
 
     public function message(): string
@@ -21,6 +22,7 @@ enum FormAccessStatus: string
             self::RegistrationNotOpen => 'Registration for this event is not currently open.',
             self::QuotaFull         => 'Registration is full. No more submissions are being accepted.',
             self::UnsupportedRegistrationMode => 'This registration type is not available yet. Please check back later or contact the organizer.',
+            self::PendingTeamConfirmation => 'You have a pending team invitation for this form. Please confirm your registration using the link we emailed you.',
             self::AlreadySubmitted  => 'You have already submitted this form.',
         };
     }

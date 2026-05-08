@@ -4,6 +4,7 @@ namespace App\Services\Form;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\FormAccessStatus;
+use App\Enums\RegistrationRole;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
@@ -28,8 +29,8 @@ final class FormAccessGuard
      *  2. Form closure (`form.closed_at`)
      *  3. Registration window (`event.registration_start/end`)
      *  4. Quota (`event.quota` vs `event.registered_count`)
-     *  5. Team / bundle registration (M4b / M4c — blocked for non-admins until implemented)
-     *  6. Duplicate submission
+     *  5. Bundle mode (M4c) — not implemented for members
+     *  6. Duplicate / pending team confirmation
      */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
@@ -51,30 +52,46 @@ final class FormAccessGuard
             return FormAccessStatus::QuotaFull;
         }
 
-        if (! $isAdmin && self::requiresTeamOrBundleRegistrationFlow($form)) {
+        if (! $isAdmin && self::requiresUnsupportedBundleMode($form)) {
             return FormAccessStatus::UnsupportedRegistrationMode;
         }
 
-        if (self::hasAlreadySubmitted($form, $user)) {
-            return FormAccessStatus::AlreadySubmitted;
+        return self::duplicateOrTeamPendingStatus($form, $user)
+            ?? FormAccessStatus::Allowed;
+    }
+
+    /**
+     * When access is blocked for an existing row, the fill page may link here.
+     */
+    public static function pendingTeamInvitationUrl(Form $form, User $user): ?string
+    {
+        $existing = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($existing === null) {
+            return null;
         }
 
-        return FormAccessStatus::Allowed;
+        if ($existing->registration_role !== RegistrationRole::Member) {
+            return null;
+        }
+
+        if ($existing->status_confirmation_member) {
+            return null;
+        }
+
+        $token = $existing->invitation_token;
+        if ($token === null || $token === '') {
+            return null;
+        }
+
+        return route('dashboard.user.team-invitations.show', ['token' => $token], absolute: false);
     }
 
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns true if the authenticated user is allowed to see the form based
-     * on `visible_for`. Admins bypass this check before calling this method.
-     *
-     * Rules:
-     *  - Empty collection → treated as public (open to all authenticated users).
-     *  - Contains `public` → any authenticated user.
-     *  - Contains `participant` → any authenticated user (full participant check
-     *    is deferred to a future milestone when approval flow is implemented).
-     *  - Contains `admin` only → blocked for non-admins.
-     */
     private static function isVisible(Form $form, User $user): bool
     {
         $visibleFor = $form->visible_for;
@@ -93,7 +110,6 @@ final class FormAccessGuard
             return true;
         }
 
-        // Only 'admin' remains → non-admin users are blocked.
         return false;
     }
 
@@ -124,18 +140,28 @@ final class FormAccessGuard
             && $event->registered_count >= $event->quota;
     }
 
-    private static function hasAlreadySubmitted(Form $form, User $user): bool
+    private static function duplicateOrTeamPendingStatus(Form $form, User $user): ?FormAccessStatus
     {
-        return FormAnswer::query()
+        $existing = FormAnswer::query()
             ->where('form_id', $form->id)
             ->where('user_id', $user->id)
-            ->exists();
+            ->first();
+
+        if ($existing === null) {
+            return null;
+        }
+
+        if ($existing->registration_role === RegistrationRole::Member && ! $existing->status_confirmation_member) {
+            return FormAccessStatus::PendingTeamConfirmation;
+        }
+
+        return FormAccessStatus::AlreadySubmitted;
     }
 
     /**
-     * Team and bundle flows (PRD §4.2 / §4.3) are not part of M4 single-registrant submit.
+     * Bundle registration (M4c) is not implemented yet — block non-admins.
      */
-    private static function requiresTeamOrBundleRegistrationFlow(Form $form): bool
+    private static function requiresUnsupportedBundleMode(Form $form): bool
     {
         $metadata = $form->metadata;
         if (! is_array($metadata)) {
@@ -147,6 +173,6 @@ final class FormAccessGuard
             return false;
         }
 
-        return in_array(strtolower($mode), ['team', 'bundle'], true);
+        return strtolower($mode) === 'bundle';
     }
 }

@@ -19,6 +19,8 @@ export function useFormFillPage(props: {
     submitUrl: string
     accessStatus: FormAccessStatus
     accessMessage: string
+    memberSlots: number
+    registrationMode: string
 }) {
     function metadata(field: IFormField): FormFieldMetadataBag {
         return readFieldMetadata(field)
@@ -74,12 +76,16 @@ export function useFormFillPage(props: {
                 title: 'This registration type is not available yet.',
                 body: fallback,
             },
+            pending_team_confirmation: {
+                title: 'Confirm your team invitation',
+                body: fallback,
+            },
             not_visible: { title: 'You do not have access to this form.', body: fallback },
         }
         return map[props.accessStatus]
     })
 
-    const initialValues: FormFillAnswerMap = {}
+    const initialValues: Record<string, FormFillAnswerValue | string[]> = {}
     for (const field of props.fields) {
         if (isDisplayOnly(field)) continue
         if (field.type === 'checkbox' || (field.type === 'select' && metadata(field).is_multiple)) {
@@ -91,7 +97,11 @@ export function useFormFillPage(props: {
         }
     }
 
-    const answerForm = useForm<FormFillAnswerMap>(initialValues)
+    if (props.memberSlots > 0) {
+        initialValues.team_member_emails = Array.from({ length: props.memberSlots }, () => '')
+    }
+
+    const answerForm = useForm(initialValues as Record<string, unknown>)
 
     function listFromCsv(value: unknown): string[] {
         return typeof value === 'string' ? value.split(',').map((item) => item.trim()).filter(Boolean) : []
@@ -203,6 +213,8 @@ export function useFormFillPage(props: {
         return (answerForm.errors as Record<string, string>)[name]
     }
 
+    const memberSlots = computed(() => props.memberSlots)
+
     return {
         answerForm,
         metadata,
@@ -212,6 +224,7 @@ export function useFormFillPage(props: {
         formHasDescription,
         isBlocked,
         blockCopy,
+        memberSlots,
         getOptionRows,
         getSelectedOptionRow,
         getInputSubtype,

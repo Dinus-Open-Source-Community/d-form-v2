@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\RegistrationRole;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,10 @@ class FormAnswer extends Model
         'answers',
         'form_id',
         'user_id',
+        'leader_form_answer_id',
+        'registration_role',
+        'status_confirmation_member',
+        'invitation_token',
         'review_status',
         'reviewed_at',
         'reviewed_by',
@@ -36,6 +41,8 @@ class FormAnswer extends Model
     {
         return [
             'answers' => 'array',
+            'registration_role' => RegistrationRole::class,
+            'status_confirmation_member' => 'boolean',
             'review_status' => FormAnswerReviewStatus::class,
             'reviewed_at' => 'datetime',
         ];
@@ -44,6 +51,19 @@ class FormAnswer extends Model
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function teamLeaderSubmission(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'leader_form_answer_id');
+    }
+
+    /**
+     * @return HasMany<FormAnswer, $this>
+     */
+    public function teamMemberSubmissions(): HasMany
+    {
+        return $this->hasMany(self::class, 'leader_form_answer_id');
     }
 
     public function user(): BelongsTo
