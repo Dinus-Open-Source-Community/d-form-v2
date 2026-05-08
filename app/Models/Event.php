@@ -78,6 +78,14 @@ class Event extends Model
     }
 
     /**
+     * @return HasMany<EventAttendance, $this>
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(EventAttendance::class);
+    }
+
+    /**
      * @param  mixed  $value
      * @param  string|null  $field
      * @return \Illuminate\Database\Eloquent\Model|null

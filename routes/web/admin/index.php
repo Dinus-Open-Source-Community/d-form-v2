@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Models\Event;
@@ -71,6 +72,7 @@ Route::middleware('auth')->prefix('/dashboard/user')->name('dashboard.user.')->g
 });
 
 Route::middleware('auth')->prefix('/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
-    Route::get('/scan', fn () => inertia('Dashboard/Events/Scan'))->name('scan');
+    Route::get('/scan', [AttendanceScanController::class, 'show'])->name('scan');
+    Route::post('/attendance-scan', [AttendanceScanController::class, 'store'])->name('attendance-scan.store');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

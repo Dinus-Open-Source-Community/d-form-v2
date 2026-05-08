@@ -12,13 +12,6 @@ export const SCAN_STATUS_THEME: Record<
     invalid: { icon: XCircle, class: 'text-destructive', bg: 'bg-destructive/10', label: 'QR tidak valid' },
 }
 
-export interface MockRegistrant {
-    id: string
-    name: string
-    email: string
-    qrTokens: string[]
-}
-
 export interface ScanEntry {
     id: string
     name: string
@@ -48,7 +41,8 @@ export function extractQrCandidate(decodedText: string): string {
 
     try {
         const parsed = JSON.parse(raw) as Record<string, unknown>
-        const candidate = parsed.token ?? parsed.code ?? parsed.qr ?? parsed.email ?? parsed.id
+        const candidate =
+            parsed.submission_id ?? parsed.token ?? parsed.code ?? parsed.qr ?? parsed.email ?? parsed.id
         if (typeof candidate === 'string' && candidate.trim().length > 0) {
             return candidate.trim()
         }
@@ -70,24 +64,3 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
         source: result.source,
     }
 }
-
-export const MOCK_REGISTRANTS: MockRegistrant[] = [
-    {
-        id: 'REG-001',
-        name: 'Ahmad Fauzi',
-        email: 'ahmad@student.dinus.ac.id',
-        qrTokens: ['REG-001', 'ahmad@student.dinus.ac.id', 'DOSCOM-2026-REG-001'],
-    },
-    {
-        id: 'REG-002',
-        name: 'Siti Nurhaliza',
-        email: 'siti@student.dinus.ac.id',
-        qrTokens: ['REG-002', 'siti@student.dinus.ac.id', 'DOSCOM-2026-REG-002'],
-    },
-    {
-        id: 'REG-003',
-        name: 'Dewi Lestari',
-        email: 'dewi@student.dinus.ac.id',
-        qrTokens: ['REG-003', 'dewi@student.dinus.ac.id', 'DOSCOM-2026-REG-003'],
-    },
-]

@@ -63,4 +63,12 @@ class FormAnswer extends Model
     {
         return $this->hasMany(EmailLog::class, 'form_answer_id');
     }
+
+    /**
+     * @return HasMany<EventAttendance, $this>
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(EventAttendance::class);
+    }
 }
