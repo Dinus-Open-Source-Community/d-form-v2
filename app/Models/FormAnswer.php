@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -71,6 +72,22 @@ class FormAnswer extends Model
             MemberConfirmationStatus::Rejected,
             MemberConfirmationStatus::Expired,
         ], true);
+    }
+
+    /**
+     * Omit teammate rows whose invitation ended without participating (participant portal summaries only).
+     */
+    public function scopeExcludeTerminatedInvitationMembers(Builder $query): Builder
+    {
+        return $query->where(static function (Builder $w): void {
+            $w->whereNull('registration_role')
+                ->orWhere('registration_role', '!=', RegistrationRole::Member->value)
+                ->orWhereNull('member_confirmation_status')
+                ->orWhereNotIn('member_confirmation_status', [
+                    MemberConfirmationStatus::Rejected->value,
+                    MemberConfirmationStatus::Expired->value,
+                ]);
+        });
     }
 
     public function form(): BelongsTo

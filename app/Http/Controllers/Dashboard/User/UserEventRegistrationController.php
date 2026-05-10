@@ -29,6 +29,7 @@ class UserEventRegistrationController extends Controller
             ->with(['form'])
             ->where('user_id', (string) $request->user()->id)
             ->whereHas('form', static fn ($q) => $q->where('event_id', $event->id))
+            ->excludeTerminatedInvitationMembers()
             ->orderByDesc('created_at')
             ->first();
 

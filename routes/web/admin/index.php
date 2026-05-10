@@ -74,10 +74,13 @@ Route::middleware(['auth', 'member_portal'])->prefix('/user/dashboard')->name('d
         $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
 
         $user = auth()->user();
-        $registration = \App\Models\FormAnswer::where('user_id', $user->id)
+        $registration = \App\Models\FormAnswer::query()
+            ->where('user_id', $user->id)
             ->whereHas('form', function ($q) use ($event) {
                 $q->where('event_id', $event->id);
             })
+            ->excludeTerminatedInvitationMembers()
+            ->orderByDesc('created_at')
             ->first();
 
         $qrBase64 = null;

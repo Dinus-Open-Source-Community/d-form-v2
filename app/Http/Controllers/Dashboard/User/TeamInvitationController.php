@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard\User;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Http\Controllers\Controller;
+use App\Jobs\DeleteDeclinedInvitationMemberSubmissionJob;
 use App\Jobs\SendInviteeInvitationDeclinedNoticeJob;
 use App\Jobs\SendRegistrationConfirmationJob;
 use App\Jobs\SendTeamInvitationLeaderNoticeJob;
@@ -16,6 +17,7 @@ use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -118,8 +120,11 @@ class TeamInvitationController extends Controller
 
             $answerId = (string) $answer->id;
             $declineReasonForEmail = $data['decline_reason'];
-            SendInviteeInvitationDeclinedNoticeJob::dispatch($answerId)->afterCommit();
-            SendTeamInvitationLeaderNoticeJob::dispatch($answerId, 'rejected', $declineReasonForEmail)->afterCommit();
+            Bus::chain([
+                new SendInviteeInvitationDeclinedNoticeJob($answerId),
+                new SendTeamInvitationLeaderNoticeJob($answerId, 'rejected', $declineReasonForEmail),
+                new DeleteDeclinedInvitationMemberSubmissionJob($answerId),
+            ])->dispatch();
 
             Inertia::flash('toast', [
                 'type' => 'success',
