@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
+use App\Enums\RegistrationRole;
 use App\Mail\RegistrationConfirmationMail;
 use App\Models\EmailLog;
 use App\Models\FormAnswer;
@@ -72,7 +73,11 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         }
 
         $answersSummary = $summarizer->summarize($submission);
-        $qrPng = $qrGenerator->pngForSubmission($submission->id);
+
+        $isTeamOrBundleLeader = $submission->registration_role === RegistrationRole::Leader;
+        $qrPng = $isTeamOrBundleLeader
+            ? null
+            : $qrGenerator->pngForSubmission($submission->id);
 
         try {
             $this->applyOutgoingEmailJitter();

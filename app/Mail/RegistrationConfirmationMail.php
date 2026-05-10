@@ -15,12 +15,14 @@ class RegistrationConfirmationMail extends Mailable
 
     /**
      * @param  array<string, string>  $answersSummary  Label => display value
+     * @param  string|null  $qrPngBinary  Omit for team/bundle leaders until an admin accepts the submission
      */
     public function __construct(
         public FormAnswer $submission,
         public array $answersSummary,
-        public string $qrPngBinary,
+        public ?string $qrPngBinary = null,
     ) {
+        $this->submission->loadMissing(['form.event', 'user']);
     }
 
     public function envelope(): Envelope
@@ -34,6 +36,8 @@ class RegistrationConfirmationMail extends Mailable
 
     public function content(): Content
     {
+        $showAttendanceQr = $this->qrPngBinary !== null && $this->qrPngBinary !== '';
+
         return new Content(
             html: 'mail.registration-confirmation',
             text: 'mail.registration-confirmation-text',
@@ -43,7 +47,8 @@ class RegistrationConfirmationMail extends Mailable
                 'form' => $this->submission->form,
                 'user' => $this->submission->user,
                 'answersSummary' => $this->answersSummary,
-                'qrBase64' => base64_encode($this->qrPngBinary),
+                'showAttendanceQr' => $showAttendanceQr,
+                'qrBase64' => $showAttendanceQr ? base64_encode($this->qrPngBinary) : null,
                 'registrationDetailsUrl' => RegistrationPortalLinks::registrationDetailsUrl($this->submission->form->event),
             ],
         );

@@ -759,7 +759,10 @@ class FormRegistrationTest extends TestCase
         $this->assertSame(MemberConfirmationStatus::Pending, $memberRow->member_confirmation_status);
         $this->assertNotNull($memberRow->invitation_token);
 
-        Mail::assertSent(RegistrationConfirmationMail::class, 1);
+        Mail::assertSent(RegistrationConfirmationMail::class, function (RegistrationConfirmationMail $mail) use ($leaderRow): bool {
+            return (string) $mail->submission->id === (string) $leaderRow->id
+                && $mail->qrPngBinary === null;
+        });
         Mail::assertSent(TeamInvitationMail::class, function (TeamInvitationMail $mail) use ($memberRow): bool {
             return (string) $mail->memberSubmission->id === (string) $memberRow->id;
         });
@@ -994,7 +997,16 @@ class FormRegistrationTest extends TestCase
         $this->assertSame('Lead Person', $leaderRow->answers['full_name'] ?? null);
         $this->assertSame('Second Person', $memberRow->answers['full_name'] ?? null);
 
+        Mail::assertSent(RegistrationConfirmationMail::class, function (RegistrationConfirmationMail $mail) use ($leaderRow): bool {
+            return (string) $mail->submission->id === (string) $leaderRow->id
+                && $mail->qrPngBinary === null;
+        });
         Mail::assertSent(TeamInvitationMail::class, 1);
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $leaderRow->id,
+            'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
+        ]);
     }
 
     public function test_expired_invitation_returns_403_and_marks_expired(): void
