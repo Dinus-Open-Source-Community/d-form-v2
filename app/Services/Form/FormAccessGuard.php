@@ -100,17 +100,24 @@ final class FormAccessGuard
             return true;
         }
 
-        $values = $visibleFor->map(fn (EventFormVisibility $v) => $v->value)->all();
+        $values = $visibleFor->map(fn (EventFormVisibility $v) => $v->value)->values()->all();
+        $isOrganizer = $user->can('events.list');
 
-        if (in_array(EventFormVisibility::Public->value, $values, true)) {
+        $hasPublic      = in_array(EventFormVisibility::Public->value, $values, true);
+        $hasParticipant = in_array(EventFormVisibility::Participant->value, $values, true);
+        $hasAdmin       = in_array(EventFormVisibility::Admin->value, $values, true);
+
+        if ($hasPublic) {
             return true;
         }
 
-        if (in_array(EventFormVisibility::Participant->value, $values, true)) {
+        // Participant-only (no Admin flag): any logged-in dashboard user.
+        // If Admin is also selected, "participant" alone must not open access — organizers use the Admin rule below.
+        if ($hasParticipant && ! $hasAdmin) {
             return true;
         }
 
-        return false;
+        return $hasAdmin && $isOrganizer;
     }
 
     private static function isFormClosed(Form $form): bool

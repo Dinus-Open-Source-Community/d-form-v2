@@ -65,6 +65,7 @@ class FormRegistrationTest extends TestCase
     private function openEvent(array $overrides = []): Event
     {
         return Event::factory()->create(array_merge([
+            'status' => EventStatus::Published,
             'registration_start' => now()->subDays(7),
             'registration_end'   => now()->addDays(30),
             'quota'              => 100,
@@ -349,6 +350,26 @@ class FormRegistrationTest extends TestCase
                      fn ($page) => $page
                      ->where('accessStatus', 'not_visible')
                  );
+    }
+
+    public function test_fill_returns_not_visible_when_admin_and_participant_selected_member(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'visible_for' => [
+                EventFormVisibility::Participant->value,
+                EventFormVisibility::Admin->value,
+            ],
+        ]);
+
+        $response = $this->actingAs($member)->get($this->fillPath($event, $form));
+
+        $response->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                ->where('accessStatus', 'not_visible')
+            );
     }
 
     public function test_admin_can_fill_admin_only_form(): void
@@ -1012,6 +1033,8 @@ class FormRegistrationTest extends TestCase
             'answers' => ['full_name' => 'Member'],
         ]);
 
+        $memberRowId = (string) $row->id;
+
         $this->actingAs($member)
             ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
                 'invitation_decision' => 'reject',
@@ -1019,23 +1042,32 @@ class FormRegistrationTest extends TestCase
             ])
             ->assertRedirect(route('dashboard.user.events.show', ['event_segment' => $event->slug], false));
 
-        $row->refresh();
-        $this->assertSame(MemberConfirmationStatus::Rejected, $row->member_confirmation_status);
+        $this->assertDatabaseMissing('form_answers', ['id' => $memberRowId]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('isRegistered', false)
+                    ->where('registrationStatus', null)
+            );
 
         Mail::assertSent(RegistrationRejectedMail::class, 2);
-        Mail::assertSent(RegistrationRejectedMail::class, function (RegistrationRejectedMail $mail) use ($row, $member) {
+        Mail::assertSent(RegistrationRejectedMail::class, function (RegistrationRejectedMail $mail) use ($memberRowId, $member) {
             return $mail->forInvitationSelfDeclined
                 && ! $mail->forTeammateDeclinedLeaderNotice
-                && (string) $mail->submission->id === (string) $row->id
+                && (string) $mail->submission->id === $memberRowId
                 && $mail->greetingUser === null
                 && (string) $mail->submission->user_id === (string) $member->id;
         });
-        Mail::assertSent(RegistrationRejectedMail::class, function (RegistrationRejectedMail $mail) use ($row, $leaderUser) {
+        Mail::assertSent(RegistrationRejectedMail::class, function (RegistrationRejectedMail $mail) use ($memberRowId, $leaderUser) {
             if (! $mail->forTeammateDeclinedLeaderNotice
                 || $mail->forInvitationSelfDeclined
                 || $mail->greetingUser === null
                 || (string) $mail->greetingUser->id !== (string) $leaderUser->id
-                || (string) $mail->submission->id !== (string) $row->id) {
+                || (string) $mail->submission->id !== $memberRowId) {
                 return false;
             }
             $rendered = $mail->render();

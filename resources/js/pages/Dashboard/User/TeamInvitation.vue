@@ -13,6 +13,7 @@ import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata'
 import { getFormFieldOptionRows, formFieldBuilderType } from '@/lib/formFieldOptions'
 import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CheckCircle2, Send, Users } from 'lucide-vue-next'
 
@@ -57,6 +58,7 @@ function initialFormState(): Record<string, unknown> {
 const confirmForm = useForm(initialFormState())
 
 const declineDialogOpen = ref(false)
+const acceptConfirmOpen = ref(false)
 
 function onCheckboxToggle(fieldName: string, option: string, checked: boolean) {
     const current = Array.isArray(confirmForm[fieldName]) ? (confirmForm[fieldName] as string[]) : []
@@ -295,13 +297,22 @@ function submitDeclineFromDialog() {
                 <Button type="button" variant="outline" size="lg" :disabled="confirmForm.processing" @click="openDeclineDialog">
                     Decline
                 </Button>
-                <Button type="button" size="lg" class="gap-2" :disabled="confirmForm.processing" @click="submitConfirm">
+                <Button type="button" size="lg" class="gap-2" :disabled="confirmForm.processing" @click="acceptConfirmOpen = true">
                     
                     Accept invitation
                 </Button>
             </div>
             </div>
         </template>
+        <ConfirmationModal
+            v-model:open="acceptConfirmOpen"
+            title="Accept this invitation?"
+            description="Your answers will be submitted to the team leader and you will join this registration. Continue?"
+            confirm-text="Accept and submit"
+            :loading="confirmForm.processing"
+            @confirm="submitConfirm"
+        />
+
         <Dialog v-model:open="declineDialogOpen">
             <DialogContent class="max-w-lg gap-4 sm:max-w-lg" @pointer-down-outside="(e) => declineForm.processing && e.preventDefault()">
                 <DialogHeader>

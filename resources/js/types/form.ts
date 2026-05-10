@@ -95,17 +95,15 @@ export function parseFormRegistrationMetadata(raw: unknown): FormRegistrationMet
     }
 }
 
-/** Server accepts `metadata` null or object; omit empty objects if preferred. */
-export function toFormMetadataPayload(m: FormRegistrationMetadata): Record<string, unknown> | null {
-    const out: Record<string, unknown> = {}
-    if (m.registration_mode != null) {
-        out.registration_mode = m.registration_mode
+/**
+ * Always send all registration keys so create/update round-trip reliably
+ * (Inertia may omit nulls; partial objects used to wipe unrelated metadata).
+ */
+export function toFormMetadataPayload(m: FormRegistrationMetadata): Record<string, unknown> {
+    return {
+        registration_mode: m.registration_mode ?? null,
+        max_team_size:
+            m.max_team_size != null && !Number.isNaN(Number(m.max_team_size)) ? Number(m.max_team_size) : null,
+        team_size: m.team_size != null && !Number.isNaN(Number(m.team_size)) ? Number(m.team_size) : null,
     }
-    if (m.max_team_size != null && !Number.isNaN(m.max_team_size)) {
-        out.max_team_size = m.max_team_size
-    }
-    if (m.team_size != null && !Number.isNaN(m.team_size)) {
-        out.team_size = m.team_size
-    }
-    return Object.keys(out).length ? out : null
 }
