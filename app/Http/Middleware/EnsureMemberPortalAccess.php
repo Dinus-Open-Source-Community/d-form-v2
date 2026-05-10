@@ -7,8 +7,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Portal /dashboard/user/* — untuk peran member (dan super-admin bila perlu QA).
- * Akun organizer tanpa peran member diarahkan ke dasbor utama.
+ * Portal /user/dashboard/* — peserta; penyelenggara murni diarahkan ke /admin/dashboard.
+ * Akun yang hanya penyelenggara (punya events.list, tanpa peran member/super-admin)
+ * diarahkan ke dasbor utama agar tidak campur alur admin.
  */
 class EnsureMemberPortalAccess
 {
@@ -22,10 +23,6 @@ class EnsureMemberPortalAccess
 
         if ($user->can('events.list') && ! $user->hasAnyRole(['member', 'super-admin'])) {
             return redirect()->route('dashboard.home');
-        }
-
-        if (! $user->hasAnyRole(['member', 'super-admin'])) {
-            abort(403);
         }
 
         return $next($request);

@@ -25,7 +25,7 @@ defineProps<{
                 <Link :href="primaryActionHref">{{ primaryActionLabel ?? 'Continue' }}</Link>
             </Button>
             <Button variant="outline" size="lg" :class="primaryActionHref ? 'mt-2' : 'mt-6'" as-child>
-                <Link :href="`/dashboard/events/${eventId}`">View event</Link>
+                <Link :href="`/user/dashboard/events/${eventId}`">View event</Link>
             </Button>
         </CardContent>
     </Card>

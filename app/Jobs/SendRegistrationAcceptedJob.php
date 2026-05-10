@@ -20,7 +20,8 @@ class SendRegistrationAcceptedJob implements ShouldQueue
 
     public function __construct(
         public string $formAnswerId,
-    ) {}
+    ) {
+    }
 
     public function handle(RegistrationQrPngGenerator $qrGenerator): void
     {

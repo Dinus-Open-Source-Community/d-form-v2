@@ -30,7 +30,7 @@ function startDelete(form: IForm) {
 function confirmDelete() {
     if (!deleteTarget.value) return
     const id = deleteTarget.value.id
-    router.delete(`/dashboard/events/${props.event.id}/forms/${id}`, {
+    router.delete(`/admin/dashboard/events/${props.event.id}/forms/${id}`, {
         preserveScroll: true,
         onSuccess: () => {
             toast.success('Form deleted.')
@@ -48,7 +48,7 @@ function confirmDelete() {
         <PageHeader title="Forms" :subtitle="`Manage forms for ${event.title}.`">
             <template #actions>
                 <Button as-child>
-                    <Link :href="`/dashboard/events/${event.id}/forms/create`">
+                    <Link :href="`/admin/dashboard/events/${event.id}/forms/create`">
                         <Plus class="mr-1.5 size-4" />
                         Create Form
                     </Link>
@@ -89,14 +89,14 @@ function confirmDelete() {
                         <div class="flex gap-1">
                             <Button variant="ghost" size="icon" class="size-7 text-primary hover:text-primary" as-child>
                                 <Link
-                                    :href="`/dashboard/events/${event.id}/forms/${form.id}/submissions`"
+                                    :href="`/admin/dashboard/events/${event.id}/forms/${form.id}/submissions`"
                                     title="Submissions"
                                 >
                                     <Inbox class="size-3.5" />
                                 </Link>
                             </Button>
                             <Button variant="ghost" size="icon" class="size-7" as-child>
-                                <Link :href="`/dashboard/events/${event.id}/forms/${form.id}`" title="Edit form">
+                                <Link :href="`/admin/dashboard/events/${event.id}/forms/${form.id}`" title="Edit form">
                                     <Pencil class="size-3.5" />
                                 </Link>
                             </Button>
@@ -121,7 +121,7 @@ function confirmDelete() {
             animation-name="errorState"
         >
             <Button as-child>
-                <Link :href="`/dashboard/events/${event.id}/forms/create`"
+                <Link :href="`/admin/dashboard/events/${event.id}/forms/create`"
                     ><Plus class="mr-1.5 size-4" />Create Form</Link
                 >
             </Button>

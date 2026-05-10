@@ -36,10 +36,10 @@ defineEmits<{
                     <Link :href="editEvent.url(event.id)"><Pencil class="mr-2 size-4" />Edit details</Link>
                 </Button>
                 <Button variant="outline" class="w-full justify-start rounded-xl" as-child>
-                    <Link :href="`/dashboard/events/${event.id}/scan`"><QrCode class="mr-2 size-4" />Check-in scanner</Link>
+                    <Link :href="`/admin/dashboard/events/${event.id}/scan`"><QrCode class="mr-2 size-4" />Check-in scanner</Link>
                 </Button>
                 <Button variant="outline" class="w-full justify-start rounded-xl" as-child>
-                    <Link :href="`/dashboard/events/${event.id}/registrants`"><Users class="mr-2 size-4" />Manage registrants</Link>
+                    <Link :href="`/admin/dashboard/events/${event.id}/registrants`"><Users class="mr-2 size-4" />Manage registrants</Link>
                 </Button>
             </CardContent>
         </Card>
@@ -90,13 +90,13 @@ defineEmits<{
             </CardHeader>
             <CardContent class="flex flex-col gap-2 pt-0">
                 <Button variant="outline" size="sm" class="w-full justify-start rounded-xl" as-child>
-                    <Link :href="`/dashboard/events/${event.id}/forms`"><FileText class="mr-2 size-4" />Manage forms</Link>
+                    <Link :href="`/admin/dashboard/events/${event.id}/forms`"><FileText class="mr-2 size-4" />Manage forms</Link>
                 </Button>
                 <div v-if="forms.length > 0" class="mt-1 flex flex-col gap-1">
                     <Link
                         v-for="form in forms"
                         :key="form.id"
-                        :href="`/dashboard/events/${event.id}/forms/${form.id}`"
+                        :href="`/admin/dashboard/events/${event.id}/forms/${form.id}`"
                         class="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-xs transition-colors hover:bg-muted/50"
                     >
                         <FileText class="size-3.5 shrink-0 text-muted-foreground" />

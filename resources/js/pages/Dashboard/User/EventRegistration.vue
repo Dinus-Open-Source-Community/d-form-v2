@@ -36,7 +36,7 @@ const statusLabels: Record<(typeof props.registration)['review_status'], string>
         <PageHeader
             title="Your registration"
             :subtitle="props.event.title"
-            :back-href="`/dashboard/user/events/${props.event.slug}`"
+            :back-href="`/user/dashboard/events/${props.event.slug}`"
         />
 
         <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -135,7 +135,7 @@ const statusLabels: Record<(typeof props.registration)['review_status'], string>
 
         <div class="flex justify-center pb-4">
             <Link
-                :href="`/dashboard/user/events/${props.event.slug}`"
+                :href="`/user/dashboard/events/${props.event.slug}`"
                 class="text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
                 Back to event details

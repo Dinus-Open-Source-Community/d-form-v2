@@ -109,7 +109,7 @@ watch(
 )
 
 const submissionsHref = computed(
-    () => `/dashboard/events/${props.event.id}/forms/${props.form.id}/submissions`,
+    () => `/admin/dashboard/events/${props.event.id}/forms/${props.form.id}/submissions`,
 )
 
 function onSave(): void {

@@ -6,8 +6,8 @@ use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
+use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
 use App\Models\Event;
-use App\Models\Form;
 use App\Services\Event\EventService;
 use App\Services\Event\UserPortalEventResolver;
 use App\Services\Registration\RegistrationQrPngGenerator;
@@ -17,20 +17,31 @@ use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportContro
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
-use Inertia\Inertia;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
 
-Route::middleware('auth')->get('/dashboard', DashboardHomeController::class)->name('dashboard.home');
+/** Bekas /dashboard — arahkan ke area yang sesuai peran. */
+Route::middleware('auth')->get('/dashboard', function () {
+    return auth()->user()->can('events.list')
+        ? redirect()->route('dashboard.home')
+        : redirect()->route('dashboard.user.events');
+});
 
-Route::middleware(['auth', 'organizer'])->get('/dashboard/reports', EventReportingController::class)->name('dashboard.reports.index');
+Route::permanentRedirect('/dashboard/user/events', '/user/dashboard');
 
 Route::middleware('auth')->get('/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
 Route::middleware(['auth', 'throttle:10,1'])->patch('/dashboard/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
 Route::middleware(['auth', 'throttle:10,1'])->put('/dashboard/profile/password', [ProfileController::class, 'updatePassword'])->name('dashboard.profile.password.update');
+Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard')->group(function () {
+    Route::get('/', DashboardHomeController::class)->name('dashboard.home');
+    Route::get('/reports', EventReportingController::class)->name('dashboard.reports.index');
+    Route::get('/recruitment', fn () => inertia('Dashboard/Recruitment/Index'))->name('dashboard.recruitment.index');
+});
 
-Route::middleware(['auth', 'member_portal'])->prefix('/dashboard/user')->name('dashboard.user.')->group(function () {
-    Route::get('/events', function (EventService $eventService) {
+Route::middleware('auth')->get('/user/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
+
+Route::middleware(['auth', 'member_portal'])->prefix('/user/dashboard')->name('dashboard.user.')->group(function () {
+    Route::get('/', function (EventService $eventService) {
         $events = Event::query()
             ->where('status', EventStatus::Published)
             ->orderByDesc('start_date')
@@ -52,22 +63,8 @@ Route::middleware(['auth', 'member_portal'])->prefix('/dashboard/user')->name('d
     Route::post('/team-invitations/{token}', [TeamInvitationController::class, 'update'])
         ->name('team-invitations.update');
 
-    Route::get('/events/{event_segment}/register', function (string $event_segment) {
-        $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
-
-        $form = Form::query()->where('event_id', $event->id)->orderBy('title')->first();
-
-        if ($form === null) {
-            Inertia::flash('toast', [
-                'type' => 'error',
-                'message' => 'No registration form has been published for this event yet.',
-            ]);
-
-            return redirect()->route('dashboard.user.events.show', ['event_segment' => $event->slug ?? $event->getKey()]);
-        }
-
-        return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
-    })->name('events.register');
+    Route::get('/events/{event_segment}/register', UserEventRegistrationFormPickerController::class)
+        ->name('events.register');
 
     Route::get('/events/{event_segment}', function (
         string $event_segment,
@@ -101,7 +98,7 @@ Route::middleware(['auth', 'member_portal'])->prefix('/dashboard/user')->name('d
     })->name('events.show');
 });
 
-Route::middleware(['auth', 'organizer'])->prefix('/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
+Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
     Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
     Route::get('/scan', [AttendanceScanController::class, 'show'])->name('scan');

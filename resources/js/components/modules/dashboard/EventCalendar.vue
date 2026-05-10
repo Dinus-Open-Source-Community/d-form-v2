@@ -404,7 +404,7 @@ const legendEntries = computed(() =>
                     <span>{{ selectedEvent.location }}</span>
                 </div>
                 <Button variant="default" size="sm" class="mt-2 w-full rounded-xl" as-child>
-                    <Link :href="`/dashboard/events/${selectedEvent.id}`" class="inline-flex items-center justify-center gap-2">
+                    <Link :href="`/admin/dashboard/events/${selectedEvent.id}`" class="inline-flex items-center justify-center gap-2">
                         Buka detail acara
                         <ArrowRight class="size-3.5" />
                     </Link>

@@ -9,7 +9,7 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 
-Route::name('dashboard.')->prefix('/dashboard')->middleware('auth')->group(function () {
+Route::name('dashboard.')->prefix('/user/dashboard')->middleware('auth')->group(function () {
     Route::get('/events/{event}/forms/{form}/fill', FormFillController::class)
         ->name('events.forms.fill');
 
@@ -17,7 +17,7 @@ Route::name('dashboard.')->prefix('/dashboard')->middleware('auth')->group(funct
         ->name('forms.submission');
 });
 
-Route::name('dashboard.')->prefix('/dashboard')->middleware(['auth', 'organizer'])->group(function () {
+Route::name('dashboard.')->prefix('/admin/dashboard')->middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/{event}/registration-status', [EventController::class, 'registrationStatus'])
         ->name('events.registration-status');
 
@@ -55,21 +55,3 @@ Route::name('dashboard.')->prefix('/dashboard')->middleware(['auth', 'organizer'
     Route::patch('/events/{event}/forms/{form}/submissions/{formAnswer}/review', FormAnswerReviewController::class)
         ->name('events.forms.submissions.review');
 });
-
-// Route::name('dashboard.')->prefix('/dashboard')->middleware('auth')->group(function () {
-//     Route::get('/events/{event}/registration-status', [EventController::class, 'registrationStatus'])
-//         ->name('events.registration-status');
-
-//     Route::post('/events/{event}/restore', [EventController::class, 'restore'])
-//         ->name('events.restore');
-
-//     Route::resource('/events', EventController::class)->only([
-//         'index',
-//         'create',
-//         'store',
-//         'show',
-//         'edit',
-//         'update',
-//         'destroy',
-//     ]);
-// });

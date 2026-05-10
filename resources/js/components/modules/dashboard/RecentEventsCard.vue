@@ -22,8 +22,8 @@ const recentEvents = computed(() =>
         .slice(0, 4),
 )
 
-const allHref = computed(() => props.viewAllHref ?? '/dashboard/events')
-const baseHref = computed(() => props.eventBaseHref ?? '/dashboard/events')
+const allHref = computed(() => props.viewAllHref ?? '/admin/dashboard/events')
+const baseHref = computed(() => props.eventBaseHref ?? '/admin/dashboard/events')
 </script>
 
 <template>

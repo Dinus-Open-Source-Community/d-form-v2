@@ -12,4 +12,3 @@ class FormAnswerPolicy
         return $user->can('events.view');
     }
 }
-

@@ -76,7 +76,7 @@ const initials = computed(() =>
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button variant="ghost" size="icon-sm" as-child aria-label="Profile">
-                        <Link href="/dashboard/profile">
+                        <Link href="/user/dashboard/profile">
                             <Settings class="size-4" />
                         </Link>
                     </Button>
@@ -121,7 +121,7 @@ const initials = computed(() =>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem as-child>
-                        <Link href="/dashboard/profile" class="flex w-full items-center">
+                        <Link href="/user/dashboard/profile" class="flex w-full items-center">
                             <UserIcon class="mr-2 size-4" />Profile
                         </Link>
                     </DropdownMenuItem>

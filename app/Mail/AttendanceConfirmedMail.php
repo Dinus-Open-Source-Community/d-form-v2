@@ -16,7 +16,8 @@ class AttendanceConfirmedMail extends Mailable
     public function __construct(
         public FormAnswer $submission,
         public EventAttendance $attendance,
-    ) {}
+    ) {
+    }
 
     public function envelope(): Envelope
     {

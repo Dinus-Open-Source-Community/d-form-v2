@@ -43,7 +43,7 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
             <PageHeader
                 :title="`Pengiriman formulir`"
                 :subtitle="`${event.title} · ${form.title}`"
-                :back-href="`/dashboard/events/${event.id}/forms/${form.id}`"
+                :back-href="`/admin/dashboard/events/${event.id}/forms/${form.id}`"
             >
                 <template #actions>
                     <Button variant="outline" size="sm" class="h-11 w-full justify-center rounded-xl md:h-9 md:w-auto md:rounded-md">

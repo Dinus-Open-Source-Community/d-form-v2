@@ -15,7 +15,7 @@ const columns = [
         items: [
             { label: 'Masuk', href: '/auth/login' },
             { label: 'Buat akun', href: '/auth/register' },
-            { label: 'Dasbor', href: '/dashboard' },
+            { label: 'Dasbor', href: '/user/dashboard' },
         ],
     },
 ]

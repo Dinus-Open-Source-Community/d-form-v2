@@ -35,11 +35,6 @@ function builderType(field: IFormField): string {
     return field.type
 }
 
-function isDisplayOnly(field: IFormField): boolean {
-    const bt = builderType(field)
-    return ['heading', 'paragraph', 'divider', 'banner'].includes(bt)
-}
-
 const appendableFields = computed(() => props.fields.filter((f) => f.is_append))
 
 function initialFormState(): Record<string, unknown> {
@@ -124,7 +119,7 @@ function submitReject() {
                 <CheckCircle2 class="size-10 text-success" />
                 <p class="font-medium text-foreground">You have already confirmed this team registration.</p>
                 <Button variant="outline" as-child class="mt-2">
-                    <a :href="`/dashboard/user/events/${event.slug}`">Back to event</a>
+                    <a :href="`/user/dashboard/events/${event.slug}`">Back to event</a>
                 </Button>
             </CardContent>
         </Card>

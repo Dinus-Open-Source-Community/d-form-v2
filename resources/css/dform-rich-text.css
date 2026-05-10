@@ -1,0 +1,307 @@
+/**
+ * DForm — konten HTML dari TipTap (panel admin + halaman baca pengguna).
+ * Spesifisitas disengaja agar aman di dalam v-html; !important hanya untuk
+ * perapihan di atas inline browser/TipTap (mis. highlight, radius mark).
+ */
+
+.dform-rich-text {
+    font-size: 0.9375rem;
+    line-height: 1.72;
+    color: var(--foreground);
+    font-weight: 400;
+}
+
+.dform-rich-text > *:first-child {
+    margin-top: 0 !important;
+}
+
+.dform-rich-text > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Paragraf & alignment (TipTap menyematkan text-align pada blok) */
+.dform-rich-text p {
+    margin-top: 0.9rem;
+    margin-bottom: 0.9rem;
+}
+
+.dform-rich-text p[style*='text-align: left'],
+.dform-rich-text h1[style*='text-align: left'],
+.dform-rich-text h2[style*='text-align: left'],
+.dform-rich-text h3[style*='text-align: left'] {
+    text-align: left !important;
+}
+
+.dform-rich-text p[style*='text-align: center'],
+.dform-rich-text h1[style*='text-align: center'],
+.dform-rich-text h2[style*='text-align: center'],
+.dform-rich-text h3[style*='text-align: center'] {
+    text-align: center !important;
+}
+
+.dform-rich-text p[style*='text-align: right'],
+.dform-rich-text h1[style*='text-align: right'],
+.dform-rich-text h2[style*='text-align: right'],
+.dform-rich-text h3[style*='text-align: right'] {
+    text-align: right !important;
+}
+
+.dform-rich-text p[style*='text-align: justify'] {
+    text-align: justify !important;
+}
+
+/* Judul */
+.dform-rich-text h1,
+.dform-rich-text h2,
+.dform-rich-text h3 {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    color: var(--foreground);
+    margin-top: 1.65rem;
+    margin-bottom: 0.6rem;
+}
+
+.dform-rich-text h1 {
+    font-size: 1.625rem;
+}
+
+.dform-rich-text h2 {
+    font-size: 1.3125rem;
+}
+
+.dform-rich-text h3 {
+    font-size: 1.125rem;
+    font-weight: 650;
+}
+
+/* Bold / semibold dari editor */
+.dform-rich-text strong,
+.dform-rich-text b {
+    font-weight: 700 !important;
+    color: var(--foreground);
+    letter-spacing: -0.015em;
+}
+
+/* Italic */
+.dform-rich-text em,
+.dform-rich-text i {
+    font-style: italic !important;
+    color: color-mix(in oklab, var(--foreground) 92%, var(--muted-foreground));
+}
+
+/* Underline & strikethrough (TipTap: u, s, strike, del) */
+.dform-rich-text u {
+    text-decoration: underline !important;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+    text-decoration-color: color-mix(in oklab, var(--primary) 55%, transparent);
+}
+
+.dform-rich-text s,
+.dform-rich-text strike,
+.dform-rich-text del {
+    text-decoration: line-through !important;
+    text-decoration-thickness: 1px;
+    color: var(--muted-foreground);
+}
+
+/* Kode inline */
+.dform-rich-text code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.84em;
+    font-weight: 500;
+    padding: 0.12em 0.4em;
+    border-radius: 0.35rem;
+    background-color: color-mix(in oklab, var(--muted) 88%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
+    color: var(--foreground);
+}
+
+/* Blok kode */
+.dform-rich-text pre {
+    margin: 1.1rem 0;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-lg);
+    background: color-mix(in oklab, var(--muted) 75%, var(--card));
+    border: 1px solid var(--border);
+    overflow-x: auto;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+}
+
+.dform-rich-text pre code {
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: inherit;
+    font-weight: 400;
+    color: inherit;
+}
+
+/* Blockquote */
+.dform-rich-text blockquote {
+    margin: 1.15rem 0;
+    padding: 0.75rem 0 0.75rem 1rem;
+    border-left: 4px solid color-mix(in oklab, var(--primary) 65%, transparent);
+    background: color-mix(in oklab, var(--muted) 35%, transparent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: color-mix(in oklab, var(--foreground) 88%, var(--muted-foreground));
+    font-style: italic;
+}
+
+.dform-rich-text blockquote p {
+    margin: 0.35rem 0;
+}
+
+/* Daftar */
+.dform-rich-text ul,
+.dform-rich-text ol {
+    margin: 0.85rem 0;
+    padding-left: 1.35rem;
+}
+
+.dform-rich-text ul {
+    list-style-type: disc;
+}
+
+.dform-rich-text ol {
+    list-style-type: decimal;
+}
+
+.dform-rich-text li {
+    margin: 0.35rem 0;
+    padding-left: 0.25rem;
+}
+
+.dform-rich-text li::marker {
+    color: color-mix(in oklab, var(--primary) 70%, var(--muted-foreground));
+    font-weight: 600;
+}
+
+.dform-rich-text li > p {
+    margin: 0.25rem 0;
+}
+
+/* Nested list spacing */
+.dform-rich-text ul ul,
+.dform-rich-text ol ol,
+.dform-rich-text ul ol,
+.dform-rich-text ol ul {
+    margin: 0.35rem 0;
+}
+
+/* Tautan */
+.dform-rich-text a {
+    color: var(--primary) !important;
+    font-weight: 550;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+    text-underline-offset: 3px;
+    transition:
+        color 0.15s ease,
+        text-decoration-color 0.15s ease;
+}
+
+.dform-rich-text a:hover {
+    color: color-mix(in oklab, var(--primary) 82%, var(--foreground)) !important;
+    text-decoration-color: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+/* Gambar */
+.dform-rich-text img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+    margin: 1rem 0;
+    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+    box-shadow: 0 4px 24px -8px color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+/* Highlight / mark (TipTap sering beri style inline background) */
+.dform-rich-text mark {
+    border-radius: 0.28rem !important;
+    padding: 0.06em 0.32em !important;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* Garis pemisah */
+.dform-rich-text hr {
+    margin: 1.75rem 0;
+    border: 0;
+    border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+
+/* Tabel */
+.dform-rich-text table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.15rem 0;
+    font-size: 0.875rem;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.dform-rich-text table th,
+.dform-rich-text table td {
+    border: 1px solid var(--border);
+    padding: 0.55rem 0.75rem;
+    vertical-align: top;
+    min-width: 5rem;
+}
+
+.dform-rich-text table th {
+    background-color: color-mix(in oklab, var(--muted) 65%, var(--card));
+    font-weight: 650;
+    text-align: left;
+    color: var(--foreground);
+}
+
+.dform-rich-text table tr:nth-child(even) td {
+    background-color: color-mix(in oklab, var(--muted) 22%, transparent);
+}
+
+/* TipTap Typography (opsional): superscript / subscript */
+.dform-rich-text sup {
+    font-size: 0.7em;
+    vertical-align: super;
+    font-weight: 600;
+}
+
+.dform-rich-text sub {
+    font-size: 0.7em;
+    vertical-align: sub;
+}
+
+/* Warna teks inline (TipTap TextStyle + Color — biasanya inline style pada span) */
+.dform-rich-text span[style*='color'] {
+    font-weight: inherit;
+}
+
+/* ——— Area editor TipTap ——— */
+.dform-tiptap-editor.dform-rich-text:focus,
+.dform-tiptap-editor.ProseMirror:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.dform-tiptap-editor.dform-rich-text.ProseMirror {
+    min-height: 300px;
+}
+
+/* Placeholder TipTap */
+.dform-tiptap-editor p.is-editor-empty:first-child::before {
+    color: var(--muted-foreground);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+}
+
+/* Kolom tertangkap resize TipTap */
+.dform-tiptap-editor .column-resize-handle {
+    background-color: color-mix(in oklab, var(--primary) 45%, transparent);
+}

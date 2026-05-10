@@ -158,9 +158,9 @@ class OAuthController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        $default = $user->hasRole('member') && ! $user->hasAnyRole(['admin', 'super-admin'])
-            ? route('dashboard.user.events', absolute: false)
-            : '/dashboard';
+        $default = $user->can('events.list')
+            ? route('dashboard.home', absolute: false)
+            : route('dashboard.user.events', absolute: false);
 
         return redirect()->intended($default);
     }

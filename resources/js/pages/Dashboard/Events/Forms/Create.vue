@@ -54,7 +54,7 @@ function onSave(): void {
     createForm.fields = toBackendFields(merged) as object[]
 
     isSaving.value = true
-    createForm.post(`/dashboard/events/${props.event.id}/forms`, {
+    createForm.post(`/admin/dashboard/events/${props.event.id}/forms`, {
         forceFormData: true,
         onSuccess: () => toast.success('Form created successfully!'),
         onError: (err) => {

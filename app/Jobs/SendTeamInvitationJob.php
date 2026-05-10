@@ -18,7 +18,8 @@ class SendTeamInvitationJob implements ShouldQueue
 
     public function __construct(
         public string $formAnswerId,
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {

@@ -19,7 +19,7 @@ import { BarChart3, Users, ClipboardList, ScanLine, Download } from 'lucide-vue-
 
 defineOptions({ layout: DashboardLayout })
 
-const props = defineProps<{
+defineProps<{
     globalSummary: {
         total_events: number
         total_submissions: number
@@ -57,7 +57,7 @@ const props = defineProps<{
 function onEventChange(e: Event) {
     const el = e.target as HTMLSelectElement
     const id = el.value
-    router.get('/dashboard/reports', id ? { event: id } : {}, {
+    router.get('/admin/dashboard/reports', id ? { event: id } : {}, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -203,7 +203,7 @@ function formatDt(iso: string) {
 
         <p v-else class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
             Choose an event above to load attendance audit data and CSV export links.
-            <Link href="/dashboard/events" class="ml-1 text-primary underline">Browse events</Link>
+            <Link href="/admin/dashboard/events" class="ml-1 text-primary underline">Browse events</Link>
         </p>
     </div>
 </template>

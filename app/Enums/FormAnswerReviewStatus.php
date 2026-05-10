@@ -8,4 +8,3 @@ enum FormAnswerReviewStatus: string
     case Accepted = 'accepted';
     case Rejected = 'rejected';
 }
-

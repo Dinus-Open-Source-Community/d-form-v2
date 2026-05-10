@@ -29,7 +29,8 @@ final class FormAccessGuard
      *  2. Form closure (`form.closed_at`)
      *  3. Registration window (`event.registration_start/end`)
      *  4. Quota (`event.quota` vs `event.registered_count`)
-     *  5. Duplicate / pending invitation / terminal invitation
+     *  5. Another form in the same event already has a submission from this user
+     *  6. Duplicate / pending invitation / terminal invitation for this form
      */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
@@ -49,6 +50,10 @@ final class FormAccessGuard
 
         if (! $isAdmin && self::isQuotaFull($event)) {
             return FormAccessStatus::QuotaFull;
+        }
+
+        if (! $isAdmin && self::hasSubmissionOnOtherFormInEvent($form, $event, $user)) {
+            return FormAccessStatus::EventFormAlreadyChosen;
         }
 
         return self::duplicateOrInvitationStatus($form, $user)
@@ -133,6 +138,17 @@ final class FormAccessGuard
         return $event->quota !== null
             && $event->quota > 0
             && $event->registered_count >= $event->quota;
+    }
+
+    private static function hasSubmissionOnOtherFormInEvent(Form $form, Event $event, User $user): bool
+    {
+        return FormAnswer::query()
+            ->where('user_id', $user->id)
+            ->where('form_id', '!=', $form->id)
+            ->whereHas('form', function ($q) use ($event): void {
+                $q->where('event_id', $event->id);
+            })
+            ->exists();
     }
 
     private static function duplicateOrInvitationStatus(Form $form, User $user): ?FormAccessStatus

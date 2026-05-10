@@ -25,7 +25,8 @@ class RecordAttendanceJob implements ShouldQueue
         public string $eventId,
         public string $formAnswerId,
         public string $scannerUserId,
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {

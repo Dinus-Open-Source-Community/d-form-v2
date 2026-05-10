@@ -95,7 +95,7 @@ defineProps<{
 
                     <div class="flex flex-wrap items-center gap-2 pt-1">
                         <Button variant="outline" size="sm" class="rounded-full" as-child>
-                            <Link :href="`/dashboard/events/${event.id}/registrants`">
+                            <Link :href="`/admin/dashboard/events/${event.id}/registrants`">
                                 <Users class="mr-1.5 size-3.5" aria-hidden="true" />
                                 Pendaftar
                             </Link>

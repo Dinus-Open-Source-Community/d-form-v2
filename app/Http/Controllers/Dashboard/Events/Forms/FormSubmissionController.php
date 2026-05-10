@@ -26,7 +26,8 @@ class FormSubmissionController extends Controller
     public function __construct(
         private TeamRegistrationSubmitter $teamRegistrationSubmitter,
         private BundleRegistrationSubmitter $bundleRegistrationSubmitter,
-    ) {}
+    ) {
+    }
 
     public function __invoke(Request $request, Event $event, Form $form): RedirectResponse
     {

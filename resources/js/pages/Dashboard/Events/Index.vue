@@ -216,7 +216,7 @@ function statusLabel(status: string) {
         >
             <template #actions>
                 <Button as-child class="rounded-xl shadow-sm">
-                    <Link href="/dashboard/events/create" class="inline-flex items-center gap-2">
+                    <Link href="/admin/dashboard/events/create" class="inline-flex items-center gap-2">
                         <Plus class="size-4" />
                         Buat acara
                     </Link>
@@ -307,7 +307,7 @@ function statusLabel(status: string) {
             <Link
                 v-for="event in eventsList"
                 :key="event.id"
-                :href="`/dashboard/events/${event.id}`"
+                :href="`/admin/dashboard/events/${event.id}`"
                 class="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
                 <Card

@@ -20,11 +20,11 @@ const breadcrumbs = computed((): { label: string; href?: string }[] => {
     const form = (page.props.form as { id: string; title: string } | undefined)
     
     const crumbs: { label: string; href?: string }[] = [
-        { label: 'Events', href: '/dashboard/user/events' },
+        { label: 'Events', href: '/user/dashboard' },
     ]
 
     if (event) {
-        crumbs.push({ label: event.title, href: `/dashboard/user/events/${event.slug ?? event.id}` })
+        crumbs.push({ label: event.title, href: `/user/dashboard/events/${event.slug ?? event.id}` })
     }
 
     if (form) {

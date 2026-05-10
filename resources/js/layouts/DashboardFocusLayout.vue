@@ -43,50 +43,57 @@ const isFormBuilderPage = computed(() => {
 const breadcrumbs = computed<{ label: string; href?: string }[]>(() => {
     if (pageProps.value.breadcrumbs) return pageProps.value.breadcrumbs
 
-    const pathSegments = page.url.split('?')[0].split('/').filter(Boolean)
-    const crumbs: { label: string; href?: string }[] = []
+    const pathSegments = page.url.split('?')[0].split('/').filter(Boolean);
+    const crumbs: { label: string; href?: string }[] = [];
 
-    if (pathSegments[0] === 'dashboard') {
-        crumbs.push({ label: 'Dashboard', href: '/dashboard' })
+    if (pathSegments[0] === 'admin' && pathSegments[1] === 'dashboard') {
+        crumbs.push({ label: 'Dashboard', href: '/admin/dashboard' });
 
-        if (pathSegments[1] === 'events') {
-            crumbs.push({ label: 'Events', href: '/dashboard/events' })
+        if (pathSegments[2] === 'events') {
+            crumbs.push({ label: 'Events', href: '/admin/dashboard/events' });
 
-            if (pathSegments[2] === 'create') {
-                crumbs.push({ label: 'Create Event' })
-            } else if (pathSegments[2]) {
-                const eventTitle = pageProps.value.event?.title ?? 'Event Detail'
-                const eventHref = `/dashboard/events/${pathSegments[2]}`
-                const sub = pathSegments[3]
+            if (pathSegments[3] === 'create') {
+                crumbs.push({ label: 'Create Event' });
+            } else if (pathSegments[3]) {
+                const eventTitle = pageProps.value.event?.title ?? 'Event Detail';
+                const eventHref = `/admin/dashboard/events/${pathSegments[3]}`;
+                const sub = pathSegments[4];
 
                 if (sub === 'edit') {
-                    crumbs.push({ label: eventTitle, href: eventHref })
-                    crumbs.push({ label: 'Edit' })
+                    crumbs.push({ label: eventTitle, href: eventHref });
+                    crumbs.push({ label: 'Edit' });
                 } else if (sub === 'registrants') {
-                    crumbs.push({ label: eventTitle, href: eventHref })
-                    crumbs.push({ label: 'Registrants' })
+                    crumbs.push({ label: eventTitle, href: eventHref });
+                    crumbs.push({ label: 'Registrants' });
                 } else if (sub === 'forms') {
-                    crumbs.push({ label: eventTitle, href: eventHref })
-                    crumbs.push({ label: 'Forms', href: `${eventHref}/forms` })
-                    const formSub = pathSegments[4]
+                    crumbs.push({ label: eventTitle, href: eventHref });
+                    crumbs.push({ label: 'Forms', href: `${eventHref}/forms` });
+                    const formSub = pathSegments[5];
                     if (formSub === 'create') {
-                        crumbs.push({ label: 'Create Form' })
+                        crumbs.push({ label: 'Create Form' });
                     } else if (formSub === 'edit') {
-                        crumbs.push({ label: 'Edit Form' })
+                        crumbs.push({ label: 'Edit Form' });
                     } else if (formSub && formSub !== 'index') {
-                        crumbs.push({ label: 'Form Detail' })
+                        crumbs.push({ label: 'Form Detail' });
                     }
                 } else if (sub === 'scan') {
-                    crumbs.push({ label: eventTitle, href: eventHref })
-                    crumbs.push({ label: 'Check-in' })
+                    crumbs.push({ label: eventTitle, href: eventHref });
+                    crumbs.push({ label: 'Check-in' });
                 } else {
-                    crumbs.push({ label: eventTitle })
+                    crumbs.push({ label: eventTitle });
                 }
             }
         }
     }
 
-    return crumbs
+    if (pathSegments[0] === 'user' && pathSegments[1] === 'dashboard') {
+        crumbs.push({ label: 'Acara saya', href: '/user/dashboard' });
+        if (pathSegments[2] === 'events' && pathSegments[3] && pathSegments[3] !== 'forms') {
+            crumbs.push({ label: pageProps.value.event?.title ?? 'Detail acara' });
+        }
+    }
+
+    return crumbs;
 })
 
 function getInitials(name: string): string {
@@ -168,7 +175,7 @@ function handleLogout(): void {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem as-child>
-                            <Link href="/dashboard/profile" class="flex w-full items-center">
+                            <Link href="/user/dashboard/profile" class="flex w-full items-center">
                                 <Settings class="mr-2 size-4" />Profile
                             </Link>
                         </DropdownMenuItem>

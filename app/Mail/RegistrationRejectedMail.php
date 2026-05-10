@@ -15,7 +15,8 @@ class RegistrationRejectedMail extends Mailable
 
     public function __construct(
         public FormAnswer $submission,
-    ) {}
+    ) {
+    }
 
     public function envelope(): Envelope
     {

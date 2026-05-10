@@ -26,7 +26,6 @@ import {
     ChevronsUpDown,
     Settings,
     PieChart,
-    ShieldCheck,
 } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import useAuth from '@/utils/composables/useAuth';
@@ -38,26 +37,27 @@ const { isMobile, setOpenMobile, state } = useSidebar();
 const accountMenuOpen = ref(false);
 const accountMenuRootRef = ref<HTMLElement | null>(null);
 
-const isAdmin = computed(() => {
-    const roles = user.value?.roles;
-    if (!roles || roles.length === 0) return false;
-    return roles.includes('admin') || roles.includes('super-admin');
-});
+const canManageEvents = computed(() => user.value?.can_manage_events === true);
 
-const roleLabel = computed(() => (isAdmin.value ? 'Administrator' : 'Pengguna'));
+const roleLabel = computed(() => (canManageEvents.value ? 'Penyelenggara' : 'Pengguna'));
 
 const currentPath = computed(() => page.url);
 
-const mainNavItems = computed(() => [{ label: 'Beranda', href: '/dashboard', icon: LayoutDashboard }]);
+/** Beranda penyelenggara vs portal peserta — URL terpisah, sama-sama “Beranda” di UI. */
+const mainNavItems = computed(() =>
+    canManageEvents.value
+        ? [{ label: 'Beranda', href: '/admin/dashboard', icon: LayoutDashboard }]
+        : [{ label: 'Beranda', href: '/user/dashboard', icon: LayoutDashboard }],
+);
 
 const managementItems = computed(() =>
-    isAdmin.value
+    canManageEvents.value
         ? [
-              { label: 'Acara', href: '/dashboard/events', icon: CalendarDays },
-              { label: 'Laporan', href: '/dashboard/reports', icon: PieChart },
-              { label: 'Rekrutmen', href: '/dashboard/recruitment', icon: Users },
+              { label: 'Acara', href: '/admin/dashboard/events', icon: CalendarDays },
+              { label: 'Laporan', href: '/admin/dashboard/reports', icon: PieChart },
+              { label: 'Rekrutmen', href: '/admin/dashboard/recruitment', icon: Users },
           ]
-        : [{ label: 'Acara saya', href: '/dashboard/user/events', icon: CalendarDays }],
+        : [{ label: 'Acara saya', href: '/user/dashboard', icon: CalendarDays }],
 );
 
 /** Kelas awal/akhir animasi mengikuti arah pembukaan panel. */
@@ -81,8 +81,14 @@ const accountPanelPositionClass = computed(() => {
 });
 
 function isActive(href: string): boolean {
-    if (href === '/dashboard') return currentPath.value === '/dashboard';
-    return currentPath.value.startsWith(href);
+    const p = currentPath.value.split('?')[0] ?? '';
+    if (href === '/admin/dashboard') {
+        return p === '/admin/dashboard';
+    }
+    if (href === '/user/dashboard') {
+        return p === '/user/dashboard' || p.startsWith('/user/dashboard/');
+    }
+    return p.startsWith(href);
 }
 
 function getInitials(name: string): string {
@@ -108,7 +114,7 @@ function goToProfile() {
     accountMenuOpen.value = false;
     closeMobileIfNeeded();
     void nextTick(() => {
-        router.visit('/dashboard/profile');
+        router.visit('/user/dashboard/profile');
     });
 }
 
@@ -139,7 +145,7 @@ watch(currentPath, () => {
                         as-child
                         class="border-sidebar-border/90 bg-card/90 h-auto border shadow-xs"
                     >
-                        <Link href="/dashboard" class="flex items-center gap-3 py-2.5" @click="closeMobileIfNeeded">
+                        <Link :href="canManageEvents ? '/admin/dashboard' : '/user/dashboard'" class="flex items-center gap-3 py-2.5" @click="closeMobileIfNeeded">
                             <div
                                 class="bg-primary text-primary-foreground grid size-9 shrink-0 place-items-center rounded-xl text-xs font-bold shadow-sm"
                             >

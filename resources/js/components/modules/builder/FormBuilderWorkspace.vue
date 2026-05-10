@@ -61,7 +61,7 @@ const wb = reactive(
     ),
 )
 
-const backHref = computed(() => `/dashboard/events/${props.event.id}/forms`)
+const backHref = computed(() => `/admin/dashboard/events/${props.event.id}/forms`)
 const shellHeightClass = computed(() =>
     props.shell === 'fullscreen' ? 'h-svh' : 'min-h-0 flex-1',
 )

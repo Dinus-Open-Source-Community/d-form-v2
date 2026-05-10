@@ -16,6 +16,7 @@ export type FormAccessStatus =
     | 'pending_team_confirmation'
     | 'invitation_closed'
     | 'already_submitted'
+    | 'event_form_already_chosen'
 
 export interface FormFillPageEvent {
     id: string

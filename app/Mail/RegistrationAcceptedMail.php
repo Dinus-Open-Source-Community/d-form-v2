@@ -17,7 +17,8 @@ class RegistrationAcceptedMail extends Mailable
         public FormAnswer $submission,
         public string $qrPngBinary,
         public string $registrationCode,
-    ) {}
+    ) {
+    }
 
     public function envelope(): Envelope
     {

@@ -9,8 +9,11 @@ use App\Models\Event;
 use App\Services\Event\EventService;
 use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Http\Request;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
 
+/**
+ * Beranda penyelenggara — hanya diakses lewat rute dengan middleware organizer.
+ */
 class HomeController extends Controller
 {
     public function __construct(
@@ -19,31 +22,13 @@ class HomeController extends Controller
     ) {
     }
 
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): InertiaResponse
     {
-        $user = $request->user();
+        $allEvents = Event::query()->whereNull('deleted_at')->get();
 
-        if ($user !== null
-            && ! $user->can('events.list')
-            && $user->hasRole('member')) {
-            return redirect()->route('dashboard.user.events');
-        }
-
-        $adminScope = $user !== null && $user->can('events.list');
-
-        $allEvents = $adminScope
-            ? Event::query()->whereNull('deleted_at')->get()
-            : Event::query()
-                ->where('status', EventStatus::Published)
-                ->whereNull('deleted_at')
-                ->orderByDesc('start_date')
-                ->get();
-
-        $recentSource = $adminScope
-            ? $allEvents->sortByDesc('created_at')->take(5)
-            : $allEvents->take(5);
-
-        $recentEvents = $recentSource
+        $recentEvents = $allEvents
+            ->sortByDesc('created_at')
+            ->take(5)
             ->map(fn (Event $e) => $this->eventService->eventToInertiaArray($e))
             ->values()
             ->all();
@@ -60,14 +45,10 @@ class HomeController extends Controller
             'completionRate' => $total > 0 ? (int) round(($closed / $total) * 100) : 0,
         ];
 
-        /** @var array{registrationTrend: list<array{key: string, label: string, count: int}>, categoryBreakdown: list<array{token: string, count: int}>}|null */
-        $adminCharts = null;
-        if ($adminScope) {
-            $adminCharts = [
-                'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
-                'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
-            ];
-        }
+        $adminCharts = [
+            'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
+            'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
+        ];
 
         return inertia('Dashboard/Index', [
             'recentEvents' => $recentEvents,

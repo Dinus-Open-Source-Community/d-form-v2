@@ -3,6 +3,7 @@
 namespace Tests\Feature\Forms;
 
 use App\Enums\EmailNotificationType;
+use App\Enums\EventStatus;
 use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
@@ -409,6 +410,60 @@ class FormRegistrationTest extends TestCase
 
         $answer = FormAnswer::where('form_id', $form->id)->where('user_id', $member->id)->first();
         $this->assertSame('Jane Doe', $answer->answers['full_name']);
+    }
+
+    public function test_fill_second_form_in_event_is_blocked_after_submission_to_first(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent(['status' => EventStatus::Published]);
+        $formA = $this->openForm($event, ['title' => 'Form A']);
+        $formB = $this->openForm($event, ['title' => 'Form B']);
+        $this->textField($formA);
+        $this->textField($formB);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $formA), ['full_name' => 'Jane Doe'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $formB))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'event_form_already_chosen'));
+    }
+
+    public function test_cannot_submit_second_form_same_event(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent(['status' => EventStatus::Published]);
+        $formA = $this->openForm($event, ['title' => 'Form A']);
+        $formB = $this->openForm($event, ['title' => 'Form B']);
+        $this->textField($formA);
+        $this->textField($formB);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $formA), ['full_name' => 'Jane Doe'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $formB), ['full_name' => 'John Doe'])
+            ->assertRedirect($this->fillPath($event, $formB));
+    }
+
+    public function test_register_picker_renders_all_event_forms(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent(['status' => EventStatus::Published]);
+        $formA = $this->openForm($event, ['title' => 'Early Bird']);
+        $formB = $this->openForm($event, ['title' => 'General']);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/User/EventRegistrationPickForm')
+                ->has('forms', 2)
+                ->where('forms.0.title', 'Early Bird')
+                ->where('forms.1.title', 'General'));
     }
 
     public function test_registered_count_is_incremented_on_successful_submission(): void
@@ -858,7 +913,7 @@ class FormRegistrationTest extends TestCase
                 fn ($page) => $page
                     ->where('accessStatus', 'pending_team_confirmation')
                     ->where('accessMessage', FormAccessStatus::PendingTeamConfirmation->message())
-                    ->where('pendingInvitationUrl', '/dashboard/user/team-invitations/'.$token)
+                    ->where('pendingInvitationUrl', '/user/dashboard/team-invitations/'.$token)
             );
     }
 

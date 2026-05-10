@@ -4,7 +4,6 @@ import { normalizeBannerSrc, pickFormBannerField } from '@/components/modules/bu
 import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata'
 import type {
     FormAccessStatus,
-    FormFillAnswerMap,
     FormFillOptionRow,
     FormFillPageEvent,
     FormFillPageForm,
@@ -82,6 +81,10 @@ export function useFormFillPage(props: {
             },
             invitation_closed: {
                 title: 'Invitation no longer active',
+                body: fallback,
+            },
+            event_form_already_chosen: {
+                title: 'Another registration form was already chosen for this event.',
                 body: fallback,
             },
             not_visible: { title: 'You do not have access to this form.', body: fallback },

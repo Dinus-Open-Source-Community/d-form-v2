@@ -304,7 +304,7 @@ function slotStorageKey(
 
         <div class="mb-20 flex items-center justify-end gap-3 border-t border-border pt-6">
             <Button variant="ghost" size="lg" as-child>
-                <Link :href="`/dashboard/events/${eventId}`">Cancel</Link>
+                <Link :href="`/user/dashboard/events/${eventId}`">Cancel</Link>
             </Button>
             <Button type="submit" size="lg" :disabled="ctx.answerForm.processing" class="gap-2">
                 <Send class="size-4" />

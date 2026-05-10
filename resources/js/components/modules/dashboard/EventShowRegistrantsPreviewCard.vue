@@ -27,7 +27,7 @@ defineProps<{
                     </p>
                 </div>
                 <Button variant="ghost" size="sm" class="h-8 gap-1 rounded-full text-xs" as-child>
-                    <Link :href="`/dashboard/events/${eventId}/registrants`">
+                    <Link :href="`/admin/dashboard/events/${eventId}/registrants`">
                         View all
                         <ArrowUpRight class="size-3.5" />
                     </Link>
@@ -39,7 +39,7 @@ defineProps<{
                 <Link
                     v-for="reg in previewRegistrants"
                     :key="reg.id"
-                    :href="`/dashboard/events/${eventId}/registrants`"
+                    :href="`/admin/dashboard/events/${eventId}/registrants`"
                     class="group flex items-center justify-between rounded-xl px-2.5 py-2 transition-colors hover:bg-muted/50"
                 >
                     <div class="flex min-w-0 items-center gap-3">

@@ -80,13 +80,13 @@ const firstName = computed(() => {
                 <template #actions>
                     <div class="flex flex-wrap items-center gap-2">
                         <Button as-child size="sm" class="h-9 gap-1.5 rounded-xl shadow-sm">
-                            <Link href="/dashboard/events/create">
+                            <Link href="/admin/dashboard/events/create">
                                 <Plus class="size-4" />
                                 Buat acara
                             </Link>
                         </Button>
                         <Button as-child variant="outline" size="sm" class="h-9 rounded-xl">
-                            <Link href="/dashboard/events" class="inline-flex items-center gap-1.5">
+                            <Link href="/admin/dashboard/events" class="inline-flex items-center gap-1.5">
                                 <LayoutList class="size-4" />
                                 Semua acara
                             </Link>
@@ -123,8 +123,8 @@ const firstName = computed(() => {
                     <div class="lg:col-span-2">
                         <RecentEventsCard
                             :events="events"
-                            view-all-href="/dashboard/events"
-                            event-base-href="/dashboard/events"
+                            view-all-href="/admin/dashboard/events"
+                            event-base-href="/admin/dashboard/events"
                         />
                     </div>
                     <MiniCalendar />
@@ -156,7 +156,7 @@ const firstName = computed(() => {
             >
                 <template #actions>
                     <Button as-child variant="outline" size="sm" class="h-9 rounded-xl">
-                        <Link href="/dashboard/user/events" class="inline-flex items-center gap-1.5">
+                        <Link href="/user/dashboard" class="inline-flex items-center gap-1.5">
                             <CalendarDays class="size-4" />
                             Acara saya
                         </Link>
@@ -190,7 +190,7 @@ const firstName = computed(() => {
                             </p>
                         </div>
                         <Button variant="outline" size="sm" class="h-8 rounded-lg text-xs" as-child>
-                            <Link href="/dashboard/user/events" class="inline-flex items-center gap-1">
+                            <Link href="/user/dashboard" class="inline-flex items-center gap-1">
                                 Semua
                                 <ArrowRight class="size-3" />
                             </Link>
@@ -200,7 +200,7 @@ const firstName = computed(() => {
                         <Link
                             v-for="event in upcomingEvents"
                             :key="event.id"
-                            :href="`/dashboard/user/events/${event.slug}`"
+                            :href="`/user/dashboard/events/${event.slug}`"
                             class="border-border/70 hover:bg-muted/40 flex items-center gap-4 rounded-xl border p-3 transition-colors"
                         >
                             <div class="bg-muted h-12 w-20 shrink-0 overflow-hidden rounded-lg">

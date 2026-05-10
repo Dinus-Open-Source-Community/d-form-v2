@@ -5,19 +5,6 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\ModelHasRole;
-use Spatie\Permission\Models\ModelHasPermission;
-use Spatie\Permission\Models\RoleHasPermission;
-use App\Models\EventCategory;
-use App\Models\Event;
-use App\Models\Form;
-use App\Models\FormField;
-use App\Models\FormAnswer;
-use App\Models\FormSubmission;
-use App\Models\EventAttendance;
-use App\Models\EventAttendanceScan;
 
 class DatabaseSeeder extends Seeder
 {

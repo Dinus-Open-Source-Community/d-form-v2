@@ -17,7 +17,7 @@ final class RegistrationQrPngGenerator
     {
         $payload = RegistrationQrPayload::encode($formAnswerId);
 
-        $result = (new Builder)->build(
+        $result = (new Builder())->build(
             data: $payload,
             errorCorrectionLevel: ErrorCorrectionLevel::High,
             size: 240,

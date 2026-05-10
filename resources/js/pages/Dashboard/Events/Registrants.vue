@@ -2,7 +2,6 @@
 import { reactive } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import RegistrantsHubHeader from '@/components/modules/dashboard/RegistrantsHubHeader.vue';
 import RegistrantsStatCards from '@/components/modules/dashboard/RegistrantsStatCards.vue';
