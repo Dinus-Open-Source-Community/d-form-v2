@@ -48,9 +48,14 @@ function parseOptionChoices(raw: unknown): FieldOptionEntry[] | null {
 }
 
 function preservedMeta(f: BuilderField): Record<string, unknown> {
-    return f.metadata && typeof f.metadata === 'object' && !Array.isArray(f.metadata)
-        ? { ...f.metadata }
-        : {}
+    const raw =
+        f.metadata && typeof f.metadata === 'object' && !Array.isArray(f.metadata)
+            ? { ...f.metadata }
+            : {}
+    // API validation allows only string|null for metadata.options (radio/checkbox).
+    // Stale array-shaped `options` from DB or legacy clients must not be re-submitted.
+    delete raw.options
+    return raw
 }
 
 function withMeta(f: BuilderField, specific: Record<string, unknown>): Record<string, unknown> {
@@ -174,7 +179,9 @@ function guessType(apiType: string, m: Record<string, unknown>): string {
 }
 
 export function fromBackendField(bf: BackendField): BuilderField {
-    const m: Record<string, unknown> = (bf.metadata && typeof bf.metadata === 'object') ? (bf.metadata as Record<string, unknown>) : {}
+    const mFull: Record<string, unknown> =
+        bf.metadata && typeof bf.metadata === 'object' ? (bf.metadata as Record<string, unknown>) : {}
+    const { options: _droppedOptions, ...m }: Record<string, unknown> = mFull
     const rules = (m.rules as Record<string, unknown>) || {}
     const bt = (m.builderType as string) || guessType(bf.type, m)
     const inStr = (rules.in as string) || ''

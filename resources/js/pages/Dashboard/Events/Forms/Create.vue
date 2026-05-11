@@ -27,7 +27,7 @@ const closedAt = ref<string>('')
 const visibleFor = ref<string[]>([])
 const bannerState = reactive(defaultFormBannerState())
 const formFields = ref<BuilderField[]>([])
-const formMetadata = reactive(emptyFormRegistrationMetadata())
+const formMetadata = ref(emptyFormRegistrationMetadata())
 const isSaving = ref<boolean>(false)
 
 const createForm = useForm<CreateFormClientPayload>({
@@ -48,7 +48,7 @@ function onSave(): void {
     createForm.visible_for = visibleFor.value
     createForm.banner_url = bannerState.bannerUrl
     createForm.banner_caption = bannerState.caption
-    createForm.metadata = toFormMetadataPayload(formMetadata)
+    createForm.metadata = toFormMetadataPayload(formMetadata.value)
 
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState)
     createForm.fields = toBackendFields(merged) as object[]

@@ -40,7 +40,7 @@ const settingsForm = useForm({
 
 const bannerState = reactive(defaultFormBannerState())
 const formFields = ref<BuilderField[]>([])
-const formMetadata = reactive(emptyFormRegistrationMetadata())
+const formMetadata = ref(emptyFormRegistrationMetadata())
 
 const formTitle = computed({
     get: () => settingsForm.title,
@@ -103,7 +103,7 @@ watch(
         settingsForm.visible_for = [...f.visible_for]
         settingsForm.banner_url = f.banner_url ?? ''
         settingsForm.banner_caption = f.banner_caption ?? ''
-        Object.assign(formMetadata, parseFormRegistrationMetadata(f.metadata))
+        formMetadata.value = parseFormRegistrationMetadata(f.metadata)
     },
     { deep: true, immediate: true },
 )
@@ -123,7 +123,7 @@ function onSave(): void {
         .transform((data) => ({
             ...data,
             fields: backendFields,
-            metadata: toFormMetadataPayload(formMetadata),
+            metadata: toFormMetadataPayload(formMetadata.value),
         }))
         .put(props.updateFormUrl, {
             preserveScroll: true,

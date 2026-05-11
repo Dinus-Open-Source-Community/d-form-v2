@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Input } from '@/components/ui/input'
 import { DateTimePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
@@ -21,12 +22,20 @@ defineEmits<{
     toggleVisibility: [value: string, checked: boolean]
 }>()
 
+const isTeamStyleRegistration = computed(() => {
+    const m = formMetadata.value.registration_mode
+    return m === 'team' || m === 'bundle'
+})
+
 function setRegistrationMode(ev: Event): void {
     const v = (ev.target as HTMLSelectElement).value
+    const mode: FormRegistrationMetadata['registration_mode'] =
+        v === '' ? null : (v as FormRegistrationMetadata['registration_mode'])
+    const leaveSizes = mode === 'team' || mode === 'bundle'
     formMetadata.value = {
         ...formMetadata.value,
-        registration_mode:
-            v === '' ? null : (v as FormRegistrationMetadata['registration_mode']),
+        registration_mode: mode,
+        ...(leaveSizes ? {} : { max_team_size: null, team_size: null }),
     }
 }
 
@@ -129,13 +138,17 @@ function vString(v: unknown): string {
                     <option value="team">Team</option>
                 </select>
             </div>
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div v-if="isTeamStyleRegistration" class="grid gap-4 sm:grid-cols-2">
                 <div class="space-y-2">
                     <Label :for="`${idPrefix}-max-team`" class="text-sm font-medium">Max team size</Label>
+                    <p class="text-muted-foreground text-xs">
+                        Bundle: maksimum peserta per satu pendaftaran (termasuk ketua). Dipakai jika
+                        <span class="font-medium">Team size</span> kosong.
+                    </p>
                     <Input
                         :id="`${idPrefix}-max-team`"
                         type="number"
-                        min="1"
+                        min="2"
                         placeholder="—"
                         class="min-h-12 !py-3.5 px-4 text-sm"
                         :model-value="formMetadata.max_team_size == null ? '' : String(formMetadata.max_team_size)"
@@ -144,10 +157,14 @@ function vString(v: unknown): string {
                 </div>
                 <div class="space-y-2">
                     <Label :for="`${idPrefix}-team-size`" class="text-sm font-medium">Team size</Label>
+                    <p class="text-muted-foreground text-xs">
+                        Jumlah peserta per tim (≥2). Jika diisi, nilai ini dipakai; jika kosong, dipakai
+                        <span class="font-medium">Max team size</span>.
+                    </p>
                     <Input
                         :id="`${idPrefix}-team-size`"
                         type="number"
-                        min="1"
+                        min="2"
                         placeholder="—"
                         class="min-h-12 !py-3.5 px-4 text-sm"
                         :model-value="formMetadata.team_size == null ? '' : String(formMetadata.team_size)"
