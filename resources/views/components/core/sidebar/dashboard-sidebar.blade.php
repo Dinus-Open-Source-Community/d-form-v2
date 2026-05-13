@@ -22,9 +22,13 @@
 
 <div class="bg-base-100 border-base-200 flex h-full w-[90vw] flex-col border-r lg:max-w-2xs">
     <section id="sidebar-header" class="flex h-20 items-center px-8 shadow-sm">
-        <h2 class="text-base-content text-3xl font-bold">
-            <a href="/">DForm</a>
-        </h2>
+        <a href="/" class="flex items-center">
+            <img
+                src="{{ asset('DForm 1.png') }}"
+                alt="DOSCOM"
+                class="h-9 w-auto"
+            />
+        </a>
     </section>
 
     <section class="flex-1 px-2 py-2 shadow-sm">

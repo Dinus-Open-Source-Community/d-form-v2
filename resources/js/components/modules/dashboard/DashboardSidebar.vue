@@ -49,7 +49,7 @@ const currentPath = computed(() => page.url);
 const mainNavItems = computed(() =>
     canManageEvents.value
         ? [{ label: 'Beranda', href: '/admin/dashboard', icon: LayoutDashboard }]
-        : [{ label: 'Beranda', href: '/user/dashboard/overview', icon: LayoutDashboard }],
+        : [{ label: 'Beranda', href: '/user/dashboard/overview', icon: LayoutDashboard }]
 );
 
 const managementItems = computed(() =>
@@ -61,7 +61,7 @@ const managementItems = computed(() =>
         : [
               { label: 'Acara diikuti', href: '/user/dashboard', icon: CalendarCheck2 },
               { label: 'Jelajah acara', href: '/user/dashboard/events/browse', icon: Compass },
-          ],
+          ]
 );
 
 /** Kelas awal/akhir animasi mengikuti arah pembukaan panel. */
@@ -148,22 +148,10 @@ watch(currentPath, () => {
                     >
                         <Link
                             :href="canManageEvents ? '/admin/dashboard' : '/user/dashboard/overview'"
-                            class="flex items-center gap-3 py-2.5"
+                            class="flex items-center justify-center gap-3 py-2.5"
                             @click="closeMobileIfNeeded"
                         >
-                            <div
-                                class="bg-primary text-primary-foreground grid size-9 shrink-0 place-items-center rounded-xl text-xs font-bold shadow-sm"
-                            >
-                                DF
-                            </div>
-                            <div class="min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                                <span class="font-display block truncate text-[15px] font-bold tracking-[-0.02em]">
-                                    D<span class="text-primary">Form</span>
-                                </span>
-                                <span class="text-muted-foreground mt-0.5 block text-[10px] font-medium">
-                                    Panel acara & pendaftaran
-                                </span>
-                            </div>
+                            <img src="/public/DForm%201.png" alt="DOSCOM" class="h-9 w-auto shrink-0" />
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -237,9 +225,11 @@ watch(currentPath, () => {
                             :aria-expanded="accountMenuOpen"
                             aria-haspopup="menu"
                             aria-controls="dashboard-account-menu"
-                            class="border-sidebar-border bg-card/90 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring flex h-12 w-full items-center gap-2 overflow-hidden rounded-xl border p-2 text-left text-sm font-medium shadow-xs outline-none transition-[background-color,box-shadow,border-color] focus-visible:ring-2 active:scale-[0.99] [&>svg]:size-4"
+                            class="border-sidebar-border bg-card/90 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring flex h-12 w-full items-center gap-2 overflow-hidden rounded-xl border p-2 text-left text-sm font-medium shadow-xs transition-[background-color,box-shadow,border-color] outline-none focus-visible:ring-2 active:scale-[0.99] [&>svg]:size-4"
                             :class="
-                                accountMenuOpen ? 'border-primary/25 bg-sidebar-accent shadow-sm ring-1 ring-primary/15' : ''
+                                accountMenuOpen
+                                    ? 'border-primary/25 bg-sidebar-accent ring-primary/15 shadow-sm ring-1'
+                                    : ''
                             "
                             @click="toggleAccountMenu"
                         >
@@ -282,44 +272,44 @@ watch(currentPath, () => {
                                     'border-border/80 bg-popover text-popover-foreground absolute z-[200] flex max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border p-1.5 shadow-xl',
                                 ]"
                             >
-                            <div role="none" class="px-2 py-2">
-                                <div class="flex gap-3">
-                                    <UserAvatarFallback
-                                        :src="user?.avatar ?? null"
-                                        :seed="userAvatarSeed(user)"
-                                        avatar-class="size-10 shrink-0 rounded-lg"
-                                        fallback-round-class="rounded-lg"
-                                    />
-                                    <div class="min-w-0 flex-1 space-y-0.5">
-                                        <p class="truncate text-sm leading-tight font-semibold">{{ user?.name }}</p>
-                                        <p class="text-muted-foreground truncate text-xs">{{ user?.email }}</p>
-                                        <p class="text-muted-foreground text-[10px] font-medium">{{ roleLabel }}</p>
+                                <div role="none" class="px-2 py-2">
+                                    <div class="flex gap-3">
+                                        <UserAvatarFallback
+                                            :src="user?.avatar ?? null"
+                                            :seed="userAvatarSeed(user)"
+                                            avatar-class="size-10 shrink-0 rounded-lg"
+                                            fallback-round-class="rounded-lg"
+                                        />
+                                        <div class="min-w-0 flex-1 space-y-0.5">
+                                            <p class="truncate text-sm leading-tight font-semibold">{{ user?.name }}</p>
+                                            <p class="text-muted-foreground truncate text-xs">{{ user?.email }}</p>
+                                            <p class="text-muted-foreground text-[10px] font-medium">{{ roleLabel }}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
-                            <button
-                                type="button"
-                                role="menuitem"
-                                class="hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2.5 text-left outline-none"
-                                @click="goToProfile"
-                            >
-                                <Settings class="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                                <span class="flex min-w-0 flex-col gap-0.5">
-                                    <span class="text-sm font-medium">Profil & pengaturan</span>
-                                    <span class="text-muted-foreground text-[11px]">Data diri & preferensi</span>
-                                </span>
-                            </button>
-                            <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
-                            <button
-                                type="button"
-                                role="menuitem"
-                                class="text-destructive hover:bg-destructive/10 focus-visible:ring-destructive/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-medium outline-none focus-visible:ring-2"
-                                @click="handleLogout"
-                            >
-                                <LogOut class="size-4 shrink-0" />
-                                Keluar
-                            </button>
+                                <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    class="hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2.5 text-left outline-none"
+                                    @click="goToProfile"
+                                >
+                                    <Settings class="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                                    <span class="flex min-w-0 flex-col gap-0.5">
+                                        <span class="text-sm font-medium">Profil & pengaturan</span>
+                                        <span class="text-muted-foreground text-[11px]">Data diri & preferensi</span>
+                                    </span>
+                                </button>
+                                <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    class="text-destructive hover:bg-destructive/10 focus-visible:ring-destructive/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-medium outline-none focus-visible:ring-2"
+                                    @click="handleLogout"
+                                >
+                                    <LogOut class="size-4 shrink-0" />
+                                    Keluar
+                                </button>
                             </div>
                         </Transition>
                     </div>

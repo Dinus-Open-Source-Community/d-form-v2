@@ -28,7 +28,13 @@
                     {{ $title }}
                 </span>
 
-                <span class="inline lg:hidden">DForm</span>
+                <span class="inline lg:hidden">
+                    <img
+                        src="{{ asset('DForm 1.png') }}"
+                        alt="DOSCOM"
+                        class="h-8 w-auto"
+                    />
+                </span>
             </h3>
         </div>
 
