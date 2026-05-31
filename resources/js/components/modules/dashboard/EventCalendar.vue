@@ -4,9 +4,8 @@ import { Link } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, MapPin, CalendarDays, ArrowRight, Filter } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, MapPin, CalendarDays, ArrowRight } from 'lucide-vue-next';
 import { dummyEvents, categoryColorMap, categoryLabelMap, formatDate } from '@/lib/dummyData';
 import { toCategoryList, primaryCategory } from '@/lib/eventCategories';
 
@@ -168,14 +167,16 @@ const legendEntries = computed(() =>
         token,
         color,
         label: categoryLabelMap[token] ?? token,
-    })),
+    }))
 );
 </script>
 
 <template>
-    <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
-        <CardHeader class="space-y-0 border-b border-border/50 bg-muted/10 p-0">
-            <div class="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+    <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+        <CardHeader class="border-border/50 bg-muted/10 space-y-0 border-b p-0">
+            <div
+                class="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between"
+            >
                 <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                     <CardTitle class="font-display text-lg font-bold tracking-[-0.02em] sm:text-xl">
                         Kalender acara
@@ -189,7 +190,7 @@ const legendEntries = computed(() =>
                             {{ weekLabel }}
                         </template>
                     </p>
-                    <div class="border-border/70 flex items-center rounded-lg border bg-background/80 p-0.5 shadow-xs">
+                    <div class="border-border/70 bg-background/80 flex items-center rounded-lg border p-0.5 shadow-xs">
                         <Button
                             variant="ghost"
                             size="icon-sm"
@@ -209,12 +210,14 @@ const legendEntries = computed(() =>
                             <ChevronRight class="size-4" :stroke-width="2" />
                         </Button>
                     </div>
-                    <Button variant="outline" size="sm" class="h-8 rounded-lg text-xs" @click="goToday">Hari ini</Button>
+                    <Button variant="outline" size="sm" class="h-8 rounded-lg text-xs" @click="goToday"
+                        >Hari ini</Button
+                    >
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                     <div
-                        class="border-border/70 inline-flex items-center gap-0.5 rounded-xl border bg-background/80 p-0.5 shadow-inner"
+                        class="border-border/70 bg-background/80 inline-flex items-center gap-0.5 rounded-xl border p-0.5 shadow-inner"
                         role="group"
                         aria-label="Mode tampilan"
                     >
@@ -243,40 +246,30 @@ const legendEntries = computed(() =>
                             Minggu
                         </button>
                     </div>
-
-                    <Select v-model="filterCategory">
-                        <SelectTrigger class="h-8 w-[10.5rem] rounded-lg text-xs">
-                            <span class="flex min-w-0 flex-1 items-center gap-2">
-                                <Filter class="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                                <SelectValue placeholder="Kategori" />
-                            </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Semua kategori</SelectItem>
-                            <SelectItem value="rkt">RKT</SelectItem>
-                            <SelectItem value="non-rkt">Non RKT</SelectItem>
-                            <SelectItem value="recruitment">Recruitment</SelectItem>
-                            <SelectItem value="etc">Lainnya</SelectItem>
-                        </SelectContent>
-                    </Select>
                 </div>
             </div>
         </CardHeader>
 
         <CardContent class="space-y-4 p-4 sm:p-5">
             <template v-if="viewMode === 'month'">
-                <div class="overflow-hidden rounded-xl border border-border/70 bg-gradient-to-b from-muted/20 to-card shadow-inner">
-                    <div class="grid grid-cols-7 gap-px bg-border/45">
+                <div
+                    class="border-border/70 from-muted/20 to-card overflow-hidden rounded-xl border bg-gradient-to-b shadow-inner"
+                >
+                    <div class="bg-border/45 grid grid-cols-7 gap-px">
                         <div
                             v-for="day in dayNamesShort"
                             :key="day"
-                            class="bg-muted/50 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+                            class="bg-muted/50 text-muted-foreground py-2.5 text-center text-[10px] font-bold tracking-[0.12em] uppercase"
                         >
                             {{ day }}
                         </div>
                     </div>
-                    <div class="divide-y divide-border/50 bg-card">
-                        <div v-for="(week, wIdx) in calendarWeeks" :key="wIdx" class="grid grid-cols-7 divide-x divide-border/50">
+                    <div class="divide-border/50 bg-card divide-y">
+                        <div
+                            v-for="(week, wIdx) in calendarWeeks"
+                            :key="wIdx"
+                            class="divide-border/50 grid grid-cols-7 divide-x"
+                        >
                             <div
                                 v-for="(cell, dIdx) in week"
                                 :key="dIdx"
@@ -289,7 +282,7 @@ const legendEntries = computed(() =>
                                     :class="[
                                         'mb-1 inline-flex size-7 items-center justify-center rounded-lg text-xs font-semibold transition-colors',
                                         cell.isToday
-                                            ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30'
+                                            ? 'bg-primary text-primary-foreground ring-primary/30 shadow-md ring-2'
                                             : cell.isCurrentMonth
                                               ? 'text-foreground'
                                               : 'text-muted-foreground/40',
@@ -302,10 +295,11 @@ const legendEntries = computed(() =>
                                         v-for="ev in cell.events.slice(0, 2)"
                                         :key="ev.id"
                                         type="button"
-                                        class="w-full truncate rounded-md border border-white/10 px-1.5 py-0.5 text-left text-[10px] font-semibold leading-tight text-white shadow-sm transition-opacity hover:opacity-90"
+                                        class="w-full truncate rounded-md border border-white/10 px-1.5 py-0.5 text-left text-[10px] leading-tight font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
                                         :style="{
                                             backgroundColor:
-                                                categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)',
+                                                categoryColorMap[primaryCategory(ev.category)] ??
+                                                'var(--muted-foreground)',
                                         }"
                                         @click="onEventClick(ev)"
                                     >
@@ -313,7 +307,7 @@ const legendEntries = computed(() =>
                                     </button>
                                     <span
                                         v-if="cell.events.length > 2"
-                                        class="text-[10px] font-medium text-muted-foreground"
+                                        class="text-muted-foreground text-[10px] font-medium"
                                     >
                                         +{{ cell.events.length - 2 }} lainnya
                                     </span>
@@ -325,18 +319,22 @@ const legendEntries = computed(() =>
             </template>
 
             <template v-else>
-                <div class="overflow-hidden rounded-xl border border-border/70 bg-card shadow-inner">
-                    <div class="grid grid-cols-7 divide-x divide-border/50">
-                        <div v-for="day in weekDays" :key="day.dayName" class="flex min-h-44 flex-col p-2 sm:min-h-48 sm:p-3">
+                <div class="border-border/70 bg-card overflow-hidden rounded-xl border shadow-inner">
+                    <div class="divide-border/50 grid grid-cols-7 divide-x">
+                        <div
+                            v-for="day in weekDays"
+                            :key="day.dayName"
+                            class="flex min-h-44 flex-col p-2 sm:min-h-48 sm:p-3"
+                        >
                             <div class="mb-2 text-center">
-                                <div class="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                                <div class="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                                     {{ day.dayName }}
                                 </div>
                                 <span
                                     :class="[
                                         'mt-1 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
                                         day.isToday
-                                            ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/25'
+                                            ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
                                             : 'text-foreground',
                                     ]"
                                 >
@@ -363,14 +361,14 @@ const legendEntries = computed(() =>
                 </div>
             </template>
 
-            <div class="flex flex-wrap justify-center gap-2 border-t border-border/40 pt-4 sm:justify-start">
+            <div class="border-border/40 flex flex-wrap justify-center gap-2 border-t pt-4 sm:justify-start">
                 <div
                     v-for="item in legendEntries"
                     :key="item.token"
-                    class="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/20 px-2.5 py-1 text-xs"
+                    class="border-border/50 bg-muted/20 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
                 >
                     <span class="size-2.5 shrink-0 rounded-full shadow-sm" :style="{ backgroundColor: item.color }" />
-                    <span class="font-medium text-foreground">{{ item.label }}</span>
+                    <span class="text-foreground font-medium">{{ item.label }}</span>
                 </div>
             </div>
         </CardContent>
@@ -394,17 +392,18 @@ const legendEntries = computed(() =>
             </DialogHeader>
             <div v-if="selectedEvent" class="flex flex-col gap-3 pt-1">
                 <div class="text-muted-foreground flex items-start gap-2 text-sm">
-                    <CalendarDays class="mt-0.5 size-4 shrink-0 text-primary" />
-                    <span>
-                        {{ formatDate(selectedEvent.start_date) }} — {{ formatDate(selectedEvent.end_date) }}
-                    </span>
+                    <CalendarDays class="text-primary mt-0.5 size-4 shrink-0" />
+                    <span> {{ formatDate(selectedEvent.start_date) }} — {{ formatDate(selectedEvent.end_date) }} </span>
                 </div>
                 <div class="text-muted-foreground flex items-start gap-2 text-sm">
-                    <MapPin class="mt-0.5 size-4 shrink-0 text-primary" />
+                    <MapPin class="text-primary mt-0.5 size-4 shrink-0" />
                     <span>{{ selectedEvent.location }}</span>
                 </div>
                 <Button variant="default" size="sm" class="mt-2 w-full rounded-xl" as-child>
-                    <Link :href="`/admin/dashboard/events/${selectedEvent.id}`" class="inline-flex items-center justify-center gap-2">
+                    <Link
+                        :href="`/admin/dashboard/events/${selectedEvent.id}`"
+                        class="inline-flex items-center justify-center gap-2"
+                    >
                         Buka detail acara
                         <ArrowRight class="size-3.5" />
                     </Link>

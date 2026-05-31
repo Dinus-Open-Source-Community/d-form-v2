@@ -34,14 +34,14 @@ const upcomingEvents = dummyEvents
             <CardHeader class="flex flex-row items-center justify-between pb-3">
                 <CardTitle class="text-base font-medium">My Upcoming Events</CardTitle>
                 <Button variant="ghost" size="sm" class="text-xs" as-child>
-                    <Link href="/user/dashboard/events/browse">Lihat semua<ArrowRight class="ml-1 size-3" /></Link>
+                    <Link href="/events/joined/events/browse">Lihat semua<ArrowRight class="ml-1 size-3" /></Link>
                 </Button>
             </CardHeader>
             <CardContent class="flex flex-col gap-3 pt-0">
                 <Link
                     v-for="event in upcomingEvents"
                     :key="event.id"
-                        :href="`/user/dashboard/events/${event.slug}`"
+                        :href="`/events/joined/events/${event.slug}`"
                     class="flex items-center gap-4 rounded-lg border p-3 transition-colors hover:bg-muted/30"
                 >
                     <div class="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-md bg-muted">

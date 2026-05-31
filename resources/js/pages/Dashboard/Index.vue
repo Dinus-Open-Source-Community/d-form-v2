@@ -137,7 +137,7 @@ const firstName = computed(() => {
             >
                 <template #actions>
                     <Button as-child variant="outline" size="sm" class="h-9 rounded-xl">
-                        <Link href="/user/dashboard" class="inline-flex items-center gap-1.5">
+                        <Link href="/events/joined" class="inline-flex items-center gap-1.5">
                             <CalendarDays class="size-4" />
                             Acara saya
                         </Link>
@@ -171,7 +171,7 @@ const firstName = computed(() => {
                             </p>
                         </div>
                         <Button variant="outline" size="sm" class="h-8 rounded-lg text-xs" as-child>
-                            <Link href="/user/dashboard" class="inline-flex items-center gap-1">
+                            <Link href="/events/joined" class="inline-flex items-center gap-1">
                                 Semua
                                 <ArrowRight class="size-3" />
                             </Link>
@@ -181,7 +181,7 @@ const firstName = computed(() => {
                         <Link
                             v-for="event in upcomingEvents"
                             :key="event.id"
-                            :href="`/user/dashboard/events/${event.slug}`"
+                            :href="`/events/joined/events/${event.slug}`"
                             class="border-border/70 hover:bg-muted/40 flex items-center gap-4 rounded-xl border p-3 transition-colors"
                         >
                             <div class="bg-muted aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg">

@@ -49,7 +49,7 @@ const currentPath = computed(() => page.url);
 const mainNavItems = computed(() =>
     canManageEvents.value
         ? [{ label: 'Beranda', href: '/admin/dashboard', icon: LayoutDashboard }]
-        : [{ label: 'Beranda', href: '/user/dashboard/overview', icon: LayoutDashboard }]
+        : [{ label: 'Beranda', href: '/dashboard', icon: LayoutDashboard }]
 );
 
 const managementItems = computed(() =>
@@ -59,8 +59,8 @@ const managementItems = computed(() =>
               { label: 'Rekrutmen', href: '/admin/dashboard/recruitment', icon: Users },
           ]
         : [
-              { label: 'Acara diikuti', href: '/user/dashboard', icon: CalendarCheck2 },
-              { label: 'Jelajah acara', href: '/user/dashboard/events/browse', icon: Compass },
+              { label: 'Acara diikuti', href: '/events/joined', icon: CalendarCheck2 },
+              { label: 'Jelajah acara', href: '/events/joined/events/browse', icon: Compass },
           ]
 );
 
@@ -89,14 +89,14 @@ function isActive(href: string): boolean {
     if (href === '/admin/dashboard') {
         return p === '/admin/dashboard';
     }
-    if (href === '/user/dashboard/overview') {
-        return p === '/user/dashboard/overview';
+    if (href === '/dashboard') {
+        return p === '/dashboard';
     }
-    if (href === '/user/dashboard/events/browse') {
-        return p === '/user/dashboard/events/browse';
+    if (href === '/events/joined/events/browse') {
+        return p === '/events/joined/events/browse';
     }
-    if (href === '/user/dashboard') {
-        return p === '/user/dashboard';
+    if (href === '/events/joined') {
+        return p === '/events/joined';
     }
     return p.startsWith(href);
 }
@@ -115,7 +115,7 @@ function goToProfile() {
     accountMenuOpen.value = false;
     closeMobileIfNeeded();
     void nextTick(() => {
-        router.visit('/user/dashboard/profile');
+        router.visit('/dashboard/profile');
     });
 }
 
@@ -143,7 +143,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
     <Sidebar collapsible="icon" variant="sidebar" class="border-sidebar-border bg-sidebar border-r">
         <SidebarHeader class="gap-0 border-b border-sidebar-border/50 p-0">
             <Link
-                :href="canManageEvents ? '/admin/dashboard' : '/user/dashboard/overview'"
+                :href="canManageEvents ? '/admin/dashboard' : '/dashboard'"
                 class="hover:bg-sidebar-accent/25 flex w-full items-center px-4 py-3.5 transition-colors"
                 @click="closeMobileIfNeeded"
             >

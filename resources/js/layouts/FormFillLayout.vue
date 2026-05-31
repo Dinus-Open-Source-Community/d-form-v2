@@ -10,8 +10,8 @@ const page = usePage()
 
 const fallbackBackHref = computed((): string => {
     const event = (page.props.event as { id: string; slug?: string; title: string } | undefined)
-    if (event) return `/user/dashboard/events/${event.slug ?? event.id}`
-    return '/user/dashboard'
+    if (event) return `/events/joined/events/${event.slug ?? event.id}`
+    return '/events/joined'
 })
 
 function goBack(): void {

@@ -89,7 +89,7 @@ function handleLogout(): void {
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem as-child>
-                                <Link href="/user/dashboard/profile" class="flex w-full items-center">
+                                <Link href="/dashboard/profile" class="flex w-full items-center">
                                     <Settings class="mr-2 size-4" />Profile
                                 </Link>
                             </DropdownMenuItem>

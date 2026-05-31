@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
 import { CheckCircle2, ChevronDown, Loader2, UserRound, XCircle } from 'lucide-vue-next'
 
-const CHECK_EMAIL_URL = '/user/dashboard/users/check-email'
+const CHECK_EMAIL_URL = '/events/joined/users/check-email'
 const DEBOUNCE_MS = 1000
 
 /** Trailing debounce: one independent timer per slot so multiple fields don’t cancel each other. */

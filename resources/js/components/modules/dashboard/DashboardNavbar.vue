@@ -33,8 +33,9 @@ const fallbackBackHref = computed(() => {
     const path = page.url.split('?')[0] ?? ''
     if (path.startsWith('/admin/dashboard/events') && path !== '/admin/dashboard/events') return '/admin/dashboard/events'
     if (path.startsWith('/admin/dashboard') && path !== '/admin/dashboard') return '/admin/dashboard'
-    if (path.startsWith('/user/dashboard/events') || path === '/user/dashboard/profile') return '/user/dashboard'
-    if (path.startsWith('/user/dashboard') && path !== '/user/dashboard') return '/user/dashboard'
+    if (path === '/dashboard/profile') return '/dashboard'
+    if (path.startsWith('/events/joined/events')) return '/events/joined'
+    if (path.startsWith('/events/joined') && path !== '/events/joined') return '/events/joined'
     return '/'
 })
 
@@ -73,7 +74,7 @@ function goBack(): void {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button variant="ghost" size="icon-sm" as-child aria-label="Profile">
-                        <Link href="/user/dashboard/profile">
+                        <Link href="/dashboard/profile">
                             <Settings class="size-4" />
                         </Link>
                     </Button>
@@ -120,7 +121,7 @@ function goBack(): void {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem as-child>
-                        <Link href="/user/dashboard/profile" class="flex w-full items-center">
+                        <Link href="/dashboard/profile" class="flex w-full items-center">
                             <UserIcon class="mr-2 size-4" />Profile
                         </Link>
                     </DropdownMenuItem>

@@ -66,7 +66,7 @@ function isImageFileUrl(value: string): boolean {
         <PageHeader
             title="Your registration"
             :subtitle="props.form?.title ? `${props.form.title} · ${props.event.title}` : props.event.title"
-            :back-href="`/user/dashboard/events/${props.event.slug}`"
+            :back-href="`/events/joined/events/${props.event.slug}`"
         />
 
         <div v-if="participationLabel" class="-mt-2 flex flex-wrap items-center gap-2">
@@ -189,7 +189,7 @@ function isImageFileUrl(value: string): boolean {
 
         <div class="flex justify-center pb-4">
             <Link
-                :href="`/user/dashboard/events/${props.event.slug}`"
+                :href="`/events/joined/events/${props.event.slug}`"
                 class="text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
                 Back to event details

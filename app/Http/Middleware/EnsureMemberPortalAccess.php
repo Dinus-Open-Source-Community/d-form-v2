@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Portal /user/dashboard/* — peserta; penyelenggara murni diarahkan ke /admin/dashboard.
+ * Portal /events/joined/* — peserta; penyelenggara murni diarahkan ke /admin/dashboard.
  * Akun yang hanya penyelenggara (punya events.list, tanpa peran member/super-admin)
  * diarahkan ke dasbor utama agar tidak campur alur admin.
  */

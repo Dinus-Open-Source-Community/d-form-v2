@@ -137,7 +137,7 @@ function submitDeclineFromDialog() {
                 <CheckCircle2 class="size-10 text-success" />
                 <p class="font-medium text-foreground">You have already confirmed this team registration.</p>
                 <Button variant="outline" as-child class="mt-2">
-                    <a :href="`/user/dashboard/events/${event.slug}`">Back to event</a>
+                    <a :href="`/events/joined/events/${event.slug}`">Back to event</a>
                 </Button>
             </CardContent>
         </Card>

@@ -24,7 +24,7 @@ const props = defineProps<{
     }>
 }>()
 
-const backHref = computed(() => `/user/dashboard/events/${props.event.slug}`)
+const backHref = computed(() => `/events/joined/events/${props.event.slug}`)
 
 function statusBadgeVariant(s: FormAccessStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
     if (s === 'allowed') return 'default'
@@ -113,7 +113,7 @@ function statusLabel(s: FormAccessStatus): string {
                                     as-child
                                     class="w-full rounded-xl sm:w-auto"
                                 >
-                                    <Link :href="`/user/dashboard/events/${event.slug}/registration`" class="justify-center">
+                                    <Link :href="`/events/joined/events/${event.slug}/registration`" class="justify-center">
                                         Lihat pendaftaran
                                     </Link>
                                 </Button>

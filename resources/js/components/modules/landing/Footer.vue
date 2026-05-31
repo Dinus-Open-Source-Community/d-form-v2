@@ -16,7 +16,7 @@ const linkGroups = [
         items: [
             { label: 'Masuk', href: '/auth/login' },
             { label: 'Buat akun', href: '/auth/register' },
-            { label: 'Dasbor', href: '/user/dashboard' },
+            { label: 'Dasbor', href: '/dashboard' },
         ],
     },
     {

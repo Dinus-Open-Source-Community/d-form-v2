@@ -22,14 +22,35 @@ use App\Http\Controllers\Dashboard\ProfileController;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
 
-/** Bekas /dashboard — arahkan ke area yang sesuai peran. */
+/** Dasbor utama — admin ke area organizer, member ke overview peserta. */
 Route::middleware('auth')->get('/dashboard', function () {
     return auth()->user()->can('events.list')
         ? redirect()->route('dashboard.home')
-        : redirect()->route('dashboard.user.events');
-});
+        : inertia('Dashboard/User/Index');
+})->name('dashboard.user.overview');
 
-Route::permanentRedirect('/dashboard/user/events', '/user/dashboard');
+Route::permanentRedirect('/dashboard/user/events', '/events/joined');
+Route::permanentRedirect('/user/dashboard', '/events/joined');
+Route::permanentRedirect('/user/dashboard/overview', '/dashboard');
+Route::permanentRedirect('/user/dashboard/profile', '/dashboard/profile');
+Route::permanentRedirect('/user/dashboard/events/browse', '/events/joined/events/browse');
+Route::permanentRedirect('/user/dashboard/users/check-email', '/events/joined/users/check-email');
+Route::get(
+    '/user/dashboard/events/{event_segment}/register',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.register', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}/registration',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.registration', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/team-invitations/{token}',
+    fn (string $token) => redirect()->route('dashboard.user.team-invitations.show', ['token' => $token], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.show', ['event_segment' => $event_segment], 301)
+);
 
 Route::middleware('auth')->get('/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
 Route::middleware(['auth', 'throttle:10,1'])->patch('/dashboard/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
@@ -42,11 +63,9 @@ Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard')->group(func
     Route::get('/recruitment', fn () => inertia('Dashboard/Recruitment/Index'))->name('dashboard.recruitment.index');
 });
 
-Route::middleware('auth')->get('/user/dashboard/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.user.profile');
+Route::middleware('auth')->get('/events/joined/profile', fn () => redirect()->route('dashboard.profile'))->name('dashboard.user.profile');
 
-Route::middleware(['auth', 'member_portal'])->prefix('/user/dashboard')->name('dashboard.user.')->group(function () {
-    Route::get('/overview', fn () => inertia('Dashboard/User/Index'))->name('overview');
-
+Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('dashboard.user.')->group(function () {
     Route::get('/', function (EventService $eventService) {
         $userId = auth()->id();
         $events = Event::query()

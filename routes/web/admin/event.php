@@ -11,7 +11,7 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 use App\Http\Controllers\Dashboard\User\UserValidationController;
 
-Route::name('dashboard.')->prefix('/user/dashboard')->middleware('auth')->group(function () {
+Route::name('dashboard.')->prefix('/events/joined')->middleware('auth')->group(function () {
     Route::get('/events/{event}/forms/{form}/fill', FormFillController::class)
         ->name('events.forms.fill');
 

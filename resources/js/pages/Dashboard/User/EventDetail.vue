@@ -79,24 +79,20 @@ const quotaPercent = computed(() => {
 
 <template>
     <Head :title="event.title" />
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-6 sm:gap-8 xl:max-w-7xl">
+    <div class="mx-auto flex w-full flex-col gap-6 pb-6 sm:gap-8">
         <PageHeader
             title="Informasi & pendaftaran"
             subtitle="Ringkasan jadwal, lokasi, dan deskripsi lengkap dari penyelenggara."
-            back-href="/user/dashboard"
         >
         </PageHeader>
 
-        <!-- Hero: gambar & teks terpisah (tanpa overlay di atas banner) -->
         <section
             class="border-border/70 bg-card overflow-hidden rounded-2xl border shadow-[0_1px_0_0_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
         >
-            <div
-                class="flex flex-col lg:grid lg:min-h-[min(26rem,70vh)] lg:grid-cols-2 lg:items-stretch"
-            >
+            <div class="flex flex-col lg:grid lg:min-h-[min(26rem,70vh)] lg:grid-cols-2 lg:items-stretch">
                 <!-- Kolom konten: permukaan solid, hierarki jelas -->
                 <div
-                    class="border-border/60 order-2 flex flex-col justify-center gap-5 border-t bg-gradient-to-b from-card via-card to-muted/25 px-5 py-7 sm:gap-6 sm:px-8 sm:py-9 lg:order-none lg:border-t-0 lg:border-r lg:px-10 xl:px-12"
+                    class="border-border/60 from-card via-card to-muted/25 order-2 flex flex-col justify-center gap-5 border-t bg-gradient-to-b px-5 py-7 sm:gap-6 sm:px-8 sm:py-9 lg:order-none lg:border-t-0 lg:border-r lg:px-10 xl:px-12"
                 >
                     <div class="flex flex-wrap items-center gap-2">
                         <Badge
@@ -120,26 +116,17 @@ const quotaPercent = computed(() => {
                     </div>
                     <div class="max-w-xl space-y-4">
                         <h1
-                            class="font-display text-foreground text-[1.625rem] font-bold tracking-[-0.02em] break-words leading-[1.2] sm:text-3xl lg:text-[2rem] xl:text-[2.25rem]"
+                            class="font-display text-foreground text-[1.625rem] leading-[1.2] font-bold tracking-[-0.02em] break-words sm:text-3xl lg:text-[2rem] xl:text-[2.25rem]"
                         >
                             {{ event.title }}
                         </h1>
-                        <div
-                            class="flex flex-col gap-3 text-sm leading-snug sm:text-[15px]"
-                        >
-                            <span
-                                class="text-muted-foreground inline-flex items-center gap-2.5 [&>svg]:shrink-0"
-                            >
+                        <div class="flex flex-col gap-3 text-sm leading-snug sm:text-[15px]">
+                            <span class="text-muted-foreground inline-flex items-center gap-2.5 [&>svg]:shrink-0">
                                 <CalendarDays class="text-primary size-[1.125rem] opacity-90" aria-hidden="true" />
                                 {{ metaBlocks[0].value }}
                             </span>
-                            <span
-                                class="text-muted-foreground inline-flex items-start gap-2.5 [&>svg]:shrink-0"
-                            >
-                                <MapPin
-                                    class="text-primary mt-0.5 size-[1.125rem] opacity-90"
-                                    aria-hidden="true"
-                                />
+                            <span class="text-muted-foreground inline-flex items-start gap-2.5 [&>svg]:shrink-0">
+                                <MapPin class="text-primary mt-0.5 size-[1.125rem] opacity-90" aria-hidden="true" />
                                 <span class="break-words">{{ metaBlocks[1].value }}</span>
                             </span>
                         </div>
@@ -248,7 +235,7 @@ const quotaPercent = computed(() => {
                         </div>
                         <div v-else-if="!isRegistered && event.registration_status === 'open'">
                             <Button class="h-11 w-full rounded-xl text-[15px] font-semibold shadow-sm" as-child>
-                                <Link :href="`/user/dashboard/events/${event.slug}/register`">
+                                <Link :href="`/events/joined/events/${event.slug}/register`">
                                     <Send class="mr-2 size-4" aria-hidden="true" />
                                     Daftar untuk acara ini
                                 </Link>
@@ -262,7 +249,7 @@ const quotaPercent = computed(() => {
                         </div>
                         <div v-else class="flex flex-col gap-4">
                             <Button class="w-full rounded-xl" variant="secondary" as-child>
-                                <Link :href="`/user/dashboard/events/${event.slug}/registration`"
+                                <Link :href="`/events/joined/events/${event.slug}/registration`"
                                     >Detail pendaftaran</Link
                                 >
                             </Button>
@@ -352,7 +339,7 @@ const quotaPercent = computed(() => {
                             >
                                 QR tidak dimuat. Buka
                                 <Link
-                                    :href="`/user/dashboard/events/${event.slug}/registration`"
+                                    :href="`/events/joined/events/${event.slug}/registration`"
                                     class="text-primary font-medium underline-offset-4 hover:underline"
                                 >
                                     detail pendaftaran
