@@ -19,6 +19,7 @@ use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportContro
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
+use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
 
@@ -28,7 +29,7 @@ Route::middleware('auth')->get('/dashboard', function () {
         return redirect()->route('dashboard.home');
     }
     
-    return app(\App\Http\Controllers\Dashboard\User\MemberDashboardController::class)();
+    return app(MemberDashboardController::class)(request());
 })->name('dashboard.user.overview');
 
 Route::permanentRedirect('/dashboard/user/events', '/events/joined');

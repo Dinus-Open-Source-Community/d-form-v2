@@ -92,7 +92,7 @@ class FormSubmissionsController extends Controller
 
             return Inertia::render('Dashboard/Events/Forms/Submissions', array_merge($baseProps, [
                 'bundleGroups' => [
-                    'data' => $paginator->items(),
+                    'data' => array_values($paginator->items()),
                     'current_page' => $paginator->currentPage(),
                     'last_page' => $paginator->lastPage(),
                     'per_page' => $paginator->perPage(),

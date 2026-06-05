@@ -39,7 +39,7 @@ function handleLogout(): void {
 <template>
     <SidebarProvider>
         <DashboardSidebar />
-        <SidebarInset class="h-svh bg-gradient-to-b from-background via-muted/20 to-background">
+        <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
             <div
                 aria-hidden="true"
                 class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"

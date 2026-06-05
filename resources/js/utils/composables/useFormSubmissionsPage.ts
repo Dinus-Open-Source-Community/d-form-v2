@@ -16,7 +16,7 @@ interface PaginationLink {
 }
 
 interface SubmissionPaginator {
-    data: IFormSubmission[]
+    data?: IFormSubmission[]
     current_page: number
     last_page: number
     per_page: number
@@ -25,7 +25,7 @@ interface SubmissionPaginator {
 }
 
 interface BundleGroupPaginator {
-    data: IBundleSubmissionGroup[]
+    data?: IBundleSubmissionGroup[]
     current_page: number
     last_page: number
     per_page: number
@@ -38,43 +38,61 @@ function readXsrfToken(): string | null {
     return m?.[1] ? decodeURIComponent(m[1]) : null
 }
 
+function submissionRows(paginator: SubmissionPaginator | undefined): IFormSubmission[] {
+    return paginator?.data ?? []
+}
+
+function bundleGroupRows(paginator: BundleGroupPaginator | undefined): IBundleSubmissionGroup[] {
+    return paginator?.data ?? []
+}
+
 export function useFormSubmissionsPage(props: {
     event: { id: string; title: string }
-    form: { id: string; title: string; registration_mode?: 'single' | 'bundle' }
-    fields: IFormField[]
+    form: { id: string; title: string; registration_mode?: 'single' | 'bundle' | 'team' }
+    fields?: IFormField[]
     submissions?: SubmissionPaginator
     bundleGroups?: BundleGroupPaginator
 }) {
+    const formFields = computed(() => props.fields ?? [])
     const selectedSubmission = ref<IFormSubmission | null>(null)
     const isDetailOpen = ref(false)
     const selectedGroup = ref<IBundleSubmissionGroup | null>(null)
     const isGroupDetailOpen = ref(false)
     const reviewingIds = ref<Set<string>>(new Set())
 
+    const activeBundleGroup = computed(() => {
+        const rows = bundleGroupRows(props.bundleGroups)
+        if (rows.length === 0) {
+            return null
+        }
+
+        if (!selectedGroup.value) {
+            return rows[0]
+        }
+
+        return rows.find((g) => g.group_token === selectedGroup.value?.group_token) ?? rows[0]
+    })
+
     const fieldLabelMap = computed(() => {
         const map: Record<string, string> = {}
-        props.fields.forEach((field) => {
+        formFields.value.forEach((field) => {
             map[field.name] = field.label
         })
         return map
     })
 
     const answerKeys = computed(() => {
-        const keysFromFields = props.fields.map((f) => f.name)
+        const keysFromFields = formFields.value.map((f) => f.name)
         const keysInSubmissions = new Set<string>()
         
-        if (props.submissions) {
-            for (const submission of props.submissions.data) {
-                Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-            }
+        for (const submission of submissionRows(props.submissions)) {
+            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
         }
-        
-        if (props.bundleGroups) {
-            for (const group of props.bundleGroups.data) {
-                Object.keys(group.leader.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-                for (const member of group.members) {
-                    Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-                }
+
+        for (const group of bundleGroupRows(props.bundleGroups)) {
+            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            for (const member of group.members ?? []) {
+                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
             }
         }
         
@@ -83,21 +101,17 @@ export function useFormSubmissionsPage(props: {
     })
 
     const allAnswerKeys = computed(() => {
-        const keysFromFields = props.fields.map((f) => f.name)
+        const keysFromFields = formFields.value.map((f) => f.name)
         const keysInSubmissions = new Set<string>()
         
-        if (props.submissions) {
-            for (const submission of props.submissions.data) {
-                Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-            }
+        for (const submission of submissionRows(props.submissions)) {
+            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
         }
-        
-        if (props.bundleGroups) {
-            for (const group of props.bundleGroups.data) {
-                Object.keys(group.leader.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-                for (const member of group.members) {
-                    Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
-                }
+
+        for (const group of bundleGroupRows(props.bundleGroups)) {
+            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            for (const member of group.members ?? []) {
+                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
             }
         }
         
@@ -113,16 +127,18 @@ export function useFormSubmissionsPage(props: {
     }
 
     function openDetail(submission: IFormSubmission | IBundleSubmissionMember) {
-        // Check can_open_detail for bundle members
         if ('can_open_detail' in submission && !submission.can_open_detail) {
             return
         }
-        
+
+        isGroupDetailOpen.value = false
         selectedSubmission.value = submission
         isDetailOpen.value = true
     }
 
     function openGroupDetail(group: IBundleSubmissionGroup) {
+        isDetailOpen.value = false
+        selectedSubmission.value = null
         selectedGroup.value = group
         isGroupDetailOpen.value = true
     }
@@ -192,7 +208,9 @@ export function useFormSubmissionsPage(props: {
                         toast.error(body.message ?? 'Gagal memperbarui status review.')
                     }
                     if (res.status === 409 || res.status === 422) {
-                        router.reload({ only: ['submissions'] })
+                        router.reload({
+                            only: props.form.registration_mode === 'bundle' ? ['bundleGroups'] : ['submissions'],
+                        })
                     }
                     return
                 }
@@ -210,17 +228,15 @@ export function useFormSubmissionsPage(props: {
                             // Try to find updated submission in either submissions or bundleGroups
                             let next: IFormSubmission | IBundleSubmissionMember | null = null
                             
-                            if (props.submissions) {
-                                next = props.submissions.data.find((s) => s.id === id) ?? null
-                            }
-                            
-                            if (!next && props.bundleGroups) {
-                                for (const group of props.bundleGroups.data) {
+                            next = submissionRows(props.submissions).find((s) => s.id === id) ?? null
+
+                            if (!next) {
+                                for (const group of bundleGroupRows(props.bundleGroups)) {
                                     if (group.leader.id === id) {
                                         next = group.leader
                                         break
                                     }
-                                    const member = group.members.find((m) => m.id === id)
+                                    const member = (group.members ?? []).find((m) => m.id === id)
                                     if (member) {
                                         next = member
                                         break
@@ -244,6 +260,7 @@ export function useFormSubmissionsPage(props: {
         selectedSubmission,
         isDetailOpen,
         selectedGroup,
+        activeBundleGroup,
         isGroupDetailOpen,
         fieldLabelMap,
         answerKeys,

@@ -25,9 +25,9 @@ function fieldForKey(key: string): IFormField | null {
 
 /** Urutan field mengikuti builder; key ekstra (legacy) di akhir. */
 const orderedAnswerKeys = computed(() => {
-    const keys = [...props.allAnswerKeys]
+    const keys = [...(props.allAnswerKeys ?? [])]
     const orderMap = new Map<string, number>()
-    props.fields.forEach((f) => {
+    ;(props.fields ?? []).forEach((f) => {
         orderMap.set(f.name, f.order)
     })
     return keys.sort((a, b) => {

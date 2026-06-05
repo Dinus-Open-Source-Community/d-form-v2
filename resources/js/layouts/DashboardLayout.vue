@@ -8,7 +8,7 @@ import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vu
 <template>
     <SidebarProvider>
         <DashboardSidebar />
-        <SidebarInset class="h-svh bg-gradient-to-b from-background via-muted/20 to-background">
+        <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
             <SidebarTrigger
                 class="fixed left-4 top-4 z-30 h-11! w-11! rounded-2xl border border-border/70 bg-card/95 shadow-lg shadow-black/5 backdrop-blur-xl md:hidden"
                 aria-label="Buka sidebar"

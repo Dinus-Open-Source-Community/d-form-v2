@@ -36,7 +36,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
+</script>
 
 <template>
     <Head title="My Dashboard" />

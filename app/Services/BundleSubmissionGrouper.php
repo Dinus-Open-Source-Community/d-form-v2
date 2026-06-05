@@ -20,11 +20,15 @@ final class BundleSubmissionGrouper
     {
         $grouped = $formAnswers->groupBy('group_token');
 
-        return $grouped->map(function (Collection $groupSubmissions, string $groupToken): array {
+        return $grouped->map(function (Collection $groupSubmissions, string $groupToken): ?array {
             // Identify leader (registration_role = leader or fallback to first)
             $leader = $groupSubmissions->first(fn (FormAnswer $fa) => $fa->registration_role === RegistrationRole::Leader);
             if ($leader === null) {
                 $leader = $groupSubmissions->first();
+            }
+
+            if ($leader === null) {
+                return null;
             }
 
             // Separate members from leader
@@ -67,7 +71,7 @@ final class BundleSubmissionGrouper
                 'group_review_status' => $groupReviewStatus,
                 'submitted_at' => $leader->created_at->toISOString(),
             ];
-        })->values();
+        })->filter()->values();
     }
 
     /**
