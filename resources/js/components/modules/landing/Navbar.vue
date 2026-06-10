@@ -16,6 +16,7 @@ import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import useAuth from '@/utils/composables/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
+import { routes } from '@/lib/routes';
 import { LayoutDashboard, UserRound, LogOut, ChevronsUpDown } from 'lucide-vue-next';
 
 const page = usePage();
@@ -119,10 +120,10 @@ onUnmounted(() => {
 });
 
 const links = [
-    { label: 'Beranda', href: '/' },
-    { label: 'Fitur', href: '/features' },
-    { label: 'Acara', href: '/events' },
-    { label: 'Dokumentasi', href: '/docs' },
+    { label: 'Beranda', href: routes.home },
+    { label: 'Fitur', href: routes.landing.features },
+    { label: 'Acara', href: routes.landing.events.index },
+    { label: 'Dokumentasi', href: routes.landing.docs },
 ];
 </script>
 
@@ -136,7 +137,7 @@ const links = [
         ]"
     >
         <div class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-10">
-            <a href="/" class="group flex items-center gap-2.5">
+            <a :href="routes.home" class="group flex items-center gap-2.5">
                 <img
                     src="/public/DForm%201.png"
                     alt="DOSCOM"
@@ -198,13 +199,13 @@ const links = [
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem as-child>
-                            <Link href="/dashboard" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link :href="routes.dashboard.index" class="flex w-full cursor-pointer items-center gap-2">
                                 <LayoutDashboard class="text-muted-foreground size-4" />
                                 Dashboard
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem as-child>
-                            <Link href="/dashboard/profile" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link :href="routes.dashboard.profile" class="flex w-full cursor-pointer items-center gap-2">
                                 <UserRound class="text-muted-foreground size-4" />
                                 Profile
                             </Link>
@@ -223,10 +224,10 @@ const links = [
 
             <div v-else class="hidden items-center gap-2.5 md:flex">
                 <Button as-child variant="ghost" size="sm" class="h-9 rounded-lg px-4 text-sm">
-                    <a href="/auth/login">Masuk</a>
+                    <a :href="routes.auth.login">Masuk</a>
                 </Button>
                 <Button as-child size="sm" class="h-9 rounded-lg px-5 text-sm font-semibold">
-                    <a href="/auth/register">Daftar</a>
+                    <a :href="routes.auth.register">Daftar</a>
                 </Button>
             </div>
 
@@ -283,10 +284,10 @@ const links = [
                                 </div>
                             </div>
                             <Button as-child variant="outline" class="h-10 w-full rounded-lg text-sm">
-                                <Link href="/dashboard" @click="mobileOpen = false">Dashboard</Link>
+                                <Link :href="routes.dashboard.index" @click="mobileOpen = false">Dashboard</Link>
                             </Button>
                             <Button as-child variant="outline" class="mt-2 h-10 w-full rounded-lg text-sm">
-                                <Link href="/dashboard/profile" @click="mobileOpen = false">Profile</Link>
+                                <Link :href="routes.dashboard.profile" @click="mobileOpen = false">Profile</Link>
                             </Button>
                             <Button
                                 variant="destructive"
@@ -301,10 +302,10 @@ const links = [
                         </template>
                         <template v-else>
                             <Button as-child variant="outline" class="h-10 w-full rounded-lg text-sm">
-                                <a href="/auth/login" @click="mobileOpen = false">Masuk</a>
+                                <a :href="routes.auth.login" @click="mobileOpen = false">Masuk</a>
                             </Button>
                             <Button as-child class="mt-2 h-10 w-full rounded-lg text-sm font-semibold">
-                                <a href="/auth/register" @click="mobileOpen = false">Daftar</a>
+                                <a :href="routes.auth.register" @click="mobileOpen = false">Daftar</a>
                             </Button>
                         </template>
                     </div>

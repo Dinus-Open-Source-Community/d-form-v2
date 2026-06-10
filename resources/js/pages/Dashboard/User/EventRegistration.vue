@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 import { CalendarDays, MapPin } from 'lucide-vue-next'
 import { formatDate, formatDateTime, statusColorMap } from '@/lib/dummyData'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -66,7 +67,7 @@ function isImageFileUrl(value: string): boolean {
         <PageHeader
             title="Your registration"
             :subtitle="props.form?.title ? `${props.form.title} · ${props.event.title}` : props.event.title"
-            :back-href="`/events/joined/events/${props.event.slug}`"
+            :back-href="routes.member.event.show(props.event.slug)"
         />
 
         <div v-if="participationLabel" class="-mt-2 flex flex-wrap items-center gap-2">
@@ -189,7 +190,7 @@ function isImageFileUrl(value: string): boolean {
 
         <div class="flex justify-center pb-4">
             <Link
-                :href="`/events/joined/events/${props.event.slug}`"
+                :href="routes.member.event.show(props.event.slug)"
                 class="text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
                 Back to event details

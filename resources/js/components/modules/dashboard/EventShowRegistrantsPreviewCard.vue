@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowUpRight } from 'lucide-vue-next'
 import { formatDate } from '@/lib/dummyData'
+import { routes } from '@/lib/routes'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
 
@@ -27,7 +28,7 @@ defineProps<{
                     </p>
                 </div>
                 <Button variant="ghost" size="sm" class="h-8 gap-1 rounded-full text-xs" as-child>
-                    <Link :href="`/admin/dashboard/events/${eventId}/registrants`">
+                    <Link :href="routes.admin.events.registrants(eventId)">
                         View all
                         <ArrowUpRight class="size-3.5" />
                     </Link>
@@ -39,7 +40,7 @@ defineProps<{
                 <Link
                     v-for="reg in previewRegistrants"
                     :key="reg.id"
-                    :href="`/admin/dashboard/events/${eventId}/registrants`"
+                    :href="routes.admin.events.registrants(eventId)"
                     class="group flex items-center justify-between rounded-xl px-2.5 py-2 transition-colors hover:bg-muted/50"
                 >
                     <div class="flex min-w-0 items-center gap-3">

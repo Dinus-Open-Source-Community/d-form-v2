@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { dummyEvents, formatDate, categoryLabelMap } from '@/lib/dummyData'
 import { toCategoryList } from '@/lib/eventCategories'
 import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const props = defineProps<{
     events?: IEvent[]
@@ -22,8 +23,8 @@ const recentEvents = computed(() =>
         .slice(0, 4),
 )
 
-const allHref = computed(() => props.viewAllHref ?? '/admin/dashboard/events')
-const baseHref = computed(() => props.eventBaseHref ?? '/admin/dashboard/events')
+const allHref = computed(() => props.viewAllHref ?? routes.admin.events.index)
+const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index)
 </script>
 
 <template>
@@ -45,9 +46,9 @@ const baseHref = computed(() => props.eventBaseHref ?? '/admin/dashboard/events'
                 v-for="event in recentEvents"
                 :key="event.id"
                 :href="`${baseHref}/${event.id}`"
-                class="group flex items-start gap-3 rounded-xl border border-transparent p-2.5 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border hover:bg-muted/40"
+                class="group flex items-start gap-3 rounded-xl border border-transparent p-2 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border hover:bg-muted/40 sm:p-2.5"
             >
-                <div class="aspect-[4/3] w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                <div class="hidden aspect-[4/3] w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:block">
                     <img
                         :src="event.banner_url ?? ''"
                         :alt="event.title"
@@ -55,18 +56,18 @@ const baseHref = computed(() => props.eventBaseHref ?? '/admin/dashboard/events'
                     />
                 </div>
                 <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">{{ event.title }}</p>
+                    <p class="truncate text-[13px] font-semibold text-foreground transition-colors group-hover:text-primary sm:text-sm">{{ event.title }}</p>
                     <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
                         <span class="inline-flex items-center gap-1">
                             <CalendarDays class="size-3" :stroke-width="2" />
                             {{ formatDate(event.start_date) }}
                         </span>
-                        <span class="inline-flex items-center gap-1">
+                        <span class="hidden items-center gap-1 xs:inline-flex sm:inline-flex">
                             <MapPin class="size-3" :stroke-width="2" />
                             {{ event.location?.split('—')[0]?.trim() ?? event.location }}
                         </span>
                     </div>
-                    <div class="mt-1.5 flex flex-wrap gap-1">
+                    <div class="mt-1.5 hidden flex-wrap gap-1 sm:flex">
                         <Badge
                             v-for="cat in toCategoryList(event.category)"
                             :key="cat"
@@ -77,7 +78,7 @@ const baseHref = computed(() => props.eventBaseHref ?? '/admin/dashboard/events'
                         </Badge>
                     </div>
                 </div>
-                <span class="shrink-0 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold tabular-nums text-foreground shadow-xs">
+                <span class="shrink-0 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground shadow-xs sm:px-2 sm:text-[11px]">
                     {{ event.registered_count }}/{{ event.quota }}
                 </span>
             </Link>

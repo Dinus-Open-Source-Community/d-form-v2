@@ -16,6 +16,7 @@ import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnsw
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CheckCircle2, Users } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: FormFillLayout })
 
@@ -137,7 +138,7 @@ function submitDeclineFromDialog() {
                 <CheckCircle2 class="size-10 text-success" />
                 <p class="font-medium text-foreground">You have already confirmed this team registration.</p>
                 <Button variant="outline" as-child class="mt-2">
-                    <a :href="`/events/joined/events/${event.slug}`">Back to event</a>
+                    <a :href="routes.member.event.show(event.slug)">Back to event</a>
                 </Button>
             </CardContent>
         </Card>

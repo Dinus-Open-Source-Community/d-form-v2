@@ -12,6 +12,7 @@ import {
 import SeoHead from '@/components/seo/SeoHead.vue'
 import { usePage } from '@inertiajs/vue3'
 import type { SharedSeoProps } from '@/types/seo'
+import { routes } from '@/lib/routes'
 
 const page = usePage()
 const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo)
@@ -26,11 +27,11 @@ const docsJsonLd = computed<Record<string, unknown>>(() => ({
     '@type': 'TechArticle',
     headline: 'Dokumentasi DForm',
     description: docsDescription.value,
-    url: `${seo.value.siteUrl}/docs`,
+    url: `${seo.value.siteUrl}${routes.landing.docs}`,
     isPartOf: {
         '@type': 'WebSite',
         name: seo.value.siteName,
-        url: `${seo.value.siteUrl}/`,
+        url: `${seo.value.siteUrl}${routes.home}`,
     },
 }))
 
@@ -125,7 +126,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 <template>
     <LandingLayout>
-        <SeoHead title="Dokumentasi" :description="docsDescription" canonical-path="/docs" :json-ld="docsJsonLd" />
+        <SeoHead title="Dokumentasi" :description="docsDescription" :canonical-path="routes.landing.docs" :json-ld="docsJsonLd" />
         <!-- Hero -->
         <section class="relative overflow-hidden border-b border-border/30 bg-muted/20 pt-32 pb-16 md:pt-40 md:pb-20">
             <div class="pointer-events-none absolute inset-0 app-noise opacity-30" aria-hidden="true" />

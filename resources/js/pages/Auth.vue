@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
+import { routes } from '@/lib/routes'
 import AuthToast from '@/components/modules/auth/AuthToast.vue'
 import AuthIllustration from '@/components/modules/auth/AuthIllustration.vue'
 import AuthLoginForm from '@/components/modules/auth/AuthLoginForm.vue'
@@ -48,31 +49,14 @@ watch(
 
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
             <div class="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-8">
-                <a href="/" class="group mb-10 inline-flex items-center gap-2.5">
-                    <div
-                        class="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs transition-transform group-hover:-translate-y-px"
-                    >
-                        <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            aria-hidden="true"
-                        >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                            <path d="M14 2v6h6" />
-                            <path d="M16 13H8" />
-                            <path d="M16 17H8" />
-                            <path d="M10 9H8" />
-                        </svg>
-                    </div>
-                    <span class="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
-                        D<span class="text-primary">Form</span>
-                    </span>
+                <a :href="routes.home" class="group mb-10 inline-block transition-transform hover:-translate-y-px">
+                    <img
+                        :src="`/${encodeURIComponent('DForm 1.png')}`"
+                        alt="DForm"
+                        class="h-10 w-auto select-none"
+                        width="160"
+                        height="40"
+                    />
                 </a>
 
                 <AuthLoginForm v-if="mode === 'login'" @toast="showToast" @switch-mode="mode = 'register'" />

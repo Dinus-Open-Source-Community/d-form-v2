@@ -191,15 +191,13 @@ const legendEntries = computed(() =>
 <template>
     <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
         <CardHeader class="border-border/50 bg-muted/10 space-y-0 border-b p-0">
-            <div
-                class="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between"
-            >
-                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <CardTitle class="font-display text-lg font-bold tracking-[-0.02em] sm:text-xl">
+            <div class="flex flex-col gap-2.5 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                <div class="flex min-w-0 items-center gap-2">
+                    <CardTitle class="font-display shrink-0 text-base font-bold tracking-[-0.02em] sm:text-xl">
                         Kalender acara
                     </CardTitle>
                     <span class="bg-border/80 hidden h-4 w-px shrink-0 lg:inline-block" aria-hidden="true" />
-                    <p class="font-display text-muted-foreground text-base font-semibold tracking-tight">
+                    <p class="font-display text-muted-foreground truncate text-sm font-semibold tracking-tight sm:text-base">
                         <template v-if="viewMode === 'month'">
                             {{ monthNamesId[currentMonth] }} {{ currentYear }}
                         </template>
@@ -207,11 +205,14 @@ const legendEntries = computed(() =>
                             {{ weekLabel }}
                         </template>
                     </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
                     <div class="border-border/70 bg-background/80 flex items-center rounded-lg border p-0.5 shadow-xs">
                         <Button
                             variant="ghost"
                             size="icon-sm"
-                            class="size-8 rounded-md"
+                            class="size-7 rounded-md sm:size-8"
                             :aria-label="viewMode === 'month' ? 'Bulan sebelumnya' : 'Minggu sebelumnya'"
                             @click="viewMode === 'month' ? prevMonth() : prevWeek()"
                         >
@@ -220,28 +221,26 @@ const legendEntries = computed(() =>
                         <Button
                             variant="ghost"
                             size="icon-sm"
-                            class="size-8 rounded-md"
+                            class="size-7 rounded-md sm:size-8"
                             :aria-label="viewMode === 'month' ? 'Bulan berikutnya' : 'Minggu berikutnya'"
                             @click="viewMode === 'month' ? nextMonth() : nextWeek()"
                         >
                             <ChevronRight class="size-4" :stroke-width="2" />
                         </Button>
                     </div>
-                    <Button variant="outline" size="sm" class="h-8 rounded-lg text-xs" @click="goToday"
-                        >Hari ini</Button
-                    >
-                </div>
+                    <Button variant="outline" size="sm" class="h-7 rounded-lg px-2 text-xs sm:h-8 sm:px-2.5" @click="goToday">
+                        Hari ini
+                    </Button>
 
-                <div class="flex flex-wrap items-center gap-2">
                     <div
-                        class="border-border/70 bg-background/80 inline-flex items-center gap-0.5 rounded-xl border p-0.5 shadow-inner"
+                        class="border-border/70 bg-background/80 ml-auto inline-flex items-center gap-0.5 rounded-xl border p-0.5 shadow-inner sm:ml-0"
                         role="group"
                         aria-label="Mode tampilan"
                     >
                         <button
                             type="button"
                             :class="[
-                                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200',
+                                'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
                                 viewMode === 'month'
                                     ? 'bg-primary text-primary-foreground shadow-sm'
                                     : 'text-muted-foreground hover:text-foreground',
@@ -253,7 +252,7 @@ const legendEntries = computed(() =>
                         <button
                             type="button"
                             :class="[
-                                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200',
+                                'rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
                                 viewMode === 'week'
                                     ? 'bg-primary text-primary-foreground shadow-sm'
                                     : 'text-muted-foreground hover:text-foreground',
@@ -267,7 +266,7 @@ const legendEntries = computed(() =>
             </div>
         </CardHeader>
 
-        <CardContent class="space-y-4 p-4 sm:p-5">
+        <CardContent class="space-y-4 p-3 sm:p-5">
             <template v-if="viewMode === 'month'">
                 <div
                     class="border-border/70 from-muted/20 to-card overflow-hidden rounded-xl border bg-gradient-to-b shadow-inner"
@@ -276,7 +275,7 @@ const legendEntries = computed(() =>
                         <div
                             v-for="day in dayNamesShort"
                             :key="day"
-                            class="bg-muted/50 text-muted-foreground py-2.5 text-center text-[10px] font-bold tracking-[0.12em] uppercase"
+                            class="bg-muted/50 text-muted-foreground py-2 text-center text-[10px] font-bold tracking-[0.12em] uppercase sm:py-2.5"
                         >
                             {{ day }}
                         </div>
@@ -291,13 +290,13 @@ const legendEntries = computed(() =>
                                 v-for="(cell, dIdx) in week"
                                 :key="dIdx"
                                 :class="[
-                                    'min-h-[5.5rem] p-1.5 transition-colors sm:min-h-24 sm:p-2',
+                                    'min-h-12 p-1 transition-colors sm:min-h-24 sm:p-2',
                                     !cell.isCurrentMonth ? 'bg-muted/25' : 'hover:bg-muted/20',
                                 ]"
                             >
                                 <span
                                     :class="[
-                                        'mb-1 inline-flex size-7 items-center justify-center rounded-lg text-xs font-semibold transition-colors',
+                                        'mb-0.5 inline-flex size-6 items-center justify-center rounded-md text-[11px] font-semibold transition-colors sm:mb-1 sm:size-7 sm:rounded-lg sm:text-xs',
                                         cell.isToday
                                             ? 'bg-primary text-primary-foreground ring-primary/30 shadow-md ring-2'
                                             : cell.isCurrentMonth
@@ -307,7 +306,19 @@ const legendEntries = computed(() =>
                                 >
                                     {{ cell.day }}
                                 </span>
-                                <div class="flex flex-col gap-1">
+                                <!-- Mobile: dot indicators -->
+                                <div v-if="cell.events.length > 0" class="flex justify-center gap-0.5 sm:hidden">
+                                    <button
+                                        v-for="ev in cell.events.slice(0, 3)"
+                                        :key="ev.id"
+                                        type="button"
+                                        class="size-1.5 rounded-full shadow-sm ring-1 ring-background/80"
+                                        :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)' }"
+                                        @click="onEventClick(ev)"
+                                    />
+                                </div>
+                                <!-- Desktop: event labels -->
+                                <div class="hidden flex-col gap-1 sm:flex">
                                     <button
                                         v-for="ev in cell.events.slice(0, 2)"
                                         :key="ev.id"
@@ -336,12 +347,13 @@ const legendEntries = computed(() =>
             </template>
 
             <template v-else>
-                <div class="border-border/70 bg-card overflow-hidden rounded-xl border shadow-inner">
+                <!-- Desktop: 7-column grid -->
+                <div class="border-border/70 bg-card hidden overflow-hidden rounded-xl border shadow-inner sm:block">
                     <div class="divide-border/50 grid grid-cols-7 divide-x">
                         <div
                             v-for="day in weekDays"
                             :key="day.dayName"
-                            class="flex min-h-44 flex-col p-2 sm:min-h-48 sm:p-3"
+                            class="flex min-h-48 flex-col p-3"
                         >
                             <div class="mb-2 text-center">
                                 <div class="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
@@ -376,15 +388,57 @@ const legendEntries = computed(() =>
                         </div>
                     </div>
                 </div>
+                <!-- Mobile: vertical list -->
+                <div class="border-border/70 bg-card divide-border/50 divide-y overflow-hidden rounded-xl border shadow-inner sm:hidden">
+                    <div
+                        v-for="day in weekDays"
+                        :key="day.dayName"
+                        class="flex items-start gap-3 p-3"
+                    >
+                        <div class="flex w-10 shrink-0 flex-col items-center pt-0.5">
+                            <div class="text-muted-foreground text-[10px] font-bold tracking-[0.1em] uppercase">
+                                {{ day.dayName }}
+                            </div>
+                            <span
+                                :class="[
+                                    'mt-0.5 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
+                                    day.isToday
+                                        ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
+                                        : 'text-foreground',
+                                ]"
+                            >
+                                {{ day.day }}
+                            </span>
+                        </div>
+                        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+                            <button
+                                v-for="ev in day.events"
+                                :key="ev.id"
+                                type="button"
+                                class="w-full truncate rounded-lg border border-white/10 px-2.5 py-1.5 text-left text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+                                :style="{
+                                    backgroundColor:
+                                        categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)',
+                                }"
+                                @click="onEventClick(ev)"
+                            >
+                                {{ ev.title }}
+                            </button>
+                            <p v-if="day.events.length === 0" class="text-muted-foreground/50 py-1 text-xs italic">
+                                Tidak ada acara
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </template>
 
-            <div class="border-border/40 flex flex-wrap justify-center gap-2 border-t pt-4 sm:justify-start">
+            <div class="border-border/40 flex flex-wrap justify-center gap-1.5 border-t pt-3 sm:gap-2 sm:pt-4 sm:justify-start">
                 <div
                     v-for="item in legendEntries"
                     :key="item.token"
-                    class="border-border/50 bg-muted/20 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                    class="border-border/50 bg-muted/20 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
                 >
-                    <span class="size-2.5 shrink-0 rounded-full shadow-sm" :style="{ backgroundColor: item.color }" />
+                    <span class="size-2 shrink-0 rounded-full shadow-sm sm:size-2.5" :style="{ backgroundColor: item.color }" />
                     <span class="text-foreground font-medium">{{ item.label }}</span>
                 </div>
             </div>

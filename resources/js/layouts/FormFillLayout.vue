@@ -5,13 +5,14 @@ import { usePage, Link, router } from '@inertiajs/vue3'
 import { Toaster } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const page = usePage()
 
 const fallbackBackHref = computed((): string => {
     const event = (page.props.event as { id: string; slug?: string; title: string } | undefined)
-    if (event) return `/events/joined/events/${event.slug ?? event.id}`
-    return '/events/joined'
+    if (event) return routes.member.event.show(event.slug ?? event.id)
+    return routes.member.joined
 })
 
 function goBack(): void {
@@ -38,7 +39,7 @@ function goBack(): void {
                     <span>Kembali</span>
                 </Button>
 
-                <Link href="/" class="hidden sm:block">
+                <Link :href="routes.home" class="hidden sm:block">
                     <span class="font-display text-lg font-bold tracking-[-0.02em]">
                         D<span class="text-primary">Form</span>
                     </span>

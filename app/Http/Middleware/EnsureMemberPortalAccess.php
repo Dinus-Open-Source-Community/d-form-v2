@@ -22,7 +22,7 @@ class EnsureMemberPortalAccess
         }
 
         if ($user->can('events.list') && ! $user->hasAnyRole(['member', 'super-admin'])) {
-            return redirect()->route('dashboard.home');
+            return redirect()->route('dashboard');
         }
 
         return $next($request);

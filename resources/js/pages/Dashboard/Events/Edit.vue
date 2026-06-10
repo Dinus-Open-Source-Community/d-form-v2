@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import EventDashboardForm from '@/components/modules/dashboard/events/EventDashboardForm.vue';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -19,7 +20,7 @@ defineProps<{
         <PageHeader
             title="Ubah acara"
             subtitle="Perbarui detail di bawah. Banner baru bersifat opsional — kosongkan jika tidak diganti."
-            :back-href="`/admin/dashboard/events/${event.id}`"
+            :back-href="routes.admin.events.show(event.id)"
         />
 
         <EventDashboardForm variant="edit" :event="event" :options="options" />

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MapPin, Users, ArrowRight } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const props = defineProps<{
     events: IEvent[]
@@ -104,7 +105,7 @@ const statusVariant = (s: string) =>
                             size="sm"
                             class="mt-4 h-9 w-full rounded-lg text-xs font-medium"
                         >
-                            <a :href="`/events/${ev.slug}`" class="inline-flex items-center justify-center gap-1.5">
+                            <a :href="routes.landing.events.show(ev.slug)" class="inline-flex items-center justify-center gap-1.5">
                                 Lihat Detail
                                 <ArrowRight class="size-3.5" />
                             </a>

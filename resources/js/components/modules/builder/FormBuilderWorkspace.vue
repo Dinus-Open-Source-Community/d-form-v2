@@ -18,6 +18,7 @@ import FormBuilderInspectorPanel from './FormBuilderInspectorPanel.vue';
 import FormBuilderAddFieldSheet from './FormBuilderAddFieldSheet.vue';
 import FormBuilderEditFieldSheet from './FormBuilderEditFieldSheet.vue';
 import FormBuilderMobileAddFab from './FormBuilderMobileAddFab.vue';
+import { routes } from '@/lib/routes';
 
 const props = withDefaults(
     defineProps<{
@@ -62,7 +63,7 @@ const wb = reactive(
     )
 );
 
-const backHref = computed(() => `/admin/dashboard/events/${props.event.id}/forms`);
+const backHref = computed(() => routes.admin.events.forms.index(props.event.id));
 const shellHeightClass = computed(() => (props.shell === 'fullscreen' ? 'h-svh' : 'min-h-0 lg:h-[calc(100svh-5rem)]'));
 const visibilityOptions = FORM_VISIBILITY_OPTIONS;
 </script>

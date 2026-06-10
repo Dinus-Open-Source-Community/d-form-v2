@@ -4,6 +4,7 @@ import { Head, router } from '@inertiajs/vue3'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { Button } from '@/components/ui/button'
 import type { LottieName } from '@/lib/lotties'
+import { routes } from '@/lib/routes'
 
 const props = defineProps<{
     status: number
@@ -52,7 +53,7 @@ function goBack(): void {
         window.history.back()
         return
     }
-    router.visit('/')
+    router.visit(routes.home)
 }
 </script>
 

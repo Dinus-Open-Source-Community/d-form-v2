@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginStoreRequest;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -29,14 +28,7 @@ class LoginController extends Controller
                 'type' => 'success',
             ]);
 
-            /** @var User $user */
-            $user = Auth::user();
-
-            $default = $user->can('events.list')
-                ? route('dashboard.home', absolute: false)
-                : route('dashboard.user.events', absolute: false);
-
-            return redirect()->intended($default);
+            return redirect()->intended(route('dashboard', absolute: false));
         }
 
         return Inertia::flash('toast', [

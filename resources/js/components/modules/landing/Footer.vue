@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import { Separator } from '@/components/ui/separator';
+import { routes } from '@/lib/routes';
 import { MapPin, Mail, Globe } from 'lucide-vue-next';
 
 const linkGroups = [
     {
         title: 'Platform',
         items: [
-            { label: 'Fitur', href: '/features' },
-            { label: 'Acara', href: '/events' },
-            { label: 'Dokumentasi', href: '/docs' },
+            { label: 'Fitur', href: routes.landing.features },
+            { label: 'Acara', href: routes.landing.events.index },
+            { label: 'Dokumentasi', href: routes.landing.docs },
         ],
     },
     {
         title: 'Akses',
         items: [
-            { label: 'Masuk', href: '/auth/login' },
-            { label: 'Buat akun', href: '/auth/register' },
-            { label: 'Dasbor', href: '/dashboard' },
+            { label: 'Masuk', href: routes.auth.login },
+            { label: 'Buat akun', href: routes.auth.register },
+            { label: 'Dasbor', href: routes.dashboard.index },
         ],
     },
     {
@@ -38,7 +39,7 @@ const mapEmbedUrl =
             <div class="grid gap-8 py-10 sm:gap-10 sm:py-14 lg:grid-cols-[1fr_1.1fr] lg:gap-16 lg:py-20">
                 <div class="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)] lg:grid-cols-1 lg:gap-8">
                     <div class="min-w-0">
-                        <a href="/" class="inline-flex items-center gap-2.5">
+                        <a :href="routes.home" class="inline-flex items-center gap-2.5">
                             <img src="/public/DForm%201.png" alt="DOSCOM" class="h-8 w-auto sm:h-9" />
                         </a>
                         <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed sm:max-w-xs sm:text-[0.9375rem]">

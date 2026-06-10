@@ -7,6 +7,7 @@ import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstruc
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue'
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue'
 import { useEventQrScanPage } from '@/utils/composables/useEventQrScanPage'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -27,7 +28,7 @@ const s = reactive(
         <PageHeader
             title="Scanner Absensi QR"
             subtitle="Pindai QR atau masukkan kode registrasi. Check-in valid akan diproses di latar belakang; peserta mendapat email konfirmasi setelah antrean selesai."
-            :back-href="`/admin/dashboard/events/${props.event.id}`"
+            :back-href="routes.admin.events.show(props.event.id)"
         />
 
         <QrScanInstructionsCard />

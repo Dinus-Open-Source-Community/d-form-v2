@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController'
 import { toast } from 'vue-sonner'
+import { routes } from '@/lib/routes'
 
-const PASSWORD_RESET_LINK_URL = '/auth/password-reset-link'
+const PASSWORD_RESET_LINK_URL = routes.auth.passwordResetLink
 
 const email = ref('')
 const emailError = ref<string | undefined>()

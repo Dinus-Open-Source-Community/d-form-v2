@@ -39,12 +39,6 @@ function isExpanded(token: string) {
     return expandedGroups.value.has(token);
 }
 
-function groupLabel(token: string) {
-    const t = token.trim();
-    if (t.length <= 10) return t;
-    return t.slice(-10).toUpperCase();
-}
-
 function participantEmail(member: IBundleSubmissionMember) {
     return member.user?.email ?? member.invited_email ?? '—';
 }

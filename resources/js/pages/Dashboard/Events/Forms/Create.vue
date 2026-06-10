@@ -9,6 +9,7 @@ import { toBackendFields } from '@/components/modules/builder/fieldMapping'
 import type { BuilderField } from '@/types/form-builder'
 import type { CreateDashboardFormPayload } from '@/types/form'
 import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form'
+import { routes } from '@/lib/routes'
 
 /** Inertia `FormDataType` cannot recurse `BackendField.metadata` (Record<string, unknown>); store fields loosely for typing only. */
 type CreateFormClientPayload = Omit<CreateDashboardFormPayload, 'fields'> & {
@@ -54,7 +55,7 @@ function onSave(): void {
     createForm.fields = toBackendFields(merged) as object[]
 
     isSaving.value = true
-    createForm.post(`/admin/dashboard/events/${props.event.id}/forms`, {
+    createForm.post(routes.admin.events.forms.store(props.event.id), {
         onSuccess: () => toast.success('Form created successfully!'),
         onError: (err) => {
             const first = Object.values(err)[0]

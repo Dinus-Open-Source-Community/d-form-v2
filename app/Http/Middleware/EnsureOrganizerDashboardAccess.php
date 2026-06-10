@@ -21,7 +21,7 @@ class EnsureOrganizerDashboardAccess
         }
 
         if (! $user->can('events.list')) {
-            return redirect()->route('dashboard.user.events');
+            return redirect()->route('dashboard');
         }
 
         return $next($request);

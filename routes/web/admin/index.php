@@ -21,22 +21,23 @@ use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
-Route::middleware('auth')->get('/admin', fn () => to_route('dashboard.home'));
+Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'));
 
-/** Dasbor utama — admin ke area organizer, member ke overview peserta. */
+/** Dasbor utama — admin → organizer overview, member → member overview. */
 Route::middleware('auth')->get('/dashboard', function () {
     if (auth()->user()->can('events.list')) {
-        return redirect()->route('dashboard.home');
+        return app(DashboardHomeController::class)(request());
     }
-    
+
     return app(MemberDashboardController::class)(request());
-})->name('dashboard.user.overview');
+})->name('dashboard');
 
 Route::permanentRedirect('/dashboard/user/events', '/events/joined');
 Route::permanentRedirect('/user/dashboard', '/events/joined');
 Route::permanentRedirect('/user/dashboard/overview', '/dashboard');
 Route::permanentRedirect('/user/dashboard/profile', '/dashboard/profile');
-Route::permanentRedirect('/user/dashboard/events/browse', '/events/joined/events/browse');
+Route::permanentRedirect('/user/dashboard/events/browse', '/browse/events');
+Route::permanentRedirect('/events/joined/events/browse', '/browse/events');
 Route::permanentRedirect('/user/dashboard/users/check-email', '/events/joined/users/check-email');
 Route::get(
     '/user/dashboard/events/{event_segment}/register',
@@ -61,7 +62,7 @@ Route::middleware(['auth', 'throttle:10,1'])->post('/dashboard/profile/avatar', 
 Route::middleware(['auth', 'throttle:10,1'])->delete('/dashboard/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('dashboard.profile.avatar.destroy');
 Route::middleware(['auth', 'throttle:10,1'])->put('/dashboard/profile/password', [ProfileController::class, 'updatePassword'])->name('dashboard.profile.password.update');
 Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard')->group(function () {
-    Route::get('/', DashboardHomeController::class)->name('dashboard.home');
+    Route::get('/', fn () => redirect()->route('dashboard'))->name('dashboard.home');
     Route::get('/reports', fn () => redirect()->route('dashboard.events.index'))->name('dashboard.reports.index');
     Route::get('/recruitment', fn () => inertia('Dashboard/Recruitment/Index'))->name('dashboard.recruitment.index');
 });
@@ -113,21 +114,6 @@ Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('da
             'listMode' => 'mine',
         ]);
     })->name('events');
-
-    Route::get('/events/browse', function (EventService $eventService) {
-        $events = Event::query()
-            ->where('status', EventStatus::Published)
-            ->orderByDesc('start_date')
-            ->get()
-            ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
-            ->values()
-            ->all();
-
-        return inertia('Dashboard/User/Events', [
-            'events' => $events,
-            'listMode' => 'browse',
-        ]);
-    })->name('events.browse');
 
     Route::get('/events/{event_segment}/registration', UserEventRegistrationController::class)
         ->name('events.registration');
@@ -186,6 +172,21 @@ Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('da
         ]);
     })->name('events.show');
 });
+
+Route::middleware(['auth', 'member_portal'])->get('/browse/events', function (EventService $eventService) {
+    $events = Event::query()
+        ->where('status', EventStatus::Published)
+        ->orderByDesc('start_date')
+        ->get()
+        ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
+        ->values()
+        ->all();
+
+    return inertia('Dashboard/User/Events', [
+        'events' => $events,
+        'listMode' => 'browse',
+    ]);
+})->name('dashboard.user.events.browse');
 
 Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');

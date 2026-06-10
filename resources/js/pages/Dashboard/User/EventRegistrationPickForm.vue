@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileText, ChevronRight, Lock, AlertCircle } from 'lucide-vue-next'
 import type { FormAccessStatus } from '@/types/form'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -24,7 +25,7 @@ const props = defineProps<{
     }>
 }>()
 
-const backHref = computed(() => `/events/joined/events/${props.event.slug}`)
+const backHref = computed(() => routes.member.event.show(props.event.slug))
 
 function statusBadgeVariant(s: FormAccessStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
     if (s === 'allowed') return 'default'
@@ -113,7 +114,7 @@ function statusLabel(s: FormAccessStatus): string {
                                     as-child
                                     class="w-full rounded-xl sm:w-auto"
                                 >
-                                    <Link :href="`/events/joined/events/${event.slug}/registration`" class="justify-center">
+                                    <Link :href="routes.member.event.registration(event.slug)" class="justify-center">
                                         Lihat pendaftaran
                                     </Link>
                                 </Button>

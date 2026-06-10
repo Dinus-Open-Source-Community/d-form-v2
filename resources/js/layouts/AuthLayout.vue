@@ -3,6 +3,7 @@ import 'vue-sonner/style.css';
 import AuthIllustration from '@/components/modules/auth/AuthIllustration.vue';
 import AuthOAuthButtons from '@/components/modules/auth/AuthOAuthButtons.vue';
 import { Toaster } from '@/components/ui/sonner';
+import { routes } from '@/lib/routes';
 </script>
 
 <template>
@@ -13,13 +14,14 @@ import { Toaster } from '@/components/ui/sonner';
         <!-- Right: Auth Forms -->
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
             <div class="app-surface w-full max-w-md p-7 sm:p-8">
-                <a href="/" class="group mb-9 inline-flex items-center gap-2.5">
-                    <div class="grid size-10 place-items-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-xs transition-transform group-hover:-translate-y-px">
-                        DF
-                    </div>
-                    <span class="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
-                        D<span class="text-primary">Form</span>
-                    </span>
+                <a :href="routes.home" class="group mb-9 inline-block transition-transform hover:-translate-y-px">
+                    <img
+                        :src="`/${encodeURIComponent('DForm 1.png')}`"
+                        alt="DForm"
+                        class="h-10 w-auto select-none"
+                        width="160"
+                        height="40"
+                    />
                 </a>
 
                 <!-- Forms -->

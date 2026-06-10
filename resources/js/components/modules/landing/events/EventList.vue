@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const props = defineProps<{
     events: IEvent[]
@@ -84,7 +85,7 @@ const formatDate = (d: string) => {
                 <a
                     v-for="(ev, i) in filtered"
                     :key="ev.id"
-                    :href="`/events/${ev.slug}`"
+                    :href="routes.landing.events.show(ev.slug)"
                     :class="[
                         'group block rounded-xl border border-border/40 bg-card transition-all duration-400 hover:border-primary/20 hover:shadow-sm',
                         visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
@@ -150,7 +151,7 @@ const formatDate = (d: string) => {
             <div v-else class="rounded-2xl border border-border/40 bg-card p-10 text-center">
                 <p class="text-sm text-muted-foreground">Belum ada acara yang tersedia saat ini.</p>
                 <Button as-child variant="outline" size="sm" class="mt-4 h-9 rounded-lg text-xs">
-                    <a href="/">Kembali ke beranda</a>
+                    <a :href="routes.home">Kembali ke beranda</a>
                 </Button>
             </div>
         </div>

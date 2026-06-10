@@ -24,6 +24,7 @@ import {
 import { index as eventsIndex } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { formatDate, statusColorMap, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -213,7 +214,7 @@ function statusLabel(status: string) {
         >
             <template #actions>
                 <Button as-child class="w-full rounded-xl shadow-sm sm:w-auto">
-                    <Link href="/admin/dashboard/events/create" class="inline-flex items-center gap-2">
+                    <Link :href="routes.admin.events.create" class="inline-flex items-center gap-2">
                         <Plus class="size-4" />
                         Buat acara
                     </Link>
@@ -305,7 +306,7 @@ function statusLabel(status: string) {
             <Link
                 v-for="event in eventsList"
                 :key="event.id"
-                :href="`/admin/dashboard/events/${event.id}`"
+                :href="routes.admin.events.show(event.id)"
                 class="group focus-visible:ring-ring block min-w-0 rounded-2xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
                 <Card

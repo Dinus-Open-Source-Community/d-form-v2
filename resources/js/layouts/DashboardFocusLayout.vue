@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LogOut, Settings } from 'lucide-vue-next'
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController'
+import { routes } from '@/lib/routes'
 import useAuth from '@/utils/composables/useAuth'
 
 const page = usePage()
@@ -89,7 +90,7 @@ function handleLogout(): void {
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem as-child>
-                                <Link href="/dashboard/profile" class="flex w-full items-center">
+                                <Link :href="routes.dashboard.profile" class="flex w-full items-center">
                                     <Settings class="mr-2 size-4" />Profile
                                 </Link>
                             </DropdownMenuItem>

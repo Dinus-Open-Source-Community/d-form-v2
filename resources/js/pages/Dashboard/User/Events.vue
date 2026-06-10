@@ -12,6 +12,7 @@ import { Search, MapPin, CalendarDays, Users } from 'lucide-vue-next';
 import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
 import { toCategoryList } from '@/lib/eventCategories';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -74,7 +75,7 @@ const emptyDescription = computed(() =>
             <Link
                 v-for="event in filteredEvents"
                 :key="event.id"
-                :href="`/events/joined/events/${event.slug}`"
+                :href="routes.member.event.show(event.slug)"
                 class="group focus-visible:ring-ring block rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
                 <Card
@@ -141,7 +142,7 @@ const emptyDescription = computed(() =>
         >
             <Link
                 v-if="!isBrowse"
-                href="/events/joined/events/browse"
+                :href="routes.member.browse"
                 class="text-primary text-sm font-medium underline-offset-4 hover:underline"
             >
                 Jelajah semua acara

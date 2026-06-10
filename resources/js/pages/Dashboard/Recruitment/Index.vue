@@ -4,6 +4,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import LocalLottie from '@/components/core/LocalLottie.vue'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardLayout })
 </script>
@@ -15,7 +16,7 @@ defineOptions({ layout: DashboardLayout })
         <PageHeader
             title="Rekrutmen"
             subtitle="Modul kampanye anggota sedang disiapkan."
-            back-href="/admin/dashboard"
+            :back-href="routes.admin.index"
         />
 
         <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">

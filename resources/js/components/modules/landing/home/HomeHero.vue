@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { ArrowRight } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const show = ref(false)
 onMounted(() => requestAnimationFrame(() => (show.value = true)))
@@ -45,7 +46,7 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)))
 
                     <div class="mt-10 flex flex-wrap gap-3.5">
                         <Button as-child size="lg" class="h-12 rounded-xl px-8 text-sm font-semibold shadow-sm">
-                            <a href="/auth/register" class="inline-flex items-center gap-2">
+                            <a :href="routes.auth.register" class="inline-flex items-center gap-2">
                                 Coba Gratis
                                 <ArrowRight class="size-4" />
                             </a>

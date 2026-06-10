@@ -158,14 +158,7 @@ class OAuthController extends Controller
             'type' => 'success',
         ]);
 
-        /** @var User $user */
-        $user = Auth::user();
-
-        $default = $user->can('events.list')
-            ? route('dashboard.home', absolute: false)
-            : route('dashboard.user.events', absolute: false);
-
-        return redirect()->intended($default);
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
     private function syncEmailVerifiedFromGoogle(User $user, bool $emailVerified): void

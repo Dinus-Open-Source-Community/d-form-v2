@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, FileText, Pencil, Trash2, Inbox, CalendarClock, Users } from 'lucide-vue-next'
 import { formatDateTime } from '@/lib/dummyData'
 import FormSubmissionsController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormSubmissionsController'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -31,7 +32,7 @@ function startDelete(form: IForm) {
 function confirmDelete() {
     if (!deleteTarget.value) return
     const id = deleteTarget.value.id
-    router.delete(`/admin/dashboard/events/${props.event.id}/forms/${id}`, {
+    router.delete(routes.admin.events.forms.destroy(props.event.id, id), {
         preserveScroll: true,
         onSuccess: () => {
             toast.success('Form deleted.')
@@ -53,12 +54,12 @@ function submissionsHref(formId: string): string {
         <PageHeader
             title="Forms"
             :subtitle="`Manage forms for ${event.title}.`"
-            :back-href="`/admin/dashboard/events/${event.id}`"
+            :back-href="routes.admin.events.show(event.id)"
         >
             <template #actions>
                 <Button as-child class="h-11 w-full rounded-xl md:h-10 md:w-auto">
                     <Link
-                        :href="`/admin/dashboard/events/${event.id}/forms/create`"
+                        :href="routes.admin.events.forms.create(event.id)"
                         class="inline-flex items-center justify-center gap-2"
                     >
                         <Plus class="size-4" />
@@ -155,7 +156,7 @@ function submissionsHref(formId: string): string {
                                 as-child
                             >
                                 <Link
-                                    :href="`/admin/dashboard/events/${event.id}/forms/${form.id}`"
+                                    :href="routes.admin.events.forms.show(event.id, form.id)"
                                     :prefetch="false"
                                     title="Edit form"
                                     class="inline-flex min-w-0 items-center justify-center gap-1.5"
@@ -187,7 +188,7 @@ function submissionsHref(formId: string): string {
         >
             <Button as-child class="h-11 w-full rounded-xl sm:w-auto">
                 <Link
-                    :href="`/admin/dashboard/events/${event.id}/forms/create`"
+                    :href="routes.admin.events.forms.create(event.id)"
                     class="inline-flex items-center justify-center gap-2"
                 >
                     <Plus class="size-4" />

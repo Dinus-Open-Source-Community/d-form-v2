@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { CalendarDays, FileStack, Users } from 'lucide-vue-next'
 import { formatDate } from '@/lib/dummyData'
 import { useEventRegistrantsPage } from '@/utils/composables/useEventRegistrantsPage'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -31,7 +32,7 @@ const p = reactive(
     }),
 )
 
-const backHref = `/admin/dashboard/events/${props.event.id}`
+const backHref = routes.admin.events.show(props.event.id)
 </script>
 
 <template>
@@ -119,7 +120,7 @@ const backHref = `/admin/dashboard/events/${props.event.id}`
                 :size="200"
             >
                 <Button as-child class="mt-1">
-                    <Link :href="`/admin/dashboard/events/${props.event.id}/forms`">Buka halaman formulir</Link>
+                    <Link :href="routes.admin.events.forms.index(props.event.id)">Buka halaman formulir</Link>
                 </Button>
             </EmptyState>
 

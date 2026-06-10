@@ -8,6 +8,7 @@ import { formatDate, categoryLabelMap, categoryColorMap, sessionLabelMap } from 
 import { toCategoryList } from '@/lib/eventCategories';
 import { stripHtmlToText } from '@/utils/stripHtml';
 import type { SharedSeoProps } from '@/types/seo';
+import { routes } from '@/lib/routes';
 
 const props = defineProps<{
     event: IEvent;
@@ -26,12 +27,12 @@ const metaDescription = computed(() => {
     return `${event.value.title} — ${formatDate(event.value.start_date)} · ${event.value.location}`;
 });
 
-const canonicalPath = computed(() => `/events/${event.value.slug}`);
+const canonicalPath = computed(() => routes.landing.events.show(event.value.slug));
 
 const eventJsonLd = computed<Record<string, unknown>[]>(() => {
     const e = event.value;
     const base = seo.value.siteUrl;
-    const pageUrl = `${base}/events/${e.slug}`;
+    const pageUrl = `${base}${routes.landing.events.show(e.slug)}`;
     const images = e.banner_url ? [e.banner_url] : undefined;
 
     let availability = 'https://schema.org/InStock';
@@ -224,7 +225,7 @@ const highlights: string[] = [
                             </div>
 
                             <Link
-                                :href="page.props.auth?.user ? `/events/joined/events/${event.slug}` : `/auth/register?intended=/events/joined/events/${event.slug}`"
+                                :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
                                 class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-primary/92 active:scale-[0.98]"
                             >
                                 {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
@@ -298,7 +299,7 @@ const highlights: string[] = [
                                     />
                                 </div>
                                 <Link
-                                    :href="page.props.auth?.user ? `/events/joined/events/${event.slug}` : `/auth/register?intended=/events/joined/events/${event.slug}`"
+                                    :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
                                     class="border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 mt-6 flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold shadow-sm transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px active:scale-[0.98]"
                                 >
                                     {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}

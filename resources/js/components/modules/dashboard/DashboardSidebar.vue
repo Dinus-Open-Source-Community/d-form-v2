@@ -30,6 +30,7 @@ import {
     Settings,
 } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
+import { isSidebarNavActive, routes } from '@/lib/routes';
 import useAuth from '@/utils/composables/useAuth';
 
 const page = usePage();
@@ -48,21 +49,19 @@ const roleLabel = computed(() => (canManageEvents.value ? 'Penyelenggara' : 'Pen
 const currentPath = computed(() => page.url);
 
 /** Beranda penyelenggara vs portal peserta — URL terpisah, sama-sama “Beranda” di UI. */
-const mainNavItems = computed(() =>
-    canManageEvents.value
-        ? [{ label: 'Beranda', href: '/admin/dashboard', icon: LayoutDashboard }]
-        : [{ label: 'Beranda', href: '/dashboard', icon: LayoutDashboard }]
-);
+const mainNavItems = computed(() => [
+    { label: 'Beranda', href: routes.dashboard.index, icon: LayoutDashboard },
+]);
 
 const managementItems = computed(() =>
     canManageEvents.value
         ? [
-              { label: 'Acara', href: '/admin/dashboard/events', icon: CalendarDays },
-              { label: 'Rekrutmen', href: '/admin/dashboard/recruitment', icon: Users },
+              { label: 'Acara', href: routes.admin.events.index, icon: CalendarDays },
+              { label: 'Rekrutmen', href: routes.admin.recruitment, icon: Users },
           ]
         : [
-              { label: 'Acara diikuti', href: '/events/joined', icon: CalendarCheck2 },
-              { label: 'Jelajah acara', href: '/events/joined/events/browse', icon: Compass },
+              { label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
+              { label: 'Jelajah acara', href: routes.member.browse, icon: Compass },
           ]
 );
 
@@ -114,26 +113,7 @@ function syncAccountMenuPosition() {
 }
 
 function isActive(href: string): boolean {
-    const p = currentPath.value.split('?')[0] ?? '';
-    if (href === '/admin/dashboard') {
-        return p === '/admin/dashboard';
-    }
-    if (href === '/dashboard') {
-        return p === '/dashboard';
-    }
-    if (href === '/events/joined/events/browse') {
-        return p === '/events/joined/events/browse';
-    }
-    if (href === '/events/joined') {
-        return p === '/events/joined';
-    }
-    return p.startsWith(href);
-}
-
-function handleLogout() {
-    accountMenuOpen.value = false;
-    setOpenMobile(false);
-    router.post(logout().url);
+    return isSidebarNavActive(href, currentPath.value);
 }
 
 function closeMobileIfNeeded() {
@@ -144,7 +124,7 @@ function goToProfile() {
     accountMenuOpen.value = false;
     closeMobileIfNeeded();
     void nextTick(() => {
-        router.visit('/dashboard/profile');
+        router.visit(routes.dashboard.profile);
     });
 }
 
@@ -156,9 +136,9 @@ async function toggleAccountMenu() {
     }
 }
 
-onClickOutside([accountButtonRef, accountMenuRef], () => {
+onClickOutside(accountMenuRef, () => {
     accountMenuOpen.value = false;
-});
+}, { ignore: [accountButtonRef] });
 
 useEventListener('keydown', (e) => {
     if (e.key === 'Escape') accountMenuOpen.value = false;
@@ -187,7 +167,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
     <Sidebar collapsible="icon" variant="sidebar" class="border-sidebar-border bg-sidebar overflow-x-hidden border-r">
         <SidebarHeader class="gap-0 overflow-hidden border-b border-sidebar-border/50 p-0">
             <Link
-                :href="canManageEvents ? '/admin/dashboard' : '/dashboard'"
+                :href="routes.dashboard.index"
                 class="hover:bg-sidebar-accent/25 flex w-full min-w-0 items-center overflow-hidden px-4 py-3.5 transition-colors"
                 @click="closeMobileIfNeeded"
             >
@@ -246,6 +226,54 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
         </SidebarContent>
 
         <SidebarFooter class="border-sidebar-border/60 relative z-10 mt-auto shrink-0 border-t p-2.5">
+            <!-- Mobile: inline account menu (rendered inside Sheet content tree) -->
+            <div
+                v-if="isMobile && accountMenuOpen"
+                ref="accountMenuRef"
+                role="menu"
+                aria-label="Menu akun"
+                class="border-border/80 bg-popover text-popover-foreground mb-2 flex flex-col rounded-xl border p-1.5 shadow-md"
+            >
+                <div role="none" class="px-2 py-2">
+                    <div class="flex gap-3">
+                        <UserAvatarFallback
+                            :src="user?.avatar ?? null"
+                            :seed="userAvatarSeed(user)"
+                            avatar-class="size-10 shrink-0 rounded-lg"
+                            fallback-round-class="rounded-lg"
+                        />
+                        <div class="min-w-0 flex-1 space-y-0.5">
+                            <p class="truncate text-sm leading-tight font-semibold">{{ user?.name }}</p>
+                            <p class="text-muted-foreground truncate text-xs">{{ user?.email }}</p>
+                            <p class="text-muted-foreground text-[10px] font-medium">{{ roleLabel }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
+                <button
+                    type="button"
+                    role="menuitem"
+                    class="hover:bg-accent hover:text-accent-foreground flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-left outline-none"
+                    @click="goToProfile"
+                >
+                    <Settings class="text-muted-foreground size-4 shrink-0" />
+                    <span class="text-sm font-medium">Profil & pengaturan</span>
+                </button>
+                <div class="bg-border/80 my-0.5 h-px w-full shrink-0" role="separator" />
+                <Link
+                    :href="logout().url"
+                    method="post"
+                    as="button"
+                    type="button"
+                    role="menuitem"
+                    class="text-destructive hover:bg-destructive/10 focus-visible:ring-destructive/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm font-medium outline-none focus-visible:ring-2"
+                    @click="() => { accountMenuOpen = false; setOpenMobile(false); }"
+                >
+                    <LogOut class="size-4 shrink-0" />
+                    Keluar
+                </Link>
+            </div>
+
             <SidebarMenu>
                 <SidebarMenuItem class="relative">
                     <div class="relative w-full min-w-0">
@@ -285,6 +313,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
             </SidebarMenu>
         </SidebarFooter>
 
+        <!-- Desktop: teleported account menu (outside Sheet context) -->
         <Teleport to="body">
             <Transition
                 :enter-from-class="accountPanelEnterFromClass"
@@ -295,7 +324,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                 leave-active-class="transform-gpu transition duration-150 ease-[cubic-bezier(0.4,0,1,1)] will-change-[opacity,transform]"
             >
                 <div
-                    v-if="accountMenuOpen"
+                    v-if="!isMobile && accountMenuOpen"
                     id="dashboard-account-menu"
                     ref="accountMenuRef"
                     key="dashboard-account-menu"

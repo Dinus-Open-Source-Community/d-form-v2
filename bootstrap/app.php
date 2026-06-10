@@ -21,18 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
-        $middleware->redirectUsersTo(function () {
-            /** @var \App\Models\User|null $user */
-            $user = auth()->user();
-
-            if ($user === null) {
-                return '/';
-            }
-
-            return $user->can('events.list')
-                ? route('dashboard.home', absolute: false)
-                : route('dashboard.user.events', absolute: false);
-        });
+        $middleware->redirectUsersTo(fn () => route('dashboard', absolute: false));
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

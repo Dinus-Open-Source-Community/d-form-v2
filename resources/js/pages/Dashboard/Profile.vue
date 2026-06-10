@@ -11,11 +11,11 @@ import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import useAuth from '@/utils/composables/useAuth';
 import { Eye, EyeOff, Save, UploadCloud } from 'lucide-vue-next';
-import {
-    DASHBOARD_PROFILE_AVATAR_URL,
-    DASHBOARD_PROFILE_PASSWORD_URL,
-    DASHBOARD_PROFILE_UPDATE_URL,
-} from '@/lib/dashboardProfileRoutes';
+import { routes } from '@/lib/routes';
+
+const DASHBOARD_PROFILE_UPDATE_URL = routes.dashboard.profile
+const DASHBOARD_PROFILE_AVATAR_URL = routes.dashboard.profileAvatar
+const DASHBOARD_PROFILE_PASSWORD_URL = routes.dashboard.profilePassword
 
 defineOptions({ layout: DashboardLayout });
 

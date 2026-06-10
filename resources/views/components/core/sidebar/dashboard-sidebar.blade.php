@@ -3,8 +3,8 @@
         'Main Menu' => [
             [
                 'label' => 'Dashboard',
-                'href' => route('dashboard.home'),
-                'isActive' => request()->routeIs('dashboard.home'),
+                'href' => route('dashboard'),
+                'isActive' => request()->routeIs('dashboard'),
                 'icon' => 'heroicon-o-home',
             ],
         ],

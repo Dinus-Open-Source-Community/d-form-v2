@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, CheckCircle2 } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 defineProps<{
     eventId: string
@@ -25,7 +26,7 @@ defineProps<{
                 <Link :href="primaryActionHref">{{ primaryActionLabel ?? 'Continue' }}</Link>
             </Button>
             <Button variant="outline" size="lg" :class="primaryActionHref ? 'mt-2' : 'mt-6'" as-child>
-                <Link :href="`/events/joined/events/${eventId}`">View event</Link>
+                <Link :href="routes.member.event.show(eventId)">View event</Link>
             </Button>
         </CardContent>
     </Card>

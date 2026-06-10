@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { User as UserIcon, LogOut, Settings, ChevronsUpDown, ArrowLeft } from 'lucide-vue-next'
 import useAuth from '@/utils/composables/useAuth'
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController'
+import { resolveNavbarFallbackBackHref, routes } from '@/lib/routes'
 
 const page = usePage()
 const user = useAuth(page.props)
@@ -29,15 +30,7 @@ const greeting = computed(() => {
     return 'Good evening'
 })
 
-const fallbackBackHref = computed(() => {
-    const path = page.url.split('?')[0] ?? ''
-    if (path.startsWith('/admin/dashboard/events') && path !== '/admin/dashboard/events') return '/admin/dashboard/events'
-    if (path.startsWith('/admin/dashboard') && path !== '/admin/dashboard') return '/admin/dashboard'
-    if (path === '/dashboard/profile') return '/dashboard'
-    if (path.startsWith('/events/joined/events')) return '/events/joined'
-    if (path.startsWith('/events/joined') && path !== '/events/joined') return '/events/joined'
-    return '/'
-})
+const fallbackBackHref = computed(() => resolveNavbarFallbackBackHref(page.url))
 
 function goBack(): void {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -74,7 +67,7 @@ function goBack(): void {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button variant="ghost" size="icon-sm" as-child aria-label="Profile">
-                        <Link href="/dashboard/profile">
+                        <Link :href="routes.dashboard.profile">
                             <Settings class="size-4" />
                         </Link>
                     </Button>
@@ -121,7 +114,7 @@ function goBack(): void {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem as-child>
-                        <Link href="/dashboard/profile" class="flex w-full items-center">
+                        <Link :href="routes.dashboard.profile" class="flex w-full items-center">
                             <UserIcon class="mr-2 size-4" />Profile
                         </Link>
                     </DropdownMenuItem>

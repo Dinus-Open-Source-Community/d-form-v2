@@ -10,6 +10,7 @@ import FeaturesHowItWorks from '@/components/modules/landing/features/FeaturesHo
 import FeaturesIntegrations from '@/components/modules/landing/features/FeaturesIntegrations.vue';
 import FeaturesComparison from '@/components/modules/landing/features/FeaturesComparison.vue';
 import HomeCTA from '@/components/modules/landing/home/HomeCTA.vue';
+import { routes } from '@/lib/routes';
 
 const page = usePage();
 const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
@@ -24,18 +25,18 @@ const featuresJsonLd = computed<Record<string, unknown>>(() => ({
     '@type': 'WebPage',
     name: 'Fitur',
     description: featuresDescription.value,
-    url: `${seo.value.siteUrl}/features`,
+    url: `${seo.value.siteUrl}${routes.landing.features}`,
     isPartOf: {
         '@type': 'WebSite',
         name: seo.value.siteName,
-        url: `${seo.value.siteUrl}/`,
+        url: `${seo.value.siteUrl}${routes.home}`,
     },
 }));
 </script>
 
 <template>
     <LandingLayout>
-        <SeoHead title="Fitur" :description="featuresDescription" canonical-path="/features" :json-ld="featuresJsonLd" />
+        <SeoHead title="Fitur" :description="featuresDescription" :canonical-path="routes.landing.features" :json-ld="featuresJsonLd" />
         <FeaturesHero />
         <FeaturesGrid />
         <FeaturesHowItWorks />

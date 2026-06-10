@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +18,7 @@ import {
 import { toCategoryList } from '@/lib/eventCategories';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -80,12 +80,6 @@ const quotaPercent = computed(() => {
 <template>
     <Head :title="event.title" />
     <div class="mx-auto flex w-full flex-col gap-6 pb-6 sm:gap-8">
-        <PageHeader
-            title="Informasi & pendaftaran"
-            subtitle="Ringkasan jadwal, lokasi, dan deskripsi lengkap dari penyelenggara."
-        >
-        </PageHeader>
-
         <section
             class="border-border/70 bg-card overflow-hidden rounded-2xl border shadow-[0_1px_0_0_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
         >
@@ -235,7 +229,7 @@ const quotaPercent = computed(() => {
                         </div>
                         <div v-else-if="!isRegistered && event.registration_status === 'open'">
                             <Button class="h-11 w-full rounded-xl text-[15px] font-semibold shadow-sm" as-child>
-                                <Link :href="`/events/joined/events/${event.slug}/register`">
+                                <Link :href="routes.member.event.register(event.slug)">
                                     <Send class="mr-2 size-4" aria-hidden="true" />
                                     Daftar untuk acara ini
                                 </Link>
@@ -249,7 +243,7 @@ const quotaPercent = computed(() => {
                         </div>
                         <div v-else class="flex flex-col gap-4">
                             <Button class="w-full rounded-xl" variant="secondary" as-child>
-                                <Link :href="`/events/joined/events/${event.slug}/registration`"
+                                <Link :href="routes.member.event.registration(event.slug)"
                                     >Detail pendaftaran</Link
                                 >
                             </Button>
@@ -339,7 +333,7 @@ const quotaPercent = computed(() => {
                             >
                                 QR tidak dimuat. Buka
                                 <Link
-                                    :href="`/events/joined/events/${event.slug}/registration`"
+                                    :href="routes.member.event.registration(event.slug)"
                                     class="text-primary font-medium underline-offset-4 hover:underline"
                                 >
                                     detail pendaftaran

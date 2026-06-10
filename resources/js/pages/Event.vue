@@ -7,6 +7,7 @@ import EventList from '@/components/modules/landing/events/EventList.vue';
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import type { SharedSeoProps } from '@/types/seo';
+import { routes } from '@/lib/routes';
 
 const props = defineProps<{
     events: IEvent[];
@@ -28,7 +29,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
         item: {
             '@type': 'Event',
             name: e.title,
-            url: `${base}/events/${e.slug}`,
+            url: `${base}${routes.landing.events.show(e.slug)}`,
             startDate: e.start_date,
             location: {
                 '@type': 'Place',
@@ -43,11 +44,11 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
             '@type': 'CollectionPage',
             name: 'Acara',
             description: listDescription.value,
-            url: `${base}/events`,
+            url: `${base}${routes.landing.events.index}`,
             isPartOf: {
                 '@type': 'WebSite',
                 name: seo.value.siteName,
-                url: `${base}/`,
+                url: `${base}${routes.home}`,
             },
         },
         {
@@ -65,7 +66,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
         <SeoHead
             title="Acara"
             :description="listDescription"
-            :canonical-path="'/events'"
+            :canonical-path="routes.landing.events.index"
             :json-ld="jsonLd"
         />
         <EventHero />

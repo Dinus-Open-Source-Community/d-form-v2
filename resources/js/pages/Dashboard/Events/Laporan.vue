@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { BarChart3, ClipboardList, ScanLine, Download } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -53,7 +54,7 @@ const props = defineProps<{
         <PageHeader
             title="Laporan"
             subtitle="Unduhan CSV pendaftaran, kehadiran, dan ringkasan untuk acara ini."
-            :back-href="`/admin/dashboard/events/${props.event.id}`"
+            :back-href="routes.admin.events.show(props.event.id)"
         />
 
         <div class="grid gap-4 sm:grid-cols-3">

@@ -9,6 +9,7 @@ import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldS
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue'
 import { Send } from 'lucide-vue-next'
 import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
+import { routes } from '@/lib/routes'
 
 type FormSegment =
     | { type: 'linear'; fields: IFormField[] }
@@ -195,7 +196,7 @@ function confirmSubmit() {
 
         <div class="mb-20 flex items-center justify-end gap-3 border-t border-border pt-6">
             <Button variant="ghost" size="lg" as-child>
-                <Link :href="`/events/joined/events/${eventId}`">Cancel</Link>
+                <Link :href="routes.member.event.show(eventId)">Cancel</Link>
             </Button>
             <Button type="submit" size="lg" :disabled="ctx.answerForm.processing" class="gap-2">
                 <Send class="size-4" />

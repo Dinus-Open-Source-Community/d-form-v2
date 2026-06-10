@@ -10,8 +10,9 @@ import FormBundleGroupsCardGridView from '@/components/modules/dashboard/FormBun
 import FormBundleGroupDetailSheet from '@/components/modules/dashboard/FormBundleGroupDetailSheet.vue';
 import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmissionsPagination.vue';
 import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue';
-import { Download, LayoutGrid, ListFilter } from 'lucide-vue-next';
+import { Download, ListFilter } from 'lucide-vue-next';
 import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -70,7 +71,7 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
             <PageHeader
                 :title="form.title"
                 :subtitle="event.title"
-                :back-href="`/admin/dashboard/events/${event.id}/forms/${form.id}`"
+                :back-href="routes.admin.events.forms.show(event.id, form.id)"
             >
                 <template #actions>
                     <Button

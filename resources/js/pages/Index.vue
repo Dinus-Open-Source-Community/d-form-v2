@@ -10,6 +10,7 @@ import HomeCTA from '@/components/modules/landing/home/HomeCTA.vue';
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import type { SharedSeoProps } from '@/types/seo';
+import { routes } from '@/lib/routes';
 
 const page = usePage();
 const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
@@ -23,7 +24,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             name,
-            url: `${base}/`,
+            url: `${base}${routes.home}`,
             description: desc,
             inLanguage: 'id-ID',
         },
@@ -31,7 +32,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
             '@context': 'https://schema.org',
             '@type': 'Organization',
             name,
-            url: `${base}/`,
+            url: `${base}${routes.home}`,
             description: desc,
         },
     ];
@@ -42,7 +43,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
     <LandingLayout>
         <SeoHead
             title="Kelola acara & formulir pendaftaran"
-            :canonical-path="'/'"
+            :canonical-path="routes.home"
             :json-ld="jsonLd"
         />
         <HomeHero />

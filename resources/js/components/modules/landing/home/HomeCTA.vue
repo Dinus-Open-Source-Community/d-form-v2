@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { ArrowRight } from 'lucide-vue-next'
+import { routes } from '@/lib/routes'
 
 const visible = ref(false)
 onMounted(() => {
@@ -49,7 +50,7 @@ onMounted(() => {
                     variant="secondary"
                     class="h-12 rounded-xl px-8 text-sm font-semibold"
                 >
-                    <a href="/auth/register" class="inline-flex items-center gap-2">
+                    <a :href="routes.auth.register" class="inline-flex items-center gap-2">
                         Mulai Sekarang — Gratis
                         <ArrowRight class="size-4" />
                     </a>

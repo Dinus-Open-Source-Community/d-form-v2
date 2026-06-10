@@ -11,6 +11,7 @@ import CategoryChart from '@/components/modules/dashboard/CategoryChart.vue';
 import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue';
 import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
 import useAuth from '@/utils/composables/useAuth';
+import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -88,8 +89,8 @@ const firstName = computed(() => {
                 <div class="lg:col-span-2">
                     <RecentEventsCard
                         :events="events"
-                        view-all-href="/admin/dashboard/events"
-                        event-base-href="/admin/dashboard/events"
+                        :view-all-href="routes.admin.events.index"
+                        :event-base-href="routes.admin.events.index"
                     />
                 </div>
                 <MiniCalendar />
