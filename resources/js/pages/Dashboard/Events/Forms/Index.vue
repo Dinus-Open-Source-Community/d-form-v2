@@ -103,6 +103,16 @@ function submissionsHref(formId: string): string {
 
                             <div class="mt-3 flex flex-wrap gap-1.5">
                                 <Badge
+                                    variant="outline"
+                                    class="rounded-full px-2 text-[10px] font-medium"
+                                >
+                                    {{
+                                        form.purpose === 'other' || form.metadata?.purpose === 'other'
+                                            ? 'Lainnya'
+                                            : 'Pendaftaran'
+                                    }}
+                                </Badge>
+                                <Badge
                                     v-for="vis in form.visible_for ?? []"
                                     :key="vis"
                                     variant="secondary"

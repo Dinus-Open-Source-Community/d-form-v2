@@ -9,6 +9,8 @@ use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Services\Attendance\AttendanceScanSubmissionResolver;
 use App\Services\Event\EventService;
+use App\Services\Registration\BundleGuestDisplayNameResolver;
+use App\Services\Registration\FormAnswerRecipientResolver;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,6 +31,8 @@ class AttendanceScanController extends Controller
         AttendanceScanStoreRequest $request,
         Event $event,
         AttendanceScanSubmissionResolver $resolver,
+        BundleGuestDisplayNameResolver $displayNameResolver,
+        FormAnswerRecipientResolver $recipientResolver,
     ): JsonResponse {
         $answer = $resolver->resolve(
             $event,
@@ -45,6 +49,11 @@ class AttendanceScanController extends Controller
         if ($already) {
             return response()->json([
                 'message' => __('This participant has already checked in for this event.'),
+                'attendee' => [
+                    'name' => $displayNameResolver->resolve($answer),
+                    'email' => $recipientResolver->email($answer) ?? '',
+                    'form_answer_id' => $answer->id,
+                ],
             ], 409);
         }
 
@@ -53,8 +62,8 @@ class AttendanceScanController extends Controller
         return response()->json([
             'message' => __('Check-in queued. A confirmation email will be sent when processing completes.'),
             'attendee' => [
-                'name' => $answer->user->name,
-                'email' => $answer->user->email,
+                'name' => $displayNameResolver->resolve($answer),
+                'email' => $recipientResolver->email($answer) ?? '',
                 'form_answer_id' => $answer->id,
             ],
         ], 202);

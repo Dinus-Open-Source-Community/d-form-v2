@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, CalendarDays, Clock, DollarSign, Users, Send, Mail, MailOpen } from 'lucide-vue-next';
+import { MapPin, CalendarDays, Clock, DollarSign, Users, Send, Mail, MailOpen, FileText, ChevronRight, Lock } from 'lucide-vue-next';
 import {
     formatDate,
     formatDateTime,
@@ -20,8 +20,20 @@ import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vu
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
 import { routes } from '@/lib/routes';
 import { EVENT_HERO_BANNER_ASPECT } from '@/lib/eventBannerAspect';
+import type { FormAccessStatus } from '@/types/form';
 
 defineOptions({ layout: DashboardLayout });
+
+type ParticipantFormRow = {
+    id: string;
+    title: string;
+    description: string | null;
+    fill_url: string;
+    access_status: FormAccessStatus;
+    access_message: string;
+    can_start: boolean;
+    requires_form_title: string | null;
+};
 
 const props = defineProps<{
     event: IEvent;
@@ -31,11 +43,13 @@ const props = defineProps<{
     registrationStatus: 'pending' | 'accepted' | 'rejected' | null;
     qr_base64: string | null;
     registration_code: string | null;
+    participantForms?: ParticipantFormRow[];
 }>();
 
 const event = props.event;
 const isRegistered = computed(() => props.isRegistered);
 const registrationStatus = computed(() => props.registrationStatus);
+const participantForms = computed(() => props.participantForms ?? []);
 
 const registrationStatusLabel: Record<IEvent['registration_status'], string> = {
     not_yet_open: 'Segera dibuka',
@@ -49,6 +63,14 @@ const myRegistrationLabel: Record<NonNullable<typeof props.registrationStatus>, 
     accepted: 'Diterima',
     rejected: 'Tidak diterima',
 };
+
+function participantStatusLabel(s: FormAccessStatus): string {
+    if (s === 'allowed') return 'Tersedia';
+    if (s === 'already_submitted') return 'Sudah diisi';
+    if (s === 'prerequisite_not_met') return 'Menunggu syarat';
+    if (s === 'form_closed') return 'Ditutup';
+    return 'Tidak tersedia';
+}
 
 const metaBlocks = computed(() => [
     {
@@ -168,6 +190,72 @@ const quotaPercent = computed(() => {
                     </CardHeader>
                     <CardContent class="px-5 py-6 sm:px-6 sm:py-8">
                         <TiptapRichHtml :html="event.description" />
+                    </CardContent>
+                </Card>
+
+                <Card
+                    v-if="isRegistered && participantForms.length > 0"
+                    class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]"
+                >
+                    <CardHeader class="border-border/50 bg-muted/10 border-b px-5 py-4 sm:px-6">
+                        <CardTitle class="font-display text-base font-bold tracking-tight sm:text-lg"
+                            >Form lainnya</CardTitle
+                        >
+                        <p class="text-muted-foreground text-xs leading-relaxed">
+                            Feedback atau survei tambahan untuk peserta terdaftar.
+                        </p>
+                    </CardHeader>
+                    <CardContent class="space-y-3 px-5 py-5 sm:px-6">
+                        <div
+                            v-for="form in participantForms"
+                            :key="form.id"
+                            class="border-border/70 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                            <div class="flex min-w-0 gap-3">
+                                <div
+                                    class="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl"
+                                >
+                                    <FileText class="size-4.5" aria-hidden="true" />
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-foreground text-sm font-semibold leading-snug">{{ form.title }}</p>
+                                    <p
+                                        v-if="form.description"
+                                        class="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed"
+                                    >
+                                        {{ form.description }}
+                                    </p>
+                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                        <Badge variant="secondary" class="text-[10px] font-semibold">
+                                            {{ participantStatusLabel(form.access_status) }}
+                                        </Badge>
+                                        <span
+                                            v-if="form.requires_form_title && form.access_status === 'prerequisite_not_met'"
+                                            class="text-muted-foreground text-[10px]"
+                                        >
+                                            Perlu diterima di: {{ form.requires_form_title }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex w-full shrink-0 sm:w-auto">
+                                <Button v-if="form.can_start" as-child class="w-full rounded-xl sm:w-auto">
+                                    <Link :href="form.fill_url" :prefetch="false" class="justify-center">
+                                        Isi form
+                                        <ChevronRight class="ml-1 size-4" />
+                                    </Link>
+                                </Button>
+                                <Button
+                                    v-else
+                                    variant="outline"
+                                    disabled
+                                    class="w-full rounded-xl sm:w-auto"
+                                >
+                                    <Lock class="mr-1.5 size-3.5" aria-hidden="true" />
+                                    {{ participantStatusLabel(form.access_status) }}
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

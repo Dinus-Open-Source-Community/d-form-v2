@@ -6,30 +6,44 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ChevronDown } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import type { FormRegistrationMetadata } from '@/types/form'
+import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue'
+import type { FormPurpose, FormRegistrationMetadata, FormSiblingOption } from '@/types/form'
 
 const formTitle = defineModel<string>('formTitle', { required: true })
 const formDescription = defineModel<string>('formDescription', { required: true })
+const successContent = defineModel<string>('successContent', { required: true })
 const closedAt = defineModel<string>('closedAt', { required: true })
 const visibleFor = defineModel<string[]>('visibleFor', { required: true })
 const formMetadata = defineModel<FormRegistrationMetadata>('formMetadata', { required: true })
 
-defineProps<{
-    idPrefix: string
-    fieldErrors: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>
-    visibilityOptions: readonly { value: string; label: string }[]
-}>()
+withDefaults(
+    defineProps<{
+        idPrefix: string
+        fieldErrors: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>
+        visibilityOptions: readonly { value: string; label: string }[]
+        siblingForms?: FormSiblingOption[]
+    }>(),
+    {
+        siblingForms: () => [],
+    },
+)
 
 defineEmits<{
     toggleVisibility: [value: string, checked: boolean]
 }>()
 
+const isRegistrationPurpose = computed(() => formMetadata.value.purpose !== 'other')
+
 const isTeamStyleRegistration = computed(() => {
+    if (!isRegistrationPurpose.value) {
+        return false
+    }
     const m = formMetadata.value.registration_mode
     return m === 'team' || m === 'bundle'
 })
 
 const registrationModeSelectSentinel = '__none__' as const
+const requiresFormSelectSentinel = '__none__' as const
 
 const registrationModeSelectClass = cn(
     'h-10 min-h-10 w-full appearance-none rounded-xl border border-input bg-card px-3 py-2 pr-10 text-sm font-medium text-foreground shadow-xs ring-offset-background',
@@ -38,6 +52,26 @@ const registrationModeSelectClass = cn(
     'focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/30',
     'disabled:cursor-not-allowed disabled:opacity-50',
 )
+
+function onPurposeChange(ev: Event): void {
+    const raw = (ev.target as HTMLSelectElement).value
+    const purpose: FormPurpose = raw === 'other' ? 'other' : 'registration'
+    formMetadata.value = {
+        ...formMetadata.value,
+        purpose,
+        ...(purpose === 'other'
+            ? { registration_mode: null, max_team_size: null, team_size: null }
+            : {}),
+    }
+}
+
+function onRequiresFormChange(ev: Event): void {
+    const raw = (ev.target as HTMLSelectElement).value
+    formMetadata.value = {
+        ...formMetadata.value,
+        requires_form_id: raw === requiresFormSelectSentinel || raw === '' ? null : raw,
+    }
+}
 
 function onRegistrationModeChange(ev: Event): void {
     const raw = (ev.target as HTMLSelectElement).value
@@ -109,6 +143,13 @@ function vString(v: unknown): string {
             <p v-if="fieldErrors.description" class="text-destructive text-xs">{{ fieldErrors.description }}</p>
         </div>
         <div class="space-y-2">
+            <Label :for="`${idPrefix}-success`" class="text-sm font-medium">Informasi setelah submit</Label>
+            <p class="text-muted-foreground text-xs leading-snug">
+                Ditampilkan ke peserta setelah berhasil mengirim form (mis. link grup, informasi).
+            </p>
+            <TipTapEditor v-model="successContent" />
+        </div>
+        <div class="space-y-2">
             <Label :for="`${idPrefix}-closed`" class="text-sm font-medium"
                 >Closes at <span class="text-destructive">*</span></Label
             >
@@ -143,6 +184,52 @@ function vString(v: unknown): string {
 
         <div class="border-border space-y-4 border-t pt-5">
             <div class="space-y-2">
+                <Label :for="`${idPrefix}-purpose`" class="text-sm font-medium">Tujuan form</Label>
+                <div class="relative w-full">
+                    <select
+                        :id="`${idPrefix}-purpose`"
+                        :value="formMetadata.purpose"
+                        :class="registrationModeSelectClass"
+                        @change="onPurposeChange"
+                    >
+                        <option value="registration">Pendaftaran</option>
+                        <option value="other">Lainnya (feedback, survei, …)</option>
+                    </select>
+                    <ChevronDown
+                        class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 opacity-50"
+                        aria-hidden="true"
+                    />
+                </div>
+                <p class="text-muted-foreground text-xs leading-snug">
+                    Form pendaftaran memakai kuota & jendela daftar acara. Form lainnya tidak.
+                </p>
+            </div>
+
+            <div class="space-y-2">
+                <Label :for="`${idPrefix}-requires`" class="text-sm font-medium">Memerlukan form</Label>
+                <div class="relative w-full">
+                    <select
+                        :id="`${idPrefix}-requires`"
+                        :value="formMetadata.requires_form_id ?? requiresFormSelectSentinel"
+                        :class="registrationModeSelectClass"
+                        @change="onRequiresFormChange"
+                    >
+                        <option :value="requiresFormSelectSentinel">Tidak ada</option>
+                        <option v-for="sibling in siblingForms" :key="sibling.id" :value="sibling.id">
+                            {{ sibling.title }}
+                        </option>
+                    </select>
+                    <ChevronDown
+                        class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 opacity-50"
+                        aria-hidden="true"
+                    />
+                </div>
+                <p class="text-muted-foreground text-xs leading-snug">
+                    Peserta harus sudah diterima pada form yang dipilih sebelum mengisi form ini.
+                </p>
+            </div>
+
+            <div v-if="isRegistrationPurpose" class="space-y-2">
                 <Label :for="`${idPrefix}-reg-mode`" class="text-sm font-medium">Registration mode</Label>
                 <div class="relative w-full">
                     <select

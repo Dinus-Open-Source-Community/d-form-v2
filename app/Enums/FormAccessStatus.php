@@ -13,8 +13,10 @@ enum FormAccessStatus: string
     case PendingTeamConfirmation = 'pending_team_confirmation';
     case InvitationClosed = 'invitation_closed';
     case AlreadySubmitted = 'already_submitted';
-    /** Satu peserta hanya boleh mengisi satu formulir dalam acara yang sama. */
+    /** Satu peserta hanya boleh mengisi satu formulir pendaftaran dalam acara yang sama. */
     case EventFormAlreadyChosen = 'event_form_already_chosen';
+    /** Form prasyarat belum diterima (review_status = accepted). */
+    case PrerequisiteNotMet = 'prerequisite_not_met';
 
     public function message(): string
     {
@@ -28,7 +30,8 @@ enum FormAccessStatus: string
             self::PendingTeamConfirmation => 'You have a pending team invitation for this form. Please confirm your registration using the link we emailed you.',
             self::InvitationClosed => 'Your registration invitation is no longer active.',
             self::AlreadySubmitted  => 'You have already submitted this form.',
-            self::EventFormAlreadyChosen => 'You have already chosen another registration form for this event. Only one form may be submitted per event.',
+            self::EventFormAlreadyChosen => 'You have already chosen another registration form for this event. Only one registration form may be submitted per event.',
+            self::PrerequisiteNotMet => 'You must complete and be accepted on the required form before filling this one.',
         };
     }
 

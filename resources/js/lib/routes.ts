@@ -77,6 +77,8 @@ export const routes = {
             registration: (segment: string | number) => `${MEMBER_JOINED}/events/${segment}/registration`,
             formFill: (eventId: string | number, formId: string | number) =>
                 `${MEMBER_JOINED}/events/${eventId}/forms/${formId}/fill`,
+            formSubmitted: (eventId: string | number, formId: string | number) =>
+                `${MEMBER_JOINED}/events/${eventId}/forms/${formId}/submitted`,
         },
         teamInvitation: (token: string) => `${MEMBER_JOINED}/team-invitations/${token}`,
     },

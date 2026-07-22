@@ -44,6 +44,7 @@ class UpdateEventFormRequest extends FormRequest
             [
                 'title' => 'required|string|max:100',
                 'description' => 'required|string',
+                'success_content' => 'nullable|string',
                 'closed_at' => 'required|date',
                 'visible_for' => 'required|array|min:1',
                 'visible_for.*' => [Rule::enum(EventFormVisibility::class)],
@@ -83,10 +84,21 @@ class UpdateEventFormRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
+        $eventParam = $this->route('event');
+        $event = $eventParam instanceof Event
+            ? $eventParam
+            : Event::query()->find($eventParam);
+
         $formParam = $this->route('form');
         $form = $formParam instanceof Form
             ? $formParam
             : Form::query()->find($formParam);
-        FormFieldsRequestValidation::afterForFields($validator, $this, $form);
+
+        FormFieldsRequestValidation::afterForFields(
+            $validator,
+            $this,
+            $form,
+            $event?->id ?? $form?->event_id,
+        );
     }
 }

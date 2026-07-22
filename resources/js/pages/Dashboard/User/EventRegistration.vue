@@ -6,6 +6,7 @@ import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
+import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue'
 import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect'
 import { CalendarDays, MapPin } from 'lucide-vue-next'
 import { formatDate, formatDateTime, statusColorMap } from '@/lib/dummyData'
@@ -23,7 +24,12 @@ interface BundleParticipant {
 
 const props = defineProps<{
     event: IEvent
-    form: { id: string; title: string; registration_mode: 'single' | 'bundle' | 'team' | null } | null
+    form: {
+        id: string
+        title: string
+        registration_mode: 'single' | 'bundle' | 'team' | null
+        success_content?: string | null
+    } | null
     registration: {
         review_status: 'pending' | 'accepted' | 'rejected'
         submitted_at: string
@@ -37,6 +43,12 @@ const props = defineProps<{
 }>()
 
 const bundleParticipants = computed(() => props.bundle_participants ?? [])
+
+const successContent = computed(() => {
+    const html = props.form?.success_content
+    if (!html || !html.trim() || html.trim() === '<p></p>') return null
+    return html
+})
 
 const isBundleLeader = computed(
     () => props.form?.registration_mode === 'bundle' && props.registration.registration_role === 'leader',
@@ -95,6 +107,15 @@ function isImageFileUrl(value: string): boolean {
         <div v-if="participationLabel" class="-mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline" class="text-[11px] font-medium">{{ participationLabel }}</Badge>
         </div>
+
+        <Card v-if="successContent" class="rounded-xl border border-primary/20 bg-primary/5 shadow-xs">
+            <CardHeader class="pb-3">
+                <CardTitle class="text-sm font-semibold">Informasi</CardTitle>
+            </CardHeader>
+            <CardContent class="pt-0">
+                <TiptapRichHtml :html="successContent" />
+            </CardContent>
+        </Card>
 
         <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <div :class="eventHeroBannerContainerClass()">

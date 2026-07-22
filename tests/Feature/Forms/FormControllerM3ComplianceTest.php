@@ -72,7 +72,11 @@ class FormControllerM3ComplianceTest extends TestCase
 
         $this->actingAs($admin)
             ->post($this->storeUri($event), array_merge($this->formShell(), [
-                'metadata' => ['registration_mode' => 'bundle', 'max_team_size' => 5],
+                'metadata' => [
+                    'purpose' => 'registration',
+                    'registration_mode' => 'bundle',
+                    'max_team_size' => 5,
+                ],
                 'fields' => [
                     $dup((string) Str::uuid(), 1),
                     $dup((string) Str::uuid(), 2),
@@ -91,6 +95,7 @@ class FormControllerM3ComplianceTest extends TestCase
         $this->actingAs($admin)
             ->post($this->storeUri($event), array_merge($this->formShell(), [
                 'metadata' => [
+                    'purpose' => 'registration',
                     'registration_mode' => 'team',
                     'max_team_size' => 8,
                     'team_size' => 4,
@@ -109,6 +114,7 @@ class FormControllerM3ComplianceTest extends TestCase
 
         $form = Form::query()->where('event_id', $event->id)->first();
         $this->assertNotNull($form);
+        $this->assertSame('registration', $form->metadata['purpose'] ?? null);
         $this->assertSame('team', $form->metadata['registration_mode'] ?? null);
         $this->assertSame(8, $form->metadata['max_team_size'] ?? null);
         $this->assertSame(4, $form->metadata['team_size'] ?? null);
@@ -142,7 +148,10 @@ class FormControllerM3ComplianceTest extends TestCase
                 'visible_for' => $form->visible_for->map(fn ($e) => $e->value)->values()->all(),
                 'banner_url' => $form->banner_url,
                 'banner_caption' => $form->banner_caption,
-                'metadata' => null,
+                'metadata' => [
+                    'purpose' => 'registration',
+                    'registration_mode' => 'single',
+                ],
                 'fields' => [
                     $this->inputField((string) Str::uuid(), 'existing', 2),
                 ],
@@ -157,7 +166,7 @@ class FormControllerM3ComplianceTest extends TestCase
         $event = Event::factory()->create();
         $form = Form::factory()->create([
             'event_id' => $event->id,
-            'metadata' => ['registration_mode' => 'single'],
+            'metadata' => ['purpose' => 'registration', 'registration_mode' => 'single'],
         ]);
         FormField::factory()->create([
             'form_id' => $form->id,
@@ -180,6 +189,7 @@ class FormControllerM3ComplianceTest extends TestCase
                 'banner_url' => $form->banner_url,
                 'banner_caption' => $form->banner_caption,
                 'metadata' => [
+                    'purpose' => 'registration',
                     'registration_mode' => 'bundle',
                     'max_team_size' => 12,
                 ],
@@ -198,7 +208,28 @@ class FormControllerM3ComplianceTest extends TestCase
             ->assertRedirect();
 
         $form->refresh();
+        $this->assertSame('registration', $form->metadata['purpose'] ?? null);
         $this->assertSame('bundle', $form->metadata['registration_mode'] ?? null);
         $this->assertSame(12, $form->metadata['max_team_size'] ?? null);
+    }
+
+    public function test_store_rejects_team_mode_on_other_purpose_form(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+
+        $this->actingAs($admin)
+            ->post($this->storeUri($event), array_merge($this->formShell(), [
+                'metadata' => [
+                    'purpose' => 'other',
+                    'registration_mode' => 'team',
+                    'team_size' => 3,
+                ],
+                'fields' => [
+                    $this->inputField((string) Str::uuid(), 'note', 1),
+                ],
+            ]))
+            ->assertInvalid(['metadata.registration_mode']);
     }
 }

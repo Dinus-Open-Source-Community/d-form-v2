@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Enums\FormAnswerReviewStatus;
 use App\Models\Event;
 use App\Models\FormAnswer;
+use App\Services\Registration\FormAnswerRecipientResolver;
 use App\Support\RegistrationQrPayload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -12,6 +13,11 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceScanSubmissionResolver
 {
+    public function __construct(
+        private FormAnswerRecipientResolver $recipientResolver,
+    ) {
+    }
+
     /**
      * Resolve the scanned submission for this event.
      *
@@ -56,7 +62,8 @@ class AttendanceScanSubmissionResolver
             throw new ValidationException($validator);
         }
 
-        if ($answer->user === null) {
+        // Allow bundle guests (no user account) when invited_email resolves to a valid address.
+        if ($answer->user === null && $this->recipientResolver->email($answer) === null) {
             $validator->errors()->add('payload', __('Registration has no participant account.'));
             throw new ValidationException($validator);
         }

@@ -38,7 +38,8 @@ function statusLabel(s: FormAccessStatus): string {
     const map: Record<FormAccessStatus, string> = {
         allowed: 'Tersedia',
         already_submitted: 'Sudah mengirim',
-        event_form_already_chosen: 'Form lain dipilih',
+        event_form_already_chosen: 'Form pendaftaran lain dipilih',
+        prerequisite_not_met: 'Syarat belum terpenuhi',
         not_visible: 'Tidak tersedia',
         form_closed: 'Ditutup',
         registration_not_open: 'Pendaftaran tutup',
@@ -57,7 +58,7 @@ function statusLabel(s: FormAccessStatus): string {
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 xl:max-w-7xl">
         <PageHeader :title="event.title" subtitle="Pilih satu formulir pendaftaran" :back-href="backHref">
             <template #actions>
-                <Badge variant="outline" class="text-[10px]">1 form / peserta</Badge>
+                <Badge variant="outline" class="text-[10px]">1 form pendaftaran / peserta</Badge>
             </template>
         </PageHeader>
 
@@ -67,10 +68,11 @@ function statusLabel(s: FormAccessStatus): string {
         >
             <AlertCircle class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
             <div class="min-w-0 flex-1 space-y-1">
-                <p class="font-semibold leading-snug">Anda hanya bisa mengirim satu formulir untuk acara ini.</p>
+                <p class="font-semibold leading-snug">Anda hanya bisa mengirim satu formulir pendaftaran untuk acara ini.</p>
                 <p class="text-muted-foreground leading-relaxed">
                     Baca judul dan deskripsi tiap form, lalu mulai mengisi yang paling sesuai. Setelah terkirim, form
-                    lain akan terkunci.
+                    pendaftaran lain akan terkunci. Form tambahan (mis. feedback) tetap bisa diisi setelah pendaftaran
+                    diterima.
                 </p>
             </div>
         </div>

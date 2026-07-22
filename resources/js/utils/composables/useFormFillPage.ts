@@ -99,6 +99,10 @@ export function useFormFillPage(props: {
                 title: 'Another registration form was already chosen for this event.',
                 body: fallback,
             },
+            prerequisite_not_met: {
+                title: 'Required form not completed yet.',
+                body: fallback,
+            },
             not_visible: { title: 'You do not have access to this form.', body: fallback },
         }
         return map[props.accessStatus]

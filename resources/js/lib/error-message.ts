@@ -80,6 +80,14 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
         'Peserta ini sudah pernah check-in untuk event ini.',
     'Check-in queued. A confirmation email will be sent when processing completes.':
         'Check-in dalam antrean. Email konfirmasi akan dikirim setelah pemrosesan selesai.',
+    'Registration not found.': 'Data pendaftaran tidak ditemukan.',
+    'Registration has no participant account.':
+        'Pendaftaran tidak memiliki identitas peserta (akun atau email undangan).',
+    'This registration is not for this event.': 'Pendaftaran ini bukan untuk event ini.',
+    'Only accepted registrations can check in.':
+        'Hanya pendaftaran yang sudah diterima yang dapat check-in.',
+    'Unable to read a submission ID from the QR text or registration code.':
+        'Tidak dapat membaca ID submission dari QR atau kode registrasi.',
     'Participant will receive their ticket by email.':
         'Peserta akan menerima tiket melalui email.',
     'new event created successfully': 'Event baru berhasil dibuat.',
