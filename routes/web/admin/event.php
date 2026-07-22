@@ -8,6 +8,7 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormContr
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormSubmitSuccessController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 use App\Http\Controllers\Dashboard\User\UserValidationController;
 
@@ -17,6 +18,9 @@ Route::name('dashboard.')->prefix('/events/joined')->middleware('auth')->group(f
 
     Route::post('/events/{event}/forms/{form}/submit', FormSubmissionController::class)
         ->name('forms.submission');
+
+    Route::get('/events/{event}/forms/{form}/submitted', FormSubmitSuccessController::class)
+        ->name('events.forms.submitted');
 
     Route::get('/users/check-email', [UserValidationController::class, 'checkEmail'])
         ->name('users.check-email');

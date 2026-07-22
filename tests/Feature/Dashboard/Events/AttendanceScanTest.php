@@ -168,7 +168,11 @@ class AttendanceScanTest extends TestCase
 
         $this->actingAs($admin)->postJson(route('dashboard.events.attendance-scan.store', $event), [
             'raw_payload' => RegistrationQrPayload::encode($answer->id),
-        ])->assertStatus(409);
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('attendee.name', $participant->name)
+            ->assertJsonPath('attendee.email', $participant->email)
+            ->assertJsonPath('attendee.form_answer_id', $answer->id);
 
         Queue::assertNothingPushed();
     }
@@ -259,5 +263,84 @@ class AttendanceScanTest extends TestCase
 
         Mail::assertNothingSent();
         $this->assertSame(1, EventAttendance::query()->where('event_id', $event->id)->where('form_answer_id', $answer->id)->count());
+    }
+
+    public function test_admin_can_check_in_accepted_bundle_guest_member(): void
+    {
+        Queue::fake();
+
+        [$event, $form] = $this->eventWithForm();
+        $guestEmail = 'bundle-guest-attend@example.test';
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => null,
+            'answers' => ['Nama' => 'Guest Bundle Member'],
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'GUEST-CHK-01',
+            'invited_email' => $guestEmail,
+        ]);
+
+        $response = $this->actingAs($this->admin())->postJson(route('dashboard.events.attendance-scan.store', $event), [
+            'raw_payload' => RegistrationQrPayload::encode($answer->id),
+        ]);
+
+        $response->assertAccepted()
+            ->assertJsonPath('attendee.name', 'Guest Bundle Member')
+            ->assertJsonPath('attendee.email', $guestEmail)
+            ->assertJsonPath('attendee.form_answer_id', $answer->id);
+
+        Queue::assertPushed(RecordAttendanceJob::class, function (RecordAttendanceJob $job) use ($event, $answer): bool {
+            return $job->eventId === $event->id
+                && $job->formAnswerId === $answer->id;
+        });
+    }
+
+    public function test_submission_without_user_and_without_valid_email_returns_422(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => null,
+            'invited_email' => null,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'NO-ID-01',
+        ]);
+
+        $this->actingAs($this->admin())->postJson(route('dashboard.events.attendance-scan.store', $event), [
+            'raw_payload' => RegistrationQrPayload::encode($answer->id),
+        ])->assertUnprocessable();
+    }
+
+    public function test_record_attendance_job_sends_mail_to_bundle_guest_invited_email(): void
+    {
+        Mail::fake();
+
+        [$event, $form] = $this->eventWithForm();
+        $scanner = $this->admin();
+        $guestEmail = 'guest-job@example.test';
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => null,
+            'answers' => ['Nama' => 'Guest Job'],
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'invited_email' => $guestEmail,
+        ]);
+
+        RecordAttendanceJob::dispatchSync($event->id, $answer->id, $scanner->id);
+
+        $this->assertDatabaseHas('event_attendances', [
+            'event_id' => $event->id,
+            'form_answer_id' => $answer->id,
+            'scanned_by_user_id' => $scanner->id,
+        ]);
+
+        Mail::assertSent(AttendanceConfirmedMail::class);
+
+        $this->assertDatabaseHas('email_logs', [
+            'form_answer_id' => $answer->id,
+            'event_id' => $event->id,
+            'recipient_email' => $guestEmail,
+            'user_id' => null,
+        ]);
     }
 }

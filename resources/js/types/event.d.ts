@@ -29,6 +29,7 @@ declare global {
         id: string
         title: string
         description: string
+        success_content?: string | null
         visible_for: string[]
         closed_at: string
         event_id: string
@@ -36,6 +37,7 @@ declare global {
         banner_caption: string | null
         metadata?: Record<string, unknown>
         registration_mode?: 'single' | 'bundle'
+        purpose?: 'registration' | 'other'
     }
 
     type FormFieldOptionType = 'text' | 'image'

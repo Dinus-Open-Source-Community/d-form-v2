@@ -2,7 +2,7 @@
 import FieldEditor from '@/components/modules/builder/FieldEditor.vue'
 import type { FormBuilderInspectorMode, FormBuilderValidationIssue } from '@/utils/composables/useFormBuilderWorkspace'
 import type { BuilderField } from '@/types/form-builder'
-import type { FormRegistrationMetadata } from '@/types/form'
+import type { FormRegistrationMetadata, FormSiblingOption } from '@/types/form'
 import FormBuilderValidationSummary from './FormBuilderValidationSummary.vue'
 import FormBuilderFormDetailsCard from './FormBuilderFormDetailsCard.vue'
 import FormBuilderBannerBlock from './FormBuilderBannerBlock.vue'
@@ -11,18 +11,25 @@ import type { FormBannerState } from './formBanner'
 const inspectorMode = defineModel<FormBuilderInspectorMode>('inspectorMode', { required: true })
 const formTitle = defineModel<string>('formTitle', { required: true })
 const formDescription = defineModel<string>('formDescription', { required: true })
+const successContent = defineModel<string>('successContent', { required: true })
 const closedAt = defineModel<string>('closedAt', { required: true })
 const visibleFor = defineModel<string[]>('visibleFor', { required: true })
 const banner = defineModel<FormBannerState>('banner', { required: true })
 const formMetadata = defineModel<FormRegistrationMetadata>('formMetadata', { required: true })
 
-defineProps<{
-    selectedField: BuilderField | null
-    isReadyToSave: boolean
-    validationIssues: FormBuilderValidationIssue[]
-    fieldErrors: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>
-    visibilityOptions: readonly { value: string; label: string }[]
-}>()
+withDefaults(
+    defineProps<{
+        selectedField: BuilderField | null
+        isReadyToSave: boolean
+        validationIssues: FormBuilderValidationIssue[]
+        fieldErrors: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>
+        visibilityOptions: readonly { value: string; label: string }[]
+        siblingForms?: FormSiblingOption[]
+    }>(),
+    {
+        siblingForms: () => [],
+    },
+)
 
 const emit = defineEmits<{
     toggleVisibility: [value: string, checked: boolean]
@@ -90,12 +97,14 @@ const emit = defineEmits<{
                 <FormBuilderFormDetailsCard
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"
+                    v-model:success-content="successContent"
                     v-model:closed-at="closedAt"
                     v-model:visible-for="visibleFor"
                     v-model:form-metadata="formMetadata"
                     id-prefix="d"
                     :field-errors="fieldErrors"
                     :visibility-options="visibilityOptions"
+                    :sibling-forms="siblingForms"
                     @toggle-visibility="(value, checked) => emit('toggleVisibility', value, checked)"
                 />
 

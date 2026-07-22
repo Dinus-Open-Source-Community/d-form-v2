@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\User;
 
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\FormPurpose;
 use App\Enums\RegistrationRole;
 use App\Http\Controllers\Controller;
 use App\Models\FormAnswer;
@@ -31,7 +32,15 @@ class UserEventRegistrationController extends Controller
         $answer = FormAnswer::query()
             ->with(['form'])
             ->where('user_id', (string) $request->user()->id)
-            ->whereHas('form', static fn ($q) => $q->where('event_id', $event->id))
+            ->whereHas('form', static function ($q) use ($event): void {
+                $q->where('event_id', $event->id)
+                    ->where(function ($purposeQuery): void {
+                        $purposeQuery
+                            ->whereNull('metadata')
+                            ->orWhereNull('metadata->purpose')
+                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                    });
+            })
             ->excludeTerminatedInvitationMembers()
             ->excludeRejectedSubmissions()
             ->orderByDesc('created_at')
@@ -91,12 +100,18 @@ class UserEventRegistrationController extends Controller
             }
         }
 
+        $successContent = $form?->success_content;
+        if (! is_string($successContent) || trim($successContent) === '' || trim($successContent) === '<p></p>') {
+            $successContent = null;
+        }
+
         return Inertia::render('Dashboard/User/EventRegistration', [
             'event' => $eventService->eventToInertiaArray($event),
             'form' => $form === null ? null : [
                 'id' => $form->id,
                 'title' => $form->title,
                 'registration_mode' => $registrationMode,
+                'success_content' => $successContent,
             ],
             'registration' => [
                 'review_status' => $answer->review_status->value,

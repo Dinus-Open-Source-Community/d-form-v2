@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\FormPurpose;
 use App\Models\Form;
 use App\Models\FormField;
 use Illuminate\Http\Request;
@@ -143,7 +144,7 @@ final class FormFieldsRequestValidation
     }
 
     /**
-     * Rules for `forms.metadata` (registration / team configuration).
+     * Rules for `forms.metadata` (purpose / registration / team configuration).
      *
      * @return array<string, mixed>
      */
@@ -151,6 +152,8 @@ final class FormFieldsRequestValidation
     {
         return [
             'metadata' => 'nullable|array',
+            'metadata.purpose' => ['required', 'string', Rule::enum(FormPurpose::class)],
+            'metadata.requires_form_id' => ['nullable', 'uuid'],
             'metadata.registration_mode' => ['nullable', 'string', Rule::in(['single', 'bundle', 'team'])],
             'metadata.max_team_size' => 'nullable|integer|min:1|max:10000',
             'metadata.team_size' => 'nullable|integer|min:1|max:10000',
@@ -158,11 +161,14 @@ final class FormFieldsRequestValidation
     }
 
     /**
-     * Post-validation: date range order, name uniqueness, radio/checkbox choices.
+     * Post-validation: date range order, name uniqueness, radio/checkbox choices,
+     * and form metadata purpose / prerequisite constraints.
      */
-    public static function afterForFields(Validator $v, Request $request, ?Form $form): void
+    public static function afterForFields(Validator $v, Request $request, ?Form $form, ?string $eventId = null): void
     {
-        $v->after(function (Validator $validator) use ($request, $form): void {
+        $v->after(function (Validator $validator) use ($request, $form, $eventId): void {
+            self::validateFormMetadataConstraints($validator, $request, $form, $eventId);
+
             $fields = $validator->getData()['fields'] ?? $request->input('fields', []);
             if (!is_array($fields)) {
                 return;
@@ -234,5 +240,75 @@ final class FormFieldsRequestValidation
                 }
             }
         });
+    }
+
+    private static function validateFormMetadataConstraints(
+        Validator $validator,
+        Request $request,
+        ?Form $form,
+        ?string $eventId,
+    ): void {
+        $metadata = $validator->getData()['metadata'] ?? $request->input('metadata', []);
+        if (! is_array($metadata)) {
+            return;
+        }
+
+        $purpose = $metadata['purpose'] ?? null;
+        $mode = $metadata['registration_mode'] ?? null;
+        $requiresFormId = $metadata['requires_form_id'] ?? null;
+
+        if ($purpose === FormPurpose::Other->value) {
+            if (is_string($mode) && in_array($mode, ['team', 'bundle'], true)) {
+                $validator->errors()->add(
+                    'metadata.registration_mode',
+                    'Non-registration forms cannot use team or bundle registration modes.'
+                );
+            }
+        }
+
+        if (! is_string($requiresFormId) || $requiresFormId === '') {
+            return;
+        }
+
+        $resolvedEventId = $eventId
+            ?? $form?->event_id
+            ?? null;
+
+        if ($form !== null && $requiresFormId === $form->id) {
+            $validator->errors()->add(
+                'metadata.requires_form_id',
+                'A form cannot require itself.'
+            );
+
+            return;
+        }
+
+        if ($resolvedEventId === null) {
+            return;
+        }
+
+        $requiredForm = Form::query()
+            ->where('id', $requiresFormId)
+            ->where('event_id', $resolvedEventId)
+            ->first();
+
+        if ($requiredForm === null) {
+            $validator->errors()->add(
+                'metadata.requires_form_id',
+                'The required form must belong to the same event.'
+            );
+
+            return;
+        }
+
+        // One-level cycle: A requires B and B requires A.
+        $requiredRequiresId = $requiredForm->requiresFormId();
+        $currentFormId = $form?->id;
+        if ($currentFormId !== null && $requiredRequiresId === $currentFormId) {
+            $validator->errors()->add(
+                'metadata.requires_form_id',
+                'Circular form prerequisites are not allowed.'
+            );
+        }
     }
 }

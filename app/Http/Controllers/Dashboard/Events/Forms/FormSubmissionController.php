@@ -54,8 +54,18 @@ class FormSubmissionController extends Controller
             ->orderBy('order')
             ->get(['id', 'name', 'input_type', 'metadata']);
 
-        $isTeam   = TeamRegistrationSubmitter::isTeamForm($form);
-        $isBundle = BundleRegistrationSubmitter::isBundleForm($form);
+        $isRegistration = $form->isRegistrationForm();
+        $isTeam   = $isRegistration && TeamRegistrationSubmitter::isTeamForm($form);
+        $isBundle = $isRegistration && BundleRegistrationSubmitter::isBundleForm($form);
+
+        if (! $isRegistration && (TeamRegistrationSubmitter::isTeamForm($form) || BundleRegistrationSubmitter::isBundleForm($form))) {
+            Inertia::flash('toast', [
+                'type'    => 'error',
+                'message' => __('This form has an invalid registration configuration. Contact the organizer.'),
+            ]);
+
+            return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
+        }
 
         if ($isTeam && $isBundle) {
             Inertia::flash('toast', [
@@ -112,6 +122,10 @@ class FormSubmissionController extends Controller
             );
         }
 
+        if (! $isRegistration) {
+            return $this->submitOtherForm($answers, $form, $user, $event);
+        }
+
         $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
             $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
 
@@ -150,7 +164,41 @@ class FormSubmissionController extends Controller
             'message' => 'Your registration has been submitted successfully.',
         ]);
 
-        return $this->successRedirect($user, $event);
+        return $this->successRedirect($user, $event, $form);
+    }
+
+    /**
+     * Non-registration forms: single submission, no quota / confirmation email.
+     *
+     * @param  array<string, mixed>  $answers
+     */
+    private function submitOtherForm(array $answers, Form $form, User $user, Event $event): RedirectResponse
+    {
+        DB::transaction(function () use ($answers, $form, $user): void {
+            if (FormAnswer::query()
+                ->where('form_id', $form->id)
+                ->where('user_id', $user->id)
+                ->excludeRejectedSubmissions()
+                ->lockForUpdate()
+                ->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'form' => __('You have already submitted this form.'),
+                ]);
+            }
+
+            FormAnswer::create([
+                'answers' => $answers,
+                'form_id' => $form->id,
+                'user_id' => (string) $user->id,
+            ]);
+        });
+
+        Inertia::flash('toast', [
+            'type'    => 'success',
+            'message' => __('Your form has been submitted successfully.'),
+        ]);
+
+        return $this->successRedirect($user, $event, $form);
     }
 
     private function submitBundleRegistration(
@@ -251,7 +299,7 @@ class FormSubmissionController extends Controller
             'message' => __('Your bundle registration has been submitted. Confirmation emails were sent to all participants.'),
         ]);
 
-        return $this->successRedirect($leaderUser, $event);
+        return $this->successRedirect($leaderUser, $event, $form);
     }
 
     private function submitTeamRegistration(
@@ -350,16 +398,19 @@ class FormSubmissionController extends Controller
             'message' => __('Your team registration has been submitted. Invitations were sent to team members.'),
         ]);
 
-        return $this->successRedirect($leaderUser, $event);
+        return $this->successRedirect($leaderUser, $event, $form);
     }
 
-    private function successRedirect(User $user, Event $event): RedirectResponse
+    private function successRedirect(User $user, Event $event, Form $form): RedirectResponse
     {
         if ($user->can('events.view')) {
             return redirect()->route('dashboard.events.show', ['event' => $event]);
         }
 
-        return redirect()->route('dashboard.user.events.show', ['event_segment' => $event->slug]);
+        return redirect()->route('dashboard.events.forms.submitted', [
+            'event' => $event,
+            'form' => $form,
+        ]);
     }
 
     /**

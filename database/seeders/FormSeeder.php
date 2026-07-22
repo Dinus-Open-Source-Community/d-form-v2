@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
+use App\Enums\FormPurpose;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
@@ -31,8 +32,25 @@ class FormSeeder extends Seeder
                     'closed_at' => $event->registration_end,
                     'banner_url' => 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
                     'banner_caption' => 'Fill out the form below to secure your spot!',
+                    'metadata' => [
+                        'purpose' => FormPurpose::Registration->value,
+                        'registration_mode' => 'single',
+                        'requires_form_id' => null,
+                        'max_team_size' => null,
+                        'team_size' => null,
+                    ],
                 ],
             );
+
+            $regMeta = is_array($registrationForm->metadata) ? $registrationForm->metadata : [];
+            if (($regMeta['purpose'] ?? null) !== FormPurpose::Registration->value) {
+                $registrationForm->update([
+                    'metadata' => array_merge($regMeta, [
+                        'purpose' => FormPurpose::Registration->value,
+                        'registration_mode' => $regMeta['registration_mode'] ?? 'single',
+                    ]),
+                ]);
+            }
 
             if ($registrationForm->formFields()->count() === 0) {
                 $this->createRegistrationFields($registrationForm);
@@ -52,8 +70,29 @@ class FormSeeder extends Seeder
                         'closed_at' => $event->end_date->copy()->addDays(7),
                         'banner_url' => 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=1200',
                         'banner_caption' => 'Your feedback helps us improve future events.',
+                        'metadata' => [
+                            'purpose' => FormPurpose::Other->value,
+                            'requires_form_id' => $registrationForm->id,
+                            'registration_mode' => null,
+                            'max_team_size' => null,
+                            'team_size' => null,
+                        ],
                     ],
                 );
+
+                $fbMeta = is_array($feedbackForm->metadata) ? $feedbackForm->metadata : [];
+                if (
+                    ($fbMeta['purpose'] ?? null) !== FormPurpose::Other->value
+                    || ($fbMeta['requires_form_id'] ?? null) !== $registrationForm->id
+                ) {
+                    $feedbackForm->update([
+                        'metadata' => array_merge($fbMeta, [
+                            'purpose' => FormPurpose::Other->value,
+                            'requires_form_id' => $registrationForm->id,
+                            'registration_mode' => null,
+                        ]),
+                    ]);
+                }
 
                 if ($feedbackForm->formFields()->count() === 0) {
                     $this->createFeedbackFields($feedbackForm);

@@ -17,6 +17,7 @@ import {
     extractFormBannerFromBuilderFields,
 } from '@/components/modules/builder/formBanner'
 import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form'
+import type { FormSiblingOption } from '@/types/form'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -24,6 +25,7 @@ const props = defineProps<{
     event: { id: string; title: string }
     form: IForm
     fields: BackendField[]
+    siblingForms?: FormSiblingOption[]
     saveFieldsUrl: string
     updateFormUrl: string
 }>()
@@ -32,6 +34,7 @@ const settingsForm = useForm({
     _method: 'put',
     title: props.form.title,
     description: props.form.description,
+    success_content: props.form.success_content ?? '',
     closed_at: props.form.closed_at ?? '',
     visible_for: [...props.form.visible_for],
     banner_url: props.form.banner_url ?? '',
@@ -52,6 +55,12 @@ const formDescription = computed({
     get: () => settingsForm.description,
     set: (v: string) => {
         settingsForm.description = v
+    },
+})
+const successContent = computed({
+    get: () => settingsForm.success_content ?? '',
+    set: (v: string) => {
+        settingsForm.success_content = v
     },
 })
 const closedAt = computed({
@@ -99,6 +108,7 @@ watch(
         if (!f) return
         settingsForm.title = f.title
         settingsForm.description = f.description
+        settingsForm.success_content = f.success_content ?? ''
         settingsForm.closed_at = f.closed_at ?? ''
         settingsForm.visible_for = [...f.visible_for]
         settingsForm.banner_url = f.banner_url ?? ''
@@ -137,12 +147,14 @@ function onSave(): void {
     <FormBuilderWorkspace
         v-model:form-title="formTitle"
         v-model:form-description="formDescription"
+        v-model:success-content="successContent"
         v-model:closed-at="closedAt"
         v-model:visible-for="visibleFor"
         v-model:banner="bannerState"
         v-model:form-fields="formFields"
         v-model:form-metadata="formMetadata"
         :event="event"
+        :sibling-forms="siblingForms ?? []"
         :toolbar-subtitle="`Edit form · ${event.title}`"
         save-label="Save All"
         :processing="settingsForm.processing"

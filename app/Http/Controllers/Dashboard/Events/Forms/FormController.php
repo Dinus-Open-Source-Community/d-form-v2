@@ -38,6 +38,7 @@ class FormController extends Controller
 
         return Inertia::render('Dashboard/Events/Forms/Create', [
             'event' => $this->eventSummary($event),
+            'siblingForms' => $this->siblingFormsPayload($event),
         ]);
     }
 
@@ -47,6 +48,7 @@ class FormController extends Controller
         $form = $event->forms()->create([
             'title' => $data['title'],
             'description' => $data['description'],
+            'success_content' => $this->normalizeSuccessContent($data['success_content'] ?? null),
             'closed_at' => $data['closed_at'],
             'visible_for' => $data['visible_for'],
             'banner_url' => $data['banner_url'] ?? null,
@@ -94,6 +96,7 @@ class FormController extends Controller
             'event' => $this->eventSummary($event),
             'form' => $this->formToInertia($form),
             'fields' => $fields,
+            'siblingForms' => $this->siblingFormsPayload($event, $form->id),
             'saveFieldsUrl' => route('dashboard.events.forms.fields', ['event' => $event, 'form' => $form]),
             'updateFormUrl' => route('dashboard.events.forms.update', ['event' => $event, 'form' => $form]),
         ]);
@@ -115,6 +118,7 @@ class FormController extends Controller
             $form->update([
                 'title' => $data['title'],
                 'description' => $data['description'],
+                'success_content' => $this->normalizeSuccessContent($data['success_content'] ?? null),
                 'closed_at' => $data['closed_at'],
                 'visible_for' => $data['visible_for'],
                 'banner_url' => $data['banner_url'] ?? null,
@@ -189,6 +193,29 @@ class FormController extends Controller
         ];
     }
 
+    /**
+     * Other forms in the same event (for prerequisite picker).
+     *
+     * @return list<array{id: string, title: string}>
+     */
+    private function siblingFormsPayload(Event $event, ?string $excludeFormId = null): array
+    {
+        $query = $event->forms()->orderBy('title');
+
+        if ($excludeFormId !== null) {
+            $query->where('id', '!=', $excludeFormId);
+        }
+
+        return $query
+            ->get(['id', 'title'])
+            ->map(fn (Form $f) => [
+                'id' => $f->id,
+                'title' => $f->title,
+            ])
+            ->values()
+            ->all();
+    }
+
     private function formToInertia(Form $form): array
     {
         $closed = $form->closed_at;
@@ -207,6 +234,7 @@ class FormController extends Controller
             'id' => $form->id,
             'title' => $form->title,
             'description' => $form->description,
+            'success_content' => $form->success_content,
             'closed_at' => $closedStr,
             'visible_for' => $form->visible_for
                 ? $form->visible_for->map(fn (EventFormVisibility $e) => $e->value)->values()->all()
@@ -215,7 +243,22 @@ class FormController extends Controller
             'banner_url' => $form->banner_url,
             'banner_caption' => $form->banner_caption,
             'metadata' => $meta,
+            'purpose' => $form->purpose()->value,
         ];
+    }
+
+    private function normalizeSuccessContent(mixed $raw): ?string
+    {
+        if (! is_string($raw)) {
+            return null;
+        }
+
+        $trimmed = trim($raw);
+        if ($trimmed === '' || $trimmed === '<p></p>') {
+            return null;
+        }
+
+        return $raw;
     }
 
     private function formFieldToInertia(FormField $f): array

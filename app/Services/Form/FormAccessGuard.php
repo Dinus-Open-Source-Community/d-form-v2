@@ -4,6 +4,8 @@ namespace App\Services\Form;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\FormAccessStatus;
+use App\Enums\FormAnswerReviewStatus;
+use App\Enums\FormPurpose;
 use App\Enums\RegistrationRole;
 use App\Models\Event;
 use App\Models\Form;
@@ -27,10 +29,9 @@ final class FormAccessGuard
      * Order of checks:
      *  1. Visibility (`form.visible_for`)
      *  2. Form closure (`form.closed_at`)
-     *  3. Registration window (`event.registration_start/end`)
-     *  4. Quota (`event.quota` vs `event.registered_count`)
-     *  5. Another form in the same event already has a submission from this user
-     *  6. Duplicate / pending invitation / terminal invitation for this form
+     *  3. Registration forms: registration window, quota, other registration form chosen
+     *  4. Other forms: prerequisite (accepted submission on required form)
+     *  5. Duplicate / pending invitation / terminal invitation for this form
      */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
@@ -44,16 +45,22 @@ final class FormAccessGuard
             return FormAccessStatus::FormClosed;
         }
 
-        if (! $isAdmin && self::isRegistrationWindowClosed($event)) {
-            return FormAccessStatus::RegistrationNotOpen;
-        }
+        if ($form->isRegistrationForm()) {
+            if (! $isAdmin && self::isRegistrationWindowClosed($event)) {
+                return FormAccessStatus::RegistrationNotOpen;
+            }
 
-        if (! $isAdmin && self::isQuotaFull($event)) {
-            return FormAccessStatus::QuotaFull;
-        }
+            if (! $isAdmin && self::isQuotaFull($event)) {
+                return FormAccessStatus::QuotaFull;
+            }
 
-        if (! $isAdmin && self::hasSubmissionOnOtherFormInEvent($form, $event, $user)) {
-            return FormAccessStatus::EventFormAlreadyChosen;
+            if (! $isAdmin && self::hasSubmissionOnOtherRegistrationFormInEvent($form, $event, $user)) {
+                return FormAccessStatus::EventFormAlreadyChosen;
+            }
+        } else {
+            if (! $isAdmin && ! self::prerequisiteAccepted($form, $event, $user)) {
+                return FormAccessStatus::PrerequisiteNotMet;
+            }
         }
 
         return self::duplicateOrInvitationStatus($form, $user)
@@ -147,15 +154,50 @@ final class FormAccessGuard
             && $event->registered_count >= $event->quota;
     }
 
-    private static function hasSubmissionOnOtherFormInEvent(Form $form, Event $event, User $user): bool
+    /**
+     * One registration form per user per event (other-purpose forms do not count).
+     */
+    private static function hasSubmissionOnOtherRegistrationFormInEvent(Form $form, Event $event, User $user): bool
     {
         return FormAnswer::query()
             ->where('user_id', $user->id)
             ->where('form_id', '!=', $form->id)
             ->whereHas('form', function ($q) use ($event): void {
-                $q->where('event_id', $event->id);
+                $q->where('event_id', $event->id)
+                    ->where(function ($purposeQuery): void {
+                        $purposeQuery
+                            ->whereNull('metadata')
+                            ->orWhereNull('metadata->purpose')
+                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                    });
             })
             ->excludeRejectedSubmissions()
+            ->exists();
+    }
+
+    /**
+     * Non-registration forms may require an accepted submission on another form.
+     */
+    private static function prerequisiteAccepted(Form $form, Event $event, User $user): bool
+    {
+        $requiresFormId = $form->requiresFormId();
+        if ($requiresFormId === null) {
+            return true;
+        }
+
+        $requiredBelongsToEvent = Form::query()
+            ->where('id', $requiresFormId)
+            ->where('event_id', $event->id)
+            ->exists();
+
+        if (! $requiredBelongsToEvent) {
+            return false;
+        }
+
+        return FormAnswer::query()
+            ->where('form_id', $requiresFormId)
+            ->where('user_id', $user->id)
+            ->where('review_status', FormAnswerReviewStatus::Accepted)
             ->exists();
     }
 

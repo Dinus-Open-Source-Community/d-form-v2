@@ -4,17 +4,22 @@ namespace App\Http\Controllers\Dashboard\Events\Exports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Services\Registration\BundleGuestDisplayNameResolver;
+use App\Services\Registration\FormAnswerRecipientResolver;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventAttendanceCsvExportController extends Controller
 {
-    public function __invoke(Event $event): StreamedResponse
-    {
+    public function __invoke(
+        Event $event,
+        BundleGuestDisplayNameResolver $displayNameResolver,
+        FormAnswerRecipientResolver $recipientResolver,
+    ): StreamedResponse {
         $this->authorize('view', $event);
 
         $fileName = 'attendance-event-'.$event->id.'.csv';
 
-        return response()->streamDownload(function () use ($event): void {
+        return response()->streamDownload(function () use ($event, $displayNameResolver, $recipientResolver): void {
             $out = fopen('php://output', 'wb');
             if ($out === false) {
                 return;
@@ -33,14 +38,14 @@ class EventAttendanceCsvExportController extends Controller
             $event->attendances()
                 ->with(['formAnswer.user:id,name,email', 'scannedBy:id,name,email'])
                 ->orderBy('scanned_at')
-                ->chunk(500, function ($rows) use ($out): void {
+                ->chunk(500, function ($rows) use ($out, $displayNameResolver, $recipientResolver): void {
                     foreach ($rows as $row) {
-                        $user = $row->formAnswer?->user;
+                        $submission = $row->formAnswer;
                         $scanner = $row->scannedBy;
                         fputcsv($out, [
                             $row->scanned_at->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
-                            $user?->name ?? '',
-                            $user?->email ?? '',
+                            $submission !== null ? $displayNameResolver->resolve($submission) : '',
+                            $submission !== null ? ($recipientResolver->email($submission) ?? '') : '',
                             $row->form_answer_id,
                             $scanner?->name ?? '',
                             $scanner?->email ?? '',

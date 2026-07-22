@@ -35,6 +35,7 @@ class StoreEventFormRequest extends FormRequest
             [
                 'title' => 'required|string|max:100',
                 'description' => 'required|string',
+                'success_content' => 'nullable|string',
                 'closed_at' => 'required|date',
                 'visible_for' => 'required|array|min:1',
                 'visible_for.*' => [Rule::enum(EventFormVisibility::class)],
@@ -74,6 +75,16 @@ class StoreEventFormRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        FormFieldsRequestValidation::afterForFields($validator, $this, null);
+        $eventParam = $this->route('event');
+        $event = $eventParam instanceof Event
+            ? $eventParam
+            : Event::query()->find($eventParam);
+
+        FormFieldsRequestValidation::afterForFields(
+            $validator,
+            $this,
+            null,
+            $event?->id,
+        );
     }
 }

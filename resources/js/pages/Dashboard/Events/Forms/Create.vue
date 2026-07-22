@@ -8,7 +8,7 @@ import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorksp
 import { defaultFormBannerState, prependFormBannerToBackendPayload } from '@/components/modules/builder/formBanner'
 import { toBackendFields } from '@/components/modules/builder/fieldMapping'
 import type { BuilderField } from '@/types/form-builder'
-import type { CreateDashboardFormPayload } from '@/types/form'
+import type { CreateDashboardFormPayload, FormSiblingOption } from '@/types/form'
 import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form'
 import { routes } from '@/lib/routes'
 
@@ -21,10 +21,12 @@ defineOptions({ layout: DashboardLayout })
 
 const props = defineProps<{
     event: { id: string; title: string }
+    siblingForms?: FormSiblingOption[]
 }>()
 
 const formTitle = ref<string>('')
 const formDescription = ref<string>('')
+const successContent = ref<string>('')
 const closedAt = ref<string>('')
 const visibleFor = ref<string[]>([])
 const bannerState = reactive(defaultFormBannerState())
@@ -35,6 +37,7 @@ const isSaving = ref<boolean>(false)
 const createForm = useForm<CreateFormClientPayload>({
     title: '',
     description: '',
+    success_content: '',
     closed_at: '',
     visible_for: [],
     banner_url: '',
@@ -46,6 +49,7 @@ const createForm = useForm<CreateFormClientPayload>({
 function onSave(): void {
     createForm.title = formTitle.value
     createForm.description = formDescription.value
+    createForm.success_content = successContent.value
     createForm.closed_at = closedAt.value
     createForm.visible_for = visibleFor.value
     createForm.banner_url = bannerState.bannerUrl
@@ -74,12 +78,14 @@ function onSave(): void {
     <FormBuilderWorkspace
         v-model:form-title="formTitle"
         v-model:form-description="formDescription"
+        v-model:success-content="successContent"
         v-model:closed-at="closedAt"
         v-model:visible-for="visibleFor"
         v-model:banner="bannerState"
         v-model:form-fields="formFields"
         v-model:form-metadata="formMetadata"
         :event="event"
+        :sibling-forms="siblingForms ?? []"
         :toolbar-subtitle="`New form for ${event.title}`"
         save-label="Save Form"
         :processing="isSaving"

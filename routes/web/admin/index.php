@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\FormPurpose;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
@@ -10,9 +12,11 @@ use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
 use App\Models\Event;
+use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Services\Event\EventService;
 use App\Services\Event\UserPortalEventResolver;
+use App\Services\Form\FormAccessGuard;
 use App\Services\Registration\RegistrationQrPngGenerator;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
@@ -137,7 +141,13 @@ Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('da
         $registrationBase = FormAnswer::query()
             ->where('user_id', $user->id)
             ->whereHas('form', function ($q) use ($event) {
-                $q->where('event_id', $event->id);
+                $q->where('event_id', $event->id)
+                    ->where(function ($purposeQuery): void {
+                        $purposeQuery
+                            ->whereNull('metadata')
+                            ->orWhereNull('metadata->purpose')
+                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                    });
             })
             ->excludeTerminatedInvitationMembers();
 
@@ -168,6 +178,48 @@ Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('da
             $qrBase64 = base64_encode($png);
         }
 
+        $requiredFormIds = Form::query()
+            ->where('event_id', $event->id)
+            ->where('metadata->purpose', FormPurpose::Other->value)
+            ->get()
+            ->map(fn (Form $f) => $f->requiresFormId())
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $requiredTitles = $requiredFormIds === []
+            ? []
+            : Form::query()
+                ->whereIn('id', $requiredFormIds)
+                ->pluck('title', 'id')
+                ->all();
+
+        $participantForms = Form::query()
+            ->where('event_id', $event->id)
+            ->where('metadata->purpose', FormPurpose::Other->value)
+            ->orderBy('title')
+            ->get()
+            ->map(function (Form $form) use ($event, $user, $requiredTitles): array {
+                $status = FormAccessGuard::check($form, $event, $user);
+                $requiresId = $form->requiresFormId();
+
+                return [
+                    'id' => $form->id,
+                    'title' => $form->title,
+                    'description' => $form->description,
+                    'fill_url' => route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form], false),
+                    'access_status' => $status->value,
+                    'access_message' => $status->message(),
+                    'can_start' => $status === FormAccessStatus::Allowed,
+                    'requires_form_title' => $requiresId !== null
+                        ? ($requiredTitles[$requiresId] ?? null)
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
+
         return inertia('Dashboard/User/EventDetail', [
             'event' => $eventService->eventToInertiaArray($event),
             'isRegistered' => $isPortalRegistered,
@@ -175,6 +227,7 @@ Route::middleware(['auth', 'member_portal'])->prefix('/events/joined')->name('da
             'registrationStatus' => $isPortalRegistered ? $activeRegistration?->review_status?->value : null,
             'qr_base64' => $qrBase64,
             'registration_code' => $registrationCode,
+            'participantForms' => $participantForms,
         ]);
     })->name('events.show');
 });

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { FormBannerState } from '@/components/modules/builder/formBanner';
 import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import type { BuilderField } from '@/types/form-builder';
-import type { FormRegistrationMetadata } from '@/types/form';
+import type { FormRegistrationMetadata, FormSiblingOption } from '@/types/form';
 import { useFormBuilderWorkspace } from '@/utils/composables/useFormBuilderWorkspace';
 import FormBuilderToolbar from './FormBuilderToolbar.vue';
 import FormBuilderMobileTabBar from './FormBuilderMobileTabBar.vue';
@@ -28,12 +28,14 @@ const props = withDefaults(
         processing?: boolean;
         fieldErrors?: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>;
         shell?: 'dashboard' | 'fullscreen';
+        siblingForms?: FormSiblingOption[];
     }>(),
     {
         saveLabel: 'Save Form',
         processing: false,
         fieldErrors: () => ({}),
         shell: 'dashboard',
+        siblingForms: () => [],
     }
 );
 
@@ -43,6 +45,7 @@ const emit = defineEmits<{
 
 const formTitle = defineModel<string>('formTitle', { required: true });
 const formDescription = defineModel<string>('formDescription', { required: true });
+const successContent = defineModel<string>('successContent', { required: true });
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const banner = defineModel<FormBannerState>('banner', { required: true });
@@ -136,12 +139,14 @@ const visibilityOptions = FORM_VISIBILITY_OPTIONS;
                         <FormBuilderFormDetailsCard
                             v-model:form-title="formTitle"
                             v-model:form-description="formDescription"
+                            v-model:success-content="successContent"
                             v-model:closed-at="closedAt"
                             v-model:visible-for="visibleFor"
                             v-model:form-metadata="formMetadata"
                             id-prefix="m"
                             :field-errors="fieldErrors"
                             :visibility-options="visibilityOptions"
+                            :sibling-forms="siblingForms"
                             @toggle-visibility="wb.toggleVisibility"
                         />
 
@@ -175,6 +180,7 @@ const visibilityOptions = FORM_VISIBILITY_OPTIONS;
                 v-model:inspector-mode="wb.inspectorMode"
                 v-model:form-title="formTitle"
                 v-model:form-description="formDescription"
+                v-model:success-content="successContent"
                 v-model:closed-at="closedAt"
                 v-model:visible-for="visibleFor"
                 v-model:banner="banner"
@@ -184,6 +190,7 @@ const visibilityOptions = FORM_VISIBILITY_OPTIONS;
                 :validation-issues="wb.validationIssues"
                 :field-errors="fieldErrors"
                 :visibility-options="visibilityOptions"
+                :sibling-forms="siblingForms"
                 @toggle-visibility="wb.toggleVisibility"
                 @update-field="wb.updateField"
             />

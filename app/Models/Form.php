@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\FormPurpose;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,7 @@ class Form extends Model
     protected $fillable = [
         'title',
         'description',
+        'success_content',
         'closed_at',
         'visible_for',
         'event_id',
@@ -39,6 +41,30 @@ class Form extends Model
             'visible_for' => AsEnumCollection::of(EventFormVisibility::class),
             'metadata' => 'array',
         ];
+    }
+
+    /**
+     * Forms without an explicit purpose are treated as registration (backward compatible).
+     */
+    public function purpose(): FormPurpose
+    {
+        $raw = is_array($this->metadata) ? ($this->metadata['purpose'] ?? null) : null;
+
+        return $raw === FormPurpose::Other->value
+            ? FormPurpose::Other
+            : FormPurpose::Registration;
+    }
+
+    public function isRegistrationForm(): bool
+    {
+        return $this->purpose() === FormPurpose::Registration;
+    }
+
+    public function requiresFormId(): ?string
+    {
+        $raw = is_array($this->metadata) ? ($this->metadata['requires_form_id'] ?? null) : null;
+
+        return is_string($raw) && $raw !== '' ? $raw : null;
     }
 
     public function event(): \Illuminate\Database\Eloquent\Relations\BelongsTo

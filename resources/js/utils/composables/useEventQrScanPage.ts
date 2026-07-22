@@ -76,19 +76,28 @@ export function useEventQrScanPage(scannerContainerId: string, attendanceScanSto
         catch (error) {
             if (axios.isAxiosError(error)) {
                 const status = error.response?.status
-                const body = error.response?.data as { message?: string; errors?: Record<string, string[]> } | undefined
+                const body = error.response?.data as {
+                    message?: string
+                    attendee?: AttendanceQueuedJson['attendee']
+                    errors?: Record<string, string[]>
+                } | undefined
 
                 if (status === 409) {
                     const msg = humanizeErrorMessage(body?.message ?? 'Peserta sudah pernah scan untuk event ini.')
+                    const attendee = body?.attendee
+                    const name = attendee?.name?.trim() || 'Sudah terdaftar hadir'
+                    const email = attendee?.email?.trim() || '-'
                     scanResult.value = {
-                        name: 'Sudah terdaftar hadir',
-                        email: '-',
+                        name,
+                        email,
                         status: 'already',
                         source,
                         rawCode: rawDisplay,
                     }
                     scanHistory.value.unshift(createScanHistoryEntry(scanResult.value))
-                    toast.warning(msg)
+                    toast.warning(msg, {
+                        description: email !== '-' ? `${name} · ${email}` : name,
+                    })
 
                     return
                 }

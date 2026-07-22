@@ -139,12 +139,14 @@ class FormRegistrationTest extends TestCase
         return route('dashboard.events.registrants', ['event' => $event], false);
     }
 
-    /** Post-submit redirect matches {@see FormSubmissionController} (members use the user portal). */
-    private function submitSuccessRedirect(Event $event, User $user): string
+    /** Post-submit redirect matches {@see FormSubmissionController} (members land on submit success page). */
+    private function submitSuccessRedirect(Event $event, User $user, Form $form): string
     {
-        return $user->can('events.view')
-            ? route('dashboard.events.show', $event)
-            : route('dashboard.user.events.show', ['event_segment' => $event->slug]);
+        if ($user->can('events.view')) {
+            return route('dashboard.events.show', $event);
+        }
+
+        return route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form]);
     }
 
     // =========================================================================
@@ -423,7 +425,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Jane Doe'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $this->assertDatabaseHas('form_answers', [
             'form_id' => $form->id,
@@ -445,7 +447,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
             ->post($this->submitPath($event, $formA), ['full_name' => 'Jane Doe'])
-            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $formA));
 
         $this->actingAs($member)
             ->get($this->fillPath($event, $formB))
@@ -464,7 +466,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
             ->post($this->submitPath($event, $formA), ['full_name' => 'Jane Doe'])
-            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $formA));
 
         $this->actingAs($member)
             ->post($this->submitPath($event, $formB), ['full_name' => 'John Doe'])
@@ -521,7 +523,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['interests' => ['design', 'coding']])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertIsArray($answer->answers['interests']);
@@ -545,7 +547,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['skills' => ['php', 'vue']])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertIsArray($answer->answers['skills']);
@@ -573,7 +575,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['cv' => $file])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertStringStartsWith("form-uploads/{$form->id}/", $answer->answers['cv']);
@@ -597,7 +599,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
             ->post($this->submitPath($event, $form), ['birth_date' => '2005-06-15'])
-            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertSame('2005-06-15', $answer->answers['birth_date']);
@@ -759,7 +761,7 @@ class FormRegistrationTest extends TestCase
                 'full_name' => 'Team Leader',
                 'team_member_emails' => [$teammate->email],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $this->assertDatabaseCount('form_answers', 2);
 
@@ -819,7 +821,7 @@ class FormRegistrationTest extends TestCase
                 'full_name' => 'Team Leader',
                 'team_member_emails' => [$teammate->email],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $event->refresh();
         $this->assertSame(2, (int) $event->registered_count);
@@ -1098,7 +1100,7 @@ class FormRegistrationTest extends TestCase
                 'bundle__full_name__0' => 'Second Person',
                 'team_member_emails' => [$guestEmail],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $this->assertDatabaseCount('form_answers', 2);
 
@@ -1764,7 +1766,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Jane Doe'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         Mail::assertSent(RegistrationConfirmationMail::class);
         Mail::assertNotSent(RegistrationAcceptedMail::class);
@@ -1817,7 +1819,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'First'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Second'])
@@ -1897,7 +1899,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'First Submission'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
         $this->assertNotNull($firstSubmission);
@@ -1923,7 +1925,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Second Submission'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $this->assertDatabaseCount('form_answers', 2);
 
@@ -1955,7 +1957,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $formA), ['full_name' => 'Submission Form A'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $formA));
 
         $submissionA = FormAnswer::query()->where('form_id', $formA->id)->where('user_id', $member->id)->first();
         $this->assertNotNull($submissionA);
@@ -1982,7 +1984,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $formB), ['full_name' => 'Submission Form B'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $formB));
 
         $this->assertDatabaseHas('form_answers', [
             'form_id' => $formA->id,
@@ -2019,7 +2021,7 @@ class FormRegistrationTest extends TestCase
                  'full_name' => 'First Leader',
                  'team_member_emails' => [$memberUser->email],
              ])
-             ->assertRedirect($this->submitSuccessRedirect($event, $firstLeader));
+             ->assertRedirect($this->submitSuccessRedirect($event, $firstLeader, $form));
 
         $memberSubmission = FormAnswer::query()
             ->where('form_id', $form->id)
@@ -2053,7 +2055,7 @@ class FormRegistrationTest extends TestCase
                  'full_name' => 'Second Leader',
                  'team_member_emails' => [$memberUser->email],
              ])
-             ->assertRedirect($this->submitSuccessRedirect($event, $secondLeader));
+             ->assertRedirect($this->submitSuccessRedirect($event, $secondLeader, $form));
 
         $this->assertDatabaseCount('form_answers', 4);
 
@@ -2078,7 +2080,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
             ->post($this->submitPath($event, $form), ['full_name' => 'Rejected User'])
-            ->assertRedirect($this->submitSuccessRedirect($event, $member));
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $submission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->firstOrFail();
 
@@ -2121,7 +2123,7 @@ class FormRegistrationTest extends TestCase
                 'bundle__full_name__0' => 'Guest Person',
                 'team_member_emails' => [$guestEmail],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $leaderRow = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $leader->id)->firstOrFail();
 
@@ -2144,7 +2146,7 @@ class FormRegistrationTest extends TestCase
                 'bundle__full_name__0' => 'Guest Person Retry',
                 'team_member_emails' => [$guestEmail],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $this->assertDatabaseHas('form_answers', [
             'form_id' => $form->id,
@@ -2176,7 +2178,7 @@ class FormRegistrationTest extends TestCase
                 'bundle__full_name__0' => 'Guest Person',
                 'team_member_emails' => [$guestEmail],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $leaderRow = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $leader->id)->firstOrFail();
         $memberRow = FormAnswer::query()->where('form_id', $form->id)->where('invited_email', mb_strtolower($guestEmail))->firstOrFail();
@@ -2267,7 +2269,7 @@ class FormRegistrationTest extends TestCase
                 'bundle__full_name__0' => 'Guest Person',
                 'team_member_emails' => [$guestEmail],
             ])
-            ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $leaderRow = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $leader->id)->firstOrFail();
 
@@ -2308,7 +2310,7 @@ class FormRegistrationTest extends TestCase
                  'full_name' => 'Team Leader',
                  'team_member_emails' => [$memberUser->email],
              ])
-             ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+             ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $memberSubmission = FormAnswer::query()
             ->where('form_id', $teamForm->id)
@@ -2337,7 +2339,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($memberUser)
              ->post($this->submitPath($event, $singleForm), ['full_name' => 'Individual Registration'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $memberUser));
+             ->assertRedirect($this->submitSuccessRedirect($event, $memberUser, $form));
 
         $individualSubmission = FormAnswer::query()
             ->where('form_id', $singleForm->id)
@@ -2359,7 +2361,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'First Try'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
 
@@ -2371,7 +2373,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Second Try'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $this->actingAs($admin)
              ->get($this->submissionsPath($event, $form))
@@ -2394,7 +2396,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'First Submission'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
@@ -2412,7 +2414,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Second Submission'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
@@ -2437,7 +2439,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['full_name' => 'Jane'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $member));
+             ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
         $event->forceFill(['registered_count' => 99])->save();
 
@@ -2483,7 +2485,7 @@ class FormRegistrationTest extends TestCase
                  'full_name' => 'Team Leader',
                  'team_member_emails' => [$memberUser->email],
              ])
-             ->assertRedirect($this->submitSuccessRedirect($event, $leader));
+             ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
 
         $event->refresh();
         $this->assertSame(2, $event->registered_count);

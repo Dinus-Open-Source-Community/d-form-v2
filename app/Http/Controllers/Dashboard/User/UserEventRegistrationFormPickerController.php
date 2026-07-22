@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\User;
 
 use App\Enums\FormAccessStatus;
+use App\Enums\FormPurpose;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
@@ -21,6 +22,11 @@ class UserEventRegistrationFormPickerController
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->where(function ($q): void {
+                $q->whereNull('metadata')
+                    ->orWhereNull('metadata->purpose')
+                    ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+            })
             ->orderBy('title')
             ->get();
 
