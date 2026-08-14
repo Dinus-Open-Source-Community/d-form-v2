@@ -1,0 +1,110 @@
+version: '3.8'
+
+networks:
+  proxy:
+    external: true
+  d-form-network:
+    driver: bridge
+
+services:
+  # ============================================
+  # MySQL Database
+  # ============================================
+  db:
+    image: mariadb:10.11
+    container_name: d-form-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: dform_db_secret_2024
+      MARIADB_DATABASE: d_form
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - d-form-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # Redis Cache & Session
+  # ============================================
+  redis:
+    image: redis:8.0-alpine
+    container_name: d-form-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - d-form-network
+    # AOF (appendonly) handles persistence; disable RDB write-block so a failed
+    # RDB snapshot does not block all write commands (stop-writes-on-bgsave-error).
+    command: redis-server --appendonly yes --stop-writes-on-bgsave-error no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # D-Form App (Laravel + FrankenPHP Octane)
+  # ============================================
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.prod
+    container_name: d-form-app
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - .env.production
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - proxy
+      - d-form-network
+    volumes:
+      - app_storage:/app/storage/app
+    labels:
+      # ---- Traefik HTTP → HTTPS redirect ----
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+
+      # Define the redirect-to-https middleware (was missing - caused HTTP router to be disabled by Traefik)
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+
+      # HTTP router (redirect to HTTPS)
+      - "traefik.http.routers.d-form.rule=Host(`d-form.doscom.org`)"
+      - "traefik.http.routers.d-form.entrypoints=web"
+      - "traefik.http.routers.d-form.middlewares=redirect-to-https"
+      - "traefik.http.routers.d-form.priority=2000"
+
+      # HTTPS router
+      - "traefik.http.routers.d-form-sec.rule=Host(`d-form.doscom.org`)"
+      - "traefik.http.routers.d-form-sec.entrypoints=websecure"
+      - "traefik.http.routers.d-form-sec.tls=true"
+      - "traefik.http.routers.d-form-sec.tls.certresolver=letsencryptresolver"
+      - "traefik.http.routers.d-form-sec.priority=2000"
+
+      # Service
+      - "traefik.http.routers.d-form.service=d-form-svc"
+      - "traefik.http.routers.d-form-sec.service=d-form-svc"
+      - "traefik.http.services.d-form-svc.loadbalancer.server.port=8000"
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_storage:
+    driver: local
