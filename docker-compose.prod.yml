@@ -1,105 +1,103 @@
-version: '3.8'
+name: d-form
 
-networks:
-  proxy:
-    external: true
-  d-form-network:
-    driver: bridge
-
+# nk ngerubah docker-compose.prod.yml ati ati ya kang
+# soal e iki nggo pipeline ng CI/CD 
+# nk meh ngerubah kondo fa'iz sek ya
 services:
-  # ============================================
-  # MySQL Database
-  # ============================================
   db:
     image: mariadb:10.11
     container_name: d-form-db
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: dform_db_secret_2024
-      MARIADB_DATABASE: d_form
+      MARIADB_DATABASE: ${DB_DATABASE:?DB_DATABASE is required}
+      MARIADB_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - d-form-network
+      - d-form-internal
+
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ============================================
-  # Redis Cache & Session
-  # ============================================
   redis:
     image: redis:8.0-alpine
     container_name: d-form-redis
     restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--stop-writes-on-bgsave-error",
+        "no"
+      ]
     volumes:
       - redis_data:/data
     networks:
-      - d-form-network
-    # AOF (appendonly) handles persistence; disable RDB write-block so a failed
-    # RDB snapshot does not block all write commands (stop-writes-on-bgsave-error).
-    command: redis-server --appendonly yes --stop-writes-on-bgsave-error no
+      - d-form-internal
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ============================================
-  # D-Form App (Laravel + FrankenPHP Octane)
-  # ============================================
   app:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
-    container_name: d-form-app
+
+    container_name: d-form-app-core
     restart: unless-stopped
     expose:
       - "8000"
     env_file:
-      - .env.production
+      - ${APP_ENV_FILE:-.env.production}
     environment:
-      - DB_HOST=db
-      - REDIS_HOST=redis
+      DB_HOST: db
+      REDIS_HOST: redis
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - proxy
-      - d-form-network
+      doscom_ingress:
+        aliases:
+          - d-form-app
+      d-form-internal: {}
     volumes:
       - app_storage:/app/storage/app
-    labels:
-      # ---- Traefik HTTP → HTTPS redirect ----
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-      # Define the redirect-to-https middleware (was missing - caused HTTP router to be disabled by Traefik)
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+networks:
+  doscom_ingress:
+    external: true
+    name: doscom_ingress
 
-      # HTTP router (redirect to HTTPS)
-      - "traefik.http.routers.d-form.rule=Host(`d-form.doscom.org`)"
-      - "traefik.http.routers.d-form.entrypoints=web"
-      - "traefik.http.routers.d-form.middlewares=redirect-to-https"
-      - "traefik.http.routers.d-form.priority=2000"
-
-      # HTTPS router
-      - "traefik.http.routers.d-form-sec.rule=Host(`d-form.doscom.org`)"
-      - "traefik.http.routers.d-form-sec.entrypoints=websecure"
-      - "traefik.http.routers.d-form-sec.tls=true"
-      - "traefik.http.routers.d-form-sec.tls.certresolver=letsencryptresolver"
-      - "traefik.http.routers.d-form-sec.priority=2000"
-
-      # Service
-      - "traefik.http.routers.d-form.service=d-form-svc"
-      - "traefik.http.routers.d-form-sec.service=d-form-svc"
-      - "traefik.http.services.d-form-svc.loadbalancer.server.port=8000"
+  d-form-internal:
+    driver: bridge
+    internal: true
 
 volumes:
   mysql_data:
@@ -108,3 +106,7 @@ volumes:
     driver: local
   app_storage:
     driver: local
+
+secrets:
+  db_root_password:
+    environment: DB_ROOT_PASSWORD
