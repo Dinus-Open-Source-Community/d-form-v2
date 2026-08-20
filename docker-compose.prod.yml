@@ -15,7 +15,7 @@ services:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
     volumes:
-      - mysql_data:/var/lib/mysql
+      - prod_mysql_data_d_form:/var/lib/mysql
     networks:
       - d-form-internal
 
@@ -46,7 +46,7 @@ services:
         "no"
       ]
     volumes:
-      - redis_data:/data
+      - prod_redis_data_d_form:/data
     networks:
       - d-form-internal
     healthcheck:
@@ -82,7 +82,7 @@ services:
           - d-form-app
       d-form-internal: {}
     volumes:
-      - app_storage:/app/storage/app
+      - prod_app_storage_d_form:/app/storage/app
     stop_grace_period: 30s
     logging:
       driver: json-file
@@ -100,11 +100,11 @@ networks:
     internal: true
 
 volumes:
-  mysql_data:
+  prod_mysql_data_d_form:
     driver: local
-  redis_data:
+  prod_redis_data_d_form:
     driver: local
-  app_storage:
+  prod_app_storage_d_form:
     driver: local
 
 secrets:
