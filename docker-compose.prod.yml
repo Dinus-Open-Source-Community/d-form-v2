@@ -6,7 +6,7 @@ name: d-form
 services:
   db:
     image: mariadb:10.11
-    container_name: d-form-db
+    container_name: prod_d-form-db
     restart: unless-stopped
     environment:
       MARIADB_DATABASE: ${DB_DATABASE:?DB_DATABASE is required}
@@ -35,7 +35,7 @@ services:
 
   redis:
     image: redis:8.0-alpine
-    container_name: d-form-redis
+    container_name: prod_d-form-redis
     restart: unless-stopped
     command:
       [
@@ -62,7 +62,7 @@ services:
       context: .
       dockerfile: ./docker/Dockerfile.prod
 
-    container_name: d-form-app-core
+    container_name: prod_d-form-app-core
     restart: unless-stopped
     expose:
       - "8000"
