@@ -158,7 +158,7 @@ pipeline {
 
                     test "$(docker inspect \
                         -f '{{.State.Health.Status}}' \
-                        d-form-app)" = "healthy"
+                        prod_d-form-app-core)" = "healthy"
 
                     echo "D-Form is healthy"
                 '''
