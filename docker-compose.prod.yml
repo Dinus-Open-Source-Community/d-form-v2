@@ -1,7 +1,7 @@
 name: d-form
 
 # nk ngerubah docker-compose.prod.yml ati ati ya kang
-# soal e iki nggo pipeline ng CI/CD 
+# soal e iki nggo pipeline ng CI/CD
 # nk meh ngerubah kondo fa'iz sek ya
 services:
   db:
@@ -12,8 +12,12 @@ services:
       MARIADB_DATABASE: ${DB_DATABASE:?DB_DATABASE is required}
       MARIADB_USER: ${DB_USERNAME:?DB_USERNAME is required}
       MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+      # MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+
+    secrets:
+      - db_root_password
+
     volumes:
       - prod_mysql_data_d_form:/var/lib/mysql
     networks:
