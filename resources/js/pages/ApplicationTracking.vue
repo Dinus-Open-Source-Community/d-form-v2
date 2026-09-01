@@ -12,10 +12,22 @@ import type { IApplication } from '@/types/recruitment';
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { SearchX } from 'lucide-vue-next';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const props = defineProps<{ registrationNumber?: string }>();
 
 const search = ref(props.registrationNumber ?? '');
+const correctionOpen = ref(false);
+const correctionReason = ref('');
 
 const application = computed<IApplication | undefined>(() => {
     const q = search.value.trim();
@@ -32,14 +44,17 @@ function track(): void {
     }
 }
 
-function requestCorrection(): void {
-    if (!application.value) {
+function openCorrectionDialog(): void {
+    correctionReason.value = '';
+    correctionOpen.value = true;
+}
+
+function submitCorrection(): void {
+    if (!application.value || !correctionReason.value.trim()) {
         return;
     }
-    const reason = window.prompt('Alasan koreksi data:');
-    if (reason && reason.trim()) {
-        recruitmentStore.requestCorrection(application.value.id, reason.trim(), ['fullName', 'phone', 'studentEmail']);
-    }
+    recruitmentStore.requestCorrection(application.value.id, correctionReason.value.trim(), ['fullName', 'phone', 'studentEmail']);
+    correctionOpen.value = false;
 }
 </script>
 
@@ -123,7 +138,7 @@ function requestCorrection(): void {
                     <p class="text-muted-foreground mt-1">
                         Data Anda telah diverifikasi. Ajukan permintaan koreksi jika ada yang perlu diperbaiki.
                     </p>
-                    <Button class="mt-3" variant="outline" size="sm" @click="requestCorrection">
+                    <Button class="mt-3" variant="outline" size="sm" @click="openCorrectionDialog">
                         Minta Koreksi
                     </Button>
                 </div>
@@ -142,5 +157,33 @@ function requestCorrection(): void {
                 </div>
             </div>
         </div>
+
+        <Dialog v-model:open="correctionOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Ajukan Koreksi Data</DialogTitle>
+                    <DialogDescription>
+                        Jelaskan data yang perlu diperbaiki. Permintaan akan ditinjau oleh staff.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-2">
+                    <Label for="correction-reason">Alasan koreksi</Label>
+                    <Textarea
+                        id="correction-reason"
+                        v-model="correctionReason"
+                        rows="3"
+                        placeholder="Contoh: Nomor WhatsApp salah, ingin mengganti email mahasiswa..."
+                    />
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="correctionOpen = false">Batal</Button>
+                    <Button :disabled="!correctionReason.trim()" @click="submitCorrection">
+                        Kirim Permintaan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </LandingLayout>
 </template>
