@@ -3,6 +3,7 @@ import type {
     IApplication,
     IApplicant,
     ICorrectionRequest,
+    IRecruitmentScreening,
     IRecruitmentStore,
     RecruitScreeningDecision,
     RecruitStage,
@@ -22,6 +23,10 @@ const state = reactive<IRecruitmentStore>({
 
 let registrationCounter = dummyApplications.length;
 
+function isoNow(): string {
+    return new Date().toISOString();
+}
+
 function nextRegistrationNumber(): string {
     registrationCounter += 1;
     const year = new Date().getFullYear();
@@ -37,7 +42,7 @@ function getApplicationById(id: string): IApplication | undefined {
 }
 
 function addApplication(applicant: IApplicant, periodId: string): IApplication {
-    const now = new Date().toISOString();
+    const now = isoNow();
     const application: IApplication = {
         id: `app-${Date.now()}`,
         periodId,
@@ -46,6 +51,7 @@ function addApplication(applicant: IApplicant, periodId: string): IApplication {
         stage: 'submitted',
         submittedAt: now,
         updatedAt: now,
+        screeningHistory: [],
         correctionRequests: [],
         revisionRound: 0,
     };
@@ -58,18 +64,21 @@ function screeningDecision(
     decision: RecruitScreeningDecision,
     reason: string,
     notes?: string,
+    decidedBy = 'Admin',
 ): void {
     const app = state.applications.find((a) => a.id === applicationId);
     if (!app) {
         return;
     }
-    app.screening = {
+    const entry: IRecruitmentScreening = {
         decision,
         reason,
         notes,
-        decidedBy: 'Admin',
-        decidedAt: new Date().toISOString(),
+        decidedBy,
+        decidedAt: isoNow(),
     };
+    app.screening = entry;
+    app.screeningHistory.push(entry); // audit: tidak menimpa
     if (decision === 'pass') {
         app.stage = 'document_passed';
     } else if (decision === 'reject') {
@@ -77,7 +86,7 @@ function screeningDecision(
     } else {
         app.stage = 'revision_required';
     }
-    app.updatedAt = new Date().toISOString();
+    app.updatedAt = isoNow();
 }
 
 function resubmitApplication(applicationId: string, applicant: IApplicant): void {
@@ -89,7 +98,7 @@ function resubmitApplication(applicationId: string, applicant: IApplicant): void
     app.stage = 'screening';
     app.screening = undefined;
     app.revisionRound += 1;
-    app.updatedAt = new Date().toISOString();
+    app.updatedAt = isoNow();
 }
 
 function requestCorrection(
@@ -105,33 +114,40 @@ function requestCorrection(
         reason,
         status: 'pending',
         fields,
-        requestedAt: new Date().toISOString(),
+        requestedAt: isoNow(),
     };
     app?.correctionRequests.push(request);
     return request;
 }
 
-function approveCorrection(requestId: string): void {
+function approveCorrection(requestId: string, decidedBy = 'Admin'): void {
     for (const app of state.applications) {
         const req = app.correctionRequests.find((r) => r.id === requestId);
         if (req) {
             req.status = 'approved';
-            req.resolvedAt = new Date().toISOString();
+            req.resolvedAt = isoNow();
+            req.resolvedBy = decidedBy;
             if (app.stage === 'document_passed' || app.stage === 'document_rejected') {
                 app.stage = 'revision_required';
-                app.updatedAt = new Date().toISOString();
+                app.updatedAt = isoNow();
             }
             return;
         }
     }
 }
 
-function rejectCorrection(requestId: string): void {
+function rejectCorrection(requestId: string, reason: string, decidedBy = 'Admin'): void {
+    if (!reason.trim()) {
+        return; // alasan wajib non-empty
+    }
     for (const app of state.applications) {
         const req = app.correctionRequests.find((r) => r.id === requestId);
         if (req) {
             req.status = 'rejected';
-            req.resolvedAt = new Date().toISOString();
+            req.resolvedAt = isoNow();
+            req.resolvedBy = decidedBy;
+            req.resolutionNote = reason.trim();
+            // stage TIDAK berubah
             return;
         }
     }

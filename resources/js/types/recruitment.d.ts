@@ -58,6 +58,8 @@ export interface ICorrectionRequest {
     fields: string[];
     requestedAt: string;
     resolvedAt?: string;
+    resolvedBy?: string;      // actor yang memutuskan
+    resolutionNote?: string;  // alasan wajib saat reject
 }
 
 export interface IApplication {
@@ -69,6 +71,7 @@ export interface IApplication {
     submittedAt: string;
     updatedAt: string;
     screening?: IRecruitmentScreening;
+    screeningHistory: IRecruitmentScreening[]; // audit: semua keputusan (lama→baru)
     correctionRequests: ICorrectionRequest[];
     revisionRound: number;
     cancellation?: { reason: string; at: string };
