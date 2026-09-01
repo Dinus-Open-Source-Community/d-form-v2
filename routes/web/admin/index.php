@@ -23,6 +23,7 @@ use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportContro
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
+use App\Http\Controllers\Dashboard\Recruitment\RecruitmentStaffController;
 use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'));
@@ -68,7 +69,10 @@ Route::middleware(['auth', 'throttle:10,1'])->put('/dashboard/profile/password',
 Route::middleware(['auth', 'organizer'])->prefix('/admin/dashboard')->group(function () {
     Route::get('/', fn () => redirect()->route('dashboard'))->name('dashboard.home');
     Route::get('/reports', fn () => redirect()->route('dashboard.events.index'))->name('dashboard.reports.index');
-    Route::get('/recruitment', fn () => inertia('Dashboard/Recruitment/Index'))->name('dashboard.recruitment.index');
+    Route::get('/recruitment', [RecruitmentStaffController::class, 'index'])->name('dashboard.recruitment.index');
+    Route::get('/recruitment/applicants', [RecruitmentStaffController::class, 'applicants'])->name('dashboard.recruitment.applicants');
+    Route::get('/recruitment/applicants/{applicationId}', [RecruitmentStaffController::class, 'applicantDetail'])->name('dashboard.recruitment.applicant-detail');
+    Route::get('/recruitment/corrections', [RecruitmentStaffController::class, 'corrections'])->name('dashboard.recruitment.corrections');
 });
 
 Route::middleware('auth')->get('/events/joined/profile', fn () => redirect()->route('dashboard.profile'))->name('dashboard.user.profile');
