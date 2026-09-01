@@ -31,6 +31,16 @@ function track(): void {
         router.get(`/open-recruitment/tracking/${q}`);
     }
 }
+
+function requestCorrection(): void {
+    if (!application.value) {
+        return;
+    }
+    const reason = window.prompt('Alasan koreksi data:');
+    if (reason && reason.trim()) {
+        recruitmentStore.requestCorrection(application.value.id, reason.trim(), ['fullName', 'phone', 'studentEmail']);
+    }
+}
 </script>
 
 <template>
@@ -103,6 +113,19 @@ function track(): void {
                     <p v-if="application.screening.reason" class="text-muted-foreground mt-1 text-xs">
                         {{ application.screening.reason }}
                     </p>
+                </div>
+
+                <div
+                    v-if="application.stage === 'document_passed'"
+                    class="rounded-xl border p-4 text-sm"
+                >
+                    <p class="font-medium">Ingin mengoreksi data?</p>
+                    <p class="text-muted-foreground mt-1">
+                        Data Anda telah diverifikasi. Ajukan permintaan koreksi jika ada yang perlu diperbaiki.
+                    </p>
+                    <Button class="mt-3" variant="outline" size="sm" @click="requestCorrection">
+                        Minta Koreksi
+                    </Button>
                 </div>
             </div>
 
