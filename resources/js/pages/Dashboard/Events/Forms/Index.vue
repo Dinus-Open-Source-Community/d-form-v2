@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
 import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,6 +13,7 @@ import { Plus, FileText, Pencil, Trash2, Inbox, CalendarClock, Users } from 'luc
 import { formatDateTime } from '@/lib/dummyData'
 import FormSubmissionsController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormSubmissionsController'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -21,6 +21,10 @@ const props = defineProps<{
     event: { id: string; title: string }
     forms: IForm[]
 }>()
+
+onMounted(() => {
+    setTopbar({ title: props.event.title, subtitle: 'Kelola formulir pendaftaran' })
+})
 
 const showDeleteModal = ref(false)
 const deleteTarget = ref<IForm | null>(null)
@@ -55,29 +59,26 @@ function submissionsHref(formId: string): string {
     <Head title="Forms" />
 
     <div class="flex min-w-0 flex-col gap-5 sm:gap-6">
-        <PageHeader
-            title="Forms"
-            :subtitle="`Manage forms for ${event.title}.`"
-            :back-href="routes.admin.events.show(event.id)"
-        >
-            <template #actions>
-                <Button as-child class="h-11 w-full rounded-xl md:h-10 md:w-auto">
-                    <Link
-                        :href="routes.admin.events.forms.create(event.id)"
-                        class="inline-flex items-center justify-center gap-2"
-                    >
-                        <Plus class="size-4" />
-                        Create Form
-                    </Link>
-                </Button>
-            </template>
-        </PageHeader>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-muted-foreground text-sm">
+                {{ forms.length }} formulir untuk {{ event.title }}
+            </p>
+            <Button as-child class="h-10 w-full rounded-xl md:h-9 md:w-auto">
+                <Link
+                    :href="routes.admin.events.forms.create(event.id)"
+                    class="inline-flex items-center justify-center gap-2"
+                >
+                    <Plus class="size-4" />
+                    Create Form
+                </Link>
+            </Button>
+        </div>
 
         <div v-if="forms.length > 0" class="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
             <Card
                 v-for="form in forms"
                 :key="form.id"
-                class="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md"
+                class="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/25 hover:shadow-md"
             >
                 <CardContent class="flex h-full flex-col p-0">
                     <div class="flex min-w-0 flex-1 items-start gap-3 p-4 sm:p-5">

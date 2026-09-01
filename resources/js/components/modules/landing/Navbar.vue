@@ -141,7 +141,7 @@ const links = [
                 <img
                     src="/public/DForm%201.png"
                     alt="DOSCOM"
-                    class="h-8 w-auto transition-transform duration-200 group-hover:scale-105"
+                    class="h-8 w-auto transition-colors duration-200"
                 />
             </a>
 

@@ -72,7 +72,7 @@ const statusVariant = (s: string) =>
                             <EventBannerImage
                                 :src="ev.banner_url"
                                 :alt="ev.title"
-                                img-class="transition-transform duration-300 group-hover:scale-105"
+                                img-class="transition-colors duration-300"
                             />
                         </div>
                         <Badge

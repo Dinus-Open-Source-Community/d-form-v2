@@ -17,7 +17,7 @@ usePageFlashToast();
         <!-- Right: Auth Forms -->
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
             <div class="app-surface w-full max-w-md p-7 sm:p-8">
-                <a :href="routes.home" class="group mb-9 inline-block transition-transform hover:-translate-y-px">
+                <a :href="routes.home" class="group mb-9 inline-block">
                     <img
                         :src="`/${encodeURIComponent('DForm 1.png')}`"
                         alt="DForm"

@@ -166,7 +166,7 @@ const quotaPercent = computed(() => {
                 class="group border-border/70 from-card to-muted/10 hover:border-primary/25 flex min-w-0 gap-3 rounded-2xl border bg-gradient-to-b p-4 shadow-sm transition-[border-color,box-shadow] duration-200 hover:shadow-md"
             >
                 <div
-                    class="bg-primary/10 text-primary ring-primary/15 flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform duration-200 group-hover:scale-[1.03] sm:size-11"
+                    class="bg-primary/10 text-primary ring-primary/15 flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 sm:size-11"
                 >
                     <component :is="m.icon" class="size-5" stroke-width="2" />
                 </div>

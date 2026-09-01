@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeUnmount, onMounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { SimpleSelect } from '@/components/ui/simple-select';
 import { Progress } from '@/components/ui/progress';
@@ -26,8 +26,13 @@ import { formatDate, statusColorMap, categoryLabelMap, categoryColorMap, session
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
 import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect';
 import { routes } from '@/lib/routes';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
+
+onMounted(() => {
+    setTopbar({ title: 'Acara', subtitle: 'Kelola acara & pendaftaran' });
+});
 
 interface Paginator {
     data: IEvent[];
@@ -70,15 +75,9 @@ let suppressFilterApply = false;
 const categoryOptions = computed(() => props.filterOptions.categories);
 const sessionOptions = computed(() => props.filterOptions.sessions);
 
-const categoryFilterOptions = computed(() => [
-    { value: 'all', label: 'Semua kategori' },
-    ...categoryOptions.value,
-]);
+const categoryFilterOptions = computed(() => [{ value: 'all', label: 'Semua kategori' }, ...categoryOptions.value]);
 
-const sessionFilterOptions = computed(() => [
-    { value: 'all', label: 'Semua sesi' },
-    ...sessionOptions.value,
-]);
+const sessionFilterOptions = computed(() => [{ value: 'all', label: 'Semua sesi' }, ...sessionOptions.value]);
 
 function readQueryFromProps() {
     suppressFilterApply = true;
@@ -219,82 +218,34 @@ function statusLabel(status: string) {
     <Head title="Daftar acara" />
 
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <PageHeader
-            title="Acara"
-            subtitle="Kelola acara dan pantau pendaftaran — cari judul, lalu saring per kategori atau sesi."
-        >
-            <template #actions>
-                <Button as-child class="w-full rounded-xl shadow-sm sm:w-auto">
-                    <Link :href="routes.admin.events.create" class="inline-flex items-center gap-2">
-                        <Plus class="size-4" />
-                        Buat acara
-                    </Link>
-                </Button>
-            </template>
-        </PageHeader>
-
-        <section
-            class="app-surface border-border/70 overflow-hidden rounded-2xl border shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
-        >
-            <div class="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
-                    <div class="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-                        <div class="relative sm:col-span-2 lg:col-span-5">
-                            <Search
-                                class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-                                aria-hidden="true"
-                            />
-                            <Input
-                                v-model="searchQuery"
-                                type="search"
-                                placeholder="Cari judul acara…"
-                                class="border-border/80 bg-background/80 h-10 w-full rounded-xl pl-9 shadow-inner"
-                                autocomplete="off"
-                                aria-label="Cari judul acara"
-                                @input="onSearchInput"
-                            />
-                        </div>
-                        <div class="lg:col-span-3">
-                            <SimpleSelect
-                                v-model="filterCategory"
-                                :options="categoryFilterOptions"
-                                class="border-border/80 bg-background/80 h-10 w-full rounded-xl text-xs sm:text-sm"
-                                aria-label="Filter kategori"
-                            />
-                        </div>
-                        <div class="lg:col-span-4">
-                            <SimpleSelect
-                                v-model="filterSession"
-                                :options="sessionFilterOptions"
-                                class="border-border/80 bg-background/80 h-10 w-full rounded-xl text-xs sm:text-sm"
-                                aria-label="Filter sesi"
-                            />
-                        </div>
-                    </div>
-                    <Button
-                        v-if="hasActiveFilters"
-                        variant="outline"
-                        size="sm"
-                        class="h-10 w-full shrink-0 gap-2 rounded-xl border-dashed sm:w-auto lg:self-end"
-                        type="button"
-                        @click="clearFilters"
-                    >
-                        <FilterX class="size-3.5" />
-                        Reset
-                    </Button>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="flex min-w-0 flex-col gap-1.5">
+                    <SimpleSelect
+                        v-model="filterCategory"
+                        :options="categoryFilterOptions"
+                        id="filter-kategori"
+                        class="border-border/80 bg-background/80 h-10 w-full rounded-xl text-xs sm:text-sm"
+                        aria-label="Filter kategori"
+                    />
+                </div>
+                <div class="flex min-w-0 flex-col gap-1.5">
+                    <SimpleSelect
+                        v-model="filterSession"
+                        :options="sessionFilterOptions"
+                        id="filter-sesi"
+                        class="border-border/80 bg-background/80 h-10 w-full rounded-xl text-xs sm:text-sm"
+                        aria-label="Filter sesi"
+                    />
                 </div>
             </div>
-        </section>
-
-        <p v-if="eventsList.length > 0" class="text-muted-foreground text-sm leading-relaxed">
-            Menampilkan
-            <span class="text-foreground font-medium tabular-nums">{{ props.events.from ?? 0 }}</span>
-            –
-            <span class="text-foreground font-medium tabular-nums">{{ props.events.to ?? 0 }}</span>
-            dari
-            <span class="text-foreground font-medium tabular-nums">{{ totalEvents }}</span>
-            acara
-        </p>
+            <Button as-child class="w-full rounded-xl shadow-sm sm:w-auto">
+                <Link :href="routes.admin.events.create" class="inline-flex items-center gap-2">
+                    <Plus class="size-4" />
+                    Buat acara
+                </Link>
+            </Button>
+        </div>
 
         <div
             v-if="eventsList.length > 0"
@@ -307,14 +258,14 @@ function statusLabel(status: string) {
                 class="group focus-visible:ring-ring block min-w-0 rounded-2xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
                 <Card
-                    class="border-border/70 bg-card hover:border-primary/30 relative h-full gap-0 overflow-hidden rounded-2xl border p-0 shadow-sm ring-1 ring-black/[0.03] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:ring-white/[0.06]"
+                    class="border-border/70 bg-card hover:border-primary/30 relative h-full gap-0 overflow-hidden rounded-2xl border p-0 shadow-sm ring-1 ring-black/[0.03] transition-[border-color,box-shadow] duration-200 hover:shadow-md dark:ring-white/[0.06]"
                 >
                     <div :class="eventCardBannerContainerClass()">
                         <div class="absolute inset-0 z-0">
                             <EventBannerImage
                                 :src="event.banner_url"
                                 :alt="event.title"
-                                img-class="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                                img-class="size-full object-cover"
                             />
                         </div>
                         <div

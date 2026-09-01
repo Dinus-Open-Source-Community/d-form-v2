@@ -130,7 +130,7 @@ const formatDate = (d: string) => {
                             </div>
                         </div>
 
-                        <ArrowRight class="hidden size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary sm:block" />
+                        <ArrowRight class="hidden size-4 shrink-0 text-muted-foreground group-hover:text-primary sm:block" />
                     </div>
                 </a>
             </div>

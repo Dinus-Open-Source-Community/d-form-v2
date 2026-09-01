@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { recruitmentStore } from '@/lib/recruitmentStore';
 import { computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { FileSearch, ListChecks, Users } from 'lucide-vue-next';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -20,6 +21,10 @@ defineProps<{
         rejected: number;
     };
 }>();
+
+onMounted(() => {
+    setTopbar({ title: 'Rekrutmen', subtitle: 'Proses Open Recruitment DOSCOM' });
+});
 
 // Data live dari store (dummy) — menimpa props statis untuk akurasi demo.
 const live = computed(() => {
@@ -54,11 +59,6 @@ function goCorrections(): void {
     <Head title="Recruitment — Dashboard" />
 
     <div class="flex flex-col gap-8">
-        <PageHeader
-            title="Rekrutmen"
-            subtitle="Kelola proses Open Recruitment DOSCOM."
-        />
-
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card v-for="kpi in kpis" :key="kpi.label" class="rounded-2xl">
                 <CardContent class="flex flex-col gap-2 p-5">

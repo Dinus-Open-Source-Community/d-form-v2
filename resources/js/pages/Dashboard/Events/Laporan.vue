@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue'
 import EventReportingFocusPanel from '@/components/modules/dashboard/EventReportingFocusPanel.vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { BarChart3, ClipboardList, ScanLine, Download } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -45,18 +46,16 @@ const props = defineProps<{
     }
 }>()
 
+onMounted(() => {
+    setTopbar({ title: 'Laporan', subtitle: 'Unduhan CSV & ringkasan acara' })
+})
+
 </script>
 
 <template>
     <Head :title="`Laporan — ${props.event.title}`" />
 
     <div class="flex flex-col gap-8 md:gap-10">
-        <PageHeader
-            title="Laporan"
-            subtitle="Unduhan CSV pendaftaran, kehadiran, dan ringkasan untuk acara ini."
-            :back-href="routes.admin.events.show(props.event.id)"
-        />
-
         <div class="grid gap-4 sm:grid-cols-3">
             <KpiCard label="Events" :value="globalSummary.total_events" :icon="BarChart3" color="primary" />
             <KpiCard label="All submissions" :value="globalSummary.total_submissions" :icon="ClipboardList" color="warning" />

@@ -331,7 +331,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                         v-for="star in ratingStars(field)"
                                                         :key="`${field.id}_${star}`"
                                                         type="button"
-                                                        class="rounded-lg p-1 transition active:scale-95"
+                                                        class="rounded-lg p-1 transition"
                                                         @click.stop="ratingSelection[field.id] = star"
                                                     >
                                                         <Star

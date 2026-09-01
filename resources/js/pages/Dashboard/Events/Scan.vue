@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, onMounted } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstructionsCard.vue'
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue'
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue'
 import { useEventQrScanPage } from '@/utils/composables/useEventQrScanPage'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -19,18 +19,16 @@ const props = defineProps<{
 const s = reactive(
     useEventQrScanPage('event-qr-scanner-region', props.attendanceScanStoreUrl, props.event.title),
 )
+
+onMounted(() => {
+    setTopbar({ title: 'Scanner Absensi QR', subtitle: 'Pindai QR atau masukkan kode registrasi' })
+})
 </script>
 
 <template>
     <Head title="Scanner Absensi QR" />
 
     <div class="flex flex-col gap-5">
-        <PageHeader
-            title="Scanner Absensi QR"
-            subtitle="Pindai QR atau masukkan kode registrasi. Check-in valid akan diproses di latar belakang; peserta mendapat email konfirmasi setelah antrean selesai."
-            :back-href="routes.admin.events.show(props.event.id)"
-        />
-
         <QrScanInstructionsCard />
 
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">

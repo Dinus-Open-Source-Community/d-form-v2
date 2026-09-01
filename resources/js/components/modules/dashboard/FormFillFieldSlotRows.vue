@@ -124,7 +124,7 @@ function fillReady(): boolean {
                     v-for="rating in Number(ctx.metadata(field).maxStars ?? 5)"
                     :key="rating"
                     type="button"
-                    class="rounded-lg p-1 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-90"
+                    class="rounded-lg p-1"
                     @click="ctx.answerForm[storageKey] = String(rating)"
                 >
                     <Star
@@ -249,7 +249,7 @@ function fillReady(): boolean {
                 </button>
                 <button
                     type="button"
-                    class="absolute right-2 top-2 z-20 grid size-9 place-items-center rounded-full border border-border/80 bg-background/95 text-destructive shadow-md backdrop-blur-sm transition-transform hover:scale-105"
+                    class="absolute right-2 top-2 z-20 grid size-9 place-items-center rounded-full border border-border/80 bg-background/95 text-destructive shadow-md backdrop-blur-sm"
                     :aria-label="`Remove ${(ctx.answerForm[storageKey] as File).name}`"
                     @click.stop="ctx.clearFileUpload(storageKey)"
                 >
@@ -302,7 +302,7 @@ function fillReady(): boolean {
                 }}</span>
                 <button
                     type="button"
-                    class="text-destructive transition-transform hover:scale-110"
+                    class="text-destructive"
                     @click="ctx.clearFileUpload(storageKey)"
                 >
                     <X class="size-4" />

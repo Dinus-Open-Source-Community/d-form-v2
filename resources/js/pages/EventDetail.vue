@@ -228,10 +228,10 @@ const highlights: string[] = [
 
                             <Link
                                 :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
-                                class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-primary/92 active:scale-[0.98]"
+                                class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary/92"
                             >
                                 {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
-                                <span class="grid size-7 place-items-center rounded-full bg-white/15 transition-transform duration-200 group-hover:translate-x-0.5">
+                                <span class="grid size-7 place-items-center rounded-full bg-white/15">
                                     <ArrowRight class="size-4" />
                                 </span>
                             </Link>
@@ -262,7 +262,7 @@ const highlights: string[] = [
                                 <div
                                     v-for="item in highlights"
                                     :key="item"
-                                    class="border-border bg-muted/15 hover:border-primary/30 flex items-center gap-3 rounded-2xl border p-4 transition-[transform,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px"
+                                    class="border-border bg-muted/15 hover:border-primary/30 flex items-center gap-3 rounded-2xl border p-4 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                 >
                                     <div class="bg-success/10 grid size-7 place-items-center rounded-lg">
                                         <Check class="text-success size-3.5" />
@@ -302,7 +302,7 @@ const highlights: string[] = [
                                 </div>
                                 <Link
                                     :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
-                                    class="border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 mt-6 flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold shadow-sm transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px active:scale-[0.98]"
+                                    class="border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 mt-6 flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                 >
                                     {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
                                     <ArrowRight class="size-4" />

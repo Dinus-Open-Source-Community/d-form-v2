@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import RecruitScreeningPanel from '@/components/modules/recruitment/RecruitScreeningPanel.vue';
 import RecruitStatusBadge from '@/components/modules/recruitment/RecruitStatusBadge.vue';
 import { recruitmentStore } from '@/lib/recruitmentStore';
 import { divisionLabels } from '@/lib/dummyRecruitment';
 import type { IApplication, RecruitScreeningDecision } from '@/types/recruitment';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -17,6 +17,13 @@ const props = defineProps<{ applicationId: string }>();
 const app = computed<IApplication | undefined>(() =>
     recruitmentStore.getApplicationById(props.applicationId),
 );
+
+onMounted(() => {
+    setTopbar({
+        title: app.value?.applicant.fullName ?? 'Applicant',
+        subtitle: 'Detail data & screening',
+    });
+});
 
 function handleDecision(decision: RecruitScreeningDecision, reason: string, notes: string): void {
     if (!app.value) {
@@ -30,12 +37,6 @@ function handleDecision(decision: RecruitScreeningDecision, reason: string, note
     <Head title="Detail Applicant — Recruitment" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader
-            :title="app?.applicant.fullName ?? 'Applicant'"
-            subtitle="Detail data dan screening applicant."
-            :back-href="'/admin/dashboard/recruitment/applicants'"
-        />
-
         <div v-if="app" class="grid gap-6 lg:grid-cols-3">
             <Card class="rounded-2xl lg:col-span-2">
                 <CardContent class="p-6">

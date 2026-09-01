@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
@@ -11,6 +10,7 @@ import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect'
 import { CalendarDays, MapPin } from 'lucide-vue-next'
 import { formatDate, formatDateTime, statusColorMap } from '@/lib/dummyData'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -84,6 +84,13 @@ const participationLabel = computed(() => {
     return null
 })
 
+onMounted(() => {
+    setTopbar({
+        title: props.form?.title ?? props.event.title,
+        subtitle: `Registration — ${props.event.title}`,
+    })
+})
+
 function isFileLink(value: string): boolean {
     return /^https?:\/\//i.test(value) || value.startsWith('/storage/')
 }
@@ -98,13 +105,7 @@ function isImageFileUrl(value: string): boolean {
     <Head :title="`Registration — ${props.event.title}`" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader
-            title="Your registration"
-            :subtitle="props.form?.title ? `${props.form.title} · ${props.event.title}` : props.event.title"
-            :back-href="routes.member.event.show(props.event.slug)"
-        />
-
-        <div v-if="participationLabel" class="-mt-2 flex flex-wrap items-center gap-2">
+        <div v-if="participationLabel" class="flex flex-wrap items-center gap-2">
             <Badge variant="outline" class="text-[11px] font-medium">{{ participationLabel }}</Badge>
         </div>
 

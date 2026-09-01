@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue'
 import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
 import { toCategoryList } from '@/lib/eventCategories'
 import { routes } from '@/lib/routes'
 import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -38,14 +39,16 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+onMounted(() => {
+    setTopbar({ title: 'My Dashboard', subtitle: 'Ringkasan partisipasimu' })
+})
 </script>
 
 <template>
     <Head title="My Dashboard" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader title="My Dashboard" subtitle="Overview of your event participation." />
-
         <div class="grid gap-4 sm:grid-cols-3">
             <KpiCard label="Events Joined" :value="props.stats.eventsJoined" :trend="20" :icon="CalendarDays" color="primary" />
             <KpiCard label="Upcoming Events" :value="props.stats.upcomingEvents" :trend="0" :icon="Zap" color="warning" />

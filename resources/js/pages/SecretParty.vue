@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
 
             <button
                 type="button"
-                class="bg-background/90 text-foreground ring-border/60 hover:bg-background mt-8 rounded-full px-7 py-3 text-sm font-semibold shadow-lg ring-1 transition-[transform,box-shadow] hover:scale-[1.02] active:scale-[0.99] dark:ring-white/10"
+                class="bg-background/90 text-foreground ring-border/60 hover:bg-background mt-8 rounded-full px-7 py-3 text-sm font-semibold shadow-lg ring-1 transition-[box-shadow] dark:ring-white/10"
                 @click="goRickroll"
             >
                 Buka kejutan 🎁

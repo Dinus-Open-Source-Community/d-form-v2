@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import 'vue-sonner/style.css'
+import { watch } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue'
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue'
 import { usePageFlashToast } from '@/utils/composables/usePageFlashToast'
+import { clearTopbar } from '@/utils/composables/useDashboardTopbar'
 
 usePageFlashToast()
+
+// Reset state topbar saat navigasi Inertia ke halaman lain,
+// supaya judul/subtitle halaman sebelumnya tidak bocor.
+const page = usePage()
+watch(
+    () => page.component,
+    () => {
+        clearTopbar()
+    },
+)
 </script>
 
 <template>

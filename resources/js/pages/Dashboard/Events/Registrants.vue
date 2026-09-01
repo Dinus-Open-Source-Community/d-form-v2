@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import RegistrantsStatCards from '@/components/modules/dashboard/RegistrantsStatCards.vue'
 import RegistrantsToolbar from '@/components/modules/dashboard/RegistrantsToolbar.vue'
@@ -15,6 +14,7 @@ import { CalendarDays, FileStack, Users } from 'lucide-vue-next'
 import { formatDate } from '@/lib/dummyData'
 import { useEventRegistrantsPage } from '@/utils/composables/useEventRegistrantsPage'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 
@@ -33,18 +33,16 @@ const p = reactive(
 )
 
 const backHref = routes.admin.events.show(props.event.id)
+
+onMounted(() => {
+    setTopbar({ title: props.event.title, subtitle: 'Pengiriman formulir & status review' })
+})
 </script>
 
 <template>
     <Head :title="`Pendaftar — ${props.event.title}`" />
 
     <div class="flex flex-col gap-8 md:gap-10">
-        <PageHeader
-            :title="props.event.title"
-            subtitle="Semua pengiriman dari formulir pada acara ini. Filter menurut status review dan formulir, atau gunakan kotak cari."
-            :back-href="backHref"
-        />
-
         <Card class="rounded-xl border shadow-xs">
             <CardHeader class="pb-3">
                 <CardTitle class="text-base font-medium">Ringkasan cepat</CardTitle>

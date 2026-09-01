@@ -225,7 +225,7 @@ const showDropChrome = computed(
                                             :class="dragSourceId === field.id ? 'scale-[0.98]' : ''"
                                         >
                                             <div
-                                                class="border-border bg-card text-muted-foreground hover:border-primary/45 hover:bg-primary/8 hover:text-primary ring-border/60 hover:ring-primary/25 grid size-10 cursor-grab place-items-center rounded-xl border-2 border-transparent shadow-sm ring-1 transition-all duration-200 active:scale-95 active:cursor-grabbing"
+                                                class="border-border bg-card text-muted-foreground hover:border-primary/45 hover:bg-primary/8 hover:text-primary ring-border/60 hover:ring-primary/25 grid size-10 cursor-grab place-items-center rounded-xl border-2 border-transparent shadow-sm ring-1 transition-all duration-200 active:cursor-grabbing"
                                                 draggable="true"
                                                 title="Seret untuk memindahkan urutan — atau pakai tombol naik/turun"
                                                 @dragstart="
@@ -240,7 +240,7 @@ const showDropChrome = computed(
                                                     type="button"
                                                     variant="outline"
                                                     size="icon"
-                                                    class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 rounded-lg shadow-sm transition-all duration-200 active:scale-90"
+                                                    class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 rounded-lg shadow-sm transition-all duration-200"
                                                     :disabled="sliceStart + localIdx === 0"
                                                     title="Pindah ke atas"
                                                     @click="$emit('moveField', field.id, -1)"
@@ -251,7 +251,7 @@ const showDropChrome = computed(
                                                     type="button"
                                                     variant="outline"
                                                     size="icon"
-                                                    class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 rounded-lg shadow-sm transition-all duration-200 active:scale-90"
+                                                    class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 rounded-lg shadow-sm transition-all duration-200"
                                                     :disabled="sliceStart + localIdx === formFields.length - 1"
                                                     title="Pindah ke bawah"
                                                     @click="$emit('moveField', field.id, 1)"
@@ -261,7 +261,7 @@ const showDropChrome = computed(
                                             </div>
                                         </div>
 
-                                        <div class="min-w-0 flex-1 transition-[transform] duration-300">
+                                        <div class="min-w-0 flex-1">
                                             <FieldRenderer
                                                 :field="field"
                                                 :is-selected="selectedFieldId === field.id"
@@ -279,7 +279,6 @@ const showDropChrome = computed(
                                             <Button
                                                 variant="ghost"
                                                 size="icon-sm"
-                                                class="transition-transform duration-200 active:scale-90"
                                                 :disabled="sliceStart + localIdx === 0"
                                                 aria-label="Naikkan field"
                                                 @click="$emit('moveField', field.id, -1)"
@@ -289,7 +288,6 @@ const showDropChrome = computed(
                                             <Button
                                                 variant="ghost"
                                                 size="icon-sm"
-                                                class="transition-transform duration-200 active:scale-90"
                                                 :disabled="sliceStart + localIdx === formFields.length - 1"
                                                 aria-label="Turunkan field"
                                                 @click="$emit('moveField', field.id, 1)"
@@ -301,7 +299,7 @@ const showDropChrome = computed(
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                class="h-8 gap-1 px-2 text-xs font-semibold transition-transform duration-200 active:scale-95"
+                                                class="h-8 gap-1 px-2 text-xs font-semibold"
                                                 @click="$emit('selectField', field.id, true)"
                                             >
                                                 <Pencil class="size-3.5" />
@@ -310,7 +308,7 @@ const showDropChrome = computed(
                                             <Button
                                                 variant="ghost"
                                                 size="icon-sm"
-                                                class="text-destructive hover:bg-destructive/10 hover:text-destructive transition-transform duration-200 active:scale-90"
+                                                class="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                 aria-label="Hapus field"
                                                 @click="$emit('deleteField', field.id)"
                                             >
@@ -358,7 +356,7 @@ const showDropChrome = computed(
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="h-9 gap-1 rounded-full px-3 transition-transform duration-200 active:scale-95"
+                                    class="h-9 gap-1 rounded-full px-3"
                                     :disabled="currentPage <= 1"
                                     @click="goPrev"
                                 >
@@ -371,7 +369,7 @@ const showDropChrome = computed(
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="h-9 gap-1 rounded-full px-3 transition-transform duration-200 active:scale-95"
+                                    class="h-9 gap-1 rounded-full px-3"
                                     :disabled="currentPage >= totalPages"
                                     @click="goNext"
                                 >

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import { Button } from '@/components/ui/button';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import FormSubmissionsEmptyState from '@/components/modules/dashboard/FormSubmissionsEmptyState.vue';
 import FormSubmissionsCardGridView from '@/components/modules/dashboard/FormSubmissionsCardGridView.vue';
 import FormBundleGroupsCardGridView from '@/components/modules/dashboard/FormBundleGroupsCardGridView.vue';
@@ -13,6 +12,7 @@ import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmis
 import { Download, ListFilter } from 'lucide-vue-next';
 import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
 import { routes } from '@/lib/routes';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -58,6 +58,10 @@ const bundleGroupList = computed(() => props.bundleGroups?.data ?? []);
 const submissionList = computed(() => props.submissions?.data ?? []);
 const formFields = computed(() => props.fields ?? []);
 
+onMounted(() => {
+    setTopbar({ title: props.form.title, subtitle: `Pengiriman — ${props.event.title}` });
+});
+
 function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission | IBundleSubmissionMember }) {
     submitSubmissionReview(payload.action, payload.submission);
 }
@@ -68,26 +72,31 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
 
     <div class="app-page">
         <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 lg:gap-8">
-            <PageHeader
-                :title="form.title"
-                :subtitle="event.title"
-                :back-href="routes.admin.events.forms.show(event.id, form.id)"
-            >
-                <template #actions>
-                    <Button
-                        v-if="exportSubmissionsCsvUrl"
-                        variant="outline"
-                        size="sm"
-                        class="h-10 w-full gap-2 rounded-xl md:w-auto"
-                        as-child
-                    >
-                        <a :href="exportSubmissionsCsvUrl" class="inline-flex items-center justify-center" download>
-                            <Download class="size-4 shrink-0 opacity-90" aria-hidden="true" />
-                            Ekspor CSV
-                        </a>
-                    </Button>
-                </template>
-            </PageHeader>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-primary/10 text-primary grid size-9 place-items-center rounded-xl">
+                        <ListFilter class="size-5" />
+                    </div>
+                    <div>
+                        <h2 class="text-foreground text-base font-semibold">Daftar pengiriman</h2>
+                        <p class="text-muted-foreground text-xs">
+                            Total {{ submissions?.total ?? 0 }} pengiriman masuk.
+                        </p>
+                    </div>
+                </div>
+                <Button
+                    v-if="exportSubmissionsCsvUrl"
+                    variant="outline"
+                    size="sm"
+                    class="h-9 w-full gap-2 rounded-xl md:w-auto"
+                    as-child
+                >
+                    <a :href="exportSubmissionsCsvUrl" class="inline-flex items-center justify-center" download>
+                        <Download class="size-4 shrink-0 opacity-90" aria-hidden="true" />
+                        Ekspor CSV
+                    </a>
+                </Button>
+            </div>
 
             <!-- Registration Mode: Bundle -->
             <template v-if="isBundleMode">

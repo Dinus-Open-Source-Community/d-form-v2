@@ -51,7 +51,7 @@ defineEmits<{
                             v-for="f in cat.fields"
                             :key="f.type"
                             type="button"
-                            class="group border-border bg-card hover:border-primary/30 flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left shadow-xs transition-[transform,border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px active:scale-[0.98]"
+                            class="group border-border bg-card hover:border-primary/30 flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                             @click="$emit('pickField', f)"
                         >
                             <div

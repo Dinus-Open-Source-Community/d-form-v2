@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vue';
 import MiniCalendar from '@/components/modules/dashboard/MiniCalendar.vue';
@@ -11,6 +10,7 @@ import CategoryChart from '@/components/modules/dashboard/CategoryChart.vue';
 import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue';
 import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
 import useAuth from '@/utils/composables/useAuth';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
@@ -52,17 +52,16 @@ const firstName = computed(() => {
     if (!n) return '';
     return n.split(/\s+/)[0] ?? n;
 });
+
+onMounted(() => {
+    setTopbar({ title: 'Ringkasan acara', subtitle: 'Pantau pendaftaran, jadwal, dan performa acara' });
+});
 </script>
 
 <template>
     <Head title="Beranda" />
 
     <div class="flex flex-col gap-10 md:gap-12">
-        <PageHeader
-            title="Ringkasan acara"
-            :subtitle="`${greeting}${firstName ? ', ' + firstName : ''}. Pantau pendaftaran, jadwal, dan performa acara dalam satu layar.`"
-        />
-
         <section class="space-y-4">
             <h2 class="font-display text-base font-bold tracking-tight text-foreground">Metrik utama</h2>
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

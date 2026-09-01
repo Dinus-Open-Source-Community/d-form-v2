@@ -94,7 +94,7 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
 
 <template>
     <div
-        class="group relative cursor-pointer rounded-2xl border transition-[border-color,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        class="group relative cursor-pointer rounded-2xl border transition-[border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
         :class="[
             isSelected
                 ? 'border-primary bg-primary/[0.04] shadow-md ring-2 ring-primary/20'

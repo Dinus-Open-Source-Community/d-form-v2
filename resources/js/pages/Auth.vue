@@ -49,7 +49,7 @@ watch(
 
         <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
             <div class="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-8">
-                <a :href="routes.home" class="group mb-10 inline-block transition-transform hover:-translate-y-px">
+                <a :href="routes.home" class="group mb-10 inline-block">
                     <img
                         :src="`/${encodeURIComponent('DForm 1.png')}`"
                         alt="DForm"

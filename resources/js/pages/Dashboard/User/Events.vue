@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +15,7 @@ import { toCategoryList } from '@/lib/eventCategories';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
 import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect';
 import { routes } from '@/lib/routes';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -106,14 +106,16 @@ const emptyDescription = computed(() =>
         ? 'Sesuaikan pencarian atau filter kategori.'
         : 'Telusuri acara terbuka dan daftar untuk melihatnya di sini.'
 );
+
+onMounted(() => {
+    setTopbar({ title: pageTitle.value, subtitle: pageSubtitle.value });
+});
 </script>
 
 <template>
     <Head :title="headTitle" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader :title="pageTitle" :subtitle="pageSubtitle" />
-
         <section
             class="app-surface border-border/70 overflow-hidden rounded-2xl border shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
         >

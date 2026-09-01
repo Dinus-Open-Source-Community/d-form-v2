@@ -233,9 +233,9 @@
     .app-page { @apply mx-auto w-full max-w-7xl px-4 py-8 sm:px-8; }
     .app-surface {
         border: 1px solid var(--app-border); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
-        transition: transform 220ms var(--app-ease), border-color 220ms var(--app-ease), box-shadow 220ms var(--app-ease);
+        transition: border-color 220ms var(--app-ease), box-shadow 220ms var(--app-ease);
     }
-    .app-surface:hover { border-color: color-mix(in srgb, var(--primary) 18%, var(--app-border)); transform: translateY(-1px); }
+    .app-surface:hover { border-color: color-mix(in srgb, var(--primary) 18%, var(--app-border)); }
     .app-focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background; }
     .app-scroll {
         overflow: auto;
@@ -252,8 +252,7 @@
 }
 
 @layer components {
-    [data-slot='button'] { border-radius: 0.75rem; font-weight: 600; transition: transform 180ms var(--app-ease), background-color 180ms var(--app-ease); }
-    [data-slot='button']:hover:not(:disabled) { transform: translateY(-1px); }
+    [data-slot='button'] { border-radius: 0.75rem; font-weight: 600; transition: background-color 180ms var(--app-ease); }
     [data-slot='badge'] { border-radius: 999px; font-weight: 600; box-shadow: none; }
     .app-scroll-area-thumb {
         background-color: var(--scrollbar-thumb);

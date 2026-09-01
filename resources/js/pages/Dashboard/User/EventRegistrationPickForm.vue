@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileText, ChevronRight, Lock, AlertCircle } from 'lucide-vue-next'
 import type { FormAccessStatus } from '@/types/form'
 import { routes } from '@/lib/routes'
+import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -24,6 +24,10 @@ const props = defineProps<{
         can_start: boolean
     }>
 }>()
+
+onMounted(() => {
+    setTopbar({ title: props.event.title, subtitle: 'Pilih formulir pendaftaran' })
+})
 
 const backHref = computed(() => routes.member.event.show(props.event.slug))
 
@@ -56,19 +60,16 @@ function statusLabel(s: FormAccessStatus): string {
     <Head :title="`Pilih formulir — ${event.title}`" />
 
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 xl:max-w-7xl">
-        <PageHeader :title="event.title" subtitle="Pilih satu formulir pendaftaran" :back-href="backHref">
-            <template #actions>
-                <Badge variant="outline" class="text-[10px]">1 form pendaftaran / peserta</Badge>
-            </template>
-        </PageHeader>
-
         <div
             class="flex w-full gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground/90 dark:bg-primary/10 sm:p-5"
             role="status"
         >
             <AlertCircle class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
             <div class="min-w-0 flex-1 space-y-1">
-                <p class="font-semibold leading-snug">Anda hanya bisa mengirim satu formulir pendaftaran untuk acara ini.</p>
+                <p class="flex flex-wrap items-center gap-2 font-semibold leading-snug">
+                    Anda hanya bisa mengirim satu formulir pendaftaran untuk acara ini.
+                    <Badge variant="outline" class="text-[10px]">1 form pendaftaran / peserta</Badge>
+                </p>
                 <p class="text-muted-foreground leading-relaxed">
                     Baca judul dan deskripsi tiap form, lalu mulai mengisi yang paling sesuai. Setelah terkirim, form
                     pendaftaran lain akan terkunci. Form tambahan (mis. feedback) tetap bisa diisi setelah pendaftaran

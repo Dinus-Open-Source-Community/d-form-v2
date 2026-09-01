@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,13 +12,18 @@ import {
 } from '@/components/ui/select';
 import RecruitApplicantTable from '@/components/modules/recruitment/RecruitApplicantTable.vue';
 import { recruitmentStore } from '@/lib/recruitmentStore';
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
 
 defineProps<{
     applications: unknown[];
 }>();
+
+onMounted(() => {
+    setTopbar({ title: 'Daftar Applicant', subtitle: 'Semua pendaftar Open Recruitment' });
+});
 
 const search = ref('');
 const filter = ref('all');
@@ -51,12 +55,6 @@ function openDetail(id: string): void {
     <Head title="Applicants — Recruitment" />
 
     <div class="flex flex-col gap-6">
-        <PageHeader
-            title="Daftar Applicant"
-            subtitle="Semua pendaftar Open Recruitment."
-            :back-href="'/admin/dashboard/recruitment'"
-        />
-
         <Card class="rounded-2xl">
             <CardContent class="p-5">
                 <div class="mb-4 flex flex-wrap items-center gap-2">

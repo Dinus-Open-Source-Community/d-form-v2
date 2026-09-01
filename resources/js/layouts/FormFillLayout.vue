@@ -44,7 +44,7 @@ function goBack(): void {
                     <span>Kembali</span>
                 </Button>
 
-                <Link :href="routes.home" class="hidden sm:block transition-transform hover:-translate-y-px">
+                <Link :href="routes.home" class="hidden sm:block">
                     <img
                         :src="formFillLogoSrc"
                         alt="DForm"

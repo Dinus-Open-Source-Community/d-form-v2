@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import 'vue-sonner/style.css'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { usePage, Link, router } from '@inertiajs/vue3'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
@@ -8,7 +8,9 @@ import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
 import { Button } from '@/components/ui/button'
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue'
+import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue'
 import { usePageFlashToast } from '@/utils/composables/usePageFlashToast'
+import { clearTopbar } from '@/utils/composables/useDashboardTopbar'
 
 usePageFlashToast()
 import {
@@ -26,6 +28,14 @@ import useAuth from '@/utils/composables/useAuth'
 
 const page = usePage()
 const user = useAuth(page.props)
+
+// Reset state topbar saat navigasi Inertia ke halaman lain.
+watch(
+    () => page.component,
+    () => {
+        clearTopbar()
+    },
+)
 
 /** Form builder: toolbar digabung editor lewat teleport. */
 const isFormBuilderPage = computed(() => {
@@ -48,6 +58,8 @@ function handleLogout(): void {
                 aria-hidden="true"
                 class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
             />
+
+            <DashboardTopbar v-if="!isFormBuilderPage" />
 
             <header
                 v-if="isFormBuilderPage"
@@ -110,13 +122,13 @@ function handleLogout(): void {
             </header>
             <SidebarTrigger
                 v-else
-                class="fixed left-4 top-4 z-30 h-11! w-11! rounded-2xl border border-border/70 bg-card/95 shadow-lg shadow-black/5 backdrop-blur-xl md:hidden"
+                class="fixed left-4 top-20 z-30 h-11! w-11! rounded-2xl border border-border/70 bg-card/95 shadow-lg shadow-black/5 backdrop-blur-xl md:hidden"
                 aria-label="Buka sidebar"
             />
 
             <main
                 class="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-14 md:px-6 lg:px-8"
-                :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-16 md:pt-8'"
+                :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-6 md:pt-8'"
             >
                 <div class="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col">
                     <slot />
