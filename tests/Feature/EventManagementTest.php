@@ -35,7 +35,7 @@ class EventManagementTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('dashboard.events.index'))
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_member_can_view_joined_events_portal(): void

@@ -78,14 +78,14 @@ class AttendanceScanTest extends TestCase
 
         $this->actingAs($this->member())->postJson(route('dashboard.events.attendance-scan.store', $event), [
             'raw_payload' => '{"v":1}',
-        ])->assertRedirect(route('dashboard.user.events'));
+        ])->assertRedirect(route('dashboard'));
     }
 
     public function test_member_cannot_view_scan_page(): void
     {
         [$event] = $this->eventWithForm();
 
-        $this->actingAs($this->member())->get(route('dashboard.events.scan', $event))->assertRedirect(route('dashboard.user.events'));
+        $this->actingAs($this->member())->get(route('dashboard.events.scan', $event))->assertRedirect(route('dashboard'));
     }
 
     public function test_admin_can_view_scan_page(): void

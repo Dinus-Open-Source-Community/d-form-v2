@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class SeoEndpointsTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_robots_txt_is_served_and_includes_sitemap(): void
     {
         $response = $this->get('/robots.txt');

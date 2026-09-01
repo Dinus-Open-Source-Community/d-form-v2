@@ -3,7 +3,6 @@ import { onMounted } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import EventDashboardForm from '@/components/modules/dashboard/events/EventDashboardForm.vue';
-import { routes } from '@/lib/routes';
 import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });

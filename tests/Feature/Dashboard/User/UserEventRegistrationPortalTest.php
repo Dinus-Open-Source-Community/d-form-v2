@@ -202,15 +202,10 @@ class UserEventRegistrationPortalTest extends TestCase
             'reviewed_at' => now(),
         ]);
 
+        // Rejected submissions are excluded from the portal (users may re-register),
+        // so the registration details page no longer resolves.
         $this->actingAs($member)->get($this->registrationUrl($event))
-            ->assertOk()
-            ->assertInertia(
-                fn ($page) => $page
-                ->component('Dashboard/User/EventRegistration')
-                ->where('registration.review_status', 'rejected')
-                ->where('registration.registration_code', null)
-                ->where('registration.qr_base64', fn ($v) => $v === null)
-            );
+            ->assertNotFound();
     }
 
     public function test_bundle_leader_sees_participant_qrs_on_registration_details(): void

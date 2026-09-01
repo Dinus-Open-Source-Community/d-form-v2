@@ -1698,7 +1698,7 @@ class FormRegistrationTest extends TestCase
             ->patchJson($this->reviewPath($event, $form, $answer), [
                 'review_status' => FormAnswerReviewStatus::Accepted->value,
             ])
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_review_returns_404_when_submission_not_belong_to_form_or_event(): void
@@ -1731,7 +1731,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->get($this->submissionsPath($event, $form))
-             ->assertRedirect(route('dashboard.user.events'));
+             ->assertRedirect(route('dashboard'));
     }
 
     public function test_submissions_list_404_when_form_does_not_belong_to_event(): void
@@ -2310,7 +2310,7 @@ class FormRegistrationTest extends TestCase
                  'full_name' => 'Team Leader',
                  'team_member_emails' => [$memberUser->email],
              ])
-             ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
+             ->assertRedirect($this->submitSuccessRedirect($event, $leader, $teamForm));
 
         $memberSubmission = FormAnswer::query()
             ->where('form_id', $teamForm->id)
@@ -2339,7 +2339,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($memberUser)
              ->post($this->submitPath($event, $singleForm), ['full_name' => 'Individual Registration'])
-             ->assertRedirect($this->submitSuccessRedirect($event, $memberUser, $form));
+             ->assertRedirect($this->submitSuccessRedirect($event, $memberUser, $singleForm));
 
         $individualSubmission = FormAnswer::query()
             ->where('form_id', $singleForm->id)

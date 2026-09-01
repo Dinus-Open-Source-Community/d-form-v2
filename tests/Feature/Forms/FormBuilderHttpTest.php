@@ -144,7 +144,7 @@ class FormBuilderHttpTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     private function fieldSavePath(Event $event, Form $form): string

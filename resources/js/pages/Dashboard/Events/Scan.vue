@@ -6,7 +6,6 @@ import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstruc
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue'
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue'
 import { useEventQrScanPage } from '@/utils/composables/useEventQrScanPage'
-import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })

@@ -11,7 +11,6 @@ import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmis
 import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue';
 import { Download, ListFilter } from 'lucide-vue-next';
 import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
-import { routes } from '@/lib/routes';
 import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });

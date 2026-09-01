@@ -1,30 +1,35 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount, onMounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { useEventListener } from '@vueuse/core';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
-import { Card, CardContent } from '@/components/ui/card';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { SimpleSelect } from '@/components/ui/simple-select';
 import { Progress } from '@/components/ui/progress';
 import {
     Plus,
-    Search,
     MapPin,
     CalendarDays,
     Users,
     ChevronsLeft,
     ChevronsRight,
-    FilterX,
-    ArrowUpRight,
+    MoreVertical,
+    SquarePen,
+    Download,
+    FileStack,
+    QrCode,
+    Trash2,
 } from 'lucide-vue-next';
-import { index as eventsIndex } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
-import { formatDate, statusColorMap, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import {
+    index as eventsIndex,
+    destroy as destroyEvent,
+} from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
+import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
-import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect';
 import { routes } from '@/lib/routes';
 import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
@@ -111,19 +116,19 @@ function registrationUi(ev: IEvent): { label: string; badgeClass: string } {
     switch (ev.registration_status) {
         case 'open':
             return {
-                label: 'Pendaftaran buka',
+                label: 'Buka',
                 badgeClass: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
             };
         case 'full':
             return {
-                label: 'Kuota penuh',
+                label: 'Penuh',
                 badgeClass: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-400',
             };
         case 'closed':
-            return { label: 'Pendaftaran tutup', badgeClass: 'border-border bg-muted/60 text-muted-foreground' };
+            return { label: 'Tutup', badgeClass: 'border-border bg-muted/60 text-muted-foreground' };
         default:
             return {
-                label: 'Belum dibuka',
+                label: 'Segera',
                 badgeClass: 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-400',
             };
     }
@@ -165,30 +170,6 @@ function applyFilters() {
     });
 }
 
-function clearFilters() {
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-        searchTimeout = null;
-    }
-    searchQuery.value = '';
-    filterCategory.value = 'all';
-    filterSession.value = 'all';
-    router.get(eventsIndex().url, {}, { preserveState: true, preserveScroll: true, only: ['events', 'query'] });
-}
-
-let searchTimeout: ReturnType<typeof setTimeout> | null = null;
-function onSearchInput() {
-    if (searchTimeout) clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        searchTimeout = null;
-        applyFilters();
-    }, 400);
-}
-
-onBeforeUnmount(() => {
-    if (searchTimeout) clearTimeout(searchTimeout);
-});
-
 watch([filterCategory, filterSession], applyFilters);
 
 function goToPage(page: number) {
@@ -205,13 +186,81 @@ const currentPage = computed(() => props.events.current_page);
 const lastPage = computed(() => props.events.last_page);
 const totalEvents = computed(() => props.events.total);
 
-const hasActiveFilters = computed(
-    () => searchQuery.value.trim() !== '' || filterCategory.value !== 'all' || filterSession.value !== 'all'
-);
-
-function statusLabel(status: string) {
-    return status === 'published' ? 'Terbit' : 'Draf';
+/** Navigasi dropdown tanpa animasi scale/translate (aturan clean). */
+function openEdit(eventId: string | number): void {
+    router.visit(routes.admin.events.edit(eventId));
 }
+
+function openExport(event: IEvent): void {
+    router.visit(routes.admin.events.exports.registrations(event.id));
+}
+
+function openForms(eventId: string | number): void {
+    router.visit(routes.admin.events.forms.index(eventId));
+}
+
+function openScan(eventId: string | number): void {
+    router.visit(routes.admin.events.scan(eventId));
+}
+
+function confirmDelete(event: IEvent): void {
+    deleteTarget.value = event;
+}
+
+/** Modal konfirmasi hapus acara. */
+const deleteTarget = ref<IEvent | null>(null);
+
+function handleDeleteConfirm(): void {
+    if (!deleteTarget.value) return;
+    router.delete(destroyEvent({ event: deleteTarget.value.id }).url);
+    deleteTarget.value = null;
+}
+
+/** Menu kebab native (tanpa reka-ui): satu menu terbuka per waktu, key = event id. */
+const openMenuId = ref<string | number | null>(null);
+const menuRefs = ref<Record<string, HTMLElement | null>>({});
+const triggerRefs = ref<Record<string, HTMLElement | null>>({});
+
+function toggleMenu(id: string | number): void {
+    openMenuId.value = openMenuId.value === id ? null : id;
+}
+
+function closeMenu(): void {
+    openMenuId.value = null;
+}
+
+function menuAction(action: () => void): void {
+    closeMenu();
+    action();
+}
+
+function setMenuRef(id: string | number, el: unknown): void {
+    menuRefs.value[String(id)] = el as HTMLElement | null;
+}
+
+function setTriggerRef(id: string | number, el: unknown): void {
+    triggerRefs.value[String(id)] = el as HTMLElement | null;
+}
+
+/** Tutup menu jika klik terjadi di luar trigger & menu yang sedang terbuka. */
+function closeIfOutside(target: EventTarget | null): void {
+    const id = openMenuId.value;
+    if (id === null) return;
+    const btn = triggerRefs.value[String(id)];
+    const menu = menuRefs.value[String(id)];
+    const node = target as Node | null;
+    if (!node) return;
+    if (btn?.contains(node) || menu?.contains(node)) return;
+    closeMenu();
+}
+
+// pointerdown = klik cepat & touch; click = fallback mouse lama.
+useEventListener('pointerdown', (e) => closeIfOutside(e.target));
+useEventListener('click', (e) => closeIfOutside(e.target));
+
+useEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+});
 </script>
 
 <template>
@@ -251,133 +300,193 @@ function statusLabel(status: string) {
             v-if="eventsList.length > 0"
             class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4"
         >
-            <Link
+            <Card
                 v-for="event in eventsList"
                 :key="event.id"
-                :href="routes.admin.events.show(event.id)"
-                class="group focus-visible:ring-ring block min-w-0 rounded-2xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                class="border-border/60 bg-card hover:border-border/80 relative h-full min-w-0 gap-0 rounded-2xl border p-0 shadow-[0_2px_8px_-4px_rgb(0_0_0/0.06),0_1px_2px_rgb(0_0_0/0.04)] transition-colors duration-150 hover:shadow-[0_4px_16px_-6px_rgb(0_0_0/0.08)]"
             >
-                <Card
-                    class="border-border/70 bg-card hover:border-primary/30 relative h-full gap-0 overflow-hidden rounded-2xl border p-0 shadow-sm ring-1 ring-black/[0.03] transition-[border-color,box-shadow] duration-200 hover:shadow-md dark:ring-white/[0.06]"
-                >
-                    <div :class="eventCardBannerContainerClass()">
-                        <div class="absolute inset-0 z-0">
-                            <EventBannerImage
-                                :src="event.banner_url"
-                                :alt="event.title"
-                                img-class="size-full object-cover"
-                            />
+                <div class="flex flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5">
+                    <!-- Header row: badge kategori kiri + kebab kanan (di luar Link) -->
+                    <div class="relative flex items-center justify-between gap-3">
+                        <div class="flex min-w-0 flex-wrap gap-1">
+                            <template v-if="eventTokenList(event.category).length > 0">
+                                <Badge
+                                    v-for="cat in eventTokenList(event.category).slice(0, 1)"
+                                    :key="`${event.id}-cat-${cat}`"
+                                    class="border px-2.5 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm rounded-md"
+                                    :style="{
+                                        backgroundColor: `color-mix(in oklab, ${categoryColorMap[cat] ?? '#6B7280'} 12%, white)`,
+                                        borderColor: `color-mix(in oklab, ${categoryColorMap[cat] ?? '#6B7280'} 30%, transparent)`,
+                                        color: categoryColorMap[cat] ?? '#6B7280',
+                                    }"
+                                >
+                                    {{ categoryLabelMap[cat] ?? cat }}
+                                </Badge>
+                                <Badge
+                                    v-if="eventTokenList(event.category).length > 1"
+                                    variant="secondary"
+                                    class="dark:bg-background/90 border-0 bg-white/90 px-2.5 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm rounded-md"
+                                >
+                                    +{{ eventTokenList(event.category).length - 1 }}
+                                </Badge>
+                            </template>
                         </div>
-                        <div
-                            class="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black/60 via-black/15 to-transparent"
-                        />
-                        <div
-                            class="absolute top-2.5 right-2.5 left-2.5 z-[2] flex flex-wrap gap-1 pr-16 sm:top-3 sm:right-auto sm:left-3 sm:max-w-[88%] sm:pr-14"
+
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Menu acara"
+                            class="border-border/60 relative size-8 shrink-0 cursor-pointer rounded-lg border bg-white/90 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white"
+                            :ref="(el) => setTriggerRef(event.id, el)"
+                            @click="toggleMenu(event.id)"
                         >
-                            <Badge
-                                v-for="(cat, idx) in eventTokenList(event.category)"
-                                :key="`${event.id}-cat-${idx}`"
-                                class="border-0 text-[10px] font-semibold text-white shadow-sm"
-                                :style="{ backgroundColor: categoryColorMap[cat] ?? '#6B7280' }"
-                            >
-                                {{ categoryLabelMap[cat] ?? cat }}
-                            </Badge>
-                            <Badge
-                                v-for="(sess, idx) in eventTokenList(event.session)"
-                                :key="`${event.id}-sess-${idx}`"
-                                variant="secondary"
-                                class="text-foreground/90 dark:bg-background/90 border-0 bg-white/90 text-[10px] font-semibold shadow-sm backdrop-blur-sm"
-                            >
-                                {{ sessionLabelMap[sess] ?? sess }}
-                            </Badge>
-                            <Badge v-if="event.deleted_at" variant="destructive" class="text-[10px] font-semibold">
-                                Terarsip
-                            </Badge>
-                        </div>
-                        <div class="absolute top-2.5 right-2.5 z-[2] sm:top-3 sm:right-3">
-                            <Badge
-                                variant="secondary"
-                                class="dark:bg-background/95 border-0 bg-white/95 text-[10px] font-semibold shadow-sm backdrop-blur-sm"
-                                :style="{ color: statusColorMap[event.status] }"
-                            >
-                                {{ statusLabel(event.status) }}
-                            </Badge>
-                        </div>
-                        <div
-                            class="absolute right-0 bottom-0 left-0 z-[2] flex items-end justify-between gap-2 px-3 pt-14 pb-2.5 text-white sm:px-4 sm:pb-3"
+                            <MoreVertical class="size-4 shrink-0 stroke-[1.75]" />
+                        </Button>
+
+                        <Transition
+                            enter-active-class="transition duration-150 ease-out"
+                            enter-from-class="opacity-0 scale-[0.96] translate-y-1"
+                            enter-to-class="opacity-100 scale-100 translate-y-0"
+                            leave-active-class="transition duration-100 ease-in"
+                            leave-from-class="opacity-100 scale-100 translate-y-0"
+                            leave-to-class="opacity-0 scale-[0.96] translate-y-1"
                         >
-                            <h3
-                                class="line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-semibold tracking-tight text-white drop-shadow sm:text-[0.95rem]"
+                            <div
+                                v-if="openMenuId === event.id"
+                                :ref="(el) => setMenuRef(event.id, el)"
+                                class="border-border bg-popover text-popover-foreground absolute top-10 right-0 z-[20] min-w-48 overflow-hidden rounded-xl border p-1 shadow-sm"
                             >
-                                {{ event.title }}
-                            </h3>
-                            <ArrowUpRight
-                                class="size-4 shrink-0 opacity-80 transition-opacity group-hover:opacity-100"
-                                aria-hidden="true"
-                            />
-                        </div>
-                    </div>
-                    <CardContent class="border-border/50 space-y-4 border-t p-3.5 sm:p-5">
-                        <div
-                            class="text-muted-foreground flex flex-col gap-3 text-xs sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:text-[13px]"
-                        >
-                            <div class="min-w-0 flex-1 space-y-2">
-                                <div class="flex items-start gap-2">
-                                    <CalendarDays class="text-primary/80 mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                    <span class="leading-snug">
-                                        {{ formatDate(event.start_date) }} — {{ formatDate(event.end_date) }}
-                                    </span>
-                                </div>
-                                <div class="flex items-start gap-2">
-                                    <MapPin class="text-primary/80 mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                    <span class="line-clamp-2 leading-snug">{{ event.location }}</span>
-                                </div>
+                                <button
+                                    type="button"
+                                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none"
+                                    @click="menuAction(() => openEdit(event.id))"
+                                >
+                                    <SquarePen class="mr-2 size-4 shrink-0 stroke-[1.75]" />Edit acara
+                                </button>
+                                <button
+                                    type="button"
+                                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none"
+                                    @click="menuAction(() => openExport(event))"
+                                >
+                                    <Download class="mr-2 size-4 shrink-0 stroke-[1.75]" />Export data
+                                </button>
+                                <button
+                                    type="button"
+                                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none"
+                                    @click="menuAction(() => openForms(event.id))"
+                                >
+                                    <FileStack class="mr-2 size-4 shrink-0 stroke-[1.75]" />Kelola formulir
+                                </button>
+                                <button
+                                    type="button"
+                                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none"
+                                    @click="menuAction(() => openScan(event.id))"
+                                >
+                                    <QrCode class="mr-2 size-4 shrink-0 stroke-[1.75]" />Check in
+                                </button>
+                                <div class="bg-border my-1 h-px" />
+                                <button
+                                    type="button"
+                                    class="text-destructive hover:bg-destructive/10 focus:text-destructive focus:bg-destructive/15 relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-medium transition-colors outline-none"
+                                    @click="menuAction(() => confirmDelete(event))"
+                                >
+                                    <Trash2 class="mr-2 size-4 shrink-0 stroke-[1.75]" />Hapus acara
+                                </button>
                             </div>
-                            <div class="min-w-0 shrink-0 sm:pt-0.5">
+                        </Transition>
+                    </div>
+
+                    <!-- Banner bersih tanpa overlay badge/kebab -->
+                    <div class="bg-muted relative aspect-[16/7] w-full overflow-hidden rounded-xl">
+                        <EventBannerImage
+                            :src="event.banner_url"
+                            :alt="event.title"
+                            img-class="size-full object-cover"
+                        />
+                    </div>
+
+                    <!-- Konten: hanya ini yang redirect ke detail -->
+                    <Link
+                        :href="routes.admin.events.show(event.id)"
+                        class="focus-visible:ring-ring block rounded-b-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                    >
+                        <div class="flex flex-col gap-2.5">
+                            <div class="flex items-center gap-3">
+                                <h3
+                                    class="text-foreground min-w-0 flex-1 truncate text-sm leading-snug font-semibold tracking-tight"
+                                >
+                                    {{ event.title }}
+                                </h3>
                                 <Badge
                                     variant="outline"
                                     :class="[
-                                        'max-w-full text-[10px] font-medium whitespace-normal sm:whitespace-nowrap',
+                                        'shrink-0 rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap',
                                         registrationUi(event).badgeClass,
                                     ]"
                                 >
                                     {{ registrationUi(event).label }}
                                 </Badge>
                             </div>
-                        </div>
 
-                        <div
-                            class="border-border/60 bg-muted/20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs sm:text-[13px]"
-                        >
-                            <span class="text-muted-foreground">Biaya</span>
-                            <span class="text-foreground text-right font-semibold break-words tabular-nums">
-                                {{ formatPriceIdr(event.price) }}
-                            </span>
-                        </div>
-
-                        <div class="border-border/60 bg-muted/25 rounded-xl border p-3">
-                            <div class="mb-2 flex items-center justify-between text-xs">
-                                <span class="text-foreground flex items-center gap-1.5 font-medium">
-                                    <Users class="text-muted-foreground size-3.5" aria-hidden="true" />
-                                    Pendaftar
-                                </span>
-                                <span class="text-foreground font-semibold tabular-nums">
-                                    {{ event.registered_count }}/{{ event.quota }}
+                            <div class="text-muted-foreground flex items-center gap-1.5 text-xs leading-snug sm:text-[13px]">
+                                <CalendarDays
+                                    class="text-primary/70 mt-0.5 size-3.5 shrink-0 stroke-[1.75]"
+                                    aria-hidden="true"
+                                />
+                                <span class="leading-snug">
+                                    {{ formatDate(event.start_date) }} — {{ formatDate(event.end_date) }}
                                 </span>
                             </div>
-                            <Progress
-                                :model-value="Math.min(event.registered_count, Math.max(event.quota, 1))"
-                                :max="Math.max(event.quota, 1)"
-                                class="bg-muted/80 h-2"
-                            />
+
+                            <div class="text-muted-foreground flex items-center gap-1.5 text-xs leading-snug sm:text-[13px]">
+                                <MapPin
+                                    class="text-primary/70 mt-0.5 size-3.5 shrink-0 stroke-[1.75]"
+                                    aria-hidden="true"
+                                />
+                                <span class="line-clamp-1 leading-snug">{{ event.location }}</span>
+                            </div>
+
+                            <div class="border-border/60 flex items-center justify-between gap-3 border-t pt-3 text-xs">
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <span class="text-muted-foreground flex items-center gap-1.5">
+                                        <Users
+                                            class="text-muted-foreground size-3.5 shrink-0 stroke-[1.75]"
+                                            aria-hidden="true"
+                                        />
+                                        <span class="font-medium tabular-nums">
+                                            {{ event.registered_count }}/{{ event.quota }}
+                                        </span>
+                                    </span>
+                                    <Progress
+                                        :model-value="Math.min(event.registered_count, Math.max(event.quota, 1))"
+                                        :max="Math.max(event.quota, 1)"
+                                        class="bg-muted/70 h-1.5 min-w-0 flex-1"
+                                    />
+                                </div>
+                                <span class="text-foreground shrink-0 font-medium tabular-nums">
+                                    {{ formatPriceIdr(event.price) }}
+                                </span>
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
-            </Link>
+                    </Link>
+                </div>
+            </Card>
         </div>
 
+        <ConfirmationModal
+            :open="deleteTarget !== null"
+            :title="`Hapus acara ${deleteTarget?.title ?? ''}?`"
+            description="Tindakan ini tidak dapat dibatalkan. Data acara dan pendaftaran terkait akan terhapus."
+            confirm-text="Hapus"
+            cancel-text="Batal"
+            variant="destructive"
+            @confirm="handleDeleteConfirm"
+            @cancel="deleteTarget = null"
+            @update:open="(v) => { if (!v) deleteTarget = null }"
+        />
+
         <EmptyState
-            v-else
+            v-if="eventsList.length === 0"
             title="Tidak ada acara"
             description="Sesuaikan pencarian, kategori, atau sesi — atau buat acara baru."
             animation-name="errorState"

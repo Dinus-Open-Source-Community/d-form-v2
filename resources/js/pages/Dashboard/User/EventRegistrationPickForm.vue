@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,8 +28,6 @@ const props = defineProps<{
 onMounted(() => {
     setTopbar({ title: props.event.title, subtitle: 'Pilih formulir pendaftaran' })
 })
-
-const backHref = computed(() => routes.member.event.show(props.event.slug))
 
 function statusBadgeVariant(s: FormAccessStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
     if (s === 'allowed') return 'default'

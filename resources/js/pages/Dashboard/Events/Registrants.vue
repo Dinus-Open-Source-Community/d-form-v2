@@ -32,8 +32,6 @@ const p = reactive(
     }),
 )
 
-const backHref = routes.admin.events.show(props.event.id)
-
 onMounted(() => {
     setTopbar({ title: props.event.title, subtitle: 'Pengiriman formulir & status review' })
 })

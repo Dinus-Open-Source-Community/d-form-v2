@@ -1,5 +1,4 @@
 import { ref, computed, type Ref } from 'vue'
-import { toast } from 'vue-sonner'
 import { showErrorToast } from '@/lib/error-message'
 import { normalizeBannerSrc, type FormBannerState } from '@/components/modules/builder/formBanner'
 import {

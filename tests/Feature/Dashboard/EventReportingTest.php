@@ -66,7 +66,7 @@ class EventReportingTest extends TestCase
     {
         $this->actingAs($this->member())
             ->get(route('dashboard.reports.index'))
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_admin_reports_route_redirects_to_events_index(): void
@@ -96,7 +96,7 @@ class EventReportingTest extends TestCase
 
         $this->actingAs($this->member())
             ->get(route('dashboard.events.laporan', $event))
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_admin_can_download_registrations_csv_with_expected_columns(): void
@@ -133,7 +133,7 @@ class EventReportingTest extends TestCase
 
         $this->actingAs($this->member())
             ->get(route('dashboard.events.exports.registrations-csv', $event))
-            ->assertRedirect(route('dashboard.user.events'));
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_admin_can_download_attendance_csv(): void
