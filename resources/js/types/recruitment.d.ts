@@ -1,6 +1,7 @@
 export type RecruitPeriodStatus = 'draft' | 'open' | 'closed' | 'archived';
 export type RecruitStage =
-    | 'submitted' | 'screening' | 'revision_required' | 'document_passed'
+    | 'submitted' | 'screening' | 'revision_required'
+    | 'document_passed' | 'document_rejected'
     | 'interview_scheduled' | 'waiting_attendance' | 'queued' | 'interviewing'
     | 'interviewed' | 'final_review' | 'accepted' | 'rejected' | 'cancelled';
 

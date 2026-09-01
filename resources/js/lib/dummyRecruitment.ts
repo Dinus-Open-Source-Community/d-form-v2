@@ -1,6 +1,7 @@
 import type {
     IApplication,
     IRecruitmentPeriod,
+    RecruitDivisionId,
 } from '@/types/recruitment';
 
 /**
