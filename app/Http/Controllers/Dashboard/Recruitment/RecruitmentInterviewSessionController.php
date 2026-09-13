@@ -35,9 +35,12 @@ class RecruitmentInterviewSessionController extends Controller
             )
         );
 
+        $periodId = isset($validated['period_id']) ? (string) $validated['period_id'] : null;
+
         return Inertia::render('Dashboard/Recruitment/InterviewSessions/Index', [
             'sessions' => $paginator,
             'query' => $validated,
+            'today_sessions' => $this->sessionService->todaySessions($periodId),
             'periodOptions' => $this->sessionService->periodOptions(),
             'divisionOptions' => $this->applicationService->divisionOptions(),
         ]);

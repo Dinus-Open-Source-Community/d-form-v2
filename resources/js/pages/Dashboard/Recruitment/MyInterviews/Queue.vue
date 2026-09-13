@@ -41,28 +41,29 @@ onMounted(() => {
 <template>
     <Head title="Antrean Interview Saya" />
 
-    <PageHeader
-        :title="`Antrean · ${session.division?.name ?? 'Interview'}`"
-        :description="`${session.session_date} ${session.starts_at}–${session.ends_at}`"
-        :back-href="routes.admin.recruitment.myInterviews.index"
-    />
+    <div class="mx-auto flex max-w-3xl flex-col gap-6">
+        <PageHeader
+            :title="`Antrean · ${session.division?.name ?? 'Interview'}`"
+            :description="`${session.session_date} ${session.starts_at}–${session.ends_at} · ${session.location}`"
+            :back-href="routes.admin.recruitment.myInterviews.index"
+        />
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-3">
-        <Card>
-            <CardHeader class="pb-2"><CardTitle class="text-sm">Menunggu</CardTitle></CardHeader>
-            <CardContent><p class="text-2xl font-bold">{{ queue.stats.waiting }}</p></CardContent>
-        </Card>
-        <Card>
-            <CardHeader class="pb-2"><CardTitle class="text-sm">Dipanggil</CardTitle></CardHeader>
-            <CardContent><p class="text-2xl font-bold">{{ queue.stats.called }}</p></CardContent>
-        </Card>
-        <Card>
-            <CardHeader class="pb-2"><CardTitle class="text-sm">Selesai</CardTitle></CardHeader>
-            <CardContent><p class="text-2xl font-bold">{{ queue.stats.completed }}</p></CardContent>
-        </Card>
-    </div>
+        <div class="grid gap-3 sm:grid-cols-3">
+            <Card class="rounded-2xl">
+                <CardHeader class="pb-2"><CardTitle class="text-sm">Menunggu</CardTitle></CardHeader>
+                <CardContent><p class="text-2xl font-bold tabular-nums">{{ queue.stats.waiting }}</p></CardContent>
+            </Card>
+            <Card class="rounded-2xl">
+                <CardHeader class="pb-2"><CardTitle class="text-sm">Dipanggil</CardTitle></CardHeader>
+                <CardContent><p class="text-2xl font-bold tabular-nums">{{ queue.stats.called }}</p></CardContent>
+            </Card>
+            <Card class="rounded-2xl">
+                <CardHeader class="pb-2"><CardTitle class="text-sm">Selesai</CardTitle></CardHeader>
+                <CardContent><p class="text-2xl font-bold tabular-nums">{{ queue.stats.completed }}</p></CardContent>
+            </Card>
+        </div>
 
-    <Card class="rounded-2xl border-border/70">
+        <Card class="rounded-2xl border-border/70">
         <CardHeader>
             <CardTitle class="text-base">Sedang dilayani</CardTitle>
         </CardHeader>
@@ -106,5 +107,6 @@ onMounted(() => {
             </div>
             <p class="text-muted-foreground text-xs">Memperbarui otomatis setiap 10 detik.</p>
         </CardContent>
-    </Card>
+        </Card>
+    </div>
 </template>

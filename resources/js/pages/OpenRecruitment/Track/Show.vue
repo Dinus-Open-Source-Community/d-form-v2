@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import FormFillLayout from '@/layouts/FormFillLayout.vue'
+import OpRecFeedbackForm from '@/components/modules/open-recruitment/OpRecFeedbackForm.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '@/components/ui/accordion'
 import {
     Dialog,
     DialogContent,
@@ -14,7 +21,20 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { routes } from '@/lib/routes'
-import { CalendarClock, CheckCircle2, Circle, CircleDot, LogOut, MapPin, Pencil, QrCode, Users } from 'lucide-vue-next'
+import {
+    ArrowRight,
+    CalendarClock,
+    CheckCircle2,
+    ChevronDown,
+    Circle,
+    CircleDot,
+    LogOut,
+    MapPin,
+    MessageSquare,
+    Pencil,
+    QrCode,
+    Users,
+} from 'lucide-vue-next'
 
 defineOptions({ layout: FormFillLayout })
 
@@ -23,6 +43,13 @@ interface TimelineItem {
     label: string
     status: 'completed' | 'current' | 'upcoming'
     note?: string | null
+}
+
+interface NextAction {
+    tone: 'info' | 'warning' | 'success' | 'neutral'
+    title: string
+    description: string
+    action: string | null
 }
 
 interface TrackingPayload {
@@ -36,22 +63,24 @@ interface TrackingPayload {
         result: string
         result_label: string
         revision_required: boolean
-        is_verified: boolean
         primary_division: string | null
         secondary_division: string | null
         submitted_at: string | null
     }
     period: { name: string | null }
+    next_action: NextAction
     timeline: TimelineItem[]
     interview: {
         scheduled_at: string
         location: string
         room: string
         status: string
+        status_label: string
     } | null
     queue: {
         queue_number: number
         status: string
+        status_label?: string
     } | null
     attendance: {
         checked_in_at: string
@@ -88,23 +117,23 @@ const props = defineProps<{
     logoutUrl: string
     editUrl: string
     correctionUrl: string
-    feedbackUrl: string
+    feedbackStoreUrl: string
 }>()
 
 const correctionModalOpen = ref(false)
+const feedbackExpanded = ref(props.tracking.feedback.can_submit)
+const interviewSectionRef = ref<HTMLElement | null>(null)
+
 const correctionForm = useForm({
     request_message: '',
 })
 
-const submittedLabel = computed(() => {
-    if (!props.tracking.application.submitted_at) return null
-    return new Date(props.tracking.application.submitted_at).toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+const heroToneClass = computed(() => {
+    const tone = props.tracking.next_action.tone
+    if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-950'
+    if (tone === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-950'
+    if (tone === 'neutral') return 'border-border/70 bg-muted/40'
+    return 'border-primary/20 bg-primary/5'
 })
 
 const interviewSchedule = computed(() => {
@@ -119,10 +148,46 @@ const interviewSchedule = computed(() => {
     })
 })
 
+const showInterviewSection = computed(
+    () =>
+        props.tracking.interview !== null
+        || props.tracking.attendance_qr_base64 !== null
+        || props.tracking.attendance !== null
+        || props.tracking.queue !== null,
+)
+
+const defaultAccordion = computed(() => {
+    if (showInterviewSection.value) return ['interview']
+    if (props.tracking.final) return ['result']
+    return ['timeline']
+})
+
 function timelineIcon(status: TimelineItem['status']) {
     if (status === 'completed') return CheckCircle2
     if (status === 'current') return CircleDot
     return Circle
+}
+
+function scrollToInterview() {
+    interviewSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function handleHeroAction() {
+    const action = props.tracking.next_action.action
+    if (action === 'edit') {
+        router.visit(props.editUrl)
+        return
+    }
+    if (action === 'feedback') {
+        feedbackExpanded.value = true
+        nextTick(() => {
+            document.getElementById('feedback-section')?.scrollIntoView({ behavior: 'smooth' })
+        })
+        return
+    }
+    if (action === 'qr' || action === 'interview' || action === 'queue') {
+        scrollToInterview()
+    }
 }
 
 function logout() {
@@ -141,38 +206,52 @@ function submitCorrection() {
 </script>
 
 <template>
-    <Head title="Progress OpRec" />
+    <Head title="Portal OpRec" />
 
-    <div class="mx-auto max-w-2xl space-y-6 px-2 pb-8">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <p class="text-primary text-xs font-semibold tracking-wide uppercase">Tracking OpRec</p>
-                <h1 class="text-2xl font-bold">{{ tracking.application.full_name }}</h1>
-                <p class="text-muted-foreground mt-1 font-mono text-sm">
-                    {{ tracking.application.registration_number }}
-                </p>
-                <p v-if="tracking.period.name" class="text-muted-foreground text-sm">
-                    {{ tracking.period.name }}
-                </p>
+    <div class="mx-auto max-w-lg space-y-4 px-2 pb-10">
+        <!-- Header ringkas -->
+        <div class="flex items-start justify-between gap-3 pt-2">
+            <div class="min-w-0">
+                <p class="text-primary text-xs font-semibold tracking-wide uppercase">Portal OpRec</p>
+                <h1 class="truncate text-xl font-bold">{{ tracking.application.full_name }}</h1>
+                <p class="text-muted-foreground font-mono text-xs">{{ tracking.application.registration_number }}</p>
             </div>
-            <Button variant="outline" size="sm" @click="logout">
-                <LogOut class="mr-2 size-4" />
-                Keluar
+            <Button variant="ghost" size="icon" class="shrink-0" title="Keluar" @click="logout">
+                <LogOut class="size-4" />
             </Button>
         </div>
 
-        <div
-            v-if="tracking.application.revision_required"
-            class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-            Tim meminta revisi pendaftaran. Silakan perbarui data kamu.
+        <!-- Hero: langkah selanjutnya -->
+        <div class="rounded-2xl border p-4 shadow-sm" :class="heroToneClass">
+            <p class="text-xs font-medium tracking-wide uppercase opacity-80">Langkah selanjutnya</p>
+            <h2 class="mt-1 text-lg font-semibold leading-snug">{{ tracking.next_action.title }}</h2>
+            <p class="mt-1.5 text-sm leading-relaxed opacity-90">{{ tracking.next_action.description }}</p>
+            <div v-if="tracking.next_action.action" class="mt-3">
+                <Button
+                    size="sm"
+                    :variant="tracking.next_action.tone === 'warning' ? 'default' : 'secondary'"
+                    @click="handleHeroAction"
+                >
+                    {{
+                        tracking.next_action.action === 'edit'
+                            ? 'Edit pendaftaran'
+                            : tracking.next_action.action === 'feedback'
+                              ? 'Isi feedback'
+                              : tracking.next_action.action === 'qr'
+                                ? 'Lihat QR absensi'
+                                : 'Lihat detail interview'
+                    }}
+                    <ArrowRight class="ml-1.5 size-4" />
+                </Button>
+            </div>
         </div>
 
+        <!-- Aksi cepat -->
         <div v-if="tracking.edit.can_edit || tracking.edit.can_request_correction" class="flex flex-wrap gap-2">
             <Button v-if="tracking.edit.can_edit" as-child size="sm">
                 <Link :href="editUrl">
-                    <Pencil class="mr-2 size-4" />
-                    Edit pendaftaran
+                    <Pencil class="mr-1.5 size-4" />
+                    Edit data
                 </Link>
             </Button>
             <Button
@@ -181,202 +260,198 @@ function submitCorrection() {
                 size="sm"
                 @click="correctionModalOpen = true"
             >
-                Ajukan permintaan koreksi
+                Ajukan koreksi
             </Button>
         </div>
 
-        <Card
-            v-if="tracking.edit.latest_correction"
-            class="rounded-2xl border-border/70"
+        <!-- Koreksi pending -->
+        <p
+            v-if="tracking.edit.latest_correction?.status === 'pending'"
+            class="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-xs"
         >
-            <CardHeader class="pb-2">
-                <CardTitle class="text-base">Permintaan koreksi</CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-2 text-sm">
-                <p>
-                    Status:
-                    <span class="font-medium">{{ tracking.edit.latest_correction.status_label }}</span>
-                </p>
-                <p class="text-muted-foreground">{{ tracking.edit.latest_correction.request_message }}</p>
-                <p v-if="tracking.edit.latest_correction.review_notes" class="text-muted-foreground">
-                    Catatan staff: {{ tracking.edit.latest_correction.review_notes }}
-                </p>
-            </CardContent>
-        </Card>
+            Koreksi: {{ tracking.edit.latest_correction.status_label }} —
+            {{ tracking.edit.latest_correction.request_message }}
+        </p>
 
-        <Card class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="text-base">Status saat ini</CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-2">
-                <p class="text-lg font-medium">{{ tracking.application.stage_label }}</p>
-                <p class="text-muted-foreground text-sm">{{ tracking.application.result_label }}</p>
-                <p v-if="submittedLabel" class="text-muted-foreground text-xs">
-                    Dikirim: {{ submittedLabel }}
-                </p>
-                <div class="text-muted-foreground flex flex-wrap gap-4 pt-2 text-sm">
-                    <span>Divisi utama: {{ tracking.application.primary_division ?? '—' }}</span>
-                    <span v-if="tracking.application.secondary_division">
-                        Cadangan: {{ tracking.application.secondary_division }}
-                    </span>
-                </div>
-            </CardContent>
-        </Card>
-
-        <Card class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="text-base">Timeline proses</CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-4">
-                <div
-                    v-for="item in tracking.timeline"
-                    :key="item.key"
-                    class="flex gap-3"
-                >
-                    <component
-                        :is="timelineIcon(item.status)"
-                        class="mt-0.5 size-5 shrink-0"
-                        :class="{
-                            'text-primary': item.status === 'current',
-                            'text-emerald-600': item.status === 'completed',
-                            'text-muted-foreground/50': item.status === 'upcoming',
-                        }"
+        <!-- Interview hari-H (prioritas visual) -->
+        <div
+            v-if="showInterviewSection"
+            ref="interviewSectionRef"
+            id="interview-section"
+            class="space-y-3"
+        >
+            <Card
+                v-if="tracking.attendance_qr_base64 && !tracking.attendance"
+                class="overflow-hidden rounded-2xl border-primary/30"
+            >
+                <CardHeader class="bg-primary/5 pb-2">
+                    <CardTitle class="flex items-center gap-2 text-base">
+                        <QrCode class="size-5 text-primary" />
+                        QR absensi
+                    </CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-2 pt-4 text-center">
+                    <img
+                        :src="`data:image/png;base64,${tracking.attendance_qr_base64}`"
+                        alt="QR code absensi"
+                        class="mx-auto size-48 rounded-xl border bg-white p-2"
                     />
-                    <div class="min-w-0 flex-1">
-                        <p
-                            class="font-medium"
-                            :class="item.status === 'upcoming' ? 'text-muted-foreground' : 'text-foreground'"
-                        >
-                            {{ item.label }}
-                        </p>
-                        <p v-if="item.note" class="text-amber-700 dark:text-amber-400 mt-1 text-sm">
-                            {{ item.note }}
+                    <p class="text-muted-foreground text-xs leading-relaxed">
+                        Tunjukkan ke panitia — tidak perlu check-in sendiri.
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card v-if="tracking.queue" class="rounded-2xl border-border/70">
+                <CardContent class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                        <p class="text-muted-foreground text-xs">Antrean interview</p>
+                        <p class="text-3xl font-bold tabular-nums">#{{ tracking.queue.queue_number }}</p>
+                        <p class="text-muted-foreground text-sm">
+                            {{ tracking.queue.status_label ?? tracking.queue.status }}
                         </p>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                    <Users class="text-muted-foreground size-8 shrink-0" />
+                </CardContent>
+            </Card>
 
-        <Card v-if="tracking.interview" class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="flex items-center gap-2 text-base">
-                    <CalendarClock class="size-5" />
-                    Jadwal interview
-                </CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-2 text-sm">
-                <p v-if="interviewSchedule" class="font-medium">{{ interviewSchedule }}</p>
-                <p class="text-muted-foreground flex items-center gap-2">
-                    <MapPin class="size-4 shrink-0" />
-                    {{ tracking.interview.location }} · Ruang {{ tracking.interview.room }}
-                </p>
-                <p class="text-muted-foreground">Status: {{ tracking.interview.status }}</p>
-            </CardContent>
-        </Card>
+            <Card v-if="tracking.interview" class="rounded-2xl border-border/70">
+                <CardContent class="space-y-2 p-4 text-sm">
+                    <div class="flex items-center gap-2 font-medium">
+                        <CalendarClock class="size-4 text-primary" />
+                        Jadwal interview
+                    </div>
+                    <p v-if="interviewSchedule">{{ interviewSchedule }}</p>
+                    <p class="text-muted-foreground flex items-start gap-2">
+                        <MapPin class="mt-0.5 size-4 shrink-0" />
+                        {{ tracking.interview.location }} · Ruang {{ tracking.interview.room }}
+                    </p>
+                    <p class="text-muted-foreground text-xs">Status: {{ tracking.interview.status_label }}</p>
+                </CardContent>
+            </Card>
 
-        <Card
-            v-if="tracking.attendance_qr_base64 && !tracking.attendance"
-            class="rounded-2xl border-border/70"
-        >
-            <CardHeader class="pb-2">
-                <CardTitle class="flex items-center gap-2 text-base">
-                    <QrCode class="size-5" />
-                    QR code absensi
-                </CardTitle>
-            </CardHeader>
-            <CardContent class="space-y-3 text-center text-sm">
-                <img
-                    :src="`data:image/png;base64,${tracking.attendance_qr_base64}`"
-                    alt="QR code absensi interview"
-                    class="mx-auto size-56 rounded-xl border border-border/70 bg-white p-2"
-                />
-                <p class="text-muted-foreground">
-                    Tunjukkan QR code ini kepada panitia saat tiba di lokasi interview.
-                    Panitia akan memindainya melalui scanner admin — kamu tidak perlu check-in sendiri.
-                </p>
-            </CardContent>
-        </Card>
+            <p v-if="tracking.attendance" class="text-muted-foreground text-center text-xs">
+                Check-in:
+                {{
+                    tracking.attendance.checked_in_at
+                        ? new Date(tracking.attendance.checked_in_at).toLocaleString('id-ID')
+                        : '—'
+                }}
+            </p>
+        </div>
 
-        <Card v-if="tracking.attendance" class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="text-base">Sudah check-in</CardTitle>
-            </CardHeader>
-            <CardContent class="text-muted-foreground text-sm">
-                <p>
-                    Waktu check-in:
-                    {{
-                        tracking.attendance.checked_in_at
-                            ? new Date(tracking.attendance.checked_in_at).toLocaleString('id-ID')
-                            : '—'
-                    }}
-                </p>
-            </CardContent>
-        </Card>
-
-        <Card v-if="tracking.queue" class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="flex items-center gap-2 text-base">
-                    <Users class="size-5" />
-                    Antrean interview
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p class="text-2xl font-semibold tabular-nums">#{{ tracking.queue.queue_number }}</p>
-                <p class="text-muted-foreground text-sm">Status: {{ tracking.queue.status }}</p>
-            </CardContent>
-        </Card>
-
+        <!-- Hasil akhir -->
         <Card v-if="tracking.final" class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Keputusan akhir</CardTitle>
             </CardHeader>
-            <CardContent class="space-y-2 text-sm">
-                <p class="font-medium">{{ tracking.final.result_label }}</p>
-                <p v-if="tracking.final.membership_type">
-                    Keanggotaan: {{ tracking.final.membership_type }}
-                </p>
-                <p v-if="tracking.final.final_division">
-                    Divisi: {{ tracking.final.final_division }}
-                </p>
-                <p v-if="tracking.final.public_message" class="text-muted-foreground">
+            <CardContent class="space-y-1.5 text-sm">
+                <p class="text-lg font-semibold">{{ tracking.final.result_label }}</p>
+                <p v-if="tracking.final.membership_type">Keanggotaan: {{ tracking.final.membership_type }}</p>
+                <p v-if="tracking.final.final_division">Divisi: {{ tracking.final.final_division }}</p>
+                <p v-if="tracking.final.public_message" class="text-muted-foreground pt-1">
                     {{ tracking.final.public_message }}
                 </p>
             </CardContent>
         </Card>
 
-        <Card v-if="tracking.feedback.can_submit || tracking.feedback.submitted" class="rounded-2xl border-border/70">
-            <CardHeader class="pb-2">
-                <CardTitle class="text-base">Feedback OpRec</CardTitle>
+        <!-- Feedback inline -->
+        <Card
+            v-if="tracking.feedback.can_submit || tracking.feedback.submitted"
+            id="feedback-section"
+            class="rounded-2xl border-border/70"
+        >
+            <CardHeader
+                class="cursor-pointer pb-2"
+                @click="tracking.feedback.can_submit && (feedbackExpanded = !feedbackExpanded)"
+            >
+                <CardTitle class="flex items-center justify-between text-base">
+                    <span class="flex items-center gap-2">
+                        <MessageSquare class="size-4" />
+                        Feedback
+                    </span>
+                    <ChevronDown
+                        v-if="tracking.feedback.can_submit"
+                        class="size-4 transition-transform"
+                        :class="feedbackExpanded ? 'rotate-180' : ''"
+                    />
+                </CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3 text-sm">
-                <p v-if="tracking.feedback.submitted" class="text-muted-foreground">
-                    Terima kasih! Feedback kamu sudah kami terima
-                    {{
-                        tracking.feedback.submitted_at
-                            ? ` pada ${new Date(tracking.feedback.submitted_at).toLocaleString('id-ID')}`
-                            : ''
-                    }}.
-                </p>
-                <Button v-else-if="tracking.feedback.can_submit" as-child>
-                    <Link :href="feedbackUrl">Isi feedback</Link>
-                </Button>
+            <CardContent v-if="tracking.feedback.submitted" class="text-muted-foreground text-sm">
+                Terima kasih! Feedback diterima
+                {{
+                    tracking.feedback.submitted_at
+                        ? new Date(tracking.feedback.submitted_at).toLocaleDateString('id-ID')
+                        : ''
+                }}.
+            </CardContent>
+            <CardContent v-else-if="feedbackExpanded">
+                <OpRecFeedbackForm :store-url="feedbackStoreUrl" compact />
             </CardContent>
         </Card>
 
-        <div class="text-center">
-            <Button as-child variant="link">
-                <Link :href="routes.openRecruitment.landing">Kembali ke landing OpRec</Link>
-            </Button>
-        </div>
+        <!-- Detail collapsible -->
+        <Accordion type="multiple" :default-value="defaultAccordion" class="rounded-2xl border border-border/70 px-1">
+            <AccordionItem value="timeline">
+                <AccordionTrigger class="px-3 text-sm font-medium">Timeline proses</AccordionTrigger>
+                <AccordionContent class="px-3 pb-4">
+                    <div class="space-y-3">
+                        <div v-for="item in tracking.timeline" :key="item.key" class="flex gap-2.5">
+                            <component
+                                :is="timelineIcon(item.status)"
+                                class="mt-0.5 size-4 shrink-0"
+                                :class="{
+                                    'text-primary': item.status === 'current',
+                                    'text-emerald-600': item.status === 'completed',
+                                    'text-muted-foreground/40': item.status === 'upcoming',
+                                }"
+                            />
+                            <div>
+                                <p
+                                    class="text-sm font-medium"
+                                    :class="item.status === 'upcoming' ? 'text-muted-foreground' : ''"
+                                >
+                                    {{ item.label }}
+                                </p>
+                                <p v-if="item.note" class="text-amber-700 mt-0.5 text-xs">{{ item.note }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="profile">
+                <AccordionTrigger class="px-3 text-sm font-medium">Data pendaftaran</AccordionTrigger>
+                <AccordionContent class="text-muted-foreground space-y-1 px-3 pb-4 text-sm">
+                    <p><span class="text-foreground font-medium">Tahap:</span> {{ tracking.application.stage_label }}</p>
+                    <p><span class="text-foreground font-medium">Hasil:</span> {{ tracking.application.result_label }}</p>
+                    <p v-if="tracking.period.name">
+                        <span class="text-foreground font-medium">Periode:</span> {{ tracking.period.name }}
+                    </p>
+                    <p>
+                        <span class="text-foreground font-medium">Divisi:</span>
+                        {{ tracking.application.primary_division ?? '—' }}
+                        <span v-if="tracking.application.secondary_division">
+                            · cadangan {{ tracking.application.secondary_division }}
+                        </span>
+                    </p>
+                    <p><span class="text-foreground font-medium">NIM:</span> {{ tracking.application.nim }}</p>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+
+        <p class="text-muted-foreground text-center text-xs">
+            <Link :href="routes.openRecruitment.landing" class="underline-offset-2 hover:underline">
+                Info OpenRecruitment
+            </Link>
+        </p>
     </div>
 
     <Dialog v-model:open="correctionModalOpen">
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Permintaan koreksi</DialogTitle>
-                <DialogDescription>
-                    Jelaskan data apa yang perlu diperbaiki. Tim akan meninjau permintaanmu.
-                </DialogDescription>
+                <DialogDescription>Jelaskan data yang perlu diperbaiki.</DialogDescription>
             </DialogHeader>
             <form class="space-y-4" @submit.prevent="submitCorrection">
                 <div class="space-y-2">
@@ -395,10 +470,8 @@ function submitCorrection() {
                     </p>
                 </div>
                 <DialogFooter>
-                    <Button type="button" variant="outline" @click="correctionModalOpen = false">
-                        Batal
-                    </Button>
-                    <Button type="submit" :disabled="correctionForm.processing">Kirim permintaan</Button>
+                    <Button type="button" variant="outline" @click="correctionModalOpen = false">Batal</Button>
+                    <Button type="submit" :disabled="correctionForm.processing">Kirim</Button>
                 </DialogFooter>
             </form>
         </DialogContent>

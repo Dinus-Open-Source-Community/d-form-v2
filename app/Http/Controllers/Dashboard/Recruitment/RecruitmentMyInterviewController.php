@@ -26,15 +26,25 @@ class RecruitmentMyInterviewController extends Controller
 
     public function index(): Response
     {
-        abort_unless(auth()->user()?->can('recruitment.evaluations.view'), 403);
+        $user = auth()->user();
+        abort_unless($user?->can('recruitment.evaluations.view'), 403);
+
+        $page = (int) request()->integer('page', 1);
+        $queue = request()->query('queue');
+        $filters = is_string($queue) && $queue !== '' ? ['queue' => $queue] : [];
 
         $interviews = $this->myInterviewService->paginateForInterviewer(
-            auth()->user(),
-            (int) request()->integer('page', 1),
+            $user,
+            $filters,
+            $page,
         );
 
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Index', [
             'interviews' => $interviews,
+            'query' => ['queue' => is_string($queue) ? $queue : ''],
+            'queue_counts' => $this->myInterviewService->queueCounts($user),
+            'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
+            'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
         ]);
     }
 

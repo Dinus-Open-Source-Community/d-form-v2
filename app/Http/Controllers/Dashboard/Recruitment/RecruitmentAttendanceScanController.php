@@ -34,8 +34,14 @@ class RecruitmentAttendanceScanController extends Controller
             ->values()
             ->all();
 
+        $initialSessionId = request()->query('session');
+        if (! is_string($initialSessionId) || ! collect($sessions)->contains(fn (array $s): bool => $s['id'] === $initialSessionId)) {
+            $initialSessionId = $sessions[0]['id'] ?? null;
+        }
+
         return Inertia::render('Dashboard/Recruitment/AttendanceScan', [
             'sessions' => $sessions,
+            'initialSessionId' => $initialSessionId,
             'attendanceScanStoreUrl' => route('dashboard.recruitment.attendance-scan.store'),
         ]);
     }

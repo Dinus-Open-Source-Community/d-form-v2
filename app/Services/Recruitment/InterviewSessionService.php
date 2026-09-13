@@ -35,6 +35,28 @@ final class InterviewSessionService
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public function todaySessions(?string $periodId = null): array
+    {
+        $query = RecruitmentInterviewSession::query()
+            ->with(['period:id,name', 'division:id,name,code'])
+            ->withCount('interviews')
+            ->whereDate('session_date', today())
+            ->orderBy('starts_at');
+
+        if ($periodId !== null && $periodId !== '') {
+            $query->where('recruitment_period_id', $periodId);
+        }
+
+        return $query
+            ->get()
+            ->map(fn (RecruitmentInterviewSession $session): array => $this->toListArray($session))
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     public function create(array $data): RecruitmentInterviewSession

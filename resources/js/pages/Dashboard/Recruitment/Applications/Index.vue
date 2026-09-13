@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
@@ -34,6 +35,15 @@ interface Paginator {
     total: number
 }
 
+const QUEUE_TABS = [
+    { key: '', label: 'Semua' },
+    { key: 'screening', label: 'Screening' },
+    { key: 'revision', label: 'Revisi' },
+    { key: 'interview', label: 'Interview' },
+    { key: 'final', label: 'Final' },
+    { key: 'done', label: 'Selesai' },
+] as const
+
 const props = defineProps<{
     applications: Paginator
     query: {
@@ -41,8 +51,10 @@ const props = defineProps<{
         period_id?: string
         division_id?: string
         stage?: string
+        queue?: string
         semester?: string
     }
+    queue_counts: Record<string, number>
     periodOptions: { id: string; name: string }[]
     divisionOptions: { id: string; name: string; code: string }[]
     stageOptions: { value: string; label: string }[]
@@ -52,7 +64,20 @@ const search = ref(props.query.search ?? '')
 const periodId = ref(props.query.period_id ?? '')
 const divisionId = ref(props.query.division_id ?? '')
 const stage = ref(props.query.stage ?? '')
+const queue = ref(props.query.queue ?? '')
 const semester = ref(props.query.semester ?? '')
+
+const activeQueueLabel = computed(
+    () => QUEUE_TABS.find((tab) => tab.key === queue.value)?.label ?? 'Semua',
+)
+
+function queueBadgeCount(key: string): number | null {
+    if (key === '') {
+        return props.queue_counts.all ?? null
+    }
+    const count = props.queue_counts[key]
+    return count !== undefined ? count : null
+}
 
 onMounted(() => {
     setTopbar({ title: 'Applicant OpRec', subtitle: 'Kelola pendaftaran & screening' })
@@ -65,12 +90,21 @@ function applyFilters(page = 1) {
             search: search.value || undefined,
             period_id: periodId.value || undefined,
             division_id: divisionId.value || undefined,
-            stage: stage.value || undefined,
+            stage: queue.value ? undefined : stage.value || undefined,
+            queue: queue.value || undefined,
             semester: semester.value || undefined,
             page: page > 1 ? page : undefined,
         },
         { preserveState: true, replace: true },
     )
+}
+
+function selectQueue(key: string) {
+    queue.value = key
+    if (key) {
+        stage.value = ''
+    }
+    applyFilters()
 }
 
 watch([search, periodId, divisionId, stage, semester], () => applyFilters())
@@ -81,10 +115,35 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
 
     <div class="flex flex-col gap-6">
         <PageHeader
-            title="Daftar Applicant"
-            subtitle="Filter, tinjau, dan proses keputusan screening."
+            :title="`Applicant · ${activeQueueLabel}`"
+            subtitle="Antrean kerja berdasarkan tahap — klik tab untuk fokus."
             :back-href="routes.admin.recruitment.index"
         />
+
+        <div class="flex flex-wrap gap-2">
+            <button
+                v-for="tab in QUEUE_TABS"
+                :key="tab.key || 'all'"
+                type="button"
+                class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors"
+                :class="
+                    queue === tab.key
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background hover:bg-muted/50'
+                "
+                @click="selectQueue(tab.key)"
+            >
+                {{ tab.label }}
+                <Badge
+                    v-if="queueBadgeCount(tab.key) !== null && queueBadgeCount(tab.key)! > 0"
+                    variant="secondary"
+                    class="tabular-nums"
+                    :class="queue === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : ''"
+                >
+                    {{ queueBadgeCount(tab.key) }}
+                </Badge>
+            </button>
+        </div>
 
         <div class="flex flex-wrap gap-3">
             <Input v-model="search" placeholder="Cari nama, NIM, nomor pendaftaran..." class="max-w-xs" />
@@ -107,6 +166,7 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
                 </option>
             </select>
             <select
+                v-if="!queue"
                 v-model="stage"
                 class="border-input bg-background h-9 rounded-md border px-3 text-sm"
             >
@@ -156,7 +216,7 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
                                 <td class="px-4 py-3 text-right">
                                     <Button as-child variant="ghost" size="sm">
                                         <Link :href="routes.admin.recruitment.applications.show(row.id)">
-                                            Detail
+                                            Proses
                                         </Link>
                                     </Button>
                                 </td>

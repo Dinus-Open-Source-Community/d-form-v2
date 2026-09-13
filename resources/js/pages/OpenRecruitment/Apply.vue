@@ -77,6 +77,13 @@ function submit() {
             <p v-if="period" class="text-muted-foreground text-sm">
                 Periode: {{ period.name }} · {{ period.status_label }}
             </p>
+            <p class="text-muted-foreground mx-auto max-w-md text-xs leading-relaxed">
+                Isi sekali — setelah submit, pantau progress lewat
+                <Link :href="routes.openRecruitment.track.login" class="text-primary underline-offset-2 hover:underline">
+                    portal tracking
+                </Link>
+                dengan nomor pendaftaran & token email.
+            </p>
         </div>
 
         <Card v-if="isBlocked" class="rounded-2xl border-dashed border-border/70">

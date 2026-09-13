@@ -23,6 +23,7 @@ class IndexRecruitmentApplicationRequest extends FormRequest
             'period_id' => ['nullable', 'uuid'],
             'division_id' => ['nullable', 'uuid'],
             'stage' => ['nullable', Rule::enum(ApplicationStage::class)],
+            'queue' => ['nullable', 'string', Rule::in(['screening', 'revision', 'interview', 'final', 'done'])],
             'semester' => ['nullable', 'integer', 'min:1', 'max:14'],
             'page' => ['nullable', 'integer', 'min:1'],
         ];

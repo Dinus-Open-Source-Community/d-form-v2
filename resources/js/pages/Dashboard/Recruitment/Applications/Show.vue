@@ -274,6 +274,17 @@ const finalModalTitle = computed(() => {
     if (finalAction.value === 'reject') return 'Tolak applicant (final)'
     return 'Keputusan final'
 })
+
+const defaultTab = computed(() => {
+    const { stage, revision_required, correction_requests } = props.application
+    const hasPendingCorrection = correction_requests.some((c) => c.status === 'pending')
+
+    if (revision_required || hasPendingCorrection) return 'screening'
+    if (stage === 'submitted' || stage === 'screening') return 'screening'
+    if (stage === 'final_review' || stage === 'completed') return 'final'
+
+    return 'profile'
+})
 </script>
 
 <template>
@@ -325,17 +336,15 @@ const finalModalTitle = computed(() => {
             Applicant diminta melakukan revisi pendaftaran.
         </div>
 
-        <Tabs default-value="overview" class="w-full">
-            <TabsList class="grid w-full grid-cols-6">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="documents">Dokumen</TabsTrigger>
+        <Tabs :default-value="defaultTab" class="w-full">
+            <TabsList class="grid w-full grid-cols-4">
+                <TabsTrigger value="profile">Profil</TabsTrigger>
                 <TabsTrigger value="screening">Screening</TabsTrigger>
                 <TabsTrigger value="final">Final</TabsTrigger>
-                <TabsTrigger value="corrections">Koreksi</TabsTrigger>
                 <TabsTrigger value="history">Riwayat</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" class="mt-4">
+            <TabsContent value="profile" class="mt-4 space-y-4">
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="grid gap-4 p-6 sm:grid-cols-2">
                         <div>
@@ -380,11 +389,10 @@ const finalModalTitle = computed(() => {
                         </div>
                     </CardContent>
                 </Card>
-            </TabsContent>
 
-            <TabsContent value="documents" class="mt-4">
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="space-y-4 p-6">
+                        <p class="font-medium">Dokumen</p>
                         <div v-if="application.document" class="space-y-4">
                             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                                 <div class="flex items-center gap-3">
@@ -448,9 +456,10 @@ const finalModalTitle = computed(() => {
                 </Card>
             </TabsContent>
 
-            <TabsContent value="screening" class="mt-4">
+            <TabsContent value="screening" class="mt-4 space-y-4">
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="space-y-4 p-6">
+                        <p class="font-medium">Riwayat screening</p>
                         <div
                             v-for="screening in application.screenings"
                             :key="screening.id"
@@ -471,6 +480,46 @@ const finalModalTitle = computed(() => {
                         </div>
                         <p v-if="application.screenings.length === 0" class="text-muted-foreground text-sm">
                             Belum ada keputusan screening.
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card class="rounded-2xl border-border/70">
+                    <CardContent class="space-y-4 p-6">
+                        <p class="font-medium">Permintaan koreksi</p>
+                        <div
+                            v-for="correction in application.correction_requests"
+                            :key="correction.id"
+                            class="rounded-xl border p-4"
+                        >
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <p class="font-medium">{{ correction.status_label }}</p>
+                                <p v-if="correction.reviewer" class="text-muted-foreground text-xs">
+                                    {{ correction.reviewer.name }}
+                                </p>
+                            </div>
+                            <p class="mt-2 text-sm">{{ correction.request_message }}</p>
+                            <p v-if="correction.review_notes" class="text-muted-foreground mt-2 text-sm">
+                                Catatan: {{ correction.review_notes }}
+                            </p>
+                            <div
+                                v-if="canReviewCorrections && correction.status === 'pending'"
+                                class="mt-4 flex flex-wrap gap-2"
+                            >
+                                <Button size="sm" @click="approveCorrection(correction.id)">
+                                    Setujui
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    @click="rejectCorrection(correction.id)"
+                                >
+                                    Tolak
+                                </Button>
+                            </div>
+                        </div>
+                        <p v-if="application.correction_requests.length === 0" class="text-muted-foreground text-sm">
+                            Belum ada permintaan koreksi.
                         </p>
                     </CardContent>
                 </Card>
@@ -554,47 +603,6 @@ const finalModalTitle = computed(() => {
                 >
                     Belum ada data final review.
                 </p>
-            </TabsContent>
-
-            <TabsContent value="corrections" class="mt-4">
-                <Card class="rounded-2xl border-border/70">
-                    <CardContent class="space-y-4 p-6">
-                        <div
-                            v-for="correction in application.correction_requests"
-                            :key="correction.id"
-                            class="rounded-xl border p-4"
-                        >
-                            <div class="flex flex-wrap items-start justify-between gap-2">
-                                <p class="font-medium">{{ correction.status_label }}</p>
-                                <p v-if="correction.reviewer" class="text-muted-foreground text-xs">
-                                    {{ correction.reviewer.name }}
-                                </p>
-                            </div>
-                            <p class="mt-2 text-sm">{{ correction.request_message }}</p>
-                            <p v-if="correction.review_notes" class="text-muted-foreground mt-2 text-sm">
-                                Catatan: {{ correction.review_notes }}
-                            </p>
-                            <div
-                                v-if="canReviewCorrections && correction.status === 'pending'"
-                                class="mt-4 flex flex-wrap gap-2"
-                            >
-                                <Button size="sm" @click="approveCorrection(correction.id)">
-                                    Setujui
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    @click="rejectCorrection(correction.id)"
-                                >
-                                    Tolak
-                                </Button>
-                            </div>
-                        </div>
-                        <p v-if="application.correction_requests.length === 0" class="text-muted-foreground text-sm">
-                            Belum ada permintaan koreksi.
-                        </p>
-                    </CardContent>
-                </Card>
             </TabsContent>
 
             <TabsContent value="history" class="mt-4">

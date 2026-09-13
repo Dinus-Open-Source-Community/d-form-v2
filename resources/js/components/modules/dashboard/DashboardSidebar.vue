@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import {
     Sidebar,
@@ -11,6 +11,9 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     SidebarRail,
     SidebarSeparator,
     useSidebar,
@@ -21,6 +24,9 @@ import {
     CalendarCheck2,
     Compass,
     Users,
+    ChevronDown,
+    Settings2,
+    ClipboardCheck,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
 import useAuth from '@/utils/composables/useAuth';
@@ -34,11 +40,11 @@ const canAccessRecruitment = computed(() => user.value?.can_access_recruitment =
 const canManageRecruitmentPeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
-const canViewRecruitmentQueue = computed(() => user.value?.can_view_recruitment_queue === true);
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
 const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
 const canEditRecruitmentEmailTemplates = computed(() => user.value?.can_edit_recruitment_email_templates === true);
+const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
 
 const currentPath = computed(() => page.url);
 
@@ -54,7 +60,9 @@ const managementItems = computed(() => {
         items.push({ label: 'Acara', href: routes.admin.events.index, icon: CalendarDays });
     }
 
-    if (canAccessRecruitment.value) {
+    if (canAccessRecruitment.value && isInterviewerOnly.value) {
+        items.push({ label: 'Interview OpRec', href: routes.admin.recruitment.myInterviews.index, icon: ClipboardCheck });
+    } else if (canAccessRecruitment.value) {
         items.push({ label: 'Rekrutmen', href: routes.admin.recruitment.index, icon: Users });
     }
 
@@ -73,10 +81,16 @@ const managementItems = computed(() => {
     return items;
 });
 
-const recruitmentSubItems = computed(() => {
-    if (!canAccessRecruitment.value) return [];
+const interviewerNavItems = computed(() => {
+    if (!isInterviewerOnly.value || !canViewMyRecruitmentInterviews.value) return [];
 
-    const items = [{ label: 'Dashboard', href: routes.admin.recruitment.index }];
+    return [{ label: 'Pusat interview', href: routes.admin.recruitment.myInterviews.index }];
+});
+
+const recruitmentOpsItems = computed(() => {
+    if (!canAccessRecruitment.value || isInterviewerOnly.value) return [];
+
+    const items = [{ label: 'Pusat kerja', href: routes.admin.recruitment.index }];
 
     if (canListRecruitmentApplications.value) {
         items.push({ label: 'Applicant', href: routes.admin.recruitment.applications.index });
@@ -86,25 +100,24 @@ const recruitmentSubItems = computed(() => {
         items.push({ label: 'Interview', href: routes.admin.recruitment.interviewSessions.index });
     }
 
-    if (canViewRecruitmentQueue.value) {
-        items.push({ label: 'Scan absensi', href: routes.admin.recruitment.attendanceScan.index });
-    }
-
-    if (canViewMyRecruitmentInterviews.value) {
-        items.push({ label: 'Interview Saya', href: routes.admin.recruitment.myInterviews.index });
-    }
-
     if (canViewRecruitmentReports.value) {
         items.push({ label: 'Laporan', href: routes.admin.recruitment.reports.index });
     }
 
-    if (canViewRecruitmentActivity.value) {
-        items.push({ label: 'Activity log', href: routes.admin.recruitment.activityLogs.index });
+    if (
+        canViewMyRecruitmentInterviews.value &&
+        (canListRecruitmentApplications.value || canScheduleRecruitmentInterviews.value)
+    ) {
+        items.push({ label: 'Interview Saya', href: routes.admin.recruitment.myInterviews.index });
     }
 
-    if (canEditRecruitmentEmailTemplates.value) {
-        items.push({ label: 'Template email', href: routes.admin.recruitment.emailTemplates.index });
-    }
+    return items;
+});
+
+const recruitmentSettingsItems = computed(() => {
+    if (!canAccessRecruitment.value || isInterviewerOnly.value) return [];
+
+    const items: { label: string; href: string }[] = [];
 
     if (canManageRecruitmentPeriods.value) {
         items.push(
@@ -113,12 +126,46 @@ const recruitmentSubItems = computed(() => {
         );
     }
 
+    if (canEditRecruitmentEmailTemplates.value) {
+        items.push({ label: 'Template Email', href: routes.admin.recruitment.emailTemplates.index });
+    }
+
+    if (canViewRecruitmentActivity.value) {
+        items.push({ label: 'Activity Log', href: routes.admin.recruitment.activityLogs.index });
+    }
+
     return items;
 });
+
+const showInterviewerSection = computed(() => interviewerNavItems.value.length > 0);
+const showRecruitmentSection = computed(
+    () => recruitmentOpsItems.value.length > 0 || recruitmentSettingsItems.value.length > 0,
+);
+const showRecruitmentSettings = computed(() => recruitmentSettingsItems.value.length > 0);
+
+const recruitmentSettingsOpen = ref(false);
 
 function isActive(href: string): boolean {
     return isSidebarNavActive(href, currentPath.value);
 }
+
+function isRecruitmentSettingsActive(): boolean {
+    return recruitmentSettingsItems.value.some((item) => isActive(item.href));
+}
+
+function toggleRecruitmentSettings() {
+    recruitmentSettingsOpen.value = !recruitmentSettingsOpen.value;
+}
+
+watch(
+    currentPath,
+    () => {
+        if (isRecruitmentSettingsActive()) {
+            recruitmentSettingsOpen.value = true;
+        }
+    },
+    { immediate: true },
+);
 
 function closeMobileIfNeeded() {
     if (isMobile.value) setOpenMobile(false);
@@ -189,7 +236,31 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <template v-if="recruitmentSubItems.length > 0">
+            <template v-if="showInterviewerSection">
+                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
+
+                <SidebarGroup class="p-0">
+                    <SidebarGroupLabel
+                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                    >
+                        Interview OpRec
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent class="space-y-0.5">
+                        <SidebarMenu class="gap-0.5">
+                            <SidebarMenuItem v-for="item in interviewerNavItems" :key="item.href">
+                                <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
+                                    <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
+                                        <ClipboardCheck class="size-4 shrink-0 opacity-90" />
+                                        <span class="font-medium">{{ item.label }}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </template>
+
+            <template v-if="showRecruitmentSection">
                 <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
 
                 <SidebarGroup class="p-0">
@@ -200,12 +271,39 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     </SidebarGroupLabel>
                     <SidebarGroupContent class="space-y-0.5">
                         <SidebarMenu class="gap-0.5">
-                            <SidebarMenuItem v-for="item in recruitmentSubItems" :key="item.href">
+                            <SidebarMenuItem v-for="item in recruitmentOpsItems" :key="item.href">
                                 <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
                                     <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
                                         <span class="font-medium">{{ item.label }}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                            </SidebarMenuItem>
+
+                            <SidebarMenuItem v-if="showRecruitmentSettings">
+                                <SidebarMenuButton
+                                    :is-active="isRecruitmentSettingsActive()"
+                                    tooltip="Pengaturan OpRec"
+                                    @click="toggleRecruitmentSettings"
+                                >
+                                    <Settings2 class="size-4 shrink-0 opacity-90" />
+                                    <span class="font-medium">Pengaturan OpRec</span>
+                                    <ChevronDown
+                                        class="ml-auto size-4 shrink-0 opacity-70 transition-transform duration-200"
+                                        :class="recruitmentSettingsOpen ? 'rotate-180' : ''"
+                                    />
+                                </SidebarMenuButton>
+                                <SidebarMenuSub v-show="recruitmentSettingsOpen">
+                                    <SidebarMenuSubItem
+                                        v-for="item in recruitmentSettingsItems"
+                                        :key="item.href"
+                                    >
+                                        <SidebarMenuSubButton as-child :is-active="isActive(item.href)">
+                                            <Link :href="item.href" @click="closeMobileIfNeeded">
+                                                {{ item.label }}
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                </SidebarMenuSub>
                             </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>

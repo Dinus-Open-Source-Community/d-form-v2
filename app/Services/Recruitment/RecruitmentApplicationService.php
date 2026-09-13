@@ -5,6 +5,7 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Models\Recruitment\RecruitmentActivityLog;
+use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentDivision;
@@ -41,6 +42,10 @@ final class RecruitmentApplicationService
             $query->where('stage', $filters['stage']);
         }
 
+        if (! empty($filters['queue'])) {
+            $this->applyQueueFilter($query, (string) $filters['queue']);
+        }
+
         if (! empty($filters['semester'])) {
             $query->where('semester', (int) $filters['semester']);
         }
@@ -55,6 +60,58 @@ final class RecruitmentApplicationService
         }
 
         return $query->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function queueCounts(?string $periodId = null): array
+    {
+        $query = RecruitmentApplication::query();
+
+        if ($periodId !== null && $periodId !== '') {
+            $query->where('recruitment_period_id', $periodId);
+        }
+
+        $base = clone $query;
+
+        return [
+            'all' => (clone $base)->count(),
+            'screening' => (clone $base)
+                ->whereIn('stage', [ApplicationStage::Submitted, ApplicationStage::Screening])
+                ->where('result', ApplicationResult::Pending)
+                ->where('revision_required', false)
+                ->count(),
+            'revision' => (clone $base)->where('revision_required', true)->count(),
+            'interview' => (clone $base)->where('stage', ApplicationStage::Interview)->count(),
+            'final' => (clone $base)->where('stage', ApplicationStage::FinalReview)->count(),
+            'done' => (clone $base)->where('stage', ApplicationStage::Completed)->count(),
+            'corrections_pending' => RecruitmentCorrectionRequest::query()
+                ->where('status', CorrectionRequestStatus::Pending)
+                ->when($periodId, fn ($q) => $q->whereHas(
+                    'application',
+                    fn ($app) => $app->where('recruitment_period_id', $periodId),
+                ))
+                ->count(),
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<RecruitmentApplication>  $query
+     */
+    private function applyQueueFilter($query, string $queue): void
+    {
+        match ($queue) {
+            'screening' => $query
+                ->whereIn('stage', [ApplicationStage::Submitted, ApplicationStage::Screening])
+                ->where('result', ApplicationResult::Pending)
+                ->where('revision_required', false),
+            'revision' => $query->where('revision_required', true),
+            'interview' => $query->where('stage', ApplicationStage::Interview),
+            'final' => $query->where('stage', ApplicationStage::FinalReview),
+            'done' => $query->where('stage', ApplicationStage::Completed),
+            default => null,
+        };
     }
 
     /**

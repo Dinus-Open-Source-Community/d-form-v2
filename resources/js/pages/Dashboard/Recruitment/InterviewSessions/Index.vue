@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
@@ -16,7 +16,9 @@ import {
 } from '@/components/ui/dialog'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import { Plus } from 'lucide-vue-next'
+import { Plus, ScanLine, ListOrdered } from 'lucide-vue-next'
+import useAuth from '@/utils/composables/useAuth'
+import { usePage } from '@inertiajs/vue3'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -42,10 +44,16 @@ interface Paginator {
 
 const props = defineProps<{
     sessions: Paginator
+    today_sessions: SessionRow[]
     query: { period_id?: string; division_id?: string; is_active?: string }
     periodOptions: { id: string; name: string }[]
     divisionOptions: { id: string; name: string; code: string }[]
 }>()
+
+const page = usePage()
+const user = useAuth(page.props)
+const canViewQueue = computed(() => user.value?.can_view_recruitment_queue === true)
+const canScanAttendance = computed(() => user.value?.can_scan_recruitment_attendance === true)
 
 const periodId = ref(props.query.period_id ?? '')
 const divisionId = ref(props.query.division_id ?? '')
@@ -107,6 +115,51 @@ function submitCreate() {
                 </Button>
             </template>
         </PageHeader>
+
+        <Card v-if="today_sessions.length > 0" class="rounded-2xl border-primary/30 bg-primary/5">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-base">Sesi hari ini</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+                <div
+                    v-for="session in today_sessions"
+                    :key="session.id"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background p-4"
+                >
+                    <div>
+                        <p class="font-medium">
+                            {{ session.division?.name ?? 'Interview' }}
+                            · {{ session.starts_at }}–{{ session.ends_at }}
+                        </p>
+                        <p class="text-muted-foreground text-sm">
+                            {{ session.location }} · {{ session.room }}
+                            · {{ session.interviews_count }} terjadwal
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Button as-child size="sm">
+                            <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">
+                                Kelola
+                            </Link>
+                        </Button>
+                        <Button v-if="canViewQueue" as-child variant="outline" size="sm">
+                            <Link :href="routes.admin.recruitment.queue.show(session.id)">
+                                <ListOrdered class="mr-2 size-4" />
+                                Antrean
+                            </Link>
+                        </Button>
+                        <Button v-if="canScanAttendance" as-child variant="secondary" size="sm">
+                            <Link
+                                :href="`${routes.admin.recruitment.attendanceScan.index}?session=${session.id}`"
+                            >
+                                <ScanLine class="mr-2 size-4" />
+                                Scan
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
 
         <div class="flex flex-wrap gap-3">
             <select

@@ -14,12 +14,17 @@ class RecruitmentDashboardController extends Controller
     ) {
     }
 
-    public function __invoke(): Response
+    public function __invoke(): Response|\Illuminate\Http\RedirectResponse
     {
-        abort_unless(auth()->user()?->can('recruitment.dashboard.view'), 403);
+        $user = auth()->user();
+        abort_unless($user?->can('recruitment.dashboard.view'), 403);
+
+        if ($this->dashboardService->isInterviewerOnly($user)) {
+            return redirect()->route('dashboard.recruitment.my-interviews.index');
+        }
 
         return Inertia::render('Dashboard/Recruitment/Index', [
-            'summary' => $this->dashboardService->summary(auth()->user()),
+            'summary' => $this->dashboardService->summary($user),
         ]);
     }
 }

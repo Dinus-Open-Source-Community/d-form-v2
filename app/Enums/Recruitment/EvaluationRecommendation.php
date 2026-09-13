@@ -10,8 +10,8 @@ enum EvaluationRecommendation: string
     public function label(): string
     {
         return match ($this) {
-            self::Recommended => 'Recommended',
-            self::NotRecommended => 'Not Recommended',
+            self::Recommended => 'Direkomendasikan',
+            self::NotRecommended => 'Tidak direkomendasikan',
         };
     }
 

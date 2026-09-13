@@ -14,6 +14,8 @@ final class RecruitmentDashboardService
 {
     public function __construct(
         private readonly RecruitmentReportService $reportService,
+        private readonly RecruitmentApplicationService $applicationService,
+        private readonly InterviewSessionService $sessionService,
     ) {
     }
 
@@ -40,6 +42,8 @@ final class RecruitmentDashboardService
                 'interview_stats' => $this->emptyInterviewStats(),
                 'feedback' => $this->emptyFeedbackStats(),
                 'accepted_count' => 0,
+                'action_queues' => [],
+                'today_sessions' => [],
             ];
         }
 
@@ -47,6 +51,7 @@ final class RecruitmentDashboardService
             ->where('recruitment_period_id', $activePeriod->id);
 
         $report = $this->reportService->build($activePeriod->id);
+        $queueCounts = $this->applicationService->queueCounts($activePeriod->id);
 
         return [
             'active_period' => app(RecruitmentPeriodService::class)->toInertiaArray($activePeriod),
@@ -69,6 +74,8 @@ final class RecruitmentDashboardService
             'accepted_count' => (clone $applications)
                 ->where('result', ApplicationResult::Accepted)
                 ->count(),
+            'action_queues' => $this->buildActionQueues($queueCounts),
+            'today_sessions' => $this->sessionService->todaySessions($activePeriod->id),
         ];
     }
 
@@ -114,7 +121,7 @@ final class RecruitmentDashboardService
         ];
     }
 
-    private function isInterviewerOnly(User $user): bool
+    public function isInterviewerOnly(User $user): bool
     {
         if ($user->hasRole('super-admin') || $user->can('recruitment.applications.list')) {
             return false;
@@ -177,5 +184,42 @@ final class RecruitmentDashboardService
             'count' => 0,
             'averages' => [],
         ];
+    }
+
+    /**
+     * @param  array<string, int>  $counts
+     * @return list<array<string, mixed>>
+     */
+    private function buildActionQueues(array $counts): array
+    {
+        $correctionsPending = $counts['corrections_pending'] ?? 0;
+
+        $queues = [
+            [
+                'key' => 'screening',
+                'label' => 'Perlu screening',
+                'description' => 'Applicant baru menunggu tinjauan dokumen',
+                'count' => $counts['screening'] ?? 0,
+            ],
+            [
+                'key' => 'revision',
+                'label' => 'Revisi & koreksi',
+                'description' => $correctionsPending > 0
+                    ? "{$correctionsPending} permintaan koreksi menunggu review"
+                    : 'Applicant diminta revisi pendaftaran',
+                'count' => max($counts['revision'] ?? 0, $correctionsPending),
+            ],
+            [
+                'key' => 'final',
+                'label' => 'Keputusan final',
+                'description' => 'Siap ditinjau untuk Terima / Tolak',
+                'count' => $counts['final'] ?? 0,
+            ],
+        ];
+
+        return array_values(array_filter(
+            $queues,
+            fn (array $queue): bool => ($queue['count'] ?? 0) > 0,
+        ));
     }
 }

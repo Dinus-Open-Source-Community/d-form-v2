@@ -211,11 +211,23 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     if (href === routes.admin.recruitment.index) {
         return path === routes.admin.recruitment.index;
     }
+    if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
+        return path.startsWith(routes.admin.recruitment.myInterviews.index);
+    }
     if (href.startsWith(routes.admin.recruitment.periods.index)) {
         return path.startsWith(routes.admin.recruitment.periods.index);
     }
     if (href.startsWith(routes.admin.recruitment.divisions.index)) {
         return path.startsWith(routes.admin.recruitment.divisions.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.emailTemplates.index)) {
+        return path.startsWith(routes.admin.recruitment.emailTemplates.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.activityLogs.index)) {
+        return path.startsWith(routes.admin.recruitment.activityLogs.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.reports.index)) {
+        return path.startsWith(routes.admin.recruitment.reports.index);
     }
     if (href.startsWith(routes.admin.recruitment.applications.index)) {
         return path.startsWith(routes.admin.recruitment.applications.index);

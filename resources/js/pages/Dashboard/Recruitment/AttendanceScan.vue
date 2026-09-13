@@ -31,10 +31,13 @@ interface SessionOption {
 
 const props = defineProps<{
     sessions: SessionOption[]
+    initialSessionId?: string | null
     attendanceScanStoreUrl: string
 }>()
 
-const selectedSessionId = ref(props.sessions[0]?.id ?? '')
+const selectedSessionId = ref(
+    props.initialSessionId ?? props.sessions[0]?.id ?? '',
+)
 
 const selectedSession = computed(() => props.sessions.find((s) => s.id === selectedSessionId.value) ?? null)
 

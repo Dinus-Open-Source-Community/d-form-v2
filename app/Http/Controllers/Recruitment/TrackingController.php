@@ -69,7 +69,7 @@ class TrackingController extends Controller
             'logoutUrl' => route('open-recruitment.track.logout'),
             'editUrl' => route('open-recruitment.track.edit'),
             'correctionUrl' => route('open-recruitment.track.correction'),
-            'feedbackUrl' => route('open-recruitment.track.feedback'),
+            'feedbackStoreUrl' => route('open-recruitment.track.feedback.store'),
         ]);
     }
 

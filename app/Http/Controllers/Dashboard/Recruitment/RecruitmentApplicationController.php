@@ -35,9 +35,12 @@ class RecruitmentApplicationController extends Controller
             )
         );
 
+        $periodId = isset($validated['period_id']) ? (string) $validated['period_id'] : null;
+
         return Inertia::render('Dashboard/Recruitment/Applications/Index', [
             'applications' => $paginator,
             'query' => $validated,
+            'queue_counts' => $this->applicationService->queueCounts($periodId),
             'periodOptions' => $this->applicationService->periodOptions(),
             'divisionOptions' => $this->applicationService->divisionOptions(),
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())

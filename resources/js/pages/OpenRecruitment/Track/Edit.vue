@@ -82,12 +82,15 @@ function submit() {
     <Head title="Edit Pendaftaran OpRec" />
 
     <div class="mx-auto max-w-2xl px-2 pb-8">
-        <div class="mb-6 space-y-2">
-            <p class="text-primary text-xs font-semibold tracking-wide uppercase">Tracking OpRec</p>
-            <h1 class="text-2xl font-bold tracking-tight">Perbarui pendaftaran</h1>
-            <p class="text-muted-foreground text-sm">
-                Perbaiki data sesuai instruksi tim recruitment.
-            </p>
+        <div class="mb-6 space-y-3">
+            <Button as-child variant="link" class="h-auto p-0 text-sm">
+                <Link :href="dashboardUrl">← Kembali ke portal</Link>
+            </Button>
+            <div>
+                <p class="text-primary text-xs font-semibold tracking-wide uppercase">Portal OpRec</p>
+                <h1 class="text-xl font-bold tracking-tight">Perbarui pendaftaran</h1>
+                <p class="text-muted-foreground text-sm">Perbaiki data sesuai instruksi tim.</p>
+            </div>
         </div>
 
         <Card class="rounded-2xl border-border/70">

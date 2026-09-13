@@ -107,7 +107,7 @@ function formatRange(start: string | null, end: string | null): string {
                         Pendaftaran belum dibuka
                     </Button>
                     <Button as-child variant="outline" size="lg">
-                        <Link :href="routes.openRecruitment.track.login">Pantau pendaftaran</Link>
+                        <Link :href="routes.openRecruitment.track.login">Sudah daftar? Portal tracking</Link>
                     </Button>
                     <p v-if="!registration.is_open" class="text-muted-foreground text-sm">
                         {{ registration.message }}
