@@ -208,7 +208,28 @@ Modul yang masih memakai Livewire di repositori harus mencapai **parity perilaku
 
 ---
 
+## Modul OpRec (OpenRecruitment) — milestone terpisah
+
+Modul **DOSCOM OpenRecruitment (OpRec)** berdiri sendiri di luar M0–M8 di atas. Modul ini mengelola recruitment anggota end-to-end (pendaftaran guest, screening, interview, queue, final selection) dan **reuse** infrastruktur D-Form (auth, email queue, QR, file storage).
+
+| | |
+|---|---|
+| **PRD produk** | [PRD — DOSCOM OpenRecruitment (OpRec)](module/PRD%20—%20DOSCOM%20OpenRecruitment%20(OpRec).md) |
+| **Milestone OpRec (M0–M11)** | [module/oprec/milestone.md](module/oprec/milestone.md) |
+| **Dokumentasi teknis** | [module/oprec/README.md](module/oprec/README.md) |
+
+**Dependensi ke milestone D-Form:**
+
+- **M1** (Auth & roles) — login internal Staff/Interviewer/Admin
+- **M5** (Email & QR) — queue email, QR generator, `email_logs`
+- **M6** (Absensi QR) — referensi UX scanner (bukan data model event)
+
+OpRec dapat dikerjakan paralel setelah auth stabil; tidak perlu menunggu M4c (bundle registration).
+
+---
+
 ## Referensi
 
 - [PRD — D-Form v2](prd.md)
+- [PRD & milestone — OpRec (OpenRecruitment)](module/oprec/README.md)
 - [README](../README.md)

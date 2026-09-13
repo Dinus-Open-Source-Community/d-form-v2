@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -35,5 +37,13 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(resource_path() . '/views/layouts', 'layout');
         Blade::anonymousComponentNamespace('components.core', 'core');
         Blade::anonymousComponentNamespace('components.module', 'module');
+
+        RateLimiter::for('oprec-apply', function (Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('oprec-track', function (Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
+        });
     }
 }

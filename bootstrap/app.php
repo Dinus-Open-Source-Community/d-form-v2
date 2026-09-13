@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
@@ -31,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,
+            'recruitment.access' => \App\Http\Middleware\EnsureRecruitmentAccess::class,
+            'recruitment.period.open' => \App\Http\Middleware\EnsureRecruitmentPeriodOpen::class,
+            'recruitment.tracking.session' => \App\Http\Middleware\EnsureTrackingSession::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

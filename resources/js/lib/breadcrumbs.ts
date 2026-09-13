@@ -12,7 +12,7 @@ export interface BreadcrumbItem {
  */
 const BASE_PATHS: BreadcrumbItem[] = [
     { label: 'Acara', href: routes.admin.events.index },
-    { label: 'Rekrutmen', href: routes.admin.recruitment },
+    { label: 'Rekrutmen', href: routes.admin.recruitment.index },
     { label: 'Acara Diikuti', href: routes.member.joined },
     { label: 'Jelajah', href: routes.member.browse },
     { label: 'Dashboard', href: routes.admin.index },

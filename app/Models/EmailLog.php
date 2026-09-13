@@ -18,6 +18,7 @@ class EmailLog extends Model
 
     protected $fillable = [
         'form_answer_id',
+        'recruitment_application_id',
         'event_id',
         'user_id',
         'recipient_email',
@@ -39,6 +40,11 @@ class EmailLog extends Model
     public function formAnswer(): BelongsTo
     {
         return $this->belongsTo(FormAnswer::class);
+    }
+
+    public function recruitmentApplication(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Recruitment\RecruitmentApplication::class, 'recruitment_application_id');
     }
 
     public function event(): BelongsTo

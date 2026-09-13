@@ -14,6 +14,10 @@ interface IUser {
     has_local_password?: boolean;
     /** Selaras middleware organizer: permission events.list */
     can_manage_events?: boolean;
+    /** Permission recruitment.dashboard.view */
+    can_access_recruitment?: boolean;
+    /** Permission recruitment.periods.list */
+    can_manage_recruitment_periods?: boolean;
     created_at?: string;
     updated_at?: string;
     deleted_at?: string;

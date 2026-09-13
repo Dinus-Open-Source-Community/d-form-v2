@@ -60,12 +60,37 @@ class RoleSeeder extends Seeder
             'attendances.export',
             'attendances.import',
 
-            // recruitments management
-            // 'recruitments.list',
-            // 'recruitments.create',
-            // 'recruitments.view',
-            // 'recruitments.edit',
-            // 'recruitments.delete',
+            // recruitment (OpRec)
+            'recruitment.dashboard.view',
+            'recruitment.periods.list',
+            'recruitment.periods.create',
+            'recruitment.periods.view',
+            'recruitment.periods.edit',
+            'recruitment.periods.delete',
+            'recruitment.divisions.list',
+            'recruitment.divisions.view',
+            'recruitment.divisions.edit',
+            'recruitment.interviewers.assign',
+            'recruitment.applications.list',
+            'recruitment.applications.view',
+            'recruitment.applications.export',
+            'recruitment.screening.review',
+            'recruitment.screening.decide',
+            'recruitment.corrections.review',
+            'recruitment.interviews.schedule',
+            'recruitment.interviews.reschedule',
+            'recruitment.interviews.reassign',
+            'recruitment.queue.view',
+            'recruitment.queue.manage',
+            'recruitment.attendance.scan',
+            'recruitment.evaluations.submit',
+            'recruitment.evaluations.view',
+            'recruitment.final.decide',
+            'recruitment.reports.view',
+            'recruitment.reports.export',
+            'recruitment.templates.list',
+            'recruitment.templates.edit',
+            'recruitment.activity.view',
 
             // form submissions management
             'form_submissions.list',
@@ -83,8 +108,36 @@ class RoleSeeder extends Seeder
                 'form_submissions.create',
                 'form_submissions.view',
                 'form_submissions.edit',
-                'form_submissions.delete'
-            ]
+                'form_submissions.delete',
+            ],
+            'recruitment-staff' => [
+                'recruitment.dashboard.view',
+                'recruitment.applications.list',
+                'recruitment.applications.view',
+                'recruitment.applications.export',
+                'recruitment.screening.review',
+                'recruitment.screening.decide',
+                'recruitment.corrections.review',
+                'recruitment.interviews.schedule',
+                'recruitment.interviews.reschedule',
+                'recruitment.interviews.reassign',
+                'recruitment.queue.view',
+                'recruitment.queue.manage',
+                'recruitment.attendance.scan',
+                'recruitment.final.decide',
+                'recruitment.reports.view',
+                'recruitment.reports.export',
+                'recruitment.activity.view',
+                'recruitment.divisions.view',
+            ],
+            'recruitment-interviewer' => [
+                'recruitment.dashboard.view',
+                'recruitment.applications.view',
+                'recruitment.queue.view',
+                'recruitment.evaluations.submit',
+                'recruitment.evaluations.view',
+                'recruitment.divisions.view',
+            ],
         ];
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
@@ -104,6 +157,12 @@ class RoleSeeder extends Seeder
 
         Role::findOrCreate('member', 'web')
             ->syncPermissions($roles['member']);
+
+        Role::findOrCreate('recruitment-staff', 'web')
+            ->syncPermissions($roles['recruitment-staff']);
+
+        Role::findOrCreate('recruitment-interviewer', 'web')
+            ->syncPermissions($roles['recruitment-interviewer']);
 
         Role::findOrCreate('super-admin', 'web')
             ->syncPermissions(Permission::query()->where('guard_name', 'web')->pluck('name')->all());

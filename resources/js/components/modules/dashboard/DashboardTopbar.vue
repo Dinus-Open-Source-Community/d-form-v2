@@ -77,7 +77,7 @@ const BASE_PAGE_PATHS = new Set([
     routes.dashboard.index,
     routes.admin.index,
     routes.admin.events.index,
-    routes.admin.recruitment,
+    routes.admin.recruitment.index,
     routes.member.joined,
     routes.member.browse,
 ]);

@@ -44,7 +44,6 @@ Route::middleware(['auth', 'throttle:10,1'])->put('/profile/password', [ProfileC
 Route::middleware('auth')->get('/admin/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard.home');
 Route::middleware(['auth', 'organizer'])->prefix('/admin')->group(function () {
     Route::get('/reports', fn () => redirect()->route('dashboard.events.index'))->name('dashboard.reports.index');
-    Route::get('/recruitment', fn () => inertia('Dashboard/Recruitment/Index'))->name('dashboard.recruitment.index');
 });
 
 Route::middleware('auth')->get('/joined/profile', fn () => redirect()->route('dashboard.profile'))->name('dashboard.user.profile');

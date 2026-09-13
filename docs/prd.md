@@ -146,7 +146,16 @@ Setelah fitur ini tersedia, sistem mendukung:
 
 ---
 
-### 4.4 Fase lanjutan (di luar MVP inti)
+### 4.4 Modul OpenRecruitment (OpRec)
+
+Modul terpisah untuk **recruitment anggota DOSCOM** end-to-end: pendaftaran applicant tanpa login (`/open-recruitment`), screening, interview, attendance & antrean, penilaian interviewer, seleksi akhir, dan feedback. Dibangun di atas platform D-Form v2 dengan domain data sendiri (`recruitment_*`), reuse infrastruktur email, QR, dan file storage.
+
+| Dokumen | Path |
+|---------|------|
+| PRD produk OpRec | [module/PRD — DOSCOM OpenRecruitment (OpRec).md](module/PRD%20—%20DOSCOM%20OpenRecruitment%20(OpRec).md) |
+| Dokumentasi teknis & milestone | [module/oprec/README.md](module/oprec/README.md) |
+
+### 4.5 Fase lanjutan (di luar MVP inti)
 
 - **Email broadcast:** pengingat event mendatang, pemberitahuan perubahan jadwal/lokasi/deskripsi.
 - Pelaporan lanjutan (filter lanjutan, agregasi, unduhan format tambahan).
@@ -235,6 +244,7 @@ Entitas utama mengikuti **migrasi aktual** di `database/migrations/` (Laravel). 
 ## 10. Referensi
 
 - [Milestone & fase pengiriman](milestone.md)
+- [OpRec — dokumentasi modul & milestone](module/oprec/README.md)
 - [README proyek](../README.md)
 - Skema basis data: folder migrasi Laravel [`../database/migrations/`](../database/migrations/)
 - Project Brief D-Form v2 (PDF)
