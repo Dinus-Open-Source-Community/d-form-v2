@@ -18,9 +18,11 @@ import {
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import useAuth from '@/utils/composables/useAuth'
-import { CheckCircle2, Download, FileText, History, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, Download, FileText, History, Trophy, XCircle } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
+
+type FinalAction = 'accept' | 'reject' | null
 
 type ScreeningAction = 'revision' | 'reject' | null
 
@@ -53,6 +55,28 @@ interface CorrectionRow {
     reviewed_at: string | null
     completed_at: string | null
     reviewer: { id: string; name: string } | null
+}
+
+interface EvaluationDetail {
+    speaking_score: number
+    technical_score: number
+    attitude_score: number
+    recommendation: string
+    recommendation_label: string
+    notes: string | null
+    is_locked: boolean
+    evaluated_at: string | null
+    evaluator: { id: string; name: string } | null
+}
+
+interface FinalDecisionDetail {
+    membership_type: string | null
+    membership_type_label: string | null
+    final_division: { id: string; name: string; code: string } | null
+    internal_reason: string | null
+    public_message: string | null
+    decided_at: string | null
+    decider: { id: string; name: string } | null
 }
 
 interface ApplicationDetail {
@@ -90,13 +114,18 @@ interface ApplicationDetail {
     screenings: ScreeningRow[]
     activity_logs: ActivityRow[]
     correction_requests: CorrectionRow[]
+    evaluation: EvaluationDetail | null
+    final_decision: FinalDecisionDetail | null
     can_screen: boolean
     can_verify: boolean
+    can_decide_final: boolean
 }
 
 const props = defineProps<{
     application: ApplicationDetail
     screeningReasonOptions: { value: string; label: string }[]
+    divisionOptions: { id: string; name: string; code: string }[]
+    membershipTypeOptions: { value: string; label: string }[]
 }>()
 
 const page = usePage()
@@ -106,6 +135,9 @@ const canScreen = computed(
 )
 const canVerify = computed(() => props.application.can_verify && user.value?.can_screen_recruitment_applications === true)
 const canReviewCorrections = computed(() => user.value?.can_review_recruitment_corrections === true)
+const canDecideFinal = computed(
+    () => props.application.can_decide_final && user.value?.can_decide_recruitment_final === true,
+)
 
 const correctionReviewForm = useForm({
     review_notes: '',
@@ -114,9 +146,22 @@ const correctionReviewForm = useForm({
 const screeningModalOpen = ref(false)
 const screeningAction = ref<ScreeningAction>(null)
 
+const finalModalOpen = ref(false)
+const finalAction = ref<FinalAction>(null)
+
 const screeningForm = useForm({
     reason: '',
     notes: '',
+    public_message: '',
+})
+
+const finalAcceptForm = useForm({
+    membership_type: '',
+    final_division_id: props.application.primary_division?.id ?? '',
+})
+
+const finalRejectForm = useForm({
+    internal_reason: '',
     public_message: '',
 })
 
@@ -150,6 +195,37 @@ function submitScreening() {
             preserveScroll: true,
             onSuccess: () => {
                 screeningModalOpen.value = false
+            },
+        })
+    }
+}
+
+function openFinalModal(action: FinalAction) {
+    finalAction.value = action
+    finalAcceptForm.reset()
+    finalRejectForm.reset()
+    finalAcceptForm.final_division_id = props.application.primary_division?.id ?? ''
+    finalAcceptForm.clearErrors()
+    finalRejectForm.clearErrors()
+    finalModalOpen.value = true
+}
+
+function submitFinalDecision() {
+    if (finalAction.value === 'accept') {
+        finalAcceptForm.post(routes.admin.recruitment.applications.final.accept(props.application.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                finalModalOpen.value = false
+            },
+        })
+        return
+    }
+
+    if (finalAction.value === 'reject') {
+        finalRejectForm.post(routes.admin.recruitment.applications.final.reject(props.application.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                finalModalOpen.value = false
             },
         })
     }
@@ -192,6 +268,12 @@ const modalTitle = computed(() => {
     if (screeningAction.value === 'reject') return 'Tolak applicant'
     return 'Keputusan screening'
 })
+
+const finalModalTitle = computed(() => {
+    if (finalAction.value === 'accept') return 'Terima applicant'
+    if (finalAction.value === 'reject') return 'Tolak applicant (final)'
+    return 'Keputusan final'
+})
 </script>
 
 <template>
@@ -206,6 +288,14 @@ const modalTitle = computed(() => {
             <template #actions>
                 <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyApplication">
                     Verifikasi pendaftaran
+                </Button>
+                <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinalModal('reject')">
+                    <XCircle class="mr-2 size-4" />
+                    Tolak final
+                </Button>
+                <Button v-if="canDecideFinal" size="sm" @click="openFinalModal('accept')">
+                    <Trophy class="mr-2 size-4" />
+                    Terima
                 </Button>
                 <Button v-if="canScreen" size="sm" variant="outline" @click="openScreeningModal('revision')">
                     Minta revisi
@@ -236,10 +326,11 @@ const modalTitle = computed(() => {
         </div>
 
         <Tabs default-value="overview" class="w-full">
-            <TabsList class="grid w-full grid-cols-5">
+            <TabsList class="grid w-full grid-cols-6">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="documents">Dokumen</TabsTrigger>
                 <TabsTrigger value="screening">Screening</TabsTrigger>
+                <TabsTrigger value="final">Final</TabsTrigger>
                 <TabsTrigger value="corrections">Koreksi</TabsTrigger>
                 <TabsTrigger value="history">Riwayat</TabsTrigger>
             </TabsList>
@@ -385,6 +476,86 @@ const modalTitle = computed(() => {
                 </Card>
             </TabsContent>
 
+            <TabsContent value="final" class="mt-4 space-y-4">
+                <Card v-if="application.evaluation" class="rounded-2xl border-border/70">
+                    <CardContent class="space-y-3 p-6">
+                        <p class="font-medium">Evaluasi interviewer</p>
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Speaking</p>
+                                <p class="font-medium">{{ application.evaluation.speaking_score }}/10</p>
+                            </div>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Technical</p>
+                                <p class="font-medium">{{ application.evaluation.technical_score }}/10</p>
+                            </div>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Attitude</p>
+                                <p class="font-medium">{{ application.evaluation.attitude_score }}/10</p>
+                            </div>
+                        </div>
+                        <p class="text-sm">
+                            Rekomendasi:
+                            <span class="font-medium">{{ application.evaluation.recommendation_label }}</span>
+                        </p>
+                        <p v-if="application.evaluation.notes" class="text-muted-foreground text-sm">
+                            {{ application.evaluation.notes }}
+                        </p>
+                        <p class="text-muted-foreground text-xs">
+                            {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}
+                            · {{ application.evaluation.is_locked ? 'Terkunci' : 'Draft' }}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card v-if="application.final_decision" class="rounded-2xl border-border/70">
+                    <CardContent class="space-y-3 p-6">
+                        <p class="font-medium">Keputusan final</p>
+                        <div v-if="application.final_decision.membership_type_label" class="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Keanggotaan</p>
+                                <p class="font-medium">{{ application.final_decision.membership_type_label }}</p>
+                            </div>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Divisi penempatan</p>
+                                <p class="font-medium">{{ application.final_decision.final_division?.name ?? '—' }}</p>
+                            </div>
+                        </div>
+                        <div v-if="application.final_decision.internal_reason">
+                            <p class="text-muted-foreground text-xs uppercase">Alasan internal</p>
+                            <p class="text-sm">{{ application.final_decision.internal_reason }}</p>
+                        </div>
+                        <div v-if="application.final_decision.public_message">
+                            <p class="text-muted-foreground text-xs uppercase">Pesan applicant</p>
+                            <p class="text-sm">{{ application.final_decision.public_message }}</p>
+                        </div>
+                        <p class="text-muted-foreground text-xs">
+                            {{ application.final_decision.decider?.name ?? 'Staff' }}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card v-if="canDecideFinal" class="rounded-2xl border-dashed border-border/70">
+                    <CardContent class="flex flex-wrap gap-3 p-6">
+                        <Button size="sm" @click="openFinalModal('accept')">
+                            <Trophy class="mr-2 size-4" />
+                            Terima (AA / Member)
+                        </Button>
+                        <Button size="sm" variant="destructive" @click="openFinalModal('reject')">
+                            <XCircle class="mr-2 size-4" />
+                            Tolak final
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <p
+                    v-if="!application.evaluation && !application.final_decision && !canDecideFinal"
+                    class="text-muted-foreground text-sm"
+                >
+                    Belum ada data final review.
+                </p>
+            </TabsContent>
+
             <TabsContent value="corrections" class="mt-4">
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="space-y-4 p-6">
@@ -517,6 +688,124 @@ const modalTitle = computed(() => {
                         :variant="screeningAction === 'reject' ? 'destructive' : 'default'"
                     >
                         Simpan keputusan
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="finalModalOpen">
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>{{ finalModalTitle }}</DialogTitle>
+                <DialogDescription>
+                    <span v-if="finalAction === 'accept'">
+                        Pilih tipe keanggotaan dan divisi penempatan final.
+                    </span>
+                    <span v-else>
+                        Alasan internal hanya untuk staff. Pesan applicant akan tampil di tracking portal.
+                    </span>
+                </DialogDescription>
+            </DialogHeader>
+
+            <form
+                v-if="finalAction === 'accept'"
+                class="space-y-4"
+                @submit.prevent="submitFinalDecision"
+            >
+                <div class="space-y-2">
+                    <Label for="membership_type">Tipe keanggotaan</Label>
+                    <select
+                        id="membership_type"
+                        v-model="finalAcceptForm.membership_type"
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                        required
+                    >
+                        <option value="" disabled>Pilih tipe</option>
+                        <option
+                            v-for="opt in membershipTypeOptions"
+                            :key="opt.value"
+                            :value="opt.value"
+                        >
+                            {{ opt.label }}
+                        </option>
+                    </select>
+                    <p v-if="finalAcceptForm.errors.membership_type" class="text-destructive text-xs">
+                        {{ finalAcceptForm.errors.membership_type }}
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="final_division_id">Divisi penempatan</Label>
+                    <select
+                        id="final_division_id"
+                        v-model="finalAcceptForm.final_division_id"
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                        required
+                    >
+                        <option value="" disabled>Pilih divisi</option>
+                        <option v-for="div in divisionOptions" :key="div.id" :value="div.id">
+                            {{ div.name }}
+                        </option>
+                    </select>
+                    <p v-if="finalAcceptForm.errors.final_division_id" class="text-destructive text-xs">
+                        {{ finalAcceptForm.errors.final_division_id }}
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="finalModalOpen = false">
+                        Batal
+                    </Button>
+                    <Button type="submit" :disabled="finalAcceptForm.processing">
+                        Simpan keputusan
+                    </Button>
+                </DialogFooter>
+            </form>
+
+            <form
+                v-else-if="finalAction === 'reject'"
+                class="space-y-4"
+                @submit.prevent="submitFinalDecision"
+            >
+                <div class="space-y-2">
+                    <Label for="internal_reason">Alasan internal</Label>
+                    <textarea
+                        id="internal_reason"
+                        v-model="finalRejectForm.internal_reason"
+                        rows="3"
+                        class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                        required
+                    />
+                    <p v-if="finalRejectForm.errors.internal_reason" class="text-destructive text-xs">
+                        {{ finalRejectForm.errors.internal_reason }}
+                    </p>
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="final_public_message">Pesan untuk applicant</Label>
+                    <textarea
+                        id="final_public_message"
+                        v-model="finalRejectForm.public_message"
+                        rows="3"
+                        class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                        required
+                    />
+                    <p v-if="finalRejectForm.errors.public_message" class="text-destructive text-xs">
+                        {{ finalRejectForm.errors.public_message }}
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="finalModalOpen = false">
+                        Batal
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="destructive"
+                        :disabled="finalRejectForm.processing"
+                    >
+                        Tolak applicant
                     </Button>
                 </DialogFooter>
             </form>

@@ -19,6 +19,11 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
     use AppliesOutgoingEmailDelay;
     use Queueable;
 
+    public int $tries = 3;
+
+    /** @var list<int> */
+    public array $backoff = [60, 300, 900];
+
     public function __construct(
         public string $applicationId,
         public string $trackingToken,

@@ -2,10 +2,14 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\ApplicationResult;
+use App\Enums\Recruitment\ApplicationStage;
 use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentDivision;
+use App\Models\Recruitment\RecruitmentEvaluation;
+use App\Models\Recruitment\RecruitmentFinalDecision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentScreening;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -94,6 +98,9 @@ final class RecruitmentApplicationService
             'screenings.actor',
             'activityLogs.actor',
             'correctionRequests.reviewer',
+            'evaluation.evaluator',
+            'finalDecision.finalDivision',
+            'finalDecision.decider',
         ]);
 
         return [
@@ -180,8 +187,11 @@ final class RecruitmentApplicationService
                     ] : null,
                 ])
                 ->all(),
+            'evaluation' => $this->evaluationArray($application->evaluation),
+            'final_decision' => $this->finalDecisionArray($application->finalDecision),
             'can_screen' => $this->canScreen($application),
             'can_verify' => $this->canVerify($application),
+            'can_decide_final' => $this->canDecideFinal($application),
         ];
     }
 
@@ -248,6 +258,69 @@ final class RecruitmentApplicationService
         }
 
         return $application->result === \App\Enums\Recruitment\ApplicationResult::Pending;
+    }
+
+    private function canDecideFinal(RecruitmentApplication $application): bool
+    {
+        if ($application->cancelled_at !== null) {
+            return false;
+        }
+
+        if ($application->stage !== ApplicationStage::FinalReview) {
+            return false;
+        }
+
+        return $application->result === ApplicationResult::Pending;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function evaluationArray(?RecruitmentEvaluation $evaluation): ?array
+    {
+        if ($evaluation === null) {
+            return null;
+        }
+
+        return [
+            'speaking_score' => $evaluation->speaking_score,
+            'technical_score' => $evaluation->technical_score,
+            'attitude_score' => $evaluation->attitude_score,
+            'recommendation' => $evaluation->recommendation->value,
+            'recommendation_label' => $evaluation->recommendation->label(),
+            'notes' => $evaluation->notes,
+            'is_locked' => $evaluation->isLocked(),
+            'evaluated_at' => $evaluation->evaluated_at?->toIso8601String(),
+            'evaluator' => $evaluation->evaluator ? [
+                'id' => $evaluation->evaluator->id,
+                'name' => $evaluation->evaluator->name,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function finalDecisionArray(?RecruitmentFinalDecision $decision): ?array
+    {
+        if ($decision === null) {
+            return null;
+        }
+
+        return [
+            'membership_type' => $decision->membership_type,
+            'membership_type_label' => filled($decision->membership_type)
+                ? \App\Enums\Recruitment\MembershipType::tryFrom($decision->membership_type)?->label()
+                : null,
+            'final_division' => $this->divisionArray($decision->finalDivision),
+            'internal_reason' => $decision->internal_reason,
+            'public_message' => $decision->public_message,
+            'decided_at' => $decision->decided_at?->toIso8601String(),
+            'decider' => $decision->decider ? [
+                'id' => $decision->decider->id,
+                'name' => $decision->decider->name,
+            ] : null,
+        ];
     }
 
     /**

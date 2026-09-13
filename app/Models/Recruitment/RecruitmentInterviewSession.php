@@ -49,4 +49,14 @@ class RecruitmentInterviewSession extends Model
     {
         return $this->hasMany(RecruitmentInterview::class);
     }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(RecruitmentAttendance::class);
+    }
+
+    public function queueEntries(): HasMany
+    {
+        return $this->hasMany(RecruitmentQueueEntry::class);
+    }
 }

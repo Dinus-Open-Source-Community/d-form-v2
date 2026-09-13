@@ -40,4 +40,9 @@ class RecruitmentFinalDecision extends Model
     {
         return $this->belongsTo(RecruitmentDivision::class, 'final_division_id');
     }
+
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'decided_by');
+    }
 }

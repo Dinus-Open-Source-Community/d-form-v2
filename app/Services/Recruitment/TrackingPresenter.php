@@ -3,12 +3,15 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\Recruitment\ApplicationStage;
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 
 final class TrackingPresenter
 {
     public function __construct(
         private readonly ApplicationEditGate $editGate,
+        private readonly RecruitmentQrPngGenerator $qrGenerator,
+        private readonly FeedbackService $feedbackService,
     ) {
     }
 
@@ -23,8 +26,10 @@ final class TrackingPresenter
             'secondaryDivision',
             'interview',
             'queueEntry',
+            'attendance',
             'finalDecision.finalDivision',
             'correctionRequests',
+            'feedback',
         ]);
 
         $latestCorrection = $application->correctionRequests
@@ -38,6 +43,8 @@ final class TrackingPresenter
             ],
             'timeline' => $this->presentTimeline($application),
             'interview' => $this->presentInterview($application),
+            'attendance' => $this->presentAttendance($application),
+            'attendance_qr_base64' => $this->presentAttendanceQrBase64($application),
             'queue' => $this->presentQueue($application),
             'final' => $this->presentFinal($application),
             'edit' => [
@@ -50,6 +57,11 @@ final class TrackingPresenter
                     'request_message' => $latestCorrection->request_message,
                     'review_notes' => $latestCorrection->review_notes,
                 ] : null,
+            ],
+            'feedback' => [
+                'can_submit' => $this->feedbackService->canSubmit($application),
+                'submitted' => $application->feedback !== null,
+                'submitted_at' => $application->feedback?->submitted_at?->toIso8601String(),
             ],
         ];
     }
@@ -133,8 +145,56 @@ final class TrackingPresenter
             'scheduled_at' => $interview->scheduled_at?->toIso8601String(),
             'location' => $interview->location,
             'room' => $interview->room,
-            'status' => $interview->status,
+            'status' => $interview->status instanceof \App\Enums\Recruitment\InterviewStatus
+                ? $interview->status->value
+                : (string) $interview->status,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function presentAttendance(RecruitmentApplication $application): ?array
+    {
+        $attendance = $application->attendance;
+
+        if ($attendance === null) {
+            return null;
+        }
+
+        return [
+            'checked_in_at' => $attendance->checked_in_at?->toIso8601String(),
+            'method' => $attendance->method instanceof \App\Enums\Recruitment\AttendanceMethod
+                ? $attendance->method->value
+                : (string) $attendance->method,
+        ];
+    }
+
+    private function presentAttendanceQrBase64(RecruitmentApplication $application): ?string
+    {
+        if ($application->attendance !== null) {
+            return null;
+        }
+
+        $interview = $application->interview;
+
+        if ($interview === null) {
+            return null;
+        }
+
+        $status = $interview->status instanceof InterviewStatus
+            ? $interview->status
+            : InterviewStatus::tryFrom((string) $interview->status);
+
+        if ($status !== InterviewStatus::Scheduled) {
+            return null;
+        }
+
+        try {
+            return base64_encode($this->qrGenerator->pngForApplication($application->id));
+        } catch (\JsonException) {
+            return null;
+        }
     }
 
     /**
@@ -150,7 +210,12 @@ final class TrackingPresenter
 
         return [
             'queue_number' => $queue->queue_number,
-            'status' => $queue->status,
+            'status' => $queue->status instanceof \App\Enums\Recruitment\QueueStatus
+                ? $queue->status->value
+                : (string) $queue->status,
+            'status_label' => $queue->status instanceof \App\Enums\Recruitment\QueueStatus
+                ? $queue->status->label()
+                : (string) $queue->status,
         ];
     }
 

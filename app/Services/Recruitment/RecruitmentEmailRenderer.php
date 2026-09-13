@@ -75,6 +75,13 @@ final class RecruitmentEmailRenderer
                     .'<p><a href="'.$variables['application_admin_url'].'">Buka di dashboard</a></p>',
                 'body_text' => 'Permintaan koreksi dari '.$variables['applicant_name'].'. '.$variables['application_admin_url'],
             ],
+            'interview_scheduled', 'interview_rescheduled', 'interview_reminder_h1', 'interview_reminder_h2', 'interview_assignment' => [
+                'subject' => '[DOSCOM OpRec] Interview — '.$variables['registration_number'],
+                'body_html' => '<p>Halo '.($variables['applicant_name'] ?: $variables['interviewer_name']).',</p>'
+                    .'<p>Jadwal interview: '.$variables['interview_date'].' pukul '.$variables['interview_time'].'</p>'
+                    .'<p>Lokasi: '.$variables['interview_location'].' · Ruang '.$variables['interview_room'].'</p>',
+                'body_text' => 'Jadwal interview '.$variables['interview_date'].' '.$variables['interview_time'],
+            ],
             default => $this->fallbackApplicationSubmitted($variables),
         };
     }

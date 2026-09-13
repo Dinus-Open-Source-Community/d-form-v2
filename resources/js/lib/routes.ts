@@ -28,8 +28,10 @@ export const routes = {
             edit: '/open-recruitment/track/edit',
             update: '/open-recruitment/track',
             correction: '/open-recruitment/track/correction',
+            feedback: '/open-recruitment/track/feedback',
             logout: '/open-recruitment/track/logout',
         },
+        attendance: '/open-recruitment/attendance',
     },
 
     auth: {
@@ -55,6 +57,21 @@ export const routes = {
         index: ADMIN_BASE,
         recruitment: {
             index: `${ADMIN_BASE}/recruitment`,
+            reports: {
+                index: `${ADMIN_BASE}/recruitment/reports`,
+                exportFunnel: (periodId?: string) =>
+                    `${ADMIN_BASE}/recruitment/reports/export/funnel.csv${periodId ? `?period_id=${periodId}` : ''}`,
+                exportApplicants: (periodId?: string) =>
+                    `${ADMIN_BASE}/recruitment/reports/export/applicants.csv${periodId ? `?period_id=${periodId}` : ''}`,
+            },
+            activityLogs: {
+                index: `${ADMIN_BASE}/recruitment/activity-logs`,
+            },
+            emailTemplates: {
+                index: `${ADMIN_BASE}/recruitment/email-templates`,
+                edit: (id: string) => `${ADMIN_BASE}/recruitment/email-templates/${id}/edit`,
+                update: (id: string) => `${ADMIN_BASE}/recruitment/email-templates/${id}`,
+            },
             periods: {
                 index: `${ADMIN_BASE}/recruitment/periods`,
                 create: `${ADMIN_BASE}/recruitment/periods/create`,
@@ -84,10 +101,42 @@ export const routes = {
                     reject: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/screening/reject`,
                 },
                 verify: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/verify`,
+                evaluationOverride: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/evaluation`,
+                final: {
+                    accept: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/final/accept`,
+                    reject: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/final/reject`,
+                },
             },
             corrections: {
                 approve: (id: string) => `${ADMIN_BASE}/recruitment/corrections/${id}/approve`,
                 reject: (id: string) => `${ADMIN_BASE}/recruitment/corrections/${id}/reject`,
+            },
+            interviewSessions: {
+                index: `${ADMIN_BASE}/recruitment/interview-sessions`,
+                store: `${ADMIN_BASE}/recruitment/interview-sessions`,
+                show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
+                schedule: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}/schedule`,
+            },
+            interviews: {
+                reschedule: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/reschedule`,
+                reassign: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/reassign`,
+            },
+            myInterviews: {
+                index: `${ADMIN_BASE}/recruitment/my-interviews`,
+                show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
+                evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
+                queue: (sessionId: string) => `${ADMIN_BASE}/recruitment/my-interviews/queue/${sessionId}`,
+            },
+            queue: {
+                show: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}`,
+                poll: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/poll`,
+                callNext: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/call-next`,
+                complete: (entryId: string) => `${ADMIN_BASE}/recruitment/queue/${entryId}/complete`,
+                noShow: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/no-show`,
+            },
+            attendanceScan: {
+                index: `${ADMIN_BASE}/recruitment/attendance-scan`,
+                store: `${ADMIN_BASE}/recruitment/attendance-scan`,
             },
         },
         events: {
@@ -170,6 +219,18 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.applications.index)) {
         return path.startsWith(routes.admin.recruitment.applications.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.interviewSessions.index)) {
+        return path.startsWith(routes.admin.recruitment.interviewSessions.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
+        return path.startsWith(routes.admin.recruitment.myInterviews.index);
+    }
+    if (href.startsWith(routes.admin.recruitment.attendanceScan.index)) {
+        return path.startsWith(routes.admin.recruitment.attendanceScan.index);
+    }
+    if (href.includes('/recruitment/queue/')) {
+        return path.includes('/recruitment/queue/');
     }
 
     return path.startsWith(href);

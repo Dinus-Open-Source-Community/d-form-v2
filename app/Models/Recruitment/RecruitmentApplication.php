@@ -84,9 +84,19 @@ class RecruitmentApplication extends Model
         return $this->hasOne(RecruitmentInterview::class, 'recruitment_application_id');
     }
 
+    public function attendance(): HasOne
+    {
+        return $this->hasOne(RecruitmentAttendance::class, 'recruitment_application_id');
+    }
+
     public function queueEntry(): HasOne
     {
         return $this->hasOne(RecruitmentQueueEntry::class, 'recruitment_application_id');
+    }
+
+    public function evaluation(): HasOne
+    {
+        return $this->hasOne(RecruitmentEvaluation::class, 'recruitment_application_id');
     }
 
     public function finalDecision(): HasOne
@@ -107,5 +117,10 @@ class RecruitmentApplication extends Model
     public function activityLogs(): HasMany
     {
         return $this->hasMany(RecruitmentActivityLog::class, 'recruitment_application_id');
+    }
+
+    public function feedback(): HasOne
+    {
+        return $this->hasOne(RecruitmentFeedback::class, 'recruitment_application_id');
     }
 }

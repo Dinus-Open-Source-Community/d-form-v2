@@ -26,7 +26,7 @@ final class ApplicationSubmitter
      */
     public function submit(RecruitmentPeriod $period, array $data, UploadedFile $cv, ?UploadedFile $portfolioFile = null): array
     {
-        return DB::transaction(function () use ($period, $data, $cv, $portfolioFile): array {
+        $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile): array {
             $registrationNumber = $this->registrationNumberIssuer->issue($period);
             $trackingToken = Str::random(48);
 
@@ -73,15 +73,17 @@ final class ApplicationSubmitter
 
             RecruitmentDocument::query()->create($documentData);
 
-            SendRecruitmentApplicationConfirmationJob::dispatch(
-                $application->id,
-                $trackingToken,
-            );
-
             return [
                 'application' => $application->fresh(['primaryDivision', 'secondaryDivision', 'document']),
                 'tracking_token' => $trackingToken,
             ];
         });
+
+        SendRecruitmentApplicationConfirmationJob::dispatch(
+            $result['application']->id,
+            $result['tracking_token'],
+        );
+
+        return $result;
     }
 }

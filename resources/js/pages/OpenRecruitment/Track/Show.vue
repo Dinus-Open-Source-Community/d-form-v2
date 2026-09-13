@@ -14,7 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { routes } from '@/lib/routes'
-import { CalendarClock, CheckCircle2, Circle, CircleDot, LogOut, MapPin, Pencil, Users } from 'lucide-vue-next'
+import { CalendarClock, CheckCircle2, Circle, CircleDot, LogOut, MapPin, Pencil, QrCode, Users } from 'lucide-vue-next'
 
 defineOptions({ layout: FormFillLayout })
 
@@ -53,6 +53,11 @@ interface TrackingPayload {
         queue_number: number
         status: string
     } | null
+    attendance: {
+        checked_in_at: string
+        method: string
+    } | null
+    attendance_qr_base64: string | null
     final: {
         membership_type: string | null
         final_division: string | null
@@ -71,6 +76,11 @@ interface TrackingPayload {
             review_notes: string | null
         } | null
     }
+    feedback: {
+        can_submit: boolean
+        submitted: boolean
+        submitted_at: string | null
+    }
 }
 
 const props = defineProps<{
@@ -78,6 +88,7 @@ const props = defineProps<{
     logoutUrl: string
     editUrl: string
     correctionUrl: string
+    feedbackUrl: string
 }>()
 
 const correctionModalOpen = ref(false)
@@ -263,6 +274,45 @@ function submitCorrection() {
             </CardContent>
         </Card>
 
+        <Card
+            v-if="tracking.attendance_qr_base64 && !tracking.attendance"
+            class="rounded-2xl border-border/70"
+        >
+            <CardHeader class="pb-2">
+                <CardTitle class="flex items-center gap-2 text-base">
+                    <QrCode class="size-5" />
+                    QR code absensi
+                </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3 text-center text-sm">
+                <img
+                    :src="`data:image/png;base64,${tracking.attendance_qr_base64}`"
+                    alt="QR code absensi interview"
+                    class="mx-auto size-56 rounded-xl border border-border/70 bg-white p-2"
+                />
+                <p class="text-muted-foreground">
+                    Tunjukkan QR code ini kepada panitia saat tiba di lokasi interview.
+                    Panitia akan memindainya melalui scanner admin — kamu tidak perlu check-in sendiri.
+                </p>
+            </CardContent>
+        </Card>
+
+        <Card v-if="tracking.attendance" class="rounded-2xl border-border/70">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-base">Sudah check-in</CardTitle>
+            </CardHeader>
+            <CardContent class="text-muted-foreground text-sm">
+                <p>
+                    Waktu check-in:
+                    {{
+                        tracking.attendance.checked_in_at
+                            ? new Date(tracking.attendance.checked_in_at).toLocaleString('id-ID')
+                            : '—'
+                    }}
+                </p>
+            </CardContent>
+        </Card>
+
         <Card v-if="tracking.queue" class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">
                 <CardTitle class="flex items-center gap-2 text-base">
@@ -291,6 +341,25 @@ function submitCorrection() {
                 <p v-if="tracking.final.public_message" class="text-muted-foreground">
                     {{ tracking.final.public_message }}
                 </p>
+            </CardContent>
+        </Card>
+
+        <Card v-if="tracking.feedback.can_submit || tracking.feedback.submitted" class="rounded-2xl border-border/70">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-base">Feedback OpRec</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3 text-sm">
+                <p v-if="tracking.feedback.submitted" class="text-muted-foreground">
+                    Terima kasih! Feedback kamu sudah kami terima
+                    {{
+                        tracking.feedback.submitted_at
+                            ? ` pada ${new Date(tracking.feedback.submitted_at).toLocaleString('id-ID')}`
+                            : ''
+                    }}.
+                </p>
+                <Button v-else-if="tracking.feedback.can_submit" as-child>
+                    <Link :href="feedbackUrl">Isi feedback</Link>
+                </Button>
             </CardContent>
         </Card>
 

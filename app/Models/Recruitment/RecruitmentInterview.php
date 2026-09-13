@@ -33,6 +33,7 @@ class RecruitmentInterview extends Model
             'scheduled_at' => 'datetime',
             'reminder_h1_sent_at' => 'datetime',
             'reminder_h2_sent_at' => 'datetime',
+            'status' => \App\Enums\Recruitment\InterviewStatus::class,
         ];
     }
 
@@ -49,5 +50,10 @@ class RecruitmentInterview extends Model
     public function interviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'interviewer_id');
+    }
+
+    public function evaluation(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(RecruitmentEvaluation::class, 'recruitment_interview_id');
     }
 }

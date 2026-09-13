@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\IndexRecruitmentApplicationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -53,6 +54,8 @@ class RecruitmentApplicationController extends Controller
         return Inertia::render('Dashboard/Recruitment/Applications/Show', [
             'application' => $this->applicationService->toShowArray($application),
             'screeningReasonOptions' => \App\Enums\Recruitment\ScreeningReason::options(),
+            'divisionOptions' => $this->applicationService->divisionOptions(),
+            'membershipTypeOptions' => MembershipType::options(),
         ]);
     }
 

@@ -17,4 +17,11 @@ enum EmailNotificationType: string
     case RecruitmentPassedScreening = 'recruitment_passed_screening';
     case RecruitmentRejectedScreening = 'recruitment_rejected_screening';
     case RecruitmentCorrectionRequestStaff = 'recruitment_correction_request_staff';
+    case RecruitmentInterviewScheduled = 'recruitment_interview_scheduled';
+    case RecruitmentInterviewRescheduled = 'recruitment_interview_rescheduled';
+    case RecruitmentInterviewReminderH1 = 'recruitment_interview_reminder_h1';
+    case RecruitmentInterviewReminderH2 = 'recruitment_interview_reminder_h2';
+    case RecruitmentInterviewAssignment = 'recruitment_interview_assignment';
+    case RecruitmentFinalAccepted = 'recruitment_final_accepted';
+    case RecruitmentFinalRejected = 'recruitment_final_rejected';
 }

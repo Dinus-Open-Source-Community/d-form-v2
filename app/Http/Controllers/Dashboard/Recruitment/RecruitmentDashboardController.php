@@ -19,7 +19,7 @@ class RecruitmentDashboardController extends Controller
         abort_unless(auth()->user()?->can('recruitment.dashboard.view'), 403);
 
         return Inertia::render('Dashboard/Recruitment/Index', [
-            'summary' => $this->dashboardService->summary(),
+            'summary' => $this->dashboardService->summary(auth()->user()),
         ]);
     }
 }

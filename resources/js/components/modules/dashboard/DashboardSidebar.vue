@@ -33,6 +33,12 @@ const canManageEvents = computed(() => user.value?.can_manage_events === true);
 const canAccessRecruitment = computed(() => user.value?.can_access_recruitment === true);
 const canManageRecruitmentPeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
+const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
+const canViewRecruitmentQueue = computed(() => user.value?.can_view_recruitment_queue === true);
+const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
+const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
+const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
+const canEditRecruitmentEmailTemplates = computed(() => user.value?.can_edit_recruitment_email_templates === true);
 
 const currentPath = computed(() => page.url);
 
@@ -74,6 +80,30 @@ const recruitmentSubItems = computed(() => {
 
     if (canListRecruitmentApplications.value) {
         items.push({ label: 'Applicant', href: routes.admin.recruitment.applications.index });
+    }
+
+    if (canScheduleRecruitmentInterviews.value) {
+        items.push({ label: 'Interview', href: routes.admin.recruitment.interviewSessions.index });
+    }
+
+    if (canViewRecruitmentQueue.value) {
+        items.push({ label: 'Scan absensi', href: routes.admin.recruitment.attendanceScan.index });
+    }
+
+    if (canViewMyRecruitmentInterviews.value) {
+        items.push({ label: 'Interview Saya', href: routes.admin.recruitment.myInterviews.index });
+    }
+
+    if (canViewRecruitmentReports.value) {
+        items.push({ label: 'Laporan', href: routes.admin.recruitment.reports.index });
+    }
+
+    if (canViewRecruitmentActivity.value) {
+        items.push({ label: 'Activity log', href: routes.admin.recruitment.activityLogs.index });
+    }
+
+    if (canEditRecruitmentEmailTemplates.value) {
+        items.push({ label: 'Template email', href: routes.admin.recruitment.emailTemplates.index });
     }
 
     if (canManageRecruitmentPeriods.value) {

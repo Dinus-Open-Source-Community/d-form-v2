@@ -2,6 +2,7 @@
 
 namespace App\Models\Recruitment;
 
+use App\Enums\Recruitment\QueueStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,9 +28,15 @@ class RecruitmentQueueEntry extends Model
     {
         return [
             'queue_number' => 'integer',
+            'status' => QueueStatus::class,
             'called_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
+    }
+
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(RecruitmentInterviewSession::class, 'recruitment_interview_session_id');
     }
 
     public function application(): BelongsTo

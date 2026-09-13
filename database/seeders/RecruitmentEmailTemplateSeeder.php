@@ -30,8 +30,28 @@ class RecruitmentEmailTemplateSeeder extends Seeder
             ],
             [
                 'event_type' => 'interview_scheduled',
-                'subject' => '[DOSCOM OpRec] Jadwal Interview',
-                'body_html' => '<p>Halo {{applicant_name}},</p><p>Interview kamu dijadwalkan pada {{interview_date}} pukul {{interview_time}}.</p>',
+                'subject' => '[DOSCOM OpRec] Jadwal Interview — {{registration_number}}',
+                'body_html' => '<p>Halo {{applicant_name}},</p><p>Interview kamu dijadwalkan pada <strong>{{interview_date}}</strong> pukul <strong>{{interview_time}}</strong>.</p><p>Lokasi: {{interview_location}} · Ruang {{interview_room}}</p><p>Tunjukkan QR code absensi (lampiran email atau di halaman tracking) kepada panitia saat tiba. Absensi hanya diproses oleh panitia.</p><p>Pantau progress di <a href="{{tracking_url}}">{{tracking_url}}</a></p>',
+            ],
+            [
+                'event_type' => 'interview_rescheduled',
+                'subject' => '[DOSCOM OpRec] Jadwal Interview Diubah',
+                'body_html' => '<p>Halo {{applicant_name}},</p><p>Jadwal interview kamu diperbarui menjadi {{interview_date}} pukul {{interview_time}}.</p><p>Lokasi: {{interview_location}} · Ruang {{interview_room}}</p><p>Tunjukkan QR code absensi kepada panitia saat tiba.</p>',
+            ],
+            [
+                'event_type' => 'interview_reminder_h1',
+                'subject' => '[DOSCOM OpRec] Reminder Interview Besok',
+                'body_html' => '<p>Halo {{applicant_name}},</p><p>Reminder: interview kamu besok ({{interview_date}}) pukul {{interview_time}} di {{interview_location}} ruang {{interview_room}}.</p><p>Bawa QR code absensi (email atau tracking) untuk discan panitia.</p>',
+            ],
+            [
+                'event_type' => 'interview_reminder_h2',
+                'subject' => '[DOSCOM OpRec] Reminder Interview 2 Jam Lagi',
+                'body_html' => '<p>Halo {{applicant_name}},</p><p>Interview kamu akan dimulai sekitar 2 jam lagi ({{interview_time}}) di {{interview_location}} ruang {{interview_room}}.</p><p>Tunjukkan QR code absensi kepada panitia saat tiba.</p>',
+            ],
+            [
+                'event_type' => 'interview_assignment',
+                'subject' => '[DOSCOM OpRec] Penugasan Interview — {{registration_number}}',
+                'body_html' => '<p>Halo {{interviewer_name}},</p><p>Kamu ditugaskan sebagai interviewer untuk <strong>{{applicant_name}}</strong> ({{registration_number}}).</p><p>Jadwal: {{interview_date}} pukul {{interview_time}} · {{interview_location}} ruang {{interview_room}}</p><p><a href="{{application_admin_url}}">Lihat applicant</a></p>',
             ],
             [
                 'event_type' => 'final_accepted',
