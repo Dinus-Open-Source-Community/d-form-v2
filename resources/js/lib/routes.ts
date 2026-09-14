@@ -67,11 +67,6 @@ export const routes = {
             activityLogs: {
                 index: `${ADMIN_BASE}/recruitment/activity-logs`,
             },
-            emailTemplates: {
-                index: `${ADMIN_BASE}/recruitment/email-templates`,
-                edit: (id: string) => `${ADMIN_BASE}/recruitment/email-templates/${id}/edit`,
-                update: (id: string) => `${ADMIN_BASE}/recruitment/email-templates/${id}`,
-            },
             periods: {
                 index: `${ADMIN_BASE}/recruitment/periods`,
                 create: `${ADMIN_BASE}/recruitment/periods/create`,
@@ -219,9 +214,6 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.divisions.index)) {
         return path.startsWith(routes.admin.recruitment.divisions.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.emailTemplates.index)) {
-        return path.startsWith(routes.admin.recruitment.emailTemplates.index);
     }
     if (href.startsWith(routes.admin.recruitment.activityLogs.index)) {
         return path.startsWith(routes.admin.recruitment.activityLogs.index);

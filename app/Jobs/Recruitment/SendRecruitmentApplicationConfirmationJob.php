@@ -9,6 +9,7 @@ use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
+use App\Services\Recruitment\RecruitmentTrackingPortalUrlBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -30,8 +31,10 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
     ) {
     }
 
-    public function handle(RecruitmentEmailRenderer $renderer): void
-    {
+    public function handle(
+        RecruitmentEmailRenderer $renderer,
+        RecruitmentTrackingPortalUrlBuilder $portalUrlBuilder,
+    ): void {
         $application = RecruitmentApplication::query()
             ->with(['period', 'primaryDivision'])
             ->find($this->applicationId);
@@ -46,6 +49,10 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
 
         $recipientEmail = $application->personal_email;
         $trackingUrl = url(route('open-recruitment.track.login', absolute: false));
+        $trackingPortalUrl = $portalUrlBuilder->loginUrl(
+            $application->registration_number,
+            $this->trackingToken,
+        );
 
         $variables = [
             'applicant_name' => $application->full_name,
@@ -56,6 +63,8 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
             'semester' => (string) $application->semester,
             'primary_division' => $application->primaryDivision?->name ?? '',
             'tracking_url' => $trackingUrl,
+            'tracking_portal_url' => $trackingPortalUrl,
+            'tracking_portal_button' => $portalUrlBuilder->loginButtonHtml($trackingPortalUrl),
             'tracking_token' => $this->trackingToken,
         ];
 

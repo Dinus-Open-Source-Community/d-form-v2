@@ -18,13 +18,15 @@ const props = defineProps<{
 const page = usePage()
 const showToken = ref(false)
 
-const prefilledReg = typeof page.url === 'string'
-    ? new URLSearchParams(page.url.split('?')[1] ?? '').get('reg') ?? ''
-    : ''
+const queryParams =
+    typeof page.url === 'string' ? new URLSearchParams(page.url.split('?')[1] ?? '') : new URLSearchParams()
+
+const prefilledReg = queryParams.get('reg') ?? ''
+const prefilledToken = queryParams.get('token') ?? ''
 
 const form = useForm({
     registration_number: prefilledReg,
-    tracking_token: '',
+    tracking_token: prefilledToken,
 })
 
 function submit() {
@@ -42,7 +44,7 @@ function submit() {
             <p class="text-primary text-xs font-semibold tracking-wide uppercase">OpenRecruitment DOSCOM</p>
             <h1 class="text-2xl font-bold tracking-tight">Portal pendaftaran</h1>
             <p class="text-muted-foreground text-sm">
-                Masuk dengan nomor pendaftaran dan token dari email konfirmasi.
+                Masuk dengan nomor pendaftaran dan token 8 karakter dari email konfirmasi.
             </p>
         </div>
 

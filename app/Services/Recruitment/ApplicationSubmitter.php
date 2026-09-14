@@ -11,12 +11,11 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-
 final class ApplicationSubmitter
 {
     public function __construct(
         private readonly RecruitmentRegistrationNumberIssuer $registrationNumberIssuer,
+        private readonly RecruitmentTrackingTokenGenerator $trackingTokenGenerator,
     ) {
     }
 
@@ -28,7 +27,7 @@ final class ApplicationSubmitter
     {
         $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile): array {
             $registrationNumber = $this->registrationNumberIssuer->issue($period);
-            $trackingToken = Str::random(48);
+            $trackingToken = $this->trackingTokenGenerator->generate();
 
             $application = RecruitmentApplication::query()->create([
                 'recruitment_period_id' => $period->id,

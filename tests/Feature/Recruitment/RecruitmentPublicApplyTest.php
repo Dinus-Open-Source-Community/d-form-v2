@@ -9,7 +9,6 @@ use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -33,8 +32,6 @@ class RecruitmentPublicApplyTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
-
         Storage::fake('local');
         Queue::fake();
 
@@ -91,7 +88,15 @@ class RecruitmentPublicApplyTest extends TestCase
         $this->assertNotNull($application);
         $this->assertMatchesRegularExpression('/^OPREC-\d{4}-\d{5}$/', $application->registration_number);
 
-        Queue::assertPushed(SendRecruitmentApplicationConfirmationJob::class);
+        Queue::assertPushed(
+            SendRecruitmentApplicationConfirmationJob::class,
+            function (SendRecruitmentApplicationConfirmationJob $job): bool {
+                return strlen($job->trackingToken) === 8
+                    && (bool) preg_match('/^[A-Z0-9]{8}$/', $job->trackingToken)
+                    && preg_match('/[A-Z]/', $job->trackingToken) === 1
+                    && preg_match('/[0-9]/', $job->trackingToken) === 1;
+            },
+        );
 
         Storage::disk('local')->assertExists($application->document()->firstOrFail()->cv_path);
     }

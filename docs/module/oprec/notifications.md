@@ -19,7 +19,7 @@ flowchart LR
 
 - Semua email non-blocking via **Laravel Queue** (Redis)
 - Log sukses/gagal ke `email_logs` (perluas FK — lihat [database-design.md](database-design.md) §20)
-- Template configurable via `recruitment_email_templates`
+- Template **hardcoded** di `RecruitmentEmailRenderer` (tanpa admin UI / DB template)
 - Dedup flag untuk reminder (H-1, H-2) — simpan `reminder_h1_sent_at`, `reminder_h2_sent_at` di `recruitment_interviews`
 
 ---
@@ -100,26 +100,15 @@ Setiap template mendukung placeholder `{{variable}}` — di-replace saat render.
 
 ---
 
-## 4. Template Default (Seeder)
+## 4. Template Hardcoded
 
-`RecruitmentEmailTemplateSeeder` — seed subject + body HTML untuk setiap `event_type`.
+Semua subject + body HTML didefinisikan di `App\Services\Recruitment\RecruitmentEmailRenderer` per `event_type` (`match` + private method).
 
-Contoh `application_submitted`:
-
-**Subject:** `[DOSCOM OpRec] Konfirmasi Pendaftaran — {{registration_number}}`
-
-**Body (ringkas):**
-
-```html
-<p>Halo {{applicant_name}},</p>
-<p>Pendaftaran OpenRecruitment DOSCOM kamu telah berhasil diterima.</p>
-<p><strong>Nomor Pendaftaran:</strong> {{registration_number}}</p>
-<p>Simpan email ini. Kamu akan membutuhkan nomor pendaftaran dan token tracking
-   (terlampir) untuk memantau progress di:</p>
-<p><a href="{{tracking_url}}">{{tracking_url}}</a></p>
-```
+Contoh `application_submitted`: konfirmasi pendaftaran, nomor registrasi, token tracking (monospace), tombol CTA ke portal (`tracking_portal_button` / `tracking_portal_url`), plus fallback link manual.
 
 **Penting:** Plain tracking token dikirim **hanya** di email ini (PRD §14). Jangan log plain token.
+
+Ubah copy email dengan edit method terkait di renderer — tidak perlu seeder atau halaman admin.
 
 ---
 

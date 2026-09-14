@@ -88,8 +88,6 @@ class RoleSeeder extends Seeder
             'recruitment.final.decide',
             'recruitment.reports.view',
             'recruitment.reports.export',
-            'recruitment.templates.list',
-            'recruitment.templates.edit',
             'recruitment.activity.view',
 
             // form submissions management
