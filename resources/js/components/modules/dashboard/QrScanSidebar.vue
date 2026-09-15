@@ -4,10 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Clock3, Loader2, Users } from 'lucide-vue-next';
+import { Clock3, Users } from 'lucide-vue-next';
 import {
     SCAN_STATUS_THEME,
-    type GlobalScanPendingEvent,
     type GlobalScanQueueSession,
     type ScanEntry,
     type ScanResult,
@@ -17,7 +16,6 @@ const props = withDefaults(
     defineProps<{
         scanResult: ScanResult | null;
         queue?: GlobalScanQueueSession[];
-        pendingEvents?: GlobalScanPendingEvent[];
         feedOnline?: boolean;
         scanHistory: ScanEntry[];
         logExpanded?: boolean;
@@ -25,7 +23,6 @@ const props = withDefaults(
     }>(),
     {
         queue: () => [],
-        pendingEvents: () => [],
         feedOnline: false,
         logExpanded: false,
         logQuery: '',
@@ -82,14 +79,6 @@ function heroIdentifier(result: ScanResult): string {
     }
 
     return result.email;
-}
-
-function deskLabel(value: ScanResult | ScanEntry): string {
-    if (value.isOwnDesk) {
-        return 'Meja ini';
-    }
-
-    return value.desk !== '' ? `Meja ${value.desk}` : '';
 }
 
 const WAITING_PREVIEW = 3;
@@ -172,13 +161,6 @@ function onClearHistory(): void {
                                     {{ SCAN_STATUS_THEME[scanResult.status].label }}
                                 </Badge>
                                 <Badge variant="outline">{{ sourceLabel(scanResult.source) }}</Badge>
-                                <Badge
-                                    v-if="hasEventContext(scanResult) && deskLabel(scanResult) !== ''"
-                                    variant="secondary"
-                                    class="text-[11px]"
-                                >
-                                    {{ deskLabel(scanResult) }}
-                                </Badge>
                             </div>
                             <p class="text-muted-foreground mt-2 truncate text-xs">
                                 Raw code: {{ scanResult.rawCode }}
@@ -211,8 +193,8 @@ function onClearHistory(): void {
                 </div>
             </CardHeader>
             <CardContent class="pt-0">
-                <div v-if="queue.length > 0 || pendingEvents.length > 0" class="space-y-4">
-                    <div v-if="queue.length > 0" class="space-y-2">
+                <div v-if="queue.length > 0" class="space-y-4">
+                    <div class="space-y-2">
                         <p class="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                             Antrian oprec live
                         </p>
@@ -287,36 +269,12 @@ function onClearHistory(): void {
                             </div>
                         </div>
                     </div>
-
-                    <div v-if="pendingEvents.length > 0" class="space-y-2">
-                        <p class="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-                            Event menunggu konfirmasi
-                        </p>
-                        <div
-                            v-for="pending in pendingEvents"
-                            :key="pending.id"
-                            class="border-border/70 bg-background rounded-xl border px-3 py-2.5"
-                        >
-                            <div class="flex min-w-0 items-center gap-2">
-                                <Loader2 class="size-4 shrink-0 animate-spin text-sky-500" />
-                                <span class="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
-                                    {{ pending.name }}
-                                </span>
-                                <Badge variant="outline" class="border-sky-500/40 shrink-0 text-[11px] text-sky-600">
-                                    Sedang diproses
-                                </Badge>
-                            </div>
-                            <p class="text-muted-foreground mt-1 truncate text-xs" :title="pending.eventTitle">
-                                {{ pending.eventTitle }}
-                            </p>
-                        </div>
-                    </div>
                 </div>
                 <p
                     v-else
                     class="border-border/80 text-muted-foreground rounded-xl border border-dashed px-3 py-8 text-center text-sm"
                 >
-                    Belum ada antrian atau proses yang berjalan.
+                    Belum ada antrian yang berjalan.
                 </p>
             </CardContent>
         </Card>
@@ -385,13 +343,6 @@ function onClearHistory(): void {
                                 </Badge>
                                 <Badge variant="secondary" class="text-[11px]">
                                     {{ sourceLabel(entry.source) }}
-                                </Badge>
-                                <Badge
-                                    v-if="hasEventContext(entry) && deskLabel(entry) !== ''"
-                                    variant="outline"
-                                    class="text-[11px]"
-                                >
-                                    {{ deskLabel(entry) }}
                                 </Badge>
                             </div>
                         </div>

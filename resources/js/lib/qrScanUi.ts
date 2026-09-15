@@ -22,8 +22,6 @@ export interface ScanEntry {
     eventKind: 'event' | 'oprec'
     eventTitle: string
     queueNumber: number | null
-    desk: string
-    isOwnDesk: boolean
 }
 
 export interface ScanResult {
@@ -35,8 +33,6 @@ export interface ScanResult {
     eventKind: 'event' | 'oprec'
     eventTitle: string
     queueNumber: number | null
-    desk: string
-    isOwnDesk: boolean
 }
 
 export function normalizeQrCode(raw: string): string {
@@ -75,8 +71,6 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
         eventKind: result.eventKind,
         eventTitle: result.eventTitle,
         queueNumber: result.queueNumber,
-        desk: result.desk,
-        isOwnDesk: result.isOwnDesk,
     }
 }
 
@@ -91,14 +85,6 @@ export interface GlobalScanQueueSession {
     nowServing: GlobalScanQueueServee | null
     waiting: GlobalScanQueueServee[]
     waitingCount: number
-}
-
-export interface GlobalScanPendingEvent {
-    id: string
-    name: string
-    identifier: string
-    eventTitle: string
-    at: number
 }
 
 export interface GlobalScanFeedRow {

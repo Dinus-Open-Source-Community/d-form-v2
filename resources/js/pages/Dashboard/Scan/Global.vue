@@ -170,7 +170,6 @@ onMounted(() => {
             <QrScanSidebar
                 :scan-result="s.scanResult"
                 :queue="s.queue"
-                :pending-events="s.pendingEvents"
                 :feed-online="s.feedOnline"
                 :scan-history="s.scanHistory"
                 :log-expanded="s.logExpanded"

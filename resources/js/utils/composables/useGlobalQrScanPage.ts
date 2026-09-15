@@ -12,7 +12,6 @@ import {
     parseGlobalScanQueue,
     playScanBeep,
     type GlobalScanFeedRow,
-    type GlobalScanPendingEvent,
     type GlobalScanQueueSession,
     type ScanEntry,
     type ScanResult,
@@ -51,7 +50,6 @@ interface GlobalScanEnvelope {
     attendee: GlobalScanAttendee
     status: 'success' | 'duplicate'
     scannedAt: string
-    desk: string
 }
 
 interface GlobalScanErrorBody {
@@ -66,7 +64,6 @@ const DESK_STORAGE_KEY = 'scan-desk-id'
 const SCAN_COOLDOWN_MS = 2000
 const FEED_POLL_MS = 2000
 const FEED_POLL_TIMEOUT_MS = 8000
-const PENDING_EVENT_TTL_MS = 60000
 
 function resolveDeskId(): string {
     try {
@@ -193,7 +190,6 @@ export function useGlobalQrScanPage(
     const logQuery = ref('')
 
     const queue = ref<GlobalScanQueueSession[]>([])
-    const pendingEvents = ref<GlobalScanPendingEvent[]>([])
     const feedOnline = ref(false)
 
     const scanEntryEpochMs = new Map<string, number>()
@@ -271,44 +267,6 @@ export function useGlobalQrScanPage(
         playScanBeep(result.status)
     }
 
-    function prunePendingEvents(): void {
-        const now = Date.now()
-        const next = pendingEvents.value.filter((pending) => now - pending.at < PENDING_EVENT_TTL_MS)
-        if (next.length !== pendingEvents.value.length) {
-            pendingEvents.value = next
-        }
-    }
-
-    function trackPendingEvent(result: ScanResult): void {
-        const identifier = result.email.trim()
-        if (identifier.length === 0 || identifier === '-') {
-            return
-        }
-
-        pendingEvents.value = [
-            {
-                id: `pending-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-                name: result.name,
-                identifier,
-                eventTitle: result.eventTitle,
-                at: Date.now(),
-            },
-            ...pendingEvents.value,
-        ]
-    }
-
-    function resolvePendingEvent(row: GlobalScanFeedRow): void {
-        if (row.type !== 'event') {
-            return
-        }
-
-        const identifier = row.identifier.trim()
-        const title = formatGlobalEventTitle('event', row.eventTitle)
-        pendingEvents.value = pendingEvents.value.filter(
-            (pending) => !(pending.identifier === identifier && pending.eventTitle === title),
-        )
-    }
-
     function ingestFeedRow(row: GlobalScanFeedRow): void {
         if (seenFeedIds.has(row.id)) {
             return
@@ -337,8 +295,6 @@ export function useGlobalQrScanPage(
             eventKind: kind,
             eventTitle,
             queueNumber: row.queueNumber,
-            desk: '',
-            isOwnDesk: false,
         }
         scanEntryEpochMs.set(entry.id, epoch)
         scanHistory.value.unshift(entry)
@@ -357,7 +313,6 @@ export function useGlobalQrScanPage(
         queue.value = parseGlobalScanQueue(payload)
 
         for (const row of parseGlobalScanFeedRows(payload)) {
-            resolvePendingEvent(row)
             ingestFeedRow(row)
         }
 
@@ -368,8 +323,6 @@ export function useGlobalQrScanPage(
         if (pollAbort !== null) {
             return
         }
-
-        prunePendingEvents()
 
         const controller = new AbortController()
         pollAbort = controller
@@ -454,8 +407,6 @@ export function useGlobalQrScanPage(
                     eventKind: kind,
                     eventTitle: title,
                     queueNumber,
-                    desk: deskId,
-                    isOwnDesk: true,
                 }
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: `#${padQueueNumber(queueNumber)} — arahkan ke ruang tunggu`,
@@ -472,8 +423,6 @@ export function useGlobalQrScanPage(
                     eventKind: kind,
                     eventTitle: title,
                     queueNumber: null,
-                    desk: deskId,
-                    isOwnDesk: true,
                 }
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: 'Boleh masuk — tiket dikirim ke email',
@@ -481,10 +430,6 @@ export function useGlobalQrScanPage(
             }
 
             pushResult(result)
-
-            if (kind === 'event') {
-                trackPendingEvent(result)
-            }
 
             if (source === 'manual') {
                 registrationCodeInput.value = ''
@@ -513,8 +458,6 @@ export function useGlobalQrScanPage(
                             eventKind: kind,
                             eventTitle: title,
                             queueNumber: body?.attendee?.queue_number ?? fallbackQueue,
-                            desk: deskId,
-                            isOwnDesk: true,
                         })
                         toast.warning(msg, {
                             description: `${name} · ${identifier}`,
@@ -532,8 +475,6 @@ export function useGlobalQrScanPage(
                             eventKind: kind,
                             eventTitle: title,
                             queueNumber: null,
-                            desk: deskId,
-                            isOwnDesk: true,
                         })
                         toast.warning(msg, {
                             description: email !== '-' ? `${name} · ${email}` : name,
@@ -554,8 +495,6 @@ export function useGlobalQrScanPage(
                         eventKind: scanResult.value?.eventKind ?? 'event',
                         eventTitle: scanResult.value?.eventTitle ?? '-',
                         queueNumber: null,
-                        desk: deskId,
-                        isOwnDesk: true,
                     })
                     showErrorToast(msg)
 
@@ -572,8 +511,6 @@ export function useGlobalQrScanPage(
                 eventKind: scanResult.value?.eventKind ?? 'event',
                 eventTitle: scanResult.value?.eventTitle ?? '-',
                 queueNumber: null,
-                desk: deskId,
-                isOwnDesk: true,
             })
             showErrorToast('Permintaan gagal', {
                 description: error instanceof Error ? humanizeErrorMessage(error.message) : 'Coba lagi dalam beberapa saat.',
@@ -759,7 +696,6 @@ export function useGlobalQrScanPage(
         activeTargetCount,
         scanBusy,
         queue,
-        pendingEvents,
         feedOnline,
         processScan,
         submitScanPayload,
