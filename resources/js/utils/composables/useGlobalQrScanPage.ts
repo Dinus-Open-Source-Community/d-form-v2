@@ -9,10 +9,8 @@ import {
     isGlobalScanFeedPayload,
     parseGlobalScanCursor,
     parseGlobalScanFeedRows,
-    parseGlobalScanQueue,
     playScanBeep,
     type GlobalScanFeedRow,
-    type GlobalScanQueueSession,
     type ScanEntry,
     type ScanResult,
 } from '@/lib/qrScanUi'
@@ -189,9 +187,6 @@ export function useGlobalQrScanPage(
     const logExpanded = ref(false)
     const logQuery = ref('')
 
-    const queue = ref<GlobalScanQueueSession[]>([])
-    const feedOnline = ref(false)
-
     const scanEntryEpochMs = new Map<string, number>()
     const localEntryIdentities = new Set<string>()
     const seenFeedIds = new Set<string>()
@@ -310,13 +305,9 @@ export function useGlobalQrScanPage(
             feedCursor = cursor
         }
 
-        queue.value = parseGlobalScanQueue(payload)
-
         for (const row of parseGlobalScanFeedRows(payload)) {
             ingestFeedRow(row)
         }
-
-        feedOnline.value = true
     }
 
     async function pollFeed(): Promise<void> {
@@ -338,7 +329,7 @@ export function useGlobalQrScanPage(
             applyFeed(data)
         }
         catch {
-            feedOnline.value = false
+            // Feed gagal sesaat bukan alasan menghentikan polling; interval berikutnya mencoba lagi.
         }
         finally {
             pollAbort = null
@@ -695,8 +686,6 @@ export function useGlobalQrScanPage(
         targetOptions,
         activeTargetCount,
         scanBusy,
-        queue,
-        feedOnline,
         processScan,
         submitScanPayload,
         startCameraScanner,

@@ -74,19 +74,6 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
     }
 }
 
-export interface GlobalScanQueueServee {
-    name: string
-    queueNumber: number | null
-}
-
-export interface GlobalScanQueueSession {
-    sessionId: string
-    label: string
-    nowServing: GlobalScanQueueServee | null
-    waiting: GlobalScanQueueServee[]
-    waitingCount: number
-}
-
 export interface GlobalScanFeedRow {
     id: string
     ts: string
@@ -127,25 +114,12 @@ function readQueueNumber(record: Record<string, unknown>, key: string): number |
     return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function parseQueueServee(value: unknown): GlobalScanQueueServee | null {
-    if (!isRecord(value)) {
-        return null
-    }
-
-    const name = readString(value, 'name').trim()
-    if (name.length === 0) {
-        return null
-    }
-
-    return { name, queueNumber: readQueueNumber(value, 'queueNumber') }
-}
-
 export function isGlobalScanFeedPayload(payload: unknown): boolean {
     if (!isRecord(payload)) {
         return false
     }
 
-    return Array.isArray(payload.rows) || Array.isArray(payload.queue)
+    return Array.isArray(payload.rows)
 }
 
 export function parseGlobalScanFeedRows(payload: unknown): GlobalScanFeedRow[] {
@@ -184,44 +158,6 @@ export function parseGlobalScanCursor(payload: unknown): string {
     }
 
     return readString(payload, 'cursor')
-}
-
-export function parseGlobalScanQueue(payload: unknown): GlobalScanQueueSession[] {
-    if (!isRecord(payload)) {
-        return []
-    }
-
-    const sessions: GlobalScanQueueSession[] = []
-    for (const item of toUnknownArray(payload.queue)) {
-        if (!isRecord(item)) {
-            continue
-        }
-
-        const sessionId = readString(item, 'sessionId').trim()
-        if (sessionId.length === 0) {
-            continue
-        }
-
-        const waiting: GlobalScanQueueServee[] = []
-        for (const servee of toUnknownArray(item.waiting)) {
-            const parsed = parseQueueServee(servee)
-            if (parsed !== null) {
-                waiting.push(parsed)
-            }
-        }
-
-        const waitingCount = readQueueNumber(item, 'waitingCount')
-
-        sessions.push({
-            sessionId,
-            label: readString(item, 'label'),
-            nowServing: parseQueueServee(item.nowServing),
-            waiting,
-            waitingCount: waitingCount !== null ? waitingCount : waiting.length,
-        })
-    }
-
-    return sessions
 }
 
 export function playScanBeep(status: ScanStatus): void {
