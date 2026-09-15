@@ -199,4 +199,27 @@ class GlobalScanTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('attendee.queue_number', 1);
     }
+
+    public function test_scan_store_is_rate_limited_per_user(): void
+    {
+        $admin = $this->admin();
+
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->actingAs($admin)
+                ->postJson(route('dashboard.scan.store'), ['raw' => 'bukan-qr'])
+                ->assertUnprocessable();
+        }
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.scan.store'), ['raw' => 'bukan-qr'])
+            ->assertStatus(429);
+    }
+
+    public function test_over_long_raw_payload_is_rejected(): void
+    {
+        $this->actingAs($this->admin())
+            ->postJson(route('dashboard.scan.store'), ['raw' => str_repeat('a', 4097)])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('raw');
+    }
 }

@@ -39,10 +39,10 @@ Route::middleware('auth')->get('/dashboard', function () {
 })->name('dashboard');
 
 Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group(function () {
-    Route::get('/', [GlobalScanController::class, 'show'])->name('index');
-    Route::get('/feed', [GlobalScanFeedController::class, 'feed'])->name('feed');
-    Route::get('/export', [GlobalScanExportController::class, 'export'])->name('export');
-    Route::post('/', [GlobalScanController::class, 'store'])->name('store');
+    Route::get('/', [GlobalScanController::class, 'show'])->middleware('throttle:scan-page')->name('index');
+    Route::get('/feed', [GlobalScanFeedController::class, 'feed'])->middleware('throttle:scan-feed')->name('feed');
+    Route::get('/export', [GlobalScanExportController::class, 'export'])->middleware('throttle:scan-export')->name('export');
+    Route::post('/', [GlobalScanController::class, 'store'])->middleware('throttle:scan-store')->name('store');
 });
 
 Route::middleware('auth')->get('/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');

@@ -20,7 +20,7 @@ class GlobalScanStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'raw' => ['required', 'string', 'max:65535'],
+            'raw' => ['required', 'string', 'max:4096'],
             'desk' => ['nullable', 'string', 'max:32'],
         ];
     }
