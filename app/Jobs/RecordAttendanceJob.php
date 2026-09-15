@@ -2,17 +2,15 @@
 
 namespace App\Jobs;
 
-use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
+use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Mail\AttendanceConfirmedMail;
 use App\Models\EmailLog;
 use App\Models\EventAttendance;
-use App\Models\FormAnswer;
 use App\Services\Registration\FormAnswerRecipientResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -25,26 +23,25 @@ class RecordAttendanceJob implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        public string $eventId,
-        public string $formAnswerId,
-        public string $scannerUserId,
+        public string $attendanceId,
     ) {
     }
 
     public function handle(FormAnswerRecipientResolver $recipientResolver): void
     {
-        $submission = FormAnswer::query()
-            ->with(['form.event', 'user'])
-            ->find($this->formAnswerId);
+        $attendance = EventAttendance::query()
+            ->with(['formAnswer.form.event', 'formAnswer.user'])
+            ->find($this->attendanceId);
 
-        if ($submission === null || $submission->form === null || $submission->form->event_id !== $this->eventId) {
-            Log::warning('[RecordAttendanceJob] Submission missing or wrong event.', [
-                'form_answer_id' => $this->formAnswerId,
-                'event_id' => $this->eventId,
+        if ($attendance === null || $attendance->formAnswer === null || $attendance->formAnswer->form === null) {
+            Log::warning('[RecordAttendanceJob] Attendance row missing or incomplete.', [
+                'attendance_id' => $this->attendanceId,
             ]);
 
             return;
         }
+
+        $submission = $attendance->formAnswer;
 
         if ($submission->review_status !== FormAnswerReviewStatus::Accepted) {
             Log::warning('[RecordAttendanceJob] Submission no longer eligible.', [
@@ -54,19 +51,18 @@ class RecordAttendanceJob implements ShouldQueue
             return;
         }
 
-        try {
-            $attendance = EventAttendance::query()->create([
-                'event_id' => $this->eventId,
-                'form_answer_id' => $submission->id,
-                'scanned_by_user_id' => $this->scannerUserId,
-                'scanned_at' => now(),
-            ]);
-        } catch (QueryException $e) {
-            if ($this->isUniqueConstraintViolation($e)) {
-                return;
-            }
+        $alreadySent = EmailLog::query()
+            ->where('form_answer_id', $submission->id)
+            ->where('notification_type', EmailNotificationType::AttendanceConfirmed)
+            ->where('status', EmailLogStatus::Sent)
+            ->exists();
 
-            throw $e;
+        if ($alreadySent) {
+            Log::info('[RecordAttendanceJob] Confirmation already sent; skipping.', [
+                'form_answer_id' => $submission->id,
+            ]);
+
+            return;
         }
 
         $event = $submission->form->event;
@@ -130,12 +126,5 @@ class RecordAttendanceJob implements ShouldQueue
 
             throw $e;
         }
-    }
-
-    private function isUniqueConstraintViolation(QueryException $e): bool
-    {
-        $sqlState = $e->errorInfo[0] ?? '';
-
-        return $sqlState === '23000';
     }
 }
