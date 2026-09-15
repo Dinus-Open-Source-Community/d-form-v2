@@ -10,7 +10,6 @@ use App\Enums\Recruitment\MembershipType;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentDocument;
-use App\Models\Recruitment\RecruitmentEmailTemplate;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -18,7 +17,6 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\InterviewSchedulingService;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -52,7 +50,6 @@ class RecruitmentPermissionTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
 
         Queue::fake();
         Storage::fake('local');
@@ -209,24 +206,7 @@ class RecruitmentPermissionTest extends TestCase
             ->assertOk();
     }
 
-    public function test_p08_staff_cannot_edit_email_template(): void
-    {
-        $template = RecruitmentEmailTemplate::query()->where('event_type', 'application_submitted')->firstOrFail();
-
-        $this->actingAs($this->staff)
-            ->get(route('dashboard.recruitment.email-templates.index'))
-            ->assertForbidden();
-
-        $this->actingAs($this->staff)
-            ->put(route('dashboard.recruitment.email-templates.update', $template), [
-                'subject' => 'Hacked subject',
-                'body_html' => '<p>test</p>',
-                'is_active' => true,
-            ])
-            ->assertForbidden();
-    }
-
-    public function test_p09_interviewer_can_evaluate_assigned_interview(): void
+    public function test_p08_interviewer_can_evaluate_assigned_interview(): void
     {
         $application = $this->assignedApplication('9');
 
@@ -241,7 +221,7 @@ class RecruitmentPermissionTest extends TestCase
             ->assertRedirect();
     }
 
-    public function test_p10_interviewer_cannot_download_cv_unassigned(): void
+    public function test_p09_interviewer_cannot_download_cv_unassigned(): void
     {
         $application = $this->assignedApplication('10');
 
@@ -261,7 +241,7 @@ class RecruitmentPermissionTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_p11_interviewer_can_download_cv_assigned(): void
+    public function test_p10_interviewer_can_download_cv_assigned(): void
     {
         $application = $this->assignedApplication('11');
 
@@ -273,7 +253,7 @@ class RecruitmentPermissionTest extends TestCase
             ->assertOk();
     }
 
-    public function test_p12_tracking_session_isolated_per_applicant(): void
+    public function test_p11_tracking_session_isolated_per_applicant(): void
     {
         $applicationA = $this->application('A', self::TOKEN_A);
         $applicationB = $this->application('B', self::TOKEN_B);

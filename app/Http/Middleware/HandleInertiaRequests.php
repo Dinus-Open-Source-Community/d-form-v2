@@ -78,7 +78,6 @@ class HandleInertiaRequests extends Middleware
                     'can_decide_recruitment_final' => $user->can('recruitment.final.decide'),
                     'can_view_recruitment_reports' => $user->can('recruitment.reports.view'),
                     'can_view_recruitment_activity' => $user->can('recruitment.activity.view'),
-                    'can_edit_recruitment_email_templates' => $user->can('recruitment.templates.edit'),
                     'avatar' => UserAvatarService::resolvePublicUrl($user->avatar, $request),
                 ],
             ) : null,

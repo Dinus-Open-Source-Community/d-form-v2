@@ -11,7 +11,6 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use App\Models\User;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -35,8 +34,6 @@ class RecruitmentSecurityTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
-
         Storage::fake('local');
         Queue::fake();
 

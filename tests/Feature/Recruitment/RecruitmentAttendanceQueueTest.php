@@ -21,7 +21,6 @@ use App\Services\Recruitment\QueueService;
 use App\Services\Recruitment\AttendanceService;
 use App\Support\RecruitmentQrPayload;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -47,8 +46,6 @@ class RecruitmentAttendanceQueueTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
-
         $this->staff = User::factory()->create();
         $this->staff->assignRole('recruitment-staff');
 

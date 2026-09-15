@@ -20,7 +20,6 @@ use App\Services\Recruitment\AttendanceService;
 use App\Services\Recruitment\InterviewSchedulingService;
 use App\Services\Recruitment\QueueService;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -48,8 +47,6 @@ class RecruitmentWorkflowTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
-
         Queue::fake();
 
         $this->staff = User::factory()->create();

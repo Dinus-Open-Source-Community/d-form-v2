@@ -18,7 +18,6 @@ use App\Models\User;
 use App\Services\Recruitment\AttendanceService;
 use App\Services\Recruitment\InterviewSchedulingService;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -46,8 +45,6 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
-
         Queue::fake();
 
         $this->staff = User::factory()->create();

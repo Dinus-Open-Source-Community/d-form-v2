@@ -12,8 +12,8 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentInterviewVariableBuilder;
 use App\Services\Recruitment\RecruitmentQrPngGenerator;
+use App\Services\Recruitment\RecruitmentTrackingPortalUrlBuilder;
 use Database\Seeders\RecruitmentDivisionSeeder;
-use Database\Seeders\RecruitmentEmailTemplateSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -30,7 +30,6 @@ class RecruitmentEmailDeliveryTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
-        $this->seed(RecruitmentEmailTemplateSeeder::class);
     }
 
     private function application(): RecruitmentApplication
@@ -83,7 +82,10 @@ class RecruitmentEmailDeliveryTest extends TestCase
         $job = new SendRecruitmentApplicationConfirmationJob($application->id, 'plain-tracking-token');
 
         try {
-            $job->handle(app(RecruitmentEmailRenderer::class));
+            $job->handle(
+                app(RecruitmentEmailRenderer::class),
+                app(RecruitmentTrackingPortalUrlBuilder::class),
+            );
             $this->fail('Expected RuntimeException was not thrown.');
         } catch (RuntimeException $exception) {
             $this->assertSame('Mail transport error', $exception->getMessage());

@@ -43,7 +43,6 @@ const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
 const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
-const canEditRecruitmentEmailTemplates = computed(() => user.value?.can_edit_recruitment_email_templates === true);
 const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
 
 const currentPath = computed(() => page.url);
@@ -124,10 +123,6 @@ const recruitmentSettingsItems = computed(() => {
             { label: 'Periode', href: routes.admin.recruitment.periods.index },
             { label: 'Divisi', href: routes.admin.recruitment.divisions.index },
         );
-    }
-
-    if (canEditRecruitmentEmailTemplates.value) {
-        items.push({ label: 'Template Email', href: routes.admin.recruitment.emailTemplates.index });
     }
 
     if (canViewRecruitmentActivity.value) {

@@ -7,7 +7,6 @@ use App\Http\Controllers\Dashboard\Recruitment\RecruitmentInterviewSessionContro
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentActivityLogController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentDashboardController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentDivisionController;
-use App\Http\Controllers\Dashboard\Recruitment\RecruitmentEmailTemplateController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentReportController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentPeriodController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentScreeningController;
@@ -31,10 +30,6 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('reports.export.applicants');
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
-
-        Route::get('email-templates', [RecruitmentEmailTemplateController::class, 'index'])->name('email-templates.index');
-        Route::get('email-templates/{template}/edit', [RecruitmentEmailTemplateController::class, 'edit'])->name('email-templates.edit');
-        Route::put('email-templates/{template}', [RecruitmentEmailTemplateController::class, 'update'])->name('email-templates.update');
 
         Route::resource('periods', RecruitmentPeriodController::class);
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');

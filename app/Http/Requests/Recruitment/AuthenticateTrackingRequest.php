@@ -18,7 +18,7 @@ class AuthenticateTrackingRequest extends FormRequest
     {
         return [
             'registration_number' => ['required', 'string', 'max:30'],
-            'tracking_token' => ['required', 'string', 'min:16', 'max:128'],
+            'tracking_token' => ['required', 'string', 'min:8', 'max:128'],
         ];
     }
 }

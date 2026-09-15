@@ -16,8 +16,6 @@ Checklist ini melengkapi [architecture.md §12](architecture.md) dan PRD §47–
 - [ ] `MAIL_*` SMTP production dikonfigurasi dan diverifikasi
 - [ ] `QUEUE_CONNECTION` bukan `sync` di production
 - [ ] Rate limit `oprec-apply` dan `oprec-track` sesuai beban (lihat `AppServiceProvider`)
-- [ ] `RecruitmentEmailTemplateSeeder` sudah dijalankan atau template disinkronkan
-
 ## Database & seed
 
 - [ ] Migration recruitment tables applied
