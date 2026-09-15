@@ -35,10 +35,6 @@ export interface ScanResult {
     queueNumber: number | null
 }
 
-export function normalizeQrCode(raw: string): string {
-    return raw.trim().toLowerCase()
-}
-
 export function extractQrCandidate(decodedText: string): string {
     const raw = decodedText.trim()
     if (!raw.startsWith('{') || !raw.endsWith('}')) {
