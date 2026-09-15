@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
+import { onMounted } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstructionsCard.vue'
@@ -20,9 +20,7 @@ const props = defineProps<{
     globalScanStreamUrl: string
 }>()
 
-const s = reactive(
-    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets),
-)
+const s = useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets)
 
 onMounted(() => {
     setTopbar({ title: 'Scanner Global', subtitle: 'Pindai QR apapun' })

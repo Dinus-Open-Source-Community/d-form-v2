@@ -111,6 +111,20 @@ function formatGlobalEventTitle(kind: 'event' | 'oprec', rawTitle: string): stri
     return title.replace(/(\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}(?::\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?/g, '$1')
 }
 
+function formatSessionDate(raw: string): string {
+    const text: string = raw.trim()
+    if (text.length === 0) {
+        return ''
+    }
+
+    const parsed = new Date(text)
+    if (Number.isNaN(parsed.getTime())) {
+        return text
+    }
+
+    return parsed.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 function readRecordString(record: Record<string, unknown>, key: string): string {
     const value: unknown = record[key]
 
@@ -127,7 +141,7 @@ function sessionOptionLabel(session: { id: string } & Record<string, unknown>): 
         }
     }
 
-    const date = readRecordString(session, 'session_date')
+    const date = formatSessionDate(readRecordString(session, 'session_date'))
 
     return date.length > 0 ? `${divisionName} · ${date}` : divisionName
 }
@@ -185,26 +199,55 @@ export function useGlobalQrScanPage(
         }
     }
 
+    function ownScanKey(kind: 'event' | 'oprec', email: string): string | null {
+        const identifier: string = email.trim()
+        if (identifier.length === 0 || identifier === '-') {
+            return null
+        }
+
+        return `${deskId}|${kind}|${identifier}|success`
+    }
+
     function rememberOwnScan(kind: 'event' | 'oprec', email: string): void {
         const now: number = Date.now()
         pruneOwnScans(now)
-        recentOwnScans.set(`${kind}|${email}|success`, now)
+        const key: string | null = ownScanKey(kind, email)
+        if (key === null) {
+            return
+        }
+        recentOwnScans.set(key, now)
     }
 
     function isOwnEcho(kind: 'event' | 'oprec', email: string): boolean {
         const now: number = Date.now()
         pruneOwnScans(now)
-        const at: number | undefined = recentOwnScans.get(`${kind}|${email}|success`)
+        const key: string | null = ownScanKey(kind, email)
+        if (key === null) {
+            return false
+        }
+        const at: number | undefined = recentOwnScans.get(key)
 
         return at !== undefined && now - at < OWN_ECHO_WINDOW_MS
     }
 
-    const successfulScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'success').length)
-    const duplicateScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'already').length)
-    const invalidScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'invalid').length)
+    const scanEntryEpochMs = new Map<string, number>()
+
+    function isTodayEntry(entry: ScanEntry): boolean {
+        const epoch: number | undefined = scanEntryEpochMs.get(entry.id)
+        if (epoch === undefined) {
+            return true
+        }
+
+        return new Date(epoch).toDateString() === new Date().toDateString()
+    }
+
+    const todayEntries = computed<ScanEntry[]>(() => scanHistory.value.filter(isTodayEntry))
+    const successfulScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'success').length)
+    const duplicateScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'already').length)
+    const invalidScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'invalid').length)
 
     const summary = computed<GlobalScanSummary>(() => ({
-        total: scanHistory.value.length,
+        total: todayEntries.value.length,
         success: successfulScansCount.value,
         already: duplicateScansCount.value,
         invalid: invalidScansCount.value,
@@ -240,7 +283,9 @@ export function useGlobalQrScanPage(
 
     function pushResult(result: ScanResult): void {
         scanResult.value = result
-        scanHistory.value.unshift(createScanHistoryEntry(result))
+        const entry: ScanEntry = createScanHistoryEntry(result)
+        scanEntryEpochMs.set(entry.id, Date.now())
+        scanHistory.value.unshift(entry)
         playScanBeep(result.status)
     }
 
@@ -454,7 +499,7 @@ export function useGlobalQrScanPage(
             return
         }
 
-        scanHistory.value.unshift({
+        const streamEntry: ScanEntry = {
             id: row.id,
             name,
             email: identifier,
@@ -466,7 +511,9 @@ export function useGlobalQrScanPage(
             queueNumber: typeof row.queueNumber === 'number' ? row.queueNumber : null,
             desk: rowDesk,
             isOwnDesk: rowDesk.length > 0 && rowDesk === deskId,
-        })
+        }
+        scanEntryEpochMs.set(streamEntry.id, Date.now())
+        scanHistory.value.unshift(streamEntry)
     }
 
     function closeStream(): void {
@@ -616,6 +663,7 @@ export function useGlobalQrScanPage(
 
     function clearHistory(): void {
         scanHistory.value = []
+        scanEntryEpochMs.clear()
         scanResult.value = null
         toast('Riwayat scan dibersihkan')
     }
