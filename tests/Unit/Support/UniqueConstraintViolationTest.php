@@ -4,19 +4,25 @@ namespace Tests\Unit\Support;
 
 use App\Support\Database\UniqueConstraintViolation;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use PDOException;
 use PHPUnit\Framework\TestCase;
 
 class UniqueConstraintViolationTest extends TestCase
 {
-    public function test_detects_sql_state_23000(): void
+    public function test_detects_unique_constraint_violation(): void
     {
-        $previous = new PDOException('Duplicate entry');
-        $previous->errorInfo = ['23000', 1062, 'Duplicate entry'];
+        $this->assertTrue(UniqueConstraintViolation::isViolation($this->uniqueViolation()));
+    }
+
+    public function test_rejects_foreign_key_violation_with_sql_state_23000(): void
+    {
+        $previous = new PDOException('Cannot add or update a child row');
+        $previous->errorInfo = ['23000', 1452, 'Cannot add or update a child row'];
 
         $exception = new QueryException('mysql', 'insert into t values (1)', [], $previous);
 
-        $this->assertTrue(UniqueConstraintViolation::isViolation($exception));
+        $this->assertFalse(UniqueConstraintViolation::isViolation($exception));
     }
 
     public function test_rejects_other_sql_states(): void
@@ -34,5 +40,13 @@ class UniqueConstraintViolationTest extends TestCase
         $exception = new QueryException('mysql', 'select 1', [], new PDOException('boom'));
 
         $this->assertFalse(UniqueConstraintViolation::isViolation($exception));
+    }
+
+    private function uniqueViolation(): UniqueConstraintViolationException
+    {
+        $previous = new PDOException('SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry');
+        $previous->errorInfo = ['23000', 1062, 'Duplicate entry'];
+
+        return new UniqueConstraintViolationException('mysql', 'insert into t values (1)', [], $previous);
     }
 }

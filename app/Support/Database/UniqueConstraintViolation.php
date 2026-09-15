@@ -3,11 +3,12 @@
 namespace App\Support\Database;
 
 use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 final class UniqueConstraintViolation
 {
     public static function isViolation(QueryException $exception): bool
     {
-        return ($exception->errorInfo[0] ?? '') === '23000';
+        return $exception instanceof UniqueConstraintViolationException;
     }
 }
