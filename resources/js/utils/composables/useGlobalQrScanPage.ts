@@ -68,6 +68,7 @@ interface GlobalScanStreamRow {
 
 const DESK_STORAGE_KEY = 'scan-desk-id'
 const SCAN_COOLDOWN_MS = 2000
+const OWN_ECHO_WINDOW_MS = 90000
 
 function resolveDeskId(): string {
     try {
@@ -174,6 +175,29 @@ export function useGlobalQrScanPage(
 
     let streamSource: EventSource | null = null
     const seenStreamIds = new Set<string>()
+    const recentOwnScans = new Map<string, number>()
+
+    function pruneOwnScans(now: number): void {
+        for (const [key, at] of recentOwnScans) {
+            if (now - at >= OWN_ECHO_WINDOW_MS) {
+                recentOwnScans.delete(key)
+            }
+        }
+    }
+
+    function rememberOwnScan(kind: 'event' | 'oprec', email: string): void {
+        const now: number = Date.now()
+        pruneOwnScans(now)
+        recentOwnScans.set(`${kind}|${email}|success`, now)
+    }
+
+    function isOwnEcho(kind: 'event' | 'oprec', email: string): boolean {
+        const now: number = Date.now()
+        pruneOwnScans(now)
+        const at: number | undefined = recentOwnScans.get(`${kind}|${email}|success`)
+
+        return at !== undefined && now - at < OWN_ECHO_WINDOW_MS
+    }
 
     const successfulScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'success').length)
     const duplicateScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'already').length)
@@ -260,14 +284,16 @@ export function useGlobalQrScanPage(
                     desk: deskId,
                     isOwnDesk: true,
                 })
+                rememberOwnScan(kind, identifier)
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: `#${padQueueNumber(queueNumber)} — arahkan ke ruang tunggu`,
                 })
             }
             else {
+                const email = data.attendee.email?.trim() || '-'
                 pushResult({
                     name: data.attendee.name?.trim() || 'Tanpa nama',
-                    email: data.attendee.email?.trim() || '-',
+                    email,
                     status: 'success',
                     source,
                     rawCode: rawDisplay,
@@ -277,6 +303,7 @@ export function useGlobalQrScanPage(
                     desk: deskId,
                     isOwnDesk: true,
                 })
+                rememberOwnScan(kind, email)
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: 'Boleh masuk — tiket dikirim ke email',
                 })
@@ -422,6 +449,10 @@ export function useGlobalQrScanPage(
         const identifier =
             typeof row.identifier === 'string' && row.identifier.trim().length > 0 ? row.identifier.trim() : '-'
         const rowDesk = typeof row.desk === 'string' ? row.desk : ''
+
+        if (isOwnEcho(kind, identifier)) {
+            return
+        }
 
         scanHistory.value.unshift({
             id: row.id,
