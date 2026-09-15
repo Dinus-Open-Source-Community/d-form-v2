@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstructionsCard.vue'
@@ -20,7 +20,9 @@ const props = defineProps<{
     globalScanStreamUrl: string
 }>()
 
-const s = useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets)
+const s = reactive(
+    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets),
+)
 
 interface GlobalScanSummaryRow {
     id: string
@@ -33,7 +35,7 @@ interface GlobalScanSummaryRow {
 
 const summaryRows = computed<GlobalScanSummaryRow[]>(() => {
     const optionIdByKindTitle = new Map<string, string>()
-    for (const option of s.targetOptions.value) {
+    for (const option of s.targetOptions) {
         const key = `${option.kind}::${option.label}`
         if (!optionIdByKindTitle.has(key)) {
             optionIdByKindTitle.set(key, option.id)
@@ -41,7 +43,7 @@ const summaryRows = computed<GlobalScanSummaryRow[]>(() => {
     }
 
     const rows = new Map<string, GlobalScanSummaryRow>()
-    for (const entry of s.scanHistory.value) {
+    for (const entry of s.scanHistory) {
         const title = entry.eventTitle !== '' && entry.eventTitle !== '-' ? entry.eventTitle : '(Tanpa acara)'
         const key = `${entry.eventKind}::${title}`
         let row = rows.get(key)
@@ -72,7 +74,7 @@ const summaryRows = computed<GlobalScanSummaryRow[]>(() => {
 })
 
 function handleSelectTarget(id: string | null): void {
-    if (id === null || id === s.selectedTarget.value) {
+    if (id === null || id === s.selectedTarget) {
         s.selectTarget('all')
 
         return
@@ -82,11 +84,11 @@ function handleSelectTarget(id: string | null): void {
 }
 
 function toggleLog(): void {
-    s.logExpanded.value = !s.logExpanded.value
+    s.logExpanded = !s.logExpanded
 }
 
 function handleLogQuery(value: string): void {
-    s.logQuery.value = value
+    s.logQuery = value
 }
 
 onMounted(() => {
