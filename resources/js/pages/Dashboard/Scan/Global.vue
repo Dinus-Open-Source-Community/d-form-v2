@@ -9,7 +9,6 @@ import ScanExportDialog, {
     type ScanExportFormat,
     type ScanExportTarget,
 } from '@/components/modules/dashboard/ScanExportDialog.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
@@ -136,78 +135,59 @@ onMounted(() => {
     <Head title="Scanner Global" />
 
     <div class="flex flex-col gap-5">
-        <Card class="rounded-2xl border border-border/70">
-            <CardHeader class="gap-4 pb-3">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="space-y-1">
-                        <CardTitle class="text-base font-semibold">Ringkasan Hari Ini</CardTitle>
-                        <p class="text-muted-foreground text-xs">
-                            Aktif hari ini ({{ s.activeTargetCount }}) — {{ props.targets.sessions.length }} sesi oprec ·
-                            {{ props.targets.events.length }} event
-                        </p>
-                    </div>
+        <section class="flex flex-col gap-4">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <h2 class="text-base font-semibold">Ringkasan Hari Ini</h2>
 
-                    <div class="flex flex-wrap items-end gap-2">
-                        <div class="w-full space-y-1.5 sm:w-60">
-                            <Label
-                                for="scan-target-filter"
-                                class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
-                            >
-                                Filter acara
-                            </Label>
-                            <SimpleSelect
-                                v-model="s.selectedTarget"
-                                :options="targetFilterOptions"
-                                id="scan-target-filter"
-                                placeholder="Semua acara"
-                                class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                                aria-label="Filter KPI, hasil scan terakhir, dan riwayat scan per acara"
-                            />
-                        </div>
-
-                        <Button
-                            variant="outline"
-                            class="md:min-w-32"
-                            :disabled="isExporting"
-                            @click="requestScanExport('xlsx')"
+                <div class="flex flex-wrap items-end gap-2">
+                    <div class="w-full space-y-1.5 sm:w-60">
+                        <Label
+                            for="scan-target-filter"
+                            class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
                         >
-                            <FileSpreadsheet data-icon="inline-start" />
-                            Export Excel
-                        </Button>
-                        <Button variant="outline" class="md:min-w-32" :disabled="isExporting" @click="requestScanExport('csv')">
-                            <FileText data-icon="inline-start" />
-                            Export CSV
-                        </Button>
+                            Filter acara
+                        </Label>
+                        <SimpleSelect
+                            v-model="s.selectedTarget"
+                            :options="targetFilterOptions"
+                            id="scan-target-filter"
+                            placeholder="Semua acara"
+                            class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
+                            aria-label="Filter KPI, hasil scan terakhir, dan riwayat scan per acara"
+                        />
                     </div>
-                </div>
 
-                <p class="text-muted-foreground text-xs">
-                    <template v-if="s.selectedTarget === 'all'">
-                        Menampilkan semua acara. Pilih acara untuk memfilter KPI, hasil scan terakhir, dan riwayat sekaligus.
-                    </template>
-                    <template v-else>
-                        Difilter ke <span class="text-foreground font-medium">{{ s.selectedTargetLabel }}</span> — KPI, hasil
-                        scan terakhir, dan riwayat mengikuti acara ini.
-                    </template>
-                </p>
-            </CardHeader>
-            <CardContent class="pt-0">
-                <div class="grid gap-2 sm:grid-cols-3">
-                    <div class="rounded-xl border border-border/70 bg-background px-3 py-2.5">
-                        <p class="text-muted-foreground text-xs">Check-in berhasil</p>
-                        <p class="text-success text-lg font-semibold">{{ s.successfulScansCount }}</p>
-                    </div>
-                    <div class="rounded-xl border border-border/70 bg-background px-3 py-2.5">
-                        <p class="text-muted-foreground text-xs">Sudah scan</p>
-                        <p class="text-warning text-lg font-semibold">{{ s.duplicateScansCount }}</p>
-                    </div>
-                    <div class="rounded-xl border border-border/70 bg-background px-3 py-2.5">
-                        <p class="text-muted-foreground text-xs">Tidak valid</p>
-                        <p class="text-destructive text-lg font-semibold">{{ s.invalidScansCount }}</p>
-                    </div>
+                    <Button
+                        variant="outline"
+                        class="md:min-w-32"
+                        :disabled="isExporting"
+                        @click="requestScanExport('xlsx')"
+                    >
+                        <FileSpreadsheet data-icon="inline-start" />
+                        Export Excel
+                    </Button>
+                    <Button variant="outline" class="md:min-w-32" :disabled="isExporting" @click="requestScanExport('csv')">
+                        <FileText data-icon="inline-start" />
+                        Export CSV
+                    </Button>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+
+            <div class="grid gap-2 sm:grid-cols-3">
+                <div class="border-border/70 rounded-xl border px-3 py-2.5">
+                    <p class="text-muted-foreground text-xs">Check-in berhasil</p>
+                    <p class="text-success text-lg font-semibold">{{ s.successfulScansCount }}</p>
+                </div>
+                <div class="border-border/70 rounded-xl border px-3 py-2.5">
+                    <p class="text-muted-foreground text-xs">Sudah scan</p>
+                    <p class="text-warning text-lg font-semibold">{{ s.duplicateScansCount }}</p>
+                </div>
+                <div class="border-border/70 rounded-xl border px-3 py-2.5">
+                    <p class="text-muted-foreground text-xs">Tidak valid</p>
+                    <p class="text-destructive text-lg font-semibold">{{ s.invalidScansCount }}</p>
+                </div>
+            </div>
+        </section>
 
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
             <QrScanScannerCard

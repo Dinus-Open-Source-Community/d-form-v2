@@ -252,12 +252,6 @@ export function useGlobalQrScanPage(
         ]
     })
 
-    const activeTargetCount = computed(() => {
-        const targets = getTargets()
-
-        return targets.sessions.length + targets.events.length
-    })
-
     const selectedTargetOption = computed<GlobalScanTargetOption | null>(() => {
         if (selectedTarget.value === 'all') {
             return null
@@ -872,7 +866,6 @@ export function useGlobalQrScanPage(
         logQuery,
         isShutterActive,
         targetOptions,
-        activeTargetCount,
         scanBusy,
         processScan,
         submitScanPayload,
