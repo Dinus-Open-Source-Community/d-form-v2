@@ -24,13 +24,14 @@ final class ScanStreamFeed
     public function since(?string $cursorIso, int $limit = 50): array
     {
         $cursor = $cursorIso !== null ? Carbon::parse($cursorIso)->subSeconds(2) : null;
+        $fetchLimit = $limit * 2;
         $rows = [];
 
         $eventQuery = EventAttendance::query()->with(['formAnswer.form.event', 'formAnswer.user'])->orderBy('scanned_at');
         if ($cursor !== null) {
             $eventQuery->where('scanned_at', '>=', $cursor);
         }
-        foreach ($eventQuery->limit($limit)->get() as $attendance) {
+        foreach ($eventQuery->limit($fetchLimit)->get() as $attendance) {
             $answer = $attendance->formAnswer;
             if ($answer === null || $answer->form === null || $answer->form->event === null) {
                 continue;
@@ -50,18 +51,23 @@ final class ScanStreamFeed
         if ($cursor !== null) {
             $recQuery->where('checked_in_at', '>=', $cursor);
         }
-        foreach ($recQuery->limit($limit)->get() as $attendance) {
-            $application = RecruitmentApplication::query()
-                ->with('queueEntry')
-                ->whereKey($attendance->recruitment_application_id)
-                ->first();
+        $recAttendances = $recQuery->limit($fetchLimit)->get();
+        $applications = RecruitmentApplication::query()
+            ->with('queueEntry')
+            ->whereIn('id', $recAttendances->pluck('recruitment_application_id')->unique()->values()->all())
+            ->get()
+            ->keyBy('id');
+        $sessions = RecruitmentInterviewSession::query()
+            ->with(['division:id,name', 'period:id,name'])
+            ->whereIn('id', $recAttendances->pluck('recruitment_interview_session_id')->unique()->values()->all())
+            ->get()
+            ->keyBy('id');
+        foreach ($recAttendances as $attendance) {
+            $application = $applications->get($attendance->recruitment_application_id);
             if ($application === null) {
                 continue;
             }
-            $session = RecruitmentInterviewSession::query()
-                ->with(['division:id,name', 'period:id,name'])
-                ->whereKey($attendance->recruitment_interview_session_id)
-                ->first();
+            $session = $sessions->get($attendance->recruitment_interview_session_id);
             $rows[] = [
                 'id' => 'rec:'.$attendance->id,
                 'ts' => $attendance->checked_in_at->toIso8601String(),
