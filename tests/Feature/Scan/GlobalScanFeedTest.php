@@ -208,6 +208,41 @@ class GlobalScanFeedTest extends TestCase
         $this->assertStringContainsString($this->programming->name, $response->json('queue.0.label'));
     }
 
+    public function test_feed_queue_omits_active_session_without_check_in(): void
+    {
+        $this->actingAs($this->staff)
+            ->getJson(route('dashboard.scan.feed'))
+            ->assertOk()
+            ->assertJsonCount(0, 'queue');
+    }
+
+    public function test_feed_queue_only_includes_sessions_with_queue_entries(): void
+    {
+        $emptySession = RecruitmentInterviewSession::query()->create([
+            'recruitment_period_id' => $this->period->id,
+            'recruitment_division_id' => $this->programming->id,
+            'session_date' => now()->toDateString(),
+            'starts_at' => '13:00:00',
+            'ends_at' => '15:00:00',
+            'location' => 'Lab DOSCOM',
+            'room' => 'B202',
+            'is_active' => true,
+        ]);
+
+        $application = $this->scheduleApplicant('6');
+        $this->checkIn($application);
+
+        $response = $this->actingAs($this->staff)
+            ->getJson(route('dashboard.scan.feed'))
+            ->assertOk()
+            ->assertJsonCount(1, 'queue')
+            ->assertJsonPath('queue.0.sessionId', $this->session->id)
+            ->assertJsonPath('queue.0.nowServing', null)
+            ->assertJsonPath('queue.0.waitingCount', 1);
+
+        $this->assertNotContains($emptySession->id, array_column($response->json('queue'), 'sessionId'));
+    }
+
     public function test_guest_is_unauthorized(): void
     {
         $this->getJson(route('dashboard.scan.feed'))->assertUnauthorized();

@@ -78,6 +78,12 @@ class GlobalScanFeedController extends Controller
         foreach ($sessions as $session) {
             $queue = $this->queueService->snapshot($session);
             $current = $queue['current'];
+            $waitingCount = (int) $queue['stats']['waiting'];
+
+            if ($current === null && $waitingCount === 0) {
+                continue;
+            }
+
             $waiting = array_values(array_filter(
                 $queue['entries'],
                 static fn (array $entry): bool => $entry['status'] === QueueStatus::Waiting->value,
@@ -97,7 +103,7 @@ class GlobalScanFeedController extends Controller
                     ],
                     array_slice($waiting, 0, self::WAITING_PREVIEW_LIMIT),
                 ),
-                'waitingCount' => (int) $queue['stats']['waiting'],
+                'waitingCount' => $waitingCount,
             ];
         }
 
