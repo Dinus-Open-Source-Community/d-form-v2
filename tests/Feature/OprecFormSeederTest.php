@@ -27,6 +27,34 @@ class OprecFormSeederTest extends TestCase
         ], $names);
     }
 
+    public function test_every_field_carries_top_level_step(): void
+    {
+        $this->seed([EventSeeder::class, OprecFormSeeder::class]);
+
+        $form = app(OprecFormDefinition::class)->requiredForm();
+        $fields = $form->formFields()->get();
+
+        foreach ($fields as $field) {
+            $metadata = $field->metadata;
+
+            $this->assertArrayHasKey('step', $metadata, "Field {$field->name} has no top-level step.");
+            $this->assertIsInt($metadata['step'], "Field {$field->name} step is not an integer.");
+            $this->assertGreaterThanOrEqual(1, $metadata['step']);
+            $this->assertLessThanOrEqual(3, $metadata['step']);
+
+            $rules = $metadata['rules'] ?? [];
+            $this->assertArrayNotHasKey('step', $rules, "Field {$field->name} still nests step inside rules.");
+        }
+
+        $distribution = $fields
+            ->groupBy(fn ($field) => (int) $field->metadata['step'])
+            ->map->count()
+            ->all();
+        ksort($distribution);
+
+        $this->assertSame([1 => 7, 2 => 2, 3 => 4], $distribution);
+    }
+
     public function test_rerun_does_not_duplicate_fields(): void
     {
         $this->seed([EventSeeder::class, OprecFormSeeder::class]);
