@@ -10,6 +10,17 @@ use App\Services\Registration\BundleGuestDisplayNameResolver;
 use App\Services\Registration\FormAnswerRecipientResolver;
 use Illuminate\Support\Carbon;
 
+/**
+ * Feed gabungan attendance event + recruitment untuk halaman global scan.
+ *
+ * ACCEPTED RISK (M2, 2026-09-15): feed sengaja mengembalikan kedua domain
+ * kepada siapa pun yang memiliki `events.list` ATAU
+ * `recruitment.attendance.scan`, tanpa memfilter per domain. Ini keputusan
+ * produk agar satu meja scan dapat melayani semua jenis QR. Konsekuensinya
+ * pemegang salah satu izin dapat melihat ringkasan kehadiran domain lain.
+ * Jangan "perbaiki" tanpa menyetujui ulang keputusan ini.
+ * Spec: docs/superpowers/specs/2026-09-15-scan-oprec-hardening-spec.md
+ */
 final class ScanStreamFeed
 {
     public function __construct(
