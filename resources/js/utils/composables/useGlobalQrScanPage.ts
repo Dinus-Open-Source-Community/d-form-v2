@@ -175,7 +175,6 @@ export function useGlobalQrScanPage(
     const isCameraReady = ref(false)
     const isStartingCamera = ref(false)
     const permissionError = ref('')
-    const manualQrInput = ref('')
     const registrationCodeInput = ref('')
     const scanResult = ref<ScanResult | null>(null)
     const scanHistory = ref<ScanEntry[]>([])
@@ -296,7 +295,7 @@ export function useGlobalQrScanPage(
 
         const trimmed = raw.trim()
         if (trimmed.length === 0) {
-            showErrorToast('Tempel isi QR atau isi kode registrasi.')
+            showErrorToast('Isi kode registrasi terlebih dahulu.')
 
             return
         }
@@ -355,7 +354,6 @@ export function useGlobalQrScanPage(
             }
 
             if (source === 'manual') {
-                manualQrInput.value = ''
                 registrationCodeInput.value = ''
             }
         }
@@ -645,16 +643,15 @@ export function useGlobalQrScanPage(
     }
 
     function submitManualCode(): void {
-        const raw = manualQrInput.value.trim()
         const code = registrationCodeInput.value.trim()
 
-        if (raw.length === 0 && code.length === 0) {
-            showErrorToast('Tempel isi QR atau isi kode registrasi.')
+        if (code.length === 0) {
+            showErrorToast('Isi kode registrasi terlebih dahulu.')
 
             return
         }
 
-        void submitScanPayload(code.length > 0 ? code : raw, 'manual')
+        void submitScanPayload(code, 'manual')
     }
 
     function selectTarget(id: string): void {
@@ -680,7 +677,6 @@ export function useGlobalQrScanPage(
         isCameraReady,
         isStartingCamera,
         permissionError,
-        manualQrInput,
         registrationCodeInput,
         scanResult,
         scanHistory,
