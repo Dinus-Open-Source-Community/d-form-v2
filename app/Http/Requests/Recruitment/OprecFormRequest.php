@@ -6,6 +6,7 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Form\RulesBuilder;
 use App\Services\Recruitment\OprecFormDefinition;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -122,7 +123,7 @@ class OprecFormRequest extends FormRequest
                 $validator->errors()->add('portfolio_file', 'File portfolio wajib diunggah.');
             }
 
-            $nim = (string) $this->input('nim');
+            $nim = Str::upper(trim((string) $this->input('nim')));
 
             if ($nim !== '' && RecruitmentApplication::query()
                 ->where('recruitment_period_id', $period->id)
@@ -144,6 +145,7 @@ class OprecFormRequest extends FormRequest
             $validated['secondary_division_id'] = $divisions[(string) $validated['secondary_division_id']] ?? $validated['secondary_division_id'];
         }
 
+        $validated['nim'] = Str::upper(trim((string) $validated['nim']));
         $validated['instagram_username'] = ltrim((string) $validated['instagram_username'], '@');
 
         return $validated;
