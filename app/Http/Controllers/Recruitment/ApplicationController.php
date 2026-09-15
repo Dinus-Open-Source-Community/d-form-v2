@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Recruitment;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\StoreApplicationRequest;
+use App\Http\Requests\Recruitment\OprecFormRequest;
+use App\Services\Recruitment\OprecFormDefinition;
 use App\Services\Recruitment\ApplicationSubmitter;
 use App\Services\Recruitment\RecruitmentDivisionService;
 use App\Services\Recruitment\RecruitmentPeriodRegistrationGate;
@@ -31,6 +32,11 @@ class ApplicationController extends Controller
 
         $displayPeriod = $openPeriod ?? $latestPeriod;
 
+        $oprec = app(OprecFormDefinition::class);
+        $oprecForm = $oprec->requiredForm();
+        $oprecEvent = $oprecForm->event;
+        abort_if($oprecEvent === null, 503, 'Formulir pendaftaran sedang dalam pemeliharaan. Coba lagi nanti.');
+
         return Inertia::render('OpenRecruitment/Apply', [
             'period' => $displayPeriod ? $this->periodService->toInertiaArray($displayPeriod) : null,
             'registration' => [
@@ -41,11 +47,25 @@ class ApplicationController extends Controller
                 ->map(fn ($division) => $this->divisionService->toInertiaArray($division))
                 ->values()
                 ->all(),
+            'oprecForm' => [
+                'id' => $oprecForm->id,
+                'title' => $oprecForm->title,
+                'description' => $oprecForm->description,
+                'closed_at' => $oprecForm->closed_at?->toISOString(),
+                'banner_url' => $oprecForm->banner_url,
+                'banner_caption' => $oprecForm->banner_caption,
+            ],
+            'oprecEvent' => [
+                'id' => $oprecEvent->id,
+                'slug' => $oprecEvent->slug,
+                'title' => $oprecEvent->title,
+            ],
+            'fields' => $oprec->fieldsForDisplay(),
             'submitUrl' => route('open-recruitment.apply.store'),
         ]);
     }
 
-    public function store(StoreApplicationRequest $request): RedirectResponse
+    public function store(OprecFormRequest $request): RedirectResponse
     {
         /** @var \App\Models\Recruitment\RecruitmentPeriod $period */
         $period = $request->attributes->get('recruitment_period');
