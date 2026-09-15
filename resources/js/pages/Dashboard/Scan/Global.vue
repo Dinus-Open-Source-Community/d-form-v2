@@ -1,48 +1,48 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { Head } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue'
-import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue'
+import { computed, onMounted, reactive, ref } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
+import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue';
+import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue';
 import ScanExportDialog, {
     type ScanExportFormat,
     type ScanExportTarget,
-} from '@/components/modules/dashboard/ScanExportDialog.vue'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { FileSpreadsheet, FileText } from 'lucide-vue-next'
-import { routes } from '@/lib/routes'
-import { useGlobalQrScanPage } from '@/utils/composables/useGlobalQrScanPage'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+} from '@/components/modules/dashboard/ScanExportDialog.vue';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { FileSpreadsheet, FileText } from 'lucide-vue-next';
+import { routes } from '@/lib/routes';
+import { useGlobalQrScanPage } from '@/utils/composables/useGlobalQrScanPage';
+import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 
-defineOptions({ layout: DashboardFocusLayout })
+defineOptions({ layout: DashboardFocusLayout });
 
 /** Jeda antar-unduhan agar browser tidak menganggapnya spam unduhan otomatis. */
-const EXPORT_DOWNLOAD_STAGGER_MS = 400
+const EXPORT_DOWNLOAD_STAGGER_MS = 400;
 
 const props = defineProps<{
     targets: {
-        sessions: Array<{ id: string } & Record<string, unknown>>
-        events: Array<{ id: string | number } & Record<string, unknown>>
-    }
-    globalScanStoreUrl: string
-    globalScanFeedUrl?: string
-}>()
+        sessions: Array<{ id: string } & Record<string, unknown>>;
+        events: Array<{ id: string | number } & Record<string, unknown>>;
+    };
+    globalScanStoreUrl: string;
+    globalScanFeedUrl?: string;
+}>();
 
 const feedUrl = computed<string>(() => {
-    const explicit = props.globalScanFeedUrl?.trim() ?? ''
+    const explicit = props.globalScanFeedUrl?.trim() ?? '';
     if (explicit.length > 0) {
-        return explicit
+        return explicit;
     }
 
-    return `${props.globalScanStoreUrl.replace(/\/+$/, '')}/feed`
-})
+    return `${props.globalScanStoreUrl.replace(/\/+$/, '')}/feed`;
+});
 
 const s = reactive(
-    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets),
-)
+    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets)
+);
 
 const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
     { value: 'all', label: 'Semua acara' },
@@ -50,42 +50,42 @@ const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
         value: option.id,
         label: `${option.kind === 'oprec' ? 'OPREC' : 'EVENT'} · ${option.label}`,
     })),
-])
+]);
 
 const heroEmptyMessage = computed<string>(() =>
     s.selectedTarget === 'all'
         ? 'Belum ada scan. Mulai kamera atau gunakan input manual.'
-        : `Belum ada scan untuk ${s.selectedTargetLabel}.`,
-)
+        : `Belum ada scan untuk ${s.selectedTargetLabel}.`
+);
 
-const exportDialogOpen = ref(false)
-const exportFormat = ref<ScanExportFormat>('xlsx')
-const isExporting = ref(false)
+const exportDialogOpen = ref(false);
+const exportFormat = ref<ScanExportFormat>('xlsx');
+const isExporting = ref(false);
 
 function triggerBrowserDownload(url: string): void {
-    const link = document.createElement('a')
-    link.href = url
-    link.download = ''
-    link.rel = 'noopener'
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    window.setTimeout(() => link.remove(), 1500)
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => link.remove(), 1500);
 }
 
 function downloadScanExports(targets: ScanExportTarget[], format: ScanExportFormat): void {
     if (targets.length === 0) {
-        return
+        return;
     }
 
-    isExporting.value = true
+    isExporting.value = true;
 
     targets.forEach((target, index) => {
         window.setTimeout(() => {
-            triggerBrowserDownload(routes.admin.scan.export({ kind: target.kind, target: target.id, format }))
+            triggerBrowserDownload(routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
 
             if (index === targets.length - 1) {
-                isExporting.value = false
+                isExporting.value = false;
                 toast.success(
                     targets.length === 1
                         ? `Export ${format.toUpperCase()} diunduh.`
@@ -95,40 +95,40 @@ function downloadScanExports(targets: ScanExportTarget[], format: ScanExportForm
                             targets.length > 1
                                 ? 'Jika browser meminta izin, pilih "Allow" agar semua file terunduh.'
                                 : undefined,
-                    },
-                )
+                    }
+                );
             }
-        }, index * EXPORT_DOWNLOAD_STAGGER_MS)
-    })
+        }, index * EXPORT_DOWNLOAD_STAGGER_MS);
+    });
 }
 
 function requestScanExport(format: ScanExportFormat): void {
-    const selected = s.selectedTargetOption
+    const selected = s.selectedTargetOption;
     if (selected !== null) {
-        downloadScanExports([selected], format)
+        downloadScanExports([selected], format);
 
-        return
+        return;
     }
 
-    exportFormat.value = format
-    exportDialogOpen.value = true
+    exportFormat.value = format;
+    exportDialogOpen.value = true;
 }
 
 function confirmScanExport(targets: ScanExportTarget[]): void {
-    downloadScanExports(targets, exportFormat.value)
+    downloadScanExports(targets, exportFormat.value);
 }
 
 function toggleLog(): void {
-    s.logExpanded = !s.logExpanded
+    s.logExpanded = !s.logExpanded;
 }
 
 function handleLogQuery(value: string): void {
-    s.logQuery = value
+    s.logQuery = value;
 }
 
 onMounted(() => {
-    setTopbar({ title: 'Scanner Global', subtitle: 'Pindai QR apapun' })
-})
+    setTopbar({ title: 'Scanner Global', subtitle: 'Pindai QR apapun' });
+});
 </script>
 
 <template>
@@ -136,9 +136,7 @@ onMounted(() => {
 
     <div class="flex flex-col gap-5">
         <section class="flex flex-col gap-4">
-            <div class="flex flex-wrap items-end justify-between gap-3">
-                <h2 class="text-base font-semibold">Ringkasan Hari Ini</h2>
-
+            <div class="flex flex-wrap items-end justify-end gap-3">
                 <div class="flex flex-wrap items-end gap-2">
                     <div class="w-full space-y-1.5 sm:w-60">
                         <Label
@@ -166,7 +164,12 @@ onMounted(() => {
                         <FileSpreadsheet data-icon="inline-start" />
                         Export Excel
                     </Button>
-                    <Button variant="outline" class="md:min-w-32" :disabled="isExporting" @click="requestScanExport('csv')">
+                    <Button
+                        variant="outline"
+                        class="md:min-w-32"
+                        :disabled="isExporting"
+                        @click="requestScanExport('csv')"
+                    >
                         <FileText data-icon="inline-start" />
                         Export CSV
                     </Button>
