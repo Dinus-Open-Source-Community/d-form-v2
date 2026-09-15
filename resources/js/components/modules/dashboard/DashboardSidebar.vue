@@ -27,6 +27,7 @@ import {
     ChevronDown,
     Settings2,
     ClipboardCheck,
+    ScanLine,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
 import useAuth from '@/utils/composables/useAuth';
@@ -44,6 +45,7 @@ const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_re
 const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
 const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
+const canScanGlobal = computed(() => user.value?.can_manage_events === true || user.value?.can_scan_recruitment_attendance === true);
 
 const currentPath = computed(() => page.url);
 
@@ -54,6 +56,10 @@ const mainNavItems = computed(() => [
 
 const managementItems = computed(() => {
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
+
+    if (canScanGlobal.value) {
+        items.push({ label: 'Scan Global', href: routes.admin.scan.index, icon: ScanLine });
+    }
 
     if (canManageEvents.value) {
         items.push({ label: 'Acara', href: routes.admin.events.index, icon: CalendarDays });

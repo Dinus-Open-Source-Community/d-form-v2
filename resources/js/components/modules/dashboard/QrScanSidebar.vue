@@ -1,18 +1,131 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Clock3 } from 'lucide-vue-next';
 import { SCAN_STATUS_THEME, type ScanEntry, type ScanResult } from '@/lib/qrScanUi';
 
-defineProps<{
-    scanResult: ScanResult | null;
-    scanHistory: ScanEntry[];
-}>();
+export interface QrScanSummaryRow {
+    id: string;
+    title: string;
+    kind: 'event' | 'oprec';
+    success: number;
+    duplicate: number;
+    invalid: number;
+}
 
-defineEmits<{
+const props = withDefaults(
+    defineProps<{
+        scanResult: ScanResult | null;
+        summary?: QrScanSummaryRow[];
+        scanHistory: ScanEntry[];
+        logExpanded?: boolean;
+        logQuery?: string;
+    }>(),
+    {
+        summary: () => [],
+        logExpanded: false,
+        logQuery: '',
+    },
+);
+
+const emit = defineEmits<{
+    'select-target': [id: string | null];
+    'update:logQuery': [value: string];
+    'toggle-log': [];
     clearHistory: [];
 }>();
+
+function isOprecKind(kind: string): boolean {
+    return kind === 'oprec';
+}
+
+function kindLabel(kind: string): string {
+    return isOprecKind(kind) ? 'OPREC' : 'EVENT';
+}
+
+function kindBadgeClass(kind: string): string {
+    return isOprecKind(kind) ? 'border-violet-500/40 text-violet-600' : 'border-sky-500/40 text-sky-600';
+}
+
+function eventTitleOf(value: ScanResult | ScanEntry): string {
+    return value.eventTitle || '';
+}
+
+function hasEventContext(value: ScanResult | ScanEntry): boolean {
+    const title = eventTitleOf(value);
+    return title !== '' && title !== '-';
+}
+
+function padQueueNumber(value: number | null): string {
+    if (value === null) {
+        return '-';
+    }
+
+    return String(value).padStart(2, '0');
+}
+
+function heroIdentifier(result: ScanResult): string {
+    if (!hasEventContext(result)) {
+        return result.email;
+    }
+
+    if (isOprecKind(result.eventKind)) {
+        return `${result.email} · Antrian #${padQueueNumber(result.queueNumber)}`;
+    }
+
+    if (result.status === 'success') {
+        return `${result.email} · tiket antre dikirim`;
+    }
+
+    return result.email;
+}
+
+function deskLabel(value: ScanResult | ScanEntry): string {
+    if (value.isOwnDesk) {
+        return 'Meja ini';
+    }
+
+    const desk = value.desk || '';
+
+    return desk !== '' ? `Meja ${desk}` : 'Meja lain';
+}
+
+function sourceLabel(source: string): string {
+    return source === 'manual' ? 'Manual' : 'Kamera';
+}
+
+const filteredHistory = computed<ScanEntry[]>(() => {
+    const query = props.logQuery.trim().toLowerCase();
+
+    if (query.length === 0) {
+        return props.scanHistory;
+    }
+
+    return props.scanHistory.filter((entry) => {
+        const haystack = `${entry.name} ${entry.email} ${entry.eventTitle || ''}`.toLowerCase();
+
+        return haystack.includes(query);
+    });
+});
+
+function onSelectTarget(id: string): void {
+    emit('select-target', id);
+}
+
+function onLogQueryInput(value: string): void {
+    emit('update:logQuery', value);
+}
+
+function onToggleLog(): void {
+    emit('toggle-log');
+}
+
+function onClearHistory(): void {
+    emit('clearHistory');
+}
 </script>
 
 <template>
@@ -28,16 +141,34 @@ defineEmits<{
                             :is="SCAN_STATUS_THEME[scanResult.status].icon"
                             :class="['mt-0.5 size-5', SCAN_STATUS_THEME[scanResult.status].class]"
                         />
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex-1">
+                            <div
+                                v-if="hasEventContext(scanResult)"
+                                class="mb-1.5 flex items-center gap-2"
+                            >
+                                <Badge
+                                    variant="outline"
+                                    :class="['shrink-0 text-[11px]', kindBadgeClass(scanResult.eventKind)]"
+                                >
+                                    {{ kindLabel(scanResult.eventKind) }}
+                                </Badge>
+                                <p
+                                    class="text-muted-foreground min-w-0 flex-1 truncate text-xs font-medium"
+                                    :title="eventTitleOf(scanResult)"
+                                >
+                                    {{ eventTitleOf(scanResult) }}
+                                </p>
+                            </div>
                             <p class="text-foreground text-sm font-semibold">{{ scanResult.name }}</p>
-                            <p class="text-muted-foreground text-xs">{{ scanResult.email }}</p>
+                            <p class="text-muted-foreground text-xs">{{ heroIdentifier(scanResult) }}</p>
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" :class="SCAN_STATUS_THEME[scanResult.status].class">
                                     {{ SCAN_STATUS_THEME[scanResult.status].label }}
                                 </Badge>
-                                <Badge variant="outline">{{
-                                    scanResult.source === 'camera' ? 'Kamera' : 'Manual'
-                                }}</Badge>
+                                <Badge variant="outline">{{ sourceLabel(scanResult.source) }}</Badge>
+                                <Badge v-if="hasEventContext(scanResult)" variant="secondary" class="text-[11px]">
+                                    {{ deskLabel(scanResult) }}
+                                </Badge>
                             </div>
                             <p class="text-muted-foreground mt-2 truncate text-xs">
                                 Raw code: {{ scanResult.rawCode }}
@@ -56,53 +187,139 @@ defineEmits<{
 
         <Card class="border-border/70 rounded-2xl border">
             <CardHeader class="pb-3">
-                <div class="flex items-center justify-between gap-3">
-                    <CardTitle class="text-base font-semibold">Riwayat Scan</CardTitle>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        class="h-8 text-xs"
-                        :disabled="scanHistory.length === 0"
-                        @click="$emit('clearHistory')"
-                    >
-                        Bersihkan
-                    </Button>
-                </div>
+                <CardTitle class="text-base font-semibold">Ringkasan per Acara</CardTitle>
             </CardHeader>
             <CardContent class="pt-0">
-                <div v-if="scanHistory.length > 0" class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                    <div
-                        v-for="entry in scanHistory"
-                        :key="entry.id"
-                        class="border-border/70 bg-background rounded-xl border px-3 py-2.5"
+                <div v-if="summary.length > 0" class="space-y-2">
+                    <button
+                        v-for="row in summary"
+                        :key="row.id"
+                        type="button"
+                        class="border-border/70 bg-background hover:bg-muted/40 w-full rounded-xl border px-3 py-2.5 text-left transition-colors"
+                        @click="onSelectTarget(row.id)"
                     >
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-foreground truncate text-sm font-medium">{{ entry.name }}</p>
-                                <p class="text-muted-foreground truncate text-xs">{{ entry.email }}</p>
-                            </div>
-                            <span class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
-                                <Clock3 class="size-3.5" />
-                                {{ entry.time }}
+                        <div class="flex min-w-0 items-center gap-2">
+                            <Badge
+                                variant="outline"
+                                :class="['shrink-0 text-[11px]', kindBadgeClass(row.kind)]"
+                            >
+                                {{ kindLabel(row.kind) }}
+                            </Badge>
+                            <span class="text-foreground min-w-0 flex-1 truncate text-sm font-medium" :title="row.title">
+                                {{ row.title }}
                             </span>
                         </div>
-
-                        <div class="mt-2 flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" :class="SCAN_STATUS_THEME[entry.status].class">
-                                {{ SCAN_STATUS_THEME[entry.status].label }}
-                            </Badge>
-                            <Badge variant="secondary" class="text-[11px]">
-                                {{ entry.source === 'camera' ? 'Kamera' : 'Manual' }}
-                            </Badge>
+                        <div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                            <span>
+                                Berhasil
+                                <span class="text-success font-semibold">{{ row.success }}</span>
+                            </span>
+                            <span>
+                                Duplikat
+                                <span class="text-warning font-semibold">{{ row.duplicate }}</span>
+                            </span>
+                            <span>
+                                Gagal
+                                <span class="text-destructive font-semibold">{{ row.invalid }}</span>
+                            </span>
                         </div>
-                    </div>
+                    </button>
                 </div>
                 <p
                     v-else
                     class="border-border/80 text-muted-foreground rounded-xl border border-dashed px-3 py-8 text-center text-sm"
                 >
-                    Belum ada riwayat scan.
+                    Belum ada ringkasan. Hasil scan akan direkap per acara di sini.
                 </p>
+            </CardContent>
+        </Card>
+
+        <Card class="border-border/70 rounded-2xl border">
+            <CardHeader class="pb-3">
+                <div class="flex items-center justify-between gap-3">
+                    <CardTitle class="text-base font-semibold">Riwayat Scan</CardTitle>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-8 text-xs"
+                            :disabled="scanHistory.length === 0"
+                            @click="onClearHistory"
+                        >
+                            Bersihkan
+                        </Button>
+                        <Button variant="outline" size="sm" class="h-8 text-xs" @click="onToggleLog">
+                            {{ logExpanded ? 'Sembunyikan' : `Tampilkan (${scanHistory.length})` }}
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent class="pt-0">
+                <div v-if="logExpanded" class="space-y-2">
+                    <Input
+                        :model-value="logQuery"
+                        placeholder="Cari nama, kode, atau acara…"
+                        @update:model-value="onLogQueryInput"
+                    />
+                    <div v-if="filteredHistory.length > 0" class="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                        <div
+                            v-for="entry in filteredHistory"
+                            :key="entry.id"
+                            class="border-border/70 bg-background rounded-xl border px-3 py-2.5"
+                        >
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-foreground truncate text-sm font-medium">{{ entry.name }}</p>
+                                    <p class="text-muted-foreground truncate text-xs">{{ entry.email }}</p>
+                                </div>
+                                <span class="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+                                    <Clock3 class="size-3.5" />
+                                    {{ entry.time }}
+                                </span>
+                            </div>
+
+                            <p
+                                v-if="hasEventContext(entry)"
+                                class="text-muted-foreground mt-1.5 flex min-w-0 items-center gap-1.5 truncate text-xs"
+                                :title="eventTitleOf(entry)"
+                            >
+                                <span
+                                    :class="[
+                                        'inline-block size-1.5 shrink-0 rounded-full',
+                                        isOprecKind(entry.eventKind) ? 'bg-violet-500' : 'bg-sky-500',
+                                    ]"
+                                />
+                                <span class="truncate">{{ eventTitleOf(entry) }}</span>
+                            </p>
+
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" :class="SCAN_STATUS_THEME[entry.status].class">
+                                    {{ SCAN_STATUS_THEME[entry.status].label }}
+                                </Badge>
+                                <Badge variant="secondary" class="text-[11px]">
+                                    {{ sourceLabel(entry.source) }}
+                                </Badge>
+                                <Badge v-if="hasEventContext(entry)" variant="outline" class="text-[11px]">
+                                    {{ deskLabel(entry) }}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <p
+                        v-else
+                        class="border-border/80 text-muted-foreground rounded-xl border border-dashed px-3 py-8 text-center text-sm"
+                    >
+                        {{ logQuery.trim().length > 0 ? 'Tidak ada hasil untuk pencarian ini.' : 'Belum ada riwayat scan.' }}
+                    </p>
+                </div>
+                <button
+                    v-else
+                    type="button"
+                    class="border-border/80 text-muted-foreground hover:bg-muted/40 w-full rounded-xl border border-dashed px-3 py-6 text-center text-sm transition-colors"
+                    @click="onToggleLog"
+                >
+                    Log disembunyikan agar fokus scan. Buka saat ada komplain ({{ scanHistory.length }}).
+                </button>
             </CardContent>
         </Card>
     </div>

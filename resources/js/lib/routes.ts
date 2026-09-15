@@ -160,6 +160,11 @@ export const routes = {
                     `${ADMIN_BASE}/events/${eventId}/forms/${formId}/submissions`,
             },
         },
+        scan: {
+            index: `${ADMIN_BASE}/scan`,
+            store: `${ADMIN_BASE}/scan`,
+            stream: `${ADMIN_BASE}/scan/stream`,
+        },
     },
 
     member: {
@@ -232,6 +237,9 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.attendanceScan.index)) {
         return path.startsWith(routes.admin.recruitment.attendanceScan.index);
+    }
+    if (href === routes.admin.scan.index) {
+        return path === routes.admin.scan.index;
     }
     if (href.includes('/recruitment/queue/')) {
         return path.includes('/recruitment/queue/');
