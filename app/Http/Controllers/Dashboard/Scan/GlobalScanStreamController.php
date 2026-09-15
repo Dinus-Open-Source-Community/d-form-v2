@@ -82,24 +82,20 @@ class GlobalScanStreamController extends Controller
 
     private function toCursorIso(?string $cursor): ?string
     {
-        if ($cursor === null) {
+        if ($cursor === null || $cursor === '') {
             return null;
         }
 
-        $candidates = [$cursor];
-        $tail = strrchr($cursor, ':');
-        if ($tail !== false && $tail !== $cursor) {
-            $candidates[] = ltrim($tail, ':');
+        $parts = explode(':', $cursor, 3);
+        $candidate = $parts[2] ?? null;
+        if ($candidate === null || $candidate === '') {
+            return null;
         }
 
-        foreach ($candidates as $candidate) {
-            try {
-                return Carbon::parse($candidate)->toIso8601String();
-            } catch (Throwable) {
-                continue;
-            }
+        try {
+            return Carbon::parse($candidate)->toIso8601String();
+        } catch (Throwable) {
+            return null;
         }
-
-        return null;
     }
 }
