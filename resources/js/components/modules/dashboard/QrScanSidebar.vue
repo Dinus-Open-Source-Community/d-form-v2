@@ -12,11 +12,13 @@ const props = withDefaults(
         scanResult: ScanResult | null;
         scanHistory: ScanEntry[];
         logEntries: ScanEntry[];
+        heroEmptyMessage?: string;
         scanBusy?: boolean;
         logExpanded?: boolean;
         logQuery?: string;
     }>(),
     {
+        heroEmptyMessage: 'Belum ada scan. Mulai kamera atau gunakan input manual.',
         scanBusy: false,
         logExpanded: false,
         logQuery: '',
@@ -201,7 +203,7 @@ function onSubmitManual(): void {
                     v-else
                     class="border-border/80 bg-muted/20 text-muted-foreground rounded-xl border border-dashed px-3 py-6 text-center text-sm"
                 >
-                    Belum ada scan. Mulai kamera atau gunakan input manual.
+                    {{ heroEmptyMessage }}
                 </div>
             </CardContent>
         </Card>

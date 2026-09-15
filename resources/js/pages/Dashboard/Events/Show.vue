@@ -60,8 +60,6 @@ const p = reactive(useDashboardEventShowPage(props.event, props.forms))
                     :event="props.event"
                     :forms="p.forms"
                     :card-shadow="p.cardShadow"
-                    :registrations-csv-href="props.exports.registrations"
-                    :attendance-csv-href="props.exports.attendance"
                     :laporan-href="laporanHref"
                     @open-archive="p.showDeleteModal = true"
                     @open-restore="p.showRestoreModal = true"

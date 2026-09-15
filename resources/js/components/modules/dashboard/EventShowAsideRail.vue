@@ -5,17 +5,14 @@ import { toast } from 'vue-sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import {
     Pencil,
     Trash2,
     RotateCcw,
-    Download,
     QrCode,
     FileText,
     Users,
-    FileSpreadsheet,
     BarChart3,
     Plus,
     ChevronDown,
@@ -30,8 +27,6 @@ const props = defineProps<{
     event: IEvent;
     forms: { id: string; title: string }[];
     cardShadow: string;
-    registrationsCsvHref: string;
-    attendanceCsvHref: string;
     /** URL halaman laporan & log kehadiran untuk acara ini. */
     laporanHref?: string | null;
 }>();
@@ -104,34 +99,6 @@ defineEmits<{
                 >
                     <Link :href="laporanHref"><BarChart3 class="mr-2 size-4" />Laporan dan log kehadiran</Link>
                 </Button>
-            </CardContent>
-        </Card>
-
-        <Card :class="['border-border/60 rounded-2xl', cardShadow]">
-            <CardHeader class="pb-3">
-                <CardTitle class="text-muted-foreground text-[0.8125rem] font-semibold tracking-[0.1em] uppercase"
-                    >Data</CardTitle
-                >
-            </CardHeader>
-            <CardContent class="flex flex-col gap-2 pt-0">
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                    <Tooltip>
-                        <TooltipTrigger as-child>
-                            <Button variant="outline" size="sm" class="" as-child>
-                                <a :href="registrationsCsvHref"><Download class="mr-1.5 size-3.5" />CSV</a>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Export all form submissions for this event (CSV)</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger as-child>
-                            <Button variant="outline" size="sm" class="" as-child>
-                                <a :href="attendanceCsvHref"><FileSpreadsheet class="mr-1.5 size-3.5" />Attendance</a>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Export attendance scan log (CSV)</TooltipContent>
-                    </Tooltip>
-                </div>
             </CardContent>
         </Card>
 

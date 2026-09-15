@@ -159,6 +159,8 @@ export const routes = {
             index: `${ADMIN_BASE}/scan`,
             store: `${ADMIN_BASE}/scan`,
             feed: `${ADMIN_BASE}/scan/feed`,
+            export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }) =>
+                `${ADMIN_BASE}/scan/export?kind=${params.kind}&target=${encodeURIComponent(params.target)}&format=${params.format}`,
         },
     },
 

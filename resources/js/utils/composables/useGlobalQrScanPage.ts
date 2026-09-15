@@ -216,6 +216,7 @@ export function useGlobalQrScanPage(
     const isShutterActive = ref(false)
 
     const scanEntryEpochMs = new Map<string, number>()
+    const rawCodeByEntryId = new Map<string, string>()
     const localEntryIdentities = new Set<string>()
     const seenFeedIds = new Set<string>()
     let feedCursor = ''
@@ -231,18 +232,6 @@ export function useGlobalQrScanPage(
 
         return new Date(epoch).toDateString() === new Date().toDateString()
     }
-
-    const todayEntries = computed<ScanEntry[]>(() => scanHistory.value.filter(isTodayEntry))
-    const successfulScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'success').length)
-    const duplicateScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'already').length)
-    const invalidScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'invalid').length)
-
-    const summary = computed<GlobalScanSummary>(() => ({
-        total: todayEntries.value.length,
-        success: successfulScansCount.value,
-        already: duplicateScansCount.value,
-        invalid: invalidScansCount.value,
-    }))
 
     const targetOptions = computed<GlobalScanTargetOption[]>(() => {
         const targets = getTargets()
@@ -269,20 +258,26 @@ export function useGlobalQrScanPage(
         return targets.sessions.length + targets.events.length
     })
 
-    /**
-     * Riwayat scan setelah disaring oleh acara terpilih. Filter ini murni
-     * kosmetik: tidak mengubah `scanHistory`, KPI, maupun `scanResult` (hero).
-     * Pencarian `logQuery` diterapkan terpisah di QrScanSidebar sehingga filter
-     * acara dan pencarian bisa dipakai bersamaan.
-     */
-    const logEntries = computed<ScanEntry[]>(() => {
-        const targetId = selectedTarget.value
-        if (targetId === 'all') {
-            return scanHistory.value
+    const selectedTargetOption = computed<GlobalScanTargetOption | null>(() => {
+        if (selectedTarget.value === 'all') {
+            return null
         }
 
-        const option = targetOptions.value.find((candidate) => candidate.id === targetId)
-        if (option === undefined) {
+        return targetOptions.value.find((candidate) => candidate.id === selectedTarget.value) ?? null
+    })
+
+    /** Nama acara yang sedang dipilih, atau "Semua acara" saat filter netral. */
+    const selectedTargetLabel = computed<string>(() => selectedTargetOption.value?.label ?? 'Semua acara')
+
+    /**
+     * Filter acara bersifat global: KPI, hero "Hasil Scan Terakhir", dan riwayat
+     * semuanya membaca dari `targetEntries`. Saat filter "Semua acara", perilaku
+     * kembali ke seluruh riwayat. Pencarian `logQuery` tetap diterapkan terpisah di
+     * QrScanSidebar sehingga filter acara dan pencarian bisa dipakai bersamaan.
+     */
+    const targetEntries = computed<ScanEntry[]>(() => {
+        const option = selectedTargetOption.value
+        if (option === null) {
             return scanHistory.value
         }
 
@@ -307,6 +302,52 @@ export function useGlobalQrScanPage(
         })
     })
 
+    const logEntries = computed<ScanEntry[]>(() => targetEntries.value)
+
+    const todayEntries = computed<ScanEntry[]>(() => targetEntries.value.filter(isTodayEntry))
+    const successfulScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'success').length)
+    const duplicateScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'already').length)
+    const invalidScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'invalid').length)
+
+    const summary = computed<GlobalScanSummary>(() => ({
+        total: todayEntries.value.length,
+        success: successfulScansCount.value,
+        already: duplicateScansCount.value,
+        invalid: invalidScansCount.value,
+    }))
+
+    function toHeroResult(entry: ScanEntry): ScanResult {
+        return {
+            name: entry.name,
+            email: entry.email,
+            status: entry.status,
+            source: entry.source,
+            rawCode: rawCodeByEntryId.get(entry.id) ?? entry.email,
+            eventKind: entry.eventKind,
+            eventTitle: entry.eventTitle,
+            queueNumber: entry.queueNumber,
+        }
+    }
+
+    /**
+     * Hero "Hasil Scan Terakhir" mengikuti filter yang sama dengan KPI dan riwayat.
+     * Saat "Semua acara" tetap menampilkan scan terakhir yang baru diproses; saat
+     * target dipilih, hero menampilkan scan terakhir yang cocok target tersebut
+     * (bisa null meski ada scan lain di acara lain).
+     */
+    const heroResult = computed<ScanResult | null>(() => {
+        if (selectedTargetOption.value === null) {
+            return scanResult.value
+        }
+
+        const latest = targetEntries.value[0]
+        if (latest === undefined) {
+            return null
+        }
+
+        return toHeroResult(latest)
+    })
+
     const eventLabel = computed(() => {
         const current = scanResult.value
         if (current !== null && current.eventTitle !== '' && current.eventTitle !== '-') {
@@ -327,6 +368,7 @@ export function useGlobalQrScanPage(
         scanResult.value = result
         const entry: ScanEntry = createScanHistoryEntry(result)
         scanEntryEpochMs.set(entry.id, Date.now())
+        rawCodeByEntryId.set(entry.id, result.rawCode)
         scanHistory.value.unshift(entry)
         playScanBeep(result.status)
     }
@@ -361,6 +403,7 @@ export function useGlobalQrScanPage(
             queueNumber: row.queueNumber,
         }
         scanEntryEpochMs.set(entry.id, epoch)
+        rawCodeByEntryId.set(entry.id, identifier)
         scanHistory.value.unshift(entry)
     }
 
@@ -794,6 +837,7 @@ export function useGlobalQrScanPage(
     function clearHistory(): void {
         scanHistory.value = []
         scanEntryEpochMs.clear()
+        rawCodeByEntryId.clear()
         scanResult.value = null
         toast('Riwayat scan dibersihkan')
     }
@@ -812,6 +856,7 @@ export function useGlobalQrScanPage(
         permissionError,
         registrationCodeInput,
         scanResult,
+        heroResult,
         scanHistory,
         logEntries,
         eventLabel,
@@ -821,6 +866,8 @@ export function useGlobalQrScanPage(
         summary,
         selectedTarget,
         selectTarget,
+        selectedTargetOption,
+        selectedTargetLabel,
         logExpanded,
         logQuery,
         isShutterActive,

@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { Camera, ShieldAlert } from 'lucide-vue-next'
 
@@ -16,14 +15,11 @@ const props = defineProps<{
     isCameraReady: boolean
     isShutterActive: boolean
     permissionError: string
-    targetOptions: SimpleSelectOption[]
 }>()
 
 const cameraOptions = computed<SimpleSelectOption[]>(() =>
     props.cameras.map((camera) => ({ value: camera.id, label: camera.label })),
 )
-
-const targetFilter = defineModel<string>('targetFilter', { required: true })
 
 defineEmits<{
     switchCamera: [id: string | undefined]
@@ -62,23 +58,6 @@ defineEmits<{
                     <ShieldAlert data-icon="inline-start" />
                     Stop kamera
                 </Button>
-            </div>
-
-            <div class="space-y-1.5">
-                <Label for="scan-target-filter" class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                    Filter riwayat
-                </Label>
-                <SimpleSelect
-                    v-model="targetFilter"
-                    :options="targetOptions"
-                    id="scan-target-filter"
-                    placeholder="Semua acara"
-                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter riwayat scan per acara"
-                />
-                <p class="text-muted-foreground text-xs">
-                    Filter hanya menyaring riwayat scan. Scan tetap tercatat ke acara aslinya.
-                </p>
             </div>
         </CardHeader>
         <CardContent class="space-y-4 p-4 md:p-5">
