@@ -19,6 +19,11 @@ export interface ScanEntry {
     time: string
     status: ScanStatus
     source: 'camera' | 'manual'
+    eventKind: 'event' | 'oprec'
+    eventTitle: string
+    queueNumber: number | null
+    desk: string
+    isOwnDesk: boolean
 }
 
 export interface ScanResult {
@@ -27,6 +32,11 @@ export interface ScanResult {
     status: ScanStatus
     source: 'camera' | 'manual'
     rawCode: string
+    eventKind: 'event' | 'oprec'
+    eventTitle: string
+    queueNumber: number | null
+    desk: string
+    isOwnDesk: boolean
 }
 
 export function normalizeQrCode(raw: string): string {
@@ -42,7 +52,7 @@ export function extractQrCandidate(decodedText: string): string {
     try {
         const parsed = JSON.parse(raw) as Record<string, unknown>
         const candidate =
-            parsed.submission_id ?? parsed.token ?? parsed.code ?? parsed.qr ?? parsed.email ?? parsed.id
+            parsed.application_id ?? parsed.submission_id ?? parsed.token ?? parsed.code ?? parsed.qr ?? parsed.email ?? parsed.id
         if (typeof candidate === 'string' && candidate.trim().length > 0) {
             return candidate.trim()
         }
@@ -62,5 +72,33 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         status: result.status,
         source: result.source,
+        eventKind: result.eventKind,
+        eventTitle: result.eventTitle,
+        queueNumber: result.queueNumber,
+        desk: result.desk,
+        isOwnDesk: result.isOwnDesk,
+    }
+}
+
+export function playScanBeep(status: ScanStatus): void {
+    try {
+        const ctx = new AudioContext()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.frequency.value = status === 'success' ? 880 : status === 'already' ? 440 : 200
+        osc.start()
+        const ms = status === 'already' ? 320 : 160
+        window.setTimeout(() => {
+            osc.stop()
+            void ctx.close()
+        }, ms)
+        if (navigator.vibrate) {
+            navigator.vibrate(50)
+        }
+    }
+    catch {
+        return
     }
 }
