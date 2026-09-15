@@ -163,7 +163,8 @@ class RulesBuilder
             }
 
             if (!empty($rules['regex'])) {
-                $mappedRules[] = 'regex:/' . trim($rules['regex'], '/') . '/';
+                $pattern = trim((string) $rules['regex'], '/');
+                $mappedRules[] = 'regex:/'.str_replace('/', '\/', $pattern).'/';
             }
 
             if (!empty($rules['in'])) {
