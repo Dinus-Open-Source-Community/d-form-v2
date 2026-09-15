@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import FormFillLayout from '@/layouts/FormFillLayout.vue'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { useAutosaveSync, type AutosaveStatus } from '@/utils/composables/useAut
 import { readFieldRules } from '@/lib/formFieldMetadata'
 import type { FormFillPageEvent, FormFillPageForm } from '@/types/form'
 import { routes } from '@/lib/routes'
+import { CircleAlert } from 'lucide-vue-next'
 
 defineOptions({ layout: FormFillLayout })
 
@@ -40,8 +41,7 @@ const DRAFT_KEY = 'oprec-apply-draft-v1'
 const TOTAL_STEPS = 3
 const STEP_LIST = [1, 2, 3]
 const currentStep = ref<number>(1)
-const stepAttempted = ref<boolean>(false)
-const stepBannerErrors = ref<string[]>([])
+const clientErrors = ref<Record<string, string>>({})
 const savedAt = ref<Date | null>(null)
 
 function stepOf(field: IFormField): number {
@@ -57,12 +57,62 @@ function isEmptyValue(value: unknown): boolean {
 }
 
 function validateStep(step: number): boolean {
-    const missing = stepFields(step)
+    const fieldsInStep = stepFields(step)
+    const missing = fieldsInStep
         .filter((field) => Boolean(readFieldRules(field).required))
         .filter((field) => isEmptyValue(ctx.answerForm[field.name]))
-        .map((field) => field.label)
-    stepBannerErrors.value = missing.map((label) => `${label} wajib diisi.`)
+
+    const next: Record<string, string> = { ...clientErrors.value }
+    for (const field of fieldsInStep) delete next[field.name]
+    for (const field of missing) next[field.name] = `${field.label} wajib diisi.`
+    clientErrors.value = next
+
     return missing.length === 0
+}
+
+function clearClientErrorsForStep(step: number): void {
+    const next: Record<string, string> = { ...clientErrors.value }
+    for (const field of stepFields(step)) delete next[field.name]
+    clientErrors.value = next
+}
+
+/** Pesan error server Inertia untuk satu field, dirender oleh FormFillFieldSlotRows di dalam CardContent. */
+function serverMessagesFor(field: IFormField): string[] {
+    return ctx.cardErrorsForFields([field])
+}
+
+function fieldHasError(field: IFormField): boolean {
+    return serverMessagesFor(field).length > 0 || Boolean(clientErrors.value[field.name])
+}
+
+/** Pesan validasi client; dikosongkan bila field sudah punya pesan server agar tidak dobel. */
+function clientMessageFor(field: IFormField): string {
+    if (serverMessagesFor(field).length > 0) return ''
+    return clientErrors.value[field.name] ?? ''
+}
+
+function fieldErrorId(field: IFormField): string {
+    return `oprec-field-error-${field.name}`
+}
+
+function fieldCardId(field: IFormField): string {
+    return `oprec-field-card-${field.name}`
+}
+
+function cardErrorClass(field: IFormField): string {
+    if (!fieldHasError(field)) return ''
+    return 'border-destructive/40 bg-destructive/5 hover:border-destructive/50'
+}
+
+function focusFirstInvalidField(step: number): void {
+    const target = stepFields(step).find((field) => fieldHasError(field))
+    if (!target) return
+    const control = document.getElementById(target.name)
+    if (control instanceof HTMLElement) {
+        control.focus()
+        return
+    }
+    document.getElementById(fieldCardId(target))?.focus()
 }
 
 function syncStepToUrl(step: number, replace: boolean): void {
@@ -74,11 +124,10 @@ function syncStepToUrl(step: number, replace: boolean): void {
 
 function goToStep(step: number): void {
     if (step > currentStep.value && !validateStep(currentStep.value)) {
-        stepAttempted.value = true
+        void nextTick(() => focusFirstInvalidField(currentStep.value))
         return
     }
-    stepAttempted.value = false
-    stepBannerErrors.value = []
+    if (step !== currentStep.value) clearClientErrorsForStep(currentStep.value)
     currentStep.value = step
     syncStepToUrl(step, false)
 }
@@ -87,7 +136,7 @@ function onPopState(): void {
     const step = Number(new URL(window.location.href).searchParams.get('step') || '1')
     if (step >= 1 && step <= TOTAL_STEPS) {
         currentStep.value = step
-        stepBannerErrors.value = []
+        clientErrors.value = {}
     }
 }
 
@@ -118,6 +167,20 @@ const {
 watch(draftStatus, (value: AutosaveStatus): void => {
     if (value === 'saved') savedAt.value = new Date()
 })
+
+/** Hapus pesan error begitu isian sudah diperbaiki, agar card-nya tidak tetap merah. */
+watch(
+    (): Record<string, unknown> => {
+        const snapshot: Record<string, unknown> = {}
+        for (const field of props.fields) snapshot[field.name] = ctx.answerForm[field.name]
+        return snapshot
+    },
+    (values: Record<string, unknown>): void => {
+        for (const field of props.fields) {
+            if (!isEmptyValue(values[field.name])) delete clientErrors.value[field.name]
+        }
+    },
+)
 
 const draftStatusText = computed((): string => {
     if (draftStatus.value === 'saving') return 'Menyimpan…'
@@ -165,8 +228,9 @@ async function submitStep(): Promise<void> {
     for (let step = 1; step <= TOTAL_STEPS; step += 1) {
         if (!validateStep(step)) {
             currentStep.value = step
-            stepAttempted.value = true
             syncStepToUrl(step, false)
+            await nextTick()
+            focusFirstInvalidField(step)
             return
         }
     }
@@ -175,7 +239,10 @@ async function submitStep(): Promise<void> {
         forceFormData: true,
         onSuccess: () => window.localStorage.removeItem(DRAFT_KEY),
         onError: () => {
-            currentStep.value = firstStepWithErrors()
+            const step = firstStepWithErrors()
+            currentStep.value = step
+            syncStepToUrl(step, false)
+            void nextTick(() => focusFirstInvalidField(step))
         },
     })
 }
@@ -319,29 +386,17 @@ const periodName = computed((): string => {
 
             <template v-for="step in STEP_LIST" :key="step">
                 <div v-show="currentStep === step" class="flex flex-col gap-4">
-                    <div
-                        v-if="stepAttempted && stepBannerErrors.length > 0"
-                        class="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3"
-                        role="alert"
+                    <Card
+                        v-for="field in stepFields(step)"
+                        :key="field.id"
+                        :id="fieldCardId(field)"
+                        :class="['rounded-2xl border border-border bg-card shadow-sm', cardErrorClass(field)]"
+                        :tabindex="fieldHasError(field) ? -1 : undefined"
+                        :role="fieldHasError(field) ? 'group' : undefined"
+                        :aria-label="fieldHasError(field) ? field.label : undefined"
+                        :aria-invalid="fieldHasError(field) ? 'true' : undefined"
+                        :aria-describedby="clientMessageFor(field) ? fieldErrorId(field) : undefined"
                     >
-                        <p v-for="(message, i) in stepBannerErrors" :key="i" class="text-xs font-medium text-destructive">
-                            {{ message }}
-                        </p>
-                    </div>
-                    <div
-                        v-if="ctx.cardErrorsForFields(stepFields(step)).length > 0"
-                        class="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3"
-                        role="alert"
-                    >
-                        <p
-                            v-for="(message, i) in ctx.cardErrorsForFields(stepFields(step))"
-                            :key="i"
-                            class="text-xs font-medium text-destructive"
-                        >
-                            {{ message }}
-                        </p>
-                    </div>
-                    <Card v-for="field in stepFields(step)" :key="field.id" class="rounded-2xl border border-border bg-card shadow-sm">
                         <FormFillFieldSlotRows
                             :ctx="ctx"
                             :field="field"
@@ -351,6 +406,17 @@ const periodName = computed((): string => {
                             :image-upload-fill-ready-fn="() => false"
                             @open-lightbox="openUploadLightbox"
                         />
+                        <div
+                            v-if="clientMessageFor(field)"
+                            :id="fieldErrorId(field)"
+                            role="alert"
+                            class="-mt-4 border-t border-destructive/20 px-6 pb-4 pt-3"
+                        >
+                            <p class="flex items-start gap-1.5 text-xs font-medium text-destructive">
+                                <CircleAlert class="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                                <span>{{ clientMessageFor(field) }}</span>
+                            </p>
+                        </div>
                     </Card>
                     <div v-if="step === 3" class="rounded-2xl border border-border bg-card shadow-sm">
                         <div class="border-b border-border px-4 py-3">
