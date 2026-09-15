@@ -145,7 +145,7 @@ onMounted(() => {
         >
             <span class="font-semibold">QR milik acara lain.</span>
             {{ targetMismatch.kind === 'oprec' ? 'OPREC' : 'EVENT' }} · {{ targetMismatch.title }} — sedangkan filter
-            menampilkan {{ activeTargetLabel }}. Scan tetap tercatat ke acara aslinya; arahkan peserta ke meja yang sesuai.
+            menampilkan {{ activeTargetLabel }}. Scan tetap tercatat ke acara aslinya; arahkan peserta ke petugas acara yang sesuai.
         </div>
 
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
