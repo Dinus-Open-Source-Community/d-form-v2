@@ -6,7 +6,14 @@ import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/li
 import {
     createScanHistoryEntry,
     extractQrCandidate,
+    isGlobalScanFeedPayload,
+    parseGlobalScanCursor,
+    parseGlobalScanFeedRows,
+    parseGlobalScanQueue,
     playScanBeep,
+    type GlobalScanFeedRow,
+    type GlobalScanPendingEvent,
+    type GlobalScanQueueSession,
     type ScanEntry,
     type ScanResult,
 } from '@/lib/qrScanUi'
@@ -55,20 +62,11 @@ interface GlobalScanErrorBody {
     errors?: Record<string, string[]>
 }
 
-interface GlobalScanStreamRow {
-    id: string
-    ts: string
-    type: string
-    eventTitle: string
-    name: string
-    identifier: string
-    queueNumber: number | null
-    desk?: string
-}
-
 const DESK_STORAGE_KEY = 'scan-desk-id'
 const SCAN_COOLDOWN_MS = 2000
-const OWN_ECHO_WINDOW_MS = 90000
+const FEED_POLL_MS = 2000
+const FEED_POLL_TIMEOUT_MS = 8000
+const PENDING_EVENT_TTL_MS = 60000
 
 function resolveDeskId(): string {
     try {
@@ -152,7 +150,7 @@ function eventOptionLabel(event: { id: string | number } & Record<string, unknow
     return title.length > 0 ? title : `Event ${String(event.id)}`
 }
 
-function formatStreamTime(ts: string): string {
+function formatFeedTime(ts: string): string {
     const parsed = new Date(ts)
     if (Number.isNaN(parsed.getTime())) {
         return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -161,11 +159,20 @@ function formatStreamTime(ts: string): string {
     return parsed.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function scanIdentity(
+    kind: 'event' | 'oprec',
+    identifier: string,
+    queueNumber: number | null,
+    eventTitle: string,
+): string {
+    return `${kind}|${eventTitle}|${identifier}|${queueNumber === null ? '-' : String(queueNumber)}`
+}
+
 export function useGlobalQrScanPage(
     scannerContainerId: string,
     storeUrl: string,
-    streamUrl: string,
-    targets: GlobalScanTargets,
+    feedUrl: string,
+    getTargets: () => GlobalScanTargets,
 ) {
     const deskId = resolveDeskId()
 
@@ -180,56 +187,21 @@ export function useGlobalQrScanPage(
     const scanHistory = ref<ScanEntry[]>([])
     const lastRaw = ref('')
     const lastAt = ref(0)
-    const lastEventId = ref('')
     const scanBusy = ref(false)
     const selectedTarget = ref('all')
     const logExpanded = ref(false)
     const logQuery = ref('')
 
-    let streamSource: EventSource | null = null
-    const seenStreamIds = new Set<string>()
-    const recentOwnScans = new Map<string, number>()
-
-    function pruneOwnScans(now: number): void {
-        for (const [key, at] of recentOwnScans) {
-            if (now - at >= OWN_ECHO_WINDOW_MS) {
-                recentOwnScans.delete(key)
-            }
-        }
-    }
-
-    function ownScanKey(kind: 'event' | 'oprec', email: string): string | null {
-        const identifier: string = email.trim()
-        if (identifier.length === 0 || identifier === '-') {
-            return null
-        }
-
-        return `${deskId}|${kind}|${identifier}|success`
-    }
-
-    function rememberOwnScan(kind: 'event' | 'oprec', email: string): void {
-        const now: number = Date.now()
-        pruneOwnScans(now)
-        const key: string | null = ownScanKey(kind, email)
-        if (key === null) {
-            return
-        }
-        recentOwnScans.set(key, now)
-    }
-
-    function isOwnEcho(kind: 'event' | 'oprec', email: string): boolean {
-        const now: number = Date.now()
-        pruneOwnScans(now)
-        const key: string | null = ownScanKey(kind, email)
-        if (key === null) {
-            return false
-        }
-        const at: number | undefined = recentOwnScans.get(key)
-
-        return at !== undefined && now - at < OWN_ECHO_WINDOW_MS
-    }
+    const queue = ref<GlobalScanQueueSession[]>([])
+    const pendingEvents = ref<GlobalScanPendingEvent[]>([])
+    const feedOnline = ref(false)
 
     const scanEntryEpochMs = new Map<string, number>()
+    const localEntryIdentities = new Set<string>()
+    const seenFeedIds = new Set<string>()
+    let feedCursor = ''
+    let pollTimer: number | null = null
+    let pollAbort: AbortController | null = null
 
     function isTodayEntry(entry: ScanEntry): boolean {
         const epoch: number | undefined = scanEntryEpochMs.get(entry.id)
@@ -252,20 +224,28 @@ export function useGlobalQrScanPage(
         invalid: invalidScansCount.value,
     }))
 
-    const targetOptions = computed<GlobalScanTargetOption[]>(() => [
-        ...targets.sessions.map((session) => ({
-            id: String(session.id),
-            label: sessionOptionLabel(session),
-            kind: 'oprec' as const,
-        })),
-        ...targets.events.map((event) => ({
-            id: String(event.id),
-            label: eventOptionLabel(event),
-            kind: 'event' as const,
-        })),
-    ])
+    const targetOptions = computed<GlobalScanTargetOption[]>(() => {
+        const targets = getTargets()
 
-    const activeTargetCount = computed(() => targets.sessions.length + targets.events.length)
+        return [
+            ...targets.sessions.map((session) => ({
+                id: String(session.id),
+                label: sessionOptionLabel(session),
+                kind: 'oprec' as const,
+            })),
+            ...targets.events.map((event) => ({
+                id: String(event.id),
+                label: eventOptionLabel(event),
+                kind: 'event' as const,
+            })),
+        ]
+    })
+
+    const activeTargetCount = computed(() => {
+        const targets = getTargets()
+
+        return targets.sessions.length + targets.events.length
+    })
 
     const eventLabel = computed(() => {
         const current = scanResult.value
@@ -281,11 +261,158 @@ export function useGlobalQrScanPage(
     }
 
     function pushResult(result: ScanResult): void {
+        localEntryIdentities.add(
+            scanIdentity(result.eventKind, result.email, result.queueNumber, result.eventTitle),
+        )
         scanResult.value = result
         const entry: ScanEntry = createScanHistoryEntry(result)
         scanEntryEpochMs.set(entry.id, Date.now())
         scanHistory.value.unshift(entry)
         playScanBeep(result.status)
+    }
+
+    function prunePendingEvents(): void {
+        const now = Date.now()
+        const next = pendingEvents.value.filter((pending) => now - pending.at < PENDING_EVENT_TTL_MS)
+        if (next.length !== pendingEvents.value.length) {
+            pendingEvents.value = next
+        }
+    }
+
+    function trackPendingEvent(result: ScanResult): void {
+        const identifier = result.email.trim()
+        if (identifier.length === 0 || identifier === '-') {
+            return
+        }
+
+        pendingEvents.value = [
+            {
+                id: `pending-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+                name: result.name,
+                identifier,
+                eventTitle: result.eventTitle,
+                at: Date.now(),
+            },
+            ...pendingEvents.value,
+        ]
+    }
+
+    function resolvePendingEvent(row: GlobalScanFeedRow): void {
+        if (row.type !== 'event') {
+            return
+        }
+
+        const identifier = row.identifier.trim()
+        const title = formatGlobalEventTitle('event', row.eventTitle)
+        pendingEvents.value = pendingEvents.value.filter(
+            (pending) => !(pending.identifier === identifier && pending.eventTitle === title),
+        )
+    }
+
+    function ingestFeedRow(row: GlobalScanFeedRow): void {
+        if (seenFeedIds.has(row.id)) {
+            return
+        }
+        seenFeedIds.add(row.id)
+
+        const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event'
+        const name = row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama'
+        const identifier = row.identifier.trim().length > 0 ? row.identifier.trim() : '-'
+        const eventTitle = formatGlobalEventTitle(kind, row.eventTitle)
+
+        if (localEntryIdentities.has(scanIdentity(kind, identifier, row.queueNumber, eventTitle))) {
+            return
+        }
+
+        const parsed = new Date(row.ts)
+        const epoch = Number.isNaN(parsed.getTime()) ? Date.now() : parsed.getTime()
+
+        const entry: ScanEntry = {
+            id: row.id,
+            name,
+            email: identifier,
+            time: formatFeedTime(row.ts),
+            status: 'success',
+            source: 'camera',
+            eventKind: kind,
+            eventTitle,
+            queueNumber: row.queueNumber,
+            desk: '',
+            isOwnDesk: false,
+        }
+        scanEntryEpochMs.set(entry.id, epoch)
+        scanHistory.value.unshift(entry)
+    }
+
+    function applyFeed(payload: unknown): void {
+        if (!isGlobalScanFeedPayload(payload)) {
+            return
+        }
+
+        const cursor = parseGlobalScanCursor(payload)
+        if (cursor.length > 0) {
+            feedCursor = cursor
+        }
+
+        queue.value = parseGlobalScanQueue(payload)
+
+        for (const row of parseGlobalScanFeedRows(payload)) {
+            resolvePendingEvent(row)
+            ingestFeedRow(row)
+        }
+
+        feedOnline.value = true
+    }
+
+    async function pollFeed(): Promise<void> {
+        if (pollAbort !== null) {
+            return
+        }
+
+        prunePendingEvents()
+
+        const controller = new AbortController()
+        pollAbort = controller
+
+        try {
+            const { data } = await axios.get<unknown>(feedUrl, {
+                params: feedCursor.length > 0 ? { since: feedCursor } : {},
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: controller.signal,
+                timeout: FEED_POLL_TIMEOUT_MS,
+            })
+
+            applyFeed(data)
+        }
+        catch {
+            feedOnline.value = false
+        }
+        finally {
+            pollAbort = null
+        }
+    }
+
+    function startFeedPolling(): void {
+        if (pollTimer !== null) {
+            return
+        }
+
+        void pollFeed()
+        pollTimer = window.setInterval(() => {
+            void pollFeed()
+        }, FEED_POLL_MS)
+    }
+
+    function stopFeedPolling(): void {
+        if (pollTimer !== null) {
+            window.clearInterval(pollTimer)
+            pollTimer = null
+        }
+
+        if (pollAbort !== null) {
+            pollAbort.abort()
+            pollAbort = null
+        }
     }
 
     async function submitScanPayload(raw: string, source: 'camera' | 'manual'): Promise<void> {
@@ -313,10 +440,12 @@ export function useGlobalQrScanPage(
             const kind = mapEnvelopeKind(data.type)
             const title = formatGlobalEventTitle(kind, data.eventTitle ?? '')
 
+            let result: ScanResult
+
             if (kind === 'oprec') {
                 const identifier = data.attendee.registration_number?.trim() || '-'
                 const queueNumber = data.attendee.queue_number ?? null
-                pushResult({
+                result = {
                     name: data.attendee.name?.trim() || 'Tanpa nama',
                     email: identifier,
                     status: 'success',
@@ -327,15 +456,14 @@ export function useGlobalQrScanPage(
                     queueNumber,
                     desk: deskId,
                     isOwnDesk: true,
-                })
-                rememberOwnScan(kind, identifier)
+                }
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: `#${padQueueNumber(queueNumber)} — arahkan ke ruang tunggu`,
                 })
             }
             else {
                 const email = data.attendee.email?.trim() || '-'
-                pushResult({
+                result = {
                     name: data.attendee.name?.trim() || 'Tanpa nama',
                     email,
                     status: 'success',
@@ -346,11 +474,16 @@ export function useGlobalQrScanPage(
                     queueNumber: null,
                     desk: deskId,
                     isOwnDesk: true,
-                })
-                rememberOwnScan(kind, email)
+                }
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                     description: 'Boleh masuk — tiket dikirim ke email',
                 })
+            }
+
+            pushResult(result)
+
+            if (kind === 'event') {
+                trackPendingEvent(result)
             }
 
             if (source === 'manual') {
@@ -462,73 +595,6 @@ export function useGlobalQrScanPage(
         lastAt.value = now
 
         void submitScanPayload(key, source)
-    }
-
-    function handleStreamEvent(event: Event): void {
-        const message = event as MessageEvent<string>
-        const sseId = typeof message.lastEventId === 'string' && message.lastEventId.length > 0 ? message.lastEventId : ''
-
-        let row: GlobalScanStreamRow
-        try {
-            row = JSON.parse(message.data) as GlobalScanStreamRow
-        }
-        catch {
-            return
-        }
-
-        if (row === null || typeof row !== 'object' || typeof row.id !== 'string' || row.id.length === 0) {
-            return
-        }
-
-        lastEventId.value = sseId.length > 0 ? sseId : row.id
-
-        if (seenStreamIds.has(row.id)) {
-            return
-        }
-        seenStreamIds.add(row.id)
-
-        const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event'
-        const name = typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama'
-        const identifier =
-            typeof row.identifier === 'string' && row.identifier.trim().length > 0 ? row.identifier.trim() : '-'
-        const rowDesk = typeof row.desk === 'string' ? row.desk : ''
-
-        if (isOwnEcho(kind, identifier)) {
-            return
-        }
-
-        const streamEntry: ScanEntry = {
-            id: row.id,
-            name,
-            email: identifier,
-            time: formatStreamTime(row.ts),
-            status: 'success',
-            source: 'camera',
-            eventKind: kind,
-            eventTitle: formatGlobalEventTitle(kind, typeof row.eventTitle === 'string' ? row.eventTitle : ''),
-            queueNumber: typeof row.queueNumber === 'number' ? row.queueNumber : null,
-            desk: rowDesk,
-            isOwnDesk: rowDesk.length > 0 && rowDesk === deskId,
-        }
-        scanEntryEpochMs.set(streamEntry.id, Date.now())
-        scanHistory.value.unshift(streamEntry)
-    }
-
-    function closeStream(): void {
-        if (streamSource !== null) {
-            streamSource.close()
-            streamSource = null
-        }
-    }
-
-    function subscribeStream(): void {
-        closeStream()
-
-        const separator = streamUrl.includes('?') ? '&' : '?'
-        const url = `${streamUrl}${separator}cursor=${encodeURIComponent(lastEventId.value)}`
-        const source = new EventSource(url)
-        streamSource = source
-        source.addEventListener('scan', handleStreamEvent)
     }
 
     async function loadCameras(): Promise<void> {
@@ -666,9 +732,9 @@ export function useGlobalQrScanPage(
     }
 
     onMounted(loadCameras)
-    onMounted(subscribeStream)
+    onMounted(startFeedPolling)
     onBeforeUnmount(stopCameraScanner)
-    onBeforeUnmount(closeStream)
+    onBeforeUnmount(stopFeedPolling)
 
     return {
         scannerContainerId,
@@ -692,6 +758,9 @@ export function useGlobalQrScanPage(
         targetOptions,
         activeTargetCount,
         scanBusy,
+        queue,
+        pendingEvents,
+        feedOnline,
         processScan,
         submitScanPayload,
         startCameraScanner,

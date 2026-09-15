@@ -158,7 +158,7 @@ export const routes = {
         scan: {
             index: `${ADMIN_BASE}/scan`,
             store: `${ADMIN_BASE}/scan`,
-            stream: `${ADMIN_BASE}/scan/stream`,
+            feed: `${ADMIN_BASE}/scan/feed`,
         },
     },
 

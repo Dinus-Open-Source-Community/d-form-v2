@@ -80,6 +80,164 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
     }
 }
 
+export interface GlobalScanQueueServee {
+    name: string
+    queueNumber: number | null
+}
+
+export interface GlobalScanQueueSession {
+    sessionId: string
+    label: string
+    nowServing: GlobalScanQueueServee | null
+    waiting: GlobalScanQueueServee[]
+    waitingCount: number
+}
+
+export interface GlobalScanPendingEvent {
+    id: string
+    name: string
+    identifier: string
+    eventTitle: string
+    at: number
+}
+
+export interface GlobalScanFeedRow {
+    id: string
+    ts: string
+    type: 'recruitment' | 'event'
+    eventTitle: string
+    name: string
+    identifier: string
+    queueNumber: number | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function toUnknownArray(value: unknown): unknown[] {
+    if (!Array.isArray(value)) {
+        return []
+    }
+
+    const items: unknown[] = []
+    for (let index = 0; index < value.length; index += 1) {
+        const item: unknown = value[index]
+        items.push(item)
+    }
+
+    return items
+}
+
+function readString(record: Record<string, unknown>, key: string): string {
+    const value = record[key]
+
+    return typeof value === 'string' ? value : ''
+}
+
+function readQueueNumber(record: Record<string, unknown>, key: string): number | null {
+    const value = record[key]
+
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function parseQueueServee(value: unknown): GlobalScanQueueServee | null {
+    if (!isRecord(value)) {
+        return null
+    }
+
+    const name = readString(value, 'name').trim()
+    if (name.length === 0) {
+        return null
+    }
+
+    return { name, queueNumber: readQueueNumber(value, 'queueNumber') }
+}
+
+export function isGlobalScanFeedPayload(payload: unknown): boolean {
+    if (!isRecord(payload)) {
+        return false
+    }
+
+    return Array.isArray(payload.rows) || Array.isArray(payload.queue)
+}
+
+export function parseGlobalScanFeedRows(payload: unknown): GlobalScanFeedRow[] {
+    if (!isRecord(payload)) {
+        return []
+    }
+
+    const rows: GlobalScanFeedRow[] = []
+    for (const item of toUnknownArray(payload.rows)) {
+        if (!isRecord(item)) {
+            continue
+        }
+
+        const id = readString(item, 'id')
+        if (id.length === 0) {
+            continue
+        }
+
+        rows.push({
+            id,
+            ts: readString(item, 'ts'),
+            type: readString(item, 'type') === 'recruitment' ? 'recruitment' : 'event',
+            eventTitle: readString(item, 'eventTitle'),
+            name: readString(item, 'name'),
+            identifier: readString(item, 'identifier'),
+            queueNumber: readQueueNumber(item, 'queueNumber'),
+        })
+    }
+
+    return rows
+}
+
+export function parseGlobalScanCursor(payload: unknown): string {
+    if (!isRecord(payload)) {
+        return ''
+    }
+
+    return readString(payload, 'cursor')
+}
+
+export function parseGlobalScanQueue(payload: unknown): GlobalScanQueueSession[] {
+    if (!isRecord(payload)) {
+        return []
+    }
+
+    const sessions: GlobalScanQueueSession[] = []
+    for (const item of toUnknownArray(payload.queue)) {
+        if (!isRecord(item)) {
+            continue
+        }
+
+        const sessionId = readString(item, 'sessionId').trim()
+        if (sessionId.length === 0) {
+            continue
+        }
+
+        const waiting: GlobalScanQueueServee[] = []
+        for (const servee of toUnknownArray(item.waiting)) {
+            const parsed = parseQueueServee(servee)
+            if (parsed !== null) {
+                waiting.push(parsed)
+            }
+        }
+
+        const waitingCount = readQueueNumber(item, 'waitingCount')
+
+        sessions.push({
+            sessionId,
+            label: readString(item, 'label'),
+            nowServing: parseQueueServee(item.nowServing),
+            waiting,
+            waitingCount: waitingCount !== null ? waitingCount : waiting.length,
+        })
+    }
+
+    return sessions
+}
+
 export function playScanBeep(status: ScanStatus): void {
     try {
         const ctx = new AudioContext()

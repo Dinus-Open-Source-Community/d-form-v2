@@ -18,21 +18,21 @@ const props = defineProps<{
         events: Array<{ id: string | number } & Record<string, unknown>>
     }
     globalScanStoreUrl: string
-    globalScanStreamUrl: string
+    globalScanFeedUrl?: string
 }>()
 
-const s = reactive(
-    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets),
-)
+const feedUrl = computed<string>(() => {
+    const explicit = props.globalScanFeedUrl?.trim() ?? ''
+    if (explicit.length > 0) {
+        return explicit
+    }
 
-interface GlobalScanSummaryRow {
-    id: string
-    title: string
-    kind: 'event' | 'oprec'
-    success: number
-    duplicate: number
-    invalid: number
-}
+    return `${props.globalScanStoreUrl.replace(/\/+$/, '')}/feed`
+})
+
+const s = reactive(
+    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets),
+)
 
 function kindTitleKey(kind: 'event' | 'oprec', title: string): string {
     return `${kind}::${title}`
@@ -57,38 +57,6 @@ const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
         label: `${option.kind === 'oprec' ? 'OPREC' : 'EVENT'} · ${option.label}`,
     })),
 ])
-
-const summaryRows = computed<GlobalScanSummaryRow[]>(() => {
-    const rows = new Map<string, GlobalScanSummaryRow>()
-    for (const entry of s.scanHistory) {
-        const title = entry.eventTitle !== '' && entry.eventTitle !== '-' ? entry.eventTitle : '(Tanpa acara)'
-        const key = kindTitleKey(entry.eventKind, title)
-        let row = rows.get(key)
-        if (row === undefined) {
-            row = {
-                id: targetIdByKindTitle.value.get(key) ?? title,
-                title,
-                kind: entry.eventKind,
-                success: 0,
-                duplicate: 0,
-                invalid: 0,
-            }
-            rows.set(key, row)
-        }
-
-        if (entry.status === 'success') {
-            row.success += 1
-        }
-        else if (entry.status === 'already') {
-            row.duplicate += 1
-        }
-        else {
-            row.invalid += 1
-        }
-    }
-
-    return [...rows.values()]
-})
 
 interface TargetMismatch {
     title: string
@@ -123,16 +91,6 @@ const targetMismatch = computed<TargetMismatch | null>(() => {
 
     return { title, kind: result.eventKind }
 })
-
-function handleSelectTarget(id: string | null): void {
-    if (id === null || id === s.selectedTarget) {
-        s.selectTarget('all')
-
-        return
-    }
-
-    s.selectTarget(id)
-}
 
 function toggleLog(): void {
     s.logExpanded = !s.logExpanded
@@ -211,12 +169,12 @@ onMounted(() => {
 
             <QrScanSidebar
                 :scan-result="s.scanResult"
-                :summary="summaryRows"
+                :queue="s.queue"
+                :pending-events="s.pendingEvents"
+                :feed-online="s.feedOnline"
                 :scan-history="s.scanHistory"
-                :selected-target="s.selectedTarget"
                 :log-expanded="s.logExpanded"
                 :log-query="s.logQuery"
-                @select-target="handleSelectTarget"
                 @toggle-log="toggleLog"
                 @update:logQuery="handleLogQuery"
                 @clear-history="s.clearHistory"
