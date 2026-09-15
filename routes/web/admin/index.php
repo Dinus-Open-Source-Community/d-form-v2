@@ -7,7 +7,7 @@ use App\Enums\FormPurpose;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanController;
-use App\Http\Controllers\Dashboard\Scan\GlobalScanStreamController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanFeedController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
@@ -39,8 +39,8 @@ Route::middleware('auth')->get('/dashboard', function () {
 
 Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group(function () {
     Route::get('/', [GlobalScanController::class, 'show'])->name('index');
+    Route::get('/feed', [GlobalScanFeedController::class, 'feed'])->name('feed');
     Route::post('/', [GlobalScanController::class, 'store'])->name('store');
-    Route::get('/stream', [GlobalScanStreamController::class, 'stream'])->name('stream');
 });
 
 Route::middleware('auth')->get('/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');

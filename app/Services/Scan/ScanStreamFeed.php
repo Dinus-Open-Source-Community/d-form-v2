@@ -23,13 +23,13 @@ final class ScanStreamFeed
      */
     public function since(?string $cursorIso, int $limit = 50): array
     {
-        $cursor = $cursorIso !== null ? Carbon::parse($cursorIso)->subSeconds(2) : null;
+        $cursor = $cursorIso !== null ? Carbon::parse($cursorIso) : null;
         $fetchLimit = $limit * 2;
         $rows = [];
 
         $eventQuery = EventAttendance::query()->with(['formAnswer.form.event', 'formAnswer.user'])->orderBy('scanned_at');
         if ($cursor !== null) {
-            $eventQuery->where('scanned_at', '>=', $cursor);
+            $eventQuery->where('scanned_at', '>', $cursor);
         }
         foreach ($eventQuery->limit($fetchLimit)->get() as $attendance) {
             $answer = $attendance->formAnswer;
@@ -49,7 +49,7 @@ final class ScanStreamFeed
 
         $recQuery = RecruitmentAttendance::query()->orderBy('checked_in_at');
         if ($cursor !== null) {
-            $recQuery->where('checked_in_at', '>=', $cursor);
+            $recQuery->where('checked_in_at', '>', $cursor);
         }
         $recAttendances = $recQuery->limit($fetchLimit)->get();
         $applications = RecruitmentApplication::query()

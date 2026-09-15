@@ -69,7 +69,7 @@ class GlobalScanController extends Controller
         return Inertia::render('Dashboard/Scan/Global', [
             'targets' => ['sessions' => $sessions, 'events' => $events],
             'globalScanStoreUrl' => route('dashboard.scan.store'),
-            'globalScanStreamUrl' => route('dashboard.scan.stream'),
+            'globalScanFeedUrl' => route('dashboard.scan.feed'),
         ]);
     }
 
@@ -96,7 +96,7 @@ class GlobalScanController extends Controller
 
             return response()->json([
                 'type' => 'recruitment',
-                'eventTitle' => 'Oprec · '.($attendee['registration_number'] ?? ''),
+                'eventTitle' => 'Oprec · '.($session->division?->name ?? '').' · '.($session->session_date ?? ''),
                 'attendee' => $attendee,
                 'status' => $result['duplicate'] ? 'duplicate' : 'success',
                 'scannedAt' => now()->toIso8601String(),
