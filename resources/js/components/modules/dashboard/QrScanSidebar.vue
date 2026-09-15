@@ -11,6 +11,7 @@ const props = withDefaults(
     defineProps<{
         scanResult: ScanResult | null;
         scanHistory: ScanEntry[];
+        logEntries: ScanEntry[];
         scanBusy?: boolean;
         logExpanded?: boolean;
         logQuery?: string;
@@ -85,14 +86,26 @@ const filteredHistory = computed<ScanEntry[]>(() => {
     const query = props.logQuery.trim().toLowerCase();
 
     if (query.length === 0) {
-        return props.scanHistory;
+        return props.logEntries;
     }
 
-    return props.scanHistory.filter((entry) => {
+    return props.logEntries.filter((entry) => {
         const haystack = `${entry.name} ${entry.email} ${entry.eventTitle || ''}`.toLowerCase();
 
         return haystack.includes(query);
     });
+});
+
+const emptyLogMessage = computed<string>(() => {
+    if (props.logEntries.length === 0 && props.scanHistory.length > 0) {
+        return 'Tidak ada riwayat untuk filter acara ini.';
+    }
+
+    if (props.logQuery.trim().length > 0) {
+        return 'Tidak ada hasil untuk pencarian ini.';
+    }
+
+    return 'Belum ada riwayat scan.';
 });
 
 function onLogQueryInput(value: string): void {
@@ -265,7 +278,7 @@ function onSubmitManual(): void {
                         v-else
                         class="border-border/80 text-muted-foreground rounded-xl border border-dashed px-3 py-8 text-center text-sm"
                     >
-                        {{ logQuery.trim().length > 0 ? 'Tidak ada hasil untuk pencarian ini.' : 'Belum ada riwayat scan.' }}
+                        {{ emptyLogMessage }}
                     </p>
                 </div>
                 <button

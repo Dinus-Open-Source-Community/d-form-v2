@@ -66,7 +66,7 @@ defineEmits<{
 
             <div class="space-y-1.5">
                 <Label for="scan-target-filter" class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                    Filter tampilan
+                    Filter riwayat
                 </Label>
                 <SimpleSelect
                     v-model="targetFilter"
@@ -74,10 +74,10 @@ defineEmits<{
                     id="scan-target-filter"
                     placeholder="Semua acara"
                     class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter tampilan per acara"
+                    aria-label="Filter riwayat scan per acara"
                 />
                 <p class="text-muted-foreground text-xs">
-                    Soft filter: QR dari acara lain tetap tercatat ke acara aslinya, hanya tampilan panel yang difokuskan.
+                    Filter hanya menyaring riwayat scan. Scan tetap tercatat ke acara aslinya.
                 </p>
             </div>
         </CardHeader>

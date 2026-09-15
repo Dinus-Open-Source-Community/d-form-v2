@@ -33,22 +33,6 @@ const s = reactive(
     useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets),
 )
 
-function kindTitleKey(kind: 'event' | 'oprec', title: string): string {
-    return `${kind}::${title}`
-}
-
-const targetIdByKindTitle = computed<Map<string, string>>(() => {
-    const map = new Map<string, string>()
-    for (const option of s.targetOptions) {
-        const key = kindTitleKey(option.kind, option.label)
-        if (!map.has(key)) {
-            map.set(key, option.id)
-        }
-    }
-
-    return map
-})
-
 const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
     { value: 'all', label: 'Semua acara' },
     ...s.targetOptions.map((option) => ({
@@ -56,40 +40,6 @@ const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
         label: `${option.kind === 'oprec' ? 'OPREC' : 'EVENT'} · ${option.label}`,
     })),
 ])
-
-interface TargetMismatch {
-    title: string
-    kind: 'event' | 'oprec'
-}
-
-const activeTargetLabel = computed<string>(() => {
-    if (s.selectedTarget === 'all') {
-        return ''
-    }
-
-    const option = s.targetOptions.find((candidate) => candidate.id === s.selectedTarget)
-
-    return option?.label ?? ''
-})
-
-const targetMismatch = computed<TargetMismatch | null>(() => {
-    const result = s.scanResult
-    if (result === null || s.selectedTarget === 'all' || result.status === 'invalid') {
-        return null
-    }
-
-    const title = result.eventTitle !== '' && result.eventTitle !== '-' ? result.eventTitle : ''
-    if (title === '') {
-        return null
-    }
-
-    const resolvedId = targetIdByKindTitle.value.get(kindTitleKey(result.eventKind, title)) ?? title
-    if (resolvedId === s.selectedTarget) {
-        return null
-    }
-
-    return { title, kind: result.eventKind }
-})
 
 function toggleLog(): void {
     s.logExpanded = !s.logExpanded
@@ -136,15 +86,6 @@ onMounted(() => {
             </CardContent>
         </Card>
 
-        <div
-            v-if="targetMismatch"
-            class="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground"
-        >
-            <span class="font-semibold">QR milik acara lain.</span>
-            {{ targetMismatch.kind === 'oprec' ? 'OPREC' : 'EVENT' }} · {{ targetMismatch.title }} — sedangkan filter
-            menampilkan {{ activeTargetLabel }}. Scan tetap tercatat ke acara aslinya; arahkan peserta ke petugas acara yang sesuai.
-        </div>
-
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
             <QrScanScannerCard
                 v-model:target-filter="s.selectedTarget"
@@ -166,6 +107,7 @@ onMounted(() => {
                 v-model:registration-code-input="s.registrationCodeInput"
                 :scan-result="s.scanResult"
                 :scan-history="s.scanHistory"
+                :log-entries="s.logEntries"
                 :scan-busy="s.scanBusy"
                 :log-expanded="s.logExpanded"
                 :log-query="s.logQuery"

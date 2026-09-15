@@ -24,6 +24,13 @@ export interface GlobalScanTargetOption {
     id: string
     label: string
     kind: 'event' | 'oprec'
+    /**
+     * Teks pembanding yang dipakai untuk mencocokkan opsi filter dengan
+     * `eventTitle` pada entri riwayat scan. Untuk event = judul event; untuk
+     * oprec = "Divisi · tanggal" seperti yang dikirim backend pada `eventTitle`
+     * (mis. "Oprec · Divisi Acara · 2026-05-01").
+     */
+    matchKey: string
 }
 
 export interface GlobalScanSummary {
@@ -124,25 +131,45 @@ function readRecordString(record: Record<string, unknown>, key: string): string 
     return typeof value === 'string' ? value : ''
 }
 
-function sessionOptionLabel(session: { id: string } & Record<string, unknown>): string {
+function sessionDivisionName(session: { id: string } & Record<string, unknown>): string {
     const division: unknown = session.division
-    let divisionName = 'Interview'
     if (typeof division === 'object' && division !== null) {
         const name: unknown = (division as Record<string, unknown>).name
         if (typeof name === 'string' && name.trim().length > 0) {
-            divisionName = name.trim()
+            return name.trim()
         }
     }
 
+    return 'Interview'
+}
+
+function sessionOptionLabel(session: { id: string } & Record<string, unknown>): string {
+    const divisionName = sessionDivisionName(session)
     const date = formatSessionDate(readRecordString(session, 'session_date'))
 
     return date.length > 0 ? `${divisionName} · ${date}` : divisionName
+}
+
+/**
+ * Backend menyusun `eventTitle` oprec sebagai
+ * `Oprec · {division.name} · {session_date}`. Kunci ini meniru bagian setelah
+ * prefix "Oprec · " agar cocok dengan entri riwayat hasil scan.
+ */
+function sessionMatchKey(session: { id: string } & Record<string, unknown>): string {
+    const divisionName = sessionDivisionName(session)
+    const rawDate = readRecordString(session, 'session_date')
+
+    return `${divisionName} · ${rawDate}`
 }
 
 function eventOptionLabel(event: { id: string | number } & Record<string, unknown>): string {
     const title = readRecordString(event, 'title')
 
     return title.length > 0 ? title : `Event ${String(event.id)}`
+}
+
+function normalizeMatchText(value: string): string {
+    return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function formatFeedTime(ts: string): string {
@@ -225,11 +252,13 @@ export function useGlobalQrScanPage(
                 id: String(session.id),
                 label: sessionOptionLabel(session),
                 kind: 'oprec' as const,
+                matchKey: sessionMatchKey(session),
             })),
             ...targets.events.map((event) => ({
                 id: String(event.id),
                 label: eventOptionLabel(event),
                 kind: 'event' as const,
+                matchKey: eventOptionLabel(event),
             })),
         ]
     })
@@ -238,6 +267,44 @@ export function useGlobalQrScanPage(
         const targets = getTargets()
 
         return targets.sessions.length + targets.events.length
+    })
+
+    /**
+     * Riwayat scan setelah disaring oleh acara terpilih. Filter ini murni
+     * kosmetik: tidak mengubah `scanHistory`, KPI, maupun `scanResult` (hero).
+     * Pencarian `logQuery` diterapkan terpisah di QrScanSidebar sehingga filter
+     * acara dan pencarian bisa dipakai bersamaan.
+     */
+    const logEntries = computed<ScanEntry[]>(() => {
+        const targetId = selectedTarget.value
+        if (targetId === 'all') {
+            return scanHistory.value
+        }
+
+        const option = targetOptions.value.find((candidate) => candidate.id === targetId)
+        if (option === undefined) {
+            return scanHistory.value
+        }
+
+        const wanted = normalizeMatchText(option.matchKey)
+        if (wanted.length === 0) {
+            return []
+        }
+
+        return scanHistory.value.filter((entry) => {
+            if (entry.eventKind !== option.kind) {
+                return false
+            }
+
+            const haystack = normalizeMatchText(entry.eventTitle)
+            if (haystack.length === 0) {
+                return false
+            }
+
+            // Event: judul harus sama persis. Oprec: `eventTitle` backend
+            // berformat "Oprec · Divisi · tanggal", cukup dicocokkan sebagian.
+            return option.kind === 'event' ? haystack === wanted : haystack.includes(wanted)
+        })
     })
 
     const eventLabel = computed(() => {
@@ -746,6 +813,7 @@ export function useGlobalQrScanPage(
         registrationCodeInput,
         scanResult,
         scanHistory,
+        logEntries,
         eventLabel,
         successfulScansCount,
         duplicateScansCount,
