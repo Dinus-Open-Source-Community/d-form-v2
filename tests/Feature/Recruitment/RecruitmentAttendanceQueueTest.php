@@ -24,7 +24,9 @@ use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use LogicException;
 use Tests\TestCase;
 
@@ -169,6 +171,43 @@ class RecruitmentAttendanceQueueTest extends TestCase
             ])
             ->assertStatus(409);
 
+        $this->assertSame(
+            1,
+            RecruitmentAttendance::query()->where('recruitment_application_id', $application->id)->count(),
+        );
+    }
+
+    public function test_check_in_losing_a_unique_race_returns_duplicate_not_error(): void
+    {
+        $application = $this->scheduleApplicant('C');
+
+        // Simulasi race deterministik: saat service melakukan INSERT, pesaing lebih dulu
+        // mendaratkan baris attendance yang sama, sehingga INSERT kita melanggar unique
+        // index recruitment_attendances.recruitment_application_id.
+        RecruitmentAttendance::creating(function () use ($application): void {
+            DB::table('recruitment_attendances')->insert([
+                'id' => (string) Str::uuid(),
+                'recruitment_application_id' => $application->id,
+                'recruitment_interview_session_id' => $this->session->id,
+                'method' => AttendanceMethod::Qr->value,
+                'checked_in_at' => now(),
+                'created_at' => now(),
+            ]);
+        });
+
+        try {
+            $result = app(AttendanceService::class)->checkInFromInput(
+                $this->session,
+                $application->registration_number,
+                null,
+                null,
+                $this->staff,
+            );
+        } finally {
+            RecruitmentAttendance::flushEventListeners();
+        }
+
+        $this->assertTrue($result['duplicate']);
         $this->assertSame(
             1,
             RecruitmentAttendance::query()->where('recruitment_application_id', $application->id)->count(),
