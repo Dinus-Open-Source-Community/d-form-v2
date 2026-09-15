@@ -94,9 +94,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
     private function staffCheckInByRegistrationNumber(RecruitmentApplication $application): void
     {
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertOk();
     }
@@ -115,9 +114,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $application = $this->scheduleApplicant('1');
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertOk()
             ->assertJsonPath('attendee.queue_number', 1);
@@ -125,7 +123,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $this->assertDatabaseHas('recruitment_attendances', [
             'recruitment_application_id' => $application->id,
             'recruitment_interview_session_id' => $this->session->id,
-            'method' => AttendanceMethod::RegistrationNumber->value,
+            // Global scan transports manual codes and QR alike as `raw`, so the method resolves to qr.
+            'method' => AttendanceMethod::Qr->value,
         ]);
 
         $this->assertDatabaseHas('recruitment_queue_entries', [
@@ -146,9 +145,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $payload = RecruitmentQrPayload::encode($application->id);
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'raw_payload' => $payload,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $payload,
             ])
             ->assertOk()
             ->assertJsonPath('attendee.application_id', $application->id);
@@ -166,9 +164,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $this->staffCheckInByRegistrationNumber($application);
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertStatus(409);
 

@@ -129,17 +129,12 @@ export const routes = {
                 complete: (entryId: string) => `${ADMIN_BASE}/recruitment/queue/${entryId}/complete`,
                 noShow: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/no-show`,
             },
-            attendanceScan: {
-                index: `${ADMIN_BASE}/recruitment/attendance-scan`,
-                store: `${ADMIN_BASE}/recruitment/attendance-scan`,
-            },
         },
         events: {
             index: `${ADMIN_BASE}/events`,
             create: `${ADMIN_BASE}/events/create`,
             show: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}`,
             edit: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/edit`,
-            scan: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/scan`,
             registrants: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/registrants`,
             laporan: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/laporan`,
             exports: {
@@ -234,9 +229,6 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
         return path.startsWith(routes.admin.recruitment.myInterviews.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.attendanceScan.index)) {
-        return path.startsWith(routes.admin.recruitment.attendanceScan.index);
     }
     if (href === routes.admin.scan.index) {
         return path === routes.admin.scan.index;

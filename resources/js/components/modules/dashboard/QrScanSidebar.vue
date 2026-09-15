@@ -23,11 +23,13 @@ const props = withDefaults(
         scanHistory: ScanEntry[];
         logExpanded?: boolean;
         logQuery?: string;
+        selectedTarget?: string;
     }>(),
     {
         summary: () => [],
         logExpanded: false,
         logQuery: '',
+        selectedTarget: 'all',
     },
 );
 
@@ -35,6 +37,7 @@ const emit = defineEmits<{
     'select-target': [id: string | null];
     'update:logQuery': [value: string];
     'toggle-log': [];
+    'clear-history': [];
     clearHistory: [];
 }>();
 
@@ -124,6 +127,7 @@ function onToggleLog(): void {
 }
 
 function onClearHistory(): void {
+    emit('clear-history');
     emit('clearHistory');
 }
 </script>
@@ -196,6 +200,7 @@ function onClearHistory(): void {
                         :key="row.id"
                         type="button"
                         class="border-border/70 bg-background hover:bg-muted/40 w-full rounded-xl border px-3 py-2.5 text-left transition-colors"
+                        :class="{ 'ring-primary/60 ring-2': selectedTarget === row.id }"
                         @click="onSelectTarget(row.id)"
                     >
                         <div class="flex min-w-0 items-center gap-2">

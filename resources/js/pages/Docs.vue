@@ -728,7 +728,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 <div>
                                     <h4 class="text-sm font-semibold text-foreground">Untuk Penyelenggara</h4>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                        Buka halaman Scan (<code>/admin/events/{event}/scan</code>). Arahkan kamera ke QR peserta, atau masukkan kode registrasi secara manual. Sistem akan memverifikasi dan mencatat kehadiran. Setiap peserta hanya bisa di-scan sekali per acara.
+                                        Buka halaman Scan (<code>/admin/scan</code>). Arahkan kamera ke QR peserta, atau masukkan kode registrasi secara manual. Sistem akan memverifikasi dan mencatat kehadiran. Setiap peserta hanya bisa di-scan sekali per acara.
                                     </p>
                                 </div>
                             </div>

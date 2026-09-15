@@ -83,7 +83,7 @@ defineEmits<{
                     class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal"
                     as-child
                 >
-                    <Link :href="routes.admin.events.scan(event.id)"
+                    <Link :href="routes.admin.scan.index"
                         ><QrCode class="mr-2 size-4" />Check-in scanner</Link
                     >
                 </Button>

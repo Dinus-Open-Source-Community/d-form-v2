@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstructionsCard.vue'
@@ -21,6 +21,73 @@ const props = defineProps<{
 }>()
 
 const s = useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, props.globalScanStreamUrl, props.targets)
+
+interface GlobalScanSummaryRow {
+    id: string
+    title: string
+    kind: 'event' | 'oprec'
+    success: number
+    duplicate: number
+    invalid: number
+}
+
+const summaryRows = computed<GlobalScanSummaryRow[]>(() => {
+    const optionIdByKindTitle = new Map<string, string>()
+    for (const option of s.targetOptions.value) {
+        const key = `${option.kind}::${option.label}`
+        if (!optionIdByKindTitle.has(key)) {
+            optionIdByKindTitle.set(key, option.id)
+        }
+    }
+
+    const rows = new Map<string, GlobalScanSummaryRow>()
+    for (const entry of s.scanHistory.value) {
+        const title = entry.eventTitle !== '' && entry.eventTitle !== '-' ? entry.eventTitle : '(Tanpa acara)'
+        const key = `${entry.eventKind}::${title}`
+        let row = rows.get(key)
+        if (row === undefined) {
+            row = {
+                id: optionIdByKindTitle.get(key) ?? title,
+                title,
+                kind: entry.eventKind,
+                success: 0,
+                duplicate: 0,
+                invalid: 0,
+            }
+            rows.set(key, row)
+        }
+
+        if (entry.status === 'success') {
+            row.success += 1
+        }
+        else if (entry.status === 'already') {
+            row.duplicate += 1
+        }
+        else {
+            row.invalid += 1
+        }
+    }
+
+    return [...rows.values()]
+})
+
+function handleSelectTarget(id: string | null): void {
+    if (id === null || id === s.selectedTarget.value) {
+        s.selectTarget('all')
+
+        return
+    }
+
+    s.selectTarget(id)
+}
+
+function toggleLog(): void {
+    s.logExpanded.value = !s.logExpanded.value
+}
+
+function handleLogQuery(value: string): void {
+    s.logQuery.value = value
+}
 
 onMounted(() => {
     setTopbar({ title: 'Scanner Global', subtitle: 'Pindai QR apapun' })
@@ -80,7 +147,18 @@ onMounted(() => {
                 @submit-manual="s.submitManualCode"
             />
 
-            <QrScanSidebar :scan-result="s.scanResult" :scan-history="s.scanHistory" @clear-history="s.clearHistory" />
+            <QrScanSidebar
+                :scan-result="s.scanResult"
+                :summary="summaryRows"
+                :scan-history="s.scanHistory"
+                :selected-target="s.selectedTarget"
+                :log-expanded="s.logExpanded"
+                :log-query="s.logQuery"
+                @select-target="handleSelectTarget"
+                @toggle-log="toggleLog"
+                @update:logQuery="handleLogQuery"
+                @clear-history="s.clearHistory"
+            />
         </div>
     </div>
 </template>

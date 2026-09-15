@@ -132,7 +132,7 @@ function rescheduleInterview(interviewId: string) {
         >
             <template #actions>
                 <Button v-if="canScanAttendance" variant="secondary" as-child>
-                    <Link :href="`${routes.admin.recruitment.attendanceScan.index}?session=${session.id}`">
+                    <Link :href="routes.admin.scan.index">
                         <ScanLine class="mr-2 size-4" />
                         Scan absensi
                     </Link>

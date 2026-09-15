@@ -201,9 +201,7 @@ onMounted(() => {
                                 </Link>
                             </Button>
                             <Button v-if="canScanAttendance" as-child variant="secondary" size="sm">
-                                <Link
-                                    :href="`${routes.admin.recruitment.attendanceScan.index}?session=${session.id}`"
-                                >
+                                <Link :href="routes.admin.scan.index">
                                     <ScanLine class="mr-2 size-4" />
                                     Scan
                                 </Link>
