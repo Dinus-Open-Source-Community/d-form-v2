@@ -148,30 +148,31 @@ onMounted(() => {
         <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
             <QrScanScannerCard
                 v-model:target-filter="s.selectedTarget"
-                v-model:registration-code-input="s.registrationCodeInput"
                 :scanner-container-id="s.scannerContainerId"
                 :event-label="s.eventLabel"
                 :cameras="s.cameras"
                 :selected-camera-id="s.selectedCameraId"
                 :is-starting-camera="s.isStartingCamera"
                 :is-camera-ready="s.isCameraReady"
+                :is-shutter-active="s.isShutterActive"
                 :permission-error="s.permissionError"
-                :scan-busy="s.scanBusy"
                 :target-options="targetFilterOptions"
                 @switch-camera="s.switchCamera"
                 @start-camera="s.startCameraScanner"
                 @stop-camera="s.stopCameraScanner"
-                @submit-manual="s.submitManualCode"
             />
 
             <QrScanSidebar
+                v-model:registration-code-input="s.registrationCodeInput"
                 :scan-result="s.scanResult"
                 :scan-history="s.scanHistory"
+                :scan-busy="s.scanBusy"
                 :log-expanded="s.logExpanded"
                 :log-query="s.logQuery"
                 @toggle-log="toggleLog"
                 @update:logQuery="handleLogQuery"
                 @clear-history="s.clearHistory"
+                @submit-manual="s.submitManualCode"
             />
         </div>
     </div>

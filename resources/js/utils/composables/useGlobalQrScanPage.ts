@@ -186,6 +186,7 @@ export function useGlobalQrScanPage(
     const selectedTarget = ref('all')
     const logExpanded = ref(false)
     const logQuery = ref('')
+    const isShutterActive = ref(false)
 
     const scanEntryEpochMs = new Map<string, number>()
     const localEntryIdentities = new Set<string>()
@@ -193,6 +194,7 @@ export function useGlobalQrScanPage(
     let feedCursor = ''
     let pollTimer: number | null = null
     let pollAbort: AbortController | null = null
+    let shutterTimer: number | null = null
 
     function isTodayEntry(entry: ScanEntry): boolean {
         const epoch: number | undefined = scanEntryEpochMs.get(entry.id)
@@ -512,7 +514,67 @@ export function useGlobalQrScanPage(
         }
     }
 
+    function clearShutterTimer(): void {
+        if (shutterTimer !== null) {
+            window.clearTimeout(shutterTimer)
+            shutterTimer = null
+        }
+    }
+
+    function hideScannerNotice(): void {
+        const container = document.getElementById(scannerContainerId)
+        if (container === null) {
+            return
+        }
+
+        container.querySelectorAll<HTMLDivElement>(':scope > div').forEach((notice) => {
+            notice.style.display = 'none'
+        })
+    }
+
+    function resumeScannerAfterShutter(): void {
+        const active = scanner.value
+        if (active === null || !isCameraReady.value) {
+            return
+        }
+
+        try {
+            active.resume()
+        }
+        catch {
+            // Resume bisa gagal kalau state scanner berubah; pengguna tetap bisa mulai ulang kamera.
+        }
+    }
+
+    function triggerShutter(): void {
+        const active = scanner.value
+        if (active === null || !isCameraReady.value) {
+            return
+        }
+
+        isShutterActive.value = true
+
+        try {
+            active.pause(true)
+            hideScannerNotice()
+        }
+        catch {
+            // Pause gagal bukan kondisi fatal; efek shutter tetap ditampilkan.
+        }
+
+        clearShutterTimer()
+        shutterTimer = window.setTimeout(() => {
+            shutterTimer = null
+            isShutterActive.value = false
+            resumeScannerAfterShutter()
+        }, SCAN_COOLDOWN_MS)
+    }
+
     function processScan(decodedText: string, source: 'camera' | 'manual'): void {
+        if (source === 'camera' && isShutterActive.value) {
+            return
+        }
+
         const now = Date.now()
         const key = decodedText.trim()
         if (key.length > 0 && key === lastRaw.value && now - lastAt.value < SCAN_COOLDOWN_MS) {
@@ -521,6 +583,10 @@ export function useGlobalQrScanPage(
 
         lastRaw.value = key
         lastAt.value = now
+
+        if (source === 'camera') {
+            triggerShutter()
+        }
 
         void submitScanPayload(key, source)
     }
@@ -572,7 +638,10 @@ export function useGlobalQrScanPage(
                 selectedCameraId.value,
                 {
                     fps: 10,
-                    qrbox: { width: 280, height: 280 },
+                    qrbox: (viewfinderWidth: number, viewfinderHeight: number): { width: number; height: number } => ({
+                        width: Math.floor(viewfinderWidth),
+                        height: Math.floor(viewfinderHeight),
+                    }),
                     aspectRatio: 1,
                 },
                 (decodedText) => processScan(decodedText, 'camera'),
@@ -601,6 +670,9 @@ export function useGlobalQrScanPage(
     }
 
     async function stopCameraScanner(): Promise<void> {
+        clearShutterTimer()
+        isShutterActive.value = false
+
         if (!scanner.value) {
             return
         }
@@ -683,6 +755,7 @@ export function useGlobalQrScanPage(
         selectTarget,
         logExpanded,
         logQuery,
+        isShutterActive,
         targetOptions,
         activeTargetCount,
         scanBusy,

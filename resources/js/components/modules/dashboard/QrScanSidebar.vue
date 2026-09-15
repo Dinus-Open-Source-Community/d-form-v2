@@ -4,27 +4,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Clock3 } from 'lucide-vue-next';
+import { Clock3, QrCode } from 'lucide-vue-next';
 import { SCAN_STATUS_THEME, type ScanEntry, type ScanResult } from '@/lib/qrScanUi';
 
 const props = withDefaults(
     defineProps<{
         scanResult: ScanResult | null;
         scanHistory: ScanEntry[];
+        scanBusy?: boolean;
         logExpanded?: boolean;
         logQuery?: string;
     }>(),
     {
+        scanBusy: false,
         logExpanded: false,
         logQuery: '',
     },
 );
+
+const registrationCodeInput = defineModel<string>('registrationCodeInput', { required: true });
 
 const emit = defineEmits<{
     'update:logQuery': [value: string];
     'toggle-log': [];
     'clear-history': [];
     clearHistory: [];
+    submitManual: [];
 }>();
 
 function isOprecKind(kind: string): boolean {
@@ -102,10 +107,40 @@ function onClearHistory(): void {
     emit('clear-history');
     emit('clearHistory');
 }
+
+function onSubmitManual(): void {
+    emit('submitManual');
+}
 </script>
 
 <template>
     <div class="flex flex-col gap-5">
+        <Card class="border-border/70 rounded-2xl border">
+            <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold">Input Manual</CardTitle>
+                <p class="text-muted-foreground text-xs">
+                    Isi kode registrasi peserta, mis.
+                    <span class="font-mono text-[11px]">OPREC-2026-00001</span>
+                    atau kode registrasi event, lalu tekan Proses check-in.
+                </p>
+            </CardHeader>
+            <CardContent class="pt-0">
+                <div class="grid gap-2">
+                    <Input
+                        v-model="registrationCodeInput"
+                        class="placeholder:normal-case uppercase"
+                        placeholder="OPREC-2026-00001 atau kode registrasi event"
+                        :disabled="scanBusy"
+                        @keydown.enter.prevent="onSubmitManual"
+                    />
+                    <Button variant="outline" class="w-full" :disabled="scanBusy" @click="onSubmitManual">
+                        <QrCode data-icon="inline-start" />
+                        {{ scanBusy ? 'Memproses…' : 'Proses check-in' }}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+
         <Card class="border-border/70 rounded-2xl border">
             <CardHeader class="pb-3">
                 <CardTitle class="text-base font-semibold">Hasil Scan Terakhir</CardTitle>
