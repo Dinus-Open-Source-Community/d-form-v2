@@ -5,12 +5,22 @@ namespace Tests\Feature\Scan;
 use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\Recruitment\ApplicationResult;
+use App\Enums\Recruitment\ApplicationStage;
 use App\Jobs\RecordAttendanceJob;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
+use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentDivision;
+use App\Models\Recruitment\RecruitmentInterviewSession;
+use App\Models\Recruitment\RecruitmentInterviewerDivision;
+use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Services\Recruitment\InterviewSchedulingService;
+use App\Support\RecruitmentQrPayload;
 use App\Support\RegistrationQrPayload;
+use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -40,6 +50,55 @@ class GlobalScanTest extends TestCase
         $user->assignRole('member');
 
         return $user;
+    }
+
+    /**
+     * @return array{0: User, 1: RecruitmentApplication}
+     */
+    private function scheduledRecruitmentApplication(string $suffix): array
+    {
+        $this->seed(RecruitmentDivisionSeeder::class);
+
+        $staff = User::factory()->create();
+        $staff->assignRole('recruitment-staff');
+
+        $programming = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+        $period = RecruitmentPeriod::factory()->create();
+
+        $session = RecruitmentInterviewSession::query()->create([
+            'recruitment_period_id' => $period->id,
+            'recruitment_division_id' => $programming->id,
+            'session_date' => now()->toDateString(),
+            'starts_at' => '09:00:00',
+            'ends_at' => '12:00:00',
+            'location' => 'Lab DOSCOM',
+            'room' => 'A101',
+            'is_active' => true,
+        ]);
+
+        $application = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $period->id,
+            'primary_division_id' => $programming->id,
+            'registration_number' => 'OPREC-2026-0000'.$suffix,
+            'stage' => ApplicationStage::Interview,
+            'result' => ApplicationResult::Pending,
+        ]);
+
+        $interviewer = User::factory()->create();
+        $interviewer->assignRole('recruitment-interviewer');
+
+        RecruitmentInterviewerDivision::query()->create([
+            'user_id' => $interviewer->id,
+            'recruitment_division_id' => $programming->id,
+        ]);
+
+        app(InterviewSchedulingService::class)->scheduleApplicants(
+            $staff,
+            $session,
+            [$application->id],
+        );
+
+        return [$staff, $application->fresh()];
     }
 
     /**
@@ -101,5 +160,32 @@ class GlobalScanTest extends TestCase
         $this->actingAs($this->admin())->postJson(route('dashboard.scan.store'), [
             'raw' => 'bukan-qr-sama-sekali',
         ])->assertUnprocessable();
+    }
+
+    public function test_staff_recruitment_qr_returns_200_with_queue_number(): void
+    {
+        [$staff, $application] = $this->scheduledRecruitmentApplication('R1');
+
+        $this->actingAs($staff)->postJson(route('dashboard.scan.store'), [
+            'raw' => RecruitmentQrPayload::encode($application->id),
+        ])->assertOk()
+            ->assertJsonPath('type', 'recruitment')
+            ->assertJsonPath('attendee.queue_number', 1);
+
+        $this->assertDatabaseHas('recruitment_attendances', [
+            'recruitment_application_id' => $application->id,
+        ]);
+    }
+
+    public function test_staff_recruitment_duplicate_returns_409(): void
+    {
+        [$staff, $application] = $this->scheduledRecruitmentApplication('R2');
+        $payload = ['raw' => RecruitmentQrPayload::encode($application->id)];
+
+        $this->actingAs($staff)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
+
+        $this->actingAs($staff)->postJson(route('dashboard.scan.store'), $payload)
+            ->assertStatus(409)
+            ->assertJsonPath('attendee.queue_number', 1);
     }
 }
