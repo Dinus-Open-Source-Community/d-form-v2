@@ -6,7 +6,8 @@ use App\Enums\FormAnswerReviewStatus;
 use App\Enums\FormPurpose;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
-use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanStreamController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
@@ -35,6 +36,12 @@ Route::middleware('auth')->get('/dashboard', function () {
 
     return app(MemberDashboardController::class)(request());
 })->name('dashboard');
+
+Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group(function () {
+    Route::get('/', [GlobalScanController::class, 'show'])->name('index');
+    Route::post('/', [GlobalScanController::class, 'store'])->name('store');
+    Route::get('/stream', [GlobalScanStreamController::class, 'stream'])->name('stream');
+});
 
 Route::middleware('auth')->get('/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
 Route::middleware(['auth', 'throttle:10,1'])->patch('/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
@@ -225,7 +232,6 @@ Route::middleware(['auth', 'member_portal'])->get('/browse', function (EventServ
 Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
     Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
-    Route::get('/scan', [AttendanceScanController::class, 'show'])->name('scan');
-    Route::post('/attendance-scan', [AttendanceScanController::class, 'store'])->name('attendance-scan.store');
+    Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

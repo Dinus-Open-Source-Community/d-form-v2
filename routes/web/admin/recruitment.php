@@ -13,7 +13,6 @@ use App\Http\Controllers\Dashboard\Recruitment\RecruitmentScreeningController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentEvaluationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentFinalSelectionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentMyInterviewController;
-use App\Http\Controllers\Dashboard\Recruitment\RecruitmentAttendanceScanController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentQueueController;
 use Illuminate\Support\Facades\Route;
 
@@ -89,10 +88,7 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('queue/{entry}/complete', [RecruitmentQueueController::class, 'complete'])
             ->name('queue.complete');
 
-        Route::get('attendance-scan', [RecruitmentAttendanceScanController::class, 'show'])
-            ->name('attendance-scan');
-        Route::post('attendance-scan', [RecruitmentAttendanceScanController::class, 'store'])
-            ->name('attendance-scan.store');
+        Route::get('attendance-scan', fn () => to_route('dashboard.scan.index'))->name('attendance-scan');
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
