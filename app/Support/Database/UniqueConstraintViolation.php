@@ -11,20 +11,4 @@ final class UniqueConstraintViolation
     {
         return $exception instanceof UniqueConstraintViolationException;
     }
-
-    /**
-     * @param  array<int, string>  $markers
-     */
-    public static function matches(QueryException $exception, array $markers): bool
-    {
-        $message = $exception->getMessage();
-
-        foreach ($markers as $marker) {
-            if ($marker !== '' && str_contains($message, $marker)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

@@ -13,13 +13,9 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 final class ApplicationSubmitter
 {
-    /** Marker index (MySQL) / kolom (SQLite) untuk bentrok unique NIM per periode. */
-    private const NIM_UNIQUE_MARKERS = ['rec_apps_period_nim_uniq', 'recruitment_applications.nim'];
-
     public function __construct(
         private readonly RecruitmentRegistrationNumberIssuer $registrationNumberIssuer,
         private readonly RecruitmentTrackingTokenGenerator $trackingTokenGenerator,
@@ -32,11 +28,11 @@ final class ApplicationSubmitter
      */
     public function submit(RecruitmentPeriod $period, array $data, UploadedFile $cv, ?UploadedFile $portfolioFile = null): array
     {
-        try {
-            $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile): array {
-                $registrationNumber = $this->registrationNumberIssuer->issue($period);
-                $trackingToken = $this->trackingTokenGenerator->generate();
+        $registrationNumber = $this->registrationNumberIssuer->issue($period);
+        $trackingToken = $this->trackingTokenGenerator->generate();
 
+        try {
+            $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile, $registrationNumber, $trackingToken): array {
                 $application = RecruitmentApplication::query()->create([
                     'recruitment_period_id' => $period->id,
                     'registration_number' => $registrationNumber,
@@ -90,20 +86,19 @@ final class ApplicationSubmitter
                 throw $exception;
             }
 
-            if (UniqueConstraintViolation::matches($exception, self::NIM_UNIQUE_MARKERS)) {
+            if ($this->applicationExistsForNim($period, (string) $data['nim'])) {
                 throw ValidationException::withMessages([
                     'nim' => ['NIM ini sudah terdaftar pada periode ini.'],
                 ]);
             }
 
-            Log::warning('[ApplicationSubmitter] Non-NIM unique conflict while inserting application.', [
-                'recruitment_period_id' => $period->id,
-                'exception_message' => $exception->getMessage(),
-            ]);
+            if ($this->applicationExistsForRegistrationNumber($registrationNumber)) {
+                throw ValidationException::withMessages([
+                    'registration_number' => ['Nomor registrasi bentrok saat dialokasikan. Silakan kirim ulang formulir.'],
+                ]);
+            }
 
-            throw ValidationException::withMessages([
-                'registration_number' => ['Nomor registrasi bentrok saat dialokasikan. Silakan kirim ulang formulir.'],
-            ]);
+            throw $exception;
         }
 
         SendRecruitmentApplicationConfirmationJob::dispatch(
@@ -112,5 +107,20 @@ final class ApplicationSubmitter
         );
 
         return $result;
+    }
+
+    private function applicationExistsForNim(RecruitmentPeriod $period, string $nim): bool
+    {
+        return RecruitmentApplication::query()
+            ->where('recruitment_period_id', $period->id)
+            ->where('nim', $nim)
+            ->exists();
+    }
+
+    private function applicationExistsForRegistrationNumber(string $registrationNumber): bool
+    {
+        return RecruitmentApplication::query()
+            ->where('registration_number', $registrationNumber)
+            ->exists();
     }
 }
