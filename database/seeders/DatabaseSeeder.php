@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             RecruitmentDivisionSeeder::class,
             EventSeeder::class,
             FormSeeder::class,
+            OprecFormSeeder::class,
         ]);
 
         $admin = User::query()->firstOrCreate(
