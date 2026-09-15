@@ -1,0 +1,628 @@
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import axios from 'axios'
+import { toast } from 'vue-sonner'
+import { Html5Qrcode } from 'html5-qrcode'
+import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/lib/error-message'
+import {
+    createScanHistoryEntry,
+    extractQrCandidate,
+    playScanBeep,
+    type ScanEntry,
+    type ScanResult,
+} from '@/lib/qrScanUi'
+
+export interface GlobalScanTargets {
+    sessions: Array<{ id: string } & Record<string, unknown>>
+    events: Array<{ id: string | number } & Record<string, unknown>>
+}
+
+export interface GlobalScanTargetOption {
+    id: string
+    label: string
+    kind: 'event' | 'oprec'
+}
+
+export interface GlobalScanSummary {
+    total: number
+    success: number
+    already: number
+    invalid: number
+}
+
+interface GlobalScanAttendee {
+    name?: string
+    email?: string
+    registration_number?: string
+    application_id?: string
+    queue_number?: number | null
+    form_answer_id?: string
+}
+
+interface GlobalScanEnvelope {
+    type: 'event' | 'recruitment'
+    eventTitle: string
+    attendee: GlobalScanAttendee
+    status: 'success' | 'duplicate'
+    scannedAt: string
+    desk: string
+}
+
+interface GlobalScanErrorBody {
+    message?: string
+    type?: string
+    eventTitle?: string
+    attendee?: GlobalScanAttendee
+    errors?: Record<string, string[]>
+}
+
+interface GlobalScanStreamRow {
+    id: string
+    ts: string
+    type: string
+    eventTitle: string
+    name: string
+    identifier: string
+    queueNumber: number | null
+    desk?: string
+}
+
+const DESK_STORAGE_KEY = 'scan-desk-id'
+const SCAN_COOLDOWN_MS = 2000
+
+function resolveDeskId(): string {
+    try {
+        const existing = sessionStorage.getItem(DESK_STORAGE_KEY)
+        if (existing !== null && existing.trim().length > 0) {
+            return existing
+        }
+
+        const fresh =
+            typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID().slice(0, 8)
+                : Math.random().toString(16).slice(2, 10)
+        sessionStorage.setItem(DESK_STORAGE_KEY, fresh)
+
+        return fresh
+    }
+    catch {
+        return Math.random().toString(16).slice(2, 10)
+    }
+}
+
+function padQueueNumber(value: number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return '-'
+    }
+
+    return String(value).padStart(2, '0')
+}
+
+function formatGlobalEventTitle(kind: 'event' | 'oprec', rawTitle: string): string {
+    const title = rawTitle.trim()
+    if (title.length === 0) {
+        return '-'
+    }
+
+    if (kind !== 'oprec') {
+        return title
+    }
+
+    return title.replace(/(\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}(?::\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?/g, '$1')
+}
+
+function readRecordString(record: Record<string, unknown>, key: string): string {
+    const value: unknown = record[key]
+
+    return typeof value === 'string' ? value : ''
+}
+
+function sessionOptionLabel(session: { id: string } & Record<string, unknown>): string {
+    const division: unknown = session.division
+    let divisionName = 'Interview'
+    if (typeof division === 'object' && division !== null) {
+        const name: unknown = (division as Record<string, unknown>).name
+        if (typeof name === 'string' && name.trim().length > 0) {
+            divisionName = name.trim()
+        }
+    }
+
+    const date = readRecordString(session, 'session_date')
+
+    return date.length > 0 ? `${divisionName} · ${date}` : divisionName
+}
+
+function eventOptionLabel(event: { id: string | number } & Record<string, unknown>): string {
+    const title = readRecordString(event, 'title')
+
+    return title.length > 0 ? title : `Event ${String(event.id)}`
+}
+
+function formatStreamTime(ts: string): string {
+    const parsed = new Date(ts)
+    if (Number.isNaN(parsed.getTime())) {
+        return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    }
+
+    return parsed.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+export function useGlobalQrScanPage(
+    scannerContainerId: string,
+    storeUrl: string,
+    streamUrl: string,
+    targets: GlobalScanTargets,
+) {
+    const deskId = resolveDeskId()
+
+    const scanner = ref<Html5Qrcode | null>(null)
+    const cameras = ref<Array<{ id: string; label: string }>>([])
+    const selectedCameraId = ref('')
+    const isCameraReady = ref(false)
+    const isStartingCamera = ref(false)
+    const permissionError = ref('')
+    const manualQrInput = ref('')
+    const registrationCodeInput = ref('')
+    const scanResult = ref<ScanResult | null>(null)
+    const scanHistory = ref<ScanEntry[]>([])
+    const lastRaw = ref('')
+    const lastAt = ref(0)
+    const lastEventId = ref('')
+    const scanBusy = ref(false)
+    const selectedTarget = ref('all')
+    const logExpanded = ref(false)
+    const logQuery = ref('')
+
+    let streamSource: EventSource | null = null
+    const seenStreamIds = new Set<string>()
+
+    const successfulScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'success').length)
+    const duplicateScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'already').length)
+    const invalidScansCount = computed(() => scanHistory.value.filter((entry) => entry.status === 'invalid').length)
+
+    const summary = computed<GlobalScanSummary>(() => ({
+        total: scanHistory.value.length,
+        success: successfulScansCount.value,
+        already: duplicateScansCount.value,
+        invalid: invalidScansCount.value,
+    }))
+
+    const targetOptions = computed<GlobalScanTargetOption[]>(() => [
+        ...targets.sessions.map((session) => ({
+            id: String(session.id),
+            label: sessionOptionLabel(session),
+            kind: 'oprec' as const,
+        })),
+        ...targets.events.map((event) => ({
+            id: String(event.id),
+            label: eventOptionLabel(event),
+            kind: 'event' as const,
+        })),
+    ])
+
+    const activeTargetCount = computed(() => targets.sessions.length + targets.events.length)
+
+    const eventLabel = computed(() => {
+        const current = scanResult.value
+        if (current !== null && current.eventTitle !== '' && current.eventTitle !== '-') {
+            return `${current.eventKind === 'oprec' ? 'OPREC' : 'EVENT'} · ${current.eventTitle}`
+        }
+
+        return 'Siap — mode Semua'
+    })
+
+    function mapEnvelopeKind(type: string | undefined): 'event' | 'oprec' {
+        return type === 'recruitment' ? 'oprec' : 'event'
+    }
+
+    function pushResult(result: ScanResult): void {
+        scanResult.value = result
+        scanHistory.value.unshift(createScanHistoryEntry(result))
+        playScanBeep(result.status)
+    }
+
+    async function submitScanPayload(raw: string, source: 'camera' | 'manual'): Promise<void> {
+        if (scanBusy.value) {
+            return
+        }
+
+        const trimmed = raw.trim()
+        if (trimmed.length === 0) {
+            showErrorToast('Tempel isi QR atau isi kode registrasi.')
+
+            return
+        }
+
+        scanBusy.value = true
+        const rawDisplay = extractQrCandidate(trimmed)
+
+        try {
+            const { data } = await axios.post<GlobalScanEnvelope>(
+                storeUrl,
+                { raw: trimmed, desk: deskId },
+                { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+            )
+
+            const kind = mapEnvelopeKind(data.type)
+            const title = formatGlobalEventTitle(kind, data.eventTitle ?? '')
+
+            if (kind === 'oprec') {
+                const identifier = data.attendee.registration_number?.trim() || '-'
+                const queueNumber = data.attendee.queue_number ?? null
+                pushResult({
+                    name: data.attendee.name?.trim() || 'Tanpa nama',
+                    email: identifier,
+                    status: 'success',
+                    source,
+                    rawCode: rawDisplay,
+                    eventKind: kind,
+                    eventTitle: title,
+                    queueNumber,
+                    desk: deskId,
+                    isOwnDesk: true,
+                })
+                toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
+                    description: `#${padQueueNumber(queueNumber)} — arahkan ke ruang tunggu`,
+                })
+            }
+            else {
+                pushResult({
+                    name: data.attendee.name?.trim() || 'Tanpa nama',
+                    email: data.attendee.email?.trim() || '-',
+                    status: 'success',
+                    source,
+                    rawCode: rawDisplay,
+                    eventKind: kind,
+                    eventTitle: title,
+                    queueNumber: null,
+                    desk: deskId,
+                    isOwnDesk: true,
+                })
+                toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
+                    description: 'Boleh masuk — tiket dikirim ke email',
+                })
+            }
+
+            if (source === 'manual') {
+                manualQrInput.value = ''
+                registrationCodeInput.value = ''
+            }
+        }
+        catch (error) {
+            if (axios.isAxiosError(error)) {
+                const status = error.response?.status
+                const body = error.response?.data as GlobalScanErrorBody | undefined
+
+                if (status === 409) {
+                    const kind = mapEnvelopeKind(body?.type)
+                    const title = formatGlobalEventTitle(kind, body?.eventTitle ?? '')
+                    const fallbackQueue = scanResult.value?.eventKind === kind ? scanResult.value.queueNumber : null
+                    const msg = humanizeErrorMessage(body?.message ?? 'Peserta sudah pernah scan.')
+
+                    if (kind === 'oprec') {
+                        const identifier = body?.attendee?.registration_number?.trim() || '-'
+                        const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir'
+                        pushResult({
+                            name,
+                            email: identifier,
+                            status: 'already',
+                            source,
+                            rawCode: rawDisplay,
+                            eventKind: kind,
+                            eventTitle: title,
+                            queueNumber: body?.attendee?.queue_number ?? fallbackQueue,
+                            desk: deskId,
+                            isOwnDesk: true,
+                        })
+                        toast.warning(msg, {
+                            description: `${name} · ${identifier}`,
+                        })
+                    }
+                    else {
+                        const email = body?.attendee?.email?.trim() || '-'
+                        const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir'
+                        pushResult({
+                            name,
+                            email,
+                            status: 'already',
+                            source,
+                            rawCode: rawDisplay,
+                            eventKind: kind,
+                            eventTitle: title,
+                            queueNumber: null,
+                            desk: deskId,
+                            isOwnDesk: true,
+                        })
+                        toast.warning(msg, {
+                            description: email !== '-' ? `${name} · ${email}` : name,
+                        })
+                    }
+
+                    return
+                }
+
+                if (status === 422) {
+                    const msg = parseApiErrorMessage(body, 'Data tidak valid.')
+                    pushResult({
+                        name: 'Tidak dapat diproses',
+                        email: '-',
+                        status: 'invalid',
+                        source,
+                        rawCode: rawDisplay,
+                        eventKind: scanResult.value?.eventKind ?? 'event',
+                        eventTitle: scanResult.value?.eventTitle ?? '-',
+                        queueNumber: null,
+                        desk: deskId,
+                        isOwnDesk: true,
+                    })
+                    showErrorToast(msg)
+
+                    return
+                }
+            }
+
+            pushResult({
+                name: 'Kesalahan jaringan',
+                email: '-',
+                status: 'invalid',
+                source,
+                rawCode: rawDisplay,
+                eventKind: scanResult.value?.eventKind ?? 'event',
+                eventTitle: scanResult.value?.eventTitle ?? '-',
+                queueNumber: null,
+                desk: deskId,
+                isOwnDesk: true,
+            })
+            showErrorToast('Permintaan gagal', {
+                description: error instanceof Error ? humanizeErrorMessage(error.message) : 'Coba lagi dalam beberapa saat.',
+            })
+        }
+        finally {
+            scanBusy.value = false
+        }
+    }
+
+    function processScan(decodedText: string, source: 'camera' | 'manual'): void {
+        const now = Date.now()
+        const key = decodedText.trim()
+        if (key.length > 0 && key === lastRaw.value && now - lastAt.value < SCAN_COOLDOWN_MS) {
+            return
+        }
+
+        lastRaw.value = key
+        lastAt.value = now
+
+        void submitScanPayload(key, source)
+    }
+
+    function handleStreamEvent(event: Event): void {
+        const message = event as MessageEvent<string>
+        const sseId = typeof message.lastEventId === 'string' && message.lastEventId.length > 0 ? message.lastEventId : ''
+
+        let row: GlobalScanStreamRow
+        try {
+            row = JSON.parse(message.data) as GlobalScanStreamRow
+        }
+        catch {
+            return
+        }
+
+        if (row === null || typeof row !== 'object' || typeof row.id !== 'string' || row.id.length === 0) {
+            return
+        }
+
+        lastEventId.value = sseId.length > 0 ? sseId : row.id
+
+        if (seenStreamIds.has(row.id)) {
+            return
+        }
+        seenStreamIds.add(row.id)
+
+        const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event'
+        const name = typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama'
+        const identifier =
+            typeof row.identifier === 'string' && row.identifier.trim().length > 0 ? row.identifier.trim() : '-'
+        const rowDesk = typeof row.desk === 'string' ? row.desk : ''
+
+        scanHistory.value.unshift({
+            id: row.id,
+            name,
+            email: identifier,
+            time: formatStreamTime(row.ts),
+            status: 'success',
+            source: 'camera',
+            eventKind: kind,
+            eventTitle: formatGlobalEventTitle(kind, typeof row.eventTitle === 'string' ? row.eventTitle : ''),
+            queueNumber: typeof row.queueNumber === 'number' ? row.queueNumber : null,
+            desk: rowDesk,
+            isOwnDesk: rowDesk.length > 0 && rowDesk === deskId,
+        })
+    }
+
+    function closeStream(): void {
+        if (streamSource !== null) {
+            streamSource.close()
+            streamSource = null
+        }
+    }
+
+    function subscribeStream(): void {
+        closeStream()
+
+        const separator = streamUrl.includes('?') ? '&' : '?'
+        const url = `${streamUrl}${separator}cursor=${encodeURIComponent(lastEventId.value)}`
+        const source = new EventSource(url)
+        streamSource = source
+        source.addEventListener('scan', handleStreamEvent)
+    }
+
+    async function loadCameras(): Promise<void> {
+        try {
+            const discoveredCameras = await Html5Qrcode.getCameras()
+            cameras.value = discoveredCameras.map((camera, index) => ({
+                id: camera.id,
+                label: camera.label || `Camera ${index + 1}`,
+            }))
+
+            if (cameras.value.length > 0 && selectedCameraId.value.length === 0) {
+                selectedCameraId.value = cameras.value[0].id
+            }
+
+            permissionError.value = ''
+        }
+        catch (error) {
+            permissionError.value = humanizeErrorMessage(
+                'Gagal membaca daftar kamera. Pastikan browser punya izin kamera.',
+            )
+            showErrorToast('Kamera tidak tersedia', {
+                description:
+                    error instanceof Error
+                        ? humanizeErrorMessage(error.message)
+                        : 'Terjadi kesalahan saat mengakses kamera.',
+            })
+        }
+    }
+
+    async function startCameraScanner(): Promise<void> {
+        if (isCameraReady.value || isStartingCamera.value) {
+            return
+        }
+
+        if (!selectedCameraId.value) {
+            showErrorToast('Pilih kamera terlebih dahulu.')
+
+            return
+        }
+
+        isStartingCamera.value = true
+        permissionError.value = ''
+
+        try {
+            scanner.value = new Html5Qrcode(scannerContainerId)
+            await scanner.value.start(
+                selectedCameraId.value,
+                {
+                    fps: 10,
+                    qrbox: { width: 280, height: 280 },
+                    aspectRatio: 1,
+                },
+                (decodedText) => processScan(decodedText, 'camera'),
+                () => {
+                },
+            )
+            isCameraReady.value = true
+            toast.success('Kamera aktif', {
+                description: 'Arahkan QR ke area scanner untuk check-in otomatis.',
+            })
+        }
+        catch (error) {
+            permissionError.value = humanizeErrorMessage(
+                'Izin kamera ditolak atau kamera sedang digunakan aplikasi lain.',
+            )
+            showErrorToast('Tidak bisa memulai kamera', {
+                description:
+                    error instanceof Error
+                        ? humanizeErrorMessage(error.message)
+                        : 'Coba pilih kamera lain atau muat ulang halaman.',
+            })
+        }
+        finally {
+            isStartingCamera.value = false
+        }
+    }
+
+    async function stopCameraScanner(): Promise<void> {
+        if (!scanner.value) {
+            return
+        }
+
+        try {
+            if (isCameraReady.value) {
+                await scanner.value.stop()
+            }
+            await scanner.value.clear()
+        }
+        finally {
+            scanner.value = null
+            isCameraReady.value = false
+        }
+    }
+
+    async function switchCamera(nextCameraId: string | undefined): Promise<void> {
+        if (nextCameraId === undefined) {
+            return
+        }
+
+        selectedCameraId.value = nextCameraId
+
+        if (!nextCameraId) {
+            return
+        }
+
+        if (!isCameraReady.value) {
+            return
+        }
+
+        await stopCameraScanner()
+        await startCameraScanner()
+    }
+
+    function submitManualCode(): void {
+        const raw = manualQrInput.value.trim()
+        const code = registrationCodeInput.value.trim()
+
+        if (raw.length === 0 && code.length === 0) {
+            showErrorToast('Tempel isi QR atau isi kode registrasi.')
+
+            return
+        }
+
+        void submitScanPayload(code.length > 0 ? code : raw, 'manual')
+    }
+
+    function selectTarget(id: string): void {
+        selectedTarget.value = id
+    }
+
+    function clearHistory(): void {
+        scanHistory.value = []
+        scanResult.value = null
+        toast('Riwayat scan dibersihkan')
+    }
+
+    onMounted(loadCameras)
+    onMounted(subscribeStream)
+    onBeforeUnmount(stopCameraScanner)
+    onBeforeUnmount(closeStream)
+
+    return {
+        scannerContainerId,
+        cameras,
+        selectedCameraId,
+        isCameraReady,
+        isStartingCamera,
+        permissionError,
+        manualQrInput,
+        registrationCodeInput,
+        scanResult,
+        scanHistory,
+        eventLabel,
+        successfulScansCount,
+        duplicateScansCount,
+        invalidScansCount,
+        summary,
+        selectedTarget,
+        selectTarget,
+        logExpanded,
+        logQuery,
+        targetOptions,
+        activeTargetCount,
+        scanBusy,
+        processScan,
+        submitScanPayload,
+        startCameraScanner,
+        stopCameraScanner,
+        switchCamera,
+        submitManualCode,
+        clearHistory,
+    }
+}
