@@ -17,7 +17,6 @@ defineOptions({ layout: DashboardFocusLayout })
 const props = defineProps<{
     event: IEvent
     forms: { id: string; title: string }[]
-    exports: { registrations: string; attendance: string }
 }>()
 
 const laporanHref = routes.admin.events.laporan(props.event.id)
