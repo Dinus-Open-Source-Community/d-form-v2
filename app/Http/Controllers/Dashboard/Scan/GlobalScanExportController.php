@@ -131,10 +131,10 @@ class GlobalScanExportController extends Controller
         }
 
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, $header);
+        fputcsv($out, $header, ',', '"', '');
 
         foreach ($rows as $row) {
-            fputcsv($out, $row);
+            fputcsv($out, $row, ',', '"', '');
         }
 
         fclose($out);
