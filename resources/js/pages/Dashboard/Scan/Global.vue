@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import QrScanInstructionsCard from '@/components/modules/dashboard/QrScanInstructionsCard.vue'
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue'
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -136,8 +135,6 @@ onMounted(() => {
                 </div>
             </CardContent>
         </Card>
-
-        <QrScanInstructionsCard />
 
         <div
             v-if="targetMismatch"
