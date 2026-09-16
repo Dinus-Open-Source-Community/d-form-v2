@@ -18,6 +18,8 @@ interface IUser {
     can_access_recruitment?: boolean;
     /** Permission recruitment.periods.list */
     can_manage_recruitment_periods?: boolean;
+    /** Permission recruitment.applications.list */
+    can_list_recruitment_applications?: boolean;
     created_at?: string;
     updated_at?: string;
     deleted_at?: string;
