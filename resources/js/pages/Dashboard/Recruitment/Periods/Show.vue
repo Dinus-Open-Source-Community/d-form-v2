@@ -201,7 +201,6 @@ function closePeriod() {
             <TabsContent value="interview" class="mt-4">
                 <PeriodInterviewSection
                     v-if="canScheduleInterviews"
-                    :period-id="period.id"
                     :sessions="sessions ?? null"
                     :today-sessions="today_sessions ?? []"
                 />

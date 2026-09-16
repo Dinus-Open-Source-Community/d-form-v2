@@ -8,7 +8,6 @@ use App\Http\Requests\Recruitment\StoreRecruitmentInterviewSessionRequest;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\InterviewSchedulingService;
 use App\Services\Recruitment\InterviewSessionService;
-use App\Services\Recruitment\RecruitmentApplicationService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,7 +17,6 @@ class RecruitmentInterviewSessionController extends Controller
     public function __construct(
         private readonly InterviewSessionService $sessionService,
         private readonly InterviewSchedulingService $schedulingService,
-        private readonly RecruitmentApplicationService $applicationService,
     ) {
     }
 

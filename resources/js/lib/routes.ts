@@ -133,6 +133,7 @@ export const routes = {
             show: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}`,
             edit: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/edit`,
             registrants: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/registrants`,
+            laporan: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/laporan`,
             exports: {
                 registrations: (eventId: string | number) =>
                     `${ADMIN_BASE}/events/${eventId}/exports/registrations.csv`,

@@ -25,7 +25,6 @@ interface SessionPaginator {
 }
 
 defineProps<{
-    periodId: string
     sessions: SessionPaginator | null
     todaySessions: SessionRow[]
 }>()
