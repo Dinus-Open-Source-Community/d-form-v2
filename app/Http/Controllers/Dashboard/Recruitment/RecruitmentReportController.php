@@ -49,10 +49,10 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['stage', 'label', 'count']);
+            fputcsv($out, array_map(self::sanitizeCsvCell(...), ['stage', 'label', 'count']));
 
             foreach ($funnel as $row) {
-                fputcsv($out, [$row['stage'], $row['label'], $row['count']]);
+                fputcsv($out, array_map(self::sanitizeCsvCell(...), [$row['stage'], $row['label'], $row['count']]));
             }
 
             fclose($out);
@@ -75,7 +75,7 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, [
+            fputcsv($out, array_map(self::sanitizeCsvCell(...), [
                 'registration_number',
                 'full_name',
                 'nim',
@@ -84,7 +84,7 @@ class RecruitmentReportController extends Controller
                 'stage',
                 'result',
                 'submitted_at',
-            ]);
+            ]));
 
             if ($resolvedPeriodId === null) {
                 fclose($out);
@@ -98,7 +98,7 @@ class RecruitmentReportController extends Controller
                 ->orderBy('registration_number')
                 ->chunk(200, function ($applications) use ($out): void {
                     foreach ($applications as $application) {
-                        fputcsv($out, [
+                        fputcsv($out, array_map(self::sanitizeCsvCell(...), [
                             $application->registration_number,
                             $application->full_name,
                             $application->nim,
@@ -107,11 +107,26 @@ class RecruitmentReportController extends Controller
                             $application->stage->value,
                             $application->result->value,
                             $application->submitted_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
-                        ]);
+                        ]));
                     }
                 });
 
             fclose($out);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private static function sanitizeCsvCell(mixed $value): string
+    {
+        $cell = (string) $value;
+
+        return match (true) {
+            str_starts_with($cell, '='),
+            str_starts_with($cell, '+'),
+            str_starts_with($cell, '-'),
+            str_starts_with($cell, '@'),
+            str_starts_with($cell, "\t"),
+            str_starts_with($cell, "\r") => "'".$cell,
+            default => $cell,
+        };
     }
 }

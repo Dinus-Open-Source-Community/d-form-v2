@@ -127,4 +127,24 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
                 ->missing('applications')
                 ->missing('sessions'));
     }
+
+    public function test_export_applicants_menetralkan_formula_csv(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => '=CMD(1)',
+            'nim' => 'A11.2024.09999',
+        ]);
+
+        $content = $this->actingAs($this->admin(['recruitment.reports.export']))
+            ->get(route('dashboard.recruitment.reports.export.applicants', ['period_id' => $this->period->id]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString("'=CMD(1)", $content);
+        $this->assertStringNotContainsString("\n=CMD(1)", $content);
+    }
 }
