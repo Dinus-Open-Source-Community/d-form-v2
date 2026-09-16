@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ShowRecruitmentReportRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentReportService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,11 +17,11 @@ class RecruitmentReportController extends Controller
     ) {
     }
 
-    public function index(Request $request): Response
+    public function index(ShowRecruitmentReportRequest $request): Response
     {
         abort_unless($request->user()?->can('recruitment.reports.view'), 403);
 
-        $periodId = $request->string('period_id')->toString() ?: null;
+        $periodId = $request->validated('period_id');
 
         return Inertia::render('Dashboard/Recruitment/Reports/Index', [
             'report' => $this->reportService->build($periodId),
@@ -34,11 +34,11 @@ class RecruitmentReportController extends Controller
         ]);
     }
 
-    public function exportFunnel(Request $request): StreamedResponse
+    public function exportFunnel(ShowRecruitmentReportRequest $request): StreamedResponse
     {
         abort_unless($request->user()?->can('recruitment.reports.export'), 403);
 
-        $periodId = $request->string('period_id')->toString() ?: null;
+        $periodId = $request->validated('period_id');
         $funnel = $this->reportService->build($periodId)['funnel'];
         $fileName = 'oprec-funnel-'.now()->format('Ymd-His').'.csv';
 
@@ -59,11 +59,11 @@ class RecruitmentReportController extends Controller
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function exportApplicants(Request $request): StreamedResponse
+    public function exportApplicants(ShowRecruitmentReportRequest $request): StreamedResponse
     {
         abort_unless($request->user()?->can('recruitment.reports.export'), 403);
 
-        $periodId = $request->string('period_id')->toString() ?: null;
+        $periodId = $request->validated('period_id');
         $report = $this->reportService->build($periodId);
         $resolvedPeriodId = $report['period']['id'] ?? null;
         $fileName = 'oprec-applicants-'.now()->format('Ymd-His').'.csv';

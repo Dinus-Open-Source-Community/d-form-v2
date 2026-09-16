@@ -147,4 +147,11 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
         $this->assertStringContainsString("'=CMD(1)", $content);
         $this->assertStringNotContainsString("\n=CMD(1)", $content);
     }
+
+    public function test_reports_index_menolak_period_id_bukan_uuid(): void
+    {
+        $this->actingAs($this->admin(['recruitment.reports.view']))
+            ->get(route('dashboard.recruitment.reports.index', ['period_id' => 'bukan-uuid']))
+            ->assertSessionHasErrors('period_id');
+    }
 }
