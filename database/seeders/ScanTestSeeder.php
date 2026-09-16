@@ -44,6 +44,8 @@ class ScanTestSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->purgeStaleQrFiles();
+
         $eventCodes = $this->seedEventRegistrations();
         $oprecNumbers = $this->seedOprecApplicants();
 
@@ -52,6 +54,21 @@ class ScanTestSeeder extends Seeder
         $this->command->info('  OPREC applications (20, Interview/Scheduled): '.implode(', ', $oprecNumbers));
         $this->command->info('  QR folders: storage/app/scan-test/event/ ('.count($eventCodes).' PNG), storage/app/scan-test/oprec/ ('.count($oprecNumbers).' PNG)');
         $this->command->info('  Test logins (password: password): scan-test-event-01@example.test … scan-test-event-20@example.test');
+    }
+
+    /**
+     * Buang PNG lama lebih dulu: registration code dibuat acak per run, jadi tanpa
+     * ini file dari run sebelumnya menumpuk (nama file berbeda walau barisnya sama).
+     */
+    private function purgeStaleQrFiles(): void
+    {
+        foreach (['event', 'oprec'] as $kind) {
+            $dir = storage_path('app/scan-test/'.$kind);
+
+            if (File::isDirectory($dir)) {
+                File::cleanDirectory($dir);
+            }
+        }
     }
 
     /**
