@@ -19,6 +19,7 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Mail\ScanTestQrMail;
 use App\Services\Recruitment\RecruitmentQrPngGenerator;
 use App\Services\Registration\RegistrationCodeIssuer;
 use App\Services\Registration\RegistrationQrPngGenerator;
@@ -26,6 +27,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Scan-test seeder. Registered in DatabaseSeeder, so it runs on every
@@ -54,6 +56,8 @@ class ScanTestSeeder extends Seeder
         $this->command->info('  OPREC applications (20, Interview/Scheduled): '.implode(', ', $oprecNumbers));
         $this->command->info('  QR folders: storage/app/scan-test/event/ ('.count($eventCodes).' PNG), storage/app/scan-test/oprec/ ('.count($oprecNumbers).' PNG)');
         $this->command->info('  Test logins (password: password): scan-test-event-01@example.test … scan-test-event-20@example.test');
+
+        $this->sendQrDigests();
     }
 
     /**
@@ -69,6 +73,60 @@ class ScanTestSeeder extends Seeder
                 File::cleanDirectory($dir);
             }
         }
+    }
+
+    /**
+     * Kirim digest QR ke inbox uji. Hanya jalan di APP_ENV=local dan hanya bila
+     * MAIL_TEST_REDIRECT terisi; AppServiceProvider::boot() memang sudah mengarahkan
+     * semua email lokal ke alamat itu, jadi tidak ada email nyata ke peserta.
+     */
+    private function sendQrDigests(): void
+    {
+        if (! app()->environment('local')) {
+            return;
+        }
+
+        $recipient = config('mail.test_redirect');
+
+        if (! is_string($recipient) || $recipient === '') {
+            $this->command->warn('ScanTestSeeder: MAIL_TEST_REDIRECT kosong, digest QR tidak dikirim.');
+
+            return;
+        }
+
+        foreach (['event' => 'Event', 'oprec' => 'OpRec'] as $kind => $label) {
+            $attachments = $this->qrAttachments($kind);
+
+            if ($attachments === []) {
+                continue;
+            }
+
+            Mail::to($recipient)->send(new ScanTestQrMail($label, $attachments));
+
+            $this->command->info('  QR digest '.$label.': '.count($attachments).' lampiran -> '.$recipient);
+        }
+    }
+
+    /**
+     * @return array<string, string> nama berkas => isi biner PNG
+     */
+    private function qrAttachments(string $kind): array
+    {
+        $dir = storage_path('app/scan-test/'.$kind);
+
+        if (! File::isDirectory($dir)) {
+            return [];
+        }
+
+        $attachments = [];
+
+        foreach (File::files($dir) as $file) {
+            $attachments[$file->getFilename()] = (string) file_get_contents($file->getPathname());
+        }
+
+        ksort($attachments);
+
+        return $attachments;
     }
 
     /**
