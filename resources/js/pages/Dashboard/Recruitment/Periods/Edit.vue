@@ -2,12 +2,13 @@
 import { onMounted } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
 import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
@@ -48,6 +49,9 @@ const form = useForm({
     finalization_deadline_at: toDateInput(props.period.finalization_deadline_at),
 })
 
+const dateErrorClass =
+    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
+
 onMounted(() => {
     setTopbar({ title: 'Edit periode', subtitle: props.period.name })
 })
@@ -58,18 +62,29 @@ function submit() {
 </script>
 
 <template>
-    <Head title="Edit periode OpRec" />
+    <Head title="Edit periode Open Recruitment" />
 
-    <div class="mx-auto flex max-w-2xl flex-col gap-6">
-        <PageHeader
-            title="Edit periode"
-            :subtitle="period.name"
-            :back-href="routes.admin.recruitment.periods.show(period.id)"
-        />
+    <div class="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="font-display text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Edit periode
+                </h1>
+                <p class="text-muted-foreground mt-1.5 text-base">{{ props.period.name }}</p>
+            </div>
+            <Button
+                type="submit"
+                form="period-form"
+                :disabled="form.processing"
+                class="w-full shrink-0 sm:w-auto"
+            >
+                Simpan perubahan
+            </Button>
+        </div>
 
         <Card class="rounded-2xl border-border/70">
-            <CardContent class="space-y-4 p-6">
-                <form class="space-y-4" @submit.prevent="submit">
+            <CardContent class="p-6">
+                <form id="period-form" class="space-y-4" @submit.prevent="submit">
                     <div class="space-y-2">
                         <Label for="name">Nama periode</Label>
                         <Input id="name" v-model="form.name" required />
@@ -87,30 +102,63 @@ function submit() {
                     </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <div class="space-y-2">
-                            <Label for="registration_opens_at">Buka pendaftaran</Label>
-                            <Input id="registration_opens_at" v-model="form.registration_opens_at" type="datetime-local" />
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="registration_closes_at">Tutup pendaftaran</Label>
-                            <Input id="registration_closes_at" v-model="form.registration_closes_at" type="datetime-local" />
-                        </div>
+                        <SplitDateTimeField
+                            id-prefix="reg_open"
+                            v-model="form.registration_opens_at"
+                            label="Buka pendaftaran"
+                            picker-class="bg-white"
+                            class="sm:col-span-2"
+                            :error="form.errors.registration_opens_at"
+                            :invalid="!!form.errors.registration_opens_at"
+                        />
+                        <SplitDateTimeField
+                            id-prefix="reg_close"
+                            v-model="form.registration_closes_at"
+                            label="Tutup pendaftaran"
+                            picker-class="bg-white"
+                            class="sm:col-span-2"
+                            :error="form.errors.registration_closes_at"
+                            :invalid="!!form.errors.registration_closes_at"
+                        />
+
                         <div class="space-y-2">
                             <Label for="interview_starts_at">Mulai interview</Label>
-                            <Input id="interview_starts_at" v-model="form.interview_starts_at" type="date" />
+                            <DatePicker
+                                id="interview_starts_at"
+                                v-model="form.interview_starts_at"
+                                :aria-invalid="!!form.errors.interview_starts_at"
+                                :class="cn('bg-white', !!form.errors.interview_starts_at && dateErrorClass)"
+                            />
+                            <p v-if="form.errors.interview_starts_at" class="text-destructive text-xs">
+                                {{ form.errors.interview_starts_at }}
+                            </p>
                         </div>
+
                         <div class="space-y-2">
                             <Label for="interview_ends_at">Akhir interview</Label>
-                            <Input id="interview_ends_at" v-model="form.interview_ends_at" type="date" />
+                            <DatePicker
+                                id="interview_ends_at"
+                                v-model="form.interview_ends_at"
+                                :aria-invalid="!!form.errors.interview_ends_at"
+                                :class="cn('bg-white', !!form.errors.interview_ends_at && dateErrorClass)"
+                            />
+                            <p v-if="form.errors.interview_ends_at" class="text-destructive text-xs">
+                                {{ form.errors.interview_ends_at }}
+                            </p>
                         </div>
+
                         <div class="space-y-2 sm:col-span-2">
                             <Label for="finalization_deadline_at">Target finalisasi</Label>
-                            <Input id="finalization_deadline_at" v-model="form.finalization_deadline_at" type="date" />
+                            <DatePicker
+                                id="finalization_deadline_at"
+                                v-model="form.finalization_deadline_at"
+                                :aria-invalid="!!form.errors.finalization_deadline_at"
+                                :class="cn('bg-white', !!form.errors.finalization_deadline_at && dateErrorClass)"
+                            />
+                            <p v-if="form.errors.finalization_deadline_at" class="text-destructive text-xs">
+                                {{ form.errors.finalization_deadline_at }}
+                            </p>
                         </div>
-                    </div>
-
-                    <div class="flex justify-end gap-2 pt-2">
-                        <Button type="submit" :disabled="form.processing">Simpan perubahan</Button>
                     </div>
                 </form>
             </CardContent>
