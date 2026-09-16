@@ -2,7 +2,6 @@
 import { onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,13 +40,7 @@ onMounted(() => {
 <template>
     <Head title="Antrean Interview Saya" />
 
-    <div class="mx-auto flex max-w-3xl flex-col gap-6">
-        <PageHeader
-            :title="`Antrean · ${session.division?.name ?? 'Interview'}`"
-            :description="`${session.session_date} ${session.starts_at}–${session.ends_at} · ${session.location}`"
-            :back-href="routes.admin.recruitment.myInterviews.index"
-        />
-
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <div class="grid gap-3 sm:grid-cols-3">
             <Card class="rounded-2xl">
                 <CardHeader class="pb-2"><CardTitle class="text-sm">Menunggu</CardTitle></CardHeader>

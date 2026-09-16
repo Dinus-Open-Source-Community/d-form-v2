@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -51,7 +50,7 @@ const assignForm = useForm({
 })
 
 onMounted(() => {
-    setTopbar({ title: 'Divisi OpRec', subtitle: 'Kelola divisi & interviewer' })
+    setTopbar({ title: 'Divisi Open Recruitment', subtitle: 'Kelola divisi & interviewer' })
 })
 
 function submitAssign() {
@@ -90,15 +89,9 @@ function saveDivision(division: Division) {
 </script>
 
 <template>
-    <Head title="Divisi OpRec" />
+    <Head title="Divisi Open Recruitment" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader
-            title="Divisi & Interviewer"
-            subtitle="Empat divisi default OpRec dan penugasan interviewer."
-            :back-href="routes.admin.recruitment.index"
-        />
-
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <Card class="rounded-2xl border-border/70">
             <CardHeader>
                 <CardTitle class="text-base">Divisi</CardTitle>

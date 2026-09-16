@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -124,27 +123,21 @@ function rescheduleInterview(interviewId: string) {
 <template>
     <Head title="Detail Sesi Interview" />
 
-    <div class="mx-auto flex max-w-5xl flex-col gap-6">
-        <PageHeader
-            :title="`${session.division?.name ?? 'Interview'} · ${session.session_date}`"
-            :subtitle="`${session.starts_at}–${session.ends_at} · ${session.location} · ${session.room}`"
-            :back-href="routes.admin.recruitment.interviewSessions.index"
-        >
-            <template #actions>
-                <Button v-if="canScanAttendance" variant="secondary" as-child>
-                    <Link :href="routes.admin.scan.index">
-                        <ScanLine class="mr-2 size-4" />
-                        Scan absensi
-                    </Link>
-                </Button>
-                <Button v-if="canViewQueue" as-child>
-                    <Link :href="routes.admin.recruitment.queue.show(session.id)">
-                        <ListOrdered class="mr-2 size-4" />
-                        Monitor antrean
-                    </Link>
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <Button v-if="canScanAttendance" variant="secondary" as-child>
+                <Link :href="routes.admin.scan.index">
+                    <ScanLine class="mr-2 size-4" />
+                    Scan absensi
+                </Link>
+            </Button>
+            <Button v-if="canViewQueue" as-child>
+                <Link :href="routes.admin.recruitment.queue.show(session.id)">
+                    <ListOrdered class="mr-2 size-4" />
+                    Monitor antrean
+                </Link>
+            </Button>
+        </div>
 
         <Card class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">

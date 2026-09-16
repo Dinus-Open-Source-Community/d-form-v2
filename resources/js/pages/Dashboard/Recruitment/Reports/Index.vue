@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { routes } from '@/lib/routes'
@@ -31,7 +30,7 @@ const props = defineProps<{
 }>()
 
 onMounted(() => {
-    setTopbar({ title: 'Laporan OpRec', subtitle: props.report.period?.name ?? '' })
+    setTopbar({ title: 'Laporan Open Recruitment', subtitle: props.report.period?.name ?? '' })
 })
 
 const maxFunnel = computed(() =>
@@ -49,32 +48,26 @@ function onPeriodChange(event: Event) {
 </script>
 
 <template>
-    <Head title="Laporan OpRec" />
+    <Head title="Laporan Open Recruitment" />
 
-    <div class="mx-auto flex max-w-6xl flex-col gap-6">
-        <PageHeader
-            title="Laporan OpRec"
-            subtitle="Funnel, statistik interview, dan feedback periode."
-            :back-href="routes.admin.recruitment.index"
-        >
-            <template #actions>
-                <select
-                    class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-                    :value="query.period_id ?? report.period?.id ?? ''"
-                    @change="onPeriodChange"
-                >
-                    <option v-for="period in periodOptions" :key="period.id" :value="period.id">
-                        {{ period.name }}
-                    </option>
-                </select>
-                <Button as-child variant="outline" size="sm">
-                    <a :href="exportUrls.funnel">Export funnel CSV</a>
-                </Button>
-                <Button as-child size="sm">
-                    <a :href="exportUrls.applicants">Export applicant CSV</a>
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <select
+                class="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                :value="query.period_id ?? report.period?.id ?? ''"
+                @change="onPeriodChange"
+            >
+                <option v-for="period in periodOptions" :key="period.id" :value="period.id">
+                    {{ period.name }}
+                </option>
+            </select>
+            <Button as-child variant="outline" size="sm">
+                <a :href="exportUrls.funnel">Export funnel CSV</a>
+            </Button>
+            <Button as-child size="sm">
+                <a :href="exportUrls.applicants">Export applicant CSV</a>
+            </Button>
+        </div>
 
         <Card class="rounded-2xl border-border/70">
             <CardHeader><CardTitle class="text-base">Funnel recruitment</CardTitle></CardHeader>

@@ -2,7 +2,6 @@
 import { onMounted, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,7 +39,7 @@ const search = ref(props.query.search ?? '')
 const status = ref(props.query.status ?? '')
 
 onMounted(() => {
-    setTopbar({ title: 'Periode OpRec', subtitle: 'Kelola recruitment period' })
+    setTopbar({ title: 'Periode Open Recruitment', subtitle: 'Kelola recruitment period' })
 })
 
 function applyFilters(page = 1) {
@@ -59,23 +58,17 @@ watch([search, status], () => applyFilters())
 </script>
 
 <template>
-    <Head title="Periode OpRec" />
+    <Head title="Periode Open Recruitment" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader
-            title="Periode OpenRecruitment"
-            subtitle="Buat dan kelola periode recruitment."
-            :back-href="routes.admin.recruitment.index"
-        >
-            <template #actions>
-                <Button as-child size="sm">
-                    <Link :href="routes.admin.recruitment.periods.create">
-                        <Plus class="mr-2 size-4" />
-                        Periode baru
-                    </Link>
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <Button as-child size="sm">
+                <Link :href="routes.admin.recruitment.periods.create">
+                    <Plus class="mr-2 size-4" />
+                    Periode baru
+                </Link>
+            </Button>
+        </div>
 
         <div class="flex flex-wrap gap-3">
             <Input v-model="search" placeholder="Cari nama periode..." class="max-w-xs" />

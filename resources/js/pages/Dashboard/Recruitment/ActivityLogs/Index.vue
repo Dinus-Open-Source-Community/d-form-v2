@@ -2,7 +2,6 @@
 import { onMounted } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { routes } from '@/lib/routes'
@@ -26,7 +25,7 @@ const props = defineProps<{
 }>()
 
 onMounted(() => {
-    setTopbar({ title: 'Activity log OpRec', subtitle: 'Audit trail keputusan staff' })
+    setTopbar({ title: 'Activity log Open Recruitment', subtitle: 'Audit trail keputusan staff' })
 })
 
 function applyFilters(periodId: string, action: string) {
@@ -42,15 +41,9 @@ function applyFilters(periodId: string, action: string) {
 </script>
 
 <template>
-    <Head title="Activity Log OpRec" />
+    <Head title="Activity Log Open Recruitment" />
 
-    <div class="mx-auto flex max-w-6xl flex-col gap-6">
-        <PageHeader
-            title="Activity log"
-            subtitle="Riwayat aksi staff pada modul OpenRecruitment."
-            :back-href="routes.admin.recruitment.index"
-        />
-
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <Card class="rounded-2xl border-border/70">
             <CardContent class="flex flex-wrap gap-3 p-4">
                 <select

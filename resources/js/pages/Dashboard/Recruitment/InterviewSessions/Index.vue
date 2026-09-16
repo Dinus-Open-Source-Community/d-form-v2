@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -71,7 +70,7 @@ const createForm = useForm({
 })
 
 onMounted(() => {
-    setTopbar({ title: 'Sesi Interview', subtitle: 'Kelola jadwal interview OpRec' })
+    setTopbar({ title: 'Sesi Interview', subtitle: 'Kelola jadwal interview Open Recruitment' })
 })
 
 function applyFilters(page = 1) {
@@ -100,21 +99,15 @@ function submitCreate() {
 </script>
 
 <template>
-    <Head title="Sesi Interview OpRec" />
+    <Head title="Sesi Interview Open Recruitment" />
 
-    <div class="flex flex-col gap-6">
-        <PageHeader
-            title="Sesi Interview"
-            subtitle="Buat sesi per divisi dan jadwalkan applicant yang lolos screening."
-            :back-href="routes.admin.recruitment.index"
-        >
-            <template #actions>
-                <Button size="sm" @click="createOpen = true">
-                    <Plus class="mr-2 size-4" />
-                    Sesi baru
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <Button size="sm" @click="createOpen = true">
+                <Plus class="mr-2 size-4" />
+                Sesi baru
+            </Button>
+        </div>
 
         <Card v-if="today_sessions.length > 0" class="rounded-2xl border-primary/30 bg-primary/5">
             <CardHeader class="pb-2">

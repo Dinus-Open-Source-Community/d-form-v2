@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -101,19 +100,15 @@ const statusVariant = (status: string) => {
 <template>
     <Head title="Monitor Antrean Interview" />
 
-    <PageHeader
-        title="Monitor antrean"
-        :description="`${session.division?.name ?? ''} · ${session.session_date} ${session.starts_at}–${session.ends_at}`"
-    >
-        <template #actions>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
             <Button v-if="canManage" :disabled="actionBusy" @click="callNext">Panggil berikutnya</Button>
             <Button variant="outline" as-child>
                 <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail sesi</Link>
             </Button>
-        </template>
-    </PageHeader>
+        </div>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-4">
+        <div class="grid gap-4 sm:grid-cols-4">
         <Card>
             <CardHeader class="pb-2"><CardTitle class="text-sm font-medium">Total</CardTitle></CardHeader>
             <CardContent><p class="text-2xl font-bold">{{ queue.stats.total }}</p></CardContent>
@@ -132,7 +127,7 @@ const statusVariant = (status: string) => {
         </Card>
     </div>
 
-    <div class="mb-6 grid gap-4 lg:grid-cols-2">
+    <div class="grid gap-4 lg:grid-cols-2">
         <Card>
             <CardHeader><CardTitle class="text-base">Sedang dilayani</CardTitle></CardHeader>
             <CardContent>
@@ -214,4 +209,5 @@ const statusVariant = (status: string) => {
             <p class="text-muted-foreground mt-4 text-xs">Memperbarui otomatis setiap 10 detik.</p>
         </CardContent>
     </Card>
+    </div>
 </template>

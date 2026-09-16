@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -120,13 +119,7 @@ function submit() {
 <template>
     <Head :title="`Interview — ${detail.application.full_name}`" />
 
-    <div class="mx-auto flex max-w-3xl flex-col gap-6">
-        <PageHeader
-            :title="detail.application.full_name"
-            :subtitle="detail.application.registration_number"
-            :back-href="routes.admin.recruitment.myInterviews.index"
-        />
-
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <Card class="rounded-2xl border-primary/25 bg-primary/5">
             <CardContent class="space-y-3 p-5">
                 <div>

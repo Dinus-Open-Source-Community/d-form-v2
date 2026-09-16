@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -77,12 +76,8 @@ const props = defineProps<{
 
 const queue = ref(props.query.queue ?? '')
 
-const activeQueueLabel = computed(
-    () => QUEUE_TABS.find((tab) => tab.key === queue.value)?.label ?? 'Semua',
-)
-
 onMounted(() => {
-    setTopbar({ title: 'Interview Saya', subtitle: 'Penugasan & penilaian OpRec' })
+    setTopbar({ title: 'Interview Saya', subtitle: 'Penugasan & penilaian Open Recruitment' })
 })
 
 function formatSchedule(iso: string | null) {
@@ -122,12 +117,7 @@ function selectQueue(key: string) {
 <template>
     <Head title="Interview Saya" />
 
-    <div class="mx-auto flex max-w-4xl flex-col gap-6">
-        <PageHeader
-            title="Pusat interview"
-            :subtitle="`${queue_counts.pending ?? 0} perlu dinilai · ${activeQueueLabel}`"
-        />
-
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <Card
             v-if="next_action && (query.queue === '' || query.queue === 'pending')"
             class="rounded-2xl border-primary/30 bg-primary/5"

@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { Head, router, useForm, usePage } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -290,37 +289,31 @@ const defaultTab = computed(() => {
 <template>
     <Head :title="application.full_name" />
 
-    <div class="mx-auto flex max-w-5xl flex-col gap-6">
-        <PageHeader
-            :title="application.full_name"
-            :subtitle="`${application.registration_number} · ${application.stage_label}`"
-            :back-href="routes.admin.recruitment.applications.index"
-        >
-            <template #actions>
-                <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyApplication">
-                    Verifikasi pendaftaran
-                </Button>
-                <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinalModal('reject')">
-                    <XCircle class="mr-2 size-4" />
-                    Tolak final
-                </Button>
-                <Button v-if="canDecideFinal" size="sm" @click="openFinalModal('accept')">
-                    <Trophy class="mr-2 size-4" />
-                    Terima
-                </Button>
-                <Button v-if="canScreen" size="sm" variant="outline" @click="openScreeningModal('revision')">
-                    Minta revisi
-                </Button>
-                <Button v-if="canScreen" size="sm" variant="destructive" @click="openScreeningModal('reject')">
-                    <XCircle class="mr-2 size-4" />
-                    Tolak
-                </Button>
-                <Button v-if="canScreen" size="sm" @click="passApplication">
-                    <CheckCircle2 class="mr-2 size-4" />
-                    Lolos screening
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyApplication">
+                Verifikasi pendaftaran
+            </Button>
+            <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinalModal('reject')">
+                <XCircle class="mr-2 size-4" />
+                Tolak final
+            </Button>
+            <Button v-if="canDecideFinal" size="sm" @click="openFinalModal('accept')">
+                <Trophy class="mr-2 size-4" />
+                Terima
+            </Button>
+            <Button v-if="canScreen" size="sm" variant="outline" @click="openScreeningModal('revision')">
+                Minta revisi
+            </Button>
+            <Button v-if="canScreen" size="sm" variant="destructive" @click="openScreeningModal('reject')">
+                <XCircle class="mr-2 size-4" />
+                Tolak
+            </Button>
+            <Button v-if="canScreen" size="sm" @click="passApplication">
+                <CheckCircle2 class="mr-2 size-4" />
+                Lolos screening
+            </Button>
+        </div>
 
         <div
             v-if="application.is_verified"
