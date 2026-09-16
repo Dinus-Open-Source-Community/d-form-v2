@@ -36,7 +36,6 @@ const statusClasses: Record<PeriodStatusValue, string> = {
 
 const canOpen = computed(() => props.period.status === 'draft' || props.period.status === 'closed')
 const canClose = computed(() => props.period.status === 'open')
-const isPubliclyVisible = computed(() => props.period.status === 'open')
 </script>
 
 <template>
@@ -60,14 +59,11 @@ const isPubliclyVisible = computed(() => props.period.status === 'open')
 
             <div class="flex flex-wrap items-center gap-2 lg:shrink-0">
                 <Button v-if="canOpen" size="sm" @click="emit('open')">Buka pendaftaran</Button>
-                <Button v-if="canClose" variant="secondary" size="sm" @click="emit('close')">
+                <Button v-if="canClose" variant="destructive" size="sm" @click="emit('close')">
                     Tutup pendaftaran
                 </Button>
                 <Button as-child variant="outline" size="sm">
                     <Link :href="routes.admin.recruitment.periods.edit(period.id)">Edit</Link>
-                </Button>
-                <Button v-if="isPubliclyVisible" as-child variant="ghost" size="sm">
-                    <a :href="routes.openRecruitment.landing" target="_blank" rel="noopener">Lihat halaman publik</a>
                 </Button>
             </div>
         </CardContent>
