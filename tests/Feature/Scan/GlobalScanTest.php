@@ -9,6 +9,7 @@ use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Jobs\RecordAttendanceJob;
 use App\Models\Event;
+use App\Models\EventAttendance;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -122,7 +123,7 @@ class GlobalScanTest extends TestCase
         return [$event, $form];
     }
 
-    public function test_admin_event_qr_returns_202_and_dispatches_job(): void
+    public function test_admin_event_qr_returns_200_creates_row_and_dispatches_job(): void
     {
         Queue::fake();
 
@@ -138,9 +139,19 @@ class GlobalScanTest extends TestCase
         $this->actingAs($this->admin())->postJson(route('dashboard.scan.store'), [
             'raw' => RegistrationQrPayload::encode($answer->id),
             'desk' => 'meja-1',
-        ])->assertAccepted()->assertJsonPath('type', 'event');
+        ])->assertOk()->assertJsonPath('type', 'event');
 
-        Queue::assertPushed(RecordAttendanceJob::class);
+        $this->assertDatabaseHas('event_attendances', [
+            'event_id' => $event->id,
+            'form_answer_id' => $answer->id,
+        ]);
+
+        Queue::assertPushed(RecordAttendanceJob::class, function (RecordAttendanceJob $job) use ($event, $answer): bool {
+            return $job->attendanceId === EventAttendance::query()
+                ->where('event_id', $event->id)
+                ->where('form_answer_id', $answer->id)
+                ->value('id');
+        });
     }
 
     public function test_guest_gets_unauthorized(): void
@@ -187,5 +198,28 @@ class GlobalScanTest extends TestCase
         $this->actingAs($staff)->postJson(route('dashboard.scan.store'), $payload)
             ->assertStatus(409)
             ->assertJsonPath('attendee.queue_number', 1);
+    }
+
+    public function test_scan_store_is_rate_limited_per_user(): void
+    {
+        $admin = $this->admin();
+
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->actingAs($admin)
+                ->postJson(route('dashboard.scan.store'), ['raw' => 'bukan-qr'])
+                ->assertUnprocessable();
+        }
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.scan.store'), ['raw' => 'bukan-qr'])
+            ->assertStatus(429);
+    }
+
+    public function test_over_long_raw_payload_is_rejected(): void
+    {
+        $this->actingAs($this->admin())
+            ->postJson(route('dashboard.scan.store'), ['raw' => str_repeat('a', 4097)])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('raw');
     }
 }

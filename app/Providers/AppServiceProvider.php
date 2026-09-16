@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
@@ -45,6 +46,22 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('oprec-track', function (Request $request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('scan-page', function (Request $request) {
+            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('scan-feed', function (Request $request) {
+            return Limit::perMinute(240)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('scan-export', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('scan-store', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
         // Temporary scan-test helper: redirect ALL outgoing mail to one inbox.

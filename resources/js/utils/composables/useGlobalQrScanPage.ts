@@ -597,6 +597,24 @@ export function useGlobalQrScanPage(
 
                     return
                 }
+
+                if (status === 429) {
+                    pushResult({
+                        name: 'Terlalu banyak scan',
+                        email: '-',
+                        status: 'invalid',
+                        source,
+                        rawCode: rawDisplay,
+                        eventKind: scanResult.value?.eventKind ?? 'event',
+                        eventTitle: scanResult.value?.eventTitle ?? '-',
+                        queueNumber: null,
+                    })
+                    showErrorToast('Terlalu banyak scan', {
+                        description: 'Tunggu sebentar sebelum memindai lagi.',
+                    })
+
+                    return
+                }
             }
 
             pushResult({

@@ -8,6 +8,7 @@ use App\Http\Requests\GlobalScanStoreRequest;
 use App\Jobs\RecordAttendanceJob;
 use App\Models\Event;
 use App\Models\EventAttendance;
+use App\Models\User;
 use App\Services\Event\EventService;
 use App\Services\Recruitment\AttendanceCheckInResolver;
 use App\Services\Recruitment\AttendanceService;
@@ -15,6 +16,8 @@ use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Registration\BundleGuestDisplayNameResolver;
 use App\Services\Registration\FormAnswerRecipientResolver;
 use App\Services\Scan\GlobalScanResolver;
+use App\Support\Database\UniqueConstraintViolation;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -106,12 +109,9 @@ class GlobalScanController extends Controller
 
         $answer = $resolved['answer'];
         $event = $answer->form->event;
-        abort_unless($request->user() !== null && $request->user()->can('update', $event), 403);
-
-        $already = EventAttendance::query()
-            ->where('event_id', $event->id)
-            ->where('form_answer_id', $answer->id)
-            ->exists();
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+        abort_unless($user->can('update', $event), 403);
 
         $payload = [
             'type' => 'event',
@@ -125,15 +125,26 @@ class GlobalScanController extends Controller
             'desk' => $desk,
         ];
 
-        if ($already) {
+        try {
+            $attendance = EventAttendance::query()->create([
+                'event_id' => $event->id,
+                'form_answer_id' => $answer->id,
+                'scanned_by_user_id' => $user->id,
+                'scanned_at' => now(),
+            ]);
+        } catch (QueryException $exception) {
+            if (! UniqueConstraintViolation::isViolation($exception)) {
+                throw $exception;
+            }
+
             $payload['status'] = 'duplicate';
 
             return response()->json($payload, 409);
         }
 
-        RecordAttendanceJob::dispatch($event->id, $answer->id, $request->user()->id)->afterCommit();
+        RecordAttendanceJob::dispatch($attendance->id);
         $payload['status'] = 'success';
 
-        return response()->json($payload, 202);
+        return response()->json($payload, 200);
     }
 }
