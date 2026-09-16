@@ -84,7 +84,7 @@ interface ReportPayload {
 const props = withDefaults(
     defineProps<{
         period: Period
-        applications: ApplicationPaginator | null
+        applications?: ApplicationPaginator | null
         queue_counts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]

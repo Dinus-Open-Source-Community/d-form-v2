@@ -148,10 +148,49 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
         $this->assertStringNotContainsString("\n=CMD(1)", $content);
     }
 
+    public function test_export_applicants_menetralkan_formula_csv_dengan_spasi_depan(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => ' =CMD(1)',
+            'nim' => 'A11.2024.09998',
+        ]);
+
+        $content = $this->actingAs($this->admin(['recruitment.reports.export']))
+            ->get(route('dashboard.recruitment.reports.export.applicants', ['period_id' => $this->period->id]))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString("' =CMD(1)", $content);
+    }
+
     public function test_reports_index_menolak_period_id_bukan_uuid(): void
     {
         $this->actingAs($this->admin(['recruitment.reports.view']))
             ->get(route('dashboard.recruitment.reports.index', ['period_id' => 'bukan-uuid']))
             ->assertSessionHasErrors('period_id');
+    }
+
+    public function test_tab_interview_ditolak_untuk_interviewer_only(): void
+    {
+        $interviewer = User::factory()->create();
+        $interviewer->assignRole('recruitment-interviewer');
+
+        $this->actingAs($interviewer)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))
+            ->assertForbidden();
+    }
+
+    public function test_tab_overlong_memicu_validation_error(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => str_repeat('x', 21),
+            ]))
+            ->assertSessionHasErrors('tab');
     }
 }

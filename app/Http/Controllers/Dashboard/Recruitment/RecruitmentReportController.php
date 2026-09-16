@@ -118,14 +118,15 @@ class RecruitmentReportController extends Controller
     private static function sanitizeCsvCell(mixed $value): string
     {
         $cell = (string) $value;
+        $trimmed = ltrim($cell, " \t");
 
         return match (true) {
-            str_starts_with($cell, '='),
-            str_starts_with($cell, '+'),
-            str_starts_with($cell, '-'),
-            str_starts_with($cell, '@'),
-            str_starts_with($cell, "\t"),
-            str_starts_with($cell, "\r") => "'".$cell,
+            str_starts_with($trimmed, '='),
+            str_starts_with($trimmed, '+'),
+            str_starts_with($trimmed, '-'),
+            str_starts_with($trimmed, '@'),
+            str_starts_with($trimmed, "\t"),
+            str_starts_with($trimmed, "\r") => "'".$cell,
             default => $cell,
         };
     }
