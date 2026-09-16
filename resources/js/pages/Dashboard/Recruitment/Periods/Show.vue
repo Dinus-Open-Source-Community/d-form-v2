@@ -3,7 +3,6 @@ import { computed, onMounted } from 'vue'
 import { Head, router, usePage } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodStatusHero from '@/components/modules/dashboard/recruitment/PeriodStatusHero.vue'
-import PeriodStatCards from '@/components/modules/dashboard/recruitment/PeriodStatCards.vue'
 import PeriodPhaseTimeline from '@/components/modules/dashboard/recruitment/PeriodPhaseTimeline.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import { Card, CardContent } from '@/components/ui/card'
@@ -50,20 +49,24 @@ interface ApplicationPaginator {
     total: number
 }
 
-const props = defineProps<{
-    period: Period
-    applications: ApplicationPaginator | null
-    queue_counts: Record<string, number>
-    divisionOptions: { id: string; name: string; code: string }[]
-    stageOptions: { value: string; label: string }[]
-    query: {
-        search?: string
-        division_id?: string
-        stage?: string
-        queue?: string
-        semester?: string
-    }
-}>()
+const props = withDefaults(
+    defineProps<{
+        period: Period
+        applications: ApplicationPaginator | null
+        queue_counts: Record<string, number>
+        divisionOptions: { id: string; name: string; code: string }[]
+        stageOptions: { value: string; label: string }[]
+        semesterOptions?: { value: string; label: string }[]
+        query: {
+            search?: string
+            division_id?: string
+            stage?: string
+            queue?: string
+            semester?: string
+        }
+    }>(),
+    { semesterOptions: () => [] },
+)
 
 const page = usePage()
 const user = useAuth(page.props)
@@ -78,8 +81,6 @@ const phaseInput = computed(() => ({
     finalizationDeadlineAt: props.period.finalization_deadline_at,
 }))
 
-const activeQueue = computed(() => props.query.queue ?? '')
-
 onMounted(() => {
     setTopbar({ title: props.period.name, subtitle: 'Detail periode Open Recruitment' })
 })
@@ -90,20 +91,6 @@ function openPeriod() {
 
 function closePeriod() {
     router.post(routes.admin.recruitment.periods.close(props.period.id))
-}
-
-function selectQueue(queue: string) {
-    router.get(
-        routes.admin.recruitment.periods.show(props.period.id),
-        {
-            search: props.query.search || undefined,
-            division_id: props.query.division_id || undefined,
-            stage: queue ? undefined : props.query.stage || undefined,
-            queue: queue || undefined,
-            semester: props.query.semester || undefined,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    )
 }
 </script>
 
@@ -120,14 +107,6 @@ function selectQueue(queue: string) {
             }"
             @open="openPeriod"
             @close="closePeriod"
-        />
-
-        <PeriodStatCards
-            v-if="canListApplications"
-            :applications-count="period.applications_count"
-            :queue-counts="queue_counts"
-            :active-queue="activeQueue"
-            @select="selectQueue"
         />
 
         <PeriodPhaseTimeline :period="phaseInput" :status="period.status" />
@@ -148,6 +127,7 @@ function selectQueue(queue: string) {
             :queue-counts="queue_counts"
             :division-options="divisionOptions"
             :stage-options="stageOptions"
+            :semester-options="semesterOptions"
             :query="query"
         />
     </div>
