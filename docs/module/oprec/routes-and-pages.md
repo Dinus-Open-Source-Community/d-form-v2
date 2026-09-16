@@ -141,7 +141,7 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/interview-sessions` | `dashboard.recruitment.interview-sessions.index` | `Dashboard/Recruitment/InterviewSessions/Index` |
+| GET | `/admin/recruitment/interview-sessions` | — (DIHAPUS → redirect ke `/admin/recruitment/periods`) | tab `interview` di detail periode |
 | POST | `/admin/recruitment/interview-sessions` | `dashboard.recruitment.interview-sessions.store` | redirect |
 | GET | `/admin/recruitment/interview-sessions/{session}` | `dashboard.recruitment.interview-sessions.show` | `Dashboard/Recruitment/InterviewSessions/Show` |
 | POST | `/admin/recruitment/interview-sessions/{session}/schedule` | `dashboard.recruitment.interview-sessions.schedule` | bulk schedule |
@@ -181,7 +181,7 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/reports` | `dashboard.recruitment.reports.index` | `Dashboard/Recruitment/Reports/Index` |
+| GET | `/admin/recruitment/reports` | — (DIHAPUS → redirect ke `/admin/recruitment/periods`) | tab `laporan` di detail periode |
 | GET | `/admin/recruitment/reports/funnel` | `dashboard.recruitment.reports.funnel` | JSON/props |
 | GET | `/admin/recruitment/reports/interviews` | `dashboard.recruitment.reports.interviews` | JSON/props |
 | GET | `/admin/recruitment/reports/export` | `dashboard.recruitment.reports.export` | CSV |

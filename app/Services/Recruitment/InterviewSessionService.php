@@ -3,7 +3,6 @@
 namespace App\Services\Recruitment;
 
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Models\Recruitment\RecruitmentPeriod;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class InterviewSessionService
@@ -126,21 +125,6 @@ final class InterviewSessionService
                 ])
                 ->all(),
         ];
-    }
-
-    /**
-     * @return list<array{id: string, name: string}>
-     */
-    public function periodOptions(): array
-    {
-        return RecruitmentPeriod::query()
-            ->orderByDesc('created_at')
-            ->get(['id', 'name'])
-            ->map(fn (RecruitmentPeriod $period): array => [
-                'id' => $period->id,
-                'name' => $period->name,
-            ])
-            ->all();
     }
 
     private function formatTime(mixed $time): string

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { routes } from '@/lib/routes'
@@ -22,10 +21,6 @@ const props = defineProps<{
 const maxFunnel = computed(() =>
     Math.max(1, ...(props.report?.funnel.map((row) => row.count) ?? [1])),
 )
-
-function detailUrl(periodId: string): string {
-    return `${routes.admin.recruitment.reports.index}?period_id=${periodId}`
-}
 </script>
 
 <template>
@@ -35,9 +30,6 @@ function detailUrl(periodId: string): string {
                 Laporan periode ini
             </h2>
             <div class="flex flex-wrap gap-2">
-                <Button as-child size="sm" variant="outline">
-                    <Link :href="detailUrl(periodId)">Lihat detail</Link>
-                </Button>
                 <Button as-child size="sm" variant="outline">
                     <a :href="routes.admin.recruitment.reports.exportFunnel(periodId)">Export funnel CSV</a>
                 </Button>

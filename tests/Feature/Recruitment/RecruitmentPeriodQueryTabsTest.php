@@ -167,11 +167,18 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
         $this->assertStringContainsString("' =CMD(1)", $content);
     }
 
-    public function test_reports_index_menolak_period_id_bukan_uuid(): void
+    public function test_laporan_global_redirect_ke_daftar_periode(): void
     {
         $this->actingAs($this->admin(['recruitment.reports.view']))
-            ->get(route('dashboard.recruitment.reports.index', ['period_id' => 'bukan-uuid']))
-            ->assertSessionHasErrors('period_id');
+            ->get('/admin/recruitment/reports')
+            ->assertRedirect(route('dashboard.recruitment.periods.index'));
+    }
+
+    public function test_interview_sessions_index_redirect_ke_daftar_periode(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.interviews.schedule']))
+            ->get('/admin/recruitment/interview-sessions')
+            ->assertRedirect(route('dashboard.recruitment.periods.index'));
     }
 
     public function test_tab_interview_ditolak_untuk_interviewer_only(): void

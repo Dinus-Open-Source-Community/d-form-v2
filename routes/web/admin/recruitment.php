@@ -22,13 +22,15 @@ Route::middleware(['auth', 'recruitment.access'])
     ->group(function (): void {
         Route::get('/', RecruitmentDashboardController::class)->name('index');
 
-        Route::get('reports', [RecruitmentReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export/funnel.csv', [RecruitmentReportController::class, 'exportFunnel'])
             ->name('reports.export.funnel');
         Route::get('reports/export/applicants.csv', [RecruitmentReportController::class, 'exportApplicants'])
             ->name('reports.export.applicants');
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
+
+        Route::redirect('interview-sessions', '/admin/recruitment/periods');
+        Route::redirect('reports', '/admin/recruitment/periods');
 
         Route::resource('periods', RecruitmentPeriodController::class);
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
@@ -63,8 +65,6 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('corrections/{correction}/reject', [RecruitmentCorrectionController::class, 'reject'])
             ->name('corrections.reject');
 
-        Route::get('interview-sessions', [RecruitmentInterviewSessionController::class, 'index'])
-            ->name('interview-sessions.index');
         Route::post('interview-sessions', [RecruitmentInterviewSessionController::class, 'store'])
             ->name('interview-sessions.store');
         Route::get('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'show'])

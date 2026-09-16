@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentReportRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentReportService;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentReportController extends Controller
@@ -15,23 +13,6 @@ class RecruitmentReportController extends Controller
     public function __construct(
         private readonly RecruitmentReportService $reportService,
     ) {
-    }
-
-    public function index(ShowRecruitmentReportRequest $request): Response
-    {
-        abort_unless($request->user()?->can('recruitment.reports.view'), 403);
-
-        $periodId = $request->validated('period_id');
-
-        return Inertia::render('Dashboard/Recruitment/Reports/Index', [
-            'report' => $this->reportService->build($periodId),
-            'periodOptions' => $this->reportService->periodOptions(),
-            'query' => ['period_id' => $periodId],
-            'exportUrls' => [
-                'funnel' => route('dashboard.recruitment.reports.export.funnel', ['period_id' => $periodId]),
-                'applicants' => route('dashboard.recruitment.reports.export.applicants', ['period_id' => $periodId]),
-            ],
-        ]);
     }
 
     public function exportFunnel(ShowRecruitmentReportRequest $request): StreamedResponse

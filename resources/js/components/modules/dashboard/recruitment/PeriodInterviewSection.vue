@@ -29,10 +29,6 @@ defineProps<{
     sessions: SessionPaginator | null
     todaySessions: SessionRow[]
 }>()
-
-function manageUrl(periodId: string): string {
-    return `${routes.admin.recruitment.interviewSessions.index}?period_id=${periodId}`
-}
 </script>
 
 <template>
@@ -41,9 +37,6 @@ function manageUrl(periodId: string): string {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Interview periode ini
             </h2>
-            <Button as-child size="sm" variant="outline">
-                <Link :href="manageUrl(periodId)">Kelola sesi</Link>
-            </Button>
         </div>
 
         <Card v-if="todaySessions.length > 0" class="rounded-2xl border-primary/30 bg-primary/5">
@@ -96,6 +89,9 @@ function manageUrl(periodId: string): string {
                                 <td class="px-4 py-3">{{ session.location }} · {{ session.room }}</td>
                                 <td class="px-4 py-3">{{ session.interviews_count }}</td>
                                 <td class="px-4 py-3 text-right">
+                                    <Button as-child size="sm" variant="ghost">
+                                        <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail</Link>
+                                    </Button>
                                     <Button as-child size="sm" variant="ghost">
                                         <Link :href="routes.admin.recruitment.queue.show(session.id)">Antrean</Link>
                                     </Button>
