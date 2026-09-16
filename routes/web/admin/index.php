@@ -38,6 +38,26 @@ Route::middleware('auth')->get('/dashboard', function () {
     return app(MemberDashboardController::class)(request());
 })->name('dashboard');
 
+// Redirect lawas skema /user/dashboard/* (dari backup-oprec-removal) — target
+// route-name terverifikasi hidup di skema /joined. Redirect statis skema lama
+// sengaja tidak dibawa (target path-nya sudah tidak ada di main).
+Route::get(
+    '/user/dashboard/events/{event_segment}/register',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.register', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}/registration',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.registration', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/team-invitations/{token}',
+    fn (string $token) => redirect()->route('dashboard.user.team-invitations.show', ['token' => $token], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.show', ['event_segment' => $event_segment], 301)
+);
+
 Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group(function () {
     Route::get('/', [GlobalScanController::class, 'show'])->middleware('throttle:scan-page')->name('index');
     Route::get('/feed', [GlobalScanFeedController::class, 'feed'])->middleware('throttle:scan-feed')->name('feed');
