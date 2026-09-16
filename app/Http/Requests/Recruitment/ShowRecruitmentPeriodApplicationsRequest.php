@@ -25,6 +25,7 @@ class ShowRecruitmentPeriodApplicationsRequest extends FormRequest
             'queue' => ['nullable', 'string', Rule::in(['screening', 'revision', 'interview', 'final', 'done'])],
             'semester' => ['nullable', 'integer', 'min:1', 'max:14'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'tab' => ['nullable', 'string', 'max:20'],
         ];
     }
 }
