@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { Link, router } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { Card, CardContent } from '@/components/ui/card'
 import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-
-defineOptions({ layout: DashboardLayout })
 
 interface ApplicationRow {
     id: string
@@ -35,8 +30,8 @@ interface Paginator {
     total: number
 }
 
-const QUEUE_TABS = [
-    { key: '', label: 'Semua' },
+const QUEUE_OPTIONS = [
+    { key: '', label: 'Semua antrean' },
     { key: 'screening', label: 'Screening' },
     { key: 'revision', label: 'Revisi' },
     { key: 'interview', label: 'Interview' },
@@ -45,50 +40,80 @@ const QUEUE_TABS = [
 ] as const
 
 const props = defineProps<{
-    applications: Paginator
+    periodId: string
+    applications: Paginator | null
+    queueCounts: Record<string, number>
+    divisionOptions: { id: string; name: string; code: string }[]
+    stageOptions: { value: string; label: string }[]
     query: {
         search?: string
-        period_id?: string
         division_id?: string
         stage?: string
         queue?: string
         semester?: string
     }
-    queue_counts: Record<string, number>
-    periodOptions: { id: string; name: string }[]
-    divisionOptions: { id: string; name: string; code: string }[]
-    stageOptions: { value: string; label: string }[]
 }>()
 
 const search = ref(props.query.search ?? '')
-const periodId = ref(props.query.period_id ?? '')
 const divisionId = ref(props.query.division_id ?? '')
 const stage = ref(props.query.stage ?? '')
 const queue = ref(props.query.queue ?? '')
 const semester = ref(props.query.semester ?? '')
 
-const activeQueueLabel = computed(
-    () => QUEUE_TABS.find((tab) => tab.key === queue.value)?.label ?? 'Semua',
+const divisionSelectOptions = computed<SimpleSelectOption[]>(() => [
+    { value: '', label: 'Semua divisi' },
+    ...props.divisionOptions.map((division) => ({ value: division.id, label: division.name })),
+])
+
+const queueSelectOptions = computed<SimpleSelectOption[]>(() =>
+    QUEUE_OPTIONS.map((option) => {
+        const count =
+            option.key === '' ? (props.queueCounts.all ?? 0) : (props.queueCounts[option.key] ?? 0)
+        return {
+            value: option.key,
+            label: count > 0 ? `${option.label} (${count})` : option.label,
+        }
+    }),
 )
 
-function queueBadgeCount(key: string): number | null {
-    if (key === '') {
-        return props.queue_counts.all ?? null
-    }
-    const count = props.queue_counts[key]
-    return count !== undefined ? count : null
-}
+const stageSelectOptions = computed<SimpleSelectOption[]>(() => [
+    { value: '', label: 'Semua tahap' },
+    ...props.stageOptions.map((option) => ({ value: option.value, label: option.label })),
+])
 
-onMounted(() => {
-    setTopbar({ title: 'Applicant OpRec', subtitle: 'Kelola pendaftaran & screening' })
+const queueModel = computed<string>({
+    get: () => queue.value,
+    set: (value: string) => {
+        queue.value = value
+        if (value) {
+            stage.value = ''
+        }
+    },
 })
 
+/** Mencegah permintaan ganda saat state filter disamakan ulang dari URL/Inertia. */
+let suppressFilterApply = false
+
+function readQueryFromProps(): void {
+    suppressFilterApply = true
+    search.value = props.query.search ?? ''
+    divisionId.value = props.query.division_id ?? ''
+    stage.value = props.query.stage ?? ''
+    queue.value = props.query.queue ?? ''
+    semester.value = props.query.semester ?? ''
+    void nextTick(() => {
+        suppressFilterApply = false
+    })
+}
+
+readQueryFromProps()
+
 function applyFilters(page = 1) {
+    if (suppressFilterApply) return
     router.get(
-        routes.admin.recruitment.applications.index,
+        routes.admin.recruitment.periods.show(props.periodId),
         {
             search: search.value || undefined,
-            period_id: periodId.value || undefined,
             division_id: divisionId.value || undefined,
             stage: queue.value ? undefined : stage.value || undefined,
             queue: queue.value || undefined,
@@ -99,86 +124,51 @@ function applyFilters(page = 1) {
     )
 }
 
-function selectQueue(key: string) {
-    queue.value = key
-    if (key) {
-        stage.value = ''
-    }
-    applyFilters()
-}
-
-watch([search, periodId, divisionId, stage, semester], () => applyFilters())
+watch([search, divisionId, stage, semester, queue], () => applyFilters())
+watch(() => props.query, readQueryFromProps, { deep: true })
 </script>
 
 <template>
-    <Head title="Applicant OpRec" />
-
-    <div class="flex flex-col gap-6">
-        <PageHeader
-            :title="`Applicant · ${activeQueueLabel}`"
-            subtitle="Antrean kerja berdasarkan tahap — klik tab untuk fokus."
-            :back-href="routes.admin.recruitment.index"
-        />
-
-        <div class="flex flex-wrap gap-2">
-            <button
-                v-for="tab in QUEUE_TABS"
-                :key="tab.key || 'all'"
-                type="button"
-                class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors"
-                :class="
-                    queue === tab.key
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-background hover:bg-muted/50'
-                "
-                @click="selectQueue(tab.key)"
-            >
-                {{ tab.label }}
-                <Badge
-                    v-if="queueBadgeCount(tab.key) !== null && queueBadgeCount(tab.key)! > 0"
-                    variant="secondary"
-                    class="tabular-nums"
-                    :class="queue === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : ''"
-                >
-                    {{ queueBadgeCount(tab.key) }}
-                </Badge>
-            </button>
+    <section class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
+                Applicant periode ini
+            </h2>
         </div>
 
-        <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap items-end gap-3">
             <Input v-model="search" placeholder="Cari nama, NIM, nomor pendaftaran..." class="max-w-xs" />
-            <select
-                v-model="periodId"
-                class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-            >
-                <option value="">Semua periode</option>
-                <option v-for="period in periodOptions" :key="period.id" :value="period.id">
-                    {{ period.name }}
-                </option>
-            </select>
-            <select
-                v-model="divisionId"
-                class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-            >
-                <option value="">Semua divisi</option>
-                <option v-for="division in divisionOptions" :key="division.id" :value="division.id">
-                    {{ division.name }}
-                </option>
-            </select>
-            <select
-                v-if="!queue"
-                v-model="stage"
-                class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-            >
-                <option value="">Semua tahap</option>
-                <option v-for="opt in stageOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                </option>
-            </select>
+            <div class="flex min-w-0 flex-col gap-1.5">
+                <SimpleSelect
+                    v-model="divisionId"
+                    :options="divisionSelectOptions"
+                    id="filter-divisi"
+                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
+                    aria-label="Filter divisi"
+                />
+            </div>
+            <div class="flex min-w-0 flex-col gap-1.5">
+                <SimpleSelect
+                    v-model="queueModel"
+                    :options="queueSelectOptions"
+                    id="filter-antrean"
+                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
+                    aria-label="Filter antrean"
+                />
+            </div>
+            <div v-if="!queue" class="flex min-w-0 flex-col gap-1.5">
+                <SimpleSelect
+                    v-model="stage"
+                    :options="stageSelectOptions"
+                    id="filter-tahap"
+                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
+                    aria-label="Filter tahap"
+                />
+            </div>
             <Input v-model="semester" type="number" min="1" max="14" placeholder="Semester" class="w-28" />
         </div>
 
-        <Card class="rounded-2xl border-border/70 overflow-hidden">
+        <Card v-if="applications" class="rounded-2xl border-border/70 overflow-hidden">
             <CardContent class="p-0">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -223,7 +213,7 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
                             </tr>
                             <tr v-if="applications.data.length === 0">
                                 <td colspan="7" class="text-muted-foreground px-4 py-10 text-center">
-                                    Belum ada applicant yang cocok dengan filter.
+                                    Belum ada applicant untuk periode ini yang cocok dengan filter.
                                 </td>
                             </tr>
                         </tbody>
@@ -232,7 +222,7 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
             </CardContent>
         </Card>
 
-        <div v-if="applications.last_page > 1" class="flex items-center justify-between text-sm">
+        <div v-if="applications && applications.last_page > 1" class="flex items-center justify-between text-sm">
             <p class="text-muted-foreground">{{ applications.total }} applicant</p>
             <div class="flex gap-2">
                 <Button
@@ -253,5 +243,5 @@ watch([search, periodId, divisionId, stage, semester], () => applyFilters())
                 </Button>
             </div>
         </div>
-    </div>
+    </section>
 </template>

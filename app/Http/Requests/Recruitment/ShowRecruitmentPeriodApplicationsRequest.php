@@ -6,11 +6,11 @@ use App\Enums\Recruitment\ApplicationStage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class IndexRecruitmentApplicationRequest extends FormRequest
+class ShowRecruitmentPeriodApplicationsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('recruitment.applications.list') ?? false;
+        return $this->user()?->can('recruitment.periods.view') ?? false;
     }
 
     /**
@@ -20,7 +20,6 @@ class IndexRecruitmentApplicationRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:100'],
-            'period_id' => ['nullable', 'uuid'],
             'division_id' => ['nullable', 'uuid'],
             'stage' => ['nullable', Rule::enum(ApplicationStage::class)],
             'queue' => ['nullable', 'string', Rule::in(['screening', 'revision', 'interview', 'final', 'done'])],

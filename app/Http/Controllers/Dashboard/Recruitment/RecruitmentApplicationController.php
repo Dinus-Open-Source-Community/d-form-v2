@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\IndexRecruitmentApplicationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
 use App\Services\Recruitment\RecruitmentApplicationService;
@@ -21,33 +20,6 @@ class RecruitmentApplicationController extends Controller
         private readonly RecruitmentApplicationService $applicationService,
         private readonly ApplicationVerificationService $verificationService,
     ) {
-    }
-
-    public function index(IndexRecruitmentApplicationRequest $request): Response
-    {
-        $validated = $request->validated();
-        $page = $request->integer('page', 1);
-
-        $paginator = $this->applicationService->paginate($validated, $page);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(
-                fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
-            )
-        );
-
-        $periodId = isset($validated['period_id']) ? (string) $validated['period_id'] : null;
-
-        return Inertia::render('Dashboard/Recruitment/Applications/Index', [
-            'applications' => $paginator,
-            'query' => $validated,
-            'queue_counts' => $this->applicationService->queueCounts($periodId),
-            'periodOptions' => $this->applicationService->periodOptions(),
-            'divisionOptions' => $this->applicationService->divisionOptions(),
-            'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
-                ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
-                ->values()
-                ->all(),
-        ]);
     }
 
     public function show(RecruitmentApplication $application): Response

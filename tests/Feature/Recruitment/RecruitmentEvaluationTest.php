@@ -290,10 +290,10 @@ class RecruitmentEvaluationTest extends TestCase
             ->assertOk();
     }
 
-    public function test_interviewer_cannot_access_staff_applications_index(): void
+    public function test_interviewer_cannot_access_staff_applicant_list(): void
     {
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.applications.index'))
+            ->get(route('dashboard.recruitment.periods.show', $this->period->id))
             ->assertForbidden();
     }
 

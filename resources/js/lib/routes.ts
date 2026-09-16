@@ -86,7 +86,6 @@ export const routes = {
                 unassign: (id: string) => `${ADMIN_BASE}/recruitment/interviewers/${id}`,
             },
             applications: {
-                index: `${ADMIN_BASE}/recruitment/applications`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}`,
                 document: (id: string, type: 'cv' | 'portfolio') =>
                     `${ADMIN_BASE}/recruitment/applications/${id}/documents/${type}`,
@@ -222,9 +221,6 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.reports.index)) {
         return path.startsWith(routes.admin.recruitment.reports.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.applications.index)) {
-        return path.startsWith(routes.admin.recruitment.applications.index);
     }
     if (href.startsWith(routes.admin.recruitment.interviewSessions.index)) {
         return path.startsWith(routes.admin.recruitment.interviewSessions.index);

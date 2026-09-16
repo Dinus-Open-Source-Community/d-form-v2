@@ -107,10 +107,10 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/applications` | `dashboard.recruitment.applications.index` | `Dashboard/Recruitment/Applications/Index` |
 | GET | `/admin/recruitment/applications/{application}` | `dashboard.recruitment.applications.show` | `Dashboard/Recruitment/Applications/Show` |
-| GET | `/admin/recruitment/applications/export` | `dashboard.recruitment.applications.export` | CSV download |
 | GET | `/admin/recruitment/applications/{application}/documents/{type}` | `dashboard.recruitment.applications.documents.download` | file stream |
+
+> Daftar applicant kini menyatu di halaman detail periode: `GET /admin/recruitment/periods/{period}?queue=...` (`dashboard.recruitment.periods.show`). Route daftar applicant global dihapus.
 
 **Application Show — Tabs:**
 

@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\IndexRecruitmentPeriodRequest;
+use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Services\Recruitment\RecruitmentApplicationService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -16,6 +19,7 @@ class RecruitmentPeriodController extends Controller
 {
     public function __construct(
         private readonly RecruitmentPeriodService $periodService,
+        private readonly RecruitmentApplicationService $applicationService,
     ) {
     }
 
@@ -52,19 +56,51 @@ class RecruitmentPeriodController extends Controller
     {
         $period = $this->periodService->create($request->validated());
 
-        return redirect()
-            ->route('dashboard.recruitment.periods.show', $period)
-            ->with('message', 'Periode recruitment berhasil dibuat.');
+        Inertia::flash('toast', [
+            'message' => 'Periode recruitment berhasil dibuat.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.recruitment.periods.show', $period);
     }
 
-    public function show(RecruitmentPeriod $period): Response
+    public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
     {
         $this->authorize('view', $period);
 
         $period->loadCount('applications');
 
+        $validated = $request->validated();
+        $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
+
+        $applications = null;
+        $queueCounts = [];
+
+        if ($canListApplications) {
+            $paginator = $this->applicationService->paginate(
+                $validated + ['period_id' => $period->id],
+                $request->integer('page', 1),
+            );
+            $paginator->setCollection(
+                $paginator->getCollection()->map(
+                    fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
+                )
+            );
+
+            $applications = $paginator;
+            $queueCounts = $this->applicationService->queueCounts($period->id);
+        }
+
         return Inertia::render('Dashboard/Recruitment/Periods/Show', [
             'period' => $this->periodService->toInertiaArray($period),
+            'applications' => $applications,
+            'queue_counts' => (object) $queueCounts,
+            'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
+            'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
+                ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
+                ->values()
+                ->all(),
+            'query' => $validated,
         ]);
     }
 

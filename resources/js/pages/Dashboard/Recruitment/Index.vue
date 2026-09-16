@@ -2,7 +2,6 @@
 import { computed, onMounted } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -61,7 +60,6 @@ const props = defineProps<{
 const page = usePage()
 const user = useAuth(page.props)
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
-const canListApplications = computed(() => user.value?.can_list_recruitment_applications === true)
 const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true)
 const canViewQueue = computed(() => user.value?.can_view_recruitment_queue === true)
 const canScanAttendance = computed(() => user.value?.can_scan_recruitment_attendance === true)
@@ -69,6 +67,12 @@ const canViewReports = computed(() => user.value?.can_view_recruitment_reports =
 
 const actionQueues = computed(() => props.summary.action_queues ?? [])
 const todaySessions = computed(() => props.summary.today_sessions ?? [])
+
+const quickApplicantHref = computed(() =>
+    props.summary.active_period
+        ? routes.admin.recruitment.periods.show(props.summary.active_period.id)
+        : routes.admin.recruitment.periods.index,
+)
 
 const compactStats = computed(() => [
     { label: 'Total applicant', value: props.summary.stats.total_applicants ?? 0 },
@@ -78,11 +82,10 @@ const compactStats = computed(() => [
 ])
 
 function applicationsQueueUrl(queue: string): string {
+    const periodId = props.summary.active_period?.id
+    if (!periodId) return routes.admin.recruitment.periods.index
     const params = new URLSearchParams({ queue })
-    if (props.summary.active_period?.id) {
-        params.set('period_id', props.summary.active_period.id)
-    }
-    return `${routes.admin.recruitment.applications.index}?${params.toString()}`
+    return `${routes.admin.recruitment.periods.show(periodId)}?${params.toString()}`
 }
 
 onMounted(() => {
@@ -93,27 +96,21 @@ onMounted(() => {
 <template>
     <Head title="Rekrutmen" />
 
-    <div class="flex flex-col gap-6 md:gap-8">
-        <PageHeader
-            title="Pusat kerja OpRec"
-            subtitle="Semua yang perlu ditindak — tanpa bolak-balik menu."
-            :back-href="routes.dashboard.index"
-        >
-            <template v-if="canManagePeriods" #actions>
-                <Button as-child variant="outline" size="sm">
-                    <Link :href="routes.admin.recruitment.divisions.index">
-                        <Layers class="mr-2 size-4" />
-                        Divisi
-                    </Link>
-                </Button>
-                <Button as-child size="sm">
-                    <Link :href="routes.admin.recruitment.periods.create">
-                        <CalendarRange class="mr-2 size-4" />
-                        Periode baru
-                    </Link>
-                </Button>
-            </template>
-        </PageHeader>
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
+        <div v-if="canManagePeriods" class="flex flex-wrap items-center justify-end gap-3">
+            <Button as-child variant="outline" size="sm">
+                <Link :href="routes.admin.recruitment.divisions.index">
+                    <Layers class="mr-2 size-4" />
+                    Divisi
+                </Link>
+            </Button>
+            <Button as-child size="sm" class="shadow-sm">
+                <Link :href="routes.admin.recruitment.periods.create">
+                    <CalendarRange class="mr-2 size-4" />
+                    Periode baru
+                </Link>
+            </Button>
+        </div>
 
         <Card v-if="summary.active_period" class="rounded-2xl border-border/70">
             <CardContent class="flex flex-wrap items-center justify-between gap-4 p-5">
@@ -137,7 +134,7 @@ onMounted(() => {
         </Card>
 
         <!-- Action queues -->
-        <section v-if="canListApplications && actionQueues.length > 0">
+        <section v-if="canManagePeriods && actionQueues.length > 0 && summary.active_period">
             <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Perlu tindakan
             </h2>
@@ -214,10 +211,10 @@ onMounted(() => {
 
         <!-- Quick access when no queues -->
         <div
-            v-if="canListApplications && actionQueues.length === 0"
+            v-if="actionQueues.length === 0 && (canManagePeriods || canScheduleInterviews)"
             class="grid gap-3 sm:grid-cols-2"
         >
-            <Card class="rounded-2xl border-dashed border-border/70">
+            <Card v-if="canManagePeriods" class="rounded-2xl border-dashed border-border/70">
                 <CardContent class="flex items-center justify-between gap-4 p-5">
                     <div class="flex items-center gap-3">
                         <Users class="size-5 text-muted-foreground" />
@@ -227,7 +224,7 @@ onMounted(() => {
                         </div>
                     </div>
                     <Button as-child variant="outline" size="sm">
-                        <Link :href="routes.admin.recruitment.applications.index">Buka</Link>
+                        <Link :href="quickApplicantHref">Buka</Link>
                     </Button>
                 </CardContent>
             </Card>

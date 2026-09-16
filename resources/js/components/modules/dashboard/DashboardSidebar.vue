@@ -28,7 +28,6 @@ import {
     ClipboardCheck,
     ScanLine,
     Briefcase,
-    UserPlus,
     MessagesSquare,
     ChartColumn,
     UserCheck,
@@ -105,10 +104,6 @@ const recruitmentOpsItems = computed(() => {
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [
         { label: 'Pusat kerja', href: routes.admin.recruitment.index, icon: Briefcase },
     ];
-
-    if (canListRecruitmentApplications.value) {
-        items.push({ label: 'Applicant', href: routes.admin.recruitment.applications.index, icon: UserPlus });
-    }
 
     if (canScheduleRecruitmentInterviews.value) {
         items.push({ label: 'Interview', href: routes.admin.recruitment.interviewSessions.index, icon: MessagesSquare });
@@ -213,16 +208,16 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     Menu utama
                 </SidebarGroupLabel>
                 <SidebarGroupContent class="space-y-0.5">
-                    <SidebarMenu class="gap-1.5">
+                    <SidebarMenu class="gap-1">
                         <SidebarMenuItem v-for="item in mainNavItems" :key="item.href">
                             <SidebarMenuButton
                                 as-child
                                 :is-active="isActive(item.href)"
                                 :tooltip="item.label"
-                                class="h-auto min-h-11 gap-3 rounded-xl px-3 py-2.5 text-[15px] [&>svg]:size-5"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
                             >
                                 <Link :href="item.href" @click="closeMobileIfNeeded">
-                                    <component :is="item.icon" class="size-5 shrink-0 opacity-90" />
+                                    <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
                                     <span class="font-medium">{{ item.label }}</span>
                                 </Link>
                             </SidebarMenuButton>
@@ -231,7 +226,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <SidebarSeparator class="bg-sidebar-border/60 my-4 opacity-80" />
+            <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
 
             <SidebarGroup class="p-0">
                 <SidebarGroupLabel
@@ -240,16 +235,16 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     Kelola
                 </SidebarGroupLabel>
                 <SidebarGroupContent class="space-y-0.5">
-                    <SidebarMenu class="gap-1.5">
+                    <SidebarMenu class="gap-1">
                         <SidebarMenuItem v-for="item in managementItems" :key="item.href">
                             <SidebarMenuButton
                                 as-child
                                 :is-active="isActive(item.href)"
                                 :tooltip="item.label"
-                                class="h-auto min-h-11 gap-3 rounded-xl px-3 py-2.5 text-[15px] [&>svg]:size-5"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
                             >
                                 <Link :href="item.href" @click="closeMobileIfNeeded">
-                                    <component :is="item.icon" class="size-5 shrink-0 opacity-90" />
+                                    <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
                                     <span class="font-medium">{{ item.label }}</span>
                                 </Link>
                             </SidebarMenuButton>
@@ -259,22 +254,22 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                             <SidebarMenuButton
                                 :is-active="isRecruitmentActive()"
                                 tooltip="Rekrutmen"
-                                class="h-auto min-h-11 gap-3 rounded-xl px-3 py-2.5 text-[15px] [&>svg]:size-5"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
                                 @click="toggleRecruitment"
                             >
-                                <Users class="size-5 shrink-0 opacity-90" />
+                                <Users class="size-4 shrink-0 opacity-90" />
                                 <span class="font-medium">Rekrutmen</span>
                                 <ChevronDown
-                                    class="ml-auto size-5 shrink-0 opacity-70 transition-transform duration-200"
+                                    class="ml-auto size-4 shrink-0 opacity-70 transition-transform duration-200"
                                     :class="recruitmentOpen ? 'rotate-180' : ''"
                                 />
                             </SidebarMenuButton>
-                            <SidebarMenuSub v-show="recruitmentOpen" class="mt-1 gap-1.5 py-2">
+                            <SidebarMenuSub v-show="recruitmentOpen" class="mt-1 gap-1 py-1">
                                 <SidebarMenuSubItem v-for="item in recruitmentSubItems" :key="item.href">
                                     <SidebarMenuSubButton
                                         as-child
                                         :is-active="isActive(item.href)"
-                                        class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors"
+                                        class="h-auto min-h-9 gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
                                         :class="
                                             isActive(item.href)
                                                 ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs'
@@ -282,7 +277,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                                         "
                                     >
                                         <Link :href="item.href" @click="closeMobileIfNeeded">
-                                            <component :is="item.icon" class="size-4 shrink-0 opacity-80" />
+                                            <component :is="item.icon" class="size-3.5 shrink-0 opacity-80" />
                                             <span class="truncate">{{ item.label }}</span>
                                         </Link>
                                     </SidebarMenuSubButton>
@@ -294,7 +289,7 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
             </SidebarGroup>
 
             <template v-if="showInterviewerSection">
-                <SidebarSeparator class="bg-sidebar-border/60 my-4 opacity-80" />
+                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
 
                 <SidebarGroup class="p-0">
                     <SidebarGroupLabel
@@ -303,16 +298,16 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                         Interview OpRec
                     </SidebarGroupLabel>
                     <SidebarGroupContent class="space-y-0.5">
-                        <SidebarMenu class="gap-1.5">
+                        <SidebarMenu class="gap-1">
                             <SidebarMenuItem v-for="item in interviewerNavItems" :key="item.href">
                                 <SidebarMenuButton
                                     as-child
                                     :is-active="isActive(item.href)"
                                     :tooltip="item.label"
-                                    class="h-auto min-h-11 gap-3 rounded-xl px-3 py-2.5 text-[15px] [&>svg]:size-5"
+                                    class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
                                 >
                                     <Link :href="item.href" @click="closeMobileIfNeeded">
-                                        <ClipboardCheck class="size-5 shrink-0 opacity-90" />
+                                        <ClipboardCheck class="size-4 shrink-0 opacity-90" />
                                         <span class="font-medium">{{ item.label }}</span>
                                     </Link>
                                 </SidebarMenuButton>

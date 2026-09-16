@@ -136,18 +136,17 @@ class RecruitmentScreeningTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_staff_can_list_and_view_applications(): void
+    public function test_staff_can_view_application_detail_but_not_period_applicant_list(): void
     {
-        $this->actingAs($this->staff)
-            ->get(route('dashboard.recruitment.applications.index'))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Dashboard/Recruitment/Applications/Index'));
-
         $this->actingAs($this->staff)
             ->get(route('dashboard.recruitment.applications.show', $this->application))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/Applications/Show')
                 ->where('application.id', $this->application->id));
+
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.show', $this->application->recruitment_period_id))
+            ->assertForbidden();
     }
 }

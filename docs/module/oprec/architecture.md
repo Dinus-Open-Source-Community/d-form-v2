@@ -108,7 +108,7 @@ Mengikuti [pedoman back-end](../../rules/back-end.md):
 - Controller: `RecruitmentPeriodController`, `ApplicationController`
 - Request: `StoreApplicationRequest`, `ScreenApplicationRequest`
 - Service: `ApplicationSubmitter`, `ScreeningService`, `QueueService`
-- Route name: dot notation — `recruitment.applications.index`, `open-recruitment.apply`
+- Route name: dot notation — `recruitment.periods.show`, `open-recruitment.apply`
 
 ---
 
@@ -141,7 +141,6 @@ OpenRecruitment/Apply.vue
 OpenRecruitment/Track/Login.vue
 OpenRecruitment/Track/Show.vue
 Dashboard/Recruitment/Index.vue
-Dashboard/Recruitment/Applications/Index.vue
 Dashboard/Recruitment/Applications/Show.vue
 ...
 ```

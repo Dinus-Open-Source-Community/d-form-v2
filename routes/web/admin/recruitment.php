@@ -39,7 +39,6 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
         Route::delete('interviewers/{assignment}', [RecruitmentDivisionController::class, 'unassignInterviewer'])->name('interviewers.unassign');
 
-        Route::get('applications', [RecruitmentApplicationController::class, 'index'])->name('applications.index');
         Route::get('applications/{application}', [RecruitmentApplicationController::class, 'show'])->name('applications.show');
         Route::get('applications/{application}/documents/{type}', [RecruitmentApplicationController::class, 'downloadDocument'])
             ->name('applications.documents.download')
