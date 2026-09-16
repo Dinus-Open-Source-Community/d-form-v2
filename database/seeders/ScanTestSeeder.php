@@ -57,7 +57,7 @@ class ScanTestSeeder extends Seeder
         $this->command->info('  QR folders: storage/app/scan-test/event/ ('.count($eventCodes).' PNG), storage/app/scan-test/oprec/ ('.count($oprecNumbers).' PNG)');
         $this->command->info('  Test logins (password: password): scan-test-event-01@example.test … scan-test-event-20@example.test');
 
-        $this->sendQrDigests();
+        $this->sendQrDigests($eventCodes, $oprecNumbers);
     }
 
     /**
@@ -76,11 +76,14 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
-     * Kirim digest QR ke inbox uji. Hanya jalan di APP_ENV=local dan hanya bila
-     * MAIL_TEST_REDIRECT terisi; AppServiceProvider::boot() memang sudah mengarahkan
-     * semua email lokal ke alamat itu, jadi tidak ada email nyata ke peserta.
+     * Kirim digest QR + daftar kodenya ke inbox uji. Hanya jalan di APP_ENV=local dan
+     * hanya bila MAIL_TEST_REDIRECT terisi; AppServiceProvider::boot() memang sudah
+     * mengarahkan semua email lokal ke alamat itu, jadi tidak ada email nyata ke peserta.
+     *
+     * @param  list<string>  $eventCodes
+     * @param  list<string>  $oprecNumbers
      */
-    private function sendQrDigests(): void
+    private function sendQrDigests(array $eventCodes, array $oprecNumbers): void
     {
         if (! app()->environment('local')) {
             return;
@@ -94,17 +97,79 @@ class ScanTestSeeder extends Seeder
             return;
         }
 
-        foreach (['event' => 'Event', 'oprec' => 'OpRec'] as $kind => $label) {
-            $attachments = $this->qrAttachments($kind);
+        $digests = [
+            ['kind' => 'event', 'label' => 'Event', 'rows' => $this->eventDigestRows($eventCodes)],
+            ['kind' => 'oprec', 'label' => 'OpRec', 'rows' => $this->oprecDigestRows($oprecNumbers)],
+        ];
 
-            if ($attachments === []) {
+        foreach ($digests as $digest) {
+            $attachments = $this->qrAttachments($digest['kind']);
+
+            if ($attachments === [] && $digest['rows'] === []) {
                 continue;
             }
 
-            Mail::to($recipient)->send(new ScanTestQrMail($label, $attachments));
+            Mail::to($recipient)->send(new ScanTestQrMail($digest['label'], $digest['rows'], $attachments));
 
-            $this->command->info('  QR digest '.$label.': '.count($attachments).' lampiran -> '.$recipient);
+            $this->command->info('  QR digest '.$digest['label'].': '.count($attachments).' lampiran, '.count($digest['rows']).' baris daftar -> '.$recipient);
         }
+    }
+
+    /**
+     * @param  list<string>  $codes
+     * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     */
+    private function eventDigestRows(array $codes): array
+    {
+        if ($codes === []) {
+            return [];
+        }
+
+        return FormAnswer::query()
+            ->whereIn('registration_code', $codes)
+            ->with(['form.event', 'user'])
+            ->get()
+            ->sortBy('registration_code')
+            ->map(static fn (FormAnswer $answer): array => [
+                'code' => (string) $answer->registration_code,
+                'name' => $answer->user?->name ?? 'Tanpa nama',
+                'kind' => 'event',
+                'context' => (string) ($answer->form?->event?->title ?? '-'),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $numbers
+     * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     */
+    private function oprecDigestRows(array $numbers): array
+    {
+        if ($numbers === []) {
+            return [];
+        }
+
+        return RecruitmentApplication::query()
+            ->whereIn('registration_number', $numbers)
+            ->with(['period:id,name', 'primaryDivision:id,name'])
+            ->orderBy('registration_number')
+            ->get()
+            ->map(static function (RecruitmentApplication $application): array {
+                $context = trim(
+                    ($application->period?->name ?? '').' · '.($application->primaryDivision?->name ?? ''),
+                    ' ·'
+                );
+
+                return [
+                    'code' => (string) $application->registration_number,
+                    'name' => (string) $application->full_name,
+                    'kind' => 'oprec',
+                    'context' => $context !== '' ? $context : '-',
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
