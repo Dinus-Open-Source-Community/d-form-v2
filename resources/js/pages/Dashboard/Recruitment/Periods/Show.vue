@@ -6,6 +6,7 @@ import PeriodStatusHero from '@/components/modules/dashboard/recruitment/PeriodS
 import PeriodPhaseTimeline from '@/components/modules/dashboard/recruitment/PeriodPhaseTimeline.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
+import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { routes } from '@/lib/routes'
@@ -207,11 +208,7 @@ function closePeriod() {
             </TabsContent>
 
             <TabsContent value="laporan" class="mt-4">
-                <Card v-if="canViewReports" class="rounded-2xl border-border/70 shadow-sm">
-                    <CardContent class="p-6">
-                        <p class="text-sm text-muted-foreground">Bagian laporan segera hadir di Task 5.</p>
-                    </CardContent>
-                </Card>
+                <PeriodReportSection v-if="canViewReports" :period-id="period.id" :report="report ?? null" />
             </TabsContent>
         </Tabs>
     </div>
