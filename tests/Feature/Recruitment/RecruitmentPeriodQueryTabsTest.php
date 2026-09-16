@@ -66,4 +66,65 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('tab', 'peserta'));
     }
+
+    public function test_tab_interview_hanya_memuat_sesi_periode_itu(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+        $otherPeriod = RecruitmentPeriod::factory()->create();
+
+        $admin = $this->admin(['recruitment.periods.view', 'recruitment.interviews.schedule']);
+
+        $this->actingAs($admin)->post(route('dashboard.recruitment.interview-sessions.store'), [
+            'recruitment_period_id' => $this->period->id,
+            'recruitment_division_id' => $division->id,
+            'session_date' => now()->addDay()->toDateString(),
+            'starts_at' => '09:00',
+            'ends_at' => '12:00',
+            'location' => 'Gedung A',
+            'room' => 'A101',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post(route('dashboard.recruitment.interview-sessions.store'), [
+            'recruitment_period_id' => $otherPeriod->id,
+            'recruitment_division_id' => $division->id,
+            'session_date' => now()->addDay()->toDateString(),
+            'starts_at' => '09:00',
+            'ends_at' => '12:00',
+            'location' => 'Gedung B',
+            'room' => 'B202',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'interview')
+                ->where('sessions.total', 1)
+                ->where('sessions.data.0.location', 'Gedung A')
+                ->missing('applications'));
+    }
+
+    public function test_tab_laporan_ditolak_untuk_interviewer_only(): void
+    {
+        $interviewer = User::factory()->create();
+        $interviewer->assignRole('recruitment-interviewer');
+
+        $this->actingAs($interviewer)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'laporan']))
+            ->assertForbidden();
+    }
+
+    public function test_tab_laporan_memuat_report_periode_route_bukan_query(): void
+    {
+        $otherPeriod = RecruitmentPeriod::factory()->create();
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.reports.view']))
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'laporan']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'laporan')
+                ->where('report.period.id', $this->period->id)
+                ->missing('applications')
+                ->missing('sessions'));
+    }
 }
