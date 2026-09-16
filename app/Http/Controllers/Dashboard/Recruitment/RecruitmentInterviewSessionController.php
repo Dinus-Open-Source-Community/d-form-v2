@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\IndexRecruitmentInterviewSessionRequest;
 use App\Http\Requests\Recruitment\ScheduleInterviewApplicantsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentInterviewSessionRequest;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\InterviewSchedulingService;
 use App\Services\Recruitment\InterviewSessionService;
-use App\Services\Recruitment\RecruitmentApplicationService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,31 +17,7 @@ class RecruitmentInterviewSessionController extends Controller
     public function __construct(
         private readonly InterviewSessionService $sessionService,
         private readonly InterviewSchedulingService $schedulingService,
-        private readonly RecruitmentApplicationService $applicationService,
     ) {
-    }
-
-    public function index(IndexRecruitmentInterviewSessionRequest $request): Response
-    {
-        $validated = $request->validated();
-        $page = $request->integer('page', 1);
-
-        $paginator = $this->sessionService->paginate($validated, $page);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(
-                fn (RecruitmentInterviewSession $session) => $this->sessionService->toListArray($session)
-            )
-        );
-
-        $periodId = isset($validated['period_id']) ? (string) $validated['period_id'] : null;
-
-        return Inertia::render('Dashboard/Recruitment/InterviewSessions/Index', [
-            'sessions' => $paginator,
-            'query' => $validated,
-            'today_sessions' => $this->sessionService->todaySessions($periodId),
-            'periodOptions' => $this->sessionService->periodOptions(),
-            'divisionOptions' => $this->applicationService->divisionOptions(),
-        ]);
     }
 
     public function store(StoreRecruitmentInterviewSessionRequest $request): RedirectResponse

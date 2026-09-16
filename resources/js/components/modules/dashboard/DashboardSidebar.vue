@@ -28,8 +28,6 @@ import {
     ClipboardCheck,
     ScanLine,
     Briefcase,
-    MessagesSquare,
-    ChartColumn,
     UserCheck,
     CalendarRange,
     Network,
@@ -48,7 +46,6 @@ const canManageRecruitmentPeriods = computed(() => user.value?.can_manage_recrui
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
-const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
 const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
 const canScanGlobal = computed(() => user.value?.can_manage_events === true || user.value?.can_scan_recruitment_attendance === true);
@@ -104,14 +101,6 @@ const recruitmentOpsItems = computed(() => {
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [
         { label: 'Pusat kerja', href: routes.admin.recruitment.index, icon: Briefcase },
     ];
-
-    if (canScheduleRecruitmentInterviews.value) {
-        items.push({ label: 'Interview', href: routes.admin.recruitment.interviewSessions.index, icon: MessagesSquare });
-    }
-
-    if (canViewRecruitmentReports.value) {
-        items.push({ label: 'Laporan', href: routes.admin.recruitment.reports.index, icon: ChartColumn });
-    }
 
     if (
         canViewMyRecruitmentInterviews.value &&

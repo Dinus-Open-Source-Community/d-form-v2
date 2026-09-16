@@ -74,6 +74,18 @@ const quickApplicantHref = computed(() =>
         : routes.admin.recruitment.periods.index,
 )
 
+const quickInterviewHref = computed(() =>
+    props.summary.active_period
+        ? `${routes.admin.recruitment.periods.show(props.summary.active_period.id)}?tab=interview`
+        : routes.admin.recruitment.periods.index,
+)
+
+const quickReportHref = computed(() =>
+    props.summary.active_period
+        ? `${routes.admin.recruitment.periods.show(props.summary.active_period.id)}?tab=laporan`
+        : routes.admin.recruitment.periods.index,
+)
+
 const compactStats = computed(() => [
     { label: 'Total applicant', value: props.summary.stats.total_applicants ?? 0 },
     { label: 'Interview', value: props.summary.stats.in_interview ?? 0 },
@@ -235,7 +247,7 @@ onMounted(() => {
                         <p class="text-muted-foreground text-sm">Jadwalkan applicant yang lolos screening.</p>
                     </div>
                     <Button as-child variant="outline" size="sm">
-                        <Link :href="routes.admin.recruitment.interviewSessions.index">Buka</Link>
+                        <Link :href="quickInterviewHref">Buka</Link>
                     </Button>
                 </CardContent>
             </Card>
@@ -247,10 +259,10 @@ onMounted(() => {
             </CardHeader>
             <CardContent class="flex flex-wrap items-center justify-between gap-4">
                 <p class="text-muted-foreground text-sm">
-                    Statistik lengkap, export CSV, dan breakdown per divisi ada di Laporan.
+                    Statistik lengkap, export CSV, dan breakdown per divisi ada di tab Laporan periode aktif.
                 </p>
                 <Button as-child variant="outline" size="sm">
-                    <Link :href="routes.admin.recruitment.reports.index">Buka laporan</Link>
+                    <Link :href="quickReportHref">Buka laporan</Link>
                 </Button>
             </CardContent>
         </Card>

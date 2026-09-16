@@ -39,20 +39,25 @@ const QUEUE_OPTIONS = [
     { key: 'done', label: 'Selesai' },
 ] as const
 
-const props = defineProps<{
-    periodId: string
-    applications: Paginator | null
-    queueCounts: Record<string, number>
-    divisionOptions: { id: string; name: string; code: string }[]
-    stageOptions: { value: string; label: string }[]
-    query: {
-        search?: string
-        division_id?: string
-        stage?: string
-        queue?: string
-        semester?: string
-    }
-}>()
+const props = withDefaults(
+    defineProps<{
+        periodId: string
+        applications: Paginator | null
+        queueCounts: Record<string, number>
+        divisionOptions: { id: string; name: string; code: string }[]
+        stageOptions: { value: string; label: string }[]
+        semesterOptions?: { value: string; label: string }[]
+        tab: string
+        query: {
+            search?: string
+            division_id?: string
+            stage?: string
+            queue?: string
+            semester?: string
+        }
+    }>(),
+    { semesterOptions: () => [] },
+)
 
 const search = ref(props.query.search ?? '')
 const divisionId = ref(props.query.division_id ?? '')
@@ -80,6 +85,20 @@ const stageSelectOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua tahap' },
     ...props.stageOptions.map((option) => ({ value: option.value, label: option.label })),
 ])
+
+const semesterSelectOptions = computed<SimpleSelectOption[]>(() => {
+    const options: SimpleSelectOption[] = [
+        { value: '', label: 'Semua semester' },
+        ...(props.semesterOptions ?? []).map((option) => ({ value: option.value, label: option.label })),
+    ]
+
+    const active = semester.value
+    if (active === '' || options.some((option) => option.value === active)) {
+        return options
+    }
+
+    return [...options, { value: active, label: /^\d+$/.test(active) ? `Semester ${active}` : active }]
+})
 
 const queueModel = computed<string>({
     get: () => queue.value,
@@ -119,6 +138,7 @@ function applyFilters(page = 1) {
             queue: queue.value || undefined,
             semester: semester.value || undefined,
             page: page > 1 ? page : undefined,
+            tab: props.tab === 'peserta' ? undefined : props.tab,
         },
         { preserveState: true, replace: true },
     )
@@ -126,6 +146,10 @@ function applyFilters(page = 1) {
 
 watch([search, divisionId, stage, semester, queue], () => applyFilters())
 watch(() => props.query, readQueryFromProps, { deep: true })
+watch(
+    () => props.tab,
+    () => readQueryFromProps(),
+)
 </script>
 
 <template>
@@ -165,7 +189,15 @@ watch(() => props.query, readQueryFromProps, { deep: true })
                     aria-label="Filter tahap"
                 />
             </div>
-            <Input v-model="semester" type="number" min="1" max="14" placeholder="Semester" class="w-28" />
+            <div class="flex min-w-0 flex-col gap-1.5">
+                <SimpleSelect
+                    v-model="semester"
+                    :options="semesterSelectOptions"
+                    id="filter-semester"
+                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
+                    aria-label="Filter semester"
+                />
+            </div>
         </div>
 
         <Card v-if="applications" class="rounded-2xl border-border/70 overflow-hidden">

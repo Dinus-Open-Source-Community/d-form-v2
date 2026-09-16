@@ -284,6 +284,27 @@ final class RecruitmentApplicationService
             ->all();
     }
 
+    /**
+     * Semester yang benar-benar ada pada aplikasi periode tersebut, tanpa terpengaruh filter.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public function semesterOptions(string $periodId): array
+    {
+        return RecruitmentApplication::query()
+            ->where('recruitment_period_id', $periodId)
+            ->whereNotNull('semester')
+            ->orderBy('semester')
+            ->distinct()
+            ->pluck('semester')
+            ->map(fn (int $semester): array => [
+                'value' => (string) $semester,
+                'label' => "Semester {$semester}",
+            ])
+            ->values()
+            ->all();
+    }
+
     private function canScreen(RecruitmentApplication $application): bool
     {
         if ($application->cancelled_at !== null) {

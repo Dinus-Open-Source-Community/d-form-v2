@@ -19,6 +19,7 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Mail\ScanTestQrMail;
 use App\Services\Recruitment\RecruitmentQrPngGenerator;
 use App\Services\Registration\RegistrationCodeIssuer;
 use App\Services\Registration\RegistrationQrPngGenerator;
@@ -26,6 +27,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Scan-test seeder. Registered in DatabaseSeeder, so it runs on every
@@ -54,6 +56,8 @@ class ScanTestSeeder extends Seeder
         $this->command->info('  OPREC applications (20, Interview/Scheduled): '.implode(', ', $oprecNumbers));
         $this->command->info('  QR folders: storage/app/scan-test/event/ ('.count($eventCodes).' PNG), storage/app/scan-test/oprec/ ('.count($oprecNumbers).' PNG)');
         $this->command->info('  Test logins (password: password): scan-test-event-01@example.test … scan-test-event-20@example.test');
+
+        $this->sendQrDigests($eventCodes, $oprecNumbers);
     }
 
     /**
@@ -69,6 +73,125 @@ class ScanTestSeeder extends Seeder
                 File::cleanDirectory($dir);
             }
         }
+    }
+
+    /**
+     * Kirim digest QR + daftar kodenya ke inbox uji. Hanya jalan di APP_ENV=local dan
+     * hanya bila MAIL_TEST_REDIRECT terisi; AppServiceProvider::boot() memang sudah
+     * mengarahkan semua email lokal ke alamat itu, jadi tidak ada email nyata ke peserta.
+     *
+     * @param  list<string>  $eventCodes
+     * @param  list<string>  $oprecNumbers
+     */
+    private function sendQrDigests(array $eventCodes, array $oprecNumbers): void
+    {
+        if (! app()->environment('local')) {
+            return;
+        }
+
+        $recipient = config('mail.test_redirect');
+
+        if (! is_string($recipient) || $recipient === '') {
+            $this->command->warn('ScanTestSeeder: MAIL_TEST_REDIRECT kosong, digest QR tidak dikirim.');
+
+            return;
+        }
+
+        $digests = [
+            ['kind' => 'event', 'label' => 'Event', 'rows' => $this->eventDigestRows($eventCodes)],
+            ['kind' => 'oprec', 'label' => 'OpRec', 'rows' => $this->oprecDigestRows($oprecNumbers)],
+        ];
+
+        foreach ($digests as $digest) {
+            $attachments = $this->qrAttachments($digest['kind']);
+
+            if ($attachments === [] && $digest['rows'] === []) {
+                continue;
+            }
+
+            Mail::to($recipient)->send(new ScanTestQrMail($digest['label'], $digest['rows'], $attachments));
+
+            $this->command->info('  QR digest '.$digest['label'].': '.count($attachments).' lampiran, '.count($digest['rows']).' baris daftar -> '.$recipient);
+        }
+    }
+
+    /**
+     * @param  list<string>  $codes
+     * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     */
+    private function eventDigestRows(array $codes): array
+    {
+        if ($codes === []) {
+            return [];
+        }
+
+        return FormAnswer::query()
+            ->whereIn('registration_code', $codes)
+            ->with(['form.event', 'user'])
+            ->get()
+            ->sortBy('registration_code')
+            ->map(static fn (FormAnswer $answer): array => [
+                'code' => (string) $answer->registration_code,
+                'name' => $answer->user?->name ?? 'Tanpa nama',
+                'kind' => 'event',
+                'context' => (string) ($answer->form?->event?->title ?? '-'),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $numbers
+     * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     */
+    private function oprecDigestRows(array $numbers): array
+    {
+        if ($numbers === []) {
+            return [];
+        }
+
+        return RecruitmentApplication::query()
+            ->whereIn('registration_number', $numbers)
+            ->with(['period:id,name', 'primaryDivision:id,name'])
+            ->orderBy('registration_number')
+            ->get()
+            ->map(static function (RecruitmentApplication $application): array {
+                $context = trim(
+                    ($application->period?->name ?? '').' · '.($application->primaryDivision?->name ?? ''),
+                    ' ·'
+                );
+
+                return [
+                    'code' => (string) $application->registration_number,
+                    'name' => (string) $application->full_name,
+                    'kind' => 'oprec',
+                    'context' => $context !== '' ? $context : '-',
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, string> nama berkas => isi biner PNG
+     */
+    private function qrAttachments(string $kind): array
+    {
+        $dir = storage_path('app/scan-test/'.$kind);
+
+        if (! File::isDirectory($dir)) {
+            return [];
+        }
+
+        $attachments = [];
+
+        foreach (File::files($dir) as $file) {
+            $attachments[$file->getFilename()] = (string) file_get_contents($file->getPathname());
+        }
+
+        ksort($attachments);
+
+        return $attachments;
     }
 
     /**

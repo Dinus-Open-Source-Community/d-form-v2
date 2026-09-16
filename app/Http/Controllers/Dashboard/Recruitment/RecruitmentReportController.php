@@ -3,11 +3,9 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ShowRecruitmentReportRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentReportService;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentReportController extends Controller
@@ -17,28 +15,11 @@ class RecruitmentReportController extends Controller
     ) {
     }
 
-    public function index(Request $request): Response
-    {
-        abort_unless($request->user()?->can('recruitment.reports.view'), 403);
-
-        $periodId = $request->string('period_id')->toString() ?: null;
-
-        return Inertia::render('Dashboard/Recruitment/Reports/Index', [
-            'report' => $this->reportService->build($periodId),
-            'periodOptions' => $this->reportService->periodOptions(),
-            'query' => ['period_id' => $periodId],
-            'exportUrls' => [
-                'funnel' => route('dashboard.recruitment.reports.export.funnel', ['period_id' => $periodId]),
-                'applicants' => route('dashboard.recruitment.reports.export.applicants', ['period_id' => $periodId]),
-            ],
-        ]);
-    }
-
-    public function exportFunnel(Request $request): StreamedResponse
+    public function exportFunnel(ShowRecruitmentReportRequest $request): StreamedResponse
     {
         abort_unless($request->user()?->can('recruitment.reports.export'), 403);
 
-        $periodId = $request->string('period_id')->toString() ?: null;
+        $periodId = $request->validated('period_id');
         $funnel = $this->reportService->build($periodId)['funnel'];
         $fileName = 'oprec-funnel-'.now()->format('Ymd-His').'.csv';
 
@@ -49,21 +30,21 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['stage', 'label', 'count']);
+            fputcsv($out, array_map(self::sanitizeCsvCell(...), ['stage', 'label', 'count']));
 
             foreach ($funnel as $row) {
-                fputcsv($out, [$row['stage'], $row['label'], $row['count']]);
+                fputcsv($out, array_map(self::sanitizeCsvCell(...), [$row['stage'], $row['label'], $row['count']]));
             }
 
             fclose($out);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function exportApplicants(Request $request): StreamedResponse
+    public function exportApplicants(ShowRecruitmentReportRequest $request): StreamedResponse
     {
         abort_unless($request->user()?->can('recruitment.reports.export'), 403);
 
-        $periodId = $request->string('period_id')->toString() ?: null;
+        $periodId = $request->validated('period_id');
         $report = $this->reportService->build($periodId);
         $resolvedPeriodId = $report['period']['id'] ?? null;
         $fileName = 'oprec-applicants-'.now()->format('Ymd-His').'.csv';
@@ -75,7 +56,7 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, [
+            fputcsv($out, array_map(self::sanitizeCsvCell(...), [
                 'registration_number',
                 'full_name',
                 'nim',
@@ -84,7 +65,7 @@ class RecruitmentReportController extends Controller
                 'stage',
                 'result',
                 'submitted_at',
-            ]);
+            ]));
 
             if ($resolvedPeriodId === null) {
                 fclose($out);
@@ -98,7 +79,7 @@ class RecruitmentReportController extends Controller
                 ->orderBy('registration_number')
                 ->chunk(200, function ($applications) use ($out): void {
                     foreach ($applications as $application) {
-                        fputcsv($out, [
+                        fputcsv($out, array_map(self::sanitizeCsvCell(...), [
                             $application->registration_number,
                             $application->full_name,
                             $application->nim,
@@ -107,11 +88,27 @@ class RecruitmentReportController extends Controller
                             $application->stage->value,
                             $application->result->value,
                             $application->submitted_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
-                        ]);
+                        ]));
                     }
                 });
 
             fclose($out);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private static function sanitizeCsvCell(mixed $value): string
+    {
+        $cell = (string) $value;
+        $trimmed = ltrim($cell, " \t");
+
+        return match (true) {
+            str_starts_with($trimmed, '='),
+            str_starts_with($trimmed, '+'),
+            str_starts_with($trimmed, '-'),
+            str_starts_with($trimmed, '@'),
+            str_starts_with($trimmed, "\t"),
+            str_starts_with($trimmed, "\r") => "'".$cell,
+            default => $cell,
+        };
     }
 }

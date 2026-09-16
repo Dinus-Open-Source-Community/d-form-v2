@@ -58,7 +58,6 @@ export const routes = {
         recruitment: {
             index: `${ADMIN_BASE}/recruitment`,
             reports: {
-                index: `${ADMIN_BASE}/recruitment/reports`,
                 exportFunnel: (periodId?: string) =>
                     `${ADMIN_BASE}/recruitment/reports/export/funnel.csv${periodId ? `?period_id=${periodId}` : ''}`,
                 exportApplicants: (periodId?: string) =>
@@ -106,7 +105,6 @@ export const routes = {
                 reject: (id: string) => `${ADMIN_BASE}/recruitment/corrections/${id}/reject`,
             },
             interviewSessions: {
-                index: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 store: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
                 schedule: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}/schedule`,
@@ -218,12 +216,6 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href.startsWith(routes.admin.recruitment.activityLogs.index)) {
         return path.startsWith(routes.admin.recruitment.activityLogs.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.reports.index)) {
-        return path.startsWith(routes.admin.recruitment.reports.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.interviewSessions.index)) {
-        return path.startsWith(routes.admin.recruitment.interviewSessions.index);
     }
     if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
         return path.startsWith(routes.admin.recruitment.myInterviews.index);
