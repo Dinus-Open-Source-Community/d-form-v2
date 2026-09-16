@@ -28,8 +28,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * TEMPORARY scan-test seeder. Standalone on purpose: NOT registered in
- * DatabaseSeeder so it only runs via `php artisan db:seed --class=ScanTestSeeder`.
+ * Scan-test seeder. Registered in DatabaseSeeder, so it runs on every
+ * `php artisan db:seed` (still runnable standalone via
+ * `php artisan db:seed --class=ScanTestSeeder`).
  *
  * Creates 20 event registrations (Accepted, spread across Published events)
  * + 20 oprec applicants (stage Interview + Scheduled interview), all
@@ -37,7 +38,7 @@ use Illuminate\Support\Facades\Hash;
  *
  * Safe to re-run: every row is firstOrCreate/firstOrNew keyed on a unique
  * column, existing rows are normalised back to scannable state, never
- * duplicated. Deletion: delete the rows (see report) + remove this file.
+ * duplicated.
  */
 class ScanTestSeeder extends Seeder
 {
