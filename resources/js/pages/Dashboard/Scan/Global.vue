@@ -127,7 +127,7 @@ function handleLogQuery(value: string): void {
 }
 
 onMounted(() => {
-    setTopbar({ title: 'Scanner Global', subtitle: 'Pindai QR apapun' });
+    setTopbar({ title: 'Scanner Attendeance', subtitle: 'Pindai QR apapun' });
 });
 </script>
 
