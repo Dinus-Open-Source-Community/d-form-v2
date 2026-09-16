@@ -5,6 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodStatusHero from '@/components/modules/dashboard/recruitment/PeriodStatusHero.vue'
 import PeriodPhaseTimeline from '@/components/modules/dashboard/recruitment/PeriodPhaseTimeline.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
+import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { routes } from '@/lib/routes'
@@ -197,13 +198,12 @@ function closePeriod() {
             </TabsContent>
 
             <TabsContent value="interview" class="mt-4">
-                <Card v-if="canScheduleInterviews" class="rounded-2xl border-border/70 shadow-sm">
-                    <CardContent class="p-6">
-                        <p class="text-sm text-muted-foreground">
-                            Bagian interview segera hadir di Task 4.
-                        </p>
-                    </CardContent>
-                </Card>
+                <PeriodInterviewSection
+                    v-if="canScheduleInterviews"
+                    :period-id="period.id"
+                    :sessions="sessions ?? null"
+                    :today-sessions="today_sessions ?? []"
+                />
             </TabsContent>
 
             <TabsContent value="laporan" class="mt-4">
