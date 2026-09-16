@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Head, router, usePage } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodStatusHero from '@/components/modules/dashboard/recruitment/PeriodStatusHero.vue'
 import PeriodPhaseTimeline from '@/components/modules/dashboard/recruitment/PeriodPhaseTimeline.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
@@ -49,6 +50,35 @@ interface ApplicationPaginator {
     total: number
 }
 
+interface SessionRow {
+    id: string
+    session_date: string
+    starts_at: string
+    ends_at: string
+    location: string
+    room: string
+    is_active: boolean
+    interviews_count: number
+    period: { id: string; name: string } | null
+    division: { id: string; name: string; code: string } | null
+}
+
+interface SessionPaginator {
+    data: SessionRow[]
+    current_page: number
+    last_page: number
+    total: number
+}
+
+interface ReportPayload {
+    period: { id: string; name: string } | null
+    funnel: { stage: string; label: string; count: number }[]
+    by_division: { division: string; count: number }[]
+    by_semester: { semester: number; count: number }[]
+    interview_stats: Record<string, number>
+    feedback: { count: number; averages: Record<string, number | null> }
+}
+
 const props = withDefaults(
     defineProps<{
         period: Period
@@ -64,13 +94,38 @@ const props = withDefaults(
             queue?: string
             semester?: string
         }
+        tab: string
+        sessions?: SessionPaginator | null
+        today_sessions?: SessionRow[]
+        report?: ReportPayload | null
     }>(),
-    { semesterOptions: () => [] },
+    { semesterOptions: () => [], today_sessions: () => [] },
 )
 
 const page = usePage()
 const user = useAuth(page.props)
 const canListApplications = computed(() => user.value?.can_list_recruitment_applications === true)
+const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true)
+const canViewReports = computed(() => user.value?.can_view_recruitment_reports === true)
+
+const activeTab = ref(props.tab === 'interview' || props.tab === 'laporan' ? props.tab : 'peserta')
+watch(
+    () => props.tab,
+    (value) => {
+        activeTab.value = value === 'interview' || value === 'laporan' ? value : 'peserta'
+    },
+)
+
+function onTabChange(value: string | number): void {
+    const next = String(value)
+    if (next !== 'peserta' && next !== 'interview' && next !== 'laporan') return
+    if (next === activeTab.value) return
+    router.get(
+        routes.admin.recruitment.periods.show(props.period.id),
+        { tab: next === 'peserta' ? undefined : next },
+        { preserveState: true, preserveScroll: true },
+    )
+}
 
 const phaseInput = computed(() => ({
     status: props.period.status,
@@ -120,15 +175,44 @@ function closePeriod() {
             </CardContent>
         </Card>
 
-        <PeriodApplicantSection
-            v-if="canListApplications"
-            :period-id="period.id"
-            :applications="applications"
-            :queue-counts="queue_counts"
-            :division-options="divisionOptions"
-            :stage-options="stageOptions"
-            :semester-options="semesterOptions"
-            :query="query"
-        />
+        <Tabs :model-value="activeTab" @update:model-value="onTabChange" class="w-full">
+            <TabsList class="flex w-full justify-start overflow-x-auto">
+                <TabsTrigger v-if="canListApplications" value="peserta">Peserta</TabsTrigger>
+                <TabsTrigger v-if="canScheduleInterviews" value="interview">Interview</TabsTrigger>
+                <TabsTrigger v-if="canViewReports" value="laporan">Laporan</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="peserta" class="mt-4">
+                <PeriodApplicantSection
+                    v-if="canListApplications"
+                    :period-id="period.id"
+                    :tab="activeTab"
+                    :applications="applications"
+                    :queue-counts="queue_counts"
+                    :division-options="divisionOptions"
+                    :stage-options="stageOptions"
+                    :semester-options="semesterOptions"
+                    :query="query"
+                />
+            </TabsContent>
+
+            <TabsContent value="interview" class="mt-4">
+                <Card v-if="canScheduleInterviews" class="rounded-2xl border-border/70 shadow-sm">
+                    <CardContent class="p-6">
+                        <p class="text-sm text-muted-foreground">
+                            Bagian interview segera hadir di Task 4.
+                        </p>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            <TabsContent value="laporan" class="mt-4">
+                <Card v-if="canViewReports" class="rounded-2xl border-border/70 shadow-sm">
+                    <CardContent class="p-6">
+                        <p class="text-sm text-muted-foreground">Bagian laporan segera hadir di Task 5.</p>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        </Tabs>
     </div>
 </template>

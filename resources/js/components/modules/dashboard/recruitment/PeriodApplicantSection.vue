@@ -47,6 +47,7 @@ const props = withDefaults(
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
         semesterOptions?: { value: string; label: string }[]
+        tab: string
         query: {
             search?: string
             division_id?: string
@@ -137,6 +138,7 @@ function applyFilters(page = 1) {
             queue: queue.value || undefined,
             semester: semester.value || undefined,
             page: page > 1 ? page : undefined,
+            tab: props.tab === 'peserta' ? undefined : props.tab,
         },
         { preserveState: true, replace: true },
     )
@@ -144,6 +146,10 @@ function applyFilters(page = 1) {
 
 watch([search, divisionId, stage, semester, queue], () => applyFilters())
 watch(() => props.query, readQueryFromProps, { deep: true })
+watch(
+    () => props.tab,
+    () => readQueryFromProps(),
+)
 </script>
 
 <template>
