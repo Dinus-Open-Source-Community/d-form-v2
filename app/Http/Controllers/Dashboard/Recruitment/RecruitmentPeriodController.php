@@ -96,6 +96,7 @@ class RecruitmentPeriodController extends Controller
             'applications' => $applications,
             'queue_counts' => (object) $queueCounts,
             'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
+            'semesterOptions' => $canListApplications ? $this->applicationService->semesterOptions($period->id) : [],
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
                 ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
                 ->values()

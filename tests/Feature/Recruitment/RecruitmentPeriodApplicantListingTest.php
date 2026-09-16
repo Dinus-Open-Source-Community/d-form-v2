@@ -41,6 +41,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             'recruitment_period_id' => $this->period->id,
             'primary_division_id' => $division->id,
             'full_name' => 'Budi Santoso',
+            'semester' => 2,
             'stage' => ApplicationStage::Submitted,
             'result' => ApplicationResult::Pending,
             'submitted_at' => now()->subDay(),
@@ -50,15 +51,37 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             'recruitment_period_id' => $this->period->id,
             'primary_division_id' => $division->id,
             'full_name' => 'Siti Aminah',
+            'semester' => 2,
             'stage' => ApplicationStage::Submitted,
             'result' => ApplicationResult::Pending,
             'submitted_at' => now(),
         ]);
 
         RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => 'Andi Wijaya',
+            'semester' => 1,
+            'stage' => ApplicationStage::Submitted,
+            'result' => ApplicationResult::Pending,
+            'submitted_at' => now()->subDays(2),
+        ]);
+
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => 'Dewi Lestari',
+            'semester' => 3,
+            'stage' => ApplicationStage::Submitted,
+            'result' => ApplicationResult::Pending,
+            'submitted_at' => now()->subDays(3),
+        ]);
+
+        RecruitmentApplication::factory()->create([
             'recruitment_period_id' => $this->otherPeriod->id,
             'primary_division_id' => $division->id,
             'full_name' => 'Applicant Periode Lain',
+            'semester' => 4,
             'stage' => ApplicationStage::Submitted,
             'result' => ApplicationResult::Pending,
             'submitted_at' => now(),
@@ -80,7 +103,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/Periods/Show')
-                ->where('applications.total', 2)
+                ->where('applications.total', 4)
                 ->where('applications.data.0.id', $this->siti->id)
                 ->where('applications.data.1.id', $this->budi->id));
     }
@@ -90,7 +113,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
         $this->actingAs($this->admin())
             ->get(route('dashboard.recruitment.periods.show', $this->period))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('queue_counts.all', 2));
+            ->assertInertia(fn ($page) => $page                ->where('queue_counts.all', 4));
     }
 
     public function test_period_show_applies_search_inside_period(): void
@@ -111,5 +134,79 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
         $this->actingAs($staff)
             ->get(route('dashboard.recruitment.periods.show', $this->period))
             ->assertForbidden();
+    }
+
+    public function test_period_show_semester_options_are_distinct_and_ascending(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('dashboard.recruitment.periods.show', $this->period))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('semesterOptions', [
+                ['value' => '1', 'label' => 'Semester 1'],
+                ['value' => '2', 'label' => 'Semester 2'],
+                ['value' => '3', 'label' => 'Semester 3'],
+            ]));
+    }
+
+    public function test_period_show_semester_options_are_scoped_to_the_period(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('dashboard.recruitment.periods.show', $this->period))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('semesterOptions', [
+                ['value' => '1', 'label' => 'Semester 1'],
+                ['value' => '2', 'label' => 'Semester 2'],
+                ['value' => '3', 'label' => 'Semester 3'],
+            ]));
+
+        $this->actingAs($this->admin())
+            ->get(route('dashboard.recruitment.periods.show', $this->otherPeriod))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('semesterOptions', [
+                ['value' => '4', 'label' => 'Semester 4'],
+            ]));
+    }
+
+    public function test_period_show_semester_options_ignore_active_filters(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period,
+                'semester' => '2',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.total', 2)
+                ->where('semesterOptions', [
+                    ['value' => '1', 'label' => 'Semester 1'],
+                    ['value' => '2', 'label' => 'Semester 2'],
+                    ['value' => '3', 'label' => 'Semester 3'],
+                ]));
+    }
+
+    public function test_period_show_semester_options_empty_when_period_has_no_applications(): void
+    {
+        $emptyPeriod = RecruitmentPeriod::factory()->create();
+
+        $this->actingAs($this->admin())
+            ->get(route('dashboard.recruitment.periods.show', $emptyPeriod))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('semesterOptions', []));
+    }
+
+    public function test_period_show_semester_options_empty_without_application_list_permission(): void
+    {
+        $periodViewer = User::factory()->create();
+        $periodViewer->givePermissionTo([
+            'recruitment.dashboard.view',
+            'recruitment.periods.view',
+        ]);
+
+        $this->actingAs($periodViewer)
+            ->get(route('dashboard.recruitment.periods.show', $this->period))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('semesterOptions', [])
+                ->where('applications', null));
     }
 }
