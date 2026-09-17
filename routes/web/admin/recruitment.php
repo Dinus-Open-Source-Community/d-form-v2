@@ -29,14 +29,14 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
 
-        Route::redirect('interview-sessions', '/admin/recruitment/periods');
-        Route::redirect('reports', '/admin/recruitment/periods');
+        Route::redirect('interview-sessions', '/admin/recruitment');
+        Route::redirect('reports', '/admin/recruitment');
+        Route::redirect('periods', '/admin/recruitment');
 
-        Route::resource('periods', RecruitmentPeriodController::class);
+        Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
 
-        Route::get('divisions', [RecruitmentDivisionController::class, 'index'])->name('divisions.index');
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
         Route::delete('interviewers/{assignment}', [RecruitmentDivisionController::class, 'unassignInterviewer'])->name('interviewers.unassign');

@@ -195,15 +195,24 @@ class RecruitmentPermissionTest extends TestCase
     public function test_p06_staff_cannot_manage_periods(): void
     {
         $this->actingAs($this->staff)
-            ->get(route('dashboard.recruitment.periods.index'))
+            ->get(route('dashboard.recruitment.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('auth.user.can_manage_recruitment_periods', false));
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.store'), [
+                'name' => 'OpRec Forbidden',
+            ])
             ->assertForbidden();
     }
 
     public function test_p07_admin_can_manage_periods(): void
     {
         $this->actingAs($this->admin)
-            ->get(route('dashboard.recruitment.periods.index'))
-            ->assertOk();
+            ->get(route('dashboard.recruitment.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('periods')
+                ->where('auth.user.can_manage_recruitment_periods', true));
     }
 
     public function test_p08_interviewer_can_evaluate_assigned_interview(): void

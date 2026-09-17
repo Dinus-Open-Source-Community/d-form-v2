@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { handleInertiaFormErrors } from '@/lib/error-message';
@@ -89,7 +89,7 @@ const formDescription = ref<string>('');
 const successContent = ref<string>('');
 const closedAt = ref<string>('');
 const visibleFor = ref<string[]>([]);
-const bannerState = reactive(defaultFormBannerState());
+const bannerState = ref(defaultFormBannerState());
 const formFields = ref<BuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
@@ -107,10 +107,10 @@ function hydrateBuilder(): void {
     raw.sort((a, b) => a.order - b.order);
     const mapped = raw.map((bf) => fromBackendField(bf));
     const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
-    bannerState.id = syntheticBanner.id;
-    bannerState.bannerUrl = f.banner_url ?? syntheticBanner.bannerUrl;
-    bannerState.caption = f.banner_caption ?? syntheticBanner.caption;
-    bannerState.bannerFileName = syntheticBanner.bannerFileName;
+    bannerState.value.id = syntheticBanner.id;
+    bannerState.value.bannerUrl = f.banner_url ?? syntheticBanner.bannerUrl;
+    bannerState.value.caption = f.banner_caption ?? syntheticBanner.caption;
+    bannerState.value.bannerFileName = syntheticBanner.bannerFileName;
     formFields.value = canvasFields;
 }
 
@@ -128,8 +128,8 @@ function buildBuilderSnapshot(): string {
         fields: formFields.value,
         title: formTitle.value,
         description: formDescription.value,
-        bannerUrl: bannerState.bannerUrl,
-        bannerCaption: bannerState.caption,
+        bannerUrl: bannerState.value.bannerUrl,
+        bannerCaption: bannerState.value.caption,
         success: successContent.value,
         closedAt: closedAt.value,
         visibleFor: visibleFor.value,
@@ -151,7 +151,7 @@ async function saveBuilderSnapshot(): Promise<void> {
     const formId = draftForm.value?.id;
     const eventId = draftEvent.value?.id;
     if (!formId || !eventId) return;
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState);
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
     const backend = toBackendFields(merged) as unknown as Record<string, unknown>[];
     await axios.post(
         postFields({ event: eventId, form: formId }).url,
@@ -167,8 +167,8 @@ async function saveBuilderSnapshot(): Promise<void> {
             success_content: successContent.value,
             closed_at: closedAt.value,
             visible_for: visibleFor.value,
-            banner_url: bannerState.bannerUrl || null,
-            banner_caption: bannerState.caption || null,
+            banner_url: bannerState.value.bannerUrl || null,
+            banner_caption: bannerState.value.caption || null,
             metadata: toFormMetadataPayload(formMetadata.value),
         },
         { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },

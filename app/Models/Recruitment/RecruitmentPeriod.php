@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User;
 use App\Policies\Recruitment\RecruitmentPeriodPolicy;
 
 #[UsePolicy(RecruitmentPeriodPolicy::class)]
@@ -35,6 +37,7 @@ class RecruitmentPeriod extends Model
         'interview_ends_at',
         'finalization_deadline_at',
         'landing_content',
+        'created_by',
     ];
 
     protected function casts(): array
@@ -63,5 +66,10 @@ class RecruitmentPeriod extends Model
     public function registrationSequence(): HasOne
     {
         return $this->hasOne(RecruitmentRegistrationSequence::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

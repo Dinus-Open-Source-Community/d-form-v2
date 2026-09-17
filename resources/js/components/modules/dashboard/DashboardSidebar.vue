@@ -29,8 +29,6 @@ import {
     ScanLine,
     Briefcase,
     UserCheck,
-    CalendarRange,
-    Network,
     History,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
@@ -42,7 +40,6 @@ const { isMobile, setOpenMobile } = useSidebar();
 
 const canManageEvents = computed(() => user.value?.can_manage_events === true);
 const canAccessRecruitment = computed(() => user.value?.can_access_recruitment === true);
-const canManageRecruitmentPeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
@@ -89,12 +86,6 @@ const managementItems = computed(() => {
     return items;
 });
 
-const interviewerNavItems = computed(() => {
-    if (!isInterviewerOnly.value || !canViewMyRecruitmentInterviews.value) return [];
-
-    return [{ label: 'Pusat interview', href: routes.admin.recruitment.myInterviews.index }];
-});
-
 const recruitmentOpsItems = computed(() => {
     if (!canAccessRecruitment.value || isInterviewerOnly.value) return [];
 
@@ -117,13 +108,6 @@ const recruitmentSettingsItems = computed(() => {
 
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
 
-    if (canManageRecruitmentPeriods.value) {
-        items.push(
-            { label: 'Periode', href: routes.admin.recruitment.periods.index, icon: CalendarRange },
-            { label: 'Divisi', href: routes.admin.recruitment.divisions.index, icon: Network },
-        );
-    }
-
     if (canViewRecruitmentActivity.value) {
         items.push({ label: 'Activity Log', href: routes.admin.recruitment.activityLogs.index, icon: History });
     }
@@ -131,7 +115,6 @@ const recruitmentSettingsItems = computed(() => {
     return items;
 });
 
-const showInterviewerSection = computed(() => interviewerNavItems.value.length > 0);
 const showRecruitmentSettings = computed(() => recruitmentSettingsItems.value.length > 0);
 /** FLATTEN: gabung ops + settings jadi satu level sublist di bawah parent Rekrutmen. */
 const recruitmentSubItems = computed(() => [...recruitmentOpsItems.value, ...recruitmentSettingsItems.value]);
@@ -276,35 +259,6 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     </SidebarMenu>
                 </SidebarGroupContent>
             </SidebarGroup>
-
-            <template v-if="showInterviewerSection">
-                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
-
-                <SidebarGroup class="p-0">
-                    <SidebarGroupLabel
-                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                    >
-                        Interview OpRec
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent class="space-y-0.5">
-                        <SidebarMenu class="gap-1">
-                            <SidebarMenuItem v-for="item in interviewerNavItems" :key="item.href">
-                                <SidebarMenuButton
-                                    as-child
-                                    :is-active="isActive(item.href)"
-                                    :tooltip="item.label"
-                                    class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
-                                >
-                                    <Link :href="item.href" @click="closeMobileIfNeeded">
-                                        <ClipboardCheck class="size-4 shrink-0 opacity-90" />
-                                        <span class="font-medium">{{ item.label }}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </template>
 
         </SidebarContent>
 

@@ -20,7 +20,7 @@ final class RecruitmentApplicationService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 5): LengthAwarePaginator
     {
         $query = RecruitmentApplication::query()
             ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])

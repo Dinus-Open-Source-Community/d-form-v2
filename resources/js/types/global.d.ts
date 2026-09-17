@@ -20,6 +20,8 @@ interface IUser {
     can_manage_recruitment_periods?: boolean;
     /** Permission recruitment.applications.list */
     can_list_recruitment_applications?: boolean;
+    /** Permission recruitment.screening.decide */
+    can_screen_recruitment_applications?: boolean;
     /** Permission recruitment.interviews.schedule */
     can_schedule_recruitment_interviews?: boolean;
     /** Permission recruitment.reports.view */

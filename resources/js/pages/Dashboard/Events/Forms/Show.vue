@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed, onUnmounted } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
@@ -80,7 +80,7 @@ const settingsForm = useForm({
     banner_caption: props.form.banner_caption ?? '',
 });
 
-const bannerState = reactive(defaultFormBannerState());
+const bannerState = ref(defaultFormBannerState());
 const formFields = ref<BuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
@@ -90,8 +90,8 @@ function buildShowSnapshot(): string {
         fields: formFields.value,
         title: settingsForm.title,
         description: settingsForm.description,
-        bannerUrl: bannerState.bannerUrl,
-        bannerCaption: bannerState.caption,
+        bannerUrl: bannerState.value.bannerUrl,
+        bannerCaption: bannerState.value.caption,
         success: settingsForm.success_content ?? '',
         closedAt: settingsForm.closed_at ?? '',
         visibleFor: settingsForm.visible_for,
@@ -100,7 +100,7 @@ function buildShowSnapshot(): string {
 }
 
 async function saveShowSnapshot(): Promise<void> {
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState);
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
     const backendFields = toBackendFields(merged);
     await axios.post(
         props.saveFieldsUrl,
@@ -115,8 +115,8 @@ async function saveShowSnapshot(): Promise<void> {
             success_content: settingsForm.success_content ?? '',
             closed_at: settingsForm.closed_at ?? '',
             visible_for: settingsForm.visible_for,
-            banner_url: bannerState.bannerUrl || null,
-            banner_caption: bannerState.caption || null,
+            banner_url: bannerState.value.bannerUrl || null,
+            banner_caption: bannerState.value.caption || null,
             fields: backendFields,
             metadata: toFormMetadataPayload(formMetadata.value),
         },
@@ -182,10 +182,10 @@ function syncFieldsFromProps(): void {
     const mapped = raw.map((f) => fromBackendField(f));
     const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
 
-    bannerState.id = syntheticBanner.id;
-    bannerState.bannerUrl = props.form.banner_url ?? syntheticBanner.bannerUrl;
-    bannerState.caption = props.form.banner_caption ?? syntheticBanner.caption;
-    bannerState.bannerFileName = syntheticBanner.bannerFileName;
+    bannerState.value.id = syntheticBanner.id;
+    bannerState.value.bannerUrl = props.form.banner_url ?? syntheticBanner.bannerUrl;
+    bannerState.value.caption = props.form.banner_caption ?? syntheticBanner.caption;
+    bannerState.value.bannerFileName = syntheticBanner.bannerFileName;
 
     formFields.value = canvasFields;
 }
@@ -223,10 +223,10 @@ onUnmounted(() => {
 });
 
 function onSave(): void {
-    settingsForm.banner_url = bannerState.bannerUrl;
-    settingsForm.banner_caption = bannerState.caption;
+    settingsForm.banner_url = bannerState.value.bannerUrl;
+    settingsForm.banner_caption = bannerState.value.caption;
 
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState);
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
     const backendFields = toBackendFields(merged);
 
     settingsForm

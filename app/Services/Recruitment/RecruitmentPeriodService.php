@@ -5,6 +5,8 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\RecruitmentPeriodStatus;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
+use App\Models\User;
+use App\Services\User\UserAvatarService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -18,9 +20,9 @@ final class RecruitmentPeriodService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 15, ?User $user = null): LengthAwarePaginator
     {
-        $query = RecruitmentPeriod::query()->orderByDesc('created_at');
+        $query = RecruitmentPeriod::query()->with('creator')->orderByDesc('created_at');
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -31,6 +33,12 @@ final class RecruitmentPeriodService
             $query->where(function ($q) use ($search): void {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('slug', 'like', "%{$search}%");
+            });
+        }
+
+        if ($user !== null && ! $user->hasRole('super-admin') && ! $user->can('recruitment.periods.list')) {
+            $query->where(function ($q) use ($user): void {
+                $q->where('created_by', $user->id)->orWhereNull('created_by');
             });
         }
 
@@ -94,8 +102,11 @@ final class RecruitmentPeriodService
     /**
      * @return array<string, mixed>
      */
-    public function toInertiaArray(RecruitmentPeriod $period): array
+    public function toInertiaArray(RecruitmentPeriod $period, ?User $user = null): array
     {
+        $period->loadMissing('creator');
+        $creator = $period->creator;
+
         return [
             'id' => $period->id,
             'name' => $period->name,
@@ -109,8 +120,13 @@ final class RecruitmentPeriodService
             'interview_ends_at' => $period->interview_ends_at?->toDateString(),
             'finalization_deadline_at' => $period->finalization_deadline_at?->toDateString(),
             'applications_count' => $period->applications_count ?? $period->applications()->count(),
+            'creator' => $creator instanceof User ? [
+                'name' => $creator->name,
+                'avatar_url' => UserAvatarService::resolvePublicUrl($creator->avatar),
+            ] : null,
             'created_at' => $period->created_at?->toIso8601String(),
             'updated_at' => $period->updated_at?->toIso8601String(),
+            'can_edit' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.edit') || ($period->created_by !== null && (string) $period->created_by === (string) $user->id)),
         ];
     }
 }

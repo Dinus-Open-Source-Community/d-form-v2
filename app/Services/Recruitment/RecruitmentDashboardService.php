@@ -5,10 +5,12 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
+use App\Enums\Recruitment\RecruitmentPeriodStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class RecruitmentDashboardService
 {
@@ -16,13 +18,15 @@ final class RecruitmentDashboardService
         private readonly RecruitmentReportService $reportService,
         private readonly RecruitmentApplicationService $applicationService,
         private readonly InterviewSessionService $sessionService,
+        private readonly RecruitmentPeriodService $periodService,
     ) {
     }
 
     /**
+     * @param  array<string, mixed>  $periodFilters
      * @return array<string, mixed>
      */
-    public function summary(?User $user = null, ?string $periodId = null): array
+    public function summary(?User $user = null, ?string $periodId = null, array $periodFilters = [], int $periodPage = 1, int $periodPerPage = 10): array
     {
         if ($user !== null && $this->isInterviewerOnly($user)) {
             return $this->interviewerSummary($user, $periodId);
@@ -35,7 +39,7 @@ final class RecruitmentDashboardService
                 ?? $periodQuery->first();
 
         if ($activePeriod === null) {
-            return [
+            return array_merge([
                 'active_period' => null,
                 'stats' => $this->emptyStats(),
                 'funnel' => [],
@@ -44,7 +48,7 @@ final class RecruitmentDashboardService
                 'accepted_count' => 0,
                 'action_queues' => [],
                 'today_sessions' => [],
-            ];
+            ], $this->periodsPayload($periodFilters, $periodPage, $periodPerPage, $user));
         }
 
         $applications = RecruitmentApplication::query()
@@ -53,7 +57,7 @@ final class RecruitmentDashboardService
         $report = $this->reportService->build($activePeriod->id);
         $queueCounts = $this->applicationService->queueCounts($activePeriod->id);
 
-        return [
+        return array_merge([
             'active_period' => app(RecruitmentPeriodService::class)->toInertiaArray($activePeriod),
             'stats' => [
                 'total_applicants' => (clone $applications)->count(),
@@ -76,6 +80,32 @@ final class RecruitmentDashboardService
                 ->count(),
             'action_queues' => $this->buildActionQueues($queueCounts),
             'today_sessions' => $this->sessionService->todaySessions($activePeriod->id),
+        ], $this->periodsPayload($periodFilters, $periodPage, $periodPerPage, $user));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{periods: LengthAwarePaginator, query: array<string, mixed>, statusOptions: list<array{value: string, label: string}>}
+     */
+    private function periodsPayload(array $filters = [], int $page = 1, int $perPage = 10, ?User $user = null): array
+    {
+        $page = max(1, $page);
+        $perPage = max(1, min(50, $perPage));
+
+        $paginator = $this->periodService->paginate($filters, $page, $perPage, $user);
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (RecruitmentPeriod $period) => $this->periodService->toInertiaArray($period, $user)
+            )
+        );
+
+        return [
+            'periods' => $paginator,
+            'query' => $filters,
+            'statusOptions' => collect(RecruitmentPeriodStatus::cases())
+                ->map(fn (RecruitmentPeriodStatus $status) => ['value' => $status->value, 'label' => $status->label()])
+                ->values()
+                ->all(),
         ];
     }
 
@@ -217,9 +247,6 @@ final class RecruitmentDashboardService
             ],
         ];
 
-        return array_values(array_filter(
-            $queues,
-            fn (array $queue): bool => ($queue['count'] ?? 0) > 0,
-        ));
+        return $queues;
     }
 }

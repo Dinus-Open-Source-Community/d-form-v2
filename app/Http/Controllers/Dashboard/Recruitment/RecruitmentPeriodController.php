@@ -3,18 +3,22 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\IndexRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentDivision;
+use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Models\User;
 use App\Services\Recruitment\RecruitmentApplicationService;
+use App\Services\Recruitment\RecruitmentDivisionService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,29 +29,8 @@ class RecruitmentPeriodController extends Controller
         private readonly RecruitmentApplicationService $applicationService,
         private readonly InterviewSessionService $sessionService,
         private readonly RecruitmentReportService $reportService,
+        private readonly RecruitmentDivisionService $divisionService,
     ) {
-    }
-
-    public function index(IndexRecruitmentPeriodRequest $request): Response
-    {
-        $validated = $request->validated();
-        $page = $request->integer('page', 1);
-
-        $paginator = $this->periodService->paginate($validated, $page);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(
-                fn (RecruitmentPeriod $period) => $this->periodService->toInertiaArray($period)
-            )
-        );
-
-        return Inertia::render('Dashboard/Recruitment/Periods/Index', [
-            'periods' => $paginator,
-            'query' => $validated,
-            'statusOptions' => collect(\App\Enums\Recruitment\RecruitmentPeriodStatus::cases())
-                ->map(fn ($s) => ['value' => $s->value, 'label' => $s->label()])
-                ->values()
-                ->all(),
-        ]);
     }
 
     public function create(): Response
@@ -59,7 +42,10 @@ class RecruitmentPeriodController extends Controller
 
     public function store(StoreRecruitmentPeriodRequest $request): RedirectResponse
     {
-        $period = $this->periodService->create($request->validated());
+        $data = $request->validated();
+        $data['created_by'] = $request->user()->id;
+
+        $period = $this->periodService->create($data);
 
         Inertia::flash('toast', [
             'message' => 'Periode recruitment berhasil dibuat.',
@@ -77,7 +63,7 @@ class RecruitmentPeriodController extends Controller
 
         $validated = $request->validated();
         $tab = $validated['tab'] ?? 'peserta';
-        if (! in_array($tab, ['peserta', 'interview', 'laporan'], true)) {
+        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer'], true)) {
             $tab = 'peserta';
         }
 
@@ -86,14 +72,20 @@ class RecruitmentPeriodController extends Controller
         $sessions = null;
         $todaySessions = [];
         $report = null;
+        $applicantDetail = null;
+        $divisions = null;
+        $assignments = null;
+        $interviewerCandidates = null;
 
         if ($tab === 'peserta') {
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
             if ($canListApplications) {
+                $perPage = max(5, min(100, $request->integer('per_page', 5)));
                 $paginator = $this->applicationService->paginate(
                     $validated + ['period_id' => $period->id],
                     $request->integer('page', 1),
+                    $perPage,
                 );
                 $paginator->setCollection(
                     $paginator->getCollection()->map(
@@ -103,6 +95,19 @@ class RecruitmentPeriodController extends Controller
 
                 $applications = $paginator;
                 $queueCounts = $this->applicationService->queueCounts($period->id);
+
+                $applicationId = $validated['application'] ?? null;
+
+                if (is_string($applicationId) && $applicationId !== '' && Str::isUuid($applicationId)) {
+                    $selected = RecruitmentApplication::query()->find($applicationId);
+
+                    abort_if($selected === null, 404);
+                    abort_unless($selected->recruitment_period_id === $period->id, 404);
+
+                    $this->authorize('view', $selected);
+
+                    $applicantDetail = $this->applicationService->toShowArray($selected);
+                }
             }
         }
 
@@ -130,10 +135,41 @@ class RecruitmentPeriodController extends Controller
             $report = $this->reportService->build($period->id);
         }
 
+        if ($tab === 'interviewer') {
+            $this->authorize('assignInterviewer', RecruitmentDivision::class);
+
+            $divisions = $this->divisionService->listAllOrdered()
+                ->map(fn (RecruitmentDivision $d) => $this->divisionService->toInertiaArray($d));
+
+            $assignments = RecruitmentInterviewerDivision::query()
+                ->with(['user:id,name,email', 'division:id,name,code'])
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (RecruitmentInterviewerDivision $a) => [
+                    'id' => $a->id,
+                    'user_id' => $a->user_id,
+                    'user_name' => $a->user?->name,
+                    'user_email' => $a->user?->email,
+                    'division_id' => $a->recruitment_division_id,
+                    'division_name' => $a->division?->name,
+                    'division_code' => $a->division?->code,
+                ])
+                ->values()
+                ->all();
+
+            $interviewerCandidates = User::query()
+                ->role(['recruitment-interviewer', 'recruitment-staff', 'admin'])
+                ->orderBy('name')
+                ->get(['id', 'name', 'email'])
+                ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email])
+                ->values()
+                ->all();
+        }
+
         $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
         $props = [
-            'period' => $this->periodService->toInertiaArray($period),
+            'period' => $this->periodService->toInertiaArray($period, $request->user()),
             'tab' => $tab,
             'queue_counts' => (object) $queueCounts,
             'today_sessions' => $todaySessions,
@@ -158,6 +194,16 @@ class RecruitmentPeriodController extends Controller
             $props['report'] = $report;
         }
 
+        if ($tab === 'interviewer') {
+            $props['divisions'] = $divisions;
+            $props['assignments'] = $assignments;
+            $props['interviewerCandidates'] = $interviewerCandidates;
+        }
+
+        if ($applicantDetail !== null) {
+            $props['applicant_detail'] = $applicantDetail;
+        }
+
         return Inertia::render('Dashboard/Recruitment/Periods/Show', $props);
     }
 
@@ -166,7 +212,7 @@ class RecruitmentPeriodController extends Controller
         $this->authorize('update', $period);
 
         return Inertia::render('Dashboard/Recruitment/Periods/Edit', [
-            'period' => $this->periodService->toInertiaArray($period),
+            'period' => $this->periodService->toInertiaArray($period, auth()->user()),
         ]);
     }
 
@@ -188,7 +234,7 @@ class RecruitmentPeriodController extends Controller
         $period->delete();
 
         return redirect()
-            ->route('dashboard.recruitment.periods.index')
+            ->route('dashboard.recruitment.index')
             ->with('message', 'Periode recruitment berhasil dihapus.');
     }
 

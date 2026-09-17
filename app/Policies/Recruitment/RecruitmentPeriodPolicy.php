@@ -14,6 +14,10 @@ class RecruitmentPeriodPolicy
 
     public function view(User $user, RecruitmentPeriod $period): bool
     {
+        if ($this->isOwner($user, $period) || $period->created_by === null) {
+            return true;
+        }
+
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.view');
     }
 
@@ -24,6 +28,10 @@ class RecruitmentPeriodPolicy
 
     public function update(User $user, RecruitmentPeriod $period): bool
     {
+        if ($this->isOwner($user, $period)) {
+            return true;
+        }
+
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.edit');
     }
 
@@ -45,5 +53,10 @@ class RecruitmentPeriodPolicy
     private function isSuperAdmin(User $user): bool
     {
         return $user->hasRole('super-admin');
+    }
+
+    private function isOwner(User $user, RecruitmentPeriod $period): bool
+    {
+        return $period->created_by !== null && (string) $period->created_by === (string) $user->id;
     }
 }

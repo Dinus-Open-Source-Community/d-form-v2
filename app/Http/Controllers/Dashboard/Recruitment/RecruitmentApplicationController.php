@@ -34,15 +34,26 @@ class RecruitmentApplicationController extends Controller
         ]);
     }
 
-    public function downloadDocument(RecruitmentApplication $application, string $type): StreamedResponse
+    public function downloadDocument(Request $request, RecruitmentApplication $application, string $type): StreamedResponse
     {
         $this->authorize('downloadDocument', $application);
 
         $document = $application->document;
         abort_if($document === null, 404);
 
+        $preview = $request->boolean('preview');
+
         if ($type === 'cv') {
             abort_if(blank($document->cv_path), 404);
+
+            if ($preview) {
+                return Storage::disk('local')->response(
+                    $document->cv_path,
+                    $document->cv_original_name,
+                    ['Content-Type' => 'application/pdf'],
+                    'inline',
+                );
+            }
 
             return Storage::disk('local')->download(
                 $document->cv_path,
@@ -53,6 +64,15 @@ class RecruitmentApplicationController extends Controller
 
         if ($type === 'portfolio') {
             abort_if(blank($document->portfolio_path), 404);
+
+            if ($preview) {
+                return Storage::disk('local')->response(
+                    $document->portfolio_path,
+                    $document->portfolio_original_name ?? 'portfolio.pdf',
+                    ['Content-Type' => 'application/pdf'],
+                    'inline',
+                );
+            }
 
             return Storage::disk('local')->download(
                 $document->portfolio_path,

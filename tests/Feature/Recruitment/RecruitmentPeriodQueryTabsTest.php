@@ -171,14 +171,14 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
     {
         $this->actingAs($this->admin(['recruitment.reports.view']))
             ->get('/admin/recruitment/reports')
-            ->assertRedirect(route('dashboard.recruitment.periods.index'));
+            ->assertRedirect(route('dashboard.recruitment.index'));
     }
 
     public function test_interview_sessions_index_redirect_ke_daftar_periode(): void
     {
         $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.interviews.schedule']))
             ->get('/admin/recruitment/interview-sessions')
-            ->assertRedirect(route('dashboard.recruitment.periods.index'));
+            ->assertRedirect(route('dashboard.recruitment.index'));
     }
 
     public function test_tab_interview_ditolak_untuk_interviewer_only(): void

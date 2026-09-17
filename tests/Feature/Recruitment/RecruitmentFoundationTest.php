@@ -115,7 +115,14 @@ class RecruitmentFoundationTest extends TestCase
             ->assertOk();
 
         $this->actingAs($staff)
-            ->get(route('dashboard.recruitment.periods.index'))
+            ->get(route('dashboard.recruitment.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('periods'));
+
+        $this->actingAs($staff)
+            ->post(route('dashboard.recruitment.periods.store'), [
+                'name' => 'OpRec Forbidden',
+            ])
             ->assertForbidden();
     }
 }
