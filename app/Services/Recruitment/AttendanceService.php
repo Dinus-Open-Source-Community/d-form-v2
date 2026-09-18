@@ -9,7 +9,9 @@ use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Models\User;
+use App\Support\Database\UniqueConstraintViolation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,29 +43,37 @@ final class AttendanceService
     ): array {
         $this->assertEligibleForCheckIn($session, $application);
 
-        $existing = RecruitmentAttendance::query()
-            ->where('recruitment_application_id', $application->id)
-            ->first();
-
-        if ($existing !== null) {
-            $application->loadMissing('queueEntry');
-
-            return [
-                'duplicate' => true,
-                'attendance' => $existing,
-                'queue' => $application->queueEntry,
-                'application' => $application,
-            ];
-        }
-
         return DB::transaction(function () use ($session, $application, $method, $operator, $request): array {
-            $attendance = RecruitmentAttendance::query()->create([
-                'recruitment_application_id' => $application->id,
-                'recruitment_interview_session_id' => $session->id,
-                'method' => $method,
-                'checked_in_at' => now(),
-                'checked_in_by' => $operator?->id,
-            ]);
+            try {
+                $attendance = RecruitmentAttendance::query()->create([
+                    'recruitment_application_id' => $application->id,
+                    'recruitment_interview_session_id' => $session->id,
+                    'method' => $method,
+                    'checked_in_at' => now(),
+                    'checked_in_by' => $operator?->id,
+                ]);
+            } catch (QueryException $exception) {
+                if (! UniqueConstraintViolation::isViolation($exception)) {
+                    throw $exception;
+                }
+
+                $existing = RecruitmentAttendance::query()
+                    ->where('recruitment_application_id', $application->id)
+                    ->first();
+
+                if ($existing === null) {
+                    throw $exception;
+                }
+
+                $application->loadMissing('queueEntry');
+
+                return [
+                    'duplicate' => true,
+                    'attendance' => $existing,
+                    'queue' => $application->queueEntry,
+                    'application' => $application,
+                ];
+            }
 
             $queue = $this->queueService->createFromAttendance($attendance);
 

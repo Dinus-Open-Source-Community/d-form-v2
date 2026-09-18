@@ -6,7 +6,9 @@ use App\Enums\FormAnswerReviewStatus;
 use App\Enums\FormPurpose;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
-use App\Http\Controllers\Dashboard\Events\AttendanceScanController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanExportController;
+use App\Http\Controllers\Dashboard\Scan\GlobalScanFeedController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
@@ -35,6 +37,33 @@ Route::middleware('auth')->get('/dashboard', function () {
 
     return app(MemberDashboardController::class)(request());
 })->name('dashboard');
+
+// Redirect lawas skema /user/dashboard/* (dari backup-oprec-removal) — target
+// route-name terverifikasi hidup di skema /joined. Redirect statis skema lama
+// sengaja tidak dibawa (target path-nya sudah tidak ada di main).
+Route::get(
+    '/user/dashboard/events/{event_segment}/register',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.register', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}/registration',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.registration', ['event_segment' => $event_segment], 301)
+);
+Route::get(
+    '/user/dashboard/team-invitations/{token}',
+    fn (string $token) => redirect()->route('dashboard.user.team-invitations.show', ['token' => $token], 301)
+);
+Route::get(
+    '/user/dashboard/events/{event_segment}',
+    fn (string $event_segment) => redirect()->route('dashboard.user.events.show', ['event_segment' => $event_segment], 301)
+);
+
+Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group(function () {
+    Route::get('/', [GlobalScanController::class, 'show'])->middleware('throttle:scan-page')->name('index');
+    Route::get('/feed', [GlobalScanFeedController::class, 'feed'])->middleware('throttle:scan-feed')->name('feed');
+    Route::get('/export', [GlobalScanExportController::class, 'export'])->middleware('throttle:scan-export')->name('export');
+    Route::post('/', [GlobalScanController::class, 'store'])->middleware('throttle:scan-store')->name('store');
+});
 
 Route::middleware('auth')->get('/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
 Route::middleware(['auth', 'throttle:10,1'])->patch('/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
@@ -225,7 +254,6 @@ Route::middleware(['auth', 'member_portal'])->get('/browse', function (EventServ
 Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
     Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
-    Route::get('/scan', [AttendanceScanController::class, 'show'])->name('scan');
-    Route::post('/attendance-scan', [AttendanceScanController::class, 'store'])->name('attendance-scan.store');
+    Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

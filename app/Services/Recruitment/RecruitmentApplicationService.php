@@ -20,7 +20,7 @@ final class RecruitmentApplicationService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 5): LengthAwarePaginator
     {
         $query = RecruitmentApplication::query()
             ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
@@ -281,6 +281,27 @@ final class RecruitmentApplicationService
                 'name' => $division->name,
                 'code' => $division->code,
             ])
+            ->all();
+    }
+
+    /**
+     * Semester yang benar-benar ada pada aplikasi periode tersebut, tanpa terpengaruh filter.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public function semesterOptions(string $periodId): array
+    {
+        return RecruitmentApplication::query()
+            ->where('recruitment_period_id', $periodId)
+            ->whereNotNull('semester')
+            ->orderBy('semester')
+            ->distinct()
+            ->pluck('semester')
+            ->map(fn (int $semester): array => [
+                'value' => (string) $semester,
+                'label' => "Semester {$semester}",
+            ])
+            ->values()
             ->all();
     }
 

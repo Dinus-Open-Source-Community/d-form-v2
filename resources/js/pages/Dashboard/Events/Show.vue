@@ -17,7 +17,6 @@ defineOptions({ layout: DashboardFocusLayout })
 const props = defineProps<{
     event: IEvent
     forms: { id: string; title: string }[]
-    exports: { registrations: string; attendance: string }
 }>()
 
 const laporanHref = routes.admin.events.laporan(props.event.id)
@@ -60,8 +59,6 @@ const p = reactive(useDashboardEventShowPage(props.event, props.forms))
                     :event="props.event"
                     :forms="p.forms"
                     :card-shadow="p.cardShadow"
-                    :registrations-csv-href="props.exports.registrations"
-                    :attendance-csv-href="props.exports.attendance"
                     :laporan-href="laporanHref"
                     @open-archive="p.showDeleteModal = true"
                     @open-restore="p.showRestoreModal = true"

@@ -58,7 +58,6 @@ export const routes = {
         recruitment: {
             index: `${ADMIN_BASE}/recruitment`,
             reports: {
-                index: `${ADMIN_BASE}/recruitment/reports`,
                 exportFunnel: (periodId?: string) =>
                     `${ADMIN_BASE}/recruitment/reports/export/funnel.csv${periodId ? `?period_id=${periodId}` : ''}`,
                 exportApplicants: (periodId?: string) =>
@@ -68,7 +67,7 @@ export const routes = {
                 index: `${ADMIN_BASE}/recruitment/activity-logs`,
             },
             periods: {
-                index: `${ADMIN_BASE}/recruitment/periods`,
+                index: `${ADMIN_BASE}/recruitment`,
                 create: `${ADMIN_BASE}/recruitment/periods/create`,
                 store: `${ADMIN_BASE}/recruitment/periods`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
@@ -78,18 +77,17 @@ export const routes = {
                 close: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/close`,
             },
             divisions: {
-                index: `${ADMIN_BASE}/recruitment/divisions`,
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,
             },
             interviewers: {
+                store: `${ADMIN_BASE}/recruitment/interviewers`,
                 assign: `${ADMIN_BASE}/recruitment/interviewers/assign`,
                 unassign: (id: string) => `${ADMIN_BASE}/recruitment/interviewers/${id}`,
             },
             applications: {
-                index: `${ADMIN_BASE}/recruitment/applications`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}`,
-                document: (id: string, type: 'cv' | 'portfolio') =>
-                    `${ADMIN_BASE}/recruitment/applications/${id}/documents/${type}`,
+                document: (id: string, type: 'cv' | 'portfolio', preview = false) =>
+                    `${ADMIN_BASE}/recruitment/applications/${id}/documents/${type}${preview ? '?preview=1' : ''}`,
                 screening: {
                     pass: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/screening/pass`,
                     revision: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/screening/revision`,
@@ -107,7 +105,6 @@ export const routes = {
                 reject: (id: string) => `${ADMIN_BASE}/recruitment/corrections/${id}/reject`,
             },
             interviewSessions: {
-                index: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 store: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
                 schedule: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}/schedule`,
@@ -129,17 +126,12 @@ export const routes = {
                 complete: (entryId: string) => `${ADMIN_BASE}/recruitment/queue/${entryId}/complete`,
                 noShow: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/no-show`,
             },
-            attendanceScan: {
-                index: `${ADMIN_BASE}/recruitment/attendance-scan`,
-                store: `${ADMIN_BASE}/recruitment/attendance-scan`,
-            },
         },
         events: {
             index: `${ADMIN_BASE}/events`,
             create: `${ADMIN_BASE}/events/create`,
             show: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}`,
             edit: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/edit`,
-            scan: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/scan`,
             registrants: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/registrants`,
             laporan: (eventId: string | number) => `${ADMIN_BASE}/events/${eventId}/laporan`,
             exports: {
@@ -159,6 +151,13 @@ export const routes = {
                 submissions: (eventId: string | number, formId: string | number) =>
                     `${ADMIN_BASE}/events/${eventId}/forms/${formId}/submissions`,
             },
+        },
+        scan: {
+            index: `${ADMIN_BASE}/scan`,
+            store: `${ADMIN_BASE}/scan`,
+            feed: `${ADMIN_BASE}/scan/feed`,
+            export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }) =>
+                `${ADMIN_BASE}/scan/export?kind=${params.kind}&target=${encodeURIComponent(params.target)}&format=${params.format}`,
         },
     },
 
@@ -204,34 +203,24 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
         return path === routes.member.joined;
     }
     if (href === routes.admin.recruitment.index) {
-        return path === routes.admin.recruitment.index;
+        // Daftar periode kini menyatu di Pusat kerja; halaman detail/create/edit
+        // periode (di bawah /admin/recruitment/periods) tetap menandai
+        // Pusat kerja sebagai aktif.
+        if (path === routes.admin.recruitment.index) return true;
+        if (path.startsWith(`${ADMIN_BASE}/recruitment/periods`)) return true;
+        return false;
     }
     if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
         return path.startsWith(routes.admin.recruitment.myInterviews.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.periods.index)) {
-        return path.startsWith(routes.admin.recruitment.periods.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.divisions.index)) {
-        return path.startsWith(routes.admin.recruitment.divisions.index);
     }
     if (href.startsWith(routes.admin.recruitment.activityLogs.index)) {
         return path.startsWith(routes.admin.recruitment.activityLogs.index);
     }
-    if (href.startsWith(routes.admin.recruitment.reports.index)) {
-        return path.startsWith(routes.admin.recruitment.reports.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.applications.index)) {
-        return path.startsWith(routes.admin.recruitment.applications.index);
-    }
-    if (href.startsWith(routes.admin.recruitment.interviewSessions.index)) {
-        return path.startsWith(routes.admin.recruitment.interviewSessions.index);
-    }
     if (href.startsWith(routes.admin.recruitment.myInterviews.index)) {
         return path.startsWith(routes.admin.recruitment.myInterviews.index);
     }
-    if (href.startsWith(routes.admin.recruitment.attendanceScan.index)) {
-        return path.startsWith(routes.admin.recruitment.attendanceScan.index);
+    if (href === routes.admin.scan.index) {
+        return path === routes.admin.scan.index;
     }
     if (href.includes('/recruitment/queue/')) {
         return path.includes('/recruitment/queue/');

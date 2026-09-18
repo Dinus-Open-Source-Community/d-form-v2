@@ -25,8 +25,11 @@ import {
     Compass,
     Users,
     ChevronDown,
-    Settings2,
     ClipboardCheck,
+    ScanLine,
+    Briefcase,
+    UserCheck,
+    History,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
 import useAuth from '@/utils/composables/useAuth';
@@ -37,13 +40,12 @@ const { isMobile, setOpenMobile } = useSidebar();
 
 const canManageEvents = computed(() => user.value?.can_manage_events === true);
 const canAccessRecruitment = computed(() => user.value?.can_access_recruitment === true);
-const canManageRecruitmentPeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
-const canViewRecruitmentReports = computed(() => user.value?.can_view_recruitment_reports === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
 const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
+const canScanGlobal = computed(() => user.value?.can_manage_events === true || user.value?.can_scan_recruitment_attendance === true);
 
 const currentPath = computed(() => page.url);
 
@@ -55,15 +57,19 @@ const mainNavItems = computed(() => [
 const managementItems = computed(() => {
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
 
+    if (canScanGlobal.value) {
+        items.push({ label: 'Scan Global', href: routes.admin.scan.index, icon: ScanLine });
+    }
+
     if (canManageEvents.value) {
         items.push({ label: 'Acara', href: routes.admin.events.index, icon: CalendarDays });
     }
 
     if (canAccessRecruitment.value && isInterviewerOnly.value) {
         items.push({ label: 'Interview OpRec', href: routes.admin.recruitment.myInterviews.index, icon: ClipboardCheck });
-    } else if (canAccessRecruitment.value) {
-        items.push({ label: 'Rekrutmen', href: routes.admin.recruitment.index, icon: Users });
     }
+    // Rekrutmen untuk non-interviewer dirender sebagai parent collapsible
+    // di bawah (showRecruitmentParent), bukan flat item di sini.
 
     if (!canManageEvents.value && !canAccessRecruitment.value) {
         items.push(
@@ -80,34 +86,18 @@ const managementItems = computed(() => {
     return items;
 });
 
-const interviewerNavItems = computed(() => {
-    if (!isInterviewerOnly.value || !canViewMyRecruitmentInterviews.value) return [];
-
-    return [{ label: 'Pusat interview', href: routes.admin.recruitment.myInterviews.index }];
-});
-
 const recruitmentOpsItems = computed(() => {
     if (!canAccessRecruitment.value || isInterviewerOnly.value) return [];
 
-    const items = [{ label: 'Pusat kerja', href: routes.admin.recruitment.index }];
-
-    if (canListRecruitmentApplications.value) {
-        items.push({ label: 'Applicant', href: routes.admin.recruitment.applications.index });
-    }
-
-    if (canScheduleRecruitmentInterviews.value) {
-        items.push({ label: 'Interview', href: routes.admin.recruitment.interviewSessions.index });
-    }
-
-    if (canViewRecruitmentReports.value) {
-        items.push({ label: 'Laporan', href: routes.admin.recruitment.reports.index });
-    }
+    const items: { label: string; href: string; icon: typeof CalendarDays }[] = [
+        { label: 'Pusat kerja', href: routes.admin.recruitment.index, icon: Briefcase },
+    ];
 
     if (
         canViewMyRecruitmentInterviews.value &&
         (canListRecruitmentApplications.value || canScheduleRecruitmentInterviews.value)
     ) {
-        items.push({ label: 'Interview Saya', href: routes.admin.recruitment.myInterviews.index });
+        items.push({ label: 'Interview Saya', href: routes.admin.recruitment.myInterviews.index, icon: UserCheck });
     }
 
     return items;
@@ -116,47 +106,41 @@ const recruitmentOpsItems = computed(() => {
 const recruitmentSettingsItems = computed(() => {
     if (!canAccessRecruitment.value || isInterviewerOnly.value) return [];
 
-    const items: { label: string; href: string }[] = [];
-
-    if (canManageRecruitmentPeriods.value) {
-        items.push(
-            { label: 'Periode', href: routes.admin.recruitment.periods.index },
-            { label: 'Divisi', href: routes.admin.recruitment.divisions.index },
-        );
-    }
+    const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
 
     if (canViewRecruitmentActivity.value) {
-        items.push({ label: 'Activity Log', href: routes.admin.recruitment.activityLogs.index });
+        items.push({ label: 'Activity Log', href: routes.admin.recruitment.activityLogs.index, icon: History });
     }
 
     return items;
 });
 
-const showInterviewerSection = computed(() => interviewerNavItems.value.length > 0);
-const showRecruitmentSection = computed(
-    () => recruitmentOpsItems.value.length > 0 || recruitmentSettingsItems.value.length > 0,
-);
 const showRecruitmentSettings = computed(() => recruitmentSettingsItems.value.length > 0);
+/** FLATTEN: gabung ops + settings jadi satu level sublist di bawah parent Rekrutmen. */
+const recruitmentSubItems = computed(() => [...recruitmentOpsItems.value, ...recruitmentSettingsItems.value]);
+const showRecruitmentParent = computed(
+    () => recruitmentOpsItems.value.length > 0 || showRecruitmentSettings.value,
+);
 
-const recruitmentSettingsOpen = ref(false);
+const recruitmentOpen = ref(false);
 
 function isActive(href: string): boolean {
     return isSidebarNavActive(href, currentPath.value);
 }
 
-function isRecruitmentSettingsActive(): boolean {
-    return recruitmentSettingsItems.value.some((item) => isActive(item.href));
+function isRecruitmentActive(): boolean {
+    return recruitmentSubItems.value.some((item) => isActive(item.href));
 }
 
-function toggleRecruitmentSettings() {
-    recruitmentSettingsOpen.value = !recruitmentSettingsOpen.value;
+function toggleRecruitment() {
+    recruitmentOpen.value = !recruitmentOpen.value;
 }
 
 watch(
     currentPath,
     () => {
-        if (isRecruitmentSettingsActive()) {
-            recruitmentSettingsOpen.value = true;
+        if (isRecruitmentActive()) {
+            recruitmentOpen.value = true;
         }
     },
     { immediate: true },
@@ -196,10 +180,15 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     Menu utama
                 </SidebarGroupLabel>
                 <SidebarGroupContent class="space-y-0.5">
-                    <SidebarMenu class="gap-0.5">
+                    <SidebarMenu class="gap-1">
                         <SidebarMenuItem v-for="item in mainNavItems" :key="item.href">
-                            <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
-                                <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
+                            <SidebarMenuButton
+                                as-child
+                                :is-active="isActive(item.href)"
+                                :tooltip="item.label"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                            >
+                                <Link :href="item.href" @click="closeMobileIfNeeded">
                                     <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
                                     <span class="font-medium">{{ item.label }}</span>
                                 </Link>
@@ -218,92 +207,59 @@ const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
                     Kelola
                 </SidebarGroupLabel>
                 <SidebarGroupContent class="space-y-0.5">
-                    <SidebarMenu class="gap-0.5">
+                    <SidebarMenu class="gap-1">
                         <SidebarMenuItem v-for="item in managementItems" :key="item.href">
-                            <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
-                                <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
+                            <SidebarMenuButton
+                                as-child
+                                :is-active="isActive(item.href)"
+                                :tooltip="item.label"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                            >
+                                <Link :href="item.href" @click="closeMobileIfNeeded">
                                     <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
                                     <span class="font-medium">{{ item.label }}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+
+                        <SidebarMenuItem v-if="showRecruitmentParent">
+                            <SidebarMenuButton
+                                :is-active="isRecruitmentActive()"
+                                tooltip="Rekrutmen"
+                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                                @click="toggleRecruitment"
+                            >
+                                <Users class="size-4 shrink-0 opacity-90" />
+                                <span class="font-medium">Rekrutmen</span>
+                                <ChevronDown
+                                    class="ml-auto size-4 shrink-0 opacity-70 transition-transform duration-200"
+                                    :class="recruitmentOpen ? 'rotate-180' : ''"
+                                />
+                            </SidebarMenuButton>
+                            <SidebarMenuSub v-show="recruitmentOpen" class="mt-1 gap-1 py-1">
+                                <SidebarMenuSubItem v-for="item in recruitmentSubItems" :key="item.href">
+                                    <SidebarMenuSubButton
+                                        as-child
+                                        :is-active="isActive(item.href)"
+                                        class="h-auto min-h-9 gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
+                                        :class="
+                                            isActive(item.href)
+                                                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs'
+                                                : undefined
+                                        "
+                                    >
+                                        <Link :href="item.href" @click="closeMobileIfNeeded">
+                                            <component :is="item.icon" class="size-3.5 shrink-0 opacity-80" />
+                                            <span class="truncate">{{ item.label }}</span>
+                                        </Link>
+                                    </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                            </SidebarMenuSub>
+                        </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroupContent>
             </SidebarGroup>
 
-            <template v-if="showInterviewerSection">
-                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
-
-                <SidebarGroup class="p-0">
-                    <SidebarGroupLabel
-                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                    >
-                        Interview OpRec
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent class="space-y-0.5">
-                        <SidebarMenu class="gap-0.5">
-                            <SidebarMenuItem v-for="item in interviewerNavItems" :key="item.href">
-                                <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
-                                    <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
-                                        <ClipboardCheck class="size-4 shrink-0 opacity-90" />
-                                        <span class="font-medium">{{ item.label }}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </template>
-
-            <template v-if="showRecruitmentSection">
-                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
-
-                <SidebarGroup class="p-0">
-                    <SidebarGroupLabel
-                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                    >
-                        OpRec
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent class="space-y-0.5">
-                        <SidebarMenu class="gap-0.5">
-                            <SidebarMenuItem v-for="item in recruitmentOpsItems" :key="item.href">
-                                <SidebarMenuButton as-child :is-active="isActive(item.href)" :tooltip="item.label">
-                                    <Link :href="item.href" class="gap-3 rounded-lg" @click="closeMobileIfNeeded">
-                                        <span class="font-medium">{{ item.label }}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-
-                            <SidebarMenuItem v-if="showRecruitmentSettings">
-                                <SidebarMenuButton
-                                    :is-active="isRecruitmentSettingsActive()"
-                                    tooltip="Pengaturan OpRec"
-                                    @click="toggleRecruitmentSettings"
-                                >
-                                    <Settings2 class="size-4 shrink-0 opacity-90" />
-                                    <span class="font-medium">Pengaturan OpRec</span>
-                                    <ChevronDown
-                                        class="ml-auto size-4 shrink-0 opacity-70 transition-transform duration-200"
-                                        :class="recruitmentSettingsOpen ? 'rotate-180' : ''"
-                                    />
-                                </SidebarMenuButton>
-                                <SidebarMenuSub v-show="recruitmentSettingsOpen">
-                                    <SidebarMenuSubItem
-                                        v-for="item in recruitmentSettingsItems"
-                                        :key="item.href"
-                                    >
-                                        <SidebarMenuSubButton as-child :is-active="isActive(item.href)">
-                                            <Link :href="item.href" @click="closeMobileIfNeeded">
-                                                {{ item.label }}
-                                            </Link>
-                                        </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                </SidebarMenuSub>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </template>
         </SidebarContent>
 
 

@@ -728,7 +728,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 <div>
                                     <h4 class="text-sm font-semibold text-foreground">Untuk Penyelenggara</h4>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                        Buka halaman Scan (<code>/admin/events/{event}/scan</code>). Arahkan kamera ke QR peserta, atau masukkan kode registrasi secara manual. Sistem akan memverifikasi dan mencatat kehadiran. Setiap peserta hanya bisa di-scan sekali per acara.
+                                        Buka halaman Scan (<code>/admin/scan</code>). Arahkan kamera ke QR peserta, atau masukkan kode registrasi secara manual. Sistem akan memverifikasi dan mencatat kehadiran. Setiap peserta hanya bisa di-scan sekali per acara.
                                     </p>
                                 </div>
                             </div>
@@ -1031,8 +1031,8 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                     <p class="mt-0.5 text-xs text-muted-foreground">Generates QR code PNG from FormAnswer ID for attendance scanning.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Attendance/AttendanceScanSubmissionResolver</h4>
-                                    <p class="mt-0.5 text-xs text-muted-foreground">Resolves scan input (UUID, registration code, or QR payload) to a FormAnswer.</p>
+                                    <h4 class="font-mono text-xs font-semibold text-foreground">Scan/GlobalScanResolver</h4>
+                                    <p class="mt-0.5 text-xs text-muted-foreground">Discriminates one raw scan payload into an event submission or a recruitment application (QR JSON, submission UUID, or registration code).</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
                                     <h4 class="font-mono text-xs font-semibold text-foreground">Reporting/EventReportingQuery</h4>

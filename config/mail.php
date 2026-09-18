@@ -115,4 +115,18 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Test Redirect Address (temporary scan-test helper)
+    |--------------------------------------------------------------------------
+    |
+    | When set (and the app runs in the "local" environment — see
+    | AppServiceProvider), every outgoing email is redirected to this
+    | address via Mail::alwaysTo(). Leave empty to disable. Never set this
+    | in production.
+    |
+    */
+
+    'test_redirect' => env('MAIL_TEST_REDIRECT'),
+
 ];

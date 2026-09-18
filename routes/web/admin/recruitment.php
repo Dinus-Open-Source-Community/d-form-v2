@@ -13,7 +13,6 @@ use App\Http\Controllers\Dashboard\Recruitment\RecruitmentScreeningController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentEvaluationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentFinalSelectionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentMyInterviewController;
-use App\Http\Controllers\Dashboard\Recruitment\RecruitmentAttendanceScanController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentQueueController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,7 +22,6 @@ Route::middleware(['auth', 'recruitment.access'])
     ->group(function (): void {
         Route::get('/', RecruitmentDashboardController::class)->name('index');
 
-        Route::get('reports', [RecruitmentReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export/funnel.csv', [RecruitmentReportController::class, 'exportFunnel'])
             ->name('reports.export.funnel');
         Route::get('reports/export/applicants.csv', [RecruitmentReportController::class, 'exportApplicants'])
@@ -31,16 +29,19 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
 
-        Route::resource('periods', RecruitmentPeriodController::class);
+        Route::redirect('interview-sessions', '/admin/recruitment');
+        Route::redirect('reports', '/admin/recruitment');
+        Route::redirect('periods', '/admin/recruitment');
+
+        Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
 
-        Route::get('divisions', [RecruitmentDivisionController::class, 'index'])->name('divisions.index');
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
+        Route::post('interviewers', [RecruitmentDivisionController::class, 'storeInterviewer'])->name('interviewers.store');
         Route::delete('interviewers/{assignment}', [RecruitmentDivisionController::class, 'unassignInterviewer'])->name('interviewers.unassign');
 
-        Route::get('applications', [RecruitmentApplicationController::class, 'index'])->name('applications.index');
         Route::get('applications/{application}', [RecruitmentApplicationController::class, 'show'])->name('applications.show');
         Route::get('applications/{application}/documents/{type}', [RecruitmentApplicationController::class, 'downloadDocument'])
             ->name('applications.documents.download')
@@ -65,8 +66,6 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('corrections/{correction}/reject', [RecruitmentCorrectionController::class, 'reject'])
             ->name('corrections.reject');
 
-        Route::get('interview-sessions', [RecruitmentInterviewSessionController::class, 'index'])
-            ->name('interview-sessions.index');
         Route::post('interview-sessions', [RecruitmentInterviewSessionController::class, 'store'])
             ->name('interview-sessions.store');
         Route::get('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'show'])
@@ -89,10 +88,7 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('queue/{entry}/complete', [RecruitmentQueueController::class, 'complete'])
             ->name('queue.complete');
 
-        Route::get('attendance-scan', [RecruitmentAttendanceScanController::class, 'show'])
-            ->name('attendance-scan');
-        Route::post('attendance-scan', [RecruitmentAttendanceScanController::class, 'store'])
-            ->name('attendance-scan.store');
+        Route::get('attendance-scan', fn () => to_route('dashboard.scan.index'))->name('attendance-scan');
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');

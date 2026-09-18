@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\IndexRecruitmentApplicationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
 use App\Services\Recruitment\RecruitmentApplicationService;
@@ -23,33 +22,6 @@ class RecruitmentApplicationController extends Controller
     ) {
     }
 
-    public function index(IndexRecruitmentApplicationRequest $request): Response
-    {
-        $validated = $request->validated();
-        $page = $request->integer('page', 1);
-
-        $paginator = $this->applicationService->paginate($validated, $page);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(
-                fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
-            )
-        );
-
-        $periodId = isset($validated['period_id']) ? (string) $validated['period_id'] : null;
-
-        return Inertia::render('Dashboard/Recruitment/Applications/Index', [
-            'applications' => $paginator,
-            'query' => $validated,
-            'queue_counts' => $this->applicationService->queueCounts($periodId),
-            'periodOptions' => $this->applicationService->periodOptions(),
-            'divisionOptions' => $this->applicationService->divisionOptions(),
-            'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
-                ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
-                ->values()
-                ->all(),
-        ]);
-    }
-
     public function show(RecruitmentApplication $application): Response
     {
         $this->authorize('view', $application);
@@ -62,15 +34,26 @@ class RecruitmentApplicationController extends Controller
         ]);
     }
 
-    public function downloadDocument(RecruitmentApplication $application, string $type): StreamedResponse
+    public function downloadDocument(Request $request, RecruitmentApplication $application, string $type): StreamedResponse
     {
         $this->authorize('downloadDocument', $application);
 
         $document = $application->document;
         abort_if($document === null, 404);
 
+        $preview = $request->boolean('preview');
+
         if ($type === 'cv') {
             abort_if(blank($document->cv_path), 404);
+
+            if ($preview) {
+                return Storage::disk('local')->response(
+                    $document->cv_path,
+                    $document->cv_original_name,
+                    ['Content-Type' => 'application/pdf'],
+                    'inline',
+                );
+            }
 
             return Storage::disk('local')->download(
                 $document->cv_path,
@@ -81,6 +64,15 @@ class RecruitmentApplicationController extends Controller
 
         if ($type === 'portfolio') {
             abort_if(blank($document->portfolio_path), 404);
+
+            if ($preview) {
+                return Storage::disk('local')->response(
+                    $document->portfolio_path,
+                    $document->portfolio_original_name ?? 'portfolio.pdf',
+                    ['Content-Type' => 'application/pdf'],
+                    'inline',
+                );
+            }
 
             return Storage::disk('local')->download(
                 $document->portfolio_path,

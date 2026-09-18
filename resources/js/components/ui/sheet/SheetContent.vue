@@ -14,6 +14,7 @@ import SheetOverlay from "./SheetOverlay.vue"
 
 interface SheetContentProps extends DialogContentProps {
   class?: HTMLAttributes["class"]
+  overlayClass?: HTMLAttributes["class"]
   side?: "top" | "right" | "bottom" | "left"
 }
 
@@ -26,14 +27,14 @@ const props = withDefaults(defineProps<SheetContentProps>(), {
 })
 const emits = defineEmits<DialogContentEmits>()
 
-const delegatedProps = reactiveOmit(props, "class", "side")
+const delegatedProps = reactiveOmit(props, "class", "side", "overlayClass")
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
   <DialogPortal>
-    <SheetOverlay />
+    <SheetOverlay :class="overlayClass" />
     <DialogContent
       data-slot="sheet-content"
       :class="cn(

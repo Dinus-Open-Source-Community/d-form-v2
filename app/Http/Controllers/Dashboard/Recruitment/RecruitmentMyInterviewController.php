@@ -31,7 +31,39 @@ class RecruitmentMyInterviewController extends Controller
 
         $page = (int) request()->integer('page', 1);
         $queue = request()->query('queue');
-        $filters = is_string($queue) && $queue !== '' ? ['queue' => $queue] : [];
+        $q = request()->query('q');
+        $divisionId = request()->query('division_id');
+        $sessionId = request()->query('session_id');
+        $dateFrom = request()->query('date_from');
+        $dateTo = request()->query('date_to');
+        $eval = request()->query('eval');
+        $sort = request()->query('sort');
+
+        $filters = [];
+        if (is_string($queue) && $queue !== '') {
+            $filters['queue'] = $queue;
+        }
+        if (is_string($q) && trim($q) !== '') {
+            $filters['q'] = trim($q);
+        }
+        if (is_string($divisionId) && $divisionId !== '') {
+            $filters['division_id'] = $divisionId;
+        }
+        if (is_string($sessionId) && $sessionId !== '') {
+            $filters['session_id'] = $sessionId;
+        }
+        if (is_string($dateFrom) && trim($dateFrom) !== '') {
+            $filters['date_from'] = trim($dateFrom);
+        }
+        if (is_string($dateTo) && trim($dateTo) !== '') {
+            $filters['date_to'] = trim($dateTo);
+        }
+        if (is_string($eval) && $eval !== '') {
+            $filters['eval'] = $eval;
+        }
+        if (is_string($sort) && $sort !== '') {
+            $filters['sort'] = $sort;
+        }
 
         $interviews = $this->myInterviewService->paginateForInterviewer(
             $user,
@@ -41,10 +73,22 @@ class RecruitmentMyInterviewController extends Controller
 
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Index', [
             'interviews' => $interviews,
-            'query' => ['queue' => is_string($queue) ? $queue : ''],
+            'query' => [
+                'q' => is_string($q) ? $q : '',
+                'division_id' => is_string($divisionId) ? $divisionId : '',
+                'session_id' => is_string($sessionId) ? $sessionId : '',
+                'date_from' => is_string($dateFrom) ? $dateFrom : '',
+                'date_to' => is_string($dateTo) ? $dateTo : '',
+                'eval' => is_string($eval) ? $eval : '',
+                'sort' => is_string($sort) ? $sort : '',
+                'queue' => is_string($queue) ? $queue : '',
+                'page' => $page,
+            ],
             'queue_counts' => $this->myInterviewService->queueCounts($user),
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
+            'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
+            'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
         ]);
     }
 

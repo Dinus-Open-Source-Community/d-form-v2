@@ -219,19 +219,4 @@ final class RecruitmentReportService
             ],
         ];
     }
-
-    /**
-     * @return list<array{id: string, name: string}>
-     */
-    public function periodOptions(): array
-    {
-        return RecruitmentPeriod::query()
-            ->orderByDesc('created_at')
-            ->get(['id', 'name'])
-            ->map(fn (RecruitmentPeriod $period): array => [
-                'id' => $period->id,
-                'name' => $period->name,
-            ])
-            ->all();
-    }
 }

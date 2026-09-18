@@ -77,7 +77,7 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/periods` | `dashboard.recruitment.periods.index` | `Dashboard/Recruitment/Periods/Index` |
+| GET | `/admin/recruitment/periods` | — (DIHAPUS → redirect ke `/admin/recruitment`) | daftar periode di Pusat kerja |
 | GET | `/admin/recruitment/periods/create` | `dashboard.recruitment.periods.create` | `Dashboard/Recruitment/Periods/Create` |
 | POST | `/admin/recruitment/periods` | `dashboard.recruitment.periods.store` | redirect |
 | GET | `/admin/recruitment/periods/{period}` | `dashboard.recruitment.periods.show` | `Dashboard/Recruitment/Periods/Show` |
@@ -107,10 +107,10 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/applications` | `dashboard.recruitment.applications.index` | `Dashboard/Recruitment/Applications/Index` |
 | GET | `/admin/recruitment/applications/{application}` | `dashboard.recruitment.applications.show` | `Dashboard/Recruitment/Applications/Show` |
-| GET | `/admin/recruitment/applications/export` | `dashboard.recruitment.applications.export` | CSV download |
 | GET | `/admin/recruitment/applications/{application}/documents/{type}` | `dashboard.recruitment.applications.documents.download` | file stream |
+
+> Daftar applicant kini menyatu di halaman detail periode: `GET /admin/recruitment/periods/{period}?queue=...` (`dashboard.recruitment.periods.show`). Route daftar applicant global dihapus.
 
 **Application Show — Tabs:**
 
@@ -141,7 +141,7 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/interview-sessions` | `dashboard.recruitment.interview-sessions.index` | `Dashboard/Recruitment/InterviewSessions/Index` |
+| GET | `/admin/recruitment/interview-sessions` | — (DIHAPUS → redirect ke `/admin/recruitment`) | tab `interview` di detail periode |
 | POST | `/admin/recruitment/interview-sessions` | `dashboard.recruitment.interview-sessions.store` | redirect |
 | GET | `/admin/recruitment/interview-sessions/{session}` | `dashboard.recruitment.interview-sessions.show` | `Dashboard/Recruitment/InterviewSessions/Show` |
 | POST | `/admin/recruitment/interview-sessions/{session}/schedule` | `dashboard.recruitment.interview-sessions.schedule` | bulk schedule |
@@ -181,7 +181,7 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 
 | Method | URL | Route Name | Page |
 |--------|-----|------------|------|
-| GET | `/admin/recruitment/reports` | `dashboard.recruitment.reports.index` | `Dashboard/Recruitment/Reports/Index` |
+| GET | `/admin/recruitment/reports` | — (DIHAPUS → redirect ke `/admin/recruitment`) | tab `laporan` di detail periode |
 | GET | `/admin/recruitment/reports/funnel` | `dashboard.recruitment.reports.funnel` | JSON/props |
 | GET | `/admin/recruitment/reports/interviews` | `dashboard.recruitment.reports.interviews` | JSON/props |
 | GET | `/admin/recruitment/reports/export` | `dashboard.recruitment.reports.export` | CSV |

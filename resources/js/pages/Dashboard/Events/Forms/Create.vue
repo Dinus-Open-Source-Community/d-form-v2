@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
 import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message'
@@ -29,7 +29,7 @@ const formDescription = ref<string>('')
 const successContent = ref<string>('')
 const closedAt = ref<string>('')
 const visibleFor = ref<string[]>([])
-const bannerState = reactive(defaultFormBannerState())
+const bannerState = ref(defaultFormBannerState())
 const formFields = ref<BuilderField[]>([])
 const formMetadata = ref(emptyFormRegistrationMetadata())
 const isSaving = ref<boolean>(false)
@@ -52,11 +52,11 @@ function onSave(): void {
     createForm.success_content = successContent.value
     createForm.closed_at = closedAt.value
     createForm.visible_for = visibleFor.value
-    createForm.banner_url = bannerState.bannerUrl
-    createForm.banner_caption = bannerState.caption
+    createForm.banner_url = bannerState.value.bannerUrl
+    createForm.banner_caption = bannerState.value.caption
     createForm.metadata = toFormMetadataPayload(formMetadata.value)
 
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState)
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value)
     createForm.fields = toBackendFields(merged) as object[]
 
     isSaving.value = true

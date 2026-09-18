@@ -18,6 +18,7 @@
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
         "laravel/wayfinder": "^0.1.15",
+        "openspout/openspout": "^4.32",
         "spatie/laravel-permission": "^6.23"
     },
     "require-dev": {

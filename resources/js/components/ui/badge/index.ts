@@ -13,7 +13,7 @@ export const badgeVariants = cva(
         secondary:
           "border-border bg-secondary text-secondary-foreground",
         destructive:
-          "border-destructive/10 bg-destructive text-white",
+          "border-destructive/10 bg-destructive text-destructive-foreground",
         outline: "border-border bg-background text-foreground",
       },
     },

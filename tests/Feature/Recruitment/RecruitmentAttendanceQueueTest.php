@@ -24,7 +24,9 @@ use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use LogicException;
 use Tests\TestCase;
 
@@ -94,9 +96,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
     private function staffCheckInByRegistrationNumber(RecruitmentApplication $application): void
     {
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertOk();
     }
@@ -115,9 +116,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $application = $this->scheduleApplicant('1');
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertOk()
             ->assertJsonPath('attendee.queue_number', 1);
@@ -125,7 +125,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $this->assertDatabaseHas('recruitment_attendances', [
             'recruitment_application_id' => $application->id,
             'recruitment_interview_session_id' => $this->session->id,
-            'method' => AttendanceMethod::RegistrationNumber->value,
+            // Global scan transports manual codes and QR alike as `raw`, so the method resolves to qr.
+            'method' => AttendanceMethod::Qr->value,
         ]);
 
         $this->assertDatabaseHas('recruitment_queue_entries', [
@@ -146,9 +147,8 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $payload = RecruitmentQrPayload::encode($application->id);
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'raw_payload' => $payload,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $payload,
             ])
             ->assertOk()
             ->assertJsonPath('attendee.application_id', $application->id);
@@ -166,12 +166,48 @@ class RecruitmentAttendanceQueueTest extends TestCase
         $this->staffCheckInByRegistrationNumber($application);
 
         $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.attendance-scan.store'), [
-                'session_id' => $this->session->id,
-                'registration_number' => $application->registration_number,
+            ->postJson(route('dashboard.scan.store'), [
+                'raw' => $application->registration_number,
             ])
             ->assertStatus(409);
 
+        $this->assertSame(
+            1,
+            RecruitmentAttendance::query()->where('recruitment_application_id', $application->id)->count(),
+        );
+    }
+
+    public function test_check_in_losing_a_unique_race_returns_duplicate_not_error(): void
+    {
+        $application = $this->scheduleApplicant('C');
+
+        // Simulasi race deterministik: saat service melakukan INSERT, pesaing lebih dulu
+        // mendaratkan baris attendance yang sama, sehingga INSERT kita melanggar unique
+        // index recruitment_attendances.recruitment_application_id.
+        RecruitmentAttendance::creating(function () use ($application): void {
+            DB::table('recruitment_attendances')->insert([
+                'id' => (string) Str::uuid(),
+                'recruitment_application_id' => $application->id,
+                'recruitment_interview_session_id' => $this->session->id,
+                'method' => AttendanceMethod::Qr->value,
+                'checked_in_at' => now(),
+                'created_at' => now(),
+            ]);
+        });
+
+        try {
+            $result = app(AttendanceService::class)->checkInFromInput(
+                $this->session,
+                $application->registration_number,
+                null,
+                null,
+                $this->staff,
+            );
+        } finally {
+            RecruitmentAttendance::flushEventListeners();
+        }
+
+        $this->assertTrue($result['duplicate']);
         $this->assertSame(
             1,
             RecruitmentAttendance::query()->where('recruitment_application_id', $application->id)->count(),

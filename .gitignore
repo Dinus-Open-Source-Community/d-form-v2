@@ -56,3 +56,4 @@ docs/superpowers/
 .playwright-mcp/
 pnpm-lock.yaml
 pnpm-workspace.yaml
+.superpowers/

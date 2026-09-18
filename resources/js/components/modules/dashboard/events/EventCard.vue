@@ -101,7 +101,7 @@ function openForms(): void {
 }
 
 function openScan(): void {
-    router.visit(routes.admin.events.scan(props.event.id));
+    router.visit(routes.admin.scan.index);
 }
 
 function requestDelete(): void {
