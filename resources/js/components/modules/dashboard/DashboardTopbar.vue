@@ -3,7 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, ChevronLeft } from 'lucide-vue-next';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { LogOut, Search, ChevronLeft, User } from 'lucide-vue-next';
 import { resolveNavbarFallbackBackHref, pathWithoutQuery, routes } from '@/lib/routes';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
@@ -95,14 +97,26 @@ function goBack(): void {
     }
     router.visit(resolveNavbarFallbackBackHref(page.url));
 }
+
+const profileMenuOpen = ref(false);
+
+function closeProfileMenu(): void {
+    profileMenuOpen.value = false;
+}
+
+function handleLogout(): void {
+    profileMenuOpen.value = false;
+    router.post(logout().url);
+}
 </script>
 
 <template>
     <header
         class="border-sidebar-border/50 bg-background/80 sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b px-4 backdrop-blur-md lg:px-6"
     >
-        <!-- Kiri: back + judul + subtitle -->
+        <!-- Kiri: toggle sidebar (mobile) + back + judul + subtitle (judul hidden di mobile) -->
         <div class="flex min-w-0 items-center gap-1.5">
+            <SidebarTrigger class="shrink-0 md:hidden" aria-label="Buka sidebar" />
             <Button radius="icon"
                 v-if="showBackButton"
                 variant="ghost"
@@ -113,16 +127,18 @@ function goBack(): void {
             >
                 <ChevronLeft class="size-4 shrink-0 stroke-[1.75]" />
             </Button>
-            <div class="flex min-w-0 flex-col">
+            <div class="hidden min-w-0 flex-col sm:flex">
                 <h1 class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
                     {{ pageTitle }}
                 </h1>
-                <Breadcrumbs :items="breadcrumbItems" />
+                <div class="hidden min-w-0 sm:block">
+                    <Breadcrumbs :items="breadcrumbItems" />
+                </div>
             </div>
         </div>
 
         <!-- Tengah: search bar -->
-        <div class="relative w-full max-w-xs shrink sm:max-w-sm">
+        <div class="relative w-full min-w-0 max-w-[10rem] shrink sm:max-w-sm">
             <Search class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
                 v-model="search"
@@ -133,39 +149,77 @@ function goBack(): void {
             />
         </div>
 
-        <!-- Kanan: blok identitas user + logout (tanpa separator) -->
+        <!-- Kanan: menu profil (mobile) / blok identitas user + logout (desktop, tanpa separator) -->
         <div class="flex shrink-0 items-center gap-1.5">
-            <Link
-                :href="routes.dashboard.profile"
-                aria-label="Profile"
-                class="hover:bg-accent flex items-center gap-2 rounded-xl py-1 pr-3 pl-2 transition-colors duration-150"
-            >
-                <UserAvatarFallback
-                    :src="user?.avatar ?? null"
-                    :seed="userAvatarSeed(user)"
-                    avatar-class="size-8 rounded-full ring-1 ring-border"
-                    fallback-round-class="rounded-full"
-                />
-                <span class="hidden flex-col sm:flex">
-                    <span class="text-foreground max-w-[140px] truncate text-sm leading-tight font-medium">
-                        {{ user?.name }}
-                    </span>
-                    <span class="text-muted-foreground max-w-[140px] truncate text-xs leading-tight">
-                        {{ user?.roles?.length ? formatRole(user.roles[0]!) : user?.email }}
-                    </span>
-                </span>
-            </Link>
+            <Popover v-model:open="profileMenuOpen" :modal="false">
+                <PopoverTrigger as-child>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Menu profil"
+                        class="rounded-full sm:hidden"
+                    >
+                        <UserAvatarFallback
+                            :src="user?.avatar ?? null"
+                            :seed="userAvatarSeed(user)"
+                            avatar-class="size-8 rounded-full ring-1 ring-border"
+                            fallback-round-class="rounded-full"
+                        />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" :side-offset="8" class="w-48 rounded-xl p-1">
+                    <Link
+                        :href="routes.dashboard.profile"
+                        class="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0"
+                        @click="closeProfileMenu"
+                    >
+                        <User class="size-4" aria-hidden="true" />
+                        <span>Profil</span>
+                    </Link>
+                    <button
+                        type="button"
+                        class="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive [&>svg]:size-4 [&>svg]:shrink-0"
+                        @click="handleLogout"
+                    >
+                        <LogOut class="size-4" aria-hidden="true" />
+                        <span>Keluar</span>
+                    </button>
+                </PopoverContent>
+            </Popover>
 
-            <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Keluar"
-                class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive shadow-none transition-colors duration-150 hover:shadow-none"
-                @click="router.post(logout().url)"
-            >
-                <LogOut class="size-4" />
-                <span>Keluar</span>
-            </Button>
+            <div class="hidden shrink-0 items-center gap-1.5 sm:flex">
+                <Link
+                    :href="routes.dashboard.profile"
+                    aria-label="Profile"
+                    class="hover:bg-accent flex items-center gap-2 rounded-xl py-1 pr-3 pl-2 transition-colors duration-150"
+                >
+                    <UserAvatarFallback
+                        :src="user?.avatar ?? null"
+                        :seed="userAvatarSeed(user)"
+                        avatar-class="size-8 rounded-full ring-1 ring-border"
+                        fallback-round-class="rounded-full"
+                    />
+                    <span class="hidden flex-col sm:flex">
+                        <span class="text-foreground max-w-[140px] truncate text-sm leading-tight font-medium">
+                            {{ user?.name }}
+                        </span>
+                        <span class="text-muted-foreground max-w-[140px] truncate text-xs leading-tight">
+                            {{ user?.roles?.length ? formatRole(user.roles[0]!) : user?.email }}
+                        </span>
+                    </span>
+                </Link>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Keluar"
+                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive shadow-none transition-colors duration-150 hover:shadow-none"
+                    @click="router.post(logout().url)"
+                >
+                    <LogOut class="size-4" />
+                    <span>Keluar</span>
+                </Button>
+            </div>
         </div>
     </header>
 </template>

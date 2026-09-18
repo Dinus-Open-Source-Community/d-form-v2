@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import useAuth from '@/utils/composables/useAuth'
 import { ChevronDown, Download, ListOrdered } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
@@ -55,6 +56,40 @@ const props = defineProps<{
 
 const profileOpen = ref(false)
 const canEdit = computed(() => props.detail.evaluation.can_edit !== false)
+
+interface QueuePermission {
+    can_view_recruitment_queue?: boolean
+}
+
+const page = usePage()
+const authUser = useAuth(page.props)
+
+const canViewQueue = computed<boolean>((): boolean => {
+    const candidate: QueuePermission | null = authUser.value
+    return candidate?.can_view_recruitment_queue === true
+})
+
+const isLocked = computed<boolean>((): boolean => props.detail.evaluation.is_locked === true)
+
+const interviewStartsInFuture = computed<boolean>((): boolean => {
+    const iso: string | null = props.detail.interview?.scheduled_at ?? null
+    if (!iso) return false
+    const starts: Date = new Date(iso)
+    if (Number.isNaN(starts.getTime())) return false
+    return starts.getTime() > Date.now()
+})
+
+const blockReason = computed<string | null>((): string | null => {
+    if (isLocked.value) return 'Penilaian sudah terkunci. Hubungi staff jika perlu koreksi.'
+    if (!props.detail.interview) {
+        return 'Jadwal interview belum tersedia. Penilaian bisa disimpan setelah jadwal ditentukan.'
+    }
+    if (interviewStartsInFuture.value) {
+        const schedule: string = interviewSchedule.value ?? 'jadwal yang tercantum'
+        return `Interview dijadwalkan ${schedule}. Penilaian bisa disimpan setelah jadwal dimulai.`
+    }
+    return null
+})
 
 const recommendationChoices = computed(() =>
     props.recommendationOptions.length > 0
@@ -111,7 +146,8 @@ onMounted(() => {
     })
 })
 
-function submit() {
+function submit(): void {
+    if (blockReason.value !== null || form.processing) return
     form.post(props.evaluateUrl, { preserveScroll: true })
 }
 </script>
@@ -138,7 +174,12 @@ function submit() {
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button v-if="detail.interview?.session" as-child variant="outline" size="sm">
+                    <Button
+                        v-if="detail.interview?.session && canViewQueue"
+                        as-child
+                        variant="outline"
+                        size="sm"
+                    >
                         <Link :href="routes.admin.recruitment.myInterviews.queue(detail.interview.session.id)">
                             <ListOrdered class="mr-2 size-4" />
                             Antrean sesi
@@ -168,6 +209,13 @@ function submit() {
         <Card class="rounded-2xl border-border/70">
             <CardContent class="p-6">
                 <form v-if="canEdit" class="space-y-4" @submit.prevent="submit">
+                    <p
+                        v-if="blockReason"
+                        role="alert"
+                        class="rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm"
+                    >
+                        {{ blockReason }}
+                    </p>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="space-y-2">
                             <Label for="speaking_score">Speaking</Label>
@@ -178,7 +226,12 @@ function submit() {
                                 min="1"
                                 max="10"
                                 required
+                                :disabled="form.processing || isLocked"
+                                :aria-invalid="form.errors.speaking_score ? true : undefined"
                             />
+                            <p v-if="form.errors.speaking_score" class="text-xs text-destructive">
+                                {{ form.errors.speaking_score }}
+                            </p>
                         </div>
                         <div class="space-y-2">
                             <Label for="technical_score">Technical</Label>
@@ -189,7 +242,12 @@ function submit() {
                                 min="1"
                                 max="10"
                                 required
+                                :disabled="form.processing || isLocked"
+                                :aria-invalid="form.errors.technical_score ? true : undefined"
                             />
+                            <p v-if="form.errors.technical_score" class="text-xs text-destructive">
+                                {{ form.errors.technical_score }}
+                            </p>
                         </div>
                         <div class="space-y-2">
                             <Label for="attitude_score">Attitude</Label>
@@ -200,11 +258,16 @@ function submit() {
                                 min="1"
                                 max="10"
                                 required
+                                :disabled="form.processing || isLocked"
+                                :aria-invalid="form.errors.attitude_score ? true : undefined"
                             />
+                            <p v-if="form.errors.attitude_score" class="text-xs text-destructive">
+                                {{ form.errors.attitude_score }}
+                            </p>
                         </div>
                     </div>
 
-                    <fieldset class="space-y-2">
+                    <fieldset class="space-y-2" :disabled="form.processing || isLocked">
                         <legend class="text-sm font-medium leading-none">Rekomendasi</legend>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <label
@@ -228,6 +291,9 @@ function submit() {
                                 <span class="font-medium">{{ opt.label }}</span>
                             </label>
                         </div>
+                        <p v-if="form.errors.recommendation" class="text-xs text-destructive">
+                            {{ form.errors.recommendation }}
+                        </p>
                     </fieldset>
 
                     <div class="space-y-2">
@@ -238,10 +304,17 @@ function submit() {
                             rows="4"
                             class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
                             placeholder="Observasi singkat..."
+                            :disabled="form.processing || isLocked"
+                            :aria-invalid="form.errors.notes ? true : undefined"
                         />
+                        <p v-if="form.errors.notes" class="text-xs text-destructive">
+                            {{ form.errors.notes }}
+                        </p>
                     </div>
 
-                    <Button type="submit" :disabled="form.processing">Simpan penilaian</Button>
+                    <Button type="submit" :disabled="form.processing || blockReason !== null">
+                        Simpan penilaian
+                    </Button>
                 </form>
 
                 <div v-else class="space-y-2 text-sm">

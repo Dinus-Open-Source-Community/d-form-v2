@@ -7,12 +7,17 @@ import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/P
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/ApplicantDetailPanel.vue'
 import { type ApplicationDetail } from '@/components/modules/dashboard/recruitment/ApplicantDetailContent.vue'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
+import InterviewerCreateSheet from '@/components/modules/dashboard/recruitment/InterviewerCreateSheet.vue'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BarChart3, CalendarClock, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { BarChart3, CalendarClock, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import {
@@ -172,6 +177,7 @@ const assignForm = useForm({
 })
 
 function submitAssign(): void {
+    if (isDuplicateAssign.value || assignForm.processing) return
     assignForm.post(routes.admin.recruitment.interviewers.assign, {
         preserveScroll: true,
         onSuccess: () => {
@@ -180,9 +186,172 @@ function submitAssign(): void {
     })
 }
 
-function unassignInterviewer(id: string): void {
-    router.delete(routes.admin.recruitment.interviewers.unassign(id), { preserveScroll: true })
+const pendingUnassign = ref<InterviewerAssignment | null>(null)
+const unassigningId = ref<string | null>(null)
+
+function requestUnassign(row: InterviewerAssignment): void {
+    pendingUnassign.value = row
 }
+
+function cancelUnassign(): void {
+    if (unassigningId.value !== null) return
+    pendingUnassign.value = null
+}
+
+function confirmUnassign(): void {
+    const row: InterviewerAssignment | null = pendingUnassign.value
+    if (!row || unassigningId.value !== null) return
+    unassigningId.value = row.id
+    router.delete(routes.admin.recruitment.interviewers.unassign(row.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            unassigningId.value = null
+            pendingUnassign.value = null
+        },
+    })
+}
+
+function initialsOf(name: string): string {
+    const words: string[] = name.trim().split(/\s+/).filter((w) => w.length > 0)
+    if (words.length === 0) return '—'
+    const first: string = words[0]?.charAt(0) ?? ''
+    const second: string = words.length > 1 ? (words[1]?.charAt(0) ?? '') : ''
+    const letters: string = `${first}${second}`.toUpperCase()
+    return letters.length > 0 ? letters : '—'
+}
+
+const assignedPairKeys = computed<Set<string>>(
+    () => new Set(props.assignments.map((a) => `${a.user_id}|${a.division_id}`)),
+)
+
+const assignInterviewerOptions = computed<SearchableSelectOption[]>(() =>
+    props.interviewerCandidates.map((u) => {
+        const currentDivision: string = assignForm.recruitment_division_id
+        const isTaken: boolean =
+            currentDivision.length > 0 && assignedPairKeys.value.has(`${u.id}|${currentDivision}`)
+        return {
+            value: u.id,
+            label: u.name,
+            sublabel: u.email,
+            initials: initialsOf(u.name),
+            disabled: isTaken,
+        }
+    }),
+)
+
+const assignDivisionOptions = computed<SearchableSelectOption[]>(() =>
+    props.divisions.map((d) => {
+        const currentUser: string = assignForm.user_id
+        const isTaken: boolean =
+            currentUser.length > 0 && assignedPairKeys.value.has(`${currentUser}|${d.id}`)
+        return {
+            value: d.id,
+            label: d.name,
+            sublabel: d.code,
+            initials: d.code.slice(0, 2).toUpperCase(),
+            disabled: isTaken,
+        }
+    }),
+)
+
+const isDuplicateAssign = computed<boolean>(() => {
+    const userId: string = assignForm.user_id
+    const divisionId: string = assignForm.recruitment_division_id
+    if (userId.length === 0 || divisionId.length === 0) return false
+    return assignedPairKeys.value.has(`${userId}|${divisionId}`)
+})
+
+const canSubmitAssign = computed<boolean>(() => {
+    return (
+        assignForm.user_id.length > 0 &&
+        assignForm.recruitment_division_id.length > 0 &&
+        !isDuplicateAssign.value &&
+        !assignForm.processing
+    )
+})
+
+interface AssignmentGroup {
+    key: string
+    divisionName: string
+    divisionCode: string
+    count: number
+    rows: InterviewerAssignment[]
+}
+
+const groupedAssignments = computed<AssignmentGroup[]>(() => {
+    const byDivision = new Map<string, InterviewerAssignment[]>()
+    for (const row of props.assignments) {
+        const list: InterviewerAssignment[] = byDivision.get(row.division_id) ?? []
+        list.push(row)
+        byDivision.set(row.division_id, list)
+    }
+    const order = new Map<string, number>(props.divisions.map((d, i) => [d.id, i]))
+    const groups: AssignmentGroup[] = Array.from(byDivision.entries()).map(([divisionId, rows]) => {
+        const sortedRows: InterviewerAssignment[] = [...rows].sort((a, b) =>
+            a.user_name.localeCompare(b.user_name, 'id'),
+        )
+        const first: InterviewerAssignment | undefined = sortedRows[0]
+        return {
+            key: divisionId,
+            divisionName: first?.division_name ?? 'Divisi',
+            divisionCode: first?.division_code ?? '',
+            count: sortedRows.length,
+            rows: sortedRows,
+        }
+    })
+    groups.sort((a, b) => {
+        const orderA: number | undefined = order.get(a.key)
+        const orderB: number | undefined = order.get(b.key)
+        if (orderA !== undefined && orderB !== undefined) return orderA - orderB
+        if (orderA !== undefined) return -1
+        if (orderB !== undefined) return 1
+        return a.divisionName.localeCompare(b.divisionName, 'id')
+    })
+    return groups
+})
+
+const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
+
+const pendingUnassignDescription = computed<string>(() => {
+    const row: InterviewerAssignment | null = pendingUnassign.value
+    if (!row) return ''
+    return `${row.user_name} tidak lagi menjadi interviewer untuk ${row.division_name}.`
+})
+
+const isCreateSheetOpen = ref<boolean>(false)
+const pendingCreatedEmail = ref<string>('')
+
+function openCreateSheet(): void {
+    isCreateSheetOpen.value = true
+}
+
+function closeCreateSheet(): void {
+    isCreateSheetOpen.value = false
+}
+
+function tryAdoptCreatedInterviewer(): void {
+    const email: string = pendingCreatedEmail.value.trim().toLowerCase()
+    if (email === '') return
+    const match: InterviewerCandidate | undefined = props.interviewerCandidates.find(
+        (c) => c.email.trim().toLowerCase() === email,
+    )
+    if (match) {
+        assignForm.user_id = match.id
+        pendingCreatedEmail.value = ''
+    }
+}
+
+function onInterviewerCreated(email: string): void {
+    pendingCreatedEmail.value = email
+    tryAdoptCreatedInterviewer()
+}
+
+watch(
+    () => props.interviewerCandidates,
+    () => {
+        tryAdoptCreatedInterviewer()
+    },
+)
 
 const applicantTotal = computed<number>(() => {
     return props.applications?.total ?? props.period.applications_count ?? 0
@@ -516,6 +685,11 @@ function closePeriod(): void {
                 >
                     <UserCheck class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
                     <span>Interviewer</span>
+                    <span
+                        class="ml-1 inline-flex min-h-5 min-w-6 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium tabular-nums leading-4 text-muted-foreground transition-colors group-hover:text-foreground group-data-[state=active]:bg-foreground/10 group-data-[state=active]:text-foreground"
+                    >
+                        {{ assignmentsCountLabel }}
+                    </span>
                 </TabsTrigger>
             </TabsList>
 
@@ -558,62 +732,163 @@ function closePeriod(): void {
 
             <TabsContent value="interviewer" class="mt-4">
                 <Card v-if="canManagePeriods" class="rounded-2xl border-border/70">
-                    <CardHeader>
+                    <CardHeader class="pb-1">
                         <CardTitle class="text-base">Tugaskan interviewer</CardTitle>
+                        <p class="text-sm text-muted-foreground">
+                            Pilih orang dan divisi, lalu tugaskan. Kombinasi yang sudah ada tidak bisa dipilih lagi.
+                        </p>
                     </CardHeader>
-                    <CardContent class="space-y-4">
+                    <CardContent class="space-y-5">
                         <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="submitAssign">
                             <div class="space-y-2">
-                                <Label>Interviewer</Label>
-                                <select
+                                <Label for="assign-user">Interviewer</Label>
+                                <SearchableSelect
+                                    id="assign-user"
                                     v-model="assignForm.user_id"
-                                    class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                                    required
+                                    :options="assignInterviewerOptions"
+                                    placeholder="Pilih interviewer"
+                                    search-placeholder="Cari nama atau email…"
+                                    :aria-invalid="assignForm.errors.user_id ? true : undefined"
+                                    @create="openCreateSheet"
                                 >
-                                    <option value="">Pilih user</option>
-                                    <option v-for="u in interviewerCandidates" :key="u.id" :value="u.id">
-                                        {{ u.name }} ({{ u.email }})
-                                    </option>
-                                </select>
+                                    <template #action>
+                                        <Plus class="size-4" aria-hidden="true" />
+                                        <span>Tambah interviewer baru</span>
+                                    </template>
+                                </SearchableSelect>
+                                <p v-if="assignForm.errors.user_id" role="alert" class="text-xs text-destructive">
+                                    {{ assignForm.errors.user_id }}
+                                </p>
                             </div>
                             <div class="space-y-2">
-                                <Label>Divisi</Label>
-                                <select
+                                <Label for="assign-division">Divisi</Label>
+                                <SearchableSelect
+                                    id="assign-division"
                                     v-model="assignForm.recruitment_division_id"
-                                    class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                                    required
+                                    :options="assignDivisionOptions"
+                                    placeholder="Pilih divisi"
+                                    search-placeholder="Cari divisi…"
+                                    :aria-invalid="assignForm.errors.recruitment_division_id ? true : undefined"
+                                />
+                                <p
+                                    v-if="assignForm.errors.recruitment_division_id"
+                                    role="alert"
+                                    class="text-xs text-destructive"
                                 >
-                                    <option value="">Pilih divisi</option>
-                                    <option v-for="d in divisions" :key="d.id" :value="d.id">{{ d.name }}</option>
-                                </select>
+                                    {{ assignForm.errors.recruitment_division_id }}
+                                </p>
                             </div>
                             <div class="sm:col-span-2">
-                                <Button type="submit" size="sm" :disabled="assignForm.processing">Tugaskan</Button>
+                                <p v-if="isDuplicateAssign" role="status" class="mb-2 text-xs text-muted-foreground">
+                                    Kombinasi interviewer dan divisi ini sudah ditugaskan.
+                                </p>
+                                <Button type="submit" size="sm" :disabled="!canSubmitAssign">
+                                    {{ assignForm.processing ? 'Menugaskan…' : 'Tugaskan' }}
+                                </Button>
                             </div>
                         </form>
 
-                        <ul class="divide-border divide-y rounded-lg border">
-                            <li
-                                v-for="row in assignments"
-                                :key="row.id"
-                                class="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                        <TooltipProvider v-if="groupedAssignments.length > 0">
+                            <div class="space-y-4">
+                            <section
+                                v-for="group in groupedAssignments"
+                                :key="group.key"
+                                aria-label="Interviewer divisi"
+                                class="overflow-hidden rounded-xl border border-border/70"
                             >
-                                <div>
-                                    <p class="font-medium">{{ row.user_name }}</p>
-                                    <p class="text-muted-foreground text-xs">
-                                        {{ row.division_name }} · {{ row.user_email }}
-                                    </p>
-                                </div>
-                                <Button variant="ghost" size="icon" @click="unassignInterviewer(row.id)">
-                                    <Trash2 class="size-4" />
-                                </Button>
-                            </li>
-                            <li v-if="assignments.length === 0" class="text-muted-foreground px-4 py-6 text-center text-sm">
-                                Belum ada interviewer yang ditugaskan.
-                            </li>
-                        </ul>
+                                <header
+                                    class="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/40 px-4 py-2.5"
+                                >
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <span
+                                            aria-hidden="true"
+                                            class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold tracking-wide text-muted-foreground"
+                                        >
+                                            {{ group.divisionCode.slice(0, 2).toUpperCase() }}
+                                        </span>
+                                        <h3 class="truncate text-sm font-semibold">{{ group.divisionName }}</h3>
+                                    </div>
+                                    <Badge variant="secondary" class="shrink-0 tabular-nums">
+                                        {{ group.count.toLocaleString('id-ID') }} orang
+                                    </Badge>
+                                </header>
+                                <ul class="divide-y divide-border/70">
+                                    <li
+                                        v-for="row in group.rows"
+                                        :key="row.id"
+                                        class="flex items-center justify-between gap-3 px-4 py-3"
+                                    >
+                                        <div class="flex min-w-0 items-center gap-3">
+                                            <Avatar class="size-8 shrink-0">
+                                                <AvatarFallback class="text-[11px] font-semibold">
+                                                    {{ initialsOf(row.user_name) }}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium">{{ row.user_name }}</p>
+                                                <p class="truncate text-xs text-muted-foreground">
+                                                    {{ row.user_email }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    :aria-label="`Hapus ${row.user_name} dari ${row.division_name}`"
+                                                    @click="requestUnassign(row)"
+                                                >
+                                                    <Trash2 class="size-4" aria-hidden="true" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Hapus penugasan</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </li>
+                                </ul>
+                            </section>
+                            </div>
+                        </TooltipProvider>
+                        <div
+                            v-else
+                            class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-8 text-center"
+                        >
+                            <span
+                                aria-hidden="true"
+                                class="flex size-10 items-center justify-center rounded-full bg-muted"
+                            >
+                                <UserCheck class="size-5 text-muted-foreground" />
+                            </span>
+                            <p class="text-sm font-medium">Belum ada interviewer yang ditugaskan.</p>
+                            <p class="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                                Pilih interviewer dan divisi di atas untuk menugaskan.
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
+
+                <ConfirmationModal
+                    :open="pendingUnassign !== null"
+                    title="Hapus penugasan?"
+                    :description="pendingUnassignDescription"
+                    confirm-text="Hapus"
+                    cancel-text="Batal"
+                    variant="destructive"
+                    :loading="unassigningId !== null"
+                    @confirm="confirmUnassign"
+                    @cancel="cancelUnassign"
+                    @update:open="(v: boolean) => { if (!v) cancelUnassign() }"
+                />
+
+                <InterviewerCreateSheet
+                    :open="isCreateSheetOpen"
+                    :divisions="divisions"
+                    :initial-division-id="assignForm.recruitment_division_id"
+                    @close="closeCreateSheet"
+                    @created="onInterviewerCreated"
+                />
             </TabsContent>
         </Tabs>
     </div>

@@ -39,6 +39,7 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
+        Route::post('interviewers', [RecruitmentDivisionController::class, 'storeInterviewer'])->name('interviewers.store');
         Route::delete('interviewers/{assignment}', [RecruitmentDivisionController::class, 'unassignInterviewer'])->name('interviewers.unassign');
 
         Route::get('applications/{application}', [RecruitmentApplicationController::class, 'show'])->name('applications.show');

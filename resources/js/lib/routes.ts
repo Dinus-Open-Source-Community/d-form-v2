@@ -80,6 +80,7 @@ export const routes = {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,
             },
             interviewers: {
+                store: `${ADMIN_BASE}/recruitment/interviewers`,
                 assign: `${ADMIN_BASE}/recruitment/interviewers/assign`,
                 unassign: (id: string) => `${ADMIN_BASE}/recruitment/interviewers/${id}`,
             },
