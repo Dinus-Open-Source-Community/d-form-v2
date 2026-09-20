@@ -17,6 +17,7 @@ class RecruitmentDivisionSeeder extends Seeder
             ['code' => 'medcrev', 'name' => 'Creative Media / Medcrev', 'sort_order' => 2],
             ['code' => 'network', 'name' => 'Jaringan / Network', 'sort_order' => 3],
             ['code' => 'data', 'name' => 'Data', 'sort_order' => 4],
+            ['code' => 'humas', 'name' => 'Humas / Public Relations', 'sort_order' => 5],
         ];
 
         foreach ($divisions as $division) {

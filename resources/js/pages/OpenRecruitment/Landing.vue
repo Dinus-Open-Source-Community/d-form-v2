@@ -55,6 +55,31 @@ const timelineItems = computed(() => {
     ].filter((item) => item.value !== '—')
 })
 
+const divisionCountLabel = computed(() => {
+    const count = props.divisions.length
+    if (count <= 0) {
+        return 'Divisi'
+    }
+
+    return `${count} Divisi`
+})
+
+const divisionSummary = computed(() => {
+    const names = props.divisions.map((division) => division.name)
+    if (names.length === 0) {
+        return 'Pilih divisi utama dan cadangan sesuai minatmu.'
+    }
+
+    if (names.length === 1) {
+        return `${names[0]} — pilih divisi utama dan cadangan.`
+    }
+
+    const head = names.slice(0, -1).join(', ')
+    const last = names[names.length - 1]
+
+    return `${head}, dan ${last} — pilih divisi utama dan cadangan.`
+})
+
 function formatDate(value: string | null): string {
     if (!value) return '—'
     return new Date(value).toLocaleString('id-ID', {
@@ -122,11 +147,11 @@ function formatRange(start: string | null, end: string | null): string {
                     <CardHeader class="pb-2">
                         <CardTitle class="flex items-center gap-2 text-base">
                             <Users class="size-5 text-primary" />
-                            4 Divisi
+                            {{ divisionCountLabel }}
                         </CardTitle>
                     </CardHeader>
                     <CardContent class="text-muted-foreground text-sm">
-                        Programming, Creative Media, Network, dan Data — pilih divisi utama dan cadangan.
+                        {{ divisionSummary }}
                     </CardContent>
                 </Card>
                 <Card class="rounded-2xl border-border/70">

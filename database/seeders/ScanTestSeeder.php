@@ -352,7 +352,7 @@ class ScanTestSeeder extends Seeder
         }
 
         $divisions = RecruitmentDivision::query()
-            ->whereIn('code', ['programming', 'medcrev', 'network', 'data'])
+            ->whereIn('code', ['programming', 'medcrev', 'network', 'data', 'humas'])
             ->orderBy('sort_order')
             ->get();
 
