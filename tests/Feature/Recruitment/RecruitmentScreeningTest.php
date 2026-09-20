@@ -187,7 +187,7 @@ class RecruitmentScreeningTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_staff_can_view_application_json_detail_and_period_applicant_list(): void
+    public function test_staff_can_view_application_json_detail_but_not_period_applicant_list(): void
     {
         $this->actingAs($this->staff)
             ->getJson(route('dashboard.recruitment.periods.applications.show', [
@@ -199,7 +199,6 @@ class RecruitmentScreeningTest extends TestCase
 
         $this->actingAs($this->staff)
             ->get(route('dashboard.recruitment.periods.show', $this->application->recruitment_period_id))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->has('applications'));
+            ->assertForbidden();
     }
 }

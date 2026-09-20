@@ -126,12 +126,12 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
                 ->where('applications.1.id', $this->budi->id));
     }
 
-    public function test_user_tanpa_period_view_tidak_dapat_membuka_period_show(): void
+    public function test_staff_without_period_view_cannot_open_period_show(): void
     {
-        $user = User::factory()->create();
-        $user->givePermissionTo('recruitment.dashboard.view');
+        $staff = User::factory()->create();
+        $staff->assignRole('recruitment-staff');
 
-        $this->actingAs($user)
+        $this->actingAs($staff)
             ->get(route('dashboard.recruitment.periods.show', $this->period))
             ->assertForbidden();
     }

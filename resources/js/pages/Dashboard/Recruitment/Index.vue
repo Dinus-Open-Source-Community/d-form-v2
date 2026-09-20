@@ -185,8 +185,8 @@ function applicationsQueueUrl(queue: string): string {
 
 /** Konfirmasi hapus periode — soft delete, data pendaftar tetap tersimpan. */
 const deleteTarget = ref<PeriodRow | null>(null)
+const deleteDialogOpen = ref(false)
 const isDeleting = ref(false)
-const showDeleteModal = computed<boolean>(() => deleteTarget.value !== null)
 
 const deleteDescription = computed<string>(() => {
     const name = deleteTarget.value?.name
@@ -196,10 +196,12 @@ const deleteDescription = computed<string>(() => {
 
 function startDelete(period: PeriodRow): void {
     deleteTarget.value = period
+    deleteDialogOpen.value = true
 }
 
 function cancelDelete(): void {
     if (isDeleting.value) return
+    deleteDialogOpen.value = false
     deleteTarget.value = null
 }
 
@@ -212,6 +214,7 @@ function confirmDelete(): void {
         onError: () => showErrorToast('Gagal menghapus periode recruitment.'),
         onFinish: () => {
             isDeleting.value = false
+            deleteDialogOpen.value = false
             deleteTarget.value = null
         },
     })
@@ -501,7 +504,7 @@ onMounted(() => {
         />
 
         <ConfirmationModal
-            :open="showDeleteModal"
+            :open="deleteDialogOpen"
             title="Hapus periode recruitment?"
             :description="deleteDescription"
             confirm-text="Hapus"
@@ -510,7 +513,7 @@ onMounted(() => {
             :loading="isDeleting"
             @confirm="confirmDelete"
             @cancel="cancelDelete"
-            @update:open="(v: boolean) => { if (!v) cancelDelete() }"
+            @update:open="(v: boolean) => { deleteDialogOpen = v }"
         />
     </div>
 </template>
