@@ -24,7 +24,6 @@ import {
     User,
     Users,
     ClipboardList,
-    ScanLine,
     ListOrdered,
     Trash2,
 } from 'lucide-vue-next'
@@ -108,7 +107,6 @@ const user = useAuth(page.props)
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
 const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true)
 const canViewQueue = computed(() => user.value?.can_view_recruitment_queue === true)
-const canScanAttendance = computed(() => user.value?.can_scan_recruitment_attendance === true)
 
 const actionQueues = computed(() => props.summary.action_queues ?? [])
 const todaySessions = computed(() => props.summary.today_sessions ?? [])
@@ -452,12 +450,6 @@ onMounted(() => {
                                 <Link :href="routes.admin.recruitment.queue.show(session.id)">
                                     <ListOrdered class="mr-2 size-4" />
                                     Antrean
-                                </Link>
-                            </Button>
-                            <Button v-if="canScanAttendance" as-child variant="secondary" size="sm">
-                                <Link :href="routes.admin.scan.index">
-                                    <ScanLine class="mr-2 size-4" />
-                                    Scan
                                 </Link>
                             </Button>
                         </div>
