@@ -102,6 +102,23 @@ class RecruitmentInterviewSessionCreateTest extends TestCase
         $this->assertDatabaseCount('recruitment_interview_sessions', 0);
     }
 
+    public function test_store_mengalihkan_ke_tab_interview_periode(): void
+    {
+        $this->actingAs($this->scheduler())
+            ->post(route('dashboard.recruitment.interview-sessions.store'), $this->payload())
+            ->assertRedirect(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'interview',
+            ]));
+
+        $this->assertDatabaseHas('recruitment_interview_sessions', [
+            'recruitment_period_id' => $this->period->id,
+            'recruitment_division_id' => $this->division->id,
+            'location' => 'Gedung A',
+            'room' => 'A101',
+        ]);
+    }
+
     public function test_tab_interview_memuat_opsi_divisi_aktif(): void
     {
         $inactive = RecruitmentDivision::factory()->create(['is_active' => false]);

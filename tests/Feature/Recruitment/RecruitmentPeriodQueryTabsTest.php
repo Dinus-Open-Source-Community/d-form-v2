@@ -82,7 +82,10 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             'ends_at' => '12:00',
             'location' => 'Gedung A',
             'room' => 'A101',
-        ])->assertRedirect();
+        ])->assertRedirect(route('dashboard.recruitment.periods.show', [
+            'period' => $this->period->id,
+            'tab' => 'interview',
+        ]));
 
         $this->actingAs($admin)->post(route('dashboard.recruitment.interview-sessions.store'), [
             'recruitment_period_id' => $otherPeriod->id,
@@ -92,7 +95,10 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             'ends_at' => '12:00',
             'location' => 'Gedung B',
             'room' => 'B202',
-        ])->assertRedirect();
+        ])->assertRedirect(route('dashboard.recruitment.periods.show', [
+            'period' => $otherPeriod->id,
+            'tab' => 'interview',
+        ]));
 
         $this->actingAs($admin)
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))

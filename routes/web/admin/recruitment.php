@@ -14,6 +14,7 @@ use App\Http\Controllers\Dashboard\Recruitment\RecruitmentEvaluationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentFinalSelectionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentMyInterviewController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentQueueController;
+use Illuminate\Routing\RedirectController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'recruitment.access'])
@@ -29,9 +30,15 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
 
-        Route::redirect('interview-sessions', '/admin/recruitment');
-        Route::redirect('reports', '/admin/recruitment');
-        Route::redirect('periods', '/admin/recruitment');
+        Route::get('interview-sessions', RedirectController::class)
+            ->defaults('destination', '/admin/recruitment')
+            ->defaults('status', 302);
+        Route::get('reports', RedirectController::class)
+            ->defaults('destination', '/admin/recruitment')
+            ->defaults('status', 302);
+        Route::get('periods', RedirectController::class)
+            ->defaults('destination', '/admin/recruitment')
+            ->defaults('status', 302);
 
         Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
         Route::get('periods/{period}/applications/{application}', [RecruitmentPeriodController::class, 'application'])
