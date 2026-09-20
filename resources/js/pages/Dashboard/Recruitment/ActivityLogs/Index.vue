@@ -14,7 +14,12 @@ interface LogRow {
     action: string
     actor_type: string
     actor: { id: string; name: string } | null
-    application: { id: string; registration_number: string; full_name: string } | null
+    application: {
+        id: string
+        recruitment_period_id: string | null
+        registration_number: string
+        full_name: string
+    } | null
     created_at: string | null
 }
 
@@ -80,11 +85,13 @@ function applyFilters(periodId: string, action: string) {
                         <template v-if="log.application">
                             ·
                             <Link
-                                :href="routes.admin.recruitment.applications.show(log.application.id)"
+                                v-if="log.application.recruitment_period_id"
+                                :href="routes.admin.recruitment.periods.show(log.application.recruitment_period_id)"
                                 class="text-primary underline"
                             >
                                 {{ log.application.registration_number }}
                             </Link>
+                            <span v-else>{{ log.application.registration_number }}</span>
                         </template>
                     </p>
                 </div>

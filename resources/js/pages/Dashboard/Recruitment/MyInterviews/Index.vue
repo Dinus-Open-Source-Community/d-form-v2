@@ -322,7 +322,7 @@ function showUrl(applicationId: string): string {
 }
 
 function queueUrl(sessionIdValue: string): string {
-    return routes.admin.recruitment.myInterviews.queue(sessionIdValue)
+    return routes.recruitment.queue.show(sessionIdValue)
 }
 
 function formatInt(value: number): string {
@@ -511,13 +511,13 @@ function queueNumberLabel(value: number | null): string {
 }
 
 const emptyTitle = computed<string>((): string =>
-    hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada penugasan',
+    hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada peserta regis ulang',
 )
 
 const emptyDescription = computed<string>((): string =>
     hasActiveFilters.value
         ? 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
-        : 'Penugasan interview dari staff akan muncul di sini.',
+        : 'Daftar ini hanya memuat peserta yang sudah regis ulang (scan QR) di sesi interviewmu.',
 )
 </script>
 
@@ -610,6 +610,9 @@ const emptyDescription = computed<string>((): string =>
                         Atur ulang
                     </Button>
                 </div>
+                <p class="text-xs text-muted-foreground">
+                    Hanya peserta yang sudah regis ulang (scan QR) yang tampil di sini.
+                </p>
             </div>
         </div>
 

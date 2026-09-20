@@ -110,6 +110,7 @@ class RoleSeeder extends Seeder
             ],
             'recruitment-staff' => [
                 'recruitment.dashboard.view',
+                'recruitment.periods.view',
                 'recruitment.applications.list',
                 'recruitment.applications.view',
                 'recruitment.applications.export',
@@ -131,6 +132,7 @@ class RoleSeeder extends Seeder
             'recruitment-interviewer' => [
                 'recruitment.dashboard.view',
                 'recruitment.applications.view',
+                'recruitment.periods.view',
                 'recruitment.queue.view',
                 'recruitment.evaluations.submit',
                 'recruitment.evaluations.view',

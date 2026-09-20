@@ -61,7 +61,7 @@ class ApplicationController extends Controller
                 'title' => $oprecEvent->title,
             ],
             'fields' => $oprec->fieldsForDisplay(),
-            'submitUrl' => route('open-recruitment.apply.store'),
+            'submitUrl' => route('recruitment.apply.store'),
         ]);
     }
 
@@ -80,7 +80,7 @@ class ApplicationController extends Controller
         $application = $result['application'];
 
         return redirect()
-            ->route('open-recruitment.success')
+            ->route('recruitment.success')
             ->with('recruitment_success', [
                 'registration_number' => $application->registration_number,
                 'period_name' => $period->name,
@@ -93,7 +93,7 @@ class ApplicationController extends Controller
         $payload = session('recruitment_success');
 
         if (! is_array($payload) || empty($payload['registration_number'])) {
-            return redirect()->route('open-recruitment.landing');
+            return redirect()->route('recruitment.apply');
         }
 
         return Inertia::render('OpenRecruitment/Success', [

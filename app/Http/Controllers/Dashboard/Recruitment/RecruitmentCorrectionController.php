@@ -25,7 +25,7 @@ class RecruitmentCorrectionController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $correction->recruitment_application_id)
+            ->back()
             ->with('message', 'Permintaan koreksi disetujui.');
     }
 
@@ -39,7 +39,7 @@ class RecruitmentCorrectionController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $correction->recruitment_application_id)
+            ->back()
             ->with('message', 'Permintaan koreksi ditolak.');
     }
 }

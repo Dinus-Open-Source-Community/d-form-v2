@@ -51,10 +51,28 @@ final class InterviewerApplicationPresenter
                         'type' => 'cv',
                     ])
                     : null,
+                'cv_original_name' => $application->document?->cv_original_name,
+                'cv_size_bytes' => $application->document?->cv_size_bytes,
+                'cv_preview_url' => filled($application->document?->cv_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'cv',
+                        'preview' => 1,
+                    ])
+                    : null,
                 'portfolio_download_url' => filled($application->document?->portfolio_path)
                     ? route('dashboard.recruitment.applications.documents.download', [
                         'application' => $application->id,
                         'type' => 'portfolio',
+                    ])
+                    : null,
+                'portfolio_original_name' => $application->document?->portfolio_original_name,
+                'portfolio_size_bytes' => $application->document?->portfolio_size_bytes,
+                'portfolio_preview_url' => filled($application->document?->portfolio_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'portfolio',
+                        'preview' => 1,
                     ])
                     : null,
             ],

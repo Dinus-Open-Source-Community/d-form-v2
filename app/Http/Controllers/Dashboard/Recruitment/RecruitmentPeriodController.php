@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\Recruitment\MembershipType;
+use App\Enums\Recruitment\ScreeningReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
@@ -17,6 +19,7 @@ use App\Services\Recruitment\RecruitmentDivisionService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -45,7 +48,7 @@ class RecruitmentPeriodController extends Controller
         $data = $request->validated();
         $data['created_by'] = $request->user()->id;
 
-        $period = $this->periodService->create($data);
+        $period = $this->periodService->create($data, $request->file('banner'));
 
         Inertia::flash('toast', [
             'message' => 'Periode recruitment berhasil dibuat.',
@@ -76,25 +79,25 @@ class RecruitmentPeriodController extends Controller
         $divisions = null;
         $assignments = null;
         $interviewerCandidates = null;
+        $screeningReasonOptions = [];
 
         if ($tab === 'peserta') {
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
             if ($canListApplications) {
-                $perPage = max(5, min(100, $request->integer('per_page', 5)));
-                $paginator = $this->applicationService->paginate(
-                    $validated + ['period_id' => $period->id],
-                    $request->integer('page', 1),
-                    $perPage,
-                );
-                $paginator->setCollection(
-                    $paginator->getCollection()->map(
+                $applications = RecruitmentApplication::query()
+                    ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
+                    ->where('recruitment_period_id', $period->id)
+                    ->orderByDesc('submitted_at')
+                    ->get()
+                    ->map(
                         fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
                     )
-                );
+                    ->values()
+                    ->all();
 
-                $applications = $paginator;
                 $queueCounts = $this->applicationService->queueCounts($period->id);
+                $screeningReasonOptions = ScreeningReason::options();
 
                 $applicationId = $validated['application'] ?? null;
 
@@ -112,7 +115,10 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'interview') {
-            abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
+            $canScheduleInterviews = $request->user()?->can('recruitment.interviews.schedule') === true;
+            $canViewQueue = $request->user()?->can('recruitment.queue.view') === true;
+
+            abort_unless($canScheduleInterviews || $canViewQueue, 403);
 
             $sessionPaginator = $this->sessionService->paginate(
                 ['period_id' => $period->id],
@@ -184,6 +190,9 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'peserta') {
             $props['applications'] = $applications;
+            $props['screening_reason_options'] = $screeningReasonOptions;
+            $props['division_options'] = $canListApplications ? $this->applicationService->divisionOptions() : [];
+            $props['membership_type_options'] = MembershipType::options();
         }
 
         if ($tab === 'interview') {
@@ -207,6 +216,25 @@ class RecruitmentPeriodController extends Controller
         return Inertia::render('Dashboard/Recruitment/Periods/Show', $props);
     }
 
+    public function application(RecruitmentPeriod $period, RecruitmentApplication $application): JsonResponse
+    {
+        $this->authorize('view', $period);
+
+        abort_unless($application->recruitment_period_id === $period->id, 404);
+
+        $this->authorize('view', $application);
+
+        $detail = $this->applicationService->toShowArray($application);
+
+        return response()->json([
+            'application' => $detail,
+            'screening_reason_options' => ScreeningReason::options(),
+            'division_options' => $this->applicationService->divisionOptions(),
+            'membership_type_options' => MembershipType::options(),
+            'can_screen' => $detail['can_screen'] ?? false,
+        ]);
+    }
+
     public function edit(RecruitmentPeriod $period): Response
     {
         $this->authorize('update', $period);
@@ -220,7 +248,7 @@ class RecruitmentPeriodController extends Controller
     {
         $this->authorize('update', $period);
 
-        $this->periodService->update($period, $request->validated());
+        $this->periodService->update($period, $request->validated(), $request->file('banner'));
 
         return redirect()
             ->route('dashboard.recruitment.periods.show', $period)
@@ -233,9 +261,12 @@ class RecruitmentPeriodController extends Controller
 
         $period->delete();
 
-        return redirect()
-            ->route('dashboard.recruitment.index')
-            ->with('message', 'Periode recruitment berhasil dihapus.');
+        Inertia::flash('toast', [
+            'message' => 'Periode recruitment berhasil dihapus.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.recruitment.index');
     }
 
     public function open(RecruitmentPeriod $period): RedirectResponse

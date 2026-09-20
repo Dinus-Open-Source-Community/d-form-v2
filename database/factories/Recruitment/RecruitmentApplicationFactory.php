@@ -26,7 +26,7 @@ class RecruitmentApplicationFactory extends Factory
             'tracking_token_hash' => Hash::make('test-tracking-token-'.Str::random(16)),
             'full_name' => $this->faker->name(),
             'nim' => strtoupper($this->faker->unique()->bothify('A11.####.#####')),
-            'semester' => $this->faker->numberBetween(1, 3),
+            'semester' => $this->faker->randomElement([1, 3]),
             'phone' => '08'.$this->faker->numerify('##########'),
             'personal_email' => $this->faker->safeEmail(),
             'student_email' => $this->faker->userName().'@students.udinus.ac.id',

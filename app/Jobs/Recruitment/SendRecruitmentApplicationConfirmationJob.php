@@ -48,7 +48,7 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
         }
 
         $recipientEmail = $application->personal_email;
-        $trackingUrl = url(route('open-recruitment.track.login', absolute: false));
+        $trackingUrl = url(route('recruitment.track.login', absolute: false));
         $trackingPortalUrl = $portalUrlBuilder->loginUrl(
             $application->registration_number,
             $this->trackingToken,
@@ -90,6 +90,7 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
                 subjectLine: $rendered['subject'],
                 bodyHtml: $rendered['body_html'],
                 bodyText: $rendered['body_text'],
+                headline: 'Pendaftaran diterima',
             ));
 
             EmailLog::query()->create([

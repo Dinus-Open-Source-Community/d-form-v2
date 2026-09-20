@@ -16,7 +16,7 @@ DOSCOM OpenRecruitment (OpRec) adalah sistem berbasis web untuk mengelola proses
 
 Sistem akan menjadi bagian dari website Dynamic Form yang telah tersedia. Halaman utama recruitment akan tersedia melalui:
 
-`/open-recruitment`
+`/recruitment`
 
 Applicant tidak perlu membuat akun atau melakukan login. Setelah mengirimkan pendaftaran, applicant akan menerima nomor pendaftaran dan akses tracking untuk melihat perkembangan proses recruitment.
 
@@ -314,7 +314,7 @@ Sistem harus mengetahui jenis portfolio yang diberikan.
 # 12. Application Flow
 
 ```text
-/open-recruitment
+/recruitment
        ↓
 Landing Page
        ↓
@@ -1090,7 +1090,7 @@ Untuk data sensitif, informasi yang dicatat harus mempertimbangkan privacy dan s
 
 ## FR-01 — Recruitment Landing Page
 
-System shall provide `/open-recruitment`.
+System shall provide `/recruitment`.
 
 Acceptance Criteria:
 

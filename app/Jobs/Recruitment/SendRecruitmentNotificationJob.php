@@ -9,6 +9,7 @@ use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
+use App\Models\Recruitment\RecruitmentScreening;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentInterviewVariableBuilder;
 use App\Services\Recruitment\RecruitmentQrPngGenerator;
@@ -33,6 +34,8 @@ class SendRecruitmentNotificationJob implements ShouldQueue
         public string $applicationId,
         public string $templateKey,
         public ?string $interviewId = null,
+        public ?array $revisionSections = null,
+        public ?string $revisionNotes = null,
     ) {
     }
 
@@ -56,7 +59,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
 
         $notificationType = $this->resolveNotificationType();
         $recipientEmail = $application->personal_email;
-        $trackingUrl = url(route('open-recruitment.track.login', absolute: false));
+        $trackingUrl = url(route('recruitment.track.login', absolute: false));
 
         $variables = [
             'applicant_name' => $application->full_name,
@@ -68,6 +71,13 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'primary_division' => $application->primaryDivision?->name ?? '',
             'tracking_url' => $trackingUrl,
         ];
+
+        if ($this->templateKey === 'revision_required') {
+            $variables = array_merge($variables, [
+                'revision_sections' => $this->revisionSectionLabels(),
+                'revision_notes' => (string) ($this->revisionNotes ?? ''),
+            ]);
+        }
 
         if ($this->interviewId !== null) {
             $interview = RecruitmentInterview::query()->find($this->interviewId);
@@ -117,6 +127,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
                 bodyHtml: $rendered['body_html'],
                 bodyText: $rendered['body_text'],
                 qrPngBinary: $qrPng,
+                headline: $this->resolveHeadline(),
             ));
 
             EmailLog::query()->create([
@@ -143,6 +154,31 @@ class SendRecruitmentNotificationJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function revisionSectionLabels(): array
+    {
+        return RecruitmentScreening::revisionSectionLabels($this->revisionSections);
+    }
+
+    private function resolveHeadline(): ?string
+    {
+        return match ($this->templateKey) {
+            'application_submitted' => 'Pendaftaran diterima',
+            'revision_required' => 'Perlu revisi pendaftaran',
+            'passed_screening' => 'Lolos screening',
+            'rejected_screening' => 'Hasil screening',
+            'interview_scheduled' => 'Jadwal interview',
+            'interview_rescheduled' => 'Jadwal interview diubah',
+            'interview_reminder_h1' => 'Reminder interview besok',
+            'interview_reminder_h2' => 'Reminder interview',
+            'final_accepted' => 'Kamu diterima!',
+            'final_rejected' => 'Hasil OpenRecruitment',
+            default => null,
+        };
     }
 
     private function resolveNotificationType(): EmailNotificationType

@@ -57,7 +57,7 @@ class RecruitmentSecurityTest extends TestCase
         return array_merge([
             'full_name' => 'Budi Santoso',
             'nim' => 'A11.2024.01234',
-            'semester' => 2,
+            'semester' => 1,
             'phone' => '081234567890',
             'personal_email' => 'budi@gmail.com',
             'student_email' => 'budi@students.udinus.ac.id',
@@ -79,7 +79,7 @@ class RecruitmentSecurityTest extends TestCase
         $this->assertContains($response->status(), [403, 404]);
     }
 
-    public function test_s02_guessing_application_uuid_returns_forbidden_for_interviewer(): void
+    public function test_s02_guessing_application_uuid_returns_not_found(): void
     {
         $interviewer = User::factory()->create();
         $interviewer->assignRole('recruitment-interviewer');
@@ -92,20 +92,20 @@ class RecruitmentSecurityTest extends TestCase
         ]);
 
         $this->actingAs($interviewer)
-            ->get(route('dashboard.recruitment.applications.show', $application))
-            ->assertForbidden();
+            ->get('/admin/recruitment/applications/'.$application->id)
+            ->assertNotFound();
     }
 
     public function test_s03_brute_force_tracking_token_is_rate_limited(): void
     {
         for ($i = 0; $i < 5; $i++) {
-            $this->post(route('open-recruitment.track.authenticate'), [
+            $this->post(route('recruitment.track.authenticate'), [
                 'registration_number' => 'OPREC-2099-99999',
                 'tracking_token' => 'wrong-token-1234567890123456',
             ]);
         }
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => 'OPREC-2099-99999',
             'tracking_token' => 'wrong-token-1234567890123456',
         ])->assertStatus(429);
@@ -123,13 +123,13 @@ class RecruitmentSecurityTest extends TestCase
         );
 
         $applyRoute = collect(app('router')->getRoutes())
-            ->first(fn ($route) => $route->getName() === 'open-recruitment.apply.store');
+            ->first(fn ($route) => $route->getName() === 'recruitment.apply.store');
 
         $this->assertNotNull($applyRoute);
         $this->assertContains('web', $applyRoute->gatherMiddleware());
 
         $trackRoute = collect(app('router')->getRoutes())
-            ->first(fn ($route) => $route->getName() === 'open-recruitment.track.authenticate');
+            ->first(fn ($route) => $route->getName() === 'recruitment.track.authenticate');
 
         $this->assertNotNull($trackRoute);
         $this->assertContains('web', $trackRoute->gatherMiddleware());
@@ -150,12 +150,12 @@ class RecruitmentSecurityTest extends TestCase
                 'result' => ApplicationResult::Pending,
             ]);
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
         ]);
 
-        $response = $this->get(route('open-recruitment.track.show'));
+        $response = $this->get(route('recruitment.track.show'));
         $response->assertOk();
 
         $content = (string) $response->getContent();
@@ -168,14 +168,14 @@ class RecruitmentSecurityTest extends TestCase
 
     public function test_s06_upload_executable_disguised_as_pdf_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'cv' => UploadedFile::fake()->create('malware.pdf', 50, 'application/x-msdownload'),
         ]))->assertSessionHasErrors('cv');
     }
 
     public function test_s07_oversized_cv_upload_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'cv' => UploadedFile::fake()->create('cv.pdf', 5121, 'application/pdf'),
         ]))->assertSessionHasErrors('cv');
     }

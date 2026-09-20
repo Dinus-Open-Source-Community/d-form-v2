@@ -53,7 +53,7 @@ class RecruitmentScreeningTest extends TestCase
     {
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.applications.screening.pass', $this->application))
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $this->application));
+            ->assertRedirect();
 
         $this->application->refresh();
         $this->assertSame(ApplicationStage::Interview, $this->application->stage);
@@ -85,16 +85,67 @@ class RecruitmentScreeningTest extends TestCase
             ->post(route('dashboard.recruitment.applications.screening.revision', $this->application), [
                 'reason' => ScreeningReason::IncompleteData->value,
                 'notes' => 'Lengkapi CV.',
+                'sections' => ['data_diri', 'cv'],
             ])
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $this->application));
+            ->assertRedirect();
 
         $this->application->refresh();
         $this->assertSame(ApplicationStage::Screening, $this->application->stage);
         $this->assertTrue($this->application->revision_required);
 
+        $screening = RecruitmentScreening::query()
+            ->where('recruitment_application_id', $this->application->id)
+            ->firstOrFail();
+        $this->assertSame(['data_diri', 'cv'], $screening->sections);
+
         Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job): bool {
             return $job->applicationId === $this->application->id
-                && $job->templateKey === 'revision_required';
+                && $job->templateKey === 'revision_required'
+                && $job->revisionSections === ['data_diri', 'cv']
+                && $job->revisionNotes === 'Lengkapi CV.';
+        });
+    }
+
+    public function test_staff_revision_without_sections_returns_validation_error(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.screening.revision', $this->application), [
+                'reason' => ScreeningReason::IncompleteData->value,
+                'notes' => 'Lengkapi CV.',
+            ])
+            ->assertSessionHasErrors('sections');
+    }
+
+    public function test_staff_revision_after_verification_succeeds(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.verify', $this->application))
+            ->assertRedirect();
+
+        $this->application->refresh();
+        $this->assertTrue($this->application->is_verified);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.screening.revision', $this->application), [
+                'reason' => ScreeningReason::IncompleteData->value,
+                'notes' => 'Lengkapi CV.',
+                'sections' => ['data_diri', 'cv'],
+            ])
+            ->assertRedirect();
+
+        $this->application->refresh();
+        $this->assertTrue($this->application->revision_required);
+        $this->assertTrue($this->application->is_verified);
+
+        $screening = RecruitmentScreening::query()
+            ->where('recruitment_application_id', $this->application->id)
+            ->firstOrFail();
+        $this->assertSame(['data_diri', 'cv'], $screening->sections);
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job): bool {
+            return $job->applicationId === $this->application->id
+                && $job->templateKey === 'revision_required'
+                && $job->revisionSections === ['data_diri', 'cv'];
         });
     }
 
@@ -136,17 +187,19 @@ class RecruitmentScreeningTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_staff_can_view_application_detail_but_not_period_applicant_list(): void
+    public function test_staff_can_view_application_json_detail_and_period_applicant_list(): void
     {
         $this->actingAs($this->staff)
-            ->get(route('dashboard.recruitment.applications.show', $this->application))
+            ->getJson(route('dashboard.recruitment.periods.applications.show', [
+                'period' => $this->application->recruitment_period_id,
+                'application' => $this->application->id,
+            ]))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
-                ->component('Dashboard/Recruitment/Applications/Show')
-                ->where('application.id', $this->application->id));
+            ->assertJsonPath('application.id', $this->application->id);
 
         $this->actingAs($this->staff)
             ->get(route('dashboard.recruitment.periods.show', $this->application->recruitment_period_id))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('applications'));
     }
 }

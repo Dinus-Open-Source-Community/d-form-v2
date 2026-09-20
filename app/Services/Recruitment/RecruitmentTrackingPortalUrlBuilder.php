@@ -6,7 +6,7 @@ final class RecruitmentTrackingPortalUrlBuilder
 {
     public function loginUrl(string $registrationNumber, string $trackingToken): string
     {
-        $base = route('open-recruitment.track.login', absolute: false);
+        $base = route('recruitment.track.login', absolute: false);
 
         return url($base.'?'.http_build_query([
             'reg' => $registrationNumber,

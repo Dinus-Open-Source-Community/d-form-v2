@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
+import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
@@ -18,6 +19,7 @@ import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/s
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BarChart3, CalendarClock, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import {
@@ -50,25 +52,20 @@ interface Period {
     applications_count: number
 }
 
-interface ApplicationPaginator {
-    data: {
-        id: string
-        registration_number: string
-        full_name: string
-        nim: string
-        semester: number
-        stage: string
-        stage_label: string
-        result: string
-        result_label: string
-        revision_required: boolean
-        submitted_at: string | null
-        primary_division: { id: string; name: string } | null
-        period: { id: string; name: string } | null
-    }[]
-    current_page: number
-    last_page: number
-    total: number
+interface ApplicationRow {
+    id: string
+    registration_number: string
+    full_name: string
+    nim: string
+    semester: number
+    stage: string
+    stage_label: string
+    result: string
+    result_label: string
+    revision_required: boolean
+    submitted_at: string | null
+    primary_division: { id: string; name: string } | null
+    period: { id: string; name: string } | null
 }
 
 interface SessionRow {
@@ -129,11 +126,14 @@ interface InterviewerCandidate {
 const props = withDefaults(
     defineProps<{
         period: Period
-        applications?: ApplicationPaginator | null
+        applications?: ApplicationRow[] | null
         queue_counts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
         semesterOptions?: { value: string; label: string }[]
+        screening_reason_options?: { value: string; label: string }[]
+        division_options?: { id: string; name: string; code: string }[]
+        membership_type_options?: { value: string; label: string }[]
         query: {
             search?: string
             division_id?: string
@@ -155,6 +155,9 @@ const props = withDefaults(
     }>(),
     {
         semesterOptions: () => [],
+        screening_reason_options: () => [],
+        division_options: () => [],
+        membership_type_options: () => [],
         today_sessions: () => [],
         divisions: () => [],
         assignments: () => [],
@@ -186,16 +189,17 @@ function submitAssign(): void {
     })
 }
 
+const unassignDialogOpen = ref(false)
 const pendingUnassign = ref<InterviewerAssignment | null>(null)
 const unassigningId = ref<string | null>(null)
 
 function requestUnassign(row: InterviewerAssignment): void {
     pendingUnassign.value = row
+    unassignDialogOpen.value = true
 }
 
 function cancelUnassign(): void {
-    if (unassigningId.value !== null) return
-    pendingUnassign.value = null
+    unassignDialogOpen.value = false
 }
 
 function confirmUnassign(): void {
@@ -204,9 +208,13 @@ function confirmUnassign(): void {
     unassigningId.value = row.id
     router.delete(routes.admin.recruitment.interviewers.unassign(row.id), {
         preserveScroll: true,
+        onError: () => {
+            showErrorToast('Gagal menghapus penugasan interviewer.')
+        },
         onFinish: () => {
             unassigningId.value = null
             pendingUnassign.value = null
+            unassignDialogOpen.value = false
         },
     })
 }
@@ -354,7 +362,7 @@ watch(
 )
 
 const applicantTotal = computed<number>(() => {
-    return props.applications?.total ?? props.period.applications_count ?? 0
+    return props.applications?.length ?? props.period.applications_count ?? 0
 })
 
 const participantCountLabel = computed<string>(() => {
@@ -387,55 +395,42 @@ function onTabChange(value: string | number): void {
     )
 }
 
-const selectedId = computed<string | null>(() => props.query.application ?? null)
-const isPanelLoading = ref<boolean>(false)
+const selectedApplication = ref<ApplicationDetail | null>(null)
+const detailLoading = ref<boolean>(false)
+const detailCache = new Map<string, ApplicationDetail>()
 
-/** Penjaga agar Esc ganda (handler sheet + listener window) tidak memicu dua kunjungan. */
-let closeGuard = false
+function detailUrl(id: string): string {
+    return `${routes.admin.recruitment.periods.show(props.period.id)}/applications/${id}`
+}
 
-function baseParams(): Record<string, unknown> {
-    const q = props.query
-    return {
-        search: q.search,
-        division_id: q.division_id,
-        stage: q.stage,
-        queue: q.queue,
-        semester: q.semester,
-        page: q.page,
-        per_page: q.per_page,
-        tab: props.tab === 'peserta' ? undefined : props.tab,
+async function selectApplicant(id: string): Promise<void> {
+    if (selectedApplication.value?.id === id) return
+    const cached: ApplicationDetail | undefined = detailCache.get(id)
+    if (cached) {
+        selectedApplication.value = cached
+        return
+    }
+    detailLoading.value = true
+    try {
+        const { data } = await axios.get<{ application: ApplicationDetail }>(detailUrl(id), {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        detailCache.set(id, data.application)
+        selectedApplication.value = data.application
+    } catch {
+        selectedApplication.value = null
+    } finally {
+        detailLoading.value = false
     }
 }
 
-function selectApplicant(id: string): void {
-    if (selectedId.value === id) return
-    router.get(
-        routes.admin.recruitment.periods.show(props.period.id),
-        { ...baseParams(), application: id },
-        {
-            only: ['applicant_detail', 'query'],
-            preserveState: true,
-            preserveScroll: true,
-            onStart: () => {
-                isPanelLoading.value = true
-            },
-            onFinish: () => {
-                isPanelLoading.value = false
-            },
-        },
-    )
+function closePanel(): void {
+    selectedApplication.value = null
 }
 
-function closePanel(): void {
-    if (selectedId.value === null || closeGuard) return
-    closeGuard = true
-    router.get(routes.admin.recruitment.periods.show(props.period.id), baseParams(), {
-        preserveState: true,
-        preserveScroll: true,
-        onFinish: () => {
-            closeGuard = false
-        },
-    })
+function refreshList(): void {
+    detailCache.clear()
+    router.reload({ only: ['applications', 'queue_counts', 'screening_reason_options', 'division_options', 'membership_type_options'] })
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
@@ -699,8 +694,8 @@ function closePeriod(): void {
                         :period-id="period.id"
                         :tab="activeTab"
                         :can-screen="canScreenApplications"
-                        :selected-id="selectedId"
-                        :applications="applications"
+                        :selected-id="selectedApplication?.id ?? null"
+                        :applications="applications ?? null"
                         :queue-counts="queue_counts"
                         :division-options="divisionOptions"
                         :stage-options="stageOptions"
@@ -711,9 +706,14 @@ function closePeriod(): void {
                     />
 
                     <ApplicantDetailPanel
-                        :application="applicant_detail ?? null"
-                        :loading="isPanelLoading"
+                        :application="selectedApplication"
+                        :loading="detailLoading"
+                        :reason-options="screening_reason_options"
+                        :division-options="division_options"
+                        :membership-type-options="membership_type_options"
+                        :editable="canScreenApplications"
                         @close="closePanel"
+                        @submitted="refreshList"
                     />
                 </div>
             </TabsContent>
@@ -870,7 +870,7 @@ function closePeriod(): void {
                 </Card>
 
                 <ConfirmationModal
-                    :open="pendingUnassign !== null"
+                    :open="unassignDialogOpen"
                     title="Hapus penugasan?"
                     :description="pendingUnassignDescription"
                     confirm-text="Hapus"
@@ -879,7 +879,7 @@ function closePeriod(): void {
                     :loading="unassigningId !== null"
                     @confirm="confirmUnassign"
                     @cancel="cancelUnassign"
-                    @update:open="(v: boolean) => { if (!v) cancelUnassign() }"
+                    @update:open="(v: boolean) => { unassignDialogOpen = v }"
                 />
 
                 <InterviewerCreateSheet

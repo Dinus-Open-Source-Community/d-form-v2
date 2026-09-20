@@ -24,7 +24,7 @@ class FeedbackController extends Controller
 
         if (! $this->feedbackService->canSubmit($application)) {
             return redirect()
-                ->route('open-recruitment.track.show')
+                ->route('recruitment.track.show')
                 ->withErrors([
                     'feedback' => 'Feedback tidak tersedia untuk pendaftaran ini.',
                 ]);
@@ -35,8 +35,8 @@ class FeedbackController extends Controller
                 'full_name' => $application->full_name,
                 'registration_number' => $application->registration_number,
             ],
-            'storeUrl' => route('open-recruitment.track.feedback.store'),
-            'dashboardUrl' => route('open-recruitment.track.show'),
+            'storeUrl' => route('recruitment.track.feedback.store'),
+            'dashboardUrl' => route('recruitment.track.show'),
         ]);
     }
 
@@ -48,7 +48,7 @@ class FeedbackController extends Controller
         $this->feedbackService->submit($application, $request->validated());
 
         return redirect()
-            ->route('open-recruitment.track.show')
+            ->route('recruitment.track.show')
             ->with('toast', [
                 'type' => 'success',
                 'message' => 'Terima kasih! Feedback kamu telah kami terima.',

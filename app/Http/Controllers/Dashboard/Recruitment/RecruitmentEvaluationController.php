@@ -30,7 +30,7 @@ class RecruitmentEvaluationController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Penilaian interview diperbarui (staff override).');
     }
 }

@@ -29,10 +29,10 @@ final class RecruitmentInterviewVariableBuilder
             'interview_location' => $interview->location,
             'interview_room' => $interview->room,
             'division_name' => $interview->session?->division?->name ?? $application?->primaryDivision?->name ?? '',
-            'tracking_url' => url(route('open-recruitment.track.login', absolute: false)),
+            'tracking_url' => url(route('recruitment.track.login', absolute: false)),
             'interviewer_name' => $interview->interviewer?->name ?? '',
             'application_admin_url' => $application
-                ? url(route('dashboard.recruitment.applications.show', $application, false))
+                ? url(route('dashboard.recruitment.periods.show', $application->recruitment_period_id, false))
                 : '',
         ];
     }

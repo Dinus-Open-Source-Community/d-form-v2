@@ -72,7 +72,7 @@ class RecruitmentRevisionCorrectionTest extends TestCase
         return array_merge([
             'full_name' => 'Budi Revisi',
             'nim' => $this->application->nim,
-            'semester' => 2,
+            'semester' => 1,
             'phone' => '081234567890',
             'personal_email' => 'budi@gmail.com',
             'student_email' => 'budi@students.udinus.ac.id',
@@ -86,18 +86,18 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
     private function authenticateTracking(): void
     {
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
     }
 
     public function test_applicant_edit_during_revision_window_updates_data_for_rescreening(): void
     {
         $this->authenticateTracking();
 
-        $this->put(route('open-recruitment.track.update'), $this->editPayload())
-            ->assertRedirect(route('open-recruitment.track.show'));
+        $this->put(route('recruitment.track.update'), $this->editPayload())
+            ->assertRedirect(route('recruitment.track.show'));
 
         $this->application->refresh();
         $this->assertSame('Budi Revisi', $this->application->full_name);
@@ -121,10 +121,10 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
         $this->authenticateTracking();
 
-        $this->get(route('open-recruitment.track.edit'))
-            ->assertRedirect(route('open-recruitment.track.show'));
+        $this->get(route('recruitment.track.edit'))
+            ->assertRedirect(route('recruitment.track.show'));
 
-        $this->put(route('open-recruitment.track.update'), $this->editPayload())
+        $this->put(route('recruitment.track.update'), $this->editPayload())
             ->assertSessionHasErrors('application');
     }
 
@@ -138,9 +138,9 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
         $this->authenticateTracking();
 
-        $this->post(route('open-recruitment.track.correction'), [
+        $this->post(route('recruitment.track.correction'), [
             'request_message' => 'NIM saya salah ketik, mohon izin koreksi.',
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
         Queue::assertPushed(SendRecruitmentCorrectionRequestStaffJob::class);
 
@@ -152,13 +152,13 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
         $this->actingAs($staff)
             ->post(route('dashboard.recruitment.corrections.approve', $correction))
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $this->application));
+            ->assertRedirect();
 
         $correction->refresh();
         $this->assertSame(CorrectionRequestStatus::Approved, $correction->status);
 
-        $this->put(route('open-recruitment.track.update'), $this->editPayload(['full_name' => 'Budi Koreksi']))
-            ->assertRedirect(route('open-recruitment.track.show'));
+        $this->put(route('recruitment.track.update'), $this->editPayload(['full_name' => 'Budi Koreksi']))
+            ->assertRedirect(route('recruitment.track.show'));
 
         $correction->refresh();
         $this->application->refresh();
@@ -178,7 +178,7 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
         $this->authenticateTracking();
 
-        $this->post(route('open-recruitment.track.correction'), [
+        $this->post(route('recruitment.track.correction'), [
             'request_message' => 'Ingin ganti divisi pilihan saya.',
         ]);
 
@@ -191,12 +191,12 @@ class RecruitmentRevisionCorrectionTest extends TestCase
             ->post(route('dashboard.recruitment.corrections.reject', $correction), [
                 'review_notes' => 'Divisi tidak dapat diubah.',
             ])
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $this->application));
+            ->assertRedirect();
 
         $correction->refresh();
         $this->assertSame(CorrectionRequestStatus::Rejected, $correction->status);
 
-        $this->put(route('open-recruitment.track.update'), $this->editPayload())
+        $this->put(route('recruitment.track.update'), $this->editPayload())
             ->assertSessionHasErrors('application');
     }
 
@@ -204,7 +204,7 @@ class RecruitmentRevisionCorrectionTest extends TestCase
     {
         $this->authenticateTracking();
 
-        $this->put(route('open-recruitment.track.update'), $this->editPayload());
+        $this->put(route('recruitment.track.update'), $this->editPayload());
 
         $this->assertSame(
             1,
@@ -236,7 +236,7 @@ class RecruitmentRevisionCorrectionTest extends TestCase
 
         $this->actingAs($staff)
             ->post(route('dashboard.recruitment.applications.verify', $this->application))
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $this->application));
+            ->assertRedirect();
 
         $this->application->refresh();
         $this->assertTrue($this->application->is_verified);

@@ -21,7 +21,7 @@ class EnsureTrackingSession
             $this->trackingSession->flush();
 
             return redirect()
-                ->route('open-recruitment.track.login')
+                ->route('recruitment.track.login')
                 ->withErrors([
                     'tracking' => 'Sesi tracking habis. Masukkan kembali nomor pendaftaran dan token.',
                 ]);
@@ -33,7 +33,7 @@ class EnsureTrackingSession
             $this->trackingSession->flush();
 
             return redirect()
-                ->route('open-recruitment.track.login')
+                ->route('recruitment.track.login')
                 ->withErrors([
                     'tracking' => 'Sesi tracking tidak valid.',
                 ]);

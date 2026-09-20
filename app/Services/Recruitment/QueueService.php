@@ -149,6 +149,158 @@ final class QueueService
     }
 
     /**
+     * Snapshot sanitasi untuk papan antrean publik (display-only, tanpa auth).
+     *
+     * Tidak memuat nama lengkap, nomor registrasi, id aplikasi, maupun interviewer.
+     *
+     * @return array{
+     *     session: array{name: string, division: string, room: string, time: string},
+     *     entries: list<array<string, mixed>>,
+     *     current: array<string, mixed>|null,
+     *     next: array<string, mixed>|null,
+     *     stats: array{waiting: int, called: int, completed: int, total: int}
+     * }
+     */
+    public function publicSnapshot(RecruitmentInterviewSession $session): array
+    {
+        $session->loadMissing(['division:id,name']);
+
+        $entries = RecruitmentQueueEntry::query()
+            ->where('recruitment_interview_session_id', $session->id)
+            ->with(['application:id,full_name'])
+            ->orderBy('queue_number')
+            ->get();
+
+        $divisionName = (string) ($session->division?->name ?? '');
+        $room = (string) ($session->room ?? '');
+
+        $publicEntries = $entries
+            ->map(fn (RecruitmentQueueEntry $entry): array => $this->publicEntryToArray($entry, $divisionName, $room))
+            ->values()
+            ->all();
+
+        $currentEntry = $entries->first(fn (RecruitmentQueueEntry $entry): bool => in_array(
+            $entry->status,
+            [QueueStatus::Called, QueueStatus::InProgress],
+            true,
+        ));
+
+        $nextEntry = $entries->first(fn (RecruitmentQueueEntry $entry): bool => $entry->status === QueueStatus::Waiting);
+
+        return [
+            'session' => [
+                'name' => $this->publicSessionName($session, $divisionName),
+                'division' => $divisionName,
+                'room' => $room,
+                'time' => $this->formatSessionTime($session->starts_at, $session->ends_at),
+            ],
+            'entries' => $publicEntries,
+            'current' => $currentEntry ? $this->publicEntryToArray($currentEntry, $divisionName, $room) : null,
+            'next' => $nextEntry ? $this->publicEntryToArray($nextEntry, $divisionName, $room) : null,
+            'stats' => [
+                'waiting' => $entries->where('status', QueueStatus::Waiting)->count(),
+                'called' => $entries->whereIn('status', [QueueStatus::Called, QueueStatus::InProgress])->count(),
+                'completed' => $entries->where('status', QueueStatus::Completed)->count(),
+                'total' => $entries->count(),
+            ],
+        ];
+    }
+
+    /**
+     * Daftar sesi antrean publik yang sedang aktif (display-only, tanpa auth).
+     *
+     * Tidak memuat data applicant, interviewer, maupun nomor registrasi.
+     *
+     * @return list<array{id: string, name: string, division: string, room: string, time: string, board_url: string}>
+     */
+    public function activeSessionsForPublic(): array
+    {
+        $sessions = RecruitmentInterviewSession::query()
+            ->where('is_active', true)
+            ->with(['division:id,name'])
+            ->orderBy('session_date')
+            ->orderBy('starts_at')
+            ->limit(50)
+            ->get();
+
+        return $sessions
+            ->map(function (RecruitmentInterviewSession $session): array {
+                $divisionName = (string) ($session->division?->name ?? '');
+
+                return [
+                    'id' => (string) $session->id,
+                    'name' => $this->publicSessionName($session, $divisionName),
+                    'division' => $divisionName,
+                    'room' => (string) ($session->room ?? ''),
+                    'time' => $this->formatSessionTime($session->starts_at, $session->ends_at),
+                    'board_url' => route('recruitment.queue.show', $session),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function publicEntryToArray(RecruitmentQueueEntry $entry, string $divisionName, string $room): array
+    {
+        return [
+            'queue_number' => $entry->queue_number,
+            'display_name' => $this->maskDisplayName((string) ($entry->application?->full_name ?? '')),
+            'division' => $divisionName,
+            'room' => $room,
+            'status' => $entry->status->value,
+            'status_label' => $entry->status->label(),
+            'called_at' => $entry->called_at?->toIso8601String(),
+        ];
+    }
+
+    private function maskDisplayName(string $fullName): string
+    {
+        $parts = preg_split('/\s+/u', trim($fullName), -1, PREG_SPLIT_NO_EMPTY);
+
+        if ($parts === false || $parts === []) {
+            return 'Peserta';
+        }
+
+        if (count($parts) === 1) {
+            return $parts[0];
+        }
+
+        $lastInitial = mb_substr((string) end($parts), 0, 1);
+
+        return $parts[0].' '.mb_strtoupper($lastInitial).'.';
+    }
+
+    private function publicSessionName(RecruitmentInterviewSession $session, string $divisionName): string
+    {
+        $dateLabel = $session->session_date?->translatedFormat('d M Y') ?? '';
+
+        if ($divisionName !== '' && $dateLabel !== '') {
+            return "Sesi {$divisionName} — {$dateLabel}";
+        }
+
+        if ($divisionName !== '') {
+            return "Sesi {$divisionName}";
+        }
+
+        return 'Sesi Interview';
+    }
+
+    private function formatSessionTime(mixed $startsAt, mixed $endsAt): string
+    {
+        $start = substr((string) ($startsAt ?? ''), 0, 5);
+        $end = substr((string) ($endsAt ?? ''), 0, 5);
+
+        if ($start !== '' && $end !== '') {
+            return "{$start}–{$end}";
+        }
+
+        return $start !== '' ? $start : $end;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function entryToArray(RecruitmentQueueEntry $entry): array

@@ -123,8 +123,20 @@ const links = [
     { label: 'Beranda', href: routes.home },
     { label: 'Fitur', href: routes.landing.features },
     { label: 'Acara', href: routes.landing.events.index },
+    { label: 'Antrean', href: routes.recruitment.queue.index },
     { label: 'Dokumentasi', href: routes.landing.docs },
 ];
+
+/**
+ * Menu antrean juga aktif di halaman papan per-sesi (`/recruitment/queue/{id}`),
+ * jadi pencocokan memakai prefix path, bukan kesamaan persis.
+ */
+function isLinkActive(href: string): boolean {
+    if (href === routes.recruitment.queue.index) {
+        return currentPath.value === href || currentPath.value.startsWith(`${href}/`);
+    }
+    return currentPath.value === href;
+}
 </script>
 
 <template>
@@ -152,7 +164,7 @@ const links = [
                     :href="link.href"
                     :class="[
  'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150',
- currentPath === link.href ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+ isLinkActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
  ]"
                 >
                     {{ link.label }}
@@ -257,7 +269,7 @@ const links = [
                             :href="link.href"
                             :class="[
  'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
- currentPath === link.href
+ isLinkActive(link.href)
  ? 'bg-primary/8 text-primary'
  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
  ]"

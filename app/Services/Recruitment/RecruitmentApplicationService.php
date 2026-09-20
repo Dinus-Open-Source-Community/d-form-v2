@@ -135,6 +135,10 @@ final class RecruitmentApplicationService
                 'id' => $application->primaryDivision->id,
                 'name' => $application->primaryDivision->name,
             ] : null,
+            'secondary_division' => $application->secondaryDivision ? [
+                'id' => $application->secondaryDivision->id,
+                'name' => $application->secondaryDivision->name,
+            ] : null,
             'period' => $application->period ? [
                 'id' => $application->period->id,
                 'name' => $application->period->name,

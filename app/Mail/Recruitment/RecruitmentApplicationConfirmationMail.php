@@ -19,6 +19,7 @@ class RecruitmentApplicationConfirmationMail extends Mailable
         public string $bodyHtml,
         public string $bodyText,
         public ?string $qrPngBinary = null,
+        public ?string $headline = null,
     ) {
     }
 
@@ -38,6 +39,7 @@ class RecruitmentApplicationConfirmationMail extends Mailable
                 'bodyHtml' => $this->bodyHtml,
                 'bodyText' => $this->bodyText,
                 'subjectLine' => $this->subjectLine,
+                'headline' => $this->headline,
             ],
         );
     }

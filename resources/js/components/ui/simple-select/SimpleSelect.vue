@@ -19,9 +19,11 @@ const props = withDefaults(
         options: SimpleSelectOption[]
         placeholder?: string
         disabled?: boolean
+        required?: boolean
+        invalid?: boolean
         class?: HTMLAttributes['class']
     }>(),
-    { placeholder: 'Pilih…', disabled: false },
+    { placeholder: 'Pilih…', disabled: false, required: false, invalid: false },
 )
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -98,6 +100,9 @@ function choose(value: string) {
                 :disabled="disabled"
                 :class="triggerClass"
                 :aria-expanded="open"
+                :required="required || undefined"
+                :aria-required="required || undefined"
+                :aria-invalid="invalid || undefined"
                 aria-haspopup="listbox"
                 v-bind="$attrs"
             >

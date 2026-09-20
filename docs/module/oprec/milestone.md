@@ -133,7 +133,7 @@ Admin buat period `OpRec 2026` status draft → open; 4 divisi aktif; interviewe
 
 ### Deliverable Frontend
 
-- Landing `/open-recruitment` (info, timeline, CTA aktif jika period open)
+- Landing `/recruitment` (info, timeline, CTA aktif jika period open)
 - Application form (single page atau multi-step)
 - Success page dengan reg number (token via email, tidak di URL)
 - Layout public `OpenRecruitment/*`
@@ -172,8 +172,8 @@ Submit valid → reg number + email queued; duplicate NIM ditolak; submit saat c
 
 ### Deliverable Frontend
 
-- `/open-recruitment/track` — login form
-- `/open-recruitment/track/dashboard` — timeline visual per stage
+- `/recruitment/track` — login form
+- `/recruitment/track/dashboard` — timeline visual per stage
 - Tampilan interview schedule & final result (jika ada)
 
 ### Smoke test
@@ -316,7 +316,7 @@ Passed applicant → scheduled → email queued; reminder command test dengan `C
 
 ### Deliverable Frontend
 
-- Public/onsite attendance page `/open-recruitment/attendance`
+- Public/onsite attendance page `/recruitment/attendance`
 - Staff queue monitor `/admin/recruitment/queue/{session}` (poll 10s)
 - Staff attendance scan page (reuse Events scanner UX)
 
@@ -426,7 +426,7 @@ Interviewed applicant → Accepted-AA + division Data → tracking + email.
 
 ### Deliverable Frontend
 
-- Feedback form public (`/open-recruitment/track/feedback`)
+- Feedback form public (`/recruitment/track/feedback`)
 - Reports pages + charts
 - Dashboard KPI lengkap (PRD §29–30): Staff + Interviewer subset + Admin
 - Template editor

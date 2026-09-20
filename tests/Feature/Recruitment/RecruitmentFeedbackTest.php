@@ -59,22 +59,22 @@ class RecruitmentFeedbackTest extends TestCase
 
     private function authenticateTracking(): void
     {
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
     }
 
     public function test_submit_feedback_after_completed_is_saved(): void
     {
         $this->authenticateTracking();
 
-        $this->get(route('open-recruitment.track.feedback'))
+        $this->get(route('recruitment.track.feedback'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('OpenRecruitment/Track/Feedback'));
 
-        $this->post(route('open-recruitment.track.feedback.store'), $this->validFeedbackPayload())
-            ->assertRedirect(route('open-recruitment.track.show'))
+        $this->post(route('recruitment.track.feedback.store'), $this->validFeedbackPayload())
+            ->assertRedirect(route('recruitment.track.show'))
             ->assertSessionHas('toast');
 
         $feedback = RecruitmentFeedback::query()
@@ -86,7 +86,7 @@ class RecruitmentFeedbackTest extends TestCase
         $this->assertSame('Alur OpRec jelas dan panitia responsif.', $feedback->feedback_text);
         $this->assertNotNull($feedback->submitted_at);
 
-        $this->get(route('open-recruitment.track.show'))
+        $this->get(route('recruitment.track.show'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('tracking.feedback.submitted', true)
@@ -99,11 +99,11 @@ class RecruitmentFeedbackTest extends TestCase
 
         $this->authenticateTracking();
 
-        $this->get(route('open-recruitment.track.feedback'))
-            ->assertRedirect(route('open-recruitment.track.show'))
+        $this->get(route('recruitment.track.feedback'))
+            ->assertRedirect(route('recruitment.track.show'))
             ->assertSessionHasErrors('feedback');
 
-        $this->post(route('open-recruitment.track.feedback.store'), $this->validFeedbackPayload())
+        $this->post(route('recruitment.track.feedback.store'), $this->validFeedbackPayload())
             ->assertSessionHasErrors('feedback');
 
         $this->assertSame(
@@ -116,10 +116,10 @@ class RecruitmentFeedbackTest extends TestCase
     {
         $this->authenticateTracking();
 
-        $this->post(route('open-recruitment.track.feedback.store'), $this->validFeedbackPayload())
-            ->assertRedirect(route('open-recruitment.track.show'));
+        $this->post(route('recruitment.track.feedback.store'), $this->validFeedbackPayload())
+            ->assertRedirect(route('recruitment.track.show'));
 
-        $this->post(route('open-recruitment.track.feedback.store'), $this->validFeedbackPayload())
+        $this->post(route('recruitment.track.feedback.store'), $this->validFeedbackPayload())
             ->assertSessionHasErrors('feedback');
 
         $this->assertSame(
@@ -130,10 +130,10 @@ class RecruitmentFeedbackTest extends TestCase
 
     public function test_feedback_without_valid_tracking_session_is_blocked(): void
     {
-        $this->get(route('open-recruitment.track.feedback'))
-            ->assertRedirect(route('open-recruitment.track.login'));
+        $this->get(route('recruitment.track.feedback'))
+            ->assertRedirect(route('recruitment.track.login'));
 
-        $this->post(route('open-recruitment.track.feedback.store'), $this->validFeedbackPayload())
-            ->assertRedirect(route('open-recruitment.track.login'));
+        $this->post(route('recruitment.track.feedback.store'), $this->validFeedbackPayload())
+            ->assertRedirect(route('recruitment.track.login'));
     }
 }

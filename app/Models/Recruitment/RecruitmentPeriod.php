@@ -37,6 +37,7 @@ class RecruitmentPeriod extends Model
         'interview_ends_at',
         'finalization_deadline_at',
         'landing_content',
+        'banner',
         'created_by',
     ];
 

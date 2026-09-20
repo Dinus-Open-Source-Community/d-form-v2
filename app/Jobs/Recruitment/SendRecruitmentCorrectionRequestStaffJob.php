@@ -58,7 +58,7 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
             'registration_number' => $application->registration_number,
             'period_name' => $application->period?->name ?? 'OpenRecruitment DOSCOM',
             'correction_request_message' => $correction->request_message,
-            'application_admin_url' => url(route('dashboard.recruitment.applications.show', $application, false)),
+            'application_admin_url' => url(route('dashboard.recruitment.periods.show', $application->recruitment_period_id, false)),
         ];
 
         $rendered = $renderer->renderTemplate('correction_request_staff', $variables);

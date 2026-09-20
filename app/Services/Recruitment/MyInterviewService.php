@@ -36,6 +36,8 @@ final class MyInterviewService
                 'session.division',
             ]);
 
+        $this->attendedApplicationScope($query);
+
         if (! empty($filters['queue'])) {
             $this->applyQueueFilter($query, (string) $filters['queue']);
         }
@@ -96,8 +98,12 @@ final class MyInterviewService
         $dayStart = today()->startOfDay()->toDateTimeString();
         $nextDayStart = today()->addDay()->startOfDay()->toDateTimeString();
 
-        $row = RecruitmentInterview::query()
-            ->where('interviewer_id', $interviewer->id)
+        $query = RecruitmentInterview::query()
+            ->where('interviewer_id', $interviewer->id);
+
+        $this->attendedApplicationScope($query);
+
+        $row = $query
             ->selectRaw(
                 'COUNT(*) as all_count, '
                 .'SUM(CASE WHEN EXISTS (SELECT 1 FROM recruitment_evaluations WHERE recruitment_evaluations.recruitment_application_id = recruitment_interviews.recruitment_application_id) THEN 0 ELSE 1 END) as pending_count, '
@@ -122,10 +128,16 @@ final class MyInterviewService
     {
         return RecruitmentInterviewSession::query()
             ->whereDate('session_date', today())
-            ->whereHas('interviews', fn ($q) => $q->where('interviewer_id', $interviewer->id))
+            ->whereHas('interviews', function ($q) use ($interviewer): void {
+                $q->where('interviewer_id', $interviewer->id);
+                $this->attendedApplicationScope($q);
+            })
             ->with(['division:id,name', 'period:id,name'])
             ->withCount([
-                'interviews as my_interviews_count' => fn ($q) => $q->where('interviewer_id', $interviewer->id),
+                'interviews as my_interviews_count' => function ($q) use ($interviewer): void {
+                    $q->where('interviewer_id', $interviewer->id);
+                    $this->attendedApplicationScope($q);
+                },
             ])
             ->orderBy('starts_at')
             ->get()
@@ -153,7 +165,11 @@ final class MyInterviewService
         $interview = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
             ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q))
-            ->whereNotNull('scheduled_at')
+            ->whereNotNull('scheduled_at');
+
+        $this->attendedApplicationScope($interview);
+
+        $interview = $interview
             ->where('scheduled_at', '<=', now())
             ->orderByRaw('CASE WHEN scheduled_at IS NULL THEN 1 ELSE 0 END')
             ->orderBy('scheduled_at')
@@ -182,8 +198,12 @@ final class MyInterviewService
      */
     public function sessionIdsForInterviewer(User $interviewer): array
     {
-        return RecruitmentInterview::query()
-            ->where('interviewer_id', $interviewer->id)
+        $query = RecruitmentInterview::query()
+            ->where('interviewer_id', $interviewer->id);
+
+        $this->attendedApplicationScope($query);
+
+        return $query
             ->distinct()
             ->pluck('recruitment_interview_session_id')
             ->filter()
@@ -197,7 +217,10 @@ final class MyInterviewService
     public function sessionsForInterviewer(User $interviewer): array
     {
         return RecruitmentInterviewSession::query()
-            ->whereHas('interviews', fn ($q) => $q->where('interviewer_id', $interviewer->id))
+            ->whereHas('interviews', function ($q) use ($interviewer): void {
+                $q->where('interviewer_id', $interviewer->id);
+                $this->attendedApplicationScope($q);
+            })
             ->with(['division:id,name'])
             ->orderBy('session_date')
             ->orderBy('starts_at')
@@ -222,13 +245,23 @@ final class MyInterviewService
                         ->from('recruitment_interview_sessions')
                         ->join('recruitment_interviews', 'recruitment_interviews.recruitment_interview_session_id', '=', 'recruitment_interview_sessions.id')
                         ->whereColumn('recruitment_interview_sessions.recruitment_division_id', 'recruitment_divisions.id')
-                        ->where('recruitment_interviews.interviewer_id', $interviewer->id);
+                        ->where('recruitment_interviews.interviewer_id', $interviewer->id)
+                        ->whereExists(function ($attendance): void {
+                            $attendance->selectRaw('1')
+                                ->from('recruitment_attendances')
+                                ->whereColumn('recruitment_attendances.recruitment_application_id', 'recruitment_interviews.recruitment_application_id');
+                        });
                 })->orWhereExists(function ($aq) use ($interviewer): void {
                     $aq->selectRaw('1')
                         ->from('recruitment_applications')
                         ->join('recruitment_interviews', 'recruitment_interviews.recruitment_application_id', '=', 'recruitment_applications.id')
                         ->whereColumn('recruitment_applications.primary_division_id', 'recruitment_divisions.id')
-                        ->where('recruitment_interviews.interviewer_id', $interviewer->id);
+                        ->where('recruitment_interviews.interviewer_id', $interviewer->id)
+                        ->whereExists(function ($attendance): void {
+                            $attendance->selectRaw('1')
+                                ->from('recruitment_attendances')
+                                ->whereColumn('recruitment_attendances.recruitment_application_id', 'recruitment_applications.id');
+                        });
                 });
             })
             ->orderBy('sort_order')
@@ -292,6 +325,16 @@ final class MyInterviewService
     private function pendingEvaluationScope(Builder $query): void
     {
         $query->whereDoesntHave('evaluation');
+    }
+
+    /**
+     * Batasi ke interview yang applicant-nya sudah regis ulang (punya baris attendance).
+     *
+     * @param  Builder<RecruitmentInterview>  $query
+     */
+    private function attendedApplicationScope(Builder $query): void
+    {
+        $query->whereHas('application.attendance');
     }
 
     /**

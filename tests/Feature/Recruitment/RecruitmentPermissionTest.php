@@ -267,17 +267,17 @@ class RecruitmentPermissionTest extends TestCase
         $applicationA = $this->application('A', self::TOKEN_A);
         $applicationB = $this->application('B', self::TOKEN_B);
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $applicationA->registration_number,
             'tracking_token' => self::TOKEN_B,
         ])->assertSessionHasErrors('credentials');
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $applicationA->registration_number,
             'tracking_token' => self::TOKEN_A,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
-        $this->get(route('open-recruitment.track.show'))
+        $this->get(route('recruitment.track.show'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('tracking.application.registration_number', $applicationA->registration_number));

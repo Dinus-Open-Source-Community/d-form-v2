@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { AutosaveStatus } from '@/components/ui/autosave-status';
 import { PenLine, Inbox, FileText, Eye } from 'lucide-vue-next';
 import {
     fromBackendField,
@@ -217,6 +218,7 @@ const showAutosave = useAutosaveSync(buildShowSnapshot, saveShowSnapshot, {
     debounceMs: 800,
     onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
 });
+const showSaveState = showAutosave.status;
 
 onUnmounted(() => {
     void showAutosave.flush();
@@ -285,29 +287,32 @@ const answerPreviewOf = (value: unknown): string => answerPreview(value);
     <div class="flex min-w-0 flex-col gap-4">
         <Tabs v-model="activeTab" class="flex w-full flex-col gap-4" :unmount-on-hide="false" aria-label="Konten form">
             <div class="border-border/60 flex items-center justify-between gap-3 border-b pb-3">
-                <TabsList class="bg-muted/40 h-auto min-h-10 flex-wrap gap-1 rounded-xl p-1">
-                    <TabsTrigger
-                        value="editor"
-                        class="data-[state=active]:bg-card gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm"
-                    >
-                        <PenLine class="size-4 shrink-0" aria-hidden="true" />
-                        Editor
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="jawaban"
-                        class="data-[state=active]:bg-card gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm"
-                    >
-                        <Inbox class="size-4 shrink-0" aria-hidden="true" />
-                        Jawaban
-                        <Badge
-                            v-if="submissionsCount && submissionsCount > 0"
-                            variant="secondary"
-                            class="ml-0.5 h-5 min-w-5 px-1.5 text-[10px] font-semibold tabular-nums"
+                <div class="flex min-w-0 items-center gap-4">
+                    <TabsList class="bg-muted/40 h-auto min-h-10 flex-wrap gap-1 rounded-xl p-1">
+                        <TabsTrigger
+                            value="editor"
+                            class="data-[state=active]:bg-card gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm"
                         >
-                            {{ submissionsCount }}
-                        </Badge>
-                    </TabsTrigger>
-                </TabsList>
+                            <PenLine class="size-4 shrink-0" aria-hidden="true" />
+                            Editor
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="jawaban"
+                            class="data-[state=active]:bg-card gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm"
+                        >
+                            <Inbox class="size-4 shrink-0" aria-hidden="true" />
+                            Jawaban
+                            <Badge
+                                v-if="submissionsCount && submissionsCount > 0"
+                                variant="secondary"
+                                class="ml-0.5 h-5 min-w-5 px-1.5 text-[10px] font-semibold tabular-nums"
+                            >
+                                {{ submissionsCount }}
+                            </Badge>
+                        </TabsTrigger>
+                    </TabsList>
+                    <AutosaveStatus :status="showSaveState" variant="inline" />
+                </div>
 
                 <div class="flex shrink-0 items-center gap-2">
                     <Button
