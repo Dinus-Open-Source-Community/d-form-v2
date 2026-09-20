@@ -16,7 +16,7 @@ const props = defineProps<{
 }>()
 
 const trackLoginUrl = computed(
-    () => `${routes.openRecruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`,
+    () => `${routes.recruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`,
 )
 
 async function copyRegistrationNumber() {
@@ -86,7 +86,7 @@ async function copyRegistrationNumber() {
                 </Button>
 
                 <Button as-child variant="outline" class="w-full">
-                    <Link :href="routes.openRecruitment.landing">Kembali ke landing</Link>
+                    <Link :href="routes.recruitment.landing">Kembali ke landing</Link>
                 </Button>
             </CardContent>
         </Card>

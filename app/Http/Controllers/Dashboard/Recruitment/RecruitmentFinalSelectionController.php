@@ -30,7 +30,7 @@ class RecruitmentFinalSelectionController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Applicant diterima. Email hasil telah dikirim.');
     }
 
@@ -47,7 +47,7 @@ class RecruitmentFinalSelectionController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Applicant ditolak. Email hasil telah dikirim.');
     }
 }

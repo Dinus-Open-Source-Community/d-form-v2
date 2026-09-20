@@ -106,7 +106,7 @@ class RecruitmentAttendanceQueueTest extends TestCase
     {
         $application = $this->scheduleApplicant('1');
 
-        $this->postJson('/open-recruitment/attendance/check-in', [
+        $this->postJson('/recruitment/attendance/check-in', [
             'registration_number' => $application->registration_number,
         ])->assertNotFound();
     }
@@ -354,12 +354,12 @@ class RecruitmentAttendanceQueueTest extends TestCase
             [$application->id],
         );
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $application->registration_number,
             'tracking_token' => $trackingToken,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
-        $this->get(route('open-recruitment.track.show'))
+        $this->get(route('recruitment.track.show'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('OpenRecruitment/Track/Show')

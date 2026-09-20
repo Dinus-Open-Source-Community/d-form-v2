@@ -2,36 +2,19 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
-use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
-use App\Services\Recruitment\RecruitmentApplicationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentApplicationController extends Controller
 {
     public function __construct(
-        private readonly RecruitmentApplicationService $applicationService,
         private readonly ApplicationVerificationService $verificationService,
     ) {
-    }
-
-    public function show(RecruitmentApplication $application): Response
-    {
-        $this->authorize('view', $application);
-
-        return Inertia::render('Dashboard/Recruitment/Applications/Show', [
-            'application' => $this->applicationService->toShowArray($application),
-            'screeningReasonOptions' => \App\Enums\Recruitment\ScreeningReason::options(),
-            'divisionOptions' => $this->applicationService->divisionOptions(),
-            'membershipTypeOptions' => MembershipType::options(),
-        ]);
     }
 
     public function downloadDocument(Request $request, RecruitmentApplication $application, string $type): StreamedResponse
@@ -113,7 +96,7 @@ class RecruitmentApplicationController extends Controller
         $this->verificationService->verify($request->user(), $application, $request);
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Pendaftaran berhasil diverifikasi.');
     }
 }

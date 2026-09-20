@@ -148,7 +148,7 @@ Setelah fitur ini tersedia, sistem mendukung:
 
 ### 4.4 Modul OpenRecruitment (OpRec)
 
-Modul terpisah untuk **recruitment anggota DOSCOM** end-to-end: pendaftaran applicant tanpa login (`/open-recruitment`), screening, interview, attendance & antrean, penilaian interviewer, seleksi akhir, dan feedback. Dibangun di atas platform D-Form v2 dengan domain data sendiri (`recruitment_*`), reuse infrastruktur email, QR, dan file storage.
+Modul terpisah untuk **recruitment anggota DOSCOM** end-to-end: pendaftaran applicant tanpa login (`/recruitment`), screening, interview, attendance & antrean, penilaian interviewer, seleksi akhir, dan feedback. Dibangun di atas platform D-Form v2 dengan domain data sendiri (`recruitment_*`), reuse infrastruktur email, QR, dan file storage.
 
 | Dokumen | Path |
 |---------|------|

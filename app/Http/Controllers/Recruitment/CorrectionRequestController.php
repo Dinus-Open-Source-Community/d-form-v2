@@ -28,7 +28,7 @@ class CorrectionRequestController extends Controller
         );
 
         return redirect()
-            ->route('open-recruitment.track.show')
+            ->route('recruitment.track.show')
             ->with('toast', [
                 'type' => 'success',
                 'message' => 'Permintaan koreksi berhasil dikirim. Tim akan meninjau segera.',

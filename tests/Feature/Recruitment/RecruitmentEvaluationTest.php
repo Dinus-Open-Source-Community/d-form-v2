@@ -5,8 +5,7 @@ namespace Tests\Feature\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\EvaluationRecommendation;
-use App\Enums\Recruitment\InterviewStatus;
-use App\Models\Recruitment\RecruitmentActivityLog;
+use App\Enums\Recruitment\QueueStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentEvaluation;
@@ -14,6 +13,7 @@ use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Models\User;
 use App\Services\Recruitment\AttendanceService;
 use App\Services\Recruitment\InterviewSchedulingService;
@@ -120,6 +120,27 @@ class RecruitmentEvaluationTest extends TestCase
         ];
     }
 
+    private function seedQueueEntry(
+        RecruitmentApplication $application,
+        int $queueNumber,
+        QueueStatus $status,
+    ): RecruitmentQueueEntry {
+        return RecruitmentQueueEntry::query()->create([
+            'recruitment_application_id' => $application->id,
+            'recruitment_interview_session_id' => $this->session->id,
+            'queue_number' => $queueNumber,
+            'status' => $status,
+            'called_at' => $status === QueueStatus::Called ? now() : null,
+        ]);
+    }
+
+    private function queueEntryFor(RecruitmentApplication $application): RecruitmentQueueEntry
+    {
+        return RecruitmentQueueEntry::query()
+            ->where('recruitment_application_id', $application->id)
+            ->firstOrFail();
+    }
+
     public function test_interviewer_submit_scores_saves_evaluation(): void
     {
         $application = $this->createAssignedApplication('1');
@@ -213,10 +234,6 @@ class RecruitmentEvaluationTest extends TestCase
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload());
 
-        $this->actingAs($this->staff)
-            ->postJson(route('dashboard.recruitment.queue.call-next', $this->session))
-            ->assertOk();
-
         $evaluation = RecruitmentEvaluation::query()
             ->where('recruitment_application_id', $application->id)
             ->firstOrFail();
@@ -247,7 +264,7 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.applications.evaluation.override', $application), $override)
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $application));
+            ->assertRedirect();
 
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_application_id' => $application->id,
@@ -290,11 +307,19 @@ class RecruitmentEvaluationTest extends TestCase
             ->assertOk();
     }
 
-    public function test_interviewer_cannot_access_staff_applicant_list(): void
+    public function test_interviewer_dapat_membuka_halaman_periode_tanpa_daftar_pelamar(): void
     {
         $this->actingAs($this->interviewer)
             ->get(route('dashboard.recruitment.periods.show', $this->period->id))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertInertia(function ($page): void {
+                // AssertableInertia's root is the flattened props array, and `applications`
+                // is null on the peserta tab today but becomes absent on the interview tab
+                // after Task 3. `assertInertia` ignores the callback return, so assert
+                // emptiness on the raw props instead of where()/missing(), which would
+                // pin the shape to one of the two states.
+                $this->assertEmpty($page->toArray()['applications'] ?? null);
+            });
     }
 
     public function test_interviewer_cannot_staff_override_evaluation(): void
@@ -304,5 +329,105 @@ class RecruitmentEvaluationTest extends TestCase
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.applications.evaluation.override', $application), $this->validEvaluationPayload())
             ->assertForbidden();
+    }
+
+    public function test_evaluate_advances_queue_and_flashes_next_queue_number(): void
+    {
+        $application = $this->createAssignedApplication('20');
+        $nextApplication = $this->createAssignedApplication('21');
+
+        $this->seedQueueEntry($application, 1, QueueStatus::Called);
+        $this->seedQueueEntry($nextApplication, 2, QueueStatus::Waiting);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application))
+            ->assertSessionHas(
+                'message',
+                fn (string $message): bool => str_contains($message, 'Berikutnya dipanggil: #02'),
+            );
+
+        $this->assertSame(QueueStatus::Completed, $this->queueEntryFor($application)->status);
+        $this->assertSame(QueueStatus::Called, $this->queueEntryFor($nextApplication)->status);
+    }
+
+    public function test_evaluate_is_idempotent_when_entry_already_finalized(): void
+    {
+        $application = $this->createAssignedApplication('22');
+        $nextApplication = $this->createAssignedApplication('23');
+
+        $this->seedQueueEntry($application, 1, QueueStatus::Completed);
+        $this->seedQueueEntry($nextApplication, 2, QueueStatus::Waiting);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application))
+            ->assertSessionHas(
+                'message',
+                fn (string $message): bool => ! str_contains($message, 'Berikutnya dipanggil'),
+            );
+
+        $this->assertSame(QueueStatus::Waiting, $this->queueEntryFor($nextApplication)->status);
+    }
+
+    public function test_evaluate_advances_queue_only_once_across_repeated_submits(): void
+    {
+        $application = $this->createAssignedApplication('27');
+        $nextApplication = $this->createAssignedApplication('28');
+        $thirdApplication = $this->createAssignedApplication('29');
+
+        $this->seedQueueEntry($application, 1, QueueStatus::Called);
+        $this->seedQueueEntry($nextApplication, 2, QueueStatus::Waiting);
+        $this->seedQueueEntry($thirdApplication, 3, QueueStatus::Waiting);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertForbidden();
+
+        $this->assertSame(QueueStatus::Completed, $this->queueEntryFor($application)->status);
+        $this->assertSame(QueueStatus::Called, $this->queueEntryFor($nextApplication)->status);
+        $this->assertSame(QueueStatus::Waiting, $this->queueEntryFor($thirdApplication)->status);
+    }
+
+    public function test_evaluate_with_empty_waiting_queue_still_finalizes(): void
+    {
+        $application = $this->createAssignedApplication('24');
+
+        $this->seedQueueEntry($application, 1, QueueStatus::Called);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application))
+            ->assertSessionHas(
+                'message',
+                fn (string $message): bool => ! str_contains($message, 'Berikutnya dipanggil'),
+            );
+
+        $this->assertSame(QueueStatus::Completed, $this->queueEntryFor($application)->status);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
+        ]);
+    }
+
+    public function test_evaluate_without_queue_session_leaves_queue_untouched(): void
+    {
+        $application = $this->createAssignedApplication('25');
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application));
+
+        $this->assertDatabaseCount('recruitment_queue_entries', 0);
+    }
+
+    public function test_admin_my_interviews_queue_board_route_is_removed(): void
+    {
+        $this->actingAs($this->staff)
+            ->get('/admin/recruitment/my-interviews/queue/'.$this->session->id)
+            ->assertNotFound();
     }
 }

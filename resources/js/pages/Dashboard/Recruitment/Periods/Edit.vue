@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { ImageUp, X } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -22,6 +23,7 @@ interface Period {
     interview_starts_at: string | null
     interview_ends_at: string | null
     finalization_deadline_at: string | null
+    banner_url: string | null
 }
 
 const props = defineProps<{ period: Period }>()
@@ -39,6 +41,8 @@ function toDateInput(value: string | null): string {
     return value.slice(0, 10)
 }
 
+const existingBannerUrl = computed<string | null>(() => props.period.banner_url ?? null)
+
 const form = useForm({
     name: props.period.name,
     description: props.period.description ?? '',
@@ -47,7 +51,13 @@ const form = useForm({
     interview_starts_at: toDateInput(props.period.interview_starts_at),
     interview_ends_at: toDateInput(props.period.interview_ends_at),
     finalization_deadline_at: toDateInput(props.period.finalization_deadline_at),
+    banner: null as File | null,
 })
+
+const bannerInput = ref<HTMLInputElement | null>(null)
+const bannerPreview = ref<string | null>(existingBannerUrl.value)
+const isDragging = ref(false)
+let bannerObjectUrl: string | null = null
 
 const dateErrorClass =
     'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
@@ -56,8 +66,48 @@ onMounted(() => {
     setTopbar({ title: 'Edit periode', subtitle: props.period.name })
 })
 
+onUnmounted(releaseBannerObjectUrl)
+
+function openBannerPicker(): void {
+    bannerInput.value?.click()
+}
+
+function releaseBannerObjectUrl(): void {
+    if (bannerObjectUrl) {
+        URL.revokeObjectURL(bannerObjectUrl)
+        bannerObjectUrl = null
+    }
+}
+
+function applyBannerFile(file: File): void {
+    releaseBannerObjectUrl()
+    bannerObjectUrl = URL.createObjectURL(file)
+    bannerPreview.value = bannerObjectUrl
+    form.banner = file
+}
+
+function handleBannerChange(event: Event): void {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (file) applyBannerFile(file)
+    input.value = ''
+}
+
+function handleBannerDrop(event: DragEvent): void {
+    isDragging.value = false
+    const file = event.dataTransfer?.files?.[0]
+    if (file && file.type.startsWith('image/')) applyBannerFile(file)
+}
+
+/** Membatalkan pilihan berkas baru; banner lama tetap dipakai (tidak dikirim ulang). */
+function removeBanner(): void {
+    releaseBannerObjectUrl()
+    form.banner = null
+    bannerPreview.value = existingBannerUrl.value
+}
+
 function submit() {
-    form.put(routes.admin.recruitment.periods.update(props.period.id))
+    form.put(routes.admin.recruitment.periods.update(props.period.id), { forceFormData: true })
 }
 </script>
 
@@ -98,6 +148,91 @@ function submit() {
                             v-model="form.description"
                             rows="3"
                             class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                        />
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                                <Label for="banner">Banner</Label>
+                                <p class="text-muted-foreground mt-1 text-xs">
+                                    Opsional — disarankan 16:9, maks 10MB. Pilih berkas baru untuk
+                                    menggantikan banner saat ini.
+                                </p>
+                            </div>
+                            <div v-if="bannerPreview" class="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="h-9 text-xs"
+                                    @click="openBannerPicker"
+                                >
+                                    Ganti
+                                </Button>
+                                <Button
+                                    v-if="form.banner"
+                                    type="button"
+                                    radius="icon"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    class="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    aria-label="Batalkan pilihan banner baru"
+                                    @click="removeBanner"
+                                >
+                                    <X class="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div
+                            :class="
+                                cn(
+                                    'border-border bg-muted/25 overflow-hidden rounded-xl border-2 transition-colors',
+                                    isDragging && 'border-primary/60 bg-primary/5',
+                                )
+                            "
+                        >
+                            <div class="relative aspect-video w-full">
+                                <img
+                                    v-if="bannerPreview"
+                                    :src="bannerPreview"
+                                    alt="Pratinjau banner"
+                                    class="absolute inset-0 size-full object-cover"
+                                />
+                                <div
+                                    v-else
+                                    class="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2.5 px-6 text-center"
+                                    @dragover.prevent="isDragging = true"
+                                    @dragleave="isDragging = false"
+                                    @drop.prevent="handleBannerDrop"
+                                    @click="openBannerPicker"
+                                >
+                                    <span
+                                        class="bg-muted text-muted-foreground grid size-12 place-items-center rounded-full"
+                                    >
+                                        <ImageUp class="size-5.5 stroke-[1.75]" aria-hidden="true" />
+                                    </span>
+                                    <div>
+                                        <p class="text-sm font-medium">Unggah banner</p>
+                                        <p class="text-muted-foreground mt-0.5 text-xs">
+                                            Klik untuk memilih, atau seret gambar ke sini
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p v-if="form.errors.banner" class="text-destructive text-xs">
+                            {{ form.errors.banner }}
+                        </p>
+                        <input
+                            id="banner"
+                            ref="bannerInput"
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            @change="handleBannerChange"
                         />
                     </div>
 

@@ -28,7 +28,7 @@ class RecruitmentScreeningController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Applicant lolos screening.');
     }
 
@@ -42,10 +42,11 @@ class RecruitmentScreeningController extends Controller
             ScreeningReason::from($validated['reason']),
             $validated['notes'] ?? null,
             $request,
+            $validated['sections'] ?? null,
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Permintaan revisi telah dikirim.');
     }
 
@@ -63,7 +64,7 @@ class RecruitmentScreeningController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.applications.show', $application)
+            ->back()
             ->with('message', 'Applicant ditolak pada tahap screening.');
     }
 }

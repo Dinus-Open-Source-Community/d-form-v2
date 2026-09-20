@@ -26,6 +26,8 @@ class ShowRecruitmentPeriodApplicationsRequest extends FormRequest
             'semester' => ['nullable', 'integer', 'min:1', 'max:14'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
+            // Nilai tab asing dinormalkan controller ke 'peserta'; batas panjang
+            // tetap membuat masukan liar ditolak validasi.
             'tab' => ['nullable', 'string', 'max:20'],
             'application' => ['nullable', 'string', 'max:64'],
         ];

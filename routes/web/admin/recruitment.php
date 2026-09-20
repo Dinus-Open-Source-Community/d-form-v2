@@ -34,6 +34,8 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::redirect('periods', '/admin/recruitment');
 
         Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
+        Route::get('periods/{period}/applications/{application}', [RecruitmentPeriodController::class, 'application'])
+            ->name('periods.applications.show');
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
 
@@ -42,7 +44,6 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('interviewers', [RecruitmentDivisionController::class, 'storeInterviewer'])->name('interviewers.store');
         Route::delete('interviewers/{assignment}', [RecruitmentDivisionController::class, 'unassignInterviewer'])->name('interviewers.unassign');
 
-        Route::get('applications/{application}', [RecruitmentApplicationController::class, 'show'])->name('applications.show');
         Route::get('applications/{application}/documents/{type}', [RecruitmentApplicationController::class, 'downloadDocument'])
             ->name('applications.documents.download')
             ->where('type', 'cv|portfolio|instagram_follow');
@@ -92,8 +93,6 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
-        Route::get('my-interviews/queue/{session}', [RecruitmentMyInterviewController::class, 'queue'])
-            ->name('my-interviews.queue');
         Route::get('my-interviews/{application}', [RecruitmentMyInterviewController::class, 'show'])
             ->name('my-interviews.show');
         Route::post('my-interviews/{application}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])

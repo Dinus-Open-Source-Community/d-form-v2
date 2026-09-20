@@ -31,11 +31,11 @@ class TrackingController extends Controller
     public function login(): Response|RedirectResponse
     {
         if ($this->trackingSession->isValid()) {
-            return redirect()->route('open-recruitment.track.show');
+            return redirect()->route('recruitment.track.show');
         }
 
         return Inertia::render('OpenRecruitment/Track/Login', [
-            'authenticateUrl' => route('open-recruitment.track.authenticate'),
+            'authenticateUrl' => route('recruitment.track.authenticate'),
         ]);
     }
 
@@ -56,7 +56,7 @@ class TrackingController extends Controller
 
         $this->trackingSession->store($application->id);
 
-        return redirect()->route('open-recruitment.track.show');
+        return redirect()->route('recruitment.track.show');
     }
 
     public function show(Request $request): Response
@@ -66,10 +66,10 @@ class TrackingController extends Controller
 
         return Inertia::render('OpenRecruitment/Track/Show', [
             'tracking' => $this->presenter->present($application),
-            'logoutUrl' => route('open-recruitment.track.logout'),
-            'editUrl' => route('open-recruitment.track.edit'),
-            'correctionUrl' => route('open-recruitment.track.correction'),
-            'feedbackStoreUrl' => route('open-recruitment.track.feedback.store'),
+            'logoutUrl' => route('recruitment.track.logout'),
+            'editUrl' => route('recruitment.track.edit'),
+            'correctionUrl' => route('recruitment.track.correction'),
+            'feedbackStoreUrl' => route('recruitment.track.feedback.store'),
         ]);
     }
 
@@ -81,7 +81,7 @@ class TrackingController extends Controller
 
         if (! $this->editGate->canEdit($application)) {
             return redirect()
-                ->route('open-recruitment.track.show')
+                ->route('recruitment.track.show')
                 ->withErrors([
                     'edit' => 'Pendaftaran tidak dapat diedit saat ini.',
                 ]);
@@ -111,8 +111,8 @@ class TrackingController extends Controller
                 ->map(fn ($division) => $this->divisionService->toInertiaArray($division))
                 ->values()
                 ->all(),
-            'updateUrl' => route('open-recruitment.track.update'),
-            'dashboardUrl' => route('open-recruitment.track.show'),
+            'updateUrl' => route('recruitment.track.update'),
+            'dashboardUrl' => route('recruitment.track.show'),
         ]);
     }
 
@@ -130,7 +130,7 @@ class TrackingController extends Controller
         );
 
         return redirect()
-            ->route('open-recruitment.track.show')
+            ->route('recruitment.track.show')
             ->with('toast', [
                 'type' => 'success',
                 'message' => 'Perubahan pendaftaran berhasil disimpan.',
@@ -142,7 +142,7 @@ class TrackingController extends Controller
         $this->trackingSession->flush();
 
         return redirect()
-            ->route('open-recruitment.track.login')
+            ->route('recruitment.track.login')
             ->with('toast', [
                 'type' => 'success',
                 'message' => 'Sesi tracking berakhir.',

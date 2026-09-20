@@ -13,6 +13,7 @@ import { getFormFieldOptionRows } from '@/lib/formFieldOptions'
 import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata'
 import type {
     FormAccessStatus,
+    FormFillAnswerMap,
     FormFillOptionRow,
     FormFillPageEvent,
     FormFillPageForm,
@@ -108,7 +109,7 @@ export function useFormFillPage(props: {
         return map[props.accessStatus]
     })
 
-    const initialValues: Record<string, FormFillAnswerValue | string[]> = {}
+    const initialValues: FormFillAnswerMap = {}
     for (const field of fields) {
         if (isDisplayOnly(field)) continue
         if (field.type === 'checkbox' || (field.type === 'select' && readMetaBoolean(metadata(field), 'is_multiple'))) {
@@ -141,7 +142,7 @@ export function useFormFillPage(props: {
         }
     }
 
-    const answerForm = useForm(initialValues as Record<string, unknown>)
+    const answerForm = useForm<FormFillAnswerMap>(initialValues)
 
     const errorContext = computed<ErrorMessageContext>(() => ({
         fields,

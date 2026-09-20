@@ -51,7 +51,7 @@ defineProps<{
         </Card>
 
         <p class="text-muted-foreground mt-6 text-center text-xs">
-            <Link :href="routes.openRecruitment.landing" class="text-primary underline-offset-4 hover:underline">
+            <Link :href="routes.recruitment.landing" class="text-primary underline-offset-4 hover:underline">
                 Kembali ke landing OpRec
             </Link>
         </p>

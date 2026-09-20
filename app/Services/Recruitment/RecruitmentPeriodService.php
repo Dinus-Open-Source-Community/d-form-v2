@@ -7,8 +7,11 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use App\Models\User;
 use App\Services\User\UserAvatarService;
+use App\Support\PublicStorage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 final class RecruitmentPeriodService
 {
@@ -48,9 +51,15 @@ final class RecruitmentPeriodService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function create(array $data): RecruitmentPeriod
+    public function create(array $data, ?UploadedFile $banner = null): RecruitmentPeriod
     {
+        unset($data['banner']);
+
         $data['slug'] = $this->slugGenerator->generateForName($data['name']);
+
+        if ($banner !== null) {
+            $data['banner'] = $banner->store('recruitment/banners', 'public');
+        }
 
         return DB::transaction(function () use ($data): RecruitmentPeriod {
             $period = RecruitmentPeriod::query()->create($data);
@@ -67,10 +76,20 @@ final class RecruitmentPeriodService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function update(RecruitmentPeriod $period, array $data): RecruitmentPeriod
+    public function update(RecruitmentPeriod $period, array $data, ?UploadedFile $banner = null): RecruitmentPeriod
     {
+        unset($data['banner']);
+
         if (isset($data['name']) && $data['name'] !== $period->name) {
             $data['slug'] = $this->slugGenerator->generateForName($data['name'], $period->id);
+        }
+
+        if ($banner !== null) {
+            if ($period->banner) {
+                Storage::disk('public')->delete($period->banner);
+            }
+
+            $data['banner'] = $banner->store('recruitment/banners', 'public');
         }
 
         $period->update($data);
@@ -114,6 +133,7 @@ final class RecruitmentPeriodService
             'status' => $period->status->value,
             'status_label' => $period->status->label(),
             'description' => $period->description,
+            'banner_url' => PublicStorage::url($period->banner),
             'registration_opens_at' => $period->registration_opens_at?->toIso8601String(),
             'registration_closes_at' => $period->registration_closes_at?->toIso8601String(),
             'interview_starts_at' => $period->interview_starts_at?->toDateString(),
@@ -127,6 +147,7 @@ final class RecruitmentPeriodService
             'created_at' => $period->created_at?->toIso8601String(),
             'updated_at' => $period->updated_at?->toIso8601String(),
             'can_edit' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.edit') || ($period->created_by !== null && (string) $period->created_by === (string) $user->id)),
+            'can_delete' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.delete')),
         ];
     }
 }

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { router, useForm, usePage } from '@inertiajs/vue3'
+import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { SimpleSelect } from '@/components/ui/simple-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Dialog,
@@ -14,6 +17,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { routes } from '@/lib/routes'
+import { showErrorToast } from '@/lib/error-message'
+import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
 import useAuth from '@/utils/composables/useAuth'
 import {
     CheckCircle2,
@@ -139,17 +144,24 @@ const props = withDefaults(
         divisionOptions?: { id: string; name: string; code: string }[]
         membershipTypeOptions?: { value: string; label: string }[]
         readonly?: boolean
+        hideRevisionAction?: boolean
+        hideActions?: boolean
     }>(),
     {
         screeningReasonOptions: () => [],
         divisionOptions: () => [],
         membershipTypeOptions: () => [],
         readonly: false,
+        hideRevisionAction: false,
+        hideActions: false,
     },
 )
 
 const page = usePage()
 const user = useAuth(page.props)
+
+const emit = defineEmits<{ submitted: [] }>()
+
 const canScreen = computed(
     () => props.application.can_screen && user.value?.can_screen_recruitment_applications === true,
 )
@@ -166,6 +178,9 @@ const correctionReviewForm = useForm({
 const screeningModalOpen = ref(false)
 const screeningAction = ref<ScreeningAction>(null)
 
+const confirmOpen = ref(false)
+const confirmAction = ref<'verify' | 'pass' | 'reject' | null>(null)
+
 const finalModalOpen = ref(false)
 const finalAction = ref<FinalAction>(null)
 
@@ -173,7 +188,19 @@ const screeningForm = useForm({
     reason: '',
     notes: '',
     public_message: '',
+    sections: [] as string[],
 })
+
+const revisionSectionOptions: { value: string; label: string }[] = [
+    { value: 'data_diri', label: 'Data diri' },
+    { value: 'divisi', label: 'Divisi' },
+    { value: 'cv', label: 'CV' },
+    { value: 'portfolio', label: 'Portofolio' },
+]
+
+function toggleRevisionSection(value: string, checked: boolean) {
+    screeningForm.sections = toggleCheckboxSelection(screeningForm.sections, value, checked)
+}
 
 const finalAcceptForm = useForm({
     membership_type: '',
@@ -192,26 +219,88 @@ function openScreeningModal(action: ScreeningAction) {
     screeningModalOpen.value = true
 }
 
+function openRevisionModal() {
+    openScreeningModal('revision')
+}
+
+defineExpose({ openRevisionModal, openScreeningModal, openFinalModal, verifyApplication, passApplication })
+
 function submitScreening() {
     if (screeningAction.value === 'revision') {
         screeningForm.post(routes.admin.recruitment.applications.screening.revision(props.application.id), {
             preserveScroll: true,
             onSuccess: () => {
                 screeningModalOpen.value = false
+                toast.success('Permintaan revisi telah dikirim.')
+                emit('submitted')
             },
+            onError: () => showErrorToast('Gagal mengirim permintaan revisi.'),
         })
         return
     }
 
     if (screeningAction.value === 'reject') {
-        screeningForm.post(routes.admin.recruitment.applications.screening.reject(props.application.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                screeningModalOpen.value = false
-            },
-        })
+        requestConfirm('reject')
     }
 }
+
+function postScreeningReject() {
+    screeningForm.post(routes.admin.recruitment.applications.screening.reject(props.application.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            screeningModalOpen.value = false
+            toast.success('Applicant ditolak pada tahap screening.')
+            emit('submitted')
+        },
+        onError: () => showErrorToast('Gagal menolak applicant.'),
+    })
+}
+
+function requestConfirm(action: 'verify' | 'pass' | 'reject') {
+    confirmAction.value = action
+    confirmOpen.value = true
+}
+
+function executeConfirmed() {
+    const action = confirmAction.value
+    confirmOpen.value = false
+
+    if (action === 'verify') {
+        verifyApplication()
+        return
+    }
+
+    if (action === 'pass') {
+        passApplication()
+        return
+    }
+
+    if (action === 'reject') {
+        postScreeningReject()
+    }
+}
+
+const confirmTitle = computed(() => {
+    if (confirmAction.value === 'verify') return 'Verifikasi pendaftaran'
+    if (confirmAction.value === 'pass') return 'Loloskan applicant'
+    if (confirmAction.value === 'reject') return 'Tolak applicant'
+    return 'Konfirmasi'
+})
+
+const confirmQuestion = computed(() => {
+    const who = `${props.application.full_name} (${props.application.registration_number})`
+
+    if (confirmAction.value === 'verify') return `Verifikasi pendaftaran ${who}?`
+    if (confirmAction.value === 'pass') return `Loloskan ${who} ke tahap berikutnya?`
+    if (confirmAction.value === 'reject') return `Tolak ${who}?`
+    return ''
+})
+
+const confirmConsequence = computed(() => {
+    if (confirmAction.value === 'pass') return 'Applicant lanjut ke tahap interview.'
+    if (confirmAction.value === 'reject') return 'Applicant tidak lanjut ke tahap berikutnya.'
+    return ''
+})
 
 function openFinalModal(action: FinalAction) {
     finalAction.value = action
@@ -229,7 +318,10 @@ function submitFinalDecision() {
             preserveScroll: true,
             onSuccess: () => {
                 finalModalOpen.value = false
+                toast.success('Applicant diterima. Email hasil telah dikirim.')
+                emit('submitted')
             },
+            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
         })
         return
     }
@@ -239,7 +331,10 @@ function submitFinalDecision() {
             preserveScroll: true,
             onSuccess: () => {
                 finalModalOpen.value = false
+                toast.success('Applicant ditolak. Email hasil telah dikirim.')
+                emit('submitted')
             },
+            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
         })
     }
 }
@@ -248,12 +343,30 @@ function passApplication() {
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
         {},
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Applicant lolos screening.')
+                emit('submitted')
+            },
+            onError: () => showErrorToast('Gagal meloloskan applicant.'),
+        },
     )
 }
 
 function verifyApplication() {
-    router.post(routes.admin.recruitment.applications.verify(props.application.id), {}, { preserveScroll: true })
+    router.post(
+        routes.admin.recruitment.applications.verify(props.application.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Pendaftaran berhasil diverifikasi.')
+                emit('submitted')
+            },
+            onError: () => showErrorToast('Gagal memverifikasi pendaftaran.'),
+        },
+    )
 }
 
 function approveCorrection(correctionId: string) {
@@ -274,6 +387,53 @@ function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const activityActionLabels: Record<string, string> = {
+    'screening.pass': 'Lolos screening',
+    'screening.revision_required': 'Diminta revisi',
+    'screening.reject': 'Ditolak pada tahap screening',
+    'evaluation.submitted': 'Evaluasi interview dikirim',
+    'evaluation.updated': 'Evaluasi interview diperbarui',
+    'evaluation.staff_override': 'Evaluasi diubah staff',
+    'correction.requested': 'Applicant meminta koreksi',
+    'correction.approved': 'Permintaan koreksi disetujui',
+    'correction.rejected': 'Permintaan koreksi ditolak',
+    'interview.scheduled': 'Interview dijadwalkan',
+    'interview.rescheduled': 'Jadwal interview diubah',
+    'interview.reassigned': 'Interviewer diganti',
+    'interview.cancelled': 'Interview dibatalkan',
+    'application.verified': 'Pendaftaran diverifikasi',
+    'application.updated': 'Pendaftaran diperbarui applicant',
+    'final.accept': 'Diterima sebagai anggota',
+    'final.reject': 'Tidak lolos seleksi akhir',
+    'attendance.check_in': 'Absensi interview tercatat',
+    'interview.no_show': 'Tidak hadir interview',
+}
+
+function activityActionLabel(action: string): string {
+    const label = activityActionLabels[action]
+    if (label) return label
+
+    const pretty = action.replace(/[._-]+/g, ' ').trim()
+    if (pretty === '') return action
+
+    return pretty.charAt(0).toUpperCase() + pretty.slice(1)
+}
+
+const activityDateFormatter = new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Jakarta',
+})
+
+function formatActivityTime(value: string | null): string {
+    if (!value) return ''
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+
+    return activityDateFormatter.format(date)
 }
 
 const instagramHandle = computed<string>(() =>
@@ -345,9 +505,9 @@ const defaultTab = computed(() => {
 
 <template>
     <div class="flex flex-col gap-5">
-        <div v-if="!readonly" class="flex flex-wrap items-center justify-end gap-3">
-            <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyApplication">
-                Verifikasi pendaftaran
+        <div v-if="!readonly && !hideActions" class="flex flex-wrap items-center justify-end gap-3">
+            <Button v-if="canVerify" size="sm" variant="secondary" @click="requestConfirm('verify')">
+                Verifikasi
             </Button>
             <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinalModal('reject')">
                 <XCircle class="mr-2 size-4" />
@@ -357,14 +517,14 @@ const defaultTab = computed(() => {
                 <Trophy class="mr-2 size-4" />
                 Terima
             </Button>
-            <Button v-if="canScreen" size="sm" variant="outline" @click="openScreeningModal('revision')">
-                Minta revisi
+            <Button v-if="canScreen && !hideRevisionAction" size="sm" variant="outline" @click="openScreeningModal('revision')">
+                Revisi
             </Button>
             <Button v-if="canScreen" size="sm" variant="destructive" @click="openScreeningModal('reject')">
                 <XCircle class="mr-2 size-4" />
                 Tolak
             </Button>
-            <Button v-if="canScreen" size="sm" @click="passApplication">
+            <Button v-if="canScreen" size="sm" @click="requestConfirm('pass')">
                 <CheckCircle2 class="mr-2 size-4" />
                 Lolos screening
             </Button>
@@ -932,10 +1092,10 @@ const defaultTab = computed(() => {
                             class="flex gap-3 rounded-xl border p-4"
                         >
                             <History class="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                            <div>
-                                <p class="font-medium">{{ log.action }}</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium">{{ activityActionLabel(log.action) }}</p>
                                 <p class="text-muted-foreground text-xs">
-                                    {{ log.actor?.name ?? 'Sistem' }}
+                                    {{ log.actor?.name ?? 'Sistem' }} · {{ formatActivityTime(log.created_at) || 'Waktu tidak tercatat' }}
                                 </p>
                             </div>
                         </div>
@@ -959,35 +1119,59 @@ const defaultTab = computed(() => {
                 <form class="space-y-4" @submit.prevent="submitScreening">
                     <div class="space-y-2">
                         <Label for="reason">Alasan</Label>
-                        <select
+                        <SimpleSelect
                             id="reason"
                             v-model="screeningForm.reason"
-                            class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                            required
-                        >
-                            <option value="" disabled>Pilih alasan</option>
-                            <option
-                                v-for="opt in screeningReasonOptions"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.label }}
-                            </option>
-                        </select>
+                            :options="screeningReasonOptions"
+                            placeholder="Pilih alasan"
+                            :invalid="!!screeningForm.errors.reason"
+                        />
                         <p v-if="screeningForm.errors.reason" class="text-destructive text-xs">
                             {{ screeningForm.errors.reason }}
                         </p>
                     </div>
 
+                    <div v-if="screeningAction === 'revision'" class="space-y-2">
+                        <Label>Bagian yang perlu diperbaiki</Label>
+                        <div class="space-y-2">
+                            <label
+                                v-for="opt in revisionSectionOptions"
+                                :key="opt.value"
+                                class="flex cursor-pointer items-center gap-2 text-sm"
+                            >
+                                <Checkbox
+                                    :model-value="isCheckboxOptionSelected(screeningForm.sections, opt.value)"
+                                    @update:model-value="(v: boolean | 'indeterminate') => toggleRevisionSection(opt.value, v === true)"
+                                />
+                                {{ opt.label }}
+                            </label>
+                        </div>
+                        <p v-if="screeningForm.errors.sections" class="text-destructive text-xs">
+                            {{ screeningForm.errors.sections }}
+                        </p>
+                    </div>
+
                     <div class="space-y-2">
-                        <Label for="notes">Catatan</Label>
+                        <Label for="notes">{{
+                            screeningAction === 'revision' ? 'Catatan untuk applicant' : 'Catatan'
+                        }}</Label>
                         <textarea
                             id="notes"
                             v-model="screeningForm.notes"
                             rows="3"
                             class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-                            placeholder="Catatan internal untuk tim..."
+                            :placeholder="
+                                screeningAction === 'revision'
+                                    ? 'Tulis catatan perbaikan untuk applicant...'
+                                    : 'Catatan internal untuk tim...'
+                            "
                         />
+                        <p
+                            v-if="screeningAction === 'revision'"
+                            class="text-muted-foreground text-xs"
+                        >
+                            Catatan ini dikirim ke applicant lewat email.
+                        </p>
                         <p v-if="screeningForm.errors.notes" class="text-destructive text-xs">
                             {{ screeningForm.errors.notes }}
                         </p>
@@ -1009,13 +1193,46 @@ const defaultTab = computed(() => {
                         </Button>
                         <Button
                             type="submit"
-                            :disabled="screeningForm.processing"
+                            :disabled="
+                                screeningForm.processing ||
+                                (screeningAction === 'revision' &&
+                                    screeningForm.sections.length === 0)
+                            "
                             :variant="screeningAction === 'reject' ? 'destructive' : 'default'"
                         >
                             Simpan keputusan
                         </Button>
                     </DialogFooter>
                 </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-if="!readonly" v-model:open="confirmOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{{ confirmTitle }}</DialogTitle>
+                    <DialogDescription>
+                        {{ confirmQuestion }}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <p v-if="confirmConsequence" class="text-sm text-muted-foreground">
+                    {{ confirmConsequence }}
+                </p>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="confirmOpen = false">
+                        Batal
+                    </Button>
+                    <Button
+                        type="button"
+                        :variant="confirmAction === 'reject' ? 'destructive' : 'default'"
+                        :disabled="confirmAction === 'reject' && screeningForm.processing"
+                        @click="executeConfirmed"
+                    >
+                        Konfirmasi
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
 

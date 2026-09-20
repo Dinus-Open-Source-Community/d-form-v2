@@ -45,12 +45,12 @@ class RecruitmentTrackingTest extends TestCase
 
     public function test_valid_registration_number_and_token_grants_tracking_dashboard(): void
     {
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
-        $this->get(route('open-recruitment.track.show'))
+        $this->get(route('recruitment.track.show'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('OpenRecruitment/Track/Show')
@@ -60,7 +60,7 @@ class RecruitmentTrackingTest extends TestCase
 
     public function test_wrong_tracking_token_returns_generic_error(): void
     {
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
             'tracking_token' => 'wrong-token-1234567890123456',
         ])->assertSessionHasErrors('credentials');
@@ -73,7 +73,7 @@ class RecruitmentTrackingTest extends TestCase
 
     public function test_invalid_registration_number_returns_generic_error(): void
     {
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => 'OPREC-2099-99999',
             'tracking_token' => self::TRACKING_TOKEN,
         ])->assertSessionHasErrors('credentials');
@@ -110,12 +110,12 @@ class RecruitmentTrackingTest extends TestCase
 
         $this->application->update(['stage' => ApplicationStage::Completed]);
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
         ]);
 
-        $response = $this->get(route('open-recruitment.track.show'));
+        $response = $this->get(route('recruitment.track.show'));
         $response->assertOk();
 
         $json = json_encode($response->viewData('page')['props']['tracking'] ?? []);
@@ -130,13 +130,13 @@ class RecruitmentTrackingTest extends TestCase
     public function test_rate_limit_exceeded_on_track_login(): void
     {
         for ($i = 0; $i < 5; $i++) {
-            $this->post(route('open-recruitment.track.authenticate'), [
+            $this->post(route('recruitment.track.authenticate'), [
                 'registration_number' => 'OPREC-2099-99999',
                 'tracking_token' => 'wrong-token-1234567890123456',
             ]);
         }
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => 'OPREC-2099-99999',
             'tracking_token' => 'wrong-token-1234567890123456',
         ])->assertStatus(429);
@@ -144,13 +144,13 @@ class RecruitmentTrackingTest extends TestCase
 
     public function test_tracking_dashboard_requires_session(): void
     {
-        $this->get(route('open-recruitment.track.show'))
-            ->assertRedirect(route('open-recruitment.track.login'));
+        $this->get(route('recruitment.track.show'))
+            ->assertRedirect(route('recruitment.track.login'));
     }
 
     public function test_tracking_login_page_renders(): void
     {
-        $this->get(route('open-recruitment.track.login'))
+        $this->get(route('recruitment.track.login'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('OpenRecruitment/Track/Login'));
     }

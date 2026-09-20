@@ -5,6 +5,8 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import DivisionListSheet, {
     type DashboardDivision,
 } from '@/components/modules/dashboard/recruitment/DivisionListSheet.vue'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
+import { showErrorToast } from '@/lib/error-message'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,12 +19,14 @@ import useAuth from '@/utils/composables/useAuth'
 import { usePage } from '@inertiajs/vue3'
 import {
     CalendarRange,
+    ImageOff,
     Layers,
     User,
     Users,
     ClipboardList,
     ScanLine,
     ListOrdered,
+    Trash2,
 } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
@@ -63,11 +67,13 @@ interface PeriodRow {
     slug: string
     status: string
     status_label: string
+    banner_url: string | null
     registration_opens_at: string | null
     registration_closes_at: string | null
     applications_count: number
     creator?: PeriodCreator | null
     can_edit?: boolean
+    can_delete?: boolean
 }
 
 interface PeriodPaginator {
@@ -177,6 +183,40 @@ function applicationsQueueUrl(queue: string): string {
     return `${routes.admin.recruitment.periods.show(periodId)}?${params.toString()}`
 }
 
+/** Konfirmasi hapus periode — soft delete, data pendaftar tetap tersimpan. */
+const deleteTarget = ref<PeriodRow | null>(null)
+const isDeleting = ref(false)
+const showDeleteModal = computed<boolean>(() => deleteTarget.value !== null)
+
+const deleteDescription = computed<string>(() => {
+    const name = deleteTarget.value?.name
+    const base = 'Data pendaftar tetap tersimpan; periode hanya diarsipkan.'
+    return name ? `Periode “${name}” akan dihapus dari daftar. ${base}` : base
+})
+
+function startDelete(period: PeriodRow): void {
+    deleteTarget.value = period
+}
+
+function cancelDelete(): void {
+    if (isDeleting.value) return
+    deleteTarget.value = null
+}
+
+function confirmDelete(): void {
+    const target: PeriodRow | null = deleteTarget.value
+    if (!target || isDeleting.value) return
+    isDeleting.value = true
+    router.delete(routes.admin.recruitment.periods.destroy(target.id), {
+        preserveScroll: true,
+        onError: () => showErrorToast('Gagal menghapus periode recruitment.'),
+        onFinish: () => {
+            isDeleting.value = false
+            deleteTarget.value = null
+        },
+    })
+}
+
 onMounted(() => {
     setTopbar({ title: 'Rekrutmen', subtitle: 'OpenRecruitment DOSCOM' })
 })
@@ -254,6 +294,26 @@ onMounted(() => {
                     class="flex flex-col rounded-2xl border-border/70 shadow-xs transition-colors hover:border-primary/40"
                 >
                     <CardContent class="flex flex-1 flex-col gap-4 px-5 pt-4 pb-3">
+                        <div
+                            class="border-border/60 bg-muted relative aspect-video w-full overflow-hidden rounded-xl border"
+                        >
+                            <img
+                                v-if="period.banner_url"
+                                :src="period.banner_url"
+                                :alt="`Banner ${period.name}`"
+                                loading="lazy"
+                                decoding="async"
+                                class="absolute inset-0 size-full object-cover"
+                            />
+                            <div
+                                v-else
+                                class="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-1.5"
+                                aria-hidden="true"
+                            >
+                                <ImageOff class="size-6 opacity-50" :stroke-width="1.8" />
+                                <span class="text-[11px] font-medium">Tanpa banner</span>
+                            </div>
+                        </div>
                         <div class="flex items-start justify-between gap-x-3 gap-y-2">
                             <p class="min-w-0 flex-1 text-base leading-snug font-semibold tracking-tight break-words text-pretty line-clamp-2">
                                 {{ period.name }}
@@ -312,6 +372,16 @@ onMounted(() => {
                                     <Link :href="routes.admin.recruitment.periods.edit(period.id)">
                                         Edit
                                     </Link>
+                                </Button>
+                                <Button
+                                    v-if="period.can_delete"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    @click="startDelete(period)"
+                                >
+                                    <Trash2 class="mr-1.5 size-4" aria-hidden="true" />
+                                    Hapus
                                 </Button>
                             </div>
                         </div>
@@ -428,6 +498,19 @@ onMounted(() => {
             :open="divisionDrawerOpen"
             :divisions="divisionRows"
             @close="closeDivisionDrawer"
+        />
+
+        <ConfirmationModal
+            :open="showDeleteModal"
+            title="Hapus periode recruitment?"
+            :description="deleteDescription"
+            confirm-text="Hapus"
+            cancel-text="Batal"
+            variant="destructive"
+            :loading="isDeleting"
+            @confirm="confirmDelete"
+            @cancel="cancelDelete"
+            @update:open="(v: boolean) => { if (!v) cancelDelete() }"
         />
     </div>
 </template>

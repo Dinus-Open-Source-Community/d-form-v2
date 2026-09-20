@@ -8,18 +8,19 @@
 
 - Route files: `routes/web/oprec.php` (public), `routes/web/admin/recruitment.php` (internal)
 - Auto-loaded via `routes/web.php` glob pattern
-- Route names: `open-recruitment.*` (public), `dashboard.recruitment.*` (admin)
+- Route names: `recruitment.*` (public), `dashboard.recruitment.*` (admin)
+- Prefix URL publik adalah `/recruitment`; `GET /recruitment` langsung me-render form apply (nama `recruitment.apply`) — tidak ada halaman cards/landing terpisah, URL lama `/open-recruitment*` dan `/recruitment/apply` kini 404 tanpa redirect
 - Inertia pages: PascalCase path mirror folder structure
 - Wayfinder: regenerate setelah route ditambahkan
 
 Perluas [`resources/js/lib/routes.ts`](../../../resources/js/lib/routes.ts):
 
 ```typescript
-openRecruitment: {
-  landing: '/open-recruitment',
-  apply: '/open-recruitment/apply',
-  track: '/open-recruitment/track',
-  attendance: '/open-recruitment/attendance',
+recruitment: {
+  landing: '/recruitment', // form apply (nama route BE: `recruitment.apply`)
+  success: '/recruitment/success',
+  track: { ... },
+  attendance: '/recruitment/attendance',
 },
 admin: {
   recruitment: {
@@ -37,20 +38,19 @@ admin: {
 
 | Method | URL | Route Name | Controller | Inertia Page |
 |--------|-----|------------|------------|--------------|
-| GET | `/open-recruitment` | `open-recruitment.landing` | `LandingController@index` | `OpenRecruitment/Landing` |
-| GET | `/open-recruitment/apply` | `open-recruitment.apply` | `ApplicationController@create` | `OpenRecruitment/Apply` |
-| POST | `/open-recruitment/apply` | `open-recruitment.apply.store` | `ApplicationController@store` | redirect |
-| GET | `/open-recruitment/success` | `open-recruitment.success` | `ApplicationController@success` | `OpenRecruitment/Success` |
-| GET | `/open-recruitment/track` | `open-recruitment.track.login` | `TrackingController@login` | `OpenRecruitment/Track/Login` |
-| POST | `/open-recruitment/track` | `open-recruitment.track.authenticate` | `TrackingController@authenticate` | redirect |
-| GET | `/open-recruitment/track/dashboard` | `open-recruitment.track.show` | `TrackingController@show` | `OpenRecruitment/Track/Show` |
-| GET | `/open-recruitment/track/edit` | `open-recruitment.track.edit` | `TrackingController@edit` | `OpenRecruitment/Track/Edit` |
-| PUT | `/open-recruitment/track` | `open-recruitment.track.update` | `TrackingController@update` | redirect |
-| POST | `/open-recruitment/track/correction` | `open-recruitment.track.correction` | `CorrectionRequestController@store` | redirect |
-| GET | `/open-recruitment/track/feedback` | `open-recruitment.track.feedback` | `FeedbackController@create` | `OpenRecruitment/Track/Feedback` |
-| POST | `/open-recruitment/track/feedback` | `open-recruitment.track.feedback.store` | `FeedbackController@store` | redirect |
-| GET | `/open-recruitment/attendance` | `open-recruitment.attendance` | `AttendanceController@index` | `OpenRecruitment/Attendance` |
-| POST | `/open-recruitment/attendance/check-in` | `open-recruitment.attendance.check-in` | `AttendanceController@checkIn` | JSON/redirect |
+| GET | `/recruitment` | `recruitment.apply` | `ApplicationController@create` | `OpenRecruitment/Apply` |
+| POST | `/recruitment` | `recruitment.apply.store` | `ApplicationController@store` | redirect |
+| GET | `/recruitment/success` | `recruitment.success` | `ApplicationController@success` | `OpenRecruitment/Success` |
+| GET | `/recruitment/track` | `recruitment.track.login` | `TrackingController@login` | `OpenRecruitment/Track/Login` |
+| POST | `/recruitment/track` | `recruitment.track.authenticate` | `TrackingController@authenticate` | redirect |
+| GET | `/recruitment/track/dashboard` | `recruitment.track.show` | `TrackingController@show` | `OpenRecruitment/Track/Show` |
+| GET | `/recruitment/track/edit` | `recruitment.track.edit` | `TrackingController@edit` | `OpenRecruitment/Track/Edit` |
+| PUT | `/recruitment/track` | `recruitment.track.update` | `TrackingController@update` | redirect |
+| POST | `/recruitment/track/correction` | `recruitment.track.correction` | `CorrectionRequestController@store` | redirect |
+| GET | `/recruitment/track/feedback` | `recruitment.track.feedback` | `FeedbackController@create` | `OpenRecruitment/Track/Feedback` |
+| POST | `/recruitment/track/feedback` | `recruitment.track.feedback.store` | `FeedbackController@store` | redirect |
+| GET | `/recruitment/attendance` | `recruitment.attendance` | `AttendanceController@index` | `OpenRecruitment/Attendance` |
+| POST | `/recruitment/attendance/check-in` | `recruitment.attendance.check-in` | `AttendanceController@checkIn` | JSON/redirect |
 
 **Middleware public:**
 
@@ -175,7 +175,6 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 | GET | `/admin/recruitment/my-interviews` | `dashboard.recruitment.my-interviews.index` | `Dashboard/Recruitment/MyInterviews/Index` |
 | GET | `/admin/recruitment/my-interviews/{application}` | `dashboard.recruitment.my-interviews.show` | `Dashboard/Recruitment/MyInterviews/Show` |
 | POST | `/admin/recruitment/my-interviews/{application}/evaluate` | `dashboard.recruitment.my-interviews.evaluate` | redirect |
-| GET | `/admin/recruitment/my-interviews/queue/{session}` | `dashboard.recruitment.my-interviews.queue` | `Dashboard/Recruitment/MyInterviews/Queue` |
 
 ### 3.12 Reports (Staff + Admin)
 
@@ -201,7 +200,6 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 ```text
 resources/js/pages/
 ├── OpenRecruitment/
-│   ├── Landing.vue
 │   ├── Apply.vue
 │   ├── Success.vue
 │   ├── Attendance.vue
@@ -303,13 +301,12 @@ Rekrutmen → My Interviews → {applicant_name}
 ### `routes/web/oprec.php`
 
 ```php
-Route::prefix('open-recruitment')->name('open-recruitment.')->group(function () {
-    Route::get('/', [LandingController::class, 'index'])->name('landing');
-    Route::get('/apply', [ApplicationController::class, 'create'])->name('apply');
-    Route::post('/apply', [ApplicationController::class, 'store'])
-        ->middleware(['EnsureRecruitmentPeriodOpen', 'throttle:oprec-apply'])
+Route::prefix('recruitment')->name('recruitment.')->group(function () {
+    Route::get('/', [ApplicationController::class, 'create'])->name('apply');
+    Route::post('/', [ApplicationController::class, 'store'])
+        ->middleware(['recruitment.period.open', 'throttle:oprec-apply'])
         ->name('apply.store');
-    // ... track, attendance, feedback
+    // ... success, track, attendance, feedback
 });
 ```
 

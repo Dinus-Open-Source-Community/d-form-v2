@@ -108,7 +108,7 @@ Mengikuti [pedoman back-end](../../rules/back-end.md):
 - Controller: `RecruitmentPeriodController`, `ApplicationController`
 - Request: `StoreApplicationRequest`, `ScreenApplicationRequest`
 - Service: `ApplicationSubmitter`, `ScreeningService`, `QueueService`
-- Route name: dot notation — `recruitment.periods.show`, `open-recruitment.apply`
+- Route name: dot notation — `recruitment.periods.show`, `recruitment.apply`
 
 ---
 
@@ -136,8 +136,7 @@ Mengikuti [pedoman back-end](../../rules/back-end.md):
 Inertia page names mengikuti struktur folder:
 
 ```text
-OpenRecruitment/Landing.vue        → Inertia::render('OpenRecruitment/Landing')
-OpenRecruitment/Apply.vue
+OpenRecruitment/Apply.vue          → Inertia::render('OpenRecruitment/Apply')
 OpenRecruitment/Track/Login.vue
 OpenRecruitment/Track/Show.vue
 Dashboard/Recruitment/Index.vue
@@ -202,7 +201,7 @@ Dashboard/Recruitment/Applications/Show.vue
 
 - **Tidak ada session auth** — akses via `registration_number` + `tracking_token`
 - Token disimpan **hashed** di database (`tracking_token_hash`); plain token hanya di email konfirmasi
-- Rate limiting pada `/open-recruitment/apply` dan `/open-recruitment/track`
+- Rate limiting pada `POST /recruitment` dan `/recruitment/track`
 - Enumeration protection: response generik untuk token/reg number invalid
 
 ### 7.2 File Dokumen
@@ -255,7 +254,7 @@ sequenceDiagram
   participant Q as Queue
   participant E as Email
 
-  A->>C: POST /open-recruitment/apply
+  A->>C: POST /recruitment
   C->>R: validate
   R->>S: authorized + validated data
   S->>DB: check period open, NIM unique

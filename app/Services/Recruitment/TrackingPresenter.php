@@ -5,7 +5,9 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
+use App\Enums\Recruitment\ScreeningDecision;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentScreening;
 
 final class TrackingPresenter
 {
@@ -31,6 +33,7 @@ final class TrackingPresenter
             'finalDecision.finalDivision',
             'correctionRequests',
             'feedback',
+            'screenings',
         ]);
 
         $latestCorrection = $application->correctionRequests
@@ -210,10 +213,12 @@ final class TrackingPresenter
         }
 
         if ($application->revision_required) {
+            $description = $this->revisionDescription($application);
+
             return [
                 'tone' => 'warning',
                 'title' => 'Revisi diperlukan',
-                'description' => 'Cek email untuk instruksi dari tim screening.',
+                'description' => $description ?? 'Cek email untuk instruksi dari tim screening.',
                 'action' => null,
             ];
         }
@@ -233,6 +238,64 @@ final class TrackingPresenter
             'description' => $application->result->label(),
             'action' => null,
         ];
+    }
+
+    private function revisionDescription(RecruitmentApplication $application): ?string
+    {
+        $screening = $this->latestRevisionScreening($application);
+
+        if ($screening === null) {
+            return null;
+        }
+
+        $sections = $screening->sections;
+
+        if (is_string($sections)) {
+            $decoded = json_decode($sections, true);
+            $sections = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($sections)) {
+            $sections = [];
+        }
+
+        /** @var list<string> $sectionKeys */
+        $sectionKeys = array_values(array_map(static fn ($section): string => (string) $section, $sections));
+
+        $labels = RecruitmentScreening::revisionSectionLabels($sectionKeys);
+        $notes = is_string($screening->notes) ? trim($screening->notes) : '';
+
+        if ($labels === [] && $notes === '') {
+            return null;
+        }
+
+        $parts = [];
+
+        if ($labels !== []) {
+            $parts[] = 'Perlu revisi pada: '.implode(', ', $labels).'.';
+        }
+
+        if ($notes !== '') {
+            $parts[] = 'Catatan: '.$notes;
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function latestRevisionScreening(RecruitmentApplication $application): ?RecruitmentScreening
+    {
+        if ($application->relationLoaded('screenings')) {
+            return $application->screenings
+                ->where('decision', ScreeningDecision::RevisionRequired)
+                ->sortByDesc(static fn (RecruitmentScreening $screening) => $screening->acted_at?->toIso8601String() ?? '')
+                ->first();
+        }
+
+        return RecruitmentScreening::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('decision', ScreeningDecision::RevisionRequired)
+            ->orderByDesc('acted_at')
+            ->first();
     }
 
     /**
@@ -291,7 +354,7 @@ final class TrackingPresenter
                 'label' => $stage->label(),
                 'status' => $status,
                 'note' => $stage === ApplicationStage::Screening && $application->revision_required
-                    ? 'Perlu revisi data — tim akan menghubungi kamu.'
+                    ? ($this->revisionDescription($application) ?? 'Perlu revisi data — tim akan menghubungi kamu.')
                     : null,
             ];
         }

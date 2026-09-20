@@ -12,7 +12,7 @@ class AttendanceController extends Controller
     public function index(): Response|RedirectResponse
     {
         return Inertia::render('OpenRecruitment/Attendance', [
-            'trackingLoginUrl' => route('open-recruitment.track.login'),
+            'trackingLoginUrl' => route('recruitment.track.login'),
         ]);
     }
 }

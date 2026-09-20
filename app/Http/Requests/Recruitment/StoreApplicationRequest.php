@@ -23,7 +23,7 @@ class StoreApplicationRequest extends FormRequest
         return [
             'full_name' => ['required', 'string', 'max:255'],
             'nim' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9\-_.]+$/'],
-            'semester' => ['required', 'integer', 'between:1,3'],
+            'semester' => ['required', 'integer', Rule::in([1, 3])],
             'phone' => ['required', 'string', 'max:30', 'regex:/^\+?[0-9]{10,15}$/'],
             'personal_email' => ['required', 'email', 'max:255'],
             'student_email' => ['required', 'email', 'max:255'],
@@ -55,7 +55,7 @@ class StoreApplicationRequest extends FormRequest
     {
         return [
             'nim.regex' => 'Format NIM tidak valid.',
-            'semester.between' => 'Semester hanya boleh 1, 2, atau 3.',
+            'semester.in' => 'Semester hanya boleh 1 atau 3.',
             'phone.regex' => 'Nomor telepon harus 10–15 digit.',
             'secondary_division_id.different' => 'Divisi cadangan tidak boleh sama dengan divisi utama.',
             'cv.mimes' => 'CV harus berformat PDF.',

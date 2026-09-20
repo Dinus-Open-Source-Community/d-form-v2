@@ -53,10 +53,28 @@ final class InterviewerApplicationPresenter
                         'type' => 'cv',
                     ])
                     : null,
+                'cv_original_name' => $application->document?->cv_original_name,
+                'cv_size_bytes' => $application->document?->cv_size_bytes,
+                'cv_preview_url' => filled($application->document?->cv_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'cv',
+                        'preview' => 1,
+                    ])
+                    : null,
                 'portfolio_download_url' => filled($application->document?->portfolio_path)
                     ? route('dashboard.recruitment.applications.documents.download', [
                         'application' => $application->id,
                         'type' => 'portfolio',
+                    ])
+                    : null,
+                'portfolio_original_name' => $application->document?->portfolio_original_name,
+                'portfolio_size_bytes' => $application->document?->portfolio_size_bytes,
+                'portfolio_preview_url' => filled($application->document?->portfolio_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'portfolio',
+                        'preview' => 1,
                     ])
                     : null,
                 'instagram_follow_download_url' => filled($application->document?->instagram_follow_path)
@@ -65,6 +83,15 @@ final class InterviewerApplicationPresenter
                         'type' => 'instagram_follow',
                     ])
                     : null,
+                'instagram_follow_preview_url' => filled($application->document?->instagram_follow_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'instagram_follow',
+                        'preview' => 1,
+                    ])
+                    : null,
+                'instagram_follow_original_name' => $application->document?->instagram_follow_original_name,
+                'instagram_follow_size_bytes' => $application->document?->instagram_follow_size_bytes,
             ],
             'interview' => $application->interview ? [
                 'id' => $application->interview->id,

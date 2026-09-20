@@ -11,7 +11,7 @@
 
 DOSCOM OpenRecruitment (OpRec) adalah sistem berbasis web untuk mengelola proses penerimaan anggota DOSCOM secara end-to-end: pendaftaran applicant tanpa login, screening berkas, penjadwalan interview, attendance & antrean, penilaian interviewer, seleksi akhir, penempatan divisi, hingga feedback.
 
-Halaman publik utama: **`/open-recruitment`**  
+Halaman publik utama: **`/recruitment`**  
 Dashboard internal: **`/admin/recruitment`**
 
 OpRec dibangun sebagai **modul domain terpisah** di atas platform D-Form v2, dengan reuse infrastruktur email, QR, file storage, dan pola arsitektur yang sudah ada.
@@ -65,7 +65,7 @@ OpRec dibangun sebagai **modul domain terpisah** di atas platform D-Form v2, den
 | Area | Status |
 |------|--------|
 | Admin route `/admin/recruitment` | Placeholder "Segera hadir" |
-| Public `/open-recruitment` | Belum ada |
+| Public `/recruitment` | Belum ada |
 | Model / migrasi recruitment | Belum ada |
 | Permission Spatie `recruitments.*` | Stub di `RoleSeeder`, masih di-comment |
 | PRD produk | Lengkap (v1.0 draft) |

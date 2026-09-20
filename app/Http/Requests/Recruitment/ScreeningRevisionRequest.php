@@ -29,6 +29,8 @@ class ScreeningRevisionRequest extends FormRequest
                 'string',
                 'max:2000',
             ],
+            'sections' => ['required', 'array', 'min:1'],
+            'sections.*' => ['required', 'string', Rule::in(['data_diri', 'divisi', 'cv', 'portfolio'])],
         ];
     }
 
@@ -40,6 +42,9 @@ class ScreeningRevisionRequest extends FormRequest
         return [
             'reason.required' => 'Alasan revisi wajib diisi.',
             'notes.required' => 'Catatan wajib diisi jika alasan "Lainnya".',
+            'sections.required' => 'Pilih minimal satu bagian yang perlu direvisi.',
+            'sections.min' => 'Pilih minimal satu bagian yang perlu direvisi.',
+            'sections.*.in' => 'Pilih minimal satu bagian yang perlu direvisi.',
         ];
     }
 }

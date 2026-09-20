@@ -93,9 +93,9 @@ class OprecApplySubmitTest extends TestCase
     {
         ['divisions' => $divisions] = $this->seedBasics();
 
-        $response = $this->post(route('open-recruitment.apply.store'), $this->validPayload($divisions));
+        $response = $this->post(route('recruitment.apply.store'), $this->validPayload($divisions));
 
-        $response->assertRedirect(route('open-recruitment.success'));
+        $response->assertRedirect(route('recruitment.success'));
         $this->assertDatabaseHas('recruitment_applications', [
             'nim' => 'A11.2026.99999',
             'full_name' => 'Calon Anggota',
@@ -108,7 +108,7 @@ class OprecApplySubmitTest extends TestCase
         $payload = $this->validPayload($divisions);
         $payload['nim'] = 'NIM BURUK!';
 
-        $response = $this->post(route('open-recruitment.apply.store'), $payload);
+        $response = $this->post(route('recruitment.apply.store'), $payload);
 
         $response->assertSessionHasErrors('nim');
     }
@@ -116,9 +116,9 @@ class OprecApplySubmitTest extends TestCase
     public function test_duplicate_nim_in_same_period_is_rejected(): void
     {
         ['divisions' => $divisions] = $this->seedBasics();
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload($divisions));
+        $this->post(route('recruitment.apply.store'), $this->validPayload($divisions));
 
-        $response = $this->post(route('open-recruitment.apply.store'), $this->validPayload($divisions));
+        $response = $this->post(route('recruitment.apply.store'), $this->validPayload($divisions));
 
         $response->assertSessionHasErrors('nim');
     }
@@ -129,7 +129,7 @@ class OprecApplySubmitTest extends TestCase
         $payload = $this->validPayload($divisions);
         $payload['secondary_division_id'] = $payload['primary_division_id'];
 
-        $response = $this->post(route('open-recruitment.apply.store'), $payload);
+        $response = $this->post(route('recruitment.apply.store'), $payload);
 
         $response->assertSessionHasErrors('secondary_division_id');
     }
@@ -140,8 +140,8 @@ class OprecApplySubmitTest extends TestCase
         $payload = $this->validPayload($divisions);
         $payload['nim'] = 'a11.2026.55555';
 
-        $this->post(route('open-recruitment.apply.store'), $payload)
-            ->assertRedirect(route('open-recruitment.success'));
+        $this->post(route('recruitment.apply.store'), $payload)
+            ->assertRedirect(route('recruitment.success'));
 
         $this->assertDatabaseHas('recruitment_applications', ['nim' => 'A11.2026.55555']);
     }
@@ -150,13 +150,13 @@ class OprecApplySubmitTest extends TestCase
     {
         ['divisions' => $divisions] = $this->seedBasics();
 
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload($divisions))
-            ->assertRedirect(route('open-recruitment.success'));
+        $this->post(route('recruitment.apply.store'), $this->validPayload($divisions))
+            ->assertRedirect(route('recruitment.success'));
 
         $duplicate = $this->validPayload($divisions);
         $duplicate['nim'] = 'a11.2026.99999';
 
-        $this->post(route('open-recruitment.apply.store'), $duplicate)
+        $this->post(route('recruitment.apply.store'), $duplicate)
             ->assertSessionHasErrors('nim');
 
         $this->assertSame(1, RecruitmentApplication::query()->count());
