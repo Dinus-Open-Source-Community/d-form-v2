@@ -86,7 +86,7 @@ export const routes = {
             },
             applications: {
                 show: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}`,
-                document: (id: string, type: 'cv' | 'portfolio', preview = false) =>
+                document: (id: string, type: 'cv' | 'portfolio' | 'instagram_follow', preview = false) =>
                     `${ADMIN_BASE}/recruitment/applications/${id}/documents/${type}${preview ? '?preview=1' : ''}`,
                 screening: {
                     pass: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}/screening/pass`,

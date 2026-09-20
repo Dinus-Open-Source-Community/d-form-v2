@@ -81,6 +81,27 @@ class RecruitmentApplicationController extends Controller
             );
         }
 
+        if ($type === 'instagram_follow') {
+            abort_if(blank($document->instagram_follow_path), 404);
+
+            $contentType = $document->instagram_follow_mime ?: 'image/jpeg';
+
+            if ($preview) {
+                return Storage::disk('local')->response(
+                    $document->instagram_follow_path,
+                    $document->instagram_follow_original_name ?? 'instagram-follow',
+                    ['Content-Type' => $contentType],
+                    'inline',
+                );
+            }
+
+            return Storage::disk('local')->download(
+                $document->instagram_follow_path,
+                $document->instagram_follow_original_name ?? 'instagram-follow',
+                ['Content-Type' => $contentType],
+            );
+        }
+
         abort(404);
     }
 

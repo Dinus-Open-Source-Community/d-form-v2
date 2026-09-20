@@ -104,6 +104,8 @@ class TrackingController extends Controller
                 'portfolio_url' => $document?->portfolio_url,
                 'cv_original_name' => $document?->cv_original_name,
                 'portfolio_original_name' => $document?->portfolio_original_name,
+                'instagram_follow_original_name' => $document?->instagram_follow_original_name,
+                'twibbon_url' => $document?->twibbon_url,
             ],
             'divisions' => $this->divisionService->listActiveOrdered()
                 ->map(fn ($division) => $this->divisionService->toInertiaArray($division))
@@ -124,6 +126,7 @@ class TrackingController extends Controller
             $request->validatedPayload(),
             $request->file('cv'),
             $request->file('portfolio_file'),
+            $request->file('instagram_follow_proof'),
         );
 
         return redirect()

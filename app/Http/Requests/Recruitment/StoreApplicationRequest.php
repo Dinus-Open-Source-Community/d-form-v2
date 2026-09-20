@@ -43,6 +43,8 @@ class StoreApplicationRequest extends FormRequest
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'max:500'],
             'portfolio_file' => ['nullable', 'required_if:portfolio_type,file', 'file', 'mimes:pdf', 'max:5120'],
             'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'],
+            'instagram_follow_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'twibbon_url' => ['required', 'url', 'max:500'],
         ];
     }
 
@@ -58,6 +60,8 @@ class StoreApplicationRequest extends FormRequest
             'secondary_division_id.different' => 'Divisi cadangan tidak boleh sama dengan divisi utama.',
             'cv.mimes' => 'CV harus berformat PDF.',
             'portfolio_file.mimes' => 'Portfolio file harus berformat PDF.',
+            'instagram_follow_proof.mimes' => 'Bukti follow Instagram harus berformat gambar (jpg, jpeg, png, atau webp).',
+            'twibbon_url.required' => 'Link bukti twibbon wajib diisi.',
         ];
     }
 

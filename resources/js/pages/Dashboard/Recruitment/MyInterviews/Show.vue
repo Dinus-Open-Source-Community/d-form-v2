@@ -27,6 +27,8 @@ interface DetailPayload {
         cv_download_url: string | null
         portfolio_download_url: string | null
         portfolio_url: string | null
+        instagram_follow_download_url: string | null
+        twibbon_url: string | null
     }
     interview: {
         scheduled_at: string
@@ -200,6 +202,26 @@ function submit(): void {
                     <Button v-else-if="detail.documents.portfolio_url" as-child variant="secondary" size="sm">
                         <a :href="detail.documents.portfolio_url" target="_blank" rel="noopener">
                             Portfolio
+                        </a>
+                    </Button>
+                    <Button
+                        v-if="detail.documents.instagram_follow_download_url"
+                        as-child
+                        variant="secondary"
+                        size="sm"
+                    >
+                        <a
+                            :href="detail.documents.instagram_follow_download_url"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <Download class="mr-2 size-4" />
+                            Follow IG
+                        </a>
+                    </Button>
+                    <Button v-if="detail.documents.twibbon_url" as-child variant="secondary" size="sm">
+                        <a :href="detail.documents.twibbon_url" target="_blank" rel="noopener">
+                            Twibbon
                         </a>
                     </Button>
                 </div>

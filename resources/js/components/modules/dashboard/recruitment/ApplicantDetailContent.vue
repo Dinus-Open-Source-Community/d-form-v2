@@ -114,8 +114,13 @@ export interface ApplicationDetail {
         portfolio_original_name: string | null
         portfolio_mime: string | null
         portfolio_size_bytes: number | null
+        instagram_follow_original_name: string | null
+        instagram_follow_mime: string | null
+        instagram_follow_size_bytes: number | null
+        twibbon_url: string | null
         has_cv_file: boolean
         has_portfolio_file: boolean
+        has_instagram_follow_file: boolean
     } | null
     screenings: ScreeningRow[]
     activity_logs: ActivityRow[]
@@ -288,17 +293,25 @@ const portfolioDownloadUrl = computed<string>(() =>
 const portfolioPreviewUrl = computed<string>(() =>
     routes.admin.recruitment.applications.document(props.application.id, 'portfolio', true),
 )
+const instagramFollowDownloadUrl = computed<string>(() =>
+    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow'),
+)
+const instagramFollowPreviewUrl = computed<string>(() =>
+    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow', true),
+)
 
 const cvPreviewLoading = ref<boolean>(true)
 const cvPreviewFailed = ref<boolean>(false)
 const portfolioPreviewLoading = ref<boolean>(true)
 const portfolioPreviewFailed = ref<boolean>(false)
+const instagramFollowPreviewFailed = ref<boolean>(false)
 
 function resetDocumentPreview(): void {
     cvPreviewLoading.value = true
     cvPreviewFailed.value = false
     portfolioPreviewLoading.value = true
     portfolioPreviewFailed.value = false
+    instagramFollowPreviewFailed.value = false
 }
 
 watch(
@@ -659,6 +672,101 @@ const defaultTab = computed(() => {
                                     </div>
                                 </div>
                                 <p v-else class="text-muted-foreground mt-1 text-sm">Tidak ada portfolio.</p>
+                            </div>
+
+                            <div class="space-y-3 pt-5">
+                                <p class="text-sm font-semibold">Bukti Follow Instagram</p>
+                                <div
+                                    v-if="application.document.has_instagram_follow_file"
+                                    class="space-y-3"
+                                >
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <p class="text-sm font-medium">
+                                                {{
+                                                    application.document.instagram_follow_original_name
+                                                        ?? 'Bukti follow'
+                                                }}
+                                            </p>
+                                            <p
+                                                v-if="application.document.instagram_follow_size_bytes"
+                                                class="text-muted-foreground text-xs"
+                                            >
+                                                Screenshot ·
+                                                {{ formatBytes(application.document.instagram_follow_size_bytes) }}
+                                            </p>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <Button as-child variant="outline" size="sm">
+                                                <a :href="instagramFollowDownloadUrl">
+                                                    <Download class="mr-2 size-4" />
+                                                    Unduh
+                                                </a>
+                                            </Button>
+                                            <Button as-child variant="ghost" size="sm">
+                                                <a
+                                                    :href="instagramFollowPreviewUrl"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                >
+                                                    <ExternalLink class="mr-2 size-4" />
+                                                    Buka di tab baru
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-hidden rounded-lg border bg-muted/30">
+                                        <img
+                                            v-show="!instagramFollowPreviewFailed"
+                                            :src="instagramFollowPreviewUrl"
+                                            alt="Bukti follow Instagram"
+                                            class="max-h-80 w-full object-contain bg-white"
+                                            loading="lazy"
+                                            @error="instagramFollowPreviewFailed = true"
+                                        />
+                                        <div
+                                            v-if="instagramFollowPreviewFailed"
+                                            class="flex flex-col items-center justify-center gap-3 p-6 text-center"
+                                        >
+                                            <p class="text-muted-foreground text-sm">
+                                                Pratinjau tidak dapat dimuat. Gunakan tombol unduh.
+                                            </p>
+                                            <Button as-child variant="outline" size="sm">
+                                                <a :href="instagramFollowDownloadUrl">
+                                                    <Download class="mr-2 size-4" />
+                                                    Unduh
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p v-else class="text-muted-foreground text-sm">Belum diunggah.</p>
+                            </div>
+
+                            <div class="space-y-3 pt-5">
+                                <p class="text-sm font-semibold">Link Twibbon</p>
+                                <div v-if="application.document.twibbon_url" class="flex flex-wrap items-center justify-between gap-3">
+                                    <a
+                                        :href="application.document.twibbon_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
+                                    >
+                                        <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
+                                        <span class="truncate">{{ application.document.twibbon_url }}</span>
+                                    </a>
+                                    <Button as-child variant="outline" size="sm">
+                                        <a
+                                            :href="application.document.twibbon_url"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <ExternalLink class="mr-2 size-4" />
+                                            Buka tautan
+                                        </a>
+                                    </Button>
+                                </div>
+                                <p v-else class="text-muted-foreground text-sm">Belum diisi.</p>
                             </div>
                         </div>
                         <p v-else class="text-muted-foreground text-sm">Dokumen belum tersedia.</p>

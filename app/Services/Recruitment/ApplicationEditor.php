@@ -28,6 +28,7 @@ final class ApplicationEditor
         array $data,
         ?UploadedFile $cv = null,
         ?UploadedFile $portfolioFile = null,
+        ?UploadedFile $instagramFollowProof = null,
     ): RecruitmentApplication {
         if (! $this->editGate->canEdit($application)) {
             throw ValidationException::withMessages([
@@ -38,7 +39,7 @@ final class ApplicationEditor
         $isRevision = $this->editGate->isRevisionResubmit($application);
         $approvedCorrection = $this->editGate->approvedCorrection($application);
 
-        return DB::transaction(function () use ($application, $data, $cv, $portfolioFile, $isRevision, $approvedCorrection): RecruitmentApplication {
+        return DB::transaction(function () use ($application, $data, $cv, $portfolioFile, $instagramFollowProof, $isRevision, $approvedCorrection): RecruitmentApplication {
             $oldValues = $this->snapshotApplication($application);
 
             $application->update([
@@ -53,7 +54,7 @@ final class ApplicationEditor
                 'secondary_division_id' => $data['secondary_division_id'] ?? null,
             ]);
 
-            $this->updateDocuments($application, $data, $cv, $portfolioFile);
+            $this->updateDocuments($application, $data, $cv, $portfolioFile, $instagramFollowProof);
 
             if ($isRevision) {
                 $application->update([
@@ -98,6 +99,7 @@ final class ApplicationEditor
         array $data,
         ?UploadedFile $cv,
         ?UploadedFile $portfolioFile,
+        ?UploadedFile $instagramFollowProof = null,
     ): void {
         $document = $application->document ?? new RecruitmentDocument([
             'recruitment_application_id' => $application->id,
@@ -139,6 +141,19 @@ final class ApplicationEditor
             $document->portfolio_mime = $portfolioFile->getMimeType() ?? 'application/pdf';
             $document->portfolio_size_bytes = $portfolioFile->getSize();
         }
+
+        if ($instagramFollowProof !== null) {
+            if (filled($document->instagram_follow_path)) {
+                Storage::disk('local')->delete($document->instagram_follow_path);
+            }
+
+            $document->instagram_follow_path = $instagramFollowProof->store($storageBase, 'local');
+            $document->instagram_follow_original_name = $instagramFollowProof->getClientOriginalName();
+            $document->instagram_follow_mime = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
+            $document->instagram_follow_size_bytes = $instagramFollowProof->getSize();
+        }
+
+        $document->twibbon_url = $data['twibbon_url'] ?? null;
 
         $document->recruitment_application_id = $application->id;
         $document->save();

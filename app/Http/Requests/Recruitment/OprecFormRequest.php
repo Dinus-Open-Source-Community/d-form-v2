@@ -66,6 +66,8 @@ class OprecFormRequest extends FormRequest
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'max:500'],
             'portfolio_file' => ['nullable', 'required_if:portfolio_type,file', 'file', 'mimes:pdf', 'max:5120'],
             'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'],
+            'instagram_follow_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'twibbon_url' => ['required', 'url', 'max:500'],
         ];
     }
 

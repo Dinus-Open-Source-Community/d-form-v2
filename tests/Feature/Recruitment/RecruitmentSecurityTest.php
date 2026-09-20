@@ -67,6 +67,8 @@ class RecruitmentSecurityTest extends TestCase
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://portfolio.example.com/budi',
             'cv' => UploadedFile::fake()->create('cv.pdf', 120, 'application/pdf'),
+            'instagram_follow_proof' => UploadedFile::fake()->image('follow.jpg', 640, 480),
+            'twibbon_url' => 'https://instagram.com/p/twibbon-example',
         ], $overrides);
     }
 

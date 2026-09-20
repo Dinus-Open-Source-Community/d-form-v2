@@ -45,7 +45,7 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::get('applications/{application}', [RecruitmentApplicationController::class, 'show'])->name('applications.show');
         Route::get('applications/{application}/documents/{type}', [RecruitmentApplicationController::class, 'downloadDocument'])
             ->name('applications.documents.download')
-            ->where('type', 'cv|portfolio');
+            ->where('type', 'cv|portfolio|instagram_follow');
         Route::post('applications/{application}/screening/pass', [RecruitmentScreeningController::class, 'pass'])
             ->name('applications.screening.pass');
         Route::post('applications/{application}/screening/revision', [RecruitmentScreeningController::class, 'revision'])

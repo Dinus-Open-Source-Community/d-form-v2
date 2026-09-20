@@ -271,6 +271,8 @@ const reviewRows = computed((): Array<{ label: string; value: string }> => {
         { label: 'Link Portfolio', value: get('portfolio_url') },
         { label: 'File Portfolio', value: get('portfolio_file') },
         { label: 'CV', value: get('cv') },
+        { label: 'Bukti Follow Instagram', value: get('instagram_follow_proof') },
+        { label: 'Link Twibbon', value: get('twibbon_url') },
     ]
 })
 
@@ -292,7 +294,7 @@ const isBlocked = computed((): boolean => !props.registration.is_open)
 const STEPS = [
     { n: 1, label: 'Data diri', hint: 'Nama, NIM, kontak' },
     { n: 2, label: 'Divisi', hint: 'Utama dan cadangan' },
-    { n: 3, label: 'Berkas', hint: 'CV, portfolio, review' },
+    { n: 3, label: 'Berkas', hint: 'CV, portfolio, bukti IG' },
 ] as const
 
 const progressPct = computed((): number => (currentStep.value / TOTAL_STEPS) * 100)
