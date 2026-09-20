@@ -64,6 +64,7 @@ class OprecApplySubmitTest extends TestCase
             'secondary_division_id' => null,
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://example.com/portfolio',
+            'twibbon_url' => 'https://instagram.com/p/twibbon-calon',
         ];
     }
 
@@ -83,6 +84,8 @@ class OprecApplySubmitTest extends TestCase
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://example.com/portfolio',
             'cv' => UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+            'instagram_follow_proof' => UploadedFile::fake()->image('follow.png', 640, 480),
+            'twibbon_url' => 'https://instagram.com/p/twibbon-calon',
         ];
     }
 
@@ -187,6 +190,8 @@ class OprecApplySubmitTest extends TestCase
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.99999'),
                 UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+                null,
+                UploadedFile::fake()->image('follow.jpg'),
             );
             $this->fail('ValidationException tidak dilempar.');
         } catch (ValidationException $exception) {
@@ -227,6 +232,8 @@ class OprecApplySubmitTest extends TestCase
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.77777'),
                 UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+                null,
+                UploadedFile::fake()->image('follow.jpg'),
             );
             $this->fail('ValidationException tidak dilempar.');
         } catch (ValidationException $exception) {

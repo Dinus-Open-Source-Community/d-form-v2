@@ -41,15 +41,21 @@ interface DetailPayload {
         has_cv?: boolean
         has_portfolio?: boolean
         portfolio_is_url?: boolean
+        has_instagram_follow?: boolean
         cv_download_url: string | null
         portfolio_download_url: string | null
         portfolio_url: string | null
+        twibbon_url?: string | null
         cv_original_name?: string | null
         cv_size_bytes?: number | null
         cv_preview_url?: string | null
         portfolio_original_name?: string | null
         portfolio_size_bytes?: number | null
         portfolio_preview_url?: string | null
+        instagram_follow_download_url?: string | null
+        instagram_follow_preview_url?: string | null
+        instagram_follow_original_name?: string | null
+        instagram_follow_size_bytes?: number | null
     }
     interview: {
         scheduled_at: string
@@ -306,14 +312,52 @@ const portfolioFileAvailable = computed<boolean>(
         (portfolioPreviewUrl.value !== null || portfolioDownloadUrl.value !== null),
 )
 
+const instagramFollowDownloadUrl = computed<string | null>(() => {
+    const url = props.detail.documents.instagram_follow_download_url
+    return isFilled(url) ? url : null
+})
+
+const instagramFollowPreviewUrl = computed<string | null>(() => {
+    const url = props.detail.documents.instagram_follow_preview_url
+    return isFilled(url) ? url : null
+})
+
+const instagramFollowOriginalName = computed<string>(() => {
+    const name = props.detail.documents.instagram_follow_original_name
+    return isFilled(name) ? name : 'Bukti follow Instagram'
+})
+
+const instagramFollowMetaLabel = computed<string>(() => {
+    const size: string | null = formatBytes(props.detail.documents.instagram_follow_size_bytes)
+    return size !== null ? `Follow IG · ${size}` : 'Follow Instagram'
+})
+
+const instagramFollowAvailable = computed<boolean>(
+    () =>
+        props.detail.documents.has_instagram_follow === true ||
+        instagramFollowPreviewUrl.value !== null ||
+        instagramFollowDownloadUrl.value !== null,
+)
+
+const twibbonUrl = computed<string | null>(() => {
+    const url = props.detail.documents.twibbon_url
+    return isFilled(url) ? url : null
+})
+
 const hasAnyDocument = computed<boolean>(
-    () => cvAvailable.value || portfolioExternalUrl.value !== null || portfolioFileAvailable.value,
+    () =>
+        cvAvailable.value ||
+        portfolioExternalUrl.value !== null ||
+        portfolioFileAvailable.value ||
+        instagramFollowAvailable.value ||
+        twibbonUrl.value !== null,
 )
 
 const cvPreviewLoading = ref<boolean>(true)
 const cvPreviewFailed = ref<boolean>(false)
 const portfolioPreviewLoading = ref<boolean>(true)
 const portfolioPreviewFailed = ref<boolean>(false)
+const instagramFollowPreviewFailed = ref<boolean>(false)
 
 watch(
     () => props.detail.application.id,
@@ -322,6 +366,7 @@ watch(
         cvPreviewFailed.value = false
         portfolioPreviewLoading.value = true
         portfolioPreviewFailed.value = false
+        instagramFollowPreviewFailed.value = false
     },
 )
 
@@ -611,8 +656,114 @@ function submit(): void {
                                     Pratinjau portfolio tidak tersedia. Gunakan tombol unduh untuk membuka berkas.
                                 </p>
                             </div>
+
+                            <div
+                                v-if="instagramFollowAvailable"
+                                class="space-y-3"
+                                :class="
+                                    cvAvailable || portfolioExternalUrl || portfolioFileAvailable
+                                        ? 'border-t border-border/60 pt-5'
+                                        : ''
+                                "
+                            >
+                                <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <FileText class="text-muted-foreground size-5 shrink-0" aria-hidden="true" />
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium">{{ instagramFollowOriginalName }}</p>
+                                            <p class="text-muted-foreground text-xs">{{ instagramFollowMetaLabel }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <Button v-if="instagramFollowDownloadUrl" as-child variant="outline" size="sm">
+                                            <a :href="instagramFollowDownloadUrl">
+                                                <Download class="mr-2 size-4" aria-hidden="true" />
+                                                Unduh bukti IG
+                                            </a>
+                                        </Button>
+                                        <Button
+                                            v-if="instagramFollowPreviewUrl && !instagramFollowPreviewFailed"
+                                            as-child
+                                            variant="ghost"
+                                            size="sm"
+                                        >
+                                            <a :href="instagramFollowPreviewUrl" target="_blank" rel="noopener">
+                                                <ExternalLink class="mr-2 size-4" aria-hidden="true" />
+                                                Buka di tab baru
+                                            </a>
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div
+                                    v-if="instagramFollowPreviewUrl"
+                                    class="relative overflow-hidden rounded-xl border border-border/70 bg-muted/30"
+                                >
+                                    <img
+                                        v-show="!instagramFollowPreviewFailed"
+                                        :src="instagramFollowPreviewUrl"
+                                        alt="Pratinjau bukti follow Instagram"
+                                        class="max-h-80 w-full object-contain bg-white"
+                                        loading="lazy"
+                                        @error="instagramFollowPreviewFailed = true"
+                                    />
+                                    <div
+                                        v-if="instagramFollowPreviewFailed"
+                                        class="flex flex-col items-center justify-center gap-3 p-6 text-center"
+                                    >
+                                        <p class="text-muted-foreground text-sm">
+                                            Pratinjau tidak dapat dimuat. Gunakan tombol unduh untuk membuka berkas.
+                                        </p>
+                                        <Button
+                                            v-if="instagramFollowDownloadUrl"
+                                            as-child
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <a :href="instagramFollowDownloadUrl">
+                                                <Download class="mr-2 size-4" aria-hidden="true" />
+                                                Unduh bukti IG
+                                            </a>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                v-if="twibbonUrl"
+                                class="space-y-3"
+                                :class="
+                                    cvAvailable ||
+                                    portfolioExternalUrl ||
+                                    portfolioFileAvailable ||
+                                    instagramFollowAvailable
+                                        ? 'border-t border-border/60 pt-5'
+                                        : ''
+                                "
+                            >
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <a
+                                        :href="twibbonUrl"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
+                                    >
+                                        <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
+                                        <span class="truncate">{{ twibbonUrl }}</span>
+                                    </a>
+                                    <Button as-child variant="outline" size="sm">
+                                        <a :href="twibbonUrl" target="_blank" rel="noopener noreferrer">
+                                            <ExternalLink class="mr-2 size-4" aria-hidden="true" />
+                                            Buka twibbon
+                                        </a>
+                                    </Button>
+                                </div>
+                                <p class="text-muted-foreground text-xs">Twibbon · tautan eksternal</p>
+                            </div>
                         </div>
-                        <p v-else class="mt-4 text-sm text-muted-foreground">CV dan portfolio belum diunggah.</p>
+                        <p v-else class="mt-4 text-sm text-muted-foreground">
+                            CV, portfolio, bukti IG, dan twibbon belum diunggah.
+                        </p>
                     </CardContent>
                 </Card>
             </div>

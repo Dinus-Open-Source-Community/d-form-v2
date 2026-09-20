@@ -12,7 +12,7 @@ class OprecFormSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seeds_form_with_thirteen_contract_fields(): void
+    public function test_seeds_form_with_fifteen_contract_fields(): void
     {
         $this->seed([EventSeeder::class, OprecFormSeeder::class]);
 
@@ -24,6 +24,7 @@ class OprecFormSeederTest extends TestCase
             'full_name', 'nim', 'semester', 'phone', 'personal_email', 'student_email',
             'instagram_username', 'primary_division_id', 'secondary_division_id',
             'portfolio_type', 'portfolio_url', 'portfolio_file', 'cv',
+            'instagram_follow_proof', 'twibbon_url',
         ], $names);
     }
 
@@ -52,7 +53,7 @@ class OprecFormSeederTest extends TestCase
             ->all();
         ksort($distribution);
 
-        $this->assertSame([1 => 7, 2 => 2, 3 => 4], $distribution);
+        $this->assertSame([1 => 7, 2 => 2, 3 => 6], $distribution);
     }
 
     public function test_rerun_does_not_duplicate_fields(): void
@@ -62,6 +63,6 @@ class OprecFormSeederTest extends TestCase
 
         $form = app(OprecFormDefinition::class)->requiredForm();
 
-        $this->assertSame(13, $form->formFields()->count());
+        $this->assertSame(15, $form->formFields()->count());
     }
 }

@@ -25,6 +25,7 @@ class UpdateApplicationRequest extends FormRequest
         /** @var RecruitmentApplication|null $application */
         $application = $this->attributes->get('recruitment_application');
         $hasCv = $application?->document?->cv_path !== null;
+        $hasInstagramFollow = $application?->document?->instagram_follow_path !== null;
 
         return [
             'full_name' => ['required', 'string', 'max:255'],
@@ -49,6 +50,13 @@ class UpdateApplicationRequest extends FormRequest
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'max:500'],
             'portfolio_file' => ['nullable', 'required_if:portfolio_type,file', 'file', 'mimes:pdf', 'max:5120'],
             'cv' => [$hasCv ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:5120'],
+            'instagram_follow_proof' => [
+                $hasInstagramFollow ? 'nullable' : 'required',
+                'file',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+            'twibbon_url' => ['required', 'url', 'max:500'],
         ];
     }
 
@@ -76,6 +84,11 @@ class UpdateApplicationRequest extends FormRequest
                 && ! $this->hasFile('portfolio_file')
                 && blank($application->document?->portfolio_path)) {
                 $validator->errors()->add('portfolio_file', 'Portfolio file wajib diunggah.');
+            }
+
+            if (! $this->hasFile('instagram_follow_proof')
+                && blank($application->document?->instagram_follow_path)) {
+                $validator->errors()->add('instagram_follow_proof', 'Bukti follow Instagram wajib diunggah.');
             }
         });
     }

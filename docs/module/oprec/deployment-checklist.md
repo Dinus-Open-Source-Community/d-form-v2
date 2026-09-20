@@ -20,7 +20,7 @@ Checklist ini melengkapi [architecture.md §12](architecture.md) dan PRD §47–
 
 - [ ] Migration recruitment tables applied
 - [ ] `RoleSeeder` — role `recruitment-staff`, `recruitment-interviewer`, permissions
-- [ ] `RecruitmentDivisionSeeder` — 4 divisi default
+- [ ] `RecruitmentDivisionSeeder` — 5 divisi default (termasuk Humas / Public Relations)
 - [ ] Periode OpRec dibuat admin (draft → open → closed sesuai jadwal)
 
 ## Security verification

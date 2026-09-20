@@ -32,6 +32,8 @@ interface ApplicationFormData {
     portfolio_url: string | null;
     cv_original_name: string | null;
     portfolio_original_name: string | null;
+    instagram_follow_original_name: string | null;
+    twibbon_url: string | null;
 }
 
 const props = defineProps<{
@@ -55,6 +57,8 @@ const form = useForm({
     portfolio_url: props.application.portfolio_url ?? '',
     portfolio_file: null as File | null,
     cv: null as File | null,
+    instagram_follow_proof: null as File | null,
+    twibbon_url: props.application.twibbon_url ?? '',
 });
 
 const semesterOptions: SimpleSelectOption[] = [
@@ -80,6 +84,12 @@ const cvHint = computed(() =>
         : 'Unggah CV PDF'
 );
 
+const instagramFollowHint = computed(() =>
+    props.application.instagram_follow_original_name
+        ? `File saat ini: ${props.application.instagram_follow_original_name} (kosongkan jika tidak diganti)`
+        : 'Unggah screenshot follow Instagram (jpg/jpeg/png/webp)'
+);
+
 function onCvChange(event: Event) {
     const target = event.target as HTMLInputElement;
     form.cv = target.files?.[0] ?? null;
@@ -88,6 +98,11 @@ function onCvChange(event: Event) {
 function onPortfolioFileChange(event: Event) {
     const target = event.target as HTMLInputElement;
     form.portfolio_file = target.files?.[0] ?? null;
+}
+
+function onInstagramFollowChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    form.instagram_follow_proof = target.files?.[0] ?? null;
 }
 
 function submit() {
@@ -273,7 +288,9 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
             <Card class="border-border/70 rounded-2xl">
                 <CardHeader class="pb-4">
                     <CardTitle class="text-base">Berkas</CardTitle>
-                    <p class="text-muted-foreground text-sm">CV dan portfolio dalam format PDF atau tautan.</p>
+                    <p class="text-muted-foreground text-sm">
+                        CV, portfolio, bukti follow Instagram, dan tautan twibbon.
+                    </p>
                 </CardHeader>
                 <CardContent class="space-y-5">
                     <div class="space-y-2">
@@ -353,6 +370,36 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                         </p>
                         <p v-if="form.errors.portfolio_file" class="text-destructive text-xs">
                             {{ form.errors.portfolio_file }}
+                        </p>
+                    </div>
+
+                    <Separator />
+
+                    <div class="space-y-2">
+                        <Label for="instagram_follow_proof">Bukti Follow Instagram</Label>
+                        <Input
+                            id="instagram_follow_proof"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            @change="onInstagramFollowChange"
+                        />
+                        <p class="text-muted-foreground text-xs">{{ instagramFollowHint }}</p>
+                        <p v-if="form.errors.instagram_follow_proof" class="text-destructive text-xs">
+                            {{ form.errors.instagram_follow_proof }}
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="twibbon_url">Link Bukti Twibbon</Label>
+                        <Input
+                            id="twibbon_url"
+                            v-model="form.twibbon_url"
+                            type="url"
+                            placeholder="https://..."
+                            required
+                        />
+                        <p v-if="form.errors.twibbon_url" class="text-destructive text-xs">
+                            {{ form.errors.twibbon_url }}
                         </p>
                     </div>
                 </CardContent>

@@ -70,7 +70,7 @@ Divisi global (reuse antar period) atau per-period — **keputusan: global denga
 | Kolom | Tipe | Constraint | Deskripsi |
 |-------|------|------------|-----------|
 | `id` | uuid | PK | |
-| `code` | string(30) | UNIQUE | programming, medcrev, network, data |
+| `code` | string(30) | UNIQUE | programming, medcrev, network, data, humas |
 | `name` | string(100) | NOT NULL | Display name |
 | `description` | text | nullable | |
 | `is_active` | boolean | default true | |
@@ -414,7 +414,7 @@ Atau satu migration besar untuk MVP simplicity — pilih sesuai preferensi tim (
 
 ### Seeders
 
-- `RecruitmentDivisionSeeder` — 4 divisi default
+- `RecruitmentDivisionSeeder` — 5 divisi default (termasuk Humas / Public Relations)
 - `RecruitmentEmailTemplateSeeder` — template default per event type
 - `RecruitmentPeriodSeeder` — hanya non-production (OpRec 2026 dummy)
 

@@ -26,6 +26,11 @@ class RecruitmentDocument extends Model
         'portfolio_original_name',
         'portfolio_mime',
         'portfolio_size_bytes',
+        'instagram_follow_path',
+        'instagram_follow_original_name',
+        'instagram_follow_mime',
+        'instagram_follow_size_bytes',
+        'twibbon_url',
     ];
 
     protected function casts(): array
@@ -33,6 +38,7 @@ class RecruitmentDocument extends Model
         return [
             'cv_size_bytes' => 'integer',
             'portfolio_size_bytes' => 'integer',
+            'instagram_follow_size_bytes' => 'integer',
         ];
     }
 

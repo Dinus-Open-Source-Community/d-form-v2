@@ -72,6 +72,8 @@ class RecruitmentPublicApplyTest extends TestCase
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://portfolio.example.com/budi',
             'cv' => UploadedFile::fake()->create('cv.pdf', 120, 'application/pdf'),
+            'instagram_follow_proof' => UploadedFile::fake()->image('follow.jpg', 640, 480),
+            'twibbon_url' => 'https://instagram.com/p/twibbon-example',
         ], $overrides);
     }
 
@@ -184,7 +186,26 @@ class RecruitmentPublicApplyTest extends TestCase
                 'primary_division_id',
                 'portfolio_type',
                 'cv',
+                'instagram_follow_proof',
+                'twibbon_url',
             ]);
+    }
+
+    public function test_submit_stores_instagram_follow_and_twibbon(): void
+    {
+        $this->post(route('open-recruitment.apply.store'), $this->validPayload())->assertRedirect();
+
+        $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();
+        $this->assertNotNull($document->instagram_follow_path);
+        $this->assertSame('https://instagram.com/p/twibbon-example', $document->twibbon_url);
+        Storage::disk('local')->assertExists($document->instagram_follow_path);
+    }
+
+    public function test_submit_rejects_non_image_instagram_follow_proof(): void
+    {
+        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+            'instagram_follow_proof' => UploadedFile::fake()->create('follow.pdf', 100, 'application/pdf'),
+        ]))->assertSessionHasErrors('instagram_follow_proof');
     }
 
     public function test_registration_number_format_matches_spec(): void

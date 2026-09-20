@@ -45,6 +45,8 @@ final class InterviewerApplicationPresenter
                     || filled($application->document?->portfolio_url),
                 'portfolio_is_url' => filled($application->document?->portfolio_url),
                 'portfolio_url' => $application->document?->portfolio_url,
+                'has_instagram_follow' => filled($application->document?->instagram_follow_path),
+                'twibbon_url' => $application->document?->twibbon_url,
                 'cv_download_url' => filled($application->document?->cv_path)
                     ? route('dashboard.recruitment.applications.documents.download', [
                         'application' => $application->id,
@@ -75,6 +77,21 @@ final class InterviewerApplicationPresenter
                         'preview' => 1,
                     ])
                     : null,
+                'instagram_follow_download_url' => filled($application->document?->instagram_follow_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'instagram_follow',
+                    ])
+                    : null,
+                'instagram_follow_preview_url' => filled($application->document?->instagram_follow_path)
+                    ? route('dashboard.recruitment.applications.documents.download', [
+                        'application' => $application->id,
+                        'type' => 'instagram_follow',
+                        'preview' => 1,
+                    ])
+                    : null,
+                'instagram_follow_original_name' => $application->document?->instagram_follow_original_name,
+                'instagram_follow_size_bytes' => $application->document?->instagram_follow_size_bytes,
             ],
             'interview' => $application->interview ? [
                 'id' => $application->interview->id,

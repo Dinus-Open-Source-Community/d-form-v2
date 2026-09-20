@@ -128,6 +128,16 @@ class OprecFormSeeder extends Seeder
                 'description' => 'Maksimal 5 MB.',
                 'metadata' => $withStep(3, ['builderType' => 'fileUpload', 'rules' => ['required' => true, 'mimes' => 'pdf', 'max_size' => '5120']]),
             ],
+            [
+                'name' => 'instagram_follow_proof', 'input_type' => 'fileUpload', 'label' => 'Bukti Follow Instagram',
+                'description' => 'Screenshot bukti sudah follow akun Instagram resmi. Format jpg/jpeg/png/webp, maksimal 5 MB.',
+                'metadata' => $withStep(3, ['builderType' => 'fileUpload', 'rules' => ['required' => true, 'mimes' => 'jpg,jpeg,png,webp', 'max_size' => '5120']]),
+            ],
+            [
+                'name' => 'twibbon_url', 'input_type' => 'input', 'label' => 'Link Bukti Twibbon',
+                'description' => 'URL postingan atau bukti pemasangan twibbon.',
+                'metadata' => $withStep(3, ['builderType' => 'short_text', 'type' => 'url', 'placeholder' => 'cth. https://...', 'rules' => ['required' => true, 'url' => true, 'max' => '500']]),
+            ],
         ];
     }
 }

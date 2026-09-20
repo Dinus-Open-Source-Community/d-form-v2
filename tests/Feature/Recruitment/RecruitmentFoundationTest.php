@@ -76,10 +76,15 @@ class RecruitmentFoundationTest extends TestCase
         $this->assertSame(RecruitmentPeriodStatus::Open, $period->status);
     }
 
-    public function test_recruitment_division_seeder_creates_four_divisions(): void
+    public function test_recruitment_division_seeder_creates_default_divisions(): void
     {
-        $this->assertSame(4, RecruitmentDivision::query()->count());
+        $this->assertSame(5, RecruitmentDivision::query()->count());
         $this->assertTrue(RecruitmentDivision::query()->where('code', 'programming')->exists());
+        $this->assertTrue(RecruitmentDivision::query()->where('code', 'humas')->exists());
+        $this->assertSame(
+            'Humas / Public Relations',
+            RecruitmentDivision::query()->where('code', 'humas')->value('name'),
+        );
     }
 
     public function test_admin_can_assign_interviewer_to_division(): void

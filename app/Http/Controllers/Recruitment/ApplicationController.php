@@ -75,6 +75,7 @@ class ApplicationController extends Controller
             $request->validatedPayload(),
             $request->file('cv'),
             $request->file('portfolio_file'),
+            $request->file('instagram_follow_proof'),
         );
 
         $application = $result['application'];

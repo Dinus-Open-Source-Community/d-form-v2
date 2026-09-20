@@ -196,8 +196,13 @@ final class RecruitmentApplicationService
                 'portfolio_original_name' => $application->document->portfolio_original_name,
                 'portfolio_mime' => $application->document->portfolio_mime,
                 'portfolio_size_bytes' => $application->document->portfolio_size_bytes,
+                'instagram_follow_original_name' => $application->document->instagram_follow_original_name,
+                'instagram_follow_mime' => $application->document->instagram_follow_mime,
+                'instagram_follow_size_bytes' => $application->document->instagram_follow_size_bytes,
+                'twibbon_url' => $application->document->twibbon_url,
                 'has_cv_file' => filled($application->document->cv_path),
                 'has_portfolio_file' => filled($application->document->portfolio_path),
+                'has_instagram_follow_file' => filled($application->document->instagram_follow_path),
             ] : null,
             'screenings' => $application->screenings
                 ->sortByDesc('acted_at')

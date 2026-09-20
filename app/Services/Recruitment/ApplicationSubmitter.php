@@ -14,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+
 final class ApplicationSubmitter
 {
     public function __construct(
@@ -26,13 +27,18 @@ final class ApplicationSubmitter
      * @param  array<string, mixed>  $data
      * @return array{application: RecruitmentApplication, tracking_token: string}
      */
-    public function submit(RecruitmentPeriod $period, array $data, UploadedFile $cv, ?UploadedFile $portfolioFile = null): array
-    {
+    public function submit(
+        RecruitmentPeriod $period,
+        array $data,
+        UploadedFile $cv,
+        ?UploadedFile $portfolioFile = null,
+        ?UploadedFile $instagramFollowProof = null,
+    ): array {
         $registrationNumber = $this->registrationNumberIssuer->issue($period);
         $trackingToken = $this->trackingTokenGenerator->generate();
 
         try {
-            $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile, $registrationNumber, $trackingToken): array {
+            $result = DB::transaction(function () use ($period, $data, $cv, $portfolioFile, $instagramFollowProof, $registrationNumber, $trackingToken): array {
                 $application = RecruitmentApplication::query()->create([
                     'recruitment_period_id' => $period->id,
                     'registration_number' => $registrationNumber,
@@ -62,6 +68,7 @@ final class ApplicationSubmitter
                     'cv_mime' => $cv->getMimeType() ?? 'application/pdf',
                     'cv_size_bytes' => $cv->getSize(),
                     'portfolio_type' => $data['portfolio_type'],
+                    'twibbon_url' => $data['twibbon_url'] ?? null,
                 ];
 
                 if ($data['portfolio_type'] === 'url') {
@@ -72,6 +79,13 @@ final class ApplicationSubmitter
                     $documentData['portfolio_original_name'] = $portfolioFile->getClientOriginalName();
                     $documentData['portfolio_mime'] = $portfolioFile->getMimeType() ?? 'application/pdf';
                     $documentData['portfolio_size_bytes'] = $portfolioFile->getSize();
+                }
+
+                if ($instagramFollowProof !== null) {
+                    $documentData['instagram_follow_path'] = $instagramFollowProof->store($storageBase, 'local');
+                    $documentData['instagram_follow_original_name'] = $instagramFollowProof->getClientOriginalName();
+                    $documentData['instagram_follow_mime'] = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
+                    $documentData['instagram_follow_size_bytes'] = $instagramFollowProof->getSize();
                 }
 
                 RecruitmentDocument::query()->create($documentData);

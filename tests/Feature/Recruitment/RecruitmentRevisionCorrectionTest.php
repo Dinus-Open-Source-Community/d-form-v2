@@ -61,6 +61,11 @@ class RecruitmentRevisionCorrectionTest extends TestCase
             'cv_size_bytes' => 1000,
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://portfolio.example.com/original',
+            'instagram_follow_path' => 'recruitment/'.$period->id.'/'.$this->application->id.'/follow.jpg',
+            'instagram_follow_original_name' => 'follow.jpg',
+            'instagram_follow_mime' => 'image/jpeg',
+            'instagram_follow_size_bytes' => 2048,
+            'twibbon_url' => 'https://instagram.com/p/twibbon-original',
         ]);
     }
 
@@ -81,6 +86,7 @@ class RecruitmentRevisionCorrectionTest extends TestCase
             'secondary_division_id' => null,
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://portfolio.example.com/revised',
+            'twibbon_url' => 'https://instagram.com/p/twibbon-revised',
         ], $overrides);
     }
 

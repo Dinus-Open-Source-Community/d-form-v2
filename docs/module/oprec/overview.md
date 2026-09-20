@@ -76,7 +76,7 @@ Internal organisasi (Staff, Interviewer, Admin) mengelola seluruh proses melalui
 | Kebutuhan           | Fitur                                          |
 | ------------------- | ---------------------------------------------- |
 | Recruitment period  | CRUD periode (draft/open/closed/archived)      |
-| Division management | 4 divisi default + active flag                 |
+| Division management | 5 divisi default + active flag                 |
 | User & role         | Assign Staff, Interviewer; division assignment |
 | Email template      | Subject, body, variables                       |
 | System monitoring   | Activity log, reports                          |
