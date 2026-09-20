@@ -84,7 +84,7 @@ Divisi global (reuse antar period) atau per-period — **keputusan: global denga
 | code | name |
 |------|------|
 | `programming` | Pemrograman / Programming |
-| `medcrev` | Creative Media / Medcrev |
+| `medcrev` | Kreatif / Creative |
 | `network` | Jaringan / Network |
 | `data` | Data |
 
