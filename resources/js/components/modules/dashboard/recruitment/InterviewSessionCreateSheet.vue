@@ -3,12 +3,18 @@ import { computed, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
+import TimeAmPmInput from '@/components/ui/date-picker/TimeAmPmInput.vue'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
+import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
+
+const dateErrorClass =
+    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
 
 export interface InterviewDivisionChoice {
     id: string
@@ -51,15 +57,6 @@ const divisionOptions = computed<SearchableSelectOption[]>(() =>
         initials: division.code.slice(0, 2).toUpperCase(),
     })),
 )
-
-/** Tanggal hari ini menurut waktu lokal (yyyy-mm-dd) untuk batas `min` input. */
-function todayIso(): string {
-    const now = new Date()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-
-    return `${now.getFullYear()}-${month}-${day}`
-}
 
 const canSubmit = computed<boolean>(
     () =>
@@ -130,43 +127,41 @@ function submit(): void {
 
                     <div class="space-y-2">
                         <Label for="session-date">Tanggal</Label>
-                        <Input
+                        <DatePicker
                             id="session-date"
                             v-model="form.session_date"
-                            type="date"
-                            :min="todayIso()"
-                            :aria-invalid="form.errors.session_date ? true : undefined"
+                            :aria-invalid="!!form.errors.session_date"
+                            :class="cn('bg-white text-sm', !!form.errors.session_date && dateErrorClass)"
                         />
                         <p v-if="form.errors.session_date" role="alert" class="text-xs text-destructive">
                             {{ form.errors.session_date }}
                         </p>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div class="space-y-2">
-                            <Label for="session-starts">Jam mulai</Label>
-                            <Input
-                                id="session-starts"
-                                v-model="form.starts_at"
-                                type="time"
-                                :aria-invalid="form.errors.starts_at ? true : undefined"
-                            />
-                            <p v-if="form.errors.starts_at" role="alert" class="text-xs text-destructive">
-                                {{ form.errors.starts_at }}
-                            </p>
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="session-ends">Jam selesai</Label>
-                            <Input
-                                id="session-ends"
-                                v-model="form.ends_at"
-                                type="time"
-                                :aria-invalid="form.errors.ends_at ? true : undefined"
-                            />
-                            <p v-if="form.errors.ends_at" role="alert" class="text-xs text-destructive">
-                                {{ form.errors.ends_at }}
-                            </p>
-                        </div>
+                    <div class="space-y-2">
+                        <Label for="session-starts">Jam mulai</Label>
+                        <TimeAmPmInput
+                            id="session-starts"
+                            v-model="form.starts_at"
+                            :aria-invalid="!!form.errors.starts_at"
+                            class="w-full"
+                        />
+                        <p v-if="form.errors.starts_at" role="alert" class="text-xs text-destructive">
+                            {{ form.errors.starts_at }}
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="session-ends">Jam selesai</Label>
+                        <TimeAmPmInput
+                            id="session-ends"
+                            v-model="form.ends_at"
+                            :aria-invalid="!!form.errors.ends_at"
+                            class="w-full"
+                        />
+                        <p v-if="form.errors.ends_at" role="alert" class="text-xs text-destructive">
+                            {{ form.errors.ends_at }}
+                        </p>
                     </div>
 
                     <div class="space-y-2">

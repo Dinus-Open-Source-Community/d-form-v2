@@ -5,7 +5,7 @@ import { useEventListener } from '@vueuse/core';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CalendarDays, MapPin, Users, MoreVertical, SquarePen, Download, FileStack, QrCode, Trash2 } from 'lucide-vue-next';
+import { CalendarDays, MapPin, Users, MoreVertical, SquarePen, Download, FileStack, Trash2 } from 'lucide-vue-next';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
 import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
 import { routes } from '@/lib/routes';
@@ -98,10 +98,6 @@ function openExport(): void {
 
 function openForms(): void {
     router.visit(routes.admin.events.show(props.event.id));
-}
-
-function openScan(): void {
-    router.visit(routes.admin.scan.index);
 }
 
 function requestDelete(): void {
@@ -205,13 +201,6 @@ useEventListener('keydown', (e) => {
                         @click="menuAction(openForms)"
                     >
                         <FileStack class="mr-2 size-4 shrink-0 stroke-[1.75]" />Kelola formulir
-                    </button>
-                    <button
-                        type="button"
-                        class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
-                        @click="menuAction(openScan)"
-                    >
-                        <QrCode class="mr-2 size-4 shrink-0 stroke-[1.75]" />Check in
                     </button>
                     <div class="bg-border my-1 h-px" />
                     <button

@@ -73,7 +73,6 @@ class RecruitmentPeriodController extends Controller
         $applications = null;
         $queueCounts = [];
         $sessions = null;
-        $todaySessions = [];
         $report = null;
         $applicantDetail = null;
         $divisions = null;
@@ -138,7 +137,6 @@ class RecruitmentPeriodController extends Controller
             );
 
             $sessions = $sessionPaginator;
-            $todaySessions = $this->sessionService->todaySessions($period->id);
             $queueCounts = $this->applicationService->queueCounts($period->id);
         }
 
@@ -185,7 +183,6 @@ class RecruitmentPeriodController extends Controller
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
             'tab' => $tab,
             'queue_counts' => (object) $queueCounts,
-            'today_sessions' => $todaySessions,
             'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
             'semesterOptions' => $canListApplications ? $this->applicationService->semesterOptions($period->id) : [],
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())

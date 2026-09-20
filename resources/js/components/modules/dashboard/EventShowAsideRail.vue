@@ -10,7 +10,6 @@ import {
     Pencil,
     Trash2,
     RotateCcw,
-    QrCode,
     FileText,
     Users,
     BarChart3,
@@ -72,15 +71,6 @@ defineEmits<{
             <CardContent class="flex flex-col gap-2 pt-0">
                 <Button class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal" as-child>
                     <Link :href="editEvent.url(event.id)"><Pencil class="mr-2 size-4" />Edit details</Link>
-                </Button>
-                <Button
-                    variant="outline"
-                    class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal"
-                    as-child
-                >
-                    <Link :href="routes.admin.scan.index"
-                        ><QrCode class="mr-2 size-4" />Check-in scanner</Link
-                    >
                 </Button>
                 <Button
                     variant="outline"

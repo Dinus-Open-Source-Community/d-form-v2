@@ -11,7 +11,7 @@ import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import useAuth from '@/utils/composables/useAuth'
 import { usePage } from '@inertiajs/vue3'
-import { ScanLine, ListOrdered, Plus } from 'lucide-vue-next'
+import { ListOrdered, Plus } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -74,7 +74,6 @@ const rescheduleSessionId = ref<Record<string, string>>({})
 const page = usePage()
 const user = useAuth(page.props)
 const canViewQueue = computed(() => user.value?.can_view_recruitment_queue === true)
-const canScanAttendance = computed(() => user.value?.can_scan_recruitment_attendance === true)
 
 onMounted(() => {
     setTopbar({
@@ -220,12 +219,6 @@ function rescheduleInterview(interviewId: string) {
 
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <div class="flex flex-wrap items-center justify-end gap-3">
-            <Button v-if="canScanAttendance" variant="secondary" as-child>
-                <Link :href="routes.admin.scan.index">
-                    <ScanLine class="mr-2 size-4" />
-                    Scan absensi
-                </Link>
-            </Button>
             <Button v-if="canViewQueue" as-child>
                 <Link :href="routes.admin.recruitment.queue.show(session.id)">
                     <ListOrdered class="mr-2 size-4" />
