@@ -110,8 +110,8 @@ class OprecFormSeeder extends Seeder
             ],
             [
                 'name' => 'portfolio_type', 'input_type' => 'radio', 'label' => 'Bentuk Portfolio',
-                'description' => null,
-                'metadata' => $withStep(3, ['builderType' => 'radio', 'options' => 'url,file', 'rules' => ['required' => true]]),
+                'description' => 'Opsional. Pilih link atau file jika ingin menyertakan portfolio.',
+                'metadata' => $withStep(3, ['builderType' => 'radio', 'options' => 'url,file', 'rules' => []]),
             ],
             [
                 'name' => 'portfolio_url', 'input_type' => 'input', 'label' => 'Link Portfolio',
@@ -120,7 +120,7 @@ class OprecFormSeeder extends Seeder
             ],
             [
                 'name' => 'portfolio_file', 'input_type' => 'fileUpload', 'label' => 'File Portfolio (PDF)',
-                'description' => 'Wajib jika bentuk portfolio adalah file. Maksimal 5 MB.',
+                'description' => 'Opsional. Format PDF, maksimal 5 MB.',
                 'metadata' => $withStep(3, ['builderType' => 'fileUpload', 'rules' => ['mimes' => 'pdf', 'max_size' => '5120']]),
             ],
             [

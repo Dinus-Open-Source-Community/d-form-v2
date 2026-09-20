@@ -62,9 +62,9 @@ class OprecFormRequest extends FormRequest
                 'different:primary_division_id',
                 Rule::exists('recruitment_divisions', 'id')->where('is_active', true),
             ],
-            'portfolio_type' => ['required', Rule::in(['url', 'file'])],
+            'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'max:500'],
-            'portfolio_file' => ['nullable', 'required_if:portfolio_type,file', 'file', 'mimes:pdf', 'max:5120'],
+            'portfolio_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
             'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'],
             'instagram_follow_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'twibbon_url' => ['required', 'url', 'max:500'],
@@ -121,10 +121,6 @@ class OprecFormRequest extends FormRequest
                 $validator->errors()->add('portfolio_url', 'Link portfolio wajib diisi.');
             }
 
-            if ($this->input('portfolio_type') === 'file' && $this->file('portfolio_file') === null) {
-                $validator->errors()->add('portfolio_file', 'File portfolio wajib diunggah.');
-            }
-
             $nim = Str::upper(trim((string) $this->input('nim')));
 
             if ($nim !== '' && RecruitmentApplication::query()
@@ -149,6 +145,11 @@ class OprecFormRequest extends FormRequest
 
         $validated['nim'] = Str::upper(trim((string) $validated['nim']));
         $validated['instagram_username'] = ltrim((string) $validated['instagram_username'], '@');
+
+        $portfolioType = $validated['portfolio_type'] ?? null;
+        if ($portfolioType === null || $portfolioType === '') {
+            $validated['portfolio_type'] = 'none';
+        }
 
         return $validated;
     }

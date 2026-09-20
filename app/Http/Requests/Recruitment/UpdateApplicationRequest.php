@@ -46,9 +46,9 @@ class UpdateApplicationRequest extends FormRequest
                 'different:primary_division_id',
                 Rule::exists('recruitment_divisions', 'id')->where('is_active', true),
             ],
-            'portfolio_type' => ['required', Rule::in(['url', 'file'])],
+            'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'max:500'],
-            'portfolio_file' => ['nullable', 'required_if:portfolio_type,file', 'file', 'mimes:pdf', 'max:5120'],
+            'portfolio_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
             'cv' => [$hasCv ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:5120'],
             'instagram_follow_proof' => [
                 $hasInstagramFollow ? 'nullable' : 'required',
@@ -80,10 +80,8 @@ class UpdateApplicationRequest extends FormRequest
                 $validator->errors()->add('nim', 'NIM ini sudah terdaftar pada periode ini.');
             }
 
-            if ($this->input('portfolio_type') === 'file'
-                && ! $this->hasFile('portfolio_file')
-                && blank($application->document?->portfolio_path)) {
-                $validator->errors()->add('portfolio_file', 'Portfolio file wajib diunggah.');
+            if ($this->input('portfolio_type') === 'url' && trim((string) $this->input('portfolio_url')) === '') {
+                $validator->errors()->add('portfolio_url', 'Link portfolio wajib diisi.');
             }
 
             if (! $this->hasFile('instagram_follow_proof')
@@ -100,6 +98,11 @@ class UpdateApplicationRequest extends FormRequest
     {
         $validated = $this->validated();
         $validated['instagram_username'] = ltrim((string) $validated['instagram_username'], '@');
+
+        $portfolioType = $validated['portfolio_type'] ?? null;
+        if ($portfolioType === null || $portfolioType === '') {
+            $validated['portfolio_type'] = 'none';
+        }
 
         return $validated;
     }

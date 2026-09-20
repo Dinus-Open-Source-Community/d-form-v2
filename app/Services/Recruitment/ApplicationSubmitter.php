@@ -67,18 +67,21 @@ final class ApplicationSubmitter
                     'cv_original_name' => $cv->getClientOriginalName(),
                     'cv_mime' => $cv->getMimeType() ?? 'application/pdf',
                     'cv_size_bytes' => $cv->getSize(),
-                    'portfolio_type' => $data['portfolio_type'],
+                    'portfolio_type' => $data['portfolio_type'] ?: 'none',
                     'twibbon_url' => $data['twibbon_url'] ?? null,
                 ];
 
-                if ($data['portfolio_type'] === 'url') {
+                if (($data['portfolio_type'] ?? 'none') === 'url') {
                     $documentData['portfolio_url'] = $data['portfolio_url'] ?? null;
-                } elseif ($portfolioFile !== null) {
+                } elseif (($data['portfolio_type'] ?? 'none') === 'file' && $portfolioFile !== null) {
                     $portfolioPath = $portfolioFile->store($storageBase, 'local');
                     $documentData['portfolio_path'] = $portfolioPath;
                     $documentData['portfolio_original_name'] = $portfolioFile->getClientOriginalName();
                     $documentData['portfolio_mime'] = $portfolioFile->getMimeType() ?? 'application/pdf';
                     $documentData['portfolio_size_bytes'] = $portfolioFile->getSize();
+                } elseif (($data['portfolio_type'] ?? 'none') === 'file' && $portfolioFile === null) {
+                    // File portfolio opsional: tipe file tanpa unggahan disimpan sebagai none.
+                    $documentData['portfolio_type'] = 'none';
                 }
 
                 if ($instagramFollowProof !== null) {

@@ -184,16 +184,42 @@ class RecruitmentPublicApplyTest extends TestCase
                 'student_email',
                 'instagram_username',
                 'primary_division_id',
-                'portfolio_type',
                 'cv',
                 'instagram_follow_proof',
                 'twibbon_url',
             ]);
     }
 
+    public function test_submit_without_portfolio_is_allowed(): void
+    {
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
+            'portfolio_type' => null,
+            'portfolio_url' => null,
+            'portfolio_file' => null,
+        ]))->assertRedirect(route('recruitment.success'));
+
+        $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();
+        $this->assertSame('none', $document->portfolio_type);
+        $this->assertNull($document->portfolio_url);
+        $this->assertNull($document->portfolio_path);
+    }
+
+    public function test_submit_portfolio_file_type_without_file_is_allowed(): void
+    {
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
+            'portfolio_type' => 'file',
+            'portfolio_url' => null,
+            'portfolio_file' => null,
+        ]))->assertRedirect(route('recruitment.success'));
+
+        $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();
+        $this->assertSame('none', $document->portfolio_type);
+        $this->assertNull($document->portfolio_path);
+    }
+
     public function test_submit_stores_instagram_follow_and_twibbon(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload())->assertRedirect();
+        $this->post(route('recruitment.apply.store'), $this->validPayload())->assertRedirect();
 
         $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();
         $this->assertNotNull($document->instagram_follow_path);
@@ -203,7 +229,7 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_submit_rejects_non_image_instagram_follow_proof(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'instagram_follow_proof' => UploadedFile::fake()->create('follow.pdf', 100, 'application/pdf'),
         ]))->assertSessionHasErrors('instagram_follow_proof');
     }
