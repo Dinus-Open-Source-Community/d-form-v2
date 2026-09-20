@@ -156,7 +156,7 @@ Applicant::viewInternalNotes()       → DENY
 |------------|-------------|--------|
 | `auth` | `/admin/recruitment/*` | Wajib login |
 | `permission:recruitment.dashboard.view` atau custom `recruitment.access` | Admin recruitment | Gate minimal |
-| `ValidateTrackingToken` | `/open-recruitment/track/{token}/*` | Verifikasi token |
+| `ValidateTrackingToken` | `/recruitment/track/{token}/*` | Verifikasi token |
 | `throttle:oprec-apply` | POST apply | Rate limit pendaftaran |
 | `throttle:oprec-track` | POST track login | Anti brute-force token |
 
@@ -172,7 +172,7 @@ Untuk route public apply — cek period status `open` dan within registration wi
 
 1. Saat submit: generate random token (min 32 bytes), hash dengan `Hash::make()`, simpan hash
 2. Plain token dikirim **sekali** via email konfirmasi
-3. Applicant submit reg number + token di `/open-recruitment/track`
+3. Applicant submit reg number + token di `/recruitment/track`
 4. Server: `Hash::check($plainToken, $application->tracking_token_hash)`
 5. On success: set session key `oprec_tracking_{application_id}` dengan TTL (opsional) atau require token setiap request
 

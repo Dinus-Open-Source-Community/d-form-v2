@@ -131,15 +131,22 @@ const totalEvents = computed(() => props.events.total);
 
 function confirmDelete(event: IEvent): void {
     deleteTarget.value = event;
+    deleteDialogOpen.value = true;
 }
 
 /** Modal konfirmasi hapus acara. */
 const deleteTarget = ref<IEvent | null>(null);
+const deleteDialogOpen = ref(false);
+
+function cancelDelete(): void {
+    deleteDialogOpen.value = false;
+}
 
 function handleDeleteConfirm(): void {
     if (!deleteTarget.value) return;
     router.delete(destroyEvent({ event: deleteTarget.value.id }).url);
     deleteTarget.value = null;
+    deleteDialogOpen.value = false;
 }
 </script>
 
@@ -177,19 +184,15 @@ function handleDeleteConfirm(): void {
         </div>
 
         <ConfirmationModal
-            :open="deleteTarget !== null"
+            :open="deleteDialogOpen"
             :title="`Hapus acara ${deleteTarget?.title ?? ''}?`"
             description="Tindakan ini tidak dapat dibatalkan. Data acara dan pendaftaran terkait akan terhapus."
             confirm-text="Hapus"
             cancel-text="Batal"
             variant="destructive"
             @confirm="handleDeleteConfirm"
-            @cancel="deleteTarget = null"
-            @update:open="
-                (v) => {
-                    if (!v) deleteTarget = null;
-                }
-            "
+            @cancel="cancelDelete"
+            @update:open="(v) => { deleteDialogOpen = v }"
         />
 
         <EmptyState

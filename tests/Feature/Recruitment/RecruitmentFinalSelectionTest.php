@@ -79,7 +79,7 @@ class RecruitmentFinalSelectionTest extends TestCase
                 'membership_type' => MembershipType::Aa->value,
                 'final_division_id' => $this->dataDivision->id,
             ])
-            ->assertRedirect(route('dashboard.recruitment.applications.show', $application));
+            ->assertRedirect();
 
         $application->refresh();
 

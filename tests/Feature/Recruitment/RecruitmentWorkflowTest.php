@@ -150,19 +150,19 @@ class RecruitmentWorkflowTest extends TestCase
         $this->assertNotNull($decision);
         $this->assertSame(MembershipType::Aa->value, $decision->membership_type);
 
-        $this->post(route('open-recruitment.track.authenticate'), [
+        $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $application->registration_number,
             'tracking_token' => self::TRACKING_TOKEN,
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
-        $this->post(route('open-recruitment.track.feedback.store'), [
+        $this->post(route('recruitment.track.feedback.store'), [
             'rating_registration_ease' => 5,
             'rating_info_clarity' => 5,
             'rating_tracking_ease' => 4,
             'rating_interview_experience' => 5,
             'rating_staff_service' => 5,
             'feedback_text' => 'Great OpRec experience.',
-        ])->assertRedirect(route('open-recruitment.track.show'));
+        ])->assertRedirect(route('recruitment.track.show'));
 
         $this->assertSame(
             1,

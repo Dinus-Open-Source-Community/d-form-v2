@@ -19,7 +19,7 @@ class RecruitmentActivityLogController extends Controller
         $action = $request->string('action')->toString() ?: null;
 
         $query = RecruitmentActivityLog::query()
-            ->with(['actor:id,name', 'application:id,registration_number,full_name'])
+            ->with(['actor:id,name', 'application:id,recruitment_period_id,registration_number,full_name'])
             ->orderByDesc('created_at');
 
         if ($periodId !== null && $periodId !== '') {
@@ -40,6 +40,7 @@ class RecruitmentActivityLogController extends Controller
                 'actor' => $log->actor ? ['id' => $log->actor->id, 'name' => $log->actor->name] : null,
                 'application' => $log->application ? [
                     'id' => $log->application->id,
+                    'recruitment_period_id' => $log->application->recruitment_period_id,
                     'registration_number' => $log->application->registration_number,
                     'full_name' => $log->application->full_name,
                 ] : null,

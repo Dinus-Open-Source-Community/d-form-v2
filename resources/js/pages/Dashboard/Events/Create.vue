@@ -10,6 +10,7 @@ import EventWizardStepper from '@/components/modules/dashboard/events/EventWizar
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import { Button } from '@/components/ui/button';
+import { AutosaveStatus } from '@/components/ui/autosave-status';
 import { Loader2 } from 'lucide-vue-next';
 import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 import { destroy as destroyEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
@@ -281,9 +282,6 @@ const steps = [
 ];
 const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
 
-const saveStatusLabel = computed(() =>
-    saveState.value === 'saving' ? 'Menyimpan…' : saveState.value === 'saved' ? 'Tersimpan' : ''
-);
 </script>
 
 <template>
@@ -323,14 +321,7 @@ const saveStatusLabel = computed(() =>
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div class="flex min-w-0 items-center gap-4">
                     <EventWizardStepper :steps="steps" :active-index="currentIndex" />
-                    <span
-                        v-if="saveStatusLabel"
-                        class="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs"
-                    >
-                        <Loader2 v-if="saveState === 'saving'" class="size-3 animate-spin" aria-hidden="true" />
-                        <span v-else class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                        {{ saveStatusLabel }}
-                    </span>
+                    <AutosaveStatus :status="saveState" variant="inline" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <Button variant="outline" @click="goBackToEvent">Kembali ke event</Button>

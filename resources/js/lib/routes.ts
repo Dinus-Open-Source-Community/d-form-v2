@@ -18,20 +18,24 @@ export const routes = {
         },
     },
 
-    openRecruitment: {
-        landing: '/open-recruitment',
-        apply: '/open-recruitment/apply',
-        success: '/open-recruitment/success',
+    // `landing` adalah form apply (nama route BE: `recruitment.apply`), bukan halaman landing terpisah.
+    recruitment: {
+        landing: '/recruitment',
+        success: '/recruitment/success',
         track: {
-            login: '/open-recruitment/track',
-            dashboard: '/open-recruitment/track/dashboard',
-            edit: '/open-recruitment/track/edit',
-            update: '/open-recruitment/track',
-            correction: '/open-recruitment/track/correction',
-            feedback: '/open-recruitment/track/feedback',
-            logout: '/open-recruitment/track/logout',
+            login: '/recruitment/track',
+            dashboard: '/recruitment/track/dashboard',
+            edit: '/recruitment/track/edit',
+            update: '/recruitment/track',
+            correction: '/recruitment/track/correction',
+            feedback: '/recruitment/track/feedback',
+            logout: '/recruitment/track/logout',
         },
-        attendance: '/open-recruitment/attendance',
+        attendance: '/recruitment/attendance',
+        queue: {
+            index: '/recruitment/queue',
+            show: (sessionId: string) => `/recruitment/queue/${sessionId}`,
+        },
     },
 
     auth: {
@@ -75,6 +79,7 @@ export const routes = {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
                 open: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/open`,
                 close: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/close`,
+                destroy: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
             },
             divisions: {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,
@@ -85,7 +90,6 @@ export const routes = {
                 unassign: (id: string) => `${ADMIN_BASE}/recruitment/interviewers/${id}`,
             },
             applications: {
-                show: (id: string) => `${ADMIN_BASE}/recruitment/applications/${id}`,
                 document: (id: string, type: 'cv' | 'portfolio', preview = false) =>
                     `${ADMIN_BASE}/recruitment/applications/${id}/documents/${type}${preview ? '?preview=1' : ''}`,
                 screening: {
@@ -117,7 +121,6 @@ export const routes = {
                 index: `${ADMIN_BASE}/recruitment/my-interviews`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
-                queue: (sessionId: string) => `${ADMIN_BASE}/recruitment/my-interviews/queue/${sessionId}`,
             },
             queue: {
                 show: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}`,

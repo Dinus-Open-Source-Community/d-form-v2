@@ -112,7 +112,7 @@ class RecruitmentApplicantPanelTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('applications.total', 1)
+                ->has('applications', 1)
                 ->missing('applicant_detail'));
     }
 
@@ -130,5 +130,46 @@ class RecruitmentApplicantPanelTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->missing('applicant_detail'));
+    }
+
+    public function test_json_detail_memuat_applicant_scoped_dengan_reason_options(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->getJson(route('dashboard.recruitment.periods.applications.show', [
+                'period' => $this->period->id,
+                'application' => $this->application->id,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('application.id', $this->application->id)
+            ->assertJsonPath('application.full_name', 'Budi Santoso')
+            ->assertJsonStructure([
+                'application' => ['id', 'can_screen'],
+                'screening_reason_options' => [['value', 'label']],
+                'can_screen',
+            ]);
+    }
+
+    public function test_json_detail_lintas_periode_ditolak_404(): void
+    {
+        $foreign = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->otherPeriod->id,
+        ]);
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->getJson(route('dashboard.recruitment.periods.applications.show', [
+                'period' => $this->period->id,
+                'application' => $foreign->id,
+            ]))
+            ->assertNotFound();
+    }
+
+    public function test_json_detail_tidak_ditemukan_404(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->getJson(route('dashboard.recruitment.periods.applications.show', [
+                'period' => $this->period->id,
+                'application' => '11111111-1111-4111-8111-111111111111',
+            ]))
+            ->assertNotFound();
     }
 }

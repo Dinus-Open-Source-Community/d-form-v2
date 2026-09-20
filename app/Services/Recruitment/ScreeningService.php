@@ -73,10 +73,11 @@ final class ScreeningService
         ScreeningReason $reason,
         ?string $notes = null,
         ?Request $request = null,
+        ?array $sections = null,
     ): RecruitmentScreening {
         $this->assertCanScreen($application);
 
-        return DB::transaction(function () use ($actor, $application, $reason, $notes, $request): RecruitmentScreening {
+        return DB::transaction(function () use ($actor, $application, $reason, $notes, $request, $sections): RecruitmentScreening {
             $oldStage = $application->stage;
             $oldRevision = $application->revision_required;
 
@@ -90,6 +91,7 @@ final class ScreeningService
                 'decision' => ScreeningDecision::RevisionRequired,
                 'reason' => $reason,
                 'notes' => $notes,
+                'sections' => $sections,
                 'acted_by' => $actor->id,
                 'acted_at' => now(),
             ]);
@@ -106,13 +108,15 @@ final class ScreeningService
                     'stage' => ApplicationStage::Screening->value,
                     'revision_required' => true,
                     'reason' => $reason->value,
+                    'sections' => $sections,
+                    'notes' => $notes,
                 ],
                 entityType: 'recruitment_screening',
                 entityId: $screening->id,
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'revision_required');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'revision_required', null, $sections, $notes);
 
             return $screening;
         });

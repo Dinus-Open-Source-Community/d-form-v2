@@ -109,11 +109,8 @@ function submit() {
         </Card>
 
         <div class="mt-4 flex flex-col items-center gap-2 text-center text-sm">
-            <Link :href="routes.openRecruitment.apply" class="text-primary underline-offset-2 hover:underline">
+            <Link :href="routes.recruitment.landing" class="text-primary underline-offset-2 hover:underline">
                 Belum daftar? Isi formulir
-            </Link>
-            <Link :href="routes.openRecruitment.landing" class="text-muted-foreground underline-offset-2 hover:underline">
-                Kembali ke landing
             </Link>
         </div>
     </div>

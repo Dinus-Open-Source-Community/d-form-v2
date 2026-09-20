@@ -8,6 +8,8 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
+use Database\Seeders\EventSeeder;
+use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +34,10 @@ class RecruitmentPublicApplyTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
+        // Halaman form apply dirender langsung di GET /recruitment,
+        // sehingga definisi form wajib ada agar halaman tidak 503.
+        $this->seed(EventSeeder::class);
+        $this->seed(OprecFormSeeder::class);
         Storage::fake('local');
         Queue::fake();
 
@@ -56,7 +62,7 @@ class RecruitmentPublicApplyTest extends TestCase
         return array_merge([
             'full_name' => 'Budi Santoso',
             'nim' => 'A11.2024.01234',
-            'semester' => 2,
+            'semester' => 1,
             'phone' => '081234567890',
             'personal_email' => 'budi@gmail.com',
             'student_email' => 'budi@students.udinus.ac.id',
@@ -69,20 +75,21 @@ class RecruitmentPublicApplyTest extends TestCase
         ], $overrides);
     }
 
-    public function test_guest_can_view_landing_page(): void
+    public function test_guest_can_view_apply_form_at_recruitment_root(): void
     {
-        $this->get(route('open-recruitment.landing'))
+        $this->get(route('recruitment.apply'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('OpenRecruitment/Landing')
-                ->where('registration.is_open', true));
+                ->component('OpenRecruitment/Apply')
+                ->where('registration.is_open', true)
+                ->where('submitUrl', route('recruitment.apply.store')));
     }
 
     public function test_submit_valid_application_during_open_period(): void
     {
-        $response = $this->post(route('open-recruitment.apply.store'), $this->validPayload());
+        $response = $this->post(route('recruitment.apply.store'), $this->validPayload());
 
-        $response->assertRedirect(route('open-recruitment.success'));
+        $response->assertRedirect(route('recruitment.success'));
 
         $application = RecruitmentApplication::query()->where('nim', 'A11.2024.01234')->first();
         $this->assertNotNull($application);
@@ -103,9 +110,9 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_submit_duplicate_nim_same_period_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload())->assertRedirect();
+        $this->post(route('recruitment.apply.store'), $this->validPayload())->assertRedirect();
 
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'personal_email' => 'other@gmail.com',
         ]))
             ->assertSessionHasErrors('nim');
@@ -115,34 +122,34 @@ class RecruitmentPublicApplyTest extends TestCase
     {
         $this->openPeriod->update(['status' => RecruitmentPeriodStatus::Closed]);
 
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload())
+        $this->post(route('recruitment.apply.store'), $this->validPayload())
             ->assertSessionHasErrors('period');
     }
 
     public function test_submit_semester_four_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'semester' => 4,
         ]))->assertSessionHasErrors('semester');
     }
 
     public function test_submit_secondary_division_same_as_primary_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'secondary_division_id' => $this->programming->id,
         ]))->assertSessionHasErrors('secondary_division_id');
     }
 
     public function test_submit_cv_non_pdf_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'cv' => UploadedFile::fake()->create('cv.docx', 120, 'application/msword'),
         ]))->assertSessionHasErrors('cv');
     }
 
     public function test_submit_portfolio_url_is_stored(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload())->assertRedirect();
+        $this->post(route('recruitment.apply.store'), $this->validPayload())->assertRedirect();
 
         $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();
         $this->assertSame('url', $document->portfolio_type);
@@ -151,7 +158,7 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_submit_portfolio_pdf_file_is_stored(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'portfolio_type' => 'file',
             'portfolio_url' => null,
             'portfolio_file' => UploadedFile::fake()->create('portfolio.pdf', 100, 'application/pdf'),
@@ -165,7 +172,7 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_submit_without_required_fields_is_rejected(): void
     {
-        $this->post(route('open-recruitment.apply.store'), [])
+        $this->post(route('recruitment.apply.store'), [])
             ->assertSessionHasErrors([
                 'full_name',
                 'nim',
@@ -182,7 +189,7 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_registration_number_format_matches_spec(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload([
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
             'nim' => 'A11.2024.09999',
         ]))->assertRedirect();
 
@@ -192,11 +199,11 @@ class RecruitmentPublicApplyTest extends TestCase
 
     public function test_success_page_shows_registration_number_once(): void
     {
-        $this->post(route('open-recruitment.apply.store'), $this->validPayload());
+        $this->post(route('recruitment.apply.store'), $this->validPayload());
 
         $application = RecruitmentApplication::query()->firstOrFail();
 
-        $this->get(route('open-recruitment.success'))
+        $this->get(route('recruitment.success'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('OpenRecruitment/Success')

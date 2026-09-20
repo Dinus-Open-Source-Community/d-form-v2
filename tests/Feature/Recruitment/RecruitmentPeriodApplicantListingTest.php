@@ -41,7 +41,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             'recruitment_period_id' => $this->period->id,
             'primary_division_id' => $division->id,
             'full_name' => 'Budi Santoso',
-            'semester' => 2,
+            'semester' => 1,
             'stage' => ApplicationStage::Submitted,
             'result' => ApplicationResult::Pending,
             'submitted_at' => now()->subDay(),
@@ -51,7 +51,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             'recruitment_period_id' => $this->period->id,
             'primary_division_id' => $division->id,
             'full_name' => 'Siti Aminah',
-            'semester' => 2,
+            'semester' => 3,
             'stage' => ApplicationStage::Submitted,
             'result' => ApplicationResult::Pending,
             'submitted_at' => now(),
@@ -103,9 +103,9 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/Periods/Show')
-                ->where('applications.total', 4)
-                ->where('applications.data.0.id', $this->siti->id)
-                ->where('applications.data.1.id', $this->budi->id));
+                ->has('applications', 4)
+                ->where('applications.0.id', $this->siti->id)
+                ->where('applications.1.id', $this->budi->id));
     }
 
     public function test_period_show_scopes_queue_counts_to_that_period(): void
@@ -116,22 +116,22 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertInertia(fn ($page) => $page                ->where('queue_counts.all', 4));
     }
 
-    public function test_period_show_applies_search_inside_period(): void
+    public function test_period_show_returns_full_list_search_is_filtered_in_frontend(): void
     {
         $this->actingAs($this->admin())
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period, 'search' => 'Budi']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('applications.total', 1)
-                ->where('applications.data.0.id', $this->budi->id));
+                ->has('applications', 4)
+                ->where('applications.1.id', $this->budi->id));
     }
 
-    public function test_staff_without_period_view_cannot_open_period_show(): void
+    public function test_user_tanpa_period_view_tidak_dapat_membuka_period_show(): void
     {
-        $staff = User::factory()->create();
-        $staff->assignRole('recruitment-staff');
+        $user = User::factory()->create();
+        $user->givePermissionTo('recruitment.dashboard.view');
 
-        $this->actingAs($staff)
+        $this->actingAs($user)
             ->get(route('dashboard.recruitment.periods.show', $this->period))
             ->assertForbidden();
     }
@@ -143,7 +143,6 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('semesterOptions', [
                 ['value' => '1', 'label' => 'Semester 1'],
-                ['value' => '2', 'label' => 'Semester 2'],
                 ['value' => '3', 'label' => 'Semester 3'],
             ]));
     }
@@ -155,7 +154,6 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('semesterOptions', [
                 ['value' => '1', 'label' => 'Semester 1'],
-                ['value' => '2', 'label' => 'Semester 2'],
                 ['value' => '3', 'label' => 'Semester 3'],
             ]));
 
@@ -172,14 +170,13 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
         $this->actingAs($this->admin())
             ->get(route('dashboard.recruitment.periods.show', [
                 'period' => $this->period,
-                'semester' => '2',
+                'semester' => '1',
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('applications.total', 2)
+                ->has('applications', 4)
                 ->where('semesterOptions', [
                     ['value' => '1', 'label' => 'Semester 1'],
-                    ['value' => '2', 'label' => 'Semester 2'],
                     ['value' => '3', 'label' => 'Semester 3'],
                 ]));
     }

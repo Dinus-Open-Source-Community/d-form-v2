@@ -76,7 +76,7 @@ class OprecFormSeeder extends Seeder
             [
                 'name' => 'semester', 'input_type' => 'selectInput', 'label' => 'Semester',
                 'description' => null,
-                'metadata' => $withStep(1, ['builderType' => 'dropdown', 'options' => ['1', '2', '3'], 'rules' => ['required' => true, 'in' => '1,2,3']]),
+                'metadata' => $withStep(1, ['builderType' => 'dropdown', 'options' => ['1', '3'], 'rules' => ['required' => true, 'in' => '1,3']]),
             ],
             [
                 'name' => 'phone', 'input_type' => 'input', 'label' => 'Nomor WhatsApp',

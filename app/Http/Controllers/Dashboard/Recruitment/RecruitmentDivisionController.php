@@ -66,9 +66,12 @@ class RecruitmentDivisionController extends Controller
 
         $this->divisionService->update($division, $request->validated());
 
-        return redirect()
-            ->back()
-            ->with('message', 'Divisi berhasil diperbarui.');
+        Inertia::flash('toast', [
+            'message' => 'Divisi berhasil diperbarui.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->back();
     }
 
     public function assignInterviewer(AssignRecruitmentInterviewerRequest $request): RedirectResponse
@@ -81,9 +84,12 @@ class RecruitmentDivisionController extends Controller
 
         $this->divisionService->assignInterviewer($division, $user);
 
-        return redirect()
-            ->back()
-            ->with('message', 'Interviewer berhasil ditugaskan ke divisi.');
+        Inertia::flash('toast', [
+            'message' => 'Interviewer berhasil ditugaskan ke divisi.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->back();
     }
 
     public function unassignInterviewer(RecruitmentInterviewerDivision $assignment): RedirectResponse
@@ -92,9 +98,12 @@ class RecruitmentDivisionController extends Controller
 
         $this->divisionService->unassignInterviewer($assignment);
 
-        return redirect()
-            ->back()
-            ->with('message', 'Penugasan interviewer dihapus.');
+        Inertia::flash('toast', [
+            'message' => 'Penugasan interviewer dihapus.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->back();
     }
 
     public function storeInterviewer(StoreRecruitmentInterviewerRequest $request): RedirectResponse
@@ -116,8 +125,11 @@ class RecruitmentDivisionController extends Controller
             $this->divisionService->assignInterviewer($division, $user);
         });
 
-        return redirect()
-            ->back()
-            ->with('message', 'Interviewer berhasil ditugaskan ke divisi.');
+        Inertia::flash('toast', [
+            'message' => 'Interviewer berhasil ditugaskan ke divisi.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->back();
     }
 }

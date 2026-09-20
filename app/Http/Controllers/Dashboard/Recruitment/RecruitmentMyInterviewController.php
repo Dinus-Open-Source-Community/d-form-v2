@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\Recruitment\QueueStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentInterviewSession;
+use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Services\Recruitment\EvaluationService;
-use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\MyInterviewService;
 use App\Services\Recruitment\QueueService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +20,6 @@ class RecruitmentMyInterviewController extends Controller
     public function __construct(
         private readonly MyInterviewService $myInterviewService,
         private readonly EvaluationService $evaluationService,
-        private readonly InterviewSessionService $sessionService,
         private readonly QueueService $queueService,
     ) {
     }
@@ -100,6 +100,7 @@ class RecruitmentMyInterviewController extends Controller
             'detail' => $this->myInterviewService->toShowArray($application),
             'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $application),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
+            'flashMessage' => session('message'),
         ]);
     }
 
@@ -117,25 +118,53 @@ class RecruitmentMyInterviewController extends Controller
             request: $request,
         );
 
+        $calledNext = $this->callNextIfEvaluatedEntryActive($application);
+
+        $message = 'Penilaian interview berhasil disimpan.';
+
+        if ($calledNext !== null) {
+            $message .= sprintf(
+                ' Berikutnya dipanggil: #%s.',
+                str_pad((string) $calledNext->queue_number, 2, '0', STR_PAD_LEFT),
+            );
+        }
+
         return redirect()
             ->route('dashboard.recruitment.my-interviews.show', $application)
-            ->with('message', 'Penilaian interview berhasil disimpan.');
+            ->with('message', $message);
     }
 
-    public function queue(RecruitmentInterviewSession $session): Response
+    /**
+     * Finalisasi antrean applicant yang baru dinilai lalu panggil waiting berikutnya.
+     *
+     * Guard idempoten: `callNext` hanya dipanggil bila entri antrean milik
+     * application ini masih aktif (Called/InProgress). Baris entri dikunci di
+     * dalam transaksi sehingga dua submit paralel tidak memanggil antrean dua kali.
+     */
+    private function callNextIfEvaluatedEntryActive(RecruitmentApplication $application): ?RecruitmentQueueEntry
     {
-        abort_unless(auth()->user()?->can('recruitment.queue.view'), 403);
+        return DB::transaction(function () use ($application): ?RecruitmentQueueEntry {
+            $entry = RecruitmentQueueEntry::query()
+                ->where('recruitment_application_id', $application->id)
+                ->lockForUpdate()
+                ->first();
 
-        $assignedSessionIds = $this->myInterviewService->sessionIdsForInterviewer(auth()->user());
+            if ($entry === null) {
+                return null;
+            }
 
-        abort_unless(in_array($session->id, $assignedSessionIds, true), 403);
+            if (! in_array($entry->status, [QueueStatus::Called, QueueStatus::InProgress], true)) {
+                return null;
+            }
 
-        $this->authorize('viewQueue', $session);
+            $application->loadMissing('interview.session');
+            $session = $application->interview?->session;
 
-        return Inertia::render('Dashboard/Recruitment/MyInterviews/Queue', [
-            'session' => $this->sessionService->toShowArray($session),
-            'queue' => $this->queueService->snapshot($session),
-            'pollUrl' => route('dashboard.recruitment.queue.poll', $session),
-        ]);
+            if ($session === null) {
+                return null;
+            }
+
+            return $this->queueService->callNext($session);
+        });
     }
 }

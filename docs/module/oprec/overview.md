@@ -8,7 +8,7 @@
 
 DOSCOM OpenRecruitment (OpRec) menggantikan proses recruitment manual yang tersebar menjadi satu workflow terstruktur, transparan, dan dapat digunakan kembali setiap periode.
 
-Applicant mendaftar **tanpa akun** melalui `/open-recruitment`, menerima nomor pendaftaran + tracking token, dan dapat memantau progress secara mandiri.
+Applicant mendaftar **tanpa akun** melalui `/recruitment`, menerima nomor pendaftaran + tracking token, dan dapat memantau progress secara mandiri.
 
 Internal organisasi (Staff, Interviewer, Admin) mengelola seluruh proses melalui dashboard `/admin/recruitment`.
 
@@ -203,7 +203,7 @@ Dapat berbeda dari preferensi applicant (Programming, Creative Media, Network, D
 
 ```mermaid
 flowchart TD
-  Landing["/open-recruitment"] --> Apply[Application_Form]
+  Landing["/recruitment"] --> Apply[Application_Form]
   Apply --> Confirm[Registration_Number_+_Email]
   Confirm --> Screening[Staff_Screening]
   Screening -->|Pass| Schedule[Interview_Schedule]
@@ -233,7 +233,7 @@ Setelah submit, applicant menerima:
 - **Registration Number** — contoh: `OPREC-2026-00123`
 - **Tracking Token** — kredensial rahasia (plain text hanya dikirim sekali via email)
 
-Applicant membuka `/open-recruitment/track` dengan reg number + token.
+Applicant membuka `/recruitment/track` dengan reg number + token.
 
 **Yang ditampilkan:** status, progress stage, jadwal interview, attendance status, hasil akhir, instruksi berikutnya.
 

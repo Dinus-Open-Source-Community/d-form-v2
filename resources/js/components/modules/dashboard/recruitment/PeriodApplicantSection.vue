@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
@@ -31,17 +31,8 @@ interface ApplicationRow {
     revision_required: boolean
     submitted_at: string | null
     primary_division: { id: string; name: string } | null
+    secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
-}
-
-interface Paginator {
-    data: ApplicationRow[]
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
-    from?: number | null
-    to?: number | null
 }
 
 const QUEUE_OPTIONS = [
@@ -56,7 +47,7 @@ const QUEUE_OPTIONS = [
 const props = withDefaults(
     defineProps<{
         periodId: string
-        applications: Paginator | null
+        applications: ApplicationRow[] | null
         queueCounts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -64,7 +55,7 @@ const props = withDefaults(
         tab: string
         canScreen?: boolean
         selectedId?: string | null
-        query: {
+        query?: {
             search?: string
             division_id?: string
             stage?: string
@@ -73,7 +64,7 @@ const props = withDefaults(
             per_page?: string | number
         }
     }>(),
-    { semesterOptions: () => [], canScreen: false },
+    { semesterOptions: () => [], canScreen: false, query: () => ({}) },
 )
 
 const emit = defineEmits<{
@@ -88,7 +79,7 @@ function setRowRef(id: string, el: unknown): void {
     rowRefs.value[id] = (el as HTMLElement | null) ?? null
 }
 
-const rowIds = computed<string[]>(() => (props.applications?.data ?? []).map((row) => row.id))
+const rowIds = computed<string[]>(() => pagedRows.value.map((row) => row.id))
 
 function focusRowAt(index: number): void {
     const ids = rowIds.value
@@ -120,12 +111,13 @@ watch(
     },
 )
 
-const search = ref(props.query.search ?? '')
-const divisionId = ref(props.query.division_id ?? '')
-const stage = ref(props.query.stage ?? '')
-const queue = ref(props.query.queue ?? '')
-const semester = ref(props.query.semester ?? '')
-const perPage = ref<number>(Number(props.query.per_page ?? props.applications?.per_page ?? 5) || 5)
+const search = ref<string>('')
+const divisionId = ref<string>('')
+const stage = ref<string>('')
+const queue = ref<string>('')
+const semester = ref<string>('')
+const perPage = ref<number>(20)
+const currentPage = ref<number>(1)
 
 const divisionSelectOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua divisi' },
@@ -172,13 +164,59 @@ const queueModel = computed<string>({
     },
 })
 
-/** Mencegah permintaan ganda saat state filter disamakan ulang dari URL/Inertia. */
-let suppressFilterApply = false
+function matchesQueue(row: ApplicationRow, activeQueue: string): boolean {
+    switch (activeQueue) {
+        case 'screening':
+            return (
+                (row.stage === 'submitted' || row.stage === 'screening') &&
+                row.result === 'pending' &&
+                !row.revision_required
+            )
+        case 'revision':
+            return row.revision_required
+        case 'interview':
+            return row.stage === 'interview'
+        case 'final':
+            return row.stage === 'final_review'
+        case 'done':
+            return row.stage === 'completed'
+        default:
+            return true
+    }
+}
 
-const currentPage = computed<number>(() => props.applications?.current_page ?? 1)
-const lastPage = computed<number>(() => props.applications?.last_page ?? 1)
-const totalCount = computed<number>(() => props.applications?.total ?? 0)
-const pageSize = computed<number>(() => props.applications?.per_page ?? perPage.value ?? 5)
+const filteredRows = computed<ApplicationRow[]>(() => {
+    const needle: string = search.value.trim().toLowerCase()
+    return (props.applications ?? []).filter((row) => {
+        if (needle !== '') {
+            const haystack: string =
+                `${row.full_name} ${row.nim} ${row.registration_number}`.toLowerCase()
+            if (!haystack.includes(needle)) return false
+        }
+        if (
+            divisionId.value !== '' &&
+            row.primary_division?.id !== divisionId.value &&
+            row.secondary_division?.id !== divisionId.value
+        )
+            return false
+        if (queue.value !== '') {
+            if (!matchesQueue(row, queue.value)) return false
+        } else if (stage.value !== '' && row.stage !== stage.value) {
+            return false
+        }
+        if (semester.value !== '' && String(row.semester) !== semester.value) return false
+        return true
+    })
+})
+
+const totalCount = computed<number>(() => filteredRows.value.length)
+const lastPage = computed<number>(() => Math.max(1, Math.ceil(totalCount.value / perPage.value)))
+
+const pagedRows = computed<ApplicationRow[]>(() => {
+    const page: number = Math.max(1, Math.min(currentPage.value, lastPage.value))
+    const start: number = (page - 1) * perPage.value
+    return filteredRows.value.slice(start, start + perPage.value)
+})
 
 const perPageOptions = computed<SimpleSelectOption[]>(() =>
     [5, 10, 20, 50].map((size) => ({ value: String(size), label: `${size} / halaman` })),
@@ -187,27 +225,19 @@ const perPageOptions = computed<SimpleSelectOption[]>(() =>
 const perPageModel = computed<string>({
     get: () => String(perPage.value),
     set: (value: string) => {
-        const next = Number(value) || 5
-        perPage.value = next
-        applyFilters(1, next)
+        perPage.value = Number(value) || 20
+        currentPage.value = 1
     },
 })
 
 const rangeStart = computed<number>(() => {
-    if (!props.applications || totalCount.value === 0) return 0
-    if (typeof props.applications.from === 'number' && props.applications.from !== null) {
-        return props.applications.from
-    }
-    return (currentPage.value - 1) * pageSize.value + 1
+    if (totalCount.value === 0) return 0
+    return (Math.max(1, Math.min(currentPage.value, lastPage.value)) - 1) * perPage.value + 1
 })
 
 const rangeEnd = computed<number>(() => {
-    if (!props.applications || totalCount.value === 0) return 0
-    if (typeof props.applications.to === 'number' && props.applications.to !== null) {
-        return props.applications.to
-    }
-    const rows = props.applications.data.length
-    return Math.min(rangeStart.value + Math.max(rows, 0) - 1, totalCount.value)
+    if (totalCount.value === 0) return 0
+    return Math.min(rangeStart.value + pagedRows.value.length - 1, totalCount.value)
 })
 
 const visiblePages = computed<(number | string)[]>(() => {
@@ -230,49 +260,13 @@ const visiblePages = computed<(number | string)[]>(() => {
     return result
 })
 
-function readQueryFromProps(): void {
-    suppressFilterApply = true
-    search.value = props.query.search ?? ''
-    divisionId.value = props.query.division_id ?? ''
-    stage.value = props.query.stage ?? ''
-    queue.value = props.query.queue ?? ''
-    semester.value = props.query.semester ?? ''
-    perPage.value = Number(props.query.per_page ?? props.applications?.per_page ?? 5) || 5
-    void nextTick(() => {
-        suppressFilterApply = false
-    })
-}
-
-readQueryFromProps()
-
-function applyFilters(page: number = 1, perPageParam: number = pageSize.value): void {
-    if (suppressFilterApply) return
-    router.get(
-        routes.admin.recruitment.periods.show(props.periodId),
-        {
-            search: search.value || undefined,
-            division_id: divisionId.value || undefined,
-            stage: queue.value ? undefined : stage.value || undefined,
-            queue: queue.value || undefined,
-            semester: semester.value || undefined,
-            page: page > 1 ? page : undefined,
-            per_page: perPageParam !== 5 ? perPageParam : undefined,
-            tab: props.tab === 'peserta' ? undefined : props.tab,
-        },
-        { preserveState: true, replace: true },
-    )
-}
-
-watch([search, divisionId, stage, semester, queue], () => applyFilters())
-watch(() => props.query, readQueryFromProps, { deep: true })
-watch(
-    () => props.tab,
-    () => readQueryFromProps(),
-)
+watch([search, divisionId, stage, semester, queue], () => {
+    currentPage.value = 1
+})
 
 function goToPage(page: number | string): void {
     if (typeof page !== 'number') return
-    applyFilters(page)
+    currentPage.value = Math.max(1, Math.min(page, lastPage.value))
 }
 
 interface RejectReasonOption {
@@ -299,6 +293,7 @@ function canDecide(row: ApplicationRow): boolean {
 
 const processingId = ref<string | null>(null)
 const passTarget = ref<ApplicationRow | null>(null)
+const passDialogOpen = ref(false)
 
 const rejectTarget = ref<ApplicationRow | null>(null)
 const rejectDialogOpen = ref(false)
@@ -312,6 +307,11 @@ const rejectForm = useForm({
 function openPass(row: ApplicationRow): void {
     if (!canDecide(row) || processingId.value !== null) return
     passTarget.value = row
+    passDialogOpen.value = true
+}
+
+function cancelPass(): void {
+    passDialogOpen.value = false
 }
 
 function confirmPass(): void {
@@ -327,6 +327,7 @@ function confirmPass(): void {
             onFinish: () => {
                 processingId.value = null
                 passTarget.value = null
+                passDialogOpen.value = false
             },
         },
     )
@@ -446,7 +447,7 @@ function submitReject(): void {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in applications.data"
+                                v-for="row in pagedRows"
                                 :key="row.id"
                                 :ref="(el) => setRowRef(row.id, el)"
                                 tabindex="0"
@@ -510,7 +511,7 @@ function submitReject(): void {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="applications.data.length === 0">
+                            <tr v-if="pagedRows.length === 0">
                                 <td colspan="7" class="text-muted-foreground px-4 py-10 text-center">
                                     Belum ada applicant untuk periode ini yang cocok dengan filter.
                                 </td>
@@ -527,7 +528,7 @@ function submitReject(): void {
         >
             <div class="flex flex-wrap items-center gap-3">
                 <p class="text-muted-foreground">
-                    Menampilkan {{ rangeStart }}–{{ rangeEnd }} dari {{ applications.total }} applicant
+                    Menampilkan {{ rangeStart }}–{{ rangeEnd }} dari {{ totalCount }} applicant
                 </p>
                 <SimpleSelect
                     v-model="perPageModel"
@@ -543,7 +544,7 @@ function submitReject(): void {
                     size="sm"
                     :disabled="currentPage <= 1"
                     aria-label="Ke halaman sebelumnya"
-                    @click="applyFilters(currentPage - 1)"
+                    @click="goToPage(currentPage - 1)"
                 >
                     Sebelumnya
                 </Button>
@@ -569,7 +570,7 @@ function submitReject(): void {
                     size="sm"
                     :disabled="currentPage >= lastPage"
                     aria-label="Ke halaman berikutnya"
-                    @click="applyFilters(currentPage + 1)"
+                    @click="goToPage(currentPage + 1)"
                 >
                     Berikutnya
                 </Button>
@@ -577,7 +578,7 @@ function submitReject(): void {
         </div>
 
         <ConfirmationModal
-            :open="passTarget !== null"
+            :open="passDialogOpen"
             title="Loloskan applicant?"
             :description="
                 passTarget
@@ -587,8 +588,8 @@ function submitReject(): void {
             confirm-text="Loloskan"
             :loading="passTarget !== null && processingId === passTarget.id"
             @confirm="confirmPass"
-            @cancel="passTarget = null"
-            @update:open="(v: boolean) => { if (!v) passTarget = null }"
+            @cancel="cancelPass"
+            @update:open="(v: boolean) => { passDialogOpen = v }"
         />
 
         <Dialog v-model:open="rejectDialogOpen">
