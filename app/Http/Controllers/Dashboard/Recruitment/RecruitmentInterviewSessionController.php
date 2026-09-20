@@ -27,9 +27,15 @@ class RecruitmentInterviewSessionController extends Controller
 
         $session = $this->sessionService->create($validated);
 
-        return redirect()
-            ->route('dashboard.recruitment.interview-sessions.show', $session)
-            ->with('message', 'Sesi interview berhasil dibuat.');
+        Inertia::flash('toast', [
+            'message' => 'Sesi interview berhasil dibuat.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.recruitment.periods.show', [
+            'period' => $session->recruitment_period_id,
+            'tab' => 'interview',
+        ]);
     }
 
     public function show(RecruitmentInterviewSession $session): Response
