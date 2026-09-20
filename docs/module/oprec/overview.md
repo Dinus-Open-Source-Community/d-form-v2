@@ -93,7 +93,7 @@ Internal organisasi (Staff, Interviewer, Admin) mengelola seluruh proses melalui
 ### 4.1 Divisi (PRD §8.1)
 
 1. Pemrograman / Programming
-2. Creative Media / Medcrev
+2. Kreatif / Creative
 3. Jaringan / Network
 4. Data
 
@@ -193,7 +193,7 @@ AA | Member
 
 ### 6.5 Final Division
 
-Dapat berbeda dari preferensi applicant (Programming, Creative Media, Network, Data, atau divisi lain).
+Dapat berbeda dari preferensi applicant (Programming, Kreatif / Creative, Network, Data, atau divisi lain).
 
 ---
 
