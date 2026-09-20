@@ -10,6 +10,7 @@ import { StyledSelect } from '@/components/ui/styled-select'
 import type { UnwrapNestedRefs } from 'vue'
 import { Star, ImagePlus, Upload, X } from 'lucide-vue-next'
 import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
+import { formatParagraphContentToHtml } from '@/lib/formParagraphContent'
 
 const props = withDefaults(
     defineProps<{
@@ -72,6 +73,10 @@ const showDescription = computed(() => {
     return props.participationSlot.slotIndex === null
 })
 
+const descriptionHtml = computed(() =>
+    props.field.description ? formatParagraphContentToHtml(props.field.description) : '',
+)
+
 function fillReady(): boolean {
     return props.imageUploadFillReadyFn(props.storageKey)
 }
@@ -91,9 +96,8 @@ function fillReady(): boolean {
             v-if="showDescription"
             class="text-xs text-muted-foreground"
             :class="variant === 'bundleParticipant' ? 'mt-0 leading-snug' : 'leading-relaxed'"
-        >
-            {{ field.description }}
-        </p>
+            v-html="descriptionHtml"
+        />
     </CardHeader>
     <CardContent :class="cardContentSpacingClass">
         <template

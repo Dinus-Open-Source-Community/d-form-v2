@@ -426,6 +426,17 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                             placeholder="https://..."
                             required
                         />
+                        <p class="text-muted-foreground text-xs">
+                            Twibbon dapat diakses di
+                            <a
+                                href="https://www.fotomomen.studio/oprec-doscom26"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-primary underline-offset-4 hover:underline"
+                            >
+                                https://www.fotomomen.studio/oprec-doscom26
+                            </a>
+                        </p>
                         <p v-if="form.errors.twibbon_url" class="text-destructive text-xs">
                             {{ form.errors.twibbon_url }}
                         </p>

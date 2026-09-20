@@ -135,7 +135,7 @@ class OprecFormSeeder extends Seeder
             ],
             [
                 'name' => 'twibbon_url', 'input_type' => 'input', 'label' => 'Link Bukti Twibbon',
-                'description' => 'URL postingan atau bukti pemasangan twibbon.',
+                'description' => 'URL postingan atau bukti pemasangan twibbon. Twibbon dapat diakses di https://www.fotomomen.studio/oprec-doscom26',
                 'metadata' => $withStep(3, ['builderType' => 'short_text', 'type' => 'url', 'placeholder' => 'cth. https://...', 'rules' => ['required' => true, 'url' => true, 'max' => '500']]),
             ],
         ];
