@@ -117,6 +117,16 @@ class RecruitmentPeriodController extends Controller
         if ($tab === 'interview') {
             abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
 
+            $interviewDivisionOptions = $this->divisionService->listAllOrdered()
+                ->where('is_active', true)
+                ->map(fn (RecruitmentDivision $division): array => [
+                    'id' => $division->id,
+                    'name' => $division->name,
+                    'code' => $division->code,
+                ])
+                ->values()
+                ->all();
+
             $sessionPaginator = $this->sessionService->paginate(
                 ['period_id' => $period->id],
                 $request->integer('page', 1),
@@ -194,6 +204,7 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'interview') {
             $props['sessions'] = $sessions;
+            $props['interview_division_options'] = $interviewDivisionOptions;
         }
 
         if ($tab === 'laporan') {

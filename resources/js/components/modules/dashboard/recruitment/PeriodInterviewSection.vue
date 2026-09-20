@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
+import { Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import InterviewSessionCreateSheet, {
+    type InterviewDivisionChoice,
+} from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue'
 import { routes } from '@/lib/routes'
 
 interface SessionRow {
@@ -27,7 +32,11 @@ interface SessionPaginator {
 defineProps<{
     sessions: SessionPaginator | null
     todaySessions: SessionRow[]
+    periodId: string
+    divisionOptions: InterviewDivisionChoice[]
 }>()
+
+const createOpen = ref<boolean>(false)
 </script>
 
 <template>
@@ -36,7 +45,18 @@ defineProps<{
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Interview periode ini
             </h2>
+            <Button size="sm" class="gap-1.5" @click="createOpen = true">
+                <Plus class="size-4" aria-hidden="true" />
+                Buat sesi
+            </Button>
         </div>
+
+        <InterviewSessionCreateSheet
+            :open="createOpen"
+            :period-id="periodId"
+            :divisions="divisionOptions"
+            @close="createOpen = false"
+        />
 
         <Card v-if="todaySessions.length > 0" class="rounded-2xl border-primary/30 bg-primary/5">
             <CardHeader class="pb-2">
