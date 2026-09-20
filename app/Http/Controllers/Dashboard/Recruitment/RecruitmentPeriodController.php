@@ -115,10 +115,7 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'interview') {
-            $canScheduleInterviews = $request->user()?->can('recruitment.interviews.schedule') === true;
-            $canViewQueue = $request->user()?->can('recruitment.queue.view') === true;
-
-            abort_unless($canScheduleInterviews || $canViewQueue, 403);
+            abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
 
             $sessionPaginator = $this->sessionService->paginate(
                 ['period_id' => $period->id],

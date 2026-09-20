@@ -181,15 +181,14 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             ->assertRedirect(route('dashboard.recruitment.index'));
     }
 
-    public function test_tab_interview_dibuka_untuk_interviewer(): void
+    public function test_tab_interview_ditolak_untuk_interviewer_only(): void
     {
         $interviewer = User::factory()->create();
         $interviewer->assignRole('recruitment-interviewer');
 
         $this->actingAs($interviewer)
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('tab', 'interview'));
+            ->assertForbidden();
     }
 
     public function test_tab_overlong_memicu_validation_error(): void
