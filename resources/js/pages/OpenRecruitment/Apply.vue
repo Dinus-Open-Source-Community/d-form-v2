@@ -43,6 +43,7 @@ const TOTAL_STEPS = 3;
 const STEP_LIST = [1, 2, 3];
 const currentStep = ref<number>(1);
 const clientErrors = ref<Record<string, string>>({});
+const isSubmitting = ref(false);
 const savedAt = ref<Date | null>(null);
 
 function stepOf(field: IFormField): number {
@@ -234,8 +235,15 @@ function firstStepWithErrors(): number {
 }
 
 async function submitStep(): Promise<void> {
+    if (isSubmitting.value || ctx.answerForm.processing) {
+        return;
+    }
+
+    isSubmitting.value = true;
+
     for (let step = 1; step <= TOTAL_STEPS; step += 1) {
         if (!validateStep(step)) {
+            isSubmitting.value = false;
             currentStep.value = step;
             syncStepToUrl(step, false);
             await nextTick();
@@ -243,11 +251,13 @@ async function submitStep(): Promise<void> {
             return;
         }
     }
+
     await flushDraft();
     ctx.answerForm.post(props.submitUrl, {
         forceFormData: true,
         onSuccess: () => window.localStorage.removeItem(DRAFT_KEY),
         onError: () => {
+            isSubmitting.value = false;
             const step = firstStepWithErrors();
             currentStep.value = step;
             syncStepToUrl(step, false);
@@ -449,7 +459,18 @@ const periodName = computed((): string => {
                         </Button>
                         <span v-else />
                         <Button v-if="step < TOTAL_STEPS" type="button" @click="goToStep(step + 1)"> Lanjut </Button>
-                        <Button v-else type="button" @click="submitStep"> Kirim Pendaftaran </Button>
+                        <Button
+                            v-else
+                            type="button"
+                            :disabled="isSubmitting || ctx.answerForm.processing"
+                            @click="submitStep"
+                        >
+                            {{
+                                isSubmitting || ctx.answerForm.processing
+                                    ? 'Mengirim…'
+                                    : 'Kirim Pendaftaran'
+                            }}
+                        </Button>
                     </div>
                 </div>
             </template>
