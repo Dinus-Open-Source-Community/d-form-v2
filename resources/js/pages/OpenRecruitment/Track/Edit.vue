@@ -53,7 +53,7 @@ const form = useForm({
     instagram_username: props.application.instagram_username,
     primary_division_id: props.application.primary_division_id,
     secondary_division_id: props.application.secondary_division_id ?? '',
-    portfolio_type: (props.application.portfolio_type as 'url' | 'file') ?? 'url',
+    portfolio_type: (props.application.portfolio_type as 'url' | 'file' | 'none') || 'none',
     portfolio_url: props.application.portfolio_url ?? '',
     portfolio_file: null as File | null,
     cv: null as File | null,
@@ -128,15 +128,23 @@ function submit() {
 
 const portfolioUrlRadio = ref<HTMLButtonElement | null>(null);
 const portfolioFileRadio = ref<HTMLButtonElement | null>(null);
+const portfolioNoneRadio = ref<HTMLButtonElement | null>(null);
 
-function focusPortfolioRadio(value: 'url' | 'file'): void {
-    const target = value === 'url' ? portfolioUrlRadio.value : portfolioFileRadio.value;
+type PortfolioType = 'none' | 'url' | 'file';
+
+function focusPortfolioRadio(value: PortfolioType): void {
+    const target =
+        value === 'url'
+            ? portfolioUrlRadio.value
+            : value === 'file'
+              ? portfolioFileRadio.value
+              : portfolioNoneRadio.value;
     target?.focus();
 }
 
 function onPortfolioTypeKeydown(event: KeyboardEvent): void {
-    const order: Array<'url' | 'file'> = ['url', 'file'];
-    const current = order.indexOf(form.portfolio_type);
+    const order: PortfolioType[] = ['none', 'url', 'file'];
+    const current = order.indexOf(form.portfolio_type as PortfolioType);
     let next: number | null = null;
     switch (event.key) {
         case 'ArrowRight':
@@ -157,7 +165,7 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
             return;
     }
     event.preventDefault();
-    const value = order[next] ?? 'url';
+    const value = order[next] ?? 'none';
     if (value !== form.portfolio_type) form.portfolio_type = value;
     focusPortfolioRadio(value);
 }
@@ -303,12 +311,29 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                     <Separator />
 
                     <div class="space-y-3">
-                        <Label id="portfolio-type-label">Portfolio</Label>
+                        <Label id="portfolio-type-label">Portfolio (opsional)</Label>
                         <div
-                            class="border-border/70 bg-muted/50 grid grid-cols-2 gap-1 rounded-lg border p-1"
+                            class="border-border/70 bg-muted/50 grid grid-cols-3 gap-1 rounded-lg border p-1"
                             role="radiogroup"
                             aria-labelledby="portfolio-type-label"
                         >
+                            <button
+                                type="button"
+                                role="radio"
+                                ref="portfolioNoneRadio"
+                                :tabindex="form.portfolio_type === 'none' ? 0 : -1"
+                                :aria-checked="form.portfolio_type === 'none'"
+                                :class="[
+                                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                                    form.portfolio_type === 'none'
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground',
+                                ]"
+                                @click="form.portfolio_type = 'none'"
+                                @keydown="onPortfolioTypeKeydown"
+                            >
+                                Tidak ada
+                            </button>
                             <button
                                 type="button"
                                 role="radio"
@@ -353,16 +378,19 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                             placeholder="https://..."
                             aria-label="URL portfolio"
                         />
-                        <div v-else class="space-y-1">
+                        <div v-else-if="form.portfolio_type === 'file'" class="space-y-1">
                             <Input
                                 id="portfolio_file"
                                 type="file"
                                 accept="application/pdf"
-                                aria-label="File portfolio"
+                                aria-label="File portfolio (opsional)"
                                 @change="onPortfolioFileChange"
                             />
-                            <p v-if="application.portfolio_original_name" class="text-muted-foreground text-xs">
-                                File saat ini: {{ application.portfolio_original_name }}
+                            <p class="text-muted-foreground text-xs">
+                                Opsional.
+                                <span v-if="application.portfolio_original_name">
+                                    File saat ini: {{ application.portfolio_original_name }}
+                                </span>
                             </p>
                         </div>
                         <p v-if="form.errors.portfolio_url" class="text-destructive text-xs">

@@ -57,12 +57,12 @@ function isEmptyValue(value: unknown): boolean {
     return value === null || value === undefined || value === '';
 }
 
-/** Sembunyikan cabang portfolio yang tak dipilih; belum pilih = keduanya tampil. */
+/** Sembunyikan cabang portfolio yang tak dipilih; belum pilih / none = keduanya opsional tampil. */
 function isFieldVisible(field: IFormField): boolean {
-    const portfolioType: unknown = ctx.answerForm['portfolio_type'];
-    if (field.name === 'portfolio_url') return portfolioType !== 'file';
-    if (field.name === 'portfolio_file') return portfolioType !== 'url';
-    return true;
+    const portfolioType: unknown = ctx.answerForm['portfolio_type']
+    if (field.name === 'portfolio_url') return portfolioType !== 'file' && portfolioType !== 'none'
+    if (field.name === 'portfolio_file') return portfolioType !== 'url' && portfolioType !== 'none'
+    return true
 }
 
 function validateStep(step: number): boolean {

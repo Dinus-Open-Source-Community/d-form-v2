@@ -118,9 +118,10 @@ final class ApplicationEditor
             $document->cv_size_bytes = $cv->getSize();
         }
 
-        $document->portfolio_type = $data['portfolio_type'];
+        $portfolioType = $data['portfolio_type'] ?: 'none';
+        $document->portfolio_type = $portfolioType;
 
-        if ($data['portfolio_type'] === 'url') {
+        if ($portfolioType === 'url') {
             if (filled($document->portfolio_path)) {
                 Storage::disk('local')->delete($document->portfolio_path);
             }
@@ -130,7 +131,7 @@ final class ApplicationEditor
             $document->portfolio_original_name = null;
             $document->portfolio_mime = null;
             $document->portfolio_size_bytes = null;
-        } elseif ($portfolioFile !== null) {
+        } elseif ($portfolioType === 'file' && $portfolioFile !== null) {
             if (filled($document->portfolio_path)) {
                 Storage::disk('local')->delete($document->portfolio_path);
             }
@@ -140,7 +141,19 @@ final class ApplicationEditor
             $document->portfolio_original_name = $portfolioFile->getClientOriginalName();
             $document->portfolio_mime = $portfolioFile->getMimeType() ?? 'application/pdf';
             $document->portfolio_size_bytes = $portfolioFile->getSize();
+        } elseif ($portfolioType === 'none' || ($portfolioType === 'file' && $portfolioFile === null && blank($document->portfolio_path))) {
+            if (filled($document->portfolio_path)) {
+                Storage::disk('local')->delete($document->portfolio_path);
+            }
+
+            $document->portfolio_type = 'none';
+            $document->portfolio_url = null;
+            $document->portfolio_path = null;
+            $document->portfolio_original_name = null;
+            $document->portfolio_mime = null;
+            $document->portfolio_size_bytes = null;
         }
+        // type=file tanpa unggahan baru tetapi sudah ada file lama: biarkan file lama.
 
         if ($instagramFollowProof !== null) {
             if (filled($document->instagram_follow_path)) {

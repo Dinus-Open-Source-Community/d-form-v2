@@ -831,7 +831,7 @@ const defaultTab = computed(() => {
                                         </div>
                                     </div>
                                 </div>
-                                <p v-else class="text-muted-foreground mt-1 text-sm">Tidak ada portfolio.</p>
+                                <p v-else class="text-muted-foreground mt-1 text-sm">Tidak ada portfolio (opsional).</p>
                             </div>
 
                             <div class="space-y-3 pt-5">
