@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\FormPurpose;
-use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
 use App\Services\Recruitment\OprecFormDefinition;
@@ -14,14 +13,12 @@ class OprecFormSeeder extends Seeder
 {
     public function run(): void
     {
-        $event = Event::query()->where('slug', OprecFormDefinition::EVENT_SLUG)->first();
-        if ($event === null) {
-            throw new \RuntimeException('Jalankan EventSeeder dulu: event doscom-open-recruitment-2026 tidak ditemukan.');
-        }
-
+        // Form oprec berdiri sendiri (tanpa event): ditandai metadata.oprec
+        // agar bisa dilookup lewat OprecFormDefinition::requiredForm().
         $form = Form::query()->firstOrCreate(
-            ['event_id' => $event->id, 'title' => OprecFormDefinition::FORM_TITLE],
+            ['title' => OprecFormDefinition::FORM_TITLE, 'metadata->oprec' => true],
             [
+                'event_id' => null,
                 'description' => 'Formulir pendaftaran anggota baru DOSCOM.',
                 'visible_for' => [EventFormVisibility::Public],
                 'closed_at' => null,
@@ -33,6 +30,10 @@ class OprecFormSeeder extends Seeder
                 ],
             ],
         );
+
+        if ($form->event_id !== null) {
+            $form->update(['event_id' => null]);
+        }
 
         $meta = is_array($form->metadata) ? $form->metadata : [];
         if (($meta['purpose'] ?? null) !== FormPurpose::Other->value || ($meta['oprec'] ?? null) !== true) {

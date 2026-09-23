@@ -6,7 +6,6 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Services\Recruitment\ApplicationSubmitter;
 use App\Services\Recruitment\RecruitmentRegistrationNumberIssuer;
-use Database\Seeders\EventSeeder;
 use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,7 +23,7 @@ class OprecApplySubmitTest extends TestCase
     /** @return array<string, mixed> */
     private function seedBasics(): array
     {
-        $this->seed([EventSeeder::class, RecruitmentDivisionSeeder::class, OprecFormSeeder::class]);
+        $this->seed([RecruitmentDivisionSeeder::class, OprecFormSeeder::class]);
 
         $periodId = (string) Str::uuid();
         DB::table('recruitment_periods')->insert([

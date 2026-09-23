@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Recruitment;
 
-use Database\Seeders\EventSeeder;
 use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -21,7 +20,6 @@ class RecruitmentRouteTest extends TestCase
         $this->seed(RecruitmentDivisionSeeder::class);
         // Form apply dirender langsung di GET /recruitment, sehingga
         // definisi form wajib ada agar halaman tidak 503.
-        $this->seed(EventSeeder::class);
         $this->seed(OprecFormSeeder::class);
     }
 

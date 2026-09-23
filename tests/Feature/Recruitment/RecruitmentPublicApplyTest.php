@@ -8,7 +8,6 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
-use Database\Seeders\EventSeeder;
 use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -36,7 +35,6 @@ class RecruitmentPublicApplyTest extends TestCase
         $this->seed(RecruitmentDivisionSeeder::class);
         // Halaman form apply dirender langsung di GET /recruitment,
         // sehingga definisi form wajib ada agar halaman tidak 503.
-        $this->seed(EventSeeder::class);
         $this->seed(OprecFormSeeder::class);
         Storage::fake('local');
         Queue::fake();
