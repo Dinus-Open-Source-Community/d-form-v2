@@ -11,8 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
-import { PenLine, Inbox, FileText, Eye } from 'lucide-vue-next';
+import { Check, Eye, FileText, Inbox, PenLine, X } from 'lucide-vue-next';
 import {
     fromBackendField,
     toBackendFields,
@@ -29,10 +35,18 @@ import type { FormSiblingOption } from '@/types/form';
 import {
     answerPreview,
     formatSubmissionDate,
+    formSubmissionReviewIsPending,
     humanizeSubmissionKey,
     submissionFileUrl,
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi';
+import {
+    parseApiErrorMessage,
+    showErrorToast,
+    showHttpErrorToast,
+} from '@/lib/error-message';
+import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
+import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 
@@ -279,6 +293,134 @@ const humanizeKey = (key: string): string => humanizeSubmissionKey(submissionLab
 const formatDate = (value: string): string => formatSubmissionDate(value);
 const submissionFileUrlOf = (value: unknown): string | null => submissionFileUrl(value);
 const answerPreviewOf = (value: unknown): string => answerPreview(value);
+
+/** Nama file polos untuk sel lampiran — tanpa link, tanpa membuka tab baru. */
+function fileNameOf(value: unknown): string {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return 'Lampiran';
+    try {
+        const path = new URL(raw, window.location.origin).pathname;
+        const last = path.split('/').filter(Boolean).pop() ?? '';
+        return decodeURIComponent(last) || 'Lampiran';
+    } catch {
+        const last = raw.split('/').filter(Boolean).pop() ?? '';
+        return last || 'Lampiran';
+    }
+}
+
+/** Field builder dipetakan ke bentuk IFormField untuk pratinjau jawaban di drawer. */
+const detailFields = computed<IFormField[]>(() =>
+    (props.fields ?? []).map((f) => ({
+        id: f.id,
+        type: f.type,
+        label: f.label,
+        description: f.description,
+        name: f.name,
+        order: f.order,
+        metadata: f.metadata ?? {},
+    })),
+);
+
+// ── Detail drawer + review jawaban ──
+const selectedSubmission = ref<IFormSubmission | null>(null);
+const isDetailOpen = ref(false);
+const reviewingIds = ref<Set<string>>(new Set());
+
+function isSubmissionReviewing(submissionId: string): boolean {
+    return reviewingIds.value.has(submissionId);
+}
+
+function openSubmissionDetail(submission: IFormSubmission): void {
+    selectedSubmission.value = submission;
+    isDetailOpen.value = true;
+}
+
+function readXsrfToken(): string | null {
+    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission): void {
+    if (!formSubmissionReviewIsPending(submission) || isSubmissionReviewing(submission.id)) return;
+
+    const review_status = action === 'accept' ? 'accepted' : 'rejected';
+    const id = submission.id;
+    reviewingIds.value = new Set(reviewingIds.value).add(id);
+
+    const clearReviewing = (): void => {
+        const next = new Set(reviewingIds.value);
+        next.delete(id);
+        reviewingIds.value = next;
+    };
+
+    const { url, method } = FormAnswerReviewController.patch({
+        event: props.event.id,
+        form: props.form.id,
+        formAnswer: submission.id,
+    });
+
+    void (async () => {
+        try {
+            const token = readXsrfToken();
+            const res = await fetch(url, {
+                method: method.toUpperCase(),
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'X-XSRF-TOKEN': token } : {}),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ review_status }),
+            });
+
+            const body = (await res.json().catch(() => ({}))) as { message?: string };
+
+            if (!res.ok) {
+                showHttpErrorToast(res.status, body, {
+                    409: parseApiErrorMessage(body, 'Jawaban ini sudah pernah direview.'),
+                    422: parseApiErrorMessage(body, 'Status review tidak valid.'),
+                    403: 'Anda tidak punya izin untuk mereview jawaban ini.',
+                    404: 'Jawaban tidak ditemukan.',
+                });
+                if (res.status === 409 || res.status === 422) {
+                    router.reload({ only: ['submissions'] });
+                }
+                return;
+            }
+
+            toast.success(action === 'accept' ? 'Jawaban diterima.' : 'Jawaban ditolak.');
+            router.reload({
+                only: ['submissions'],
+                onSuccess: () => {
+                    const next = (props.submissions ?? []).find((s) => s.id === id) ?? null;
+                    if (next && selectedSubmission.value?.id === id) {
+                        selectedSubmission.value = next;
+                    }
+                },
+            });
+        } catch {
+            showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
+        } finally {
+            clearReviewing();
+        }
+    })();
+}
+
+function onDetailReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission }): void {
+    submitSubmissionReview(payload.action, payload.submission);
+}
+
+function acceptLabel(submission: IFormSubmission): string {
+    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
+    if (submission.review_status === 'accepted') return 'Sudah diterima';
+    return 'Terima';
+}
+
+function rejectLabel(submission: IFormSubmission): string {
+    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
+    if (submission.review_status === 'rejected') return 'Sudah ditolak';
+    return 'Tolak';
+}
 </script>
 
 <template>
@@ -391,6 +533,7 @@ const answerPreviewOf = (value: unknown): string => answerPreview(value);
                     </div>
 
                     <div class="overflow-x-auto">
+                        <TooltipProvider>
                         <Table>
                             <TableHeader>
                                 <TableRow class="hover:bg-transparent">
@@ -415,6 +558,11 @@ const answerPreviewOf = (value: unknown): string => answerPreview(value);
                                         class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
                                     >
                                         Dikirim
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/30 text-muted-foreground sticky right-0 z-20 h-11 min-w-[132px] px-5 text-center text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        Aksi
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -462,18 +610,16 @@ const answerPreviewOf = (value: unknown): string => answerPreview(value);
                                     >
                                         <span
                                             v-if="submissionFileUrlOf(submission.answers?.[key])"
-                                            class="text-primary flex items-center gap-1.5"
+                                            class="flex items-center gap-1.5"
+                                            :title="fileNameOf(submission.answers?.[key])"
                                         >
-                                            <FileText class="size-3.5 shrink-0" aria-hidden="true" />
-                                            <a
-                                                :href="submissionFileUrlOf(submission.answers?.[key]) ?? undefined"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                class="font-medium underline underline-offset-4"
-                                                @click.stop
-                                            >
-                                                Lampiran
-                                            </a>
+                                            <FileText
+                                                class="text-muted-foreground size-3.5 shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                            <span class="text-foreground/85 line-clamp-2 font-normal break-all">
+                                                {{ fileNameOf(submission.answers?.[key]) }}
+                                            </span>
                                         </span>
                                         <span v-else class="text-foreground/85 line-clamp-2">
                                             {{ answerPreviewOf(submission.answers?.[key]) }}
@@ -482,11 +628,91 @@ const answerPreviewOf = (value: unknown): string => answerPreview(value);
                                     <TableCell class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap">
                                         {{ formatDate(submission.submitted_at) }}
                                     </TableCell>
+                                    <TableCell
+                                        class="bg-card border-border/60 sticky right-0 z-10 border-l px-5 py-3.5"
+                                    >
+                                        <div class="flex items-center justify-center gap-1">
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        radius="icon"
+                                                        size="icon-sm"
+                                                        class="text-success hover:bg-success/10 hover:text-success"
+                                                        :aria-label="`${acceptLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
+                                                        :disabled="
+                                                            isSubmissionReviewing(submission.id) ||
+                                                            submission.review_status === 'accepted'
+                                                        "
+                                                        @click="submitSubmissionReview('accept', submission)"
+                                                    >
+                                                        <Check class="size-4" aria-hidden="true" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{{ acceptLabel(submission) }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        radius="icon"
+                                                        size="icon-sm"
+                                                        class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        :aria-label="`${rejectLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
+                                                        :disabled="
+                                                            isSubmissionReviewing(submission.id) ||
+                                                            submission.review_status === 'rejected'
+                                                        "
+                                                        @click="submitSubmissionReview('reject', submission)"
+                                                    >
+                                                        <X class="size-4" aria-hidden="true" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{{ rejectLabel(submission) }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        radius="icon"
+                                                        size="icon-sm"
+                                                        class="hover:bg-primary/10 hover:text-primary"
+                                                        :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
+                                                        @click="openSubmissionDetail(submission)"
+                                                    >
+                                                        <Eye class="size-4" aria-hidden="true" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Lihat detail</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>
+                        </TooltipProvider>
                     </div>
                 </div>
+
+                <FormAnswerDetailSheet
+                    v-model:open="isDetailOpen"
+                    :submission="selectedSubmission"
+                    :answer-keys="answerKeys"
+                    :fields="detailFields"
+                    :format-date="formatDate"
+                    :humanize-key="humanizeKey"
+                    :is-submission-reviewing="isSubmissionReviewing"
+                    @review="onDetailReview"
+                />
             </TabsContent>
         </Tabs>
     </div>
