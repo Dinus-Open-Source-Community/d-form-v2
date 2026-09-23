@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\FormPurpose;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -67,12 +69,28 @@ class Form extends Model
         return is_string($raw) && $raw !== '' ? $raw : null;
     }
 
-    public function event(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    /**
+     * Form oprec tidak lagi wajib terikat ke Event (event_id nullable).
+     *
+     * @return BelongsTo<Event, $this>
+     */
+    public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
     }
 
-    public function formFields(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /**
+     * Form Open Recruitment yang ditandai lewat metadata.oprec.
+     *
+     * @param  Builder<Form>  $query
+     * @return Builder<Form>
+     */
+    public function scopeOprec(Builder $query): Builder
+    {
+        return $query->where('metadata->oprec', true);
+    }
+
+    public function formFields(): HasMany
     {
         return $this->hasMany(FormField::class, 'form_id');
     }

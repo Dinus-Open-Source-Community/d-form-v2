@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Services\Recruitment\OprecFormDefinition;
-use Database\Seeders\EventSeeder;
 use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,14 +12,14 @@ class OprecFormDefinitionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_serves_thirteen_fields_with_live_division_options(): void
+    public function test_serves_fifteen_fields_with_live_division_options(): void
     {
-        $this->seed([EventSeeder::class, RecruitmentDivisionSeeder::class, OprecFormSeeder::class]);
+        $this->seed([RecruitmentDivisionSeeder::class, OprecFormSeeder::class]);
 
         $definition = app(OprecFormDefinition::class);
         $fields = $definition->fieldsForDisplay();
 
-        $this->assertCount(13, $fields);
+        $this->assertCount(15, $fields);
         $byName = collect($fields)->keyBy('name');
         $expectedNames = \DB::table('recruitment_divisions')
             ->where('is_active', true)->orderBy('sort_order')->orderBy('name')
