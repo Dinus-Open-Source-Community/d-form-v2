@@ -281,6 +281,32 @@ const answerKeys = computed(() => {
     });
 });
 
+/** Nilai `type` aktual untuk field berkas/foto: API `fileUpload`, builder `file_upload`/`image_upload`. */
+const FILE_FIELD_TYPE_NAMES: ReadonlySet<string> = new Set(['fileUpload', 'file_upload', 'image_upload']);
+
+function backendFieldBuilderType(field: BackendField): string {
+    const metadata = (field.metadata ?? {}) as Record<string, unknown>;
+    const builderType = metadata.builderType;
+    return typeof builderType === 'string' ? builderType : '';
+}
+
+/** True bila field adalah unggahan berkas/foto (banner dikecualikan — bukan jawaban). */
+function isFileBackendField(field: BackendField): boolean {
+    if (field.name === 'form_banner' || backendFieldBuilderType(field) === 'banner') return false;
+    if (FILE_FIELD_TYPE_NAMES.has(field.type)) return true;
+    return FILE_FIELD_TYPE_NAMES.has(backendFieldBuilderType(field));
+}
+
+const fileFieldNames = computed(
+    () => new Set((props.fields ?? []).filter(isFileBackendField).map((f) => f.name)),
+);
+
+/**
+ * Kolom jawaban untuk tabel: answerKeys tanpa field berkas/foto.
+ * Berkas/foto hanya tampil di drawer detail. Key legacy tanpa definisi field tetap tampil.
+ */
+const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
+
 const submissionRows = computed(() => props.submissions ?? []);
 const submissionLabelMap = computed(() => {
     const map: Record<string, string> = {};
@@ -548,7 +574,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         Status review
                                     </TableHead>
                                     <TableHead
-                                        v-for="key in answerKeys"
+                                        v-for="key in tableAnswerKeys"
                                         :key="key"
                                         class="bg-muted/30 text-muted-foreground h-11 min-w-[160px] px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
                                     >
@@ -560,7 +586,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         Dikirim
                                     </TableHead>
                                     <TableHead
-                                        class="bg-muted/30 text-muted-foreground sticky right-0 z-20 h-11 min-w-[132px] px-5 text-center text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-right text-[10px] font-semibold tracking-[0.14em] uppercase"
                                     >
                                         Aksi
                                     </TableHead>
@@ -604,7 +630,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         </Badge>
                                     </TableCell>
                                     <TableCell
-                                        v-for="key in answerKeys"
+                                        v-for="key in tableAnswerKeys"
                                         :key="key"
                                         class="text-muted-foreground max-w-[220px] px-5 py-3.5 text-xs leading-relaxed"
                                     >
@@ -628,11 +654,9 @@ function rejectLabel(submission: IFormSubmission): string {
                                     <TableCell class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap">
                                         {{ formatDate(submission.submitted_at) }}
                                     </TableCell>
-                                    <TableCell
-                                        class="bg-card border-border/60 sticky right-0 z-10 border-l px-5 py-3.5"
-                                    >
-                                        <div class="flex items-center justify-center gap-1">
-                                            <Tooltip>
+                                    <TableCell class="px-5 py-3.5 whitespace-nowrap text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <Tooltip v-if="formSubmissionReviewIsPending(submission)">
                                                 <TooltipTrigger as-child>
                                                     <Button
                                                         type="button"
@@ -641,10 +665,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                                         size="icon-sm"
                                                         class="text-success hover:bg-success/10 hover:text-success"
                                                         :aria-label="`${acceptLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                        :disabled="
-                                                            isSubmissionReviewing(submission.id) ||
-                                                            submission.review_status === 'accepted'
-                                                        "
+                                                        :disabled="isSubmissionReviewing(submission.id)"
                                                         @click="submitSubmissionReview('accept', submission)"
                                                     >
                                                         <Check class="size-4" aria-hidden="true" />
@@ -654,7 +675,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                                     <p>{{ acceptLabel(submission) }}</p>
                                                 </TooltipContent>
                                             </Tooltip>
-                                            <Tooltip>
+                                            <Tooltip v-if="formSubmissionReviewIsPending(submission)">
                                                 <TooltipTrigger as-child>
                                                     <Button
                                                         type="button"
@@ -663,10 +684,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                                         size="icon-sm"
                                                         class="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                         :aria-label="`${rejectLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                        :disabled="
-                                                            isSubmissionReviewing(submission.id) ||
-                                                            submission.review_status === 'rejected'
-                                                        "
+                                                        :disabled="isSubmissionReviewing(submission.id)"
                                                         @click="submitSubmissionReview('reject', submission)"
                                                     >
                                                         <X class="size-4" aria-hidden="true" />

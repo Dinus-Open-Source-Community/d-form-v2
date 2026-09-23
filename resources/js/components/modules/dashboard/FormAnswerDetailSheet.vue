@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Check, Clock, FileText, X } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import {
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { formSubmissionReviewIsPending, submissionReviewBadge } from '@/lib/formSubmissionsUi';
+import { formFieldApiType, formFieldBuilderType } from '@/lib/formFieldOptions';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 
 const open = defineModel<boolean>('open', { required: true });
@@ -33,6 +35,26 @@ const emit = defineEmits<{
 function fieldForKey(key: string): IFormField | null {
     return props.fields.find((field) => field.name === key) ?? null;
 }
+
+/** True bila field adalah unggahan berkas/foto (banner dikecualikan — bukan jawaban). */
+function isFileAnswerField(field: IFormField | null): boolean {
+    if (!field) return false;
+    const builderType = formFieldBuilderType(field);
+    if (builderType === 'banner' || field.name === 'form_banner') return false;
+    if (formFieldApiType(field) === 'fileUpload') return true;
+    return builderType === 'file_upload' || builderType === 'image_upload' || builderType === 'fileUpload';
+}
+
+const fileAnswerKeys = computed(() => props.answerKeys.filter((key) => isFileAnswerField(fieldForKey(key))));
+const textAnswerKeys = computed(() => props.answerKeys.filter((key) => !isFileAnswerField(fieldForKey(key))));
+
+/** Seksi jawaban di drawer: teks dulu, lalu "Berkas / Foto" agar lampiran mudah ditemukan. */
+const answerSections = computed(() => {
+    const sections: { title: string; keys: string[] }[] = [];
+    if (textAnswerKeys.value.length > 0) sections.push({ title: 'Jawaban formulir', keys: textAnswerKeys.value });
+    if (fileAnswerKeys.value.length > 0) sections.push({ title: 'Berkas / Foto', keys: fileAnswerKeys.value });
+    return sections;
+});
 </script>
 
 <template>
@@ -79,28 +101,39 @@ function fieldForKey(key: string): IFormField | null {
             </SheetHeader>
 
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
-                <section v-if="submission" class="space-y-3">
-                    <h3 class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                        Jawaban formulir
-                    </h3>
-                    <div class="space-y-3">
-                        <div
-                            v-for="key in answerKeys"
-                            :key="key"
-                            class="rounded-xl border border-border/70 bg-card/50 p-4"
-                        >
-                            <p
-                                class="mb-3 border-b border-border/60 pb-2 text-sm font-semibold text-foreground"
+                <section v-if="submission" class="space-y-5">
+                    <div v-for="section in answerSections" :key="section.title" class="space-y-3">
+                        <h3 class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                            {{ section.title }}
+                        </h3>
+                        <div class="space-y-3">
+                            <div
+                                v-for="key in section.keys"
+                                :key="key"
+                                class="rounded-xl border border-border/70 bg-card/50 p-4"
                             >
-                                {{ humanizeKey(key) }}
-                            </p>
-                            <FormFieldAnswerDisplay
-                                :field="fieldForKey(key)"
-                                :value="submission.answers?.[key]"
-                            />
+                                <p
+                                    class="mb-3 border-b border-border/60 pb-2 text-sm font-semibold text-foreground"
+                                >
+                                    {{ humanizeKey(key) }}
+                                </p>
+                                <FormFieldAnswerDisplay
+                                    :field="fieldForKey(key)"
+                                    :value="submission.answers?.[key]"
+                                />
+                            </div>
                         </div>
                     </div>
-                    <p class="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <p
+                        v-if="answerSections.length === 0"
+                        class="py-6 text-center text-sm text-muted-foreground"
+                    >
+                        Belum ada jawaban tercatat.
+                    </p>
+                    <p
+                        v-if="fileAnswerKeys.length > 0"
+                        class="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                    >
                         <FileText class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                         Lampiran hanya berupa pratinjau di sini. Buka atau unduh berkas dari tombol yang
                         tersedia pada setiap jawaban bila perlu memeriksa isinya.
