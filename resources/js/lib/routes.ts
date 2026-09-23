@@ -162,6 +162,15 @@ export const routes = {
             export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }) =>
                 `${ADMIN_BASE}/scan/export?kind=${params.kind}&target=${encodeURIComponent(params.target)}&format=${params.format}`,
         },
+        users: {
+            index: `${ADMIN_BASE}/users`,
+            create: `${ADMIN_BASE}/users/create`,
+            store: `${ADMIN_BASE}/users`,
+            show: (id: string) => `${ADMIN_BASE}/users/${id}`,
+            edit: (id: string) => `${ADMIN_BASE}/users/${id}/edit`,
+            update: (id: string) => `${ADMIN_BASE}/users/${id}`,
+            destroy: (id: string) => `${ADMIN_BASE}/users/${id}`,
+        },
     },
 
     member: {
