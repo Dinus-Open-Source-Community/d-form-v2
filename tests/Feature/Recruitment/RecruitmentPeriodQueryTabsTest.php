@@ -82,7 +82,10 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             'ends_at' => '12:00',
             'location' => 'Gedung A',
             'room' => 'A101',
-        ])->assertRedirect();
+        ])->assertRedirect(route('dashboard.recruitment.periods.show', [
+            'period' => $this->period->id,
+            'tab' => 'interview',
+        ]));
 
         $this->actingAs($admin)->post(route('dashboard.recruitment.interview-sessions.store'), [
             'recruitment_period_id' => $otherPeriod->id,
@@ -92,7 +95,10 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             'ends_at' => '12:00',
             'location' => 'Gedung B',
             'room' => 'B202',
-        ])->assertRedirect();
+        ])->assertRedirect(route('dashboard.recruitment.periods.show', [
+            'period' => $otherPeriod->id,
+            'tab' => 'interview',
+        ]));
 
         $this->actingAs($admin)
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))
@@ -181,15 +187,14 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             ->assertRedirect(route('dashboard.recruitment.index'));
     }
 
-    public function test_tab_interview_dibuka_untuk_interviewer(): void
+    public function test_tab_interview_ditolak_untuk_interviewer_only(): void
     {
         $interviewer = User::factory()->create();
         $interviewer->assignRole('recruitment-interviewer');
 
         $this->actingAs($interviewer)
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'interview']))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('tab', 'interview'));
+            ->assertForbidden();
     }
 
     public function test_tab_overlong_memicu_validation_error(): void

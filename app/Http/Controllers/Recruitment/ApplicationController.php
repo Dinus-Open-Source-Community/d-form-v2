@@ -33,9 +33,13 @@ class ApplicationController extends Controller
         $displayPeriod = $openPeriod ?? $latestPeriod;
 
         $oprec = app(OprecFormDefinition::class);
-        $oprecForm = $oprec->requiredForm();
-        $oprecEvent = $oprecForm->event;
-        abort_if($oprecEvent === null, 503, 'Formulir pendaftaran sedang dalam pemeliharaan. Coba lagi nanti.');
+        $oprecForm = $oprec->requiredForm($displayPeriod);
+
+        // Event turunan dari period agar tipe FormFillPageEvent di frontend tetap utuh
+        // walau form oprec tidak lagi terikat ke Event.
+        $oprecEvent = $displayPeriod !== null
+            ? ['id' => $displayPeriod->id, 'slug' => $displayPeriod->slug, 'title' => $displayPeriod->name]
+            : ['id' => $oprecForm->id, 'slug' => 'open-recruitment', 'title' => $oprecForm->title];
 
         return Inertia::render('OpenRecruitment/Apply', [
             'period' => $displayPeriod ? $this->periodService->toInertiaArray($displayPeriod) : null,
@@ -55,11 +59,7 @@ class ApplicationController extends Controller
                 'banner_url' => $oprecForm->banner_url,
                 'banner_caption' => $oprecForm->banner_caption,
             ],
-            'oprecEvent' => [
-                'id' => $oprecEvent->id,
-                'slug' => $oprecEvent->slug,
-                'title' => $oprecEvent->title,
-            ],
+            'oprecEvent' => $oprecEvent,
             'fields' => $oprec->fieldsForDisplay(),
             'submitUrl' => route('recruitment.apply.store'),
         ]);

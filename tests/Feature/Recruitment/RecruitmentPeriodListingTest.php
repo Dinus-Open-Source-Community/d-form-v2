@@ -4,7 +4,6 @@ namespace Tests\Feature\Recruitment;
 
 use App\Enums\Recruitment\RecruitmentPeriodStatus;
 use App\Models\Recruitment\RecruitmentPeriod;
-use Database\Seeders\EventSeeder;
 use Database\Seeders\OprecFormSeeder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -23,7 +22,6 @@ class RecruitmentPeriodListingTest extends TestCase
         $this->seed(RecruitmentDivisionSeeder::class);
         // Halaman apply dirender langsung di GET /recruitment, sehingga
         // definisi form wajib ada agar halaman tidak 503.
-        $this->seed(EventSeeder::class);
         $this->seed(OprecFormSeeder::class);
     }
 

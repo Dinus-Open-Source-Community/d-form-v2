@@ -73,7 +73,6 @@ class RecruitmentPeriodController extends Controller
         $applications = null;
         $queueCounts = [];
         $sessions = null;
-        $todaySessions = [];
         $report = null;
         $applicantDetail = null;
         $divisions = null;
@@ -115,10 +114,17 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'interview') {
-            $canScheduleInterviews = $request->user()?->can('recruitment.interviews.schedule') === true;
-            $canViewQueue = $request->user()?->can('recruitment.queue.view') === true;
+            abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
 
-            abort_unless($canScheduleInterviews || $canViewQueue, 403);
+            $interviewDivisionOptions = $this->divisionService->listAllOrdered()
+                ->where('is_active', true)
+                ->map(fn (RecruitmentDivision $division): array => [
+                    'id' => $division->id,
+                    'name' => $division->name,
+                    'code' => $division->code,
+                ])
+                ->values()
+                ->all();
 
             $sessionPaginator = $this->sessionService->paginate(
                 ['period_id' => $period->id],
@@ -131,7 +137,6 @@ class RecruitmentPeriodController extends Controller
             );
 
             $sessions = $sessionPaginator;
-            $todaySessions = $this->sessionService->todaySessions($period->id);
             $queueCounts = $this->applicationService->queueCounts($period->id);
         }
 
@@ -178,7 +183,6 @@ class RecruitmentPeriodController extends Controller
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
             'tab' => $tab,
             'queue_counts' => (object) $queueCounts,
-            'today_sessions' => $todaySessions,
             'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
             'semesterOptions' => $canListApplications ? $this->applicationService->semesterOptions($period->id) : [],
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
@@ -197,6 +201,7 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'interview') {
             $props['sessions'] = $sessions;
+            $props['interview_division_options'] = $interviewDivisionOptions;
         }
 
         if ($tab === 'laporan') {

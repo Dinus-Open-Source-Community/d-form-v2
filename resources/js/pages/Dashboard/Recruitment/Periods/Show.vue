@@ -146,7 +146,7 @@ const props = withDefaults(
         }
         tab: string
         sessions?: SessionPaginator | null
-        today_sessions?: SessionRow[]
+        interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
         divisions?: InterviewerDivision[]
@@ -158,7 +158,7 @@ const props = withDefaults(
         screening_reason_options: () => [],
         division_options: () => [],
         membership_type_options: () => [],
-        today_sessions: () => [],
+        interview_division_options: () => [],
         divisions: () => [],
         assignments: () => [],
         interviewerCandidates: () => [],
@@ -722,7 +722,8 @@ function closePeriod(): void {
                 <PeriodInterviewSection
                     v-if="canScheduleInterviews"
                     :sessions="sessions ?? null"
-                    :today-sessions="today_sessions ?? []"
+                    :period-id="period.id"
+                    :division-options="interview_division_options"
                 />
             </TabsContent>
 

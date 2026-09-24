@@ -307,19 +307,11 @@ class RecruitmentEvaluationTest extends TestCase
             ->assertOk();
     }
 
-    public function test_interviewer_dapat_membuka_halaman_periode_tanpa_daftar_pelamar(): void
+    public function test_interviewer_cannot_access_staff_applicant_list(): void
     {
         $this->actingAs($this->interviewer)
             ->get(route('dashboard.recruitment.periods.show', $this->period->id))
-            ->assertOk()
-            ->assertInertia(function ($page): void {
-                // AssertableInertia's root is the flattened props array, and `applications`
-                // is null on the peserta tab today but becomes absent on the interview tab
-                // after Task 3. `assertInertia` ignores the callback return, so assert
-                // emptiness on the raw props instead of where()/missing(), which would
-                // pin the shape to one of the two states.
-                $this->assertEmpty($page->toArray()['applications'] ?? null);
-            });
+            ->assertForbidden();
     }
 
     public function test_interviewer_cannot_staff_override_evaluation(): void
