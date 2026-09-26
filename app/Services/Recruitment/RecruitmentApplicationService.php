@@ -258,6 +258,7 @@ final class RecruitmentApplicationService
             'can_screen' => $this->canScreen($application),
             'can_verify' => $this->canVerify($application),
             'can_decide_final' => $this->canDecideFinal($application),
+            'can_resend_tracking' => $this->canResendTracking($application),
         ];
     }
 
@@ -345,6 +346,15 @@ final class RecruitmentApplicationService
         }
 
         return $application->result === \App\Enums\Recruitment\ApplicationResult::Pending;
+    }
+
+    private function canResendTracking(RecruitmentApplication $application): bool
+    {
+        if ($application->cancelled_at !== null) {
+            return false;
+        }
+
+        return filled($application->personal_email);
     }
 
     private function canDecideFinal(RecruitmentApplication $application): bool

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ResendRecruitmentTrackingRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
+use App\Services\Recruitment\RecruitmentTrackingResendService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +16,7 @@ class RecruitmentApplicationController extends Controller
 {
     public function __construct(
         private readonly ApplicationVerificationService $verificationService,
+        private readonly RecruitmentTrackingResendService $trackingResendService,
     ) {
     }
 
@@ -98,5 +101,14 @@ class RecruitmentApplicationController extends Controller
         return redirect()
             ->back()
             ->with('message', 'Pendaftaran berhasil diverifikasi.');
+    }
+
+    public function resendTracking(ResendRecruitmentTrackingRequest $request, RecruitmentApplication $application): RedirectResponse
+    {
+        $this->trackingResendService->resend($request->user(), $application, $request);
+
+        return redirect()
+            ->back()
+            ->with('message', 'Informasi tracking telah dikirim ulang ke applicant.');
     }
 }
