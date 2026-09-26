@@ -24,6 +24,7 @@ import {
     CalendarCheck2,
     Compass,
     Users,
+    UserCog,
     ChevronDown,
     ClipboardCheck,
     ScanLine,
@@ -39,6 +40,7 @@ const user = useAuth(page.props);
 const { isMobile, setOpenMobile } = useSidebar();
 
 const canManageEvents = computed(() => user.value?.can_manage_events === true);
+const canManageUsers = computed(() => user.value?.can_manage_users === true);
 const canAccessRecruitment = computed(() => user.value?.can_access_recruitment === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
@@ -63,6 +65,10 @@ const managementItems = computed(() => {
 
     if (canManageEvents.value) {
         items.push({ label: 'Acara', href: routes.admin.events.index, icon: CalendarDays });
+    }
+
+    if (canManageUsers.value) {
+        items.push({ label: 'Pengguna', href: routes.admin.users.index, icon: UserCog });
     }
 
     if (canAccessRecruitment.value && isInterviewerOnly.value) {
