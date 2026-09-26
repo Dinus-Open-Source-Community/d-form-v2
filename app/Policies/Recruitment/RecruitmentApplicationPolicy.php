@@ -84,6 +84,23 @@ class RecruitmentApplicationPolicy
         return $this->isSuperAdmin($user) || $user->can('recruitment.screening.decide');
     }
 
+    public function resendTrackingInformation(User $user, RecruitmentApplication $application): bool
+    {
+        if (! $this->view($user, $application)) {
+            return false;
+        }
+
+        if ($application->cancelled_at !== null) {
+            return false;
+        }
+
+        if (blank($application->personal_email)) {
+            return false;
+        }
+
+        return $this->isSuperAdmin($user) || $this->canStaffManage($user);
+    }
+
     public function decideFinal(User $user, RecruitmentApplication $application): bool
     {
         if ($this->isSuperAdmin($user)) {

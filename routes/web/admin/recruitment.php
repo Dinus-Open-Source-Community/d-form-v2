@@ -62,6 +62,8 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('applications.screening.reject');
         Route::post('applications/{application}/verify', [RecruitmentApplicationController::class, 'verify'])
             ->name('applications.verify');
+        Route::post('applications/{application}/resend-tracking', [RecruitmentApplicationController::class, 'resendTracking'])
+            ->name('applications.resend-tracking');
         Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'override'])
             ->name('applications.evaluation.override');
         Route::post('applications/{application}/final/accept', [RecruitmentFinalSelectionController::class, 'accept'])

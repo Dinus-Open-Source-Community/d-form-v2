@@ -5,8 +5,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import ApplicantDetailContent, { type ApplicationDetail } from './ApplicantDetailContent.vue'
+import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import useAuth from '@/utils/composables/useAuth'
-import { CheckCircle2, Trophy, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, Mail, Trophy, XCircle } from 'lucide-vue-next'
 
 const props = withDefaults(
     defineProps<{
@@ -40,6 +41,14 @@ const canDecideFinal = computed(
         (props.application?.can_decide_final ?? false) &&
         user.value?.can_decide_recruitment_final === true,
 )
+const canResendTracking = computed(() => {
+    const application = props.application
+    if (!application) {
+        return false
+    }
+
+    return applicantAllowsTrackingResend(application) && userAllowsTrackingResend(user.value)
+})
 
 const contentRef = ref<InstanceType<typeof ApplicantDetailContent> | null>(null)
 
@@ -64,6 +73,10 @@ function verifyRegistration() {
 
 function passScreening() {
     contentRef.value?.passApplication()
+}
+
+function resendTracking() {
+    contentRef.value?.requestResendTracking()
 }
 
 function handleSubmitted() {
@@ -92,6 +105,15 @@ function handleSubmitted() {
                         <Badge variant="outline">{{ application.result_label }}</Badge>
                     </div>
                     <div v-if="editable" class="flex flex-wrap items-center gap-2">
+                        <Button
+                            v-if="canResendTracking"
+                            size="sm"
+                            variant="outline"
+                            @click="resendTracking"
+                        >
+                            <Mail class="mr-2 size-4" />
+                            Kirim ulang tracking
+                        </Button>
                         <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyRegistration">
                             Verifikasi
                         </Button>

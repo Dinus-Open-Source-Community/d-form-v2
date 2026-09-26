@@ -406,7 +406,7 @@ function detailUrl(id: string): string {
 async function selectApplicant(id: string): Promise<void> {
     if (selectedApplication.value?.id === id) return
     const cached: ApplicationDetail | undefined = detailCache.get(id)
-    if (cached) {
+    if (cached && 'can_resend_tracking' in cached) {
         selectedApplication.value = cached
         return
     }

@@ -16,6 +16,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
@@ -135,6 +136,7 @@ export interface ApplicationDetail {
     can_screen: boolean
     can_verify: boolean
     can_decide_final: boolean
+    can_resend_tracking: boolean
 }
 
 const props = withDefaults(
@@ -166,6 +168,10 @@ const canScreen = computed(
     () => props.application.can_screen && user.value?.can_screen_recruitment_applications === true,
 )
 const canVerify = computed(() => props.application.can_verify && user.value?.can_screen_recruitment_applications === true)
+const canResendTracking = computed(
+    () =>
+        applicantAllowsTrackingResend(props.application) && userAllowsTrackingResend(user.value),
+)
 const canReviewCorrections = computed(() => user.value?.can_review_recruitment_corrections === true)
 const canDecideFinal = computed(
     () => props.application.can_decide_final && user.value?.can_decide_recruitment_final === true,
@@ -179,7 +185,7 @@ const screeningModalOpen = ref(false)
 const screeningAction = ref<ScreeningAction>(null)
 
 const confirmOpen = ref(false)
-const confirmAction = ref<'verify' | 'pass' | 'reject' | null>(null)
+const confirmAction = ref<'verify' | 'pass' | 'reject' | 'resend_tracking' | null>(null)
 
 const finalModalOpen = ref(false)
 const finalAction = ref<FinalAction>(null)
@@ -223,7 +229,15 @@ function openRevisionModal() {
     openScreeningModal('revision')
 }
 
-defineExpose({ openRevisionModal, openScreeningModal, openFinalModal, verifyApplication, passApplication })
+defineExpose({
+    openRevisionModal,
+    openScreeningModal,
+    openFinalModal,
+    verifyApplication,
+    passApplication,
+    requestResendTracking,
+    resendTrackingApplication,
+})
 
 function submitScreening() {
     if (screeningAction.value === 'revision') {
@@ -256,9 +270,13 @@ function postScreeningReject() {
     })
 }
 
-function requestConfirm(action: 'verify' | 'pass' | 'reject') {
+function requestConfirm(action: 'verify' | 'pass' | 'reject' | 'resend_tracking') {
     confirmAction.value = action
     confirmOpen.value = true
+}
+
+function requestResendTracking() {
+    requestConfirm('resend_tracking')
 }
 
 function executeConfirmed() {
@@ -277,6 +295,11 @@ function executeConfirmed() {
 
     if (action === 'reject') {
         postScreeningReject()
+        return
+    }
+
+    if (action === 'resend_tracking') {
+        resendTrackingApplication()
     }
 }
 
@@ -284,6 +307,7 @@ const confirmTitle = computed(() => {
     if (confirmAction.value === 'verify') return 'Verifikasi pendaftaran'
     if (confirmAction.value === 'pass') return 'Loloskan applicant'
     if (confirmAction.value === 'reject') return 'Tolak applicant'
+    if (confirmAction.value === 'resend_tracking') return 'Kirim ulang informasi tracking'
     return 'Konfirmasi'
 })
 
@@ -293,12 +317,18 @@ const confirmQuestion = computed(() => {
     if (confirmAction.value === 'verify') return `Verifikasi pendaftaran ${who}?`
     if (confirmAction.value === 'pass') return `Loloskan ${who} ke tahap berikutnya?`
     if (confirmAction.value === 'reject') return `Tolak ${who}?`
+    if (confirmAction.value === 'resend_tracking') {
+        return `Kirim ulang email tracking ke ${props.application.personal_email}?`
+    }
     return ''
 })
 
 const confirmConsequence = computed(() => {
     if (confirmAction.value === 'pass') return 'Applicant lanjut ke tahap interview.'
     if (confirmAction.value === 'reject') return 'Applicant tidak lanjut ke tahap berikutnya.'
+    if (confirmAction.value === 'resend_tracking') {
+        return 'Token tracking lama tidak berlaku lagi. Email konfirmasi pendaftaran akan dikirim dengan token baru.'
+    }
     return ''
 })
 
@@ -369,6 +399,21 @@ function verifyApplication() {
     )
 }
 
+function resendTrackingApplication() {
+    router.post(
+        routes.admin.recruitment.applications.resendTracking(props.application.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Informasi tracking telah dikirim ulang ke applicant.')
+                emit('submitted')
+            },
+            onError: () => showErrorToast('Gagal mengirim ulang informasi tracking.'),
+        },
+    )
+}
+
 function approveCorrection(correctionId: string) {
     correctionReviewForm.post(routes.admin.recruitment.corrections.approve(correctionId), {
         preserveScroll: true,
@@ -404,6 +449,7 @@ const activityActionLabels: Record<string, string> = {
     'interview.reassigned': 'Interviewer diganti',
     'interview.cancelled': 'Interview dibatalkan',
     'application.verified': 'Pendaftaran diverifikasi',
+    'tracking.resend': 'Informasi tracking dikirim ulang',
     'application.updated': 'Pendaftaran diperbarui applicant',
     'final.accept': 'Diterima sebagai anggota',
     'final.reject': 'Tidak lolos seleksi akhir',
