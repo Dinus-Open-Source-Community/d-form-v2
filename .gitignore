@@ -36,7 +36,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
-
+/docs/big-changes
 **/caddy
 frankenphp
 frankenphp-worker.php

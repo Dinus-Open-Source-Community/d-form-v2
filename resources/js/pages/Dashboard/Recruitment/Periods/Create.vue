@@ -9,10 +9,23 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
+import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import { ImageUp, X } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
+
+/** Label field agar pesan validasi di toast mudah dicocokkan dengan form. */
+const errorFieldLabels: Record<string, string> = {
+    name: 'Nama periode',
+    description: 'Deskripsi',
+    registration_opens_at: 'Buka pendaftaran',
+    registration_closes_at: 'Tutup pendaftaran',
+    interview_starts_at: 'Mulai interview',
+    interview_ends_at: 'Akhir interview',
+    finalization_deadline_at: 'Target finalisasi',
+    banner: 'Banner',
+}
 
 const form = useForm({
     name: '',
@@ -77,7 +90,25 @@ function removeBanner(): void {
 }
 
 function submit() {
-    form.post(routes.admin.recruitment.periods.store, { forceFormData: true })
+    form.post(routes.admin.recruitment.periods.store, {
+        forceFormData: true,
+        onError: (errors) => {
+            handleInertiaFormErrors(errors, {
+                title: 'Gagal menyimpan periode',
+                fieldLabels: errorFieldLabels,
+            })
+        },
+        onSuccess: (page) => {
+            // Server selalu mengalihkan ke halaman periode saat penyimpanan berhasil.
+            // Kalau masih di halaman ini tanpa error, permintaan dibatalkan tanpa
+            // pesan (mis. sesi/CSRF kedaluwarsa sehingga backend membalas 302 tanpa pesan).
+            if (page.component === 'Dashboard/Recruitment/Periods/Create') {
+                showErrorToast(
+                    'Periode gagal disimpan. Sesi Anda mungkin sudah berakhir — muat ulang halaman lalu coba lagi.',
+                )
+            }
+        },
+    })
 }
 </script>
 
