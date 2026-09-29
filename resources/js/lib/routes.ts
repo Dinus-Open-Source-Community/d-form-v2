@@ -172,6 +172,23 @@ export const routes = {
             update: (id: string) => `${ADMIN_BASE}/users/${id}`,
             destroy: (id: string) => `${ADMIN_BASE}/users/${id}`,
         },
+        broadcasts: {
+            index: `${ADMIN_BASE}/broadcasts`,
+            create: `${ADMIN_BASE}/broadcasts/create`,
+            store: `${ADMIN_BASE}/broadcasts`,
+            show: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
+            destroy: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
+            content: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/content`,
+            snapshot: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/snapshot`,
+            recipients: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/recipients`,
+            attachments: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/attachments`,
+            preview: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/preview`,
+            test: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/test`,
+            schedule: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/schedule`,
+            cancel: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/cancel`,
+            retry: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/retry-failed`,
+            datasetsPreview: `${ADMIN_BASE}/broadcasts/datasets/preview`,
+        },
     },
 
     member: {

@@ -96,6 +96,14 @@ class RoleSeeder extends Seeder
             'form_submissions.view',
             'form_submissions.edit',
             'form_submissions.delete',
+
+            // email broadcasting (PRD v1.0 — MVP hanya Superadmin)
+            'email-broadcast.view',
+            'email-broadcast.create',
+            'email-broadcast.schedule',
+            'email-broadcast.cancel',
+            'email-broadcast.retry',
+            'email-broadcast.delete',
         ];
 
         $roles = [
