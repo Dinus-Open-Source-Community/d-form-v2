@@ -31,6 +31,7 @@ import {
     Briefcase,
     UserCheck,
     History,
+    Megaphone,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
 import useAuth from '@/utils/composables/useAuth';
@@ -41,6 +42,7 @@ const { isMobile, setOpenMobile } = useSidebar();
 
 const canManageEvents = computed(() => user.value?.can_manage_events === true);
 const canManageUsers = computed(() => user.value?.can_manage_users === true);
+const canAccessBroadcast = computed(() => user.value?.can_access_broadcast === true);
 const canAccessRecruitment = computed(() => user.value?.can_access_recruitment === true);
 const canListRecruitmentApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
@@ -69,6 +71,10 @@ const managementItems = computed(() => {
 
     if (canManageUsers.value) {
         items.push({ label: 'Pengguna', href: routes.admin.users.index, icon: UserCog });
+    }
+
+    if (canAccessBroadcast.value) {
+        items.push({ label: 'Email Broadcasting', href: routes.admin.broadcasts.index, icon: Megaphone });
     }
 
     if (canAccessRecruitment.value && isInterviewerOnly.value) {

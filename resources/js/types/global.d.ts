@@ -16,6 +16,8 @@ interface IUser {
     can_manage_events?: boolean;
     /** Permission users.list (super-admin) */
     can_manage_users?: boolean;
+    /** Permission email-broadcast.view */
+    can_access_broadcast?: boolean;
     /** Permission recruitment.dashboard.view */
     can_access_recruitment?: boolean;
     /** Permission recruitment.periods.list */

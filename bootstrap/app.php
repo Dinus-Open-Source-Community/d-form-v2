@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
+        $schedule->command('broadcast:dispatch-scheduled')->everyMinute();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,
+            'broadcast.access' => \App\Http\Middleware\EnsureBroadcastAccess::class,
             'recruitment.access' => \App\Http\Middleware\EnsureRecruitmentAccess::class,
             'recruitment.period.open' => \App\Http\Middleware\EnsureRecruitmentPeriodOpen::class,
             'recruitment.tracking.session' => \App\Http\Middleware\EnsureTrackingSession::class,
