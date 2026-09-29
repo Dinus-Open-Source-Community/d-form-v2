@@ -7,9 +7,13 @@ import { Toaster } from '@/components/ui/sonner'
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue'
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue'
 import { usePageFlashToast } from '@/utils/composables/usePageFlashToast'
+import { useHttpErrorToast } from '@/utils/composables/useHttpErrorToast'
 import { clearTopbar } from '@/utils/composables/useDashboardTopbar'
 
 usePageFlashToast()
+
+// Toast untuk submit yang gagal dan hanya berakhir di halaman Error (mis. 403/500).
+useHttpErrorToast()
 
 // Reset state topbar saat navigasi Inertia ke halaman lain,
 // supaya judul/subtitle halaman sebelumnya tidak bocor.
