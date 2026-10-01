@@ -140,4 +140,62 @@ class BroadcastHubTest extends TestCase
                 ->where('snapshot.total', 2)
                 ->where('broadcast.recipient_count', 2));
     }
+
+    public function test_b06_show_follows_context_authorization(): void
+    {
+        $contextAdmin = User::factory()->create();
+        $contextAdmin->givePermissionTo('events.view');
+
+        $otherAdmin = User::factory()->create();
+
+        $ownEvent = Event::factory()->create(['created_by' => $contextAdmin->id]);
+        $otherEvent = Event::factory()->create(['created_by' => $otherAdmin->id]);
+
+        $ownBroadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $ownEvent->id,
+        ]);
+        $otherBroadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $otherEvent->id,
+        ]);
+
+        $this->actingAs($contextAdmin)
+            ->get(route('dashboard.broadcasts.show', $ownBroadcast))
+            ->assertOk();
+
+        $this->actingAs($contextAdmin)
+            ->get(route('dashboard.broadcasts.show', $otherBroadcast))
+            ->assertForbidden();
+    }
+
+    public function test_b07_event_emails_normalized_before_dedup(): void
+    {
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $member = User::factory()->create(['email' => 'Peserta@example.com']);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $member->id]);
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => null,
+            'invited_email' => 'PESERTA@EXAMPLE.COM',
+        ]);
+
+        $this->actingAs($this->superAdmin())
+            ->post(route('dashboard.broadcasts.store'), [
+                'name' => 'Pengumuman Dedup',
+                'source' => 'event_participants',
+                'event_id' => $event->id,
+            ])
+            ->assertRedirect();
+
+        $broadcast = Broadcast::query()->where('name', 'Pengumuman Dedup')->firstOrFail();
+
+        $this->assertSame(1, $broadcast->recipient_count);
+        $this->assertSame(
+            ['peserta@example.com'],
+            array_column($broadcast->recipient_snapshot['recipients'], 'email')
+        );
+    }
 }

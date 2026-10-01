@@ -9,17 +9,14 @@ use App\Models\Broadcast;
 use App\Models\Event;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Policies\BroadcastPolicy;
 use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BroadcastController extends Controller
 {
     public function __construct(
-        private readonly BroadcastPolicy $broadcastPolicy,
         private readonly BroadcastSnapshotBuilder $snapshotBuilder,
     ) {
     }
@@ -58,7 +55,7 @@ class BroadcastController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $this->authorizeBroadcastTarget($user, $validated);
+        $this->authorizeBroadcastTarget($validated);
 
         $snapshot = $this->snapshotBuilder->build($validated);
 
@@ -79,12 +76,9 @@ class BroadcastController extends Controller
     }
 
     /** Tampilkan broadcast beserta snapshot penerima (read-only source of truth). */
-    public function show(Request $request, Broadcast $broadcast): Response
+    public function show(Broadcast $broadcast): Response
     {
-        /** @var User $user */
-        $user = $request->user();
-
-        abort_unless($this->broadcastPolicy->view($user, $broadcast), 403);
+        $this->authorize('view', $broadcast);
 
         $broadcast->load(['event:id,title', 'period:id,name']);
 
@@ -109,20 +103,20 @@ class BroadcastController extends Controller
         ]);
     }
 
-    /** Otorisasi target ikut-konteks: event/period milik sendiri atau gate global. */
-    private function authorizeBroadcastTarget(User $user, array $validated): void
+    /** Otorisasi target ikut-konteks via Gate: event/period sendiri atau gate global. */
+    private function authorizeBroadcastTarget(array $validated): void
     {
         if (($validated['source'] ?? null) === Broadcast::SOURCE_RECRUITMENT_APPLICANTS) {
             $period = RecruitmentPeriod::query()->findOrFail($validated['period_id']);
 
-            abort_unless($this->broadcastPolicy->sendToPeriod($user, $period), 403);
+            $this->authorize('sendToPeriod', [Broadcast::class, $period]);
 
             return;
         }
 
         $event = Event::query()->findOrFail($validated['event_id']);
 
-        abort_unless($this->broadcastPolicy->sendToEvent($user, $event), 403);
+        $this->authorize('sendToEvent', [Broadcast::class, $event]);
     }
 
     /** Ambil event prefill yang lolos validasi exists. */
@@ -147,7 +141,7 @@ class BroadcastController extends Controller
         return Event::query()
             ->orderBy('title')
             ->get(['id', 'title'])
-            ->filter(fn (Event $event): bool => $this->broadcastPolicy->sendToEvent($user, $event))
+            ->filter(fn (Event $event): bool => $user->can('sendToEvent', [Broadcast::class, $event]))
             ->map(fn (Event $event): array => ['id' => $event->id, 'title' => $event->title])
             ->values()
             ->all();
@@ -159,7 +153,7 @@ class BroadcastController extends Controller
         return RecruitmentPeriod::query()
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->filter(fn (RecruitmentPeriod $period): bool => $this->broadcastPolicy->sendToPeriod($user, $period))
+            ->filter(fn (RecruitmentPeriod $period): bool => $user->can('sendToPeriod', [Broadcast::class, $period]))
             ->map(fn (RecruitmentPeriod $period): array => ['id' => $period->id, 'name' => $period->name])
             ->values()
             ->all();

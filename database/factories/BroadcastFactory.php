@@ -12,6 +12,9 @@ class BroadcastFactory extends Factory
 {
     protected $model = Broadcast::class;
 
+    /**
+     * Definisi bawaan broadcast (konteks diisi via store agar snapshot nyata).
+     */
     public function definition(): array
     {
         return [

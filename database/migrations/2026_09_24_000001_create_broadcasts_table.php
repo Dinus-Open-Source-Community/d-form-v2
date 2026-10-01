@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Buat tabel broadcasts (kontrak hub snapshot-only Fase 1).
+     */
     public function up(): void
     {
         Schema::create('broadcasts', function (Blueprint $table): void {
@@ -28,6 +31,9 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Hapus tabel broadcasts (rollback kontrak hub Fase 1).
+     */
     public function down(): void
     {
         Schema::dropIfExists('broadcasts');

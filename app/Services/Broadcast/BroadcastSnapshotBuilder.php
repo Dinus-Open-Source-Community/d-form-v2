@@ -67,7 +67,7 @@ final class BroadcastSnapshotBuilder
         $byEmail = [];
 
         foreach ($candidates as $candidate) {
-            $email = is_string($candidate['email'] ?? null) ? $candidate['email'] : null;
+            $email = $this->normalizeEmail($candidate['email'] ?? null);
 
             if ($email === null || isset($byEmail[$email])) {
                 continue;
@@ -81,7 +81,7 @@ final class BroadcastSnapshotBuilder
         return array_values($byEmail);
     }
 
-    /** Normalisasi email pelamar (kecil + trim + format valid). */
+    /** Normalisasi email lintas-sumber (kecil + trim + format valid). */
     private function normalizeEmail(mixed $raw): ?string
     {
         if (! is_string($raw)) {
