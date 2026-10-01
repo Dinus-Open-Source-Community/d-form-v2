@@ -940,6 +940,80 @@ class BroadcastHubTest extends TestCase
 
         $this->assertSame(Broadcast::STATUS_PROCESSING, $partial->refresh()->status);
     }
+    public function test_b27_retry_from_processing_allowed_only_with_failed_recipients(): void
+    {
+        Bus::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $snapshot = fn (array $recipients): array => [
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'total' => count($recipients),
+            'recipients' => $recipients,
+        ];
+        $log = fn (Broadcast $broadcast, string $email, EmailLogStatus $status): void => EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => $email,
+            'status' => $status,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => $status === EmailLogStatus::Failed ? 'smtp down' : null,
+            'sent_at' => $status === EmailLogStatus::Sent ? now() : null,
+        ]);
+
+        $stuck = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+            'recipient_snapshot' => $snapshot([
+                ['email' => 'ok@example.com', 'name' => 'Ok'],
+                ['email' => 'gagal@example.com', 'name' => 'Gagal'],
+            ]),
+            'recipient_count' => 2,
+        ]);
+        $log($stuck, 'ok@example.com', EmailLogStatus::Sent);
+        $log($stuck, 'gagal@example.com', EmailLogStatus::Failed);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $stuck))
+            ->assertOk()
+            ->assertJson(['retried' => 1]);
+
+        Bus::assertDispatched(SendBroadcastJob::class, fn (SendBroadcastJob $job): bool => $job->recipientEmail === 'gagal@example.com');
+        Bus::assertDispatchedTimes(SendBroadcastJob::class, 1);
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $stuck->refresh()->status);
+
+        $clean = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+            'recipient_snapshot' => $snapshot([['email' => 'solo@example.com', 'name' => 'Solo']]),
+            'recipient_count' => 1,
+        ]);
+        $log($clean, 'solo@example.com', EmailLogStatus::Sent);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $clean))
+            ->assertStatus(422);
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $clean->refresh()->status);
+
+        $done = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_SENT,
+            'recipient_snapshot' => $snapshot([['email' => 'tuntas@example.com', 'name' => 'Tuntas']]),
+            'recipient_count' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $done))
+            ->assertStatus(422);
+
+        Bus::assertDispatchedTimes(SendBroadcastJob::class, 1);
+    }
     public function test_b17_period_show_broadcast_tab_returns_period_broadcasts(): void
     {
         $owner = User::factory()->create();
