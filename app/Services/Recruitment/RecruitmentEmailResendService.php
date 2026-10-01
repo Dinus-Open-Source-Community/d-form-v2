@@ -20,7 +20,7 @@ final class RecruitmentEmailResendService
     public const TYPES = ['tracking', 'confirmation', 'correction', 'interviewer', 'notification'];
 
     /** @var array<string, string> */
-    private const RESENDABLE_TEMPLATES = [
+    public const RESENDABLE_TEMPLATES = [
         'recruitment_passed_screening' => 'passed_screening',
         'recruitment_rejected_screening' => 'rejected_screening',
         'recruitment_interview_scheduled' => 'interview_scheduled',
@@ -144,7 +144,14 @@ final class RecruitmentEmailResendService
             }
         }
 
-        SendRecruitmentNotificationJob::dispatch($command->application->id, $templateKey, $interviewId);
+        SendRecruitmentNotificationJob::dispatch(
+            $command->application->id,
+            $templateKey,
+            $interviewId,
+            null,
+            null,
+            $templateKey === 'passed_screening' ? $command->application->period?->whatsapp_group_url : null,
+        );
     }
 
     /** Tolak bila sudah 3x resend jenis ini untuk applicant dalam 24 jam. */

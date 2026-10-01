@@ -7,6 +7,7 @@ use App\Enums\EmailNotificationType;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\CorrectionRequestStatus;
+use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
@@ -19,6 +20,7 @@ use App\Services\Recruitment\InterviewSchedulingService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -163,6 +165,34 @@ class RecruitmentEmailResendTest extends TestCase
         ]);
     }
 
+    public function test_resend_notification_replay_includes_whatsapp_block_when_period_has_link(): void
+    {
+        Mail::fake();
+
+        $this->application->period()->update([
+            'whatsapp_group_url' => 'https://chat.whatsapp.com/ReplayLinkWa1234567890',
+        ]);
+
+        EmailLog::query()->create([
+            'recruitment_application_id' => $this->application->id,
+            'recipient_email' => $this->application->personal_email,
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::RecruitmentPassedScreening,
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
+                'type' => 'notification',
+            ])
+            ->assertRedirect();
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail): bool {
+            return str_contains($mail->bodyHtml, 'https://chat.whatsapp.com/ReplayLinkWa1234567890')
+                && str_contains($mail->bodyHtml, 'Gabung Grup WA');
+        });
+    }
+
     public function test_resend_by_non_owner_is_forbidden(): void
     {
         $member = User::factory()->create();
@@ -197,5 +227,56 @@ class RecruitmentEmailResendTest extends TestCase
         $this->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
             'type' => 'confirmation',
         ])->assertStatus(429);
+    }
+
+    public function test_applicant_detail_includes_email_resend_status_and_prereq(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+        $period = RecruitmentPeriod::factory()->create();
+        $application = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $period->id,
+            'primary_division_id' => $division->id,
+            'stage' => ApplicationStage::Submitted,
+            'result' => ApplicationResult::Pending,
+        ]);
+
+        RecruitmentCorrectionRequest::query()->create([
+            'recruitment_application_id' => $application->id,
+            'status' => CorrectionRequestStatus::Pending,
+            'request_message' => 'Perbaiki CV.',
+        ]);
+
+        EmailLog::query()->create([
+            'recruitment_application_id' => $application->id,
+            'recipient_email' => $application->personal_email,
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::RecruitmentPassedScreening,
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.resend-email', $application), [
+                'type' => 'confirmation',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $period->id,
+                'tab' => 'peserta',
+                'application' => $application->id,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applicant_detail.email_resend_status.confirmation.count_24h', 1)
+                ->where('applicant_detail.email_resend_status.confirmation.last_attempt_at', fn (?string $value): bool => filled($value))
+                ->where('applicant_detail.email_resend_status.tracking.count_24h', 0)
+                ->where('applicant_detail.email_resend_status.tracking.last_attempt_at', null)
+                ->where('applicant_detail.prereq.has_correction', true)
+                ->where('applicant_detail.prereq.has_interview', false)
+                ->where('applicant_detail.prereq.has_replayable_notification', true));
     }
 }
