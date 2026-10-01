@@ -4,6 +4,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
+import PeriodSettingsSection from '@/components/modules/dashboard/recruitment/PeriodSettingsSection.vue'
 import PeriodBroadcastList from '@/components/modules/dashboard/broadcast/PeriodBroadcastList.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
@@ -19,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Megaphone, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
@@ -52,6 +53,8 @@ interface Period {
     interview_ends_at: string | null
     finalization_deadline_at: string | null
     applications_count: number
+    banner_url: string | null
+    can_edit?: boolean
     whatsapp_group_url?: string | null
 }
 
@@ -178,6 +181,8 @@ const canScreenApplications = computed(() => user.value?.can_screen_recruitment_
 const canViewReports = computed(() => user.value?.can_view_recruitment_reports === true)
 /** Sama seperti halaman Divisi semula: hanya pengelola periode yang mengatur interviewer. */
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
+/** Tab Settings + tombol Edit memakai izin edit per-periode dari backend (can_edit). */
+const canEdit = computed<boolean>(() => props.period.can_edit === true)
 
 const assignForm = useForm({
     user_id: '',
@@ -376,18 +381,46 @@ const participantCountLabel = computed<string>(() => {
     return applicantTotal.value.toLocaleString('id-ID')
 })
 
-const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast'] as const
+const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast', 'settings'] as const
 type TabValue = (typeof validTabs)[number]
 
 function normalizeTab(value: string): TabValue {
-    return (validTabs as readonly string[]).includes(value) ? (value as TabValue) : 'peserta'
+    if (!(validTabs as readonly string[]).includes(value)) return 'peserta'
+    // Tab settings hanya untuk yang berizin edit; tanpa izin jatuh ke peserta.
+    if (value === 'settings' && !canEdit.value) return 'peserta'
+    return value as TabValue
 }
 
-const activeTab = ref<TabValue>(normalizeTab(props.tab))
+/** Deep-link ?tab=settings dibaca dari URL karena backend menormalkan tab asing ke peserta. */
+function initialTab(): TabValue {
+    const fromUrl = new URLSearchParams(window.location.search).get('tab') ?? ''
+    if ((validTabs as readonly string[]).includes(fromUrl)) return normalizeTab(fromUrl)
+    return normalizeTab(props.tab)
+}
+
+const activeTab = ref<TabValue>(initialTab())
+/**
+ * Tab settings bersifat lokal (tak butuh data server — period sudah lengkap di props).
+ * Penanda ini membedakan navigasi tab sungguhan dari echo server (redirect PUT update
+ * kembali tanpa query tab) agar pengguna tidak terlempar dari tab settings usai simpan.
+ */
+const expectTab = ref<TabValue | null>(null)
+
+function settingsUrl(): string {
+    return `${routes.admin.recruitment.periods.show(props.period.id)}?tab=settings`
+}
+
 watch(
     () => props.tab,
     (value) => {
-        activeTab.value = normalizeTab(value)
+        const next = normalizeTab(value)
+        if (next === activeTab.value) {
+            expectTab.value = null
+            return
+        }
+        if (activeTab.value === 'settings' && expectTab.value === null) return
+        expectTab.value = null
+        activeTab.value = next
     },
 )
 
@@ -395,11 +428,32 @@ function onTabChange(value: string | number): void {
     const next = String(value)
     if (!(validTabs as readonly string[]).includes(next)) return
     if (next === activeTab.value) return
+    if (next === 'settings') {
+        if (!canEdit.value) return
+        expectTab.value = null
+        activeTab.value = 'settings'
+        window.history.replaceState(null, '', settingsUrl())
+        return
+    }
+    expectTab.value = next as TabValue
     router.get(
         routes.admin.recruitment.periods.show(props.period.id),
         { tab: next === 'peserta' ? undefined : next },
-        { preserveState: true, preserveScroll: true },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onFinish: () => {
+                expectTab.value = null
+            },
+        },
     )
+}
+
+/** Usai simpan (PUT update redirect tanpa query tab): pin kembali tab settings + URL. */
+function onSettingsSaved(): void {
+    expectTab.value = null
+    activeTab.value = 'settings'
+    window.history.replaceState(null, '', settingsUrl())
 }
 
 const selectedApplication = ref<ApplicationDetail | null>(null)
@@ -604,9 +658,9 @@ function closePeriod(): void {
                                 Kirim Broadcast
                             </Link>
                         </Button>
-                        <Button as-child size="sm" variant="outline">
+                        <Button v-if="canEdit" as-child size="sm" variant="outline">
                             <Link
-                                :href="routes.admin.recruitment.periods.edit(period.id)"
+                                :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`"
                                 :aria-label="'Edit periode ' + period.name"
                             >
                                 Edit
@@ -713,6 +767,14 @@ function closePeriod(): void {
                     >
                         {{ broadcastCountLabel }}
                     </span>
+                </TabsTrigger>
+                <TabsTrigger
+                    v-if="canEdit"
+                    value="settings"
+                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                >
+                    <Settings class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <span>Settings</span>
                 </TabsTrigger>
             </TabsList>
 
@@ -927,6 +989,10 @@ function closePeriod(): void {
                     :period-id="period.id"
                     :period-name="period.name"
                 />
+            </TabsContent>
+
+            <TabsContent value="settings" class="mt-4">
+                <PeriodSettingsSection v-if="canEdit" :period="period" @saved="onSettingsSaved" />
             </TabsContent>
         </Tabs>
     </div>

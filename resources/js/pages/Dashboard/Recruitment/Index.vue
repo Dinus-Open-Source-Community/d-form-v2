@@ -370,7 +370,7 @@ onMounted(() => {
                                     </Link>
                                 </Button>
                                 <Button v-if="canManagePeriods || period.can_edit" as-child variant="ghost" size="sm">
-                                    <Link :href="routes.admin.recruitment.periods.edit(period.id)">
+                                    <Link :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`">
                                         Edit
                                     </Link>
                                 </Button>

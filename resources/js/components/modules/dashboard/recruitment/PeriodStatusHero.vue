@@ -63,7 +63,7 @@ const canClose = computed(() => props.period.status === 'open')
                     Tutup pendaftaran
                 </Button>
                 <Button as-child variant="outline" size="sm">
-                    <Link :href="routes.admin.recruitment.periods.edit(period.id)">Edit</Link>
+                    <Link :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`">Edit</Link>
                 </Button>
             </div>
         </CardContent>

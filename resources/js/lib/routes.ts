@@ -76,7 +76,6 @@ export const routes = {
                 create: `${ADMIN_BASE}/recruitment/periods/create`,
                 store: `${ADMIN_BASE}/recruitment/periods`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
-                edit: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/edit`,
                 update: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
                 open: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/open`,
                 close: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/close`,
@@ -225,7 +224,7 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
         return path === routes.member.joined;
     }
     if (href === routes.admin.recruitment.index) {
-        // Daftar periode kini menyatu di Pusat kerja; halaman detail/create/edit
+        // Daftar periode kini menyatu di Pusat kerja; halaman detail/create
         // periode (di bawah /admin/recruitment/periods) tetap menandai
         // Pusat kerja sebagai aktif.
         if (path === routes.admin.recruitment.index) return true;
