@@ -140,7 +140,7 @@ export interface IBroadcastShowContext {
     period_name: string | null
 }
 
-/** Broadcast show mentah dari backend (snake_case verbatim kontrak Task 1). */
+/** Broadcast show mentah dari backend (snake_case verbatim kontrak Task 1+3a). */
 export interface IBroadcastShownBroadcast {
     id: string
     name: string
@@ -152,6 +152,9 @@ export interface IBroadcastShownBroadcast {
     status: TBroadcastHubStatus
     recipient_count: number
     created_at: string | null
+    subject: string | null
+    body_html: string | null
+    body_text: string | null
 }
 
 /** Href create hub dengan prefill konteks query (?event_id=&period_id=). */
@@ -230,6 +233,30 @@ export function buildBroadcastTrackingRows(tracking: IBroadcastHubTracking): IBr
     ]
 }
 
+/** Isi composer untuk gerbang kelengkapan M-6 (subject + body). */
+export interface IBroadcastComposerContent {
+    subject: string | null
+    bodyHtml: string | null
+}
+
+/** True bila body HTML punya konten nyata (bukan kosong/paragraf kosong). */
+export function isBroadcastBodyFilled(bodyHtml: string | null): boolean {
+    if (!bodyHtml) return false
+    const text = bodyHtml.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    return text.length > 0
+}
+
+/** True bila composer layak simpan/kirim (M-6: subject + body wajib; backend tetap otoritas). */
+export function isBroadcastComposerReady(content: IBroadcastComposerContent): boolean {
+    return (content.subject ?? '').trim().length > 0 && isBroadcastBodyFilled(content.bodyHtml)
+}
+
+/** Parse jeda detik dari Input (string|number); tak valid berarti tanpa jeda. */
+export function parseBroadcastDelaySeconds(value: string | number): number | null {
+    if (typeof value === 'number') return Number.isNaN(value) ? null : value
+    const parsed = Number.parseInt(value, 10)
+    return Number.isNaN(parsed) ? null : parsed
+}
 /** Baris tampilan read-only dari snapshot + konteks show. */
 export function buildBroadcastSnapshotRows(
     snapshot: IBroadcastSnapshot | null,

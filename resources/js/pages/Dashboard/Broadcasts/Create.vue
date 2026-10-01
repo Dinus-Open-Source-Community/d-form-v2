@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import BroadcastDatasetSection from '@/components/modules/dashboard/broadcast/BroadcastDatasetSection.vue'
+import BroadcastComposerSection from '@/components/modules/dashboard/broadcast/BroadcastComposerSection.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SplitDateTimeField } from '@/components/ui/date-picker'
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBroadcastContextPrefill } from '@/utils/composables/useBroadcastContextPrefill'
 import { useBroadcastSnapshotPicker } from '@/utils/composables/useBroadcastSnapshotPicker'
+import { useBroadcastComposer } from '@/utils/composables/useBroadcastComposer'
 import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import {
@@ -19,6 +21,7 @@ import {
     mapBroadcastPeriodOptions,
     mapBroadcastPrefill,
     normalizeBroadcastScheduledAt,
+    parseBroadcastDelaySeconds,
     type IBroadcastAllowedEvent,
     type IBroadcastAllowedPeriod,
     type IBroadcastCreatePrefill,
@@ -48,6 +51,9 @@ const prefill = useBroadcastContextPrefill(mapBroadcastPrefill(props.prefill ?? 
 
 const picker = useBroadcastSnapshotPicker({ locked: prefill.lockedContext.value })
 
+/** Komposer konten (M-6: subject + body wajib untuk simpan/kirim). */
+const composer = useBroadcastComposer({ subject: null, bodyHtml: null })
+
 /** Opsi dropdown dari allowed_events (title) / allowed_periods (name). */
 const eventOptions = computed(() => mapBroadcastEventOptions(props.allowedEvents))
 const periodOptions = computed(() => mapBroadcastPeriodOptions(props.allowedPeriods))
@@ -59,6 +65,8 @@ const form = useForm({
     period_id: '',
     scheduled_at: '',
     send_delay_seconds: 0 as number | null,
+    subject: '',
+    body_html: '',
 })
 
 const errorFieldLabels: Record<string, string> = {
@@ -68,9 +76,13 @@ const errorFieldLabels: Record<string, string> = {
     period_id: 'Periode',
     scheduled_at: 'Jadwal kirim',
     send_delay_seconds: 'Jeda antar email',
+    subject: 'Subjek email',
+    body_html: 'Isi email',
 }
 
-const canSubmit = computed<boolean>(() => picker.canSubmitDataset.value && !form.processing)
+const canSubmit = computed<boolean>(
+    () => picker.canSubmitDataset.value && composer.composerReady.value && !form.processing,
+)
 
 onMounted(() => {
     setTopbar({ title: 'Broadcast baru', subtitle: 'Pusat broadcast' })
@@ -78,12 +90,7 @@ onMounted(() => {
 
 /** Jembatan number|null form ke Input (string|number): kosong berarti tanpa jeda. */
 function onDelayInput(value: string | number): void {
-    if (typeof value === 'number') {
-        form.send_delay_seconds = value
-        return
-    }
-    const parsed = Number.parseInt(value, 10)
-    form.send_delay_seconds = Number.isNaN(parsed) ? null : parsed
+    form.send_delay_seconds = parseBroadcastDelaySeconds(value)
 }
 
 function submit(): void {
@@ -91,9 +98,15 @@ function submit(): void {
         showErrorToast(picker.scopeError.value, { title: 'Konteks belum lengkap' })
         return
     }
+    if (!composer.composerReady.value) {
+        showErrorToast('Lengkapi subjek dan isi email terlebih dahulu.', { title: 'Konten belum lengkap' })
+        return
+    }
     form.source = picker.datasetSource.value ?? ''
     form.event_id = picker.effectiveSelection.value.eventId ?? ''
     form.period_id = picker.effectiveSelection.value.periodId ?? ''
+    form.subject = composer.subject.value
+    form.body_html = composer.bodyHtml.value
     form.scheduled_at = normalizeBroadcastScheduledAt(form.scheduled_at)
     form.post(routes.admin.broadcasts.store, {
         onError: (errors) => {
@@ -167,6 +180,26 @@ function submit(): void {
                             {{ form.errors.send_delay_seconds }}
                         </p>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card class="rounded-2xl border-border/70">
+                <CardHeader class="pb-2">
+                    <CardTitle class="text-base">Komposer email</CardTitle>
+                    <p class="text-sm text-muted-foreground">
+                        Subjek dan isi wajib diisi sebelum broadcast disimpan.
+                    </p>
+                </CardHeader>
+                <CardContent>
+                    <BroadcastComposerSection
+                        :subject="composer.subject.value"
+                        :body-html="composer.bodyHtml.value"
+                        :disabled="form.processing"
+                        :subject-error="form.errors.subject"
+                        :body-error="form.errors.body_html"
+                        @update:subject="composer.subject.value = $event"
+                        @update:body-html="composer.bodyHtml.value = $event"
+                    />
                 </CardContent>
             </Card>
 

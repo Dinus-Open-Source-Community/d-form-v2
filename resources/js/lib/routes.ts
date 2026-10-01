@@ -177,6 +177,8 @@ export const routes = {
             create: (link?: IBroadcastCreateLink) => buildBroadcastCreateHref(link ?? {}),
             store: `${ADMIN_BASE}/broadcasts`,
             show: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
+            update: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
+            send: (id: string) => `${ADMIN_BASE}/broadcasts/${id}/send`,
         },
     },
 
