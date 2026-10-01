@@ -147,7 +147,7 @@ function submit() {
                         :disabled="form.processing"
                     />
 
-                    <div class="grid items-start gap-4 sm:grid-cols-2">
+                    <div class="grid items-start gap-4 sm:grid-cols-2 sm:gap-x-3">
                         <div class="flex flex-col gap-4">
                             <div class="flex min-h-24 flex-col justify-start">
                                 <SplitDateTimeField
