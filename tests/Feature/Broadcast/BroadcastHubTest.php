@@ -969,8 +969,12 @@ class BroadcastHubTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('tab', 'broadcast')
-                ->where('broadcasts', function (array $broadcasts) use ($first, $second): bool {
-                    $ids = array_column($broadcasts, 'id');
+                ->where('broadcasts.current_page', 1)
+                ->where('broadcasts.per_page', 15)
+                ->where('broadcasts.total', 2)
+                ->has('broadcasts.data', 2)
+                ->where('broadcasts.data', function (array $rows) use ($first, $second): bool {
+                    $ids = array_column($rows, 'id');
                     sort($ids);
 
                     $expected = [$first->id, $second->id];
