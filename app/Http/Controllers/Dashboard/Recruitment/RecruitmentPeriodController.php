@@ -270,15 +270,6 @@ class RecruitmentPeriodController extends Controller
         ]);
     }
 
-    public function edit(RecruitmentPeriod $period): Response
-    {
-        $this->authorize('update', $period);
-
-        return Inertia::render('Dashboard/Recruitment/Periods/Edit', [
-            'period' => $this->periodService->toInertiaArray($period, auth()->user()),
-        ]);
-    }
-
     public function update(UpdateRecruitmentPeriodRequest $request, RecruitmentPeriod $period): RedirectResponse
     {
         $this->authorize('update', $period);

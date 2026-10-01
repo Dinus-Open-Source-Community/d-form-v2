@@ -81,7 +81,6 @@ Base: `Route::prefix('admin/recruitment')->middleware(['auth', 'recruitment.acce
 | GET | `/admin/recruitment/periods/create` | `dashboard.recruitment.periods.create` | `Dashboard/Recruitment/Periods/Create` |
 | POST | `/admin/recruitment/periods` | `dashboard.recruitment.periods.store` | redirect |
 | GET | `/admin/recruitment/periods/{period}` | `dashboard.recruitment.periods.show` | `Dashboard/Recruitment/Periods/Show` |
-| GET | `/admin/recruitment/periods/{period}/edit` | `dashboard.recruitment.periods.edit` | `Dashboard/Recruitment/Periods/Edit` |
 | PUT | `/admin/recruitment/periods/{period}` | `dashboard.recruitment.periods.update` | redirect |
 | DELETE | `/admin/recruitment/periods/{period}` | `dashboard.recruitment.periods.destroy` | redirect |
 | POST | `/admin/recruitment/periods/{period}/open` | `dashboard.recruitment.periods.open` | redirect |

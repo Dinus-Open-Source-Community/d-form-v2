@@ -40,7 +40,7 @@ Route::middleware(['auth', 'recruitment.access'])
             ->defaults('destination', '/admin/recruitment')
             ->defaults('status', 302);
 
-        Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
+        Route::resource('periods', RecruitmentPeriodController::class)->except(['index', 'edit']);
         Route::get('periods/{period}/applications/{application}', [RecruitmentPeriodController::class, 'application'])
             ->name('periods.applications.show');
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
