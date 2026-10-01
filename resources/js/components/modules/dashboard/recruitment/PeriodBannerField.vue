@@ -82,7 +82,7 @@ function removeBanner(): void {
             <div>
                 <Label :for="inputId">Banner</Label>
                 <p class="text-muted-foreground mt-1 text-xs">
-                    Opsional — disarankan 16:9, maks 10MB.<template v-if="bannerUrl">
+                    Opsional.<template v-if="bannerUrl">
                         Pilih berkas baru untuk menggantikan banner saat ini.</template
                     >
                 </p>
@@ -114,40 +114,54 @@ function removeBanner(): void {
             </div>
         </div>
 
-        <div
-            :class="
-                cn(
-                    'aspect-video w-full max-w-xs overflow-hidden rounded-xl border transition-colors sm:max-w-sm',
-                    preview
-                        ? 'border-border bg-muted/25'
-                        : 'border-border cursor-pointer border-dashed hover:border-primary/50 hover:bg-primary/[0.03]',
-                    isDragging && 'border-primary/60 bg-primary/5',
-                )
-            "
-        >
-            <img
-                v-if="preview"
-                :src="preview"
-                alt="Pratinjau banner"
-                class="size-full object-cover"
-            />
+        <div class="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
             <div
-                v-else
-                class="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 px-4 text-center"
-                @dragover.prevent="isDragging = true"
-                @dragleave="isDragging = false"
-                @drop.prevent="handleBannerDrop"
-                @click="openBannerPicker"
+                :class="
+                    cn(
+                        'aspect-video w-full max-w-xs overflow-hidden rounded-xl border transition-colors sm:max-w-sm',
+                        preview
+                            ? 'border-border bg-muted/25'
+                            : 'border-border cursor-pointer border-dashed hover:border-primary/50 hover:bg-primary/[0.03]',
+                        isDragging && 'border-primary/60 bg-primary/5',
+                    )
+                "
             >
-                <span class="bg-muted text-muted-foreground grid size-10 place-items-center rounded-full">
-                    <ImagePlus class="size-5 stroke-[1.75]" aria-hidden="true" />
-                </span>
-                <div>
-                    <p class="text-sm font-medium">Unggah banner</p>
-                    <p class="text-muted-foreground mt-0.5 text-xs">
-                        Klik atau seret gambar ke sini
-                    </p>
+                <img
+                    v-if="preview"
+                    :src="preview"
+                    alt="Pratinjau banner"
+                    class="size-full object-cover"
+                />
+                <div
+                    v-else
+                    class="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 px-4 text-center"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave="isDragging = false"
+                    @drop.prevent="handleBannerDrop"
+                    @click="openBannerPicker"
+                >
+                    <span class="bg-muted text-muted-foreground grid size-10 place-items-center rounded-full">
+                        <ImagePlus class="size-5 stroke-[1.75]" aria-hidden="true" />
+                    </span>
+                    <div>
+                        <p class="text-sm font-medium">Unggah banner</p>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                            Klik atau seret gambar ke sini
+                        </p>
+                    </div>
                 </div>
+            </div>
+            <div class="min-w-0 space-y-2">
+                <p class="text-sm font-medium">Persyaratan berkas</p>
+                <ul class="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
+                    <li>Format JPG, JPEG, PNG, atau WEBP.</li>
+                    <li>Ukuran maksimal 10 MB.</li>
+                    <li>Rasio 16:9 disarankan agar tampil penuh (tidak wajib).</li>
+                </ul>
+                <p class="text-muted-foreground text-xs">
+                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 10 MB
+                    bila unggahan gagal.
+                </p>
             </div>
         </div>
 
