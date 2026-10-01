@@ -206,4 +206,17 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
             ]))
             ->assertSessionHasErrors('tab');
     }
+
+    public function test_tab_settings_diteruskan_tanpa_normalisasi(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'settings',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'settings')
+                ->has('period.can_edit'));
+    }
 }
