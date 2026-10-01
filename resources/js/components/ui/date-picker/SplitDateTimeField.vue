@@ -81,7 +81,7 @@ const timeId = computed(() => `${props.idPrefix}-time`)
         </Label>
         <div
             :class="[
-                layout === 'row' ? 'grid gap-3 sm:grid-cols-[1fr_auto]' : 'flex flex-col gap-2',
+                layout === 'row' ? 'grid items-center gap-3 sm:grid-cols-[1fr_auto]' : 'flex flex-col gap-2',
                 shaking ? 'animate-shake' : '',
             ]"
         >
@@ -91,7 +91,7 @@ const timeId = computed(() => `${props.idPrefix}-time`)
                 placeholder="Pilih tanggal"
                 :aria-invalid="invalid"
                 :class="[
-                    'text-sm',
+                    'h-9 text-sm',
                     invalid
                         ? 'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10 dark:focus-visible:border-destructive/70'
                         : '',
@@ -103,7 +103,7 @@ const timeId = computed(() => `${props.idPrefix}-time`)
                 :id="timeId"
                 :model-value="parts.time"
                 :aria-invalid="invalid"
-                class="w-full"
+                class="h-9 w-full"
                 @update:model-value="parts.time = String($event)"
             />
         </div>
