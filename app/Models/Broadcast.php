@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Broadcast extends Model
 {
@@ -78,5 +79,11 @@ class Broadcast extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** Lampiran file broadcast (maks 3, ikut terhapus via cascade). */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(BroadcastAttachment::class);
     }
 }

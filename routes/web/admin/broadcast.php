@@ -11,5 +11,12 @@ Route::middleware('auth')->prefix('/admin/broadcasts')->name('dashboard.broadcas
     Route::post('/', [BroadcastController::class, 'store'])->name('store');
     Route::match(['put', 'patch'], '/{broadcast}', [BroadcastController::class, 'update'])->name('update');
     Route::post('/{broadcast}/send', [BroadcastController::class, 'send'])->name('send');
+    Route::get('/{broadcast}/preview', [BroadcastController::class, 'preview'])->name('preview');
+    Route::post('/{broadcast}/test', [BroadcastController::class, 'testSend'])->name('test');
+    Route::post('/{broadcast}/attachments', [BroadcastController::class, 'storeAttachment'])->name('attachments.store');
+    Route::delete('/{broadcast}/attachments/{attachment}', [BroadcastController::class, 'destroyAttachment'])->name('attachments.destroy');
+    Route::post('/{broadcast}/retry', [BroadcastController::class, 'retry'])->name('retry');
+    Route::post('/{broadcast}/cancel', [BroadcastController::class, 'cancel'])->name('cancel');
+    Route::get('/{broadcast}/tracking', [BroadcastController::class, 'tracking'])->name('tracking');
     Route::get('/{broadcast}', [BroadcastController::class, 'show'])->name('show');
 });

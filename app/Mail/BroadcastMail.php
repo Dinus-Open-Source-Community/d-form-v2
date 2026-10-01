@@ -3,6 +3,8 @@
 namespace App\Mail;
 
 use App\Models\Broadcast;
+use App\Models\BroadcastAttachment;
+use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -27,6 +29,16 @@ class BroadcastMail extends Mailable
         return new Content(
             htmlString: $this->personalizedBody(),
         );
+    }
+
+    /** Lampirkan file broadcast (pdf/jpg/png) ke email keluar. */
+    public function attachments(): array
+    {
+        return $this->broadcast->attachments
+            ->map(fn (BroadcastAttachment $attachment): Attachment => Attachment::fromStorage($attachment->path)
+                ->as($attachment->original_name)
+                ->withMime($attachment->mime_type ?? 'application/octet-stream'))
+            ->all();
     }
 
     /** Ganti placeholder {{nama}} dengan nama penerima snapshot. */

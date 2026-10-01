@@ -2,8 +2,10 @@
 
 namespace App\Services\Broadcast;
 
+use App\Enums\EmailLogStatus;
 use App\Jobs\SendBroadcastJob;
 use App\Models\Broadcast;
+use App\Models\EmailLog;
 
 final class BroadcastDispatchService
 {
@@ -34,5 +36,58 @@ final class BroadcastDispatchService
         }
 
         return count($recipients);
+    }
+
+    /** Kirim-ulang hanya penerima gagal; kunci processing bila ada yang dikirim-ulang. */
+    public function retryFailed(Broadcast $broadcast): int
+    {
+        $failed = $this->failedEmails($broadcast);
+
+        foreach ($failed as $email) {
+            SendBroadcastJob::dispatch($broadcast->id, $email);
+        }
+
+        if (count($failed) > 0) {
+            $broadcast->update(['status' => Broadcast::STATUS_PROCESSING]);
+        }
+
+        return count($failed);
+    }
+
+    /** Email snapshot yang log terakhirnya Failed. */
+    private function failedEmails(Broadcast $broadcast): array
+    {
+        $emails = [];
+
+        foreach (array_values($broadcast->recipient_snapshot['recipients'] ?? []) as $recipient) {
+            $email = $recipient['email'] ?? null;
+
+            if (is_string($email) && $email !== '') {
+                $emails[] = $email;
+            }
+        }
+
+        if ($emails === []) {
+            return [];
+        }
+
+        $latestByEmail = EmailLog::query()
+            ->where('broadcast_id', $broadcast->id)
+            ->whereIn('recipient_email', $emails)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('recipient_email')
+            ->map(fn ($group) => $group->last());
+
+        $failed = [];
+
+        foreach ($emails as $email) {
+            if (($latestByEmail->get($email)?->status ?? null) === EmailLogStatus::Failed) {
+                $failed[] = $email;
+            }
+        }
+
+        return $failed;
     }
 }

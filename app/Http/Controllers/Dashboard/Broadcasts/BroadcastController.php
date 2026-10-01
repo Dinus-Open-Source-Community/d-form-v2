@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Dashboard\Broadcasts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcast\BroadcastCreateRequest;
 use App\Http\Requests\Broadcast\BroadcastIndexRequest;
+use App\Http\Requests\Broadcast\StoreBroadcastAttachmentRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastRequest;
 use App\Http\Requests\Broadcast\UpdateBroadcastRequest;
+use App\Mail\BroadcastMail;
 use App\Models\Broadcast;
+use App\Models\BroadcastAttachment;
 use App\Models\Event;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
@@ -15,9 +18,15 @@ use App\Policies\BroadcastPolicy;
 use App\Services\Broadcast\BroadcastBodyText;
 use App\Services\Broadcast\BroadcastDispatchService;
 use App\Services\Broadcast\BroadcastSnapshotBuilder;
+use App\Services\Broadcast\BroadcastTrackingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class BroadcastController extends Controller
 {
@@ -26,6 +35,7 @@ class BroadcastController extends Controller
         private readonly BroadcastSnapshotBuilder $snapshotBuilder,
         private readonly BroadcastBodyText $broadcastBodyText,
         private readonly BroadcastDispatchService $dispatchService,
+        private readonly BroadcastTrackingService $trackingService,
     ) {
     }
 
@@ -128,7 +138,7 @@ class BroadcastController extends Controller
 
         $validated = $request->validated();
 
-        $broadcast->update([
+        $updates = [
             'subject' => $validated['subject'] ?? $broadcast->subject,
             'body_html' => $validated['body_html'] ?? $broadcast->body_html,
             'body_text' => array_key_exists('body_html', $validated)
@@ -136,7 +146,13 @@ class BroadcastController extends Controller
                 : $broadcast->body_text,
             'scheduled_at' => $validated['scheduled_at'] ?? $broadcast->scheduled_at,
             'send_delay_seconds' => $validated['send_delay_seconds'] ?? $broadcast->send_delay_seconds,
-        ]);
+        ];
+
+        if ($broadcast->status === Broadcast::STATUS_DRAFT && ! empty($validated['scheduled_at'])) {
+            $updates['status'] = Broadcast::STATUS_SCHEDULED;
+        }
+
+        $broadcast->update($updates);
 
         return redirect()->route('dashboard.broadcasts.show', $broadcast);
     }
@@ -149,6 +165,121 @@ class BroadcastController extends Controller
         $this->dispatchService->sendNow($broadcast->fresh() ?? $broadcast);
 
         return redirect()->route('dashboard.broadcasts.show', $broadcast);
+    }
+
+    /** Pratinjau HTML subject+body dengan nama sample; draft/scheduled milik konteks. */
+    public function preview(Broadcast $broadcast): HttpResponse
+    {
+        $this->authorize('view', $broadcast);
+
+        abort_unless(
+            in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true),
+            403,
+            'Pratinjau hanya tersedia untuk draft/terjadwal.'
+        );
+
+        $sample = $this->previewSampleName($broadcast);
+        $subject = str_replace('{{nama}}', $sample, (string) ($broadcast->subject ?? $broadcast->name));
+        $body = str_replace('{{nama}}', e($sample), (string) $broadcast->body_html);
+
+        return response(
+            '<!doctype html><html lang="id"><head><meta charset="utf-8"><title>'.e($subject).'</title></head>'
+                .'<body><h1>'.e($subject).'</h1><div>'.$body.'</div></body></html>',
+            200,
+            ['Content-Type' => 'text/html; charset=UTF-8']
+        );
+    }
+
+    /** Kirim email uji ke satu alamat; tak menulis EmailLog/tracking. */
+    public function testSend(Request $request, Broadcast $broadcast): JsonResponse
+    {
+        $this->authorize('view', $broadcast);
+
+        $validated = $request->validate([
+            'email' => ['required', 'string', 'email:rfc', 'max:255'],
+        ]);
+
+        Mail::to($validated['email'])->send(new BroadcastMail($broadcast->fresh() ?? $broadcast, $validated['email']));
+
+        return response()->json(['sent' => true, 'email' => $validated['email']]);
+    }
+
+    /** Simpan satu lampiran (pdf/jpg/png ≤5MB, maks 3 per broadcast). */
+    public function storeAttachment(StoreBroadcastAttachmentRequest $request, Broadcast $broadcast): JsonResponse
+    {
+        $this->authorize('update', $broadcast);
+
+        if ($broadcast->attachments()->count() >= BroadcastAttachment::MAX_PER_BROADCAST) {
+            return response()->json(['message' => 'Maksimal 3 file per broadcast.'], 422);
+        }
+
+        /** @var \Illuminate\Http\UploadedFile $file */
+        $file = $request->file('file');
+        $path = $file->store("broadcast-attachments/{$broadcast->id}");
+
+        $attachment = $broadcast->attachments()->create([
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'size' => (int) $file->getSize(),
+        ]);
+
+        return response()->json(['attachment' => [
+            'id' => $attachment->id,
+            'path' => $attachment->path,
+            'original_name' => $attachment->original_name,
+            'mime_type' => $attachment->mime_type,
+            'size' => $attachment->size,
+        ]], 201);
+    }
+
+    /** Hapus lampiran + berkasnya; 404 bila bukan milik broadcast. */
+    public function destroyAttachment(Broadcast $broadcast, BroadcastAttachment $attachment): JsonResponse
+    {
+        $this->authorize('update', $broadcast);
+
+        abort_unless($attachment->broadcast_id === $broadcast->id, 404);
+
+        Storage::delete($attachment->path);
+        $attachment->delete();
+
+        return response()->json(['deleted' => true]);
+    }
+
+    /** Kirim-ulang hanya penerima gagal; 422 bila processing/sent. */
+    public function retry(Broadcast $broadcast): JsonResponse
+    {
+        $this->authorize('view', $broadcast);
+
+        if (in_array($broadcast->status, [Broadcast::STATUS_PROCESSING, Broadcast::STATUS_SENT], true)) {
+            return response()->json(['message' => 'Broadcast yang sedang diproses/sudah terkirim tidak bisa retry.', 'retried' => 0], 422);
+        }
+
+        $retried = $this->dispatchService->retryFailed($broadcast->fresh() ?? $broadcast);
+
+        return response()->json(['retried' => $retried]);
+    }
+
+    /** Batalkan jadwal: scheduled -> draft (re-schedulable); 422 bila bukan scheduled. */
+    public function cancel(Broadcast $broadcast): JsonResponse
+    {
+        $this->authorize('view', $broadcast);
+
+        if ($broadcast->status !== Broadcast::STATUS_SCHEDULED) {
+            return response()->json(['message' => 'Hanya broadcast terjadwal yang bisa dibatalkan.'], 422);
+        }
+
+        $broadcast->update(['status' => Broadcast::STATUS_DRAFT, 'scheduled_at' => null]);
+
+        return response()->json(['status' => Broadcast::STATUS_DRAFT]);
+    }
+
+    /** Baris per-penerima + ringkasan dari snapshot + EmailLog existing. */
+    public function tracking(Broadcast $broadcast): JsonResponse
+    {
+        $this->authorize('view', $broadcast);
+
+        return response()->json($this->trackingService->for($broadcast->fresh() ?? $broadcast));
     }
 
     /** Tampilkan broadcast beserta snapshot penerima (read-only source of truth). */
@@ -180,6 +311,20 @@ class BroadcastController extends Controller
                 'period_name' => $broadcast->period?->name,
             ],
         ]);
+    }
+
+    /** Nama sample pratinjau: penerima pertama snapshot (fallback 'Peserta'). */
+    private function previewSampleName(Broadcast $broadcast): string
+    {
+        foreach ($broadcast->recipient_snapshot['recipients'] ?? [] as $recipient) {
+            $name = $recipient['name'] ?? null;
+
+            if (is_string($name) && trim($name) !== '') {
+                return $name;
+            }
+        }
+
+        return 'Peserta';
     }
 
     /** Direct call (bukan Gate): dispatch Gate me-resolve policy dari target class sehingga ability cross-model tak cocok — correctness dulu. */
