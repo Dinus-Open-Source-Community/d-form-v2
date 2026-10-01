@@ -103,9 +103,9 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/Periods/Show')
-                ->has('applications', 4)
-                ->where('applications.0.id', $this->siti->id)
-                ->where('applications.1.id', $this->budi->id));
+                ->has('applications.data', 4)
+                ->where('applications.data.0.id', $this->siti->id)
+                ->where('applications.data.1.id', $this->budi->id));
     }
 
     public function test_period_show_scopes_queue_counts_to_that_period(): void
@@ -122,8 +122,8 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period, 'search' => 'Budi']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('applications', 4)
-                ->where('applications.1.id', $this->budi->id));
+                ->has('applications.data', 4)
+                ->where('applications.data.1.id', $this->budi->id));
     }
 
     public function test_staff_without_period_view_cannot_open_period_show(): void
@@ -174,7 +174,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('applications', 4)
+                ->has('applications.data', 4)
                 ->where('semesterOptions', [
                     ['value' => '1', 'label' => 'Semester 1'],
                     ['value' => '3', 'label' => 'Semester 3'],

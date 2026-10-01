@@ -20,6 +20,7 @@ use App\Services\Recruitment\RecruitmentDivisionService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -59,14 +60,15 @@ class RecruitmentPeriodController extends Controller
         return redirect()->route('dashboard.recruitment.periods.show', $period);
     }
 
-    /** Daftar broadcast ringkas satu periode, selaras kontrak index 4a (tanpa N+1). */
-    private function broadcastsForPeriodTab(RecruitmentPeriod $period): array
+    /** Daftar broadcast satu periode, paginasi 15/hal selaras kontrak index 4a (tanpa N+1). */
+    private function broadcastsForPeriodTab(RecruitmentPeriod $period, int $page): LengthAwarePaginator
     {
-        return Broadcast::query()
+        $paginator = Broadcast::query()
             ->where('period_id', $period->id)
             ->orderByDesc('created_at')
-            ->get(['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'])
-            ->map(fn (Broadcast $broadcast): array => [
+            ->paginate(15, ['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'], 'page', $page);
+        $paginator->setCollection(
+            $paginator->getCollection()->map(fn (Broadcast $broadcast): array => [
                 'id' => $broadcast->id,
                 'name' => $broadcast->name,
                 'subject' => $broadcast->subject,
@@ -75,8 +77,9 @@ class RecruitmentPeriodController extends Controller
                 'recipient_count' => $broadcast->recipient_count,
                 'created_at' => $broadcast->created_at?->toIso8601String(),
             ])
-            ->values()
-            ->all();
+        );
+
+        return $paginator->withQueryString();
     }
 
     public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
@@ -101,24 +104,30 @@ class RecruitmentPeriodController extends Controller
         $interviewerCandidates = null;
         $screeningReasonOptions = [];
         $broadcasts = null;
+        $divisionOptions = [];
+        $semesterOptions = [];
 
         if ($tab === 'peserta') {
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
             if ($canListApplications) {
-                $applications = RecruitmentApplication::query()
+                $applicationPaginator = RecruitmentApplication::query()
                     ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
                     ->where('recruitment_period_id', $period->id)
                     ->orderByDesc('submitted_at')
-                    ->get()
-                    ->map(
+                    ->paginate(15, ['*'], 'page', $request->integer('page', 1));
+                $applicationPaginator->setCollection(
+                    $applicationPaginator->getCollection()->map(
                         fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
                     )
-                    ->values()
-                    ->all();
+                );
+
+                $applications = $applicationPaginator->withQueryString();
 
                 $queueCounts = $this->applicationService->queueCounts($period->id);
                 $screeningReasonOptions = ScreeningReason::options();
+                $divisionOptions = $this->applicationService->divisionOptions();
+                $semesterOptions = $this->applicationService->semesterOptions($period->id);
 
                 $applicationId = $validated['application'] ?? null;
 
@@ -169,7 +178,7 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'broadcast') {
-            $broadcasts = $this->broadcastsForPeriodTab($period);
+            $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1));
         }
 
         if ($tab === 'interviewer') {
@@ -203,14 +212,12 @@ class RecruitmentPeriodController extends Controller
                 ->all();
         }
 
-        $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
-
         $props = [
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
             'tab' => $tab,
             'queue_counts' => (object) $queueCounts,
-            'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
-            'semesterOptions' => $canListApplications ? $this->applicationService->semesterOptions($period->id) : [],
+            'divisionOptions' => $divisionOptions,
+            'semesterOptions' => $semesterOptions,
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
                 ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
                 ->values()
@@ -221,7 +228,7 @@ class RecruitmentPeriodController extends Controller
         if ($tab === 'peserta') {
             $props['applications'] = $applications;
             $props['screening_reason_options'] = $screeningReasonOptions;
-            $props['division_options'] = $canListApplications ? $this->applicationService->divisionOptions() : [];
+            $props['division_options'] = $divisionOptions;
             $props['membership_type_options'] = MembershipType::options();
         }
 

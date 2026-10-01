@@ -112,7 +112,7 @@ class RecruitmentApplicantPanelTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('applications', 1)
+                ->has('applications.data', 1)
                 ->missing('applicant_detail'));
     }
 
