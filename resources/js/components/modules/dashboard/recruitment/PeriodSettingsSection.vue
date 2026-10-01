@@ -10,6 +10,7 @@ import PeriodBannerField from '@/components/modules/dashboard/recruitment/Period
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { cn } from '@/lib/utils'
+import { toast } from 'vue-sonner'
 
 interface PeriodSettings {
     id: string
@@ -75,6 +76,7 @@ function submit(): void {
         preserveScroll: true,
         onSuccess: () => {
             emit('saved')
+            toast.success('Perubahan periode disimpan.')
         },
     })
 }
