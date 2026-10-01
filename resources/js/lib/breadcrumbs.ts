@@ -51,6 +51,8 @@ export const ACTION_LABELS: Record<string, string> = {
  *     → prefer pageTitle agar judul halaman tampil, bukan slug mentah.
  * - Base page (path === base) → 1 crumb aktif.
  * - Fallback tak dikenal → 1 crumb judul.
+ * - Segmen 'broadcasts' TIDAK dilewati: index GET-able sejak Task 4a. Bila index
+ *   dicabut lagi, kembalikan skip segmen pertama 'broadcasts' agar tak jadi link 405.
  */
 export function buildBreadcrumbs(url: string, pageTitle: string): BreadcrumbItem[] {
     const path = pathWithoutQuery(url);
@@ -73,11 +75,6 @@ export function buildBreadcrumbs(url: string, pageTitle: string): BreadcrumbItem
     let prefix = base.href;
     rest.forEach((seg, idx) => {
         if (isMemberBase && seg === 'events') {
-            return;
-        }
-        // Tanpa halaman index di Fase 1, hapus skip ini saat index page mendarat.
-        if (idx === 0 && seg === 'broadcasts') {
-            prefix += `/${seg}`;
             return;
         }
         prefix += `/${seg}`;

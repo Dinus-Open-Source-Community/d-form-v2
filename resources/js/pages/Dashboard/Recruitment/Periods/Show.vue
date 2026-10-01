@@ -4,6 +4,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
+import PeriodBroadcastList from '@/components/modules/dashboard/broadcast/PeriodBroadcastList.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/ApplicantDetailPanel.vue'
@@ -21,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { BarChart3, CalendarClock, Megaphone, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
+import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import {
     daysRemaining,
@@ -149,6 +151,7 @@ const props = withDefaults(
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
+        broadcasts?: IBroadcastPeriodRow[]
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -162,6 +165,7 @@ const props = withDefaults(
         divisions: () => [],
         assignments: () => [],
         interviewerCandidates: () => [],
+        broadcasts: () => [],
     },
 )
 
@@ -320,6 +324,8 @@ const groupedAssignments = computed<AssignmentGroup[]>(() => {
 
 const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
 
+const broadcastCountLabel = computed<string>(() => props.broadcasts.length.toLocaleString('id-ID'))
+
 const pendingUnassignDescription = computed<string>(() => {
     const row: InterviewerAssignment | null = pendingUnassign.value
     if (!row) return ''
@@ -369,7 +375,7 @@ const participantCountLabel = computed<string>(() => {
     return applicantTotal.value.toLocaleString('id-ID')
 })
 
-const validTabs = ['peserta', 'interview', 'laporan', 'interviewer'] as const
+const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast'] as const
 type TabValue = (typeof validTabs)[number]
 
 function normalizeTab(value: string): TabValue {
@@ -695,6 +701,18 @@ function closePeriod(): void {
                         {{ assignmentsCountLabel }}
                     </span>
                 </TabsTrigger>
+                <TabsTrigger
+                    value="broadcast"
+                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                >
+                    <Megaphone class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <span>Broadcast</span>
+                    <span
+                        class="ml-1 inline-flex min-h-5 min-w-6 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium tabular-nums leading-4 text-muted-foreground transition-colors group-hover:text-foreground group-data-[state=active]:bg-foreground/10 group-data-[state=active]:text-foreground"
+                    >
+                        {{ broadcastCountLabel }}
+                    </span>
+                </TabsTrigger>
             </TabsList>
 
             <TabsContent value="peserta" class="mt-4">
@@ -898,6 +916,14 @@ function closePeriod(): void {
                     :initial-division-id="assignForm.recruitment_division_id"
                     @close="closeCreateSheet"
                     @created="onInterviewerCreated"
+                />
+            </TabsContent>
+
+            <TabsContent value="broadcast" class="mt-4">
+                <PeriodBroadcastList
+                    :broadcasts="props.broadcasts"
+                    :period-id="period.id"
+                    :period-name="period.name"
                 />
             </TabsContent>
         </Tabs>

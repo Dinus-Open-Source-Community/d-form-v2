@@ -288,3 +288,22 @@ export function normalizeBroadcastScheduledAt(value: string): string {
     const segments = timePart.split(':')
     return `${datePart.slice(0, 10)} ${padBroadcastTimeSegment(segments[0] ?? '')}:${padBroadcastTimeSegment(segments[1] ?? '')}:${padBroadcastTimeSegment(segments[2] ?? '')}`
 }
+
+/** Baris ringkas broadcast per-period (verbatim kontrak index 4a). */
+export interface IBroadcastPeriodRow {
+    id: string
+    name: string
+    subject: string | null
+    status: TBroadcastHubStatus
+    scheduled_at: string | null
+    recipient_count: number
+    created_at: string
+}
+
+/** Gaya badge + label status broadcast (sumber tunggal untuk Show + list period). */
+export const BROADCAST_STATUS_META: Record<TBroadcastHubStatus, { label: string; classes: string }> = {
+    draft: { label: 'Draft', classes: 'border-border bg-secondary text-secondary-foreground' },
+    scheduled: { label: 'Terjadwal', classes: 'border-warning/25 bg-warning/10 text-warning-foreground' },
+    processing: { label: 'Diproses', classes: 'border-primary/25 bg-primary/10 text-primary' },
+    sent: { label: 'Terkirim', classes: 'border-success/20 bg-success/10 text-success' },
+}

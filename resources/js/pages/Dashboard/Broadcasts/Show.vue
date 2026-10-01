@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBroadcastComposer } from '@/utils/composables/useBroadcastComposer'
 import {
+    BROADCAST_STATUS_META,
     buildBroadcastSnapshotRows,
     isBroadcastBodyFilled,
     isBroadcastComposerReady,
@@ -25,7 +26,6 @@ import type {
     IBroadcastShowContext,
     IBroadcastShownBroadcast,
     IBroadcastSnapshot,
-    TBroadcastHubStatus,
 } from '@/lib/broadcastHub'
 import { handleInertiaFormErrors } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
@@ -41,19 +41,8 @@ const props = defineProps<{
     context: IBroadcastShowContext | null
 }>()
 
-const statusClasses: Record<TBroadcastHubStatus, string> = {
-    draft: 'border-border bg-secondary text-secondary-foreground',
-    scheduled: 'border-warning/25 bg-warning/10 text-warning-foreground',
-    processing: 'border-primary/25 bg-primary/10 text-primary',
-    sent: 'border-success/20 bg-success/10 text-success',
-}
-
-const statusLabels: Record<TBroadcastHubStatus, string> = {
-    draft: 'Draft',
-    scheduled: 'Terjadwal',
-    processing: 'Diproses',
-    sent: 'Terkirim',
-}
+/** Gaya status dari sumber tunggal lib (label + classes badge). */
+const statusMeta = computed(() => BROADCAST_STATUS_META[props.broadcast.status])
 
 /** Area edit hanya untuk draft/scheduled; processing/sent read-only + note terkunci. */
 const editable = computed<boolean>(
@@ -176,10 +165,10 @@ onMounted(() => {
                             </h1>
                             <Badge
                                 :class="
-                                    cn('shrink-0 border text-[11px] font-medium', statusClasses[props.broadcast.status])
+                                    cn('shrink-0 border text-[11px] font-medium', statusMeta.classes)
                                 "
                             >
-                                {{ statusLabels[props.broadcast.status] }}
+                                {{ statusMeta.label }}
                             </Badge>
                         </div>
                         <dl class="mt-3 grid gap-3 border-t border-border/60 pt-3 sm:grid-cols-3">
@@ -309,7 +298,7 @@ onMounted(() => {
             <CardContent class="p-4 sm:p-5">
                 <p role="note" class="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                     <Lock class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                    Broadcast {{ statusLabels[props.broadcast.status].toLowerCase() }} terkunci —
+                    Broadcast {{ statusMeta.label.toLowerCase() }} terkunci —
                     konten dan jadwal tidak bisa diubah (snapshot-only).
                 </p>
             </CardContent>
