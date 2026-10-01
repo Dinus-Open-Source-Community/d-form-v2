@@ -3,7 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import BroadcastAttachmentSection from '@/components/modules/dashboard/broadcast/BroadcastAttachmentSection.vue'
+import BroadcastAttachmentSection, {
+    type IBroadcastAttachmentItem,
+} from '@/components/modules/dashboard/broadcast/BroadcastAttachmentSection.vue'
 import BroadcastComposerSection from '@/components/modules/dashboard/broadcast/BroadcastComposerSection.vue'
 import BroadcastPreviewSection from '@/components/modules/dashboard/broadcast/BroadcastPreviewSection.vue'
 import BroadcastTestSendSection from '@/components/modules/dashboard/broadcast/BroadcastTestSendSection.vue'
@@ -44,6 +46,8 @@ const props = defineProps<{
     broadcast: IBroadcastShownBroadcast
     snapshot: IBroadcastSnapshot | null
     context: IBroadcastShowContext | null
+    /** Props paralel (id,name,size,mime); absen -> list mulai kosong. */
+    attachments?: IBroadcastAttachmentItem[]
 }>()
 
 /** Gaya status dari sumber tunggal lib (label + classes badge). */
@@ -287,7 +291,11 @@ onMounted(() => {
 
         <BroadcastTestSendSection v-if="editable" :broadcast-id="props.broadcast.id" />
 
-        <BroadcastAttachmentSection v-if="editable" :broadcast-id="props.broadcast.id" />
+        <BroadcastAttachmentSection
+            v-if="editable"
+            :broadcast-id="props.broadcast.id"
+            :initial-attachments="props.attachments ?? []"
+        />
 
         <Card v-if="editable" class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">

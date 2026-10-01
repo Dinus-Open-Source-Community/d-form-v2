@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
@@ -9,24 +10,34 @@ import { BROADCAST_BASE_PATH } from '@/lib/broadcastHub'
 import { showErrorToast, showHttpErrorToast } from '@/lib/error-message'
 import { Paperclip, Trash2, Upload } from 'lucide-vue-next'
 
-const props = defineProps<{ broadcastId: string }>()
+const props = defineProps<{ broadcastId: string; initialAttachments: IBroadcastAttachmentItem[] }>()
 
-interface BroadcastAttachment {
+/** Bentuk item seragam untuk props show (id,name,size,mime) maupun 201 upload. */
+export interface IBroadcastAttachmentItem {
     id: string
-    path: string
-    original_name: string
-    mime_type: string | null
+    name: string
     size: number
+    mime: string | null
 }
 
 const MAX_FILES = 3
 const MAX_BYTES = 5 * 1024 * 1024
 const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
 
-const attachments = ref<BroadcastAttachment[]>([])
+const attachments = ref<IBroadcastAttachmentItem[]>([...props.initialAttachments])
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const deletingId = ref<string | null>(null)
+const deleteDialogOpen = ref(false)
+const pendingDelete = ref<IBroadcastAttachmentItem | null>(null)
+
+/** Selaraskan ulang saat props show me-refresh (mis. router.reload usai retry/cancel). */
+watch(
+    () => props.initialAttachments,
+    (next) => {
+        attachments.value = [...next]
+    },
+)
 
 const countLabel = computed<string>(() => `${attachments.value.length}/${MAX_FILES}`)
 
@@ -61,14 +72,22 @@ async function uploadFile(file: File): Promise<void> {
     try {
         const payload = new FormData()
         payload.append('file', file)
-        const { data, status } = await axios.post<{ attachment: BroadcastAttachment }>(
+        const { data, status } = await axios.post<{
+            attachment: { id: string; original_name: string; mime_type: string | null; size: number }
+        }>(
             `${BROADCAST_BASE_PATH}/${props.broadcastId}/attachments`,
             payload,
             { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
         )
         if (status === 201) {
-            attachments.value = [...attachments.value, data.attachment]
-            toast.success(`Lampiran ${data.attachment.original_name} diunggah.`)
+            const item: IBroadcastAttachmentItem = {
+                id: data.attachment.id,
+                name: data.attachment.original_name,
+                size: data.attachment.size,
+                mime: data.attachment.mime_type,
+            }
+            attachments.value = [...attachments.value, item]
+            toast.success(`Lampiran ${item.name} diunggah.`)
         }
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
@@ -90,8 +109,22 @@ function onFileChange(event: Event): void {
     if (file) void uploadFile(file)
 }
 
-async function deleteAttachment(id: string): Promise<void> {
+/** Hapus via dialog konfirmasi (pola incumbent cancel/retry). */
+function requestDelete(item: IBroadcastAttachmentItem): void {
+    pendingDelete.value = item
+    deleteDialogOpen.value = true
+}
+
+function closeDeleteDialog(): void {
     if (deletingId.value) return
+    deleteDialogOpen.value = false
+    pendingDelete.value = null
+}
+
+async function confirmDelete(): Promise<void> {
+    const target = pendingDelete.value
+    if (!target || deletingId.value) return
+    const id = target.id
     deletingId.value = id
     try {
         await axios.delete(`${BROADCAST_BASE_PATH}/${props.broadcastId}/attachments/${id}`, {
@@ -99,6 +132,8 @@ async function deleteAttachment(id: string): Promise<void> {
         })
         attachments.value = attachments.value.filter((item) => item.id !== id)
         toast.success('Lampiran dihapus.')
+        deleteDialogOpen.value = false
+        pendingDelete.value = null
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
             showHttpErrorToast(error.response.status, error.response.data)
@@ -150,7 +185,7 @@ async function deleteAttachment(id: string): Promise<void> {
                     class="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5"
                 >
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-medium">{{ item.original_name }}</p>
+                        <p class="truncate text-sm font-medium">{{ item.name }}</p>
                         <p class="text-xs tabular-nums text-muted-foreground">{{ formatSize(item.size) }}</p>
                     </div>
                     <Button
@@ -159,8 +194,8 @@ async function deleteAttachment(id: string): Promise<void> {
                         size="icon"
                         class="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         :disabled="deletingId === item.id"
-                        :aria-label="`Hapus lampiran ${item.original_name}`"
-                        @click="deleteAttachment(item.id)"
+                        :aria-label="`Hapus lampiran ${item.name}`"
+                        @click="requestDelete(item)"
                     >
                         <Spinner v-if="deletingId === item.id" />
                         <Trash2 v-else class="size-4" aria-hidden="true" />
@@ -181,4 +216,21 @@ async function deleteAttachment(id: string): Promise<void> {
             />
         </CardContent>
     </Card>
+
+    <ConfirmationModal
+        :open="deleteDialogOpen"
+        title="Hapus lampiran?"
+        :description="
+            pendingDelete
+                ? `Berkas “${pendingDelete.name}” dihapus permanen dari broadcast ini.`
+                : 'Berkas dihapus permanen dari broadcast ini.'
+        "
+        confirm-text="Hapus"
+        cancel-text="Batal"
+        variant="destructive"
+        :loading="deletingId !== null"
+        @confirm="confirmDelete"
+        @cancel="closeDeleteDialog"
+        @update:open="(v: boolean) => { deleteDialogOpen = v }"
+    />
 </template>
