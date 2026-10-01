@@ -289,7 +289,7 @@ class BroadcastController extends Controller
     {
         $this->authorize('view', $broadcast);
 
-        $broadcast->load(['event:id,title', 'period:id,name']);
+        $broadcast->load(['event:id,title', 'period:id,name', 'attachments']);
 
         return Inertia::render('Dashboard/Broadcasts/Show', [
             'broadcast' => [
@@ -308,6 +308,15 @@ class BroadcastController extends Controller
                 'created_at' => $broadcast->created_at?->toIso8601String(),
             ],
             'snapshot' => $broadcast->recipient_snapshot,
+            'attachments' => $broadcast->attachments
+                ->map(fn (BroadcastAttachment $attachment): array => [
+                    'id' => $attachment->id,
+                    'name' => $attachment->original_name,
+                    'size' => (int) $attachment->size,
+                    'mime' => $attachment->mime_type,
+                ])
+                ->values()
+                ->all(),
             'context' => [
                 'event_title' => $broadcast->event?->title,
                 'period_name' => $broadcast->period?->name,
