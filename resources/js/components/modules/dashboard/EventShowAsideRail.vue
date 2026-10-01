@@ -17,6 +17,7 @@ import {
     ChevronDown,
     ChevronUp,
     Eye,
+    Megaphone,
 } from 'lucide-vue-next';
 import { edit as editEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
@@ -88,6 +89,15 @@ defineEmits<{
                     as-child
                 >
                     <Link :href="laporanHref"><BarChart3 class="mr-2 size-4" />Laporan dan log kehadiran</Link>
+                </Button>
+                <Button
+                    variant="outline"
+                    class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal"
+                    as-child
+                >
+                    <Link :href="routes.admin.broadcasts.create({ eventId: props.event.id })"
+                        ><Megaphone class="mr-2 size-4" />Kirim Broadcast</Link
+                    >
                 </Button>
             </CardContent>
         </Card>

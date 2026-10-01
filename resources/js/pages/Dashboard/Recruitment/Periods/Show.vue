@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Megaphone, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
@@ -587,6 +587,15 @@ function closePeriod(): void {
                             @click="closePeriod"
                         >
                             Tutup pendaftaran
+                        </Button>
+                        <Button as-child size="sm" variant="outline">
+                            <Link
+                                :href="routes.admin.broadcasts.create({ periodId: period.id })"
+                                :aria-label="'Kirim broadcast untuk ' + period.name"
+                            >
+                                <Megaphone class="mr-2 size-4" aria-hidden="true" />
+                                Kirim Broadcast
+                            </Link>
                         </Button>
                         <Button as-child size="sm" variant="outline">
                             <Link

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, Link } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,7 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowRight, Check, X } from 'lucide-vue-next'
+import { ArrowRight, Check, Megaphone, X } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
@@ -383,6 +383,15 @@ function submitReject(): void {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Applicant periode ini
             </h2>
+            <Button as-child variant="outline" size="sm">
+                <Link
+                    :href="routes.admin.broadcasts.create({ periodId: props.periodId })"
+                    aria-label="Kirim broadcast ke pelamar periode ini"
+                >
+                    <Megaphone class="mr-2 size-4" aria-hidden="true" />
+                    Kirim Broadcast
+                </Link>
+            </Button>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">

@@ -2,6 +2,7 @@
  * Pusat definisi URL frontend — selaras dengan `routes/web/**`.
  * Gunakan builder di sini; hindari string path hardcoded di komponen.
  */
+import { buildBroadcastCreateHref, type IBroadcastCreateLink } from './broadcastHub'
 
 const ADMIN_BASE = '/admin';
 const MEMBER_JOINED = '/joined';
@@ -171,6 +172,13 @@ export const routes = {
             edit: (id: string) => `${ADMIN_BASE}/users/${id}/edit`,
             update: (id: string) => `${ADMIN_BASE}/users/${id}`,
             destroy: (id: string) => `${ADMIN_BASE}/users/${id}`,
+        },
+        broadcasts: {
+            index: `${ADMIN_BASE}/broadcasts`,
+            create: (link?: IBroadcastCreateLink) => buildBroadcastCreateHref(link ?? {}),
+            store: `${ADMIN_BASE}/broadcasts`,
+            show: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
+            update: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
         },
     },
 
