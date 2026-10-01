@@ -17,12 +17,14 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\RecruitmentApplicationService;
 use App\Services\Recruitment\RecruitmentDivisionService;
+use App\Services\Recruitment\RecruitmentGroupLinkService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,6 +37,7 @@ class RecruitmentPeriodController extends Controller
         private readonly InterviewSessionService $sessionService,
         private readonly RecruitmentReportService $reportService,
         private readonly RecruitmentDivisionService $divisionService,
+        private readonly RecruitmentGroupLinkService $groupLinkService,
     ) {
     }
 
@@ -311,6 +314,18 @@ class RecruitmentPeriodController extends Controller
         return redirect()
             ->back()
             ->with('message', 'Periode recruitment dibuka untuk pendaftaran.');
+    }
+
+    public function sendGroupLink(Request $request, RecruitmentPeriod $period): JsonResponse
+    {
+        $this->authorize('sendGroupLink', $period);
+
+        $result = $this->groupLinkService->send($request->user(), $period);
+
+        return response()->json([
+            'period_id' => $period->id,
+            'dispatched' => $result['dispatched'],
+        ]);
     }
 
     public function close(RecruitmentPeriod $period): RedirectResponse

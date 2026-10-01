@@ -77,6 +77,10 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
         }
 
+        if ($this->templateKey === 'group_link') {
+            $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
+        }
+
         if ($this->templateKey === 'revision_required') {
             $variables = array_merge($variables, [
                 'revision_sections' => $this->revisionSectionLabels(),
@@ -182,6 +186,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'interview_reminder_h2' => 'Reminder interview',
             'final_accepted' => 'Kamu diterima!',
             'final_rejected' => 'Hasil OpenRecruitment',
+            'group_link' => 'Link grup WA',
             default => null,
         };
     }
@@ -198,6 +203,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'interview_reminder_h2' => EmailNotificationType::RecruitmentInterviewReminderH2,
             'final_accepted' => EmailNotificationType::RecruitmentFinalAccepted,
             'final_rejected' => EmailNotificationType::RecruitmentFinalRejected,
+            'group_link' => EmailNotificationType::RecruitmentGroupLink,
             default => EmailNotificationType::RecruitmentApplicationSubmitted,
         };
     }

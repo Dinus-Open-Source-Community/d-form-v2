@@ -45,6 +45,7 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('periods.applications.show');
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
+        Route::post('periods/{period}/send-group-link', [RecruitmentPeriodController::class, 'sendGroupLink'])->name('periods.send-group-link');
 
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');

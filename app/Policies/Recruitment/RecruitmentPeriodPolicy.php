@@ -50,6 +50,11 @@ class RecruitmentPeriodPolicy
         return $this->update($user, $period);
     }
 
+    public function sendGroupLink(User $user, RecruitmentPeriod $period): bool
+    {
+        return $this->update($user, $period);
+    }
+
     private function isSuperAdmin(User $user): bool
     {
         return $user->hasRole('super-admin');
