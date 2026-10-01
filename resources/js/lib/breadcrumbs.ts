@@ -75,6 +75,11 @@ export function buildBreadcrumbs(url: string, pageTitle: string): BreadcrumbItem
         if (isMemberBase && seg === 'events') {
             return;
         }
+        // Tanpa halaman index di Fase 1, hapus skip ini saat index page mendarat.
+        if (idx === 0 && seg === 'broadcasts') {
+            prefix += `/${seg}`;
+            return;
+        }
         prefix += `/${seg}`;
         const isLast = idx === rest.length - 1;
         const actionLabel = ACTION_LABELS[seg];
