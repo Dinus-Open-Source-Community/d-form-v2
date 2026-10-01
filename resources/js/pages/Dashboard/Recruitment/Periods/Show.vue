@@ -18,17 +18,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
+    type IPaginatorLink,
+    type IPaginatorMeta,
+    paginatorLinkAriaLabel,
+    paginatorLinkLabel,
+} from '@/lib/paginatorLinks'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, ChevronLeft, ChevronRight, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
@@ -96,28 +94,16 @@ interface SessionRow {
     division: { id: string; name: string; code: string } | null
 }
 
-interface ApplicationPaginator {
+interface ApplicationPaginator extends IPaginatorMeta {
     data: ApplicationRow[]
-    current_page: number
-    last_page: number
-    total: number
 }
 
-interface SessionPaginator {
+interface SessionPaginator extends IPaginatorMeta {
     data: SessionRow[]
-    current_page: number
-    last_page: number
-    total: number
 }
 
-interface BroadcastPaginator {
+interface BroadcastPaginator extends IPaginatorMeta {
     data: IBroadcastPeriodRow[]
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
-    from?: number | null
-    to?: number | null
 }
 
 interface ReportPayload {
@@ -158,8 +144,8 @@ interface InterviewerCandidate {
 const props = withDefaults(
     defineProps<{
         period: Period
-        /** Array penuh (BE kini) atau paginator (BE 8a kelak) — dinormalkan ke rows. */
-        applications?: ApplicationRow[] | ApplicationPaginator | null
+        /** Paginator kontrak 8a FINAL; null = tanpa izin, undefined = key absent (tab lain). */
+        applications?: ApplicationPaginator | null
         queue_counts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -182,8 +168,8 @@ const props = withDefaults(
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
-        /** Array penuh (tab lain) atau paginator 15/hal (tab broadcast, BE 8a). */
-        broadcasts?: IBroadcastPeriodRow[] | BroadcastPaginator
+        /** Paginator kontrak 8a FINAL; null/undefined = key absent (tab lain). */
+        broadcasts?: BroadcastPaginator | null
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -197,7 +183,6 @@ const props = withDefaults(
         divisions: () => [],
         assignments: () => [],
         interviewerCandidates: () => [],
-        broadcasts: () => [],
     },
 )
 
@@ -358,45 +343,30 @@ const groupedAssignments = computed<AssignmentGroup[]>(() => {
 
 const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
 
-const broadcastRows = computed<IBroadcastPeriodRow[]>(() => {
-    const value = props.broadcasts
-    if (value === null || value === undefined) return []
-    return Array.isArray(value) ? value : (value.data ?? [])
-})
+/** Baris broadcast dibaca dari .data paginator; key absent (tab lain) = kosong. */
+const broadcastRows = computed<IBroadcastPeriodRow[]>(() => props.broadcasts?.data ?? [])
 
-/** Meta paginator server; bentuk array lawas dianggap satu halaman penuh. */
+/** Meta paginator server; key absent (tab lain) dianggap halaman kosong. */
 const broadcastMeta = computed<{
     currentPage: number
     lastPage: number
     total: number
     from: number | null
     to: number | null
+    links: IPaginatorLink[]
 }>(() => {
-    const value = props.broadcasts
-    if (value !== null && value !== undefined && !Array.isArray(value)) {
-        return {
-            currentPage: value.current_page,
-            lastPage: value.last_page,
-            total: value.total,
-            from: value.from ?? null,
-            to: value.to ?? null,
-        }
+    const value: BroadcastPaginator | null | undefined = props.broadcasts
+    if (value === null || value === undefined) {
+        return { currentPage: 1, lastPage: 1, total: 0, from: null, to: null, links: [] }
     }
-    const total: number = broadcastRows.value.length
     return {
-        currentPage: 1,
-        lastPage: 1,
-        total,
-        from: total > 0 ? 1 : null,
-        to: total > 0 ? total : null,
+        currentPage: value.current_page,
+        lastPage: value.last_page,
+        total: value.total,
+        from: value.from ?? null,
+        to: value.to ?? null,
+        links: value.links ?? [],
     }
-})
-
-const broadcastPerPage = computed<number>(() => {
-    const value = props.broadcasts
-    if (value !== null && value !== undefined && !Array.isArray(value) && value.per_page !== undefined)
-        return value.per_page
-    return 15
 })
 
 const broadcastCountLabel = computed<string>(() => broadcastMeta.value.total.toLocaleString('id-ID'))
@@ -409,17 +379,17 @@ const broadcastRangeLabel = computed<string>(() => {
     return `Menampilkan ${from}–${to} dari ${total} broadcast`
 })
 
-/** Navigasi halaman server tab broadcast (?tab=broadcast&page=N). */
+/**
+ * Pindah halaman via links[] paginator (url sudah membawa ?tab=broadcast&page=N).
+ * Partial reload + replace agar riwayat tak menumpuk.
+ */
 const isBroadcastNavigating = ref<boolean>(false)
 
-function goToBroadcastPage(pageNumber: number): void {
-    const meta = broadcastMeta.value
-    if (isBroadcastNavigating.value) return
-    const target: number = Math.max(1, Math.min(pageNumber, meta.lastPage))
-    if (target === meta.currentPage) return
+function goToBroadcastUrl(url: string | null): void {
+    if (url === null || props.broadcasts == null || isBroadcastNavigating.value) return
     router.get(
-        routes.admin.recruitment.periods.show(props.period.id),
-        { tab: 'broadcast', page: target > 1 ? target : undefined },
+        url,
+        {},
         {
             preserveState: true,
             preserveScroll: true,
@@ -476,16 +446,11 @@ watch(
     },
 )
 
-const applicationRows = computed<ApplicationRow[]>(() => {
-    const value = props.applications
-    if (value === null || value === undefined) return []
-    return Array.isArray(value) ? value : (value.data ?? [])
-})
+const applicationRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
 
 const applicantTotal = computed<number>(() => {
-    const value = props.applications
-    if (value !== null && value !== undefined && !Array.isArray(value) && value.total > 0)
-        return value.total
+    const total: number | undefined = props.applications?.total
+    if (total !== undefined && total > 0) return total
     return applicationRows.value.length > 0
         ? applicationRows.value.length
         : (props.period.applications_count ?? 0)
@@ -1147,35 +1112,24 @@ function closePeriod(): void {
                         v-if="broadcastMeta.lastPage > 1"
                         class="flex flex-col items-center gap-3"
                     >
-                        <Pagination
-                            :page="broadcastMeta.currentPage"
-                            :total="broadcastMeta.total"
-                            :items-per-page="broadcastPerPage"
-                            :sibling-count="1"
-                            @update:page="goToBroadcastPage"
+                        <nav
+                            class="flex flex-wrap items-center justify-center gap-1.5"
+                            aria-label="Pagination"
                         >
-                            <PaginationContent v-slot="{ items }">
-                                <PaginationPrevious>
-                                    <ChevronLeft class="size-4" aria-hidden="true" />
-                                    <span class="hidden sm:block">Sebelumnya</span>
-                                </PaginationPrevious>
-                                <template v-for="(item, index) in items" :key="index">
-                                    <PaginationItem
-                                        v-if="item.type === 'page'"
-                                        :value="item.value"
-                                        :is-active="item.value === broadcastMeta.currentPage"
-                                        :aria-label="`Ke halaman ${item.value}`"
-                                    >
-                                        {{ item.value }}
-                                    </PaginationItem>
-                                    <PaginationEllipsis v-else :index="index" />
-                                </template>
-                                <PaginationNext>
-                                    <span class="hidden sm:block">Berikutnya</span>
-                                    <ChevronRight class="size-4" aria-hidden="true" />
-                                </PaginationNext>
-                            </PaginationContent>
-                        </Pagination>
+                            <Button
+                                v-for="link in broadcastMeta.links"
+                                :key="link.label"
+                                variant="outline"
+                                size="sm"
+                                :disabled="link.url === null || isBroadcastNavigating"
+                                :aria-label="paginatorLinkAriaLabel(link.label)"
+                                :aria-current="link.active ? 'page' : undefined"
+                                :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                                @click="goToBroadcastUrl(link.url)"
+                            >
+                                {{ paginatorLinkLabel(link.label) }}
+                            </Button>
+                        </nav>
                         <p class="text-sm text-muted-foreground">{{ broadcastRangeLabel }}</p>
                     </div>
                     <p

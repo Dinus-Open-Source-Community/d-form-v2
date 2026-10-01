@@ -5,14 +5,11 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+    type IPaginatorLink,
+    type IPaginatorMeta,
+    paginatorLinkAriaLabel,
+    paginatorLinkLabel,
+} from '@/lib/paginatorLinks'
 import {
     Dialog,
     DialogContent,
@@ -44,14 +41,8 @@ interface ApplicationRow {
     period: { id: string; name: string } | null
 }
 
-interface ApplicationPaginator {
+interface ApplicationPaginator extends IPaginatorMeta {
     data: ApplicationRow[]
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
-    from?: number | null
-    to?: number | null
 }
 
 const QUEUE_OPTIONS = [
@@ -66,8 +57,8 @@ const QUEUE_OPTIONS = [
 const props = withDefaults(
     defineProps<{
         periodId: string
-        /** Array penuh (BE kini) atau paginator (BE 8a kelak) — dinormalkan ke rows. */
-        applications: ApplicationRow[] | ApplicationPaginator | null
+        /** Paginator kontrak 8a FINAL; null = tanpa izin, undefined = key absent (tab lain). */
+        applications: ApplicationPaginator | null | undefined
         queueCounts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -205,11 +196,7 @@ function matchesQueue(row: ApplicationRow, activeQueue: string): boolean {
     }
 }
 
-const allRows = computed<ApplicationRow[]>(() => {
-    const value = props.applications
-    if (value === null) return []
-    return Array.isArray(value) ? value : (value.data ?? [])
-})
+const allRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
 
 const filteredRows = computed<ApplicationRow[]>(() => {
     const needle: string = search.value.trim().toLowerCase()
@@ -235,31 +222,26 @@ const filteredRows = computed<ApplicationRow[]>(() => {
     })
 })
 
-/** Meta paginator server; bentuk array lawas dianggap satu halaman penuh. */
+/** Meta paginator server; key absent (tab lain) dianggap halaman kosong. */
 const serverMeta = computed<{
     currentPage: number
     lastPage: number
     total: number
     from: number | null
     to: number | null
+    links: IPaginatorLink[]
 }>(() => {
-    const value = props.applications
-    if (value !== null && !Array.isArray(value)) {
-        return {
-            currentPage: value.current_page,
-            lastPage: value.last_page,
-            total: value.total,
-            from: value.from ?? null,
-            to: value.to ?? null,
-        }
+    const value: ApplicationPaginator | null | undefined = props.applications
+    if (value === null || value === undefined) {
+        return { currentPage: 1, lastPage: 1, total: 0, from: null, to: null, links: [] }
     }
-    const total: number = Array.isArray(value) ? value.length : 0
     return {
-        currentPage: 1,
-        lastPage: 1,
-        total,
-        from: total > 0 ? 1 : null,
-        to: total > 0 ? total : null,
+        currentPage: value.current_page,
+        lastPage: value.last_page,
+        total: value.total,
+        from: value.from ?? null,
+        to: value.to ?? null,
+        links: value.links ?? [],
     }
 })
 
@@ -271,12 +253,6 @@ const hasActiveFilter = computed<boolean>(() => {
         queue.value !== '' ||
         semester.value !== ''
     )
-})
-
-const perPage = computed<number>(() => {
-    const value = props.applications
-    if (value !== null && !Array.isArray(value) && value.per_page !== undefined) return value.per_page
-    return 15
 })
 
 const rangeLabel = computed<string>(() => {
@@ -292,14 +268,15 @@ const rangeLabel = computed<string>(() => {
     return `Menampilkan ${from}–${to} dari ${total} applicant`
 })
 
-function goToPage(pageNumber: number): void {
-    const meta = serverMeta.value
-    if (props.applications === null || isNavigating.value) return
-    const target: number = Math.max(1, Math.min(pageNumber, meta.lastPage))
-    if (target === meta.currentPage) return
+/**
+ * Pindah halaman via links[] paginator (url sudah membawa ?tab=peserta&page=N).
+ * Partial reload + replace agar riwayat tak menumpuk.
+ */
+function goToUrl(url: string | null): void {
+    if (url === null || props.applications == null || isNavigating.value) return
     router.get(
-        routes.admin.recruitment.periods.show(props.periodId),
-        { tab: 'peserta', page: target > 1 ? target : undefined },
+        url,
+        {},
         {
             preserveState: true,
             preserveScroll: true,
@@ -601,36 +578,25 @@ function submitReject(): void {
             v-if="applications"
             class="flex flex-col items-center gap-3 text-sm"
         >
-            <Pagination
+            <nav
                 v-if="serverMeta.lastPage > 1"
-                :page="serverMeta.currentPage"
-                :total="serverMeta.total"
-                :items-per-page="perPage"
-                :sibling-count="1"
-                @update:page="goToPage"
+                class="flex flex-wrap items-center justify-center gap-1.5"
+                aria-label="Pagination"
             >
-                <PaginationContent v-slot="{ items }">
-                    <PaginationPrevious>
-                        <ChevronLeft class="size-4" aria-hidden="true" />
-                        <span class="hidden sm:block">Sebelumnya</span>
-                    </PaginationPrevious>
-                    <template v-for="(item, index) in items" :key="`${item.type}-${index}`">
-                        <PaginationItem
-                            v-if="item.type === 'page'"
-                            :value="item.value"
-                            :is-active="item.value === serverMeta.currentPage"
-                            :aria-label="`Ke halaman ${item.value}`"
-                        >
-                            {{ item.value }}
-                        </PaginationItem>
-                        <PaginationEllipsis v-else :index="index" />
-                    </template>
-                    <PaginationNext>
-                        <span class="hidden sm:block">Berikutnya</span>
-                        <ChevronRight class="size-4" aria-hidden="true" />
-                    </PaginationNext>
-                </PaginationContent>
-            </Pagination>
+                <Button
+                    v-for="link in serverMeta.links"
+                    :key="link.label"
+                    variant="outline"
+                    size="sm"
+                    :disabled="link.url === null || isNavigating"
+                    :aria-label="paginatorLinkAriaLabel(link.label)"
+                    :aria-current="link.active ? 'page' : undefined"
+                    :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                    @click="goToUrl(link.url)"
+                >
+                    {{ paginatorLinkLabel(link.label) }}
+                </Button>
+            </nav>
             <p class="text-muted-foreground">{{ rangeLabel }}</p>
         </div>
 

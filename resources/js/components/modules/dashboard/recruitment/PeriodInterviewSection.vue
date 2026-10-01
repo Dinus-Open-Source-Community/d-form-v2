@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
+    type IPaginatorMeta,
+    paginatorLinkAriaLabel,
+    paginatorLinkLabel,
+} from '@/lib/paginatorLinks'
 import InterviewSessionCreateSheet, {
     type InterviewDivisionChoice,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue'
@@ -30,42 +27,35 @@ interface SessionRow {
     division: { id: string; name: string; code: string } | null
 }
 
-interface SessionPaginator {
+interface SessionPaginator extends IPaginatorMeta {
     data: SessionRow[]
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
-    from?: number | null
-    to?: number | null
 }
 
 const props = defineProps<{
-    sessions: SessionPaginator | null
+    /** Paginator kontrak 8a FINAL; null = key absent (tab lain) atau tanpa data. */
+    sessions: SessionPaginator | null | undefined
     periodId: string
     divisionOptions: InterviewDivisionChoice[]
 }>()
 
 const createOpen = ref<boolean>(false)
-/** Navigasi halaman sesi (visit ?tab=interview&page=N, replace agar tak menumpuk riwayat). */
+/** Navigasi halaman sesi via links[] paginator (replace agar tak menumpuk riwayat). */
 const isNavigating = ref<boolean>(false)
-
-const SESSION_FALLBACK_PER_PAGE = 15
-
-const perPage = computed<number>(() => props.sessions?.per_page ?? SESSION_FALLBACK_PER_PAGE)
 
 const rangeStart = computed<number>(() => {
     const sessions = props.sessions
     if (!sessions || sessions.total === 0) return 0
     if (sessions.from !== undefined && sessions.from !== null) return sessions.from
-    return (sessions.current_page - 1) * perPage.value + 1
+    const perPage: number = sessions.per_page ?? 15
+    return (sessions.current_page - 1) * perPage + 1
 })
 
 const rangeEnd = computed<number>(() => {
     const sessions = props.sessions
     if (!sessions || sessions.total === 0) return 0
     if (sessions.to !== undefined && sessions.to !== null) return sessions.to
-    return Math.min(sessions.total, sessions.current_page * perPage.value)
+    const perPage: number = sessions.per_page ?? 15
+    return Math.min(sessions.total, sessions.current_page * perPage)
 })
 
 const rangeLabel = computed<string>(() => {
@@ -75,14 +65,11 @@ const rangeLabel = computed<string>(() => {
     return `Menampilkan ${start}–${end} dari ${total} sesi`
 })
 
-function goToPage(pageNumber: number): void {
-    const sessions = props.sessions
-    if (!sessions || isNavigating.value) return
-    const target: number = Math.max(1, Math.min(pageNumber, sessions.last_page))
-    if (target === sessions.current_page) return
+function goToUrl(url: string | null): void {
+    if (url === null || props.sessions == null || isNavigating.value) return
     router.get(
-        routes.admin.recruitment.periods.show(props.periodId),
-        { tab: 'interview', page: target > 1 ? target : undefined },
+        url,
+        {},
         {
             preserveState: true,
             preserveScroll: true,
@@ -168,35 +155,21 @@ function goToPage(pageNumber: number): void {
         </Card>
 
         <div v-if="sessions && sessions.last_page > 1" class="flex flex-col items-center gap-3">
-            <Pagination
-                :page="sessions.current_page"
-                :total="sessions.total"
-                :items-per-page="perPage"
-                :sibling-count="1"
-                @update:page="goToPage"
-            >
-                <PaginationContent v-slot="{ items }">
-                    <PaginationPrevious>
-                        <ChevronLeft class="size-4" aria-hidden="true" />
-                        <span class="hidden sm:block">Sebelumnya</span>
-                    </PaginationPrevious>
-                    <template v-for="(item, index) in items" :key="index">
-                        <PaginationItem
-                            v-if="item.type === 'page'"
-                            :value="item.value"
-                            :is-active="item.value === sessions.current_page"
-                            :aria-label="`Ke halaman ${item.value}`"
-                        >
-                            {{ item.value }}
-                        </PaginationItem>
-                        <PaginationEllipsis v-else :index="index" />
-                    </template>
-                    <PaginationNext>
-                        <span class="hidden sm:block">Berikutnya</span>
-                        <ChevronRight class="size-4" aria-hidden="true" />
-                    </PaginationNext>
-                </PaginationContent>
-            </Pagination>
+            <nav class="flex flex-wrap items-center justify-center gap-1.5" aria-label="Pagination">
+                <Button
+                    v-for="link in sessions.links"
+                    :key="link.label"
+                    variant="outline"
+                    size="sm"
+                    :disabled="link.url === null || isNavigating"
+                    :aria-label="paginatorLinkAriaLabel(link.label)"
+                    :aria-current="link.active ? 'page' : undefined"
+                    :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
+                    @click="goToUrl(link.url)"
+                >
+                    {{ paginatorLinkLabel(link.label) }}
+                </Button>
+            </nav>
             <p class="text-sm text-muted-foreground">{{ rangeLabel }}</p>
         </div>
         <p v-else-if="sessions && sessions.data.length > 0" class="text-center text-sm text-muted-foreground">
