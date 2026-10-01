@@ -3,8 +3,8 @@
 use App\Http\Controllers\Dashboard\Broadcasts\BroadcastController;
 use Illuminate\Support\Facades\Route;
 
-// Broadcast hub: konten boleh diubah saat draft/scheduled; snapshot-only untuk penerima
-// (tanpa index/destroy dan tanpa endpoint datasets reusable).
+// Broadcast hub: index per-period untuk tab; konten boleh diubah saat draft/scheduled;
+// snapshot-only untuk penerima (tanpa destroy dan tanpa endpoint datasets reusable).
 Route::middleware('auth')->prefix('/admin/broadcasts')->name('dashboard.broadcasts.')->group(function (): void {
     Route::get('/create', [BroadcastController::class, 'create'])->name('create');
     Route::get('/', [BroadcastController::class, 'index'])->name('index');

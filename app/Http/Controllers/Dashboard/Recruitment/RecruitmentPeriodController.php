@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
+use App\Models\Broadcast;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -58,6 +59,26 @@ class RecruitmentPeriodController extends Controller
         return redirect()->route('dashboard.recruitment.periods.show', $period);
     }
 
+    /** Daftar broadcast ringkas satu periode, selaras kontrak index 4a (tanpa N+1). */
+    private function broadcastsForPeriodTab(RecruitmentPeriod $period): array
+    {
+        return Broadcast::query()
+            ->where('period_id', $period->id)
+            ->orderByDesc('created_at')
+            ->get(['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'])
+            ->map(fn (Broadcast $broadcast): array => [
+                'id' => $broadcast->id,
+                'name' => $broadcast->name,
+                'subject' => $broadcast->subject,
+                'status' => $broadcast->status,
+                'scheduled_at' => $broadcast->scheduled_at?->toIso8601String(),
+                'recipient_count' => $broadcast->recipient_count,
+                'created_at' => $broadcast->created_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
     public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
     {
         $this->authorize('view', $period);
@@ -66,7 +87,7 @@ class RecruitmentPeriodController extends Controller
 
         $validated = $request->validated();
         $tab = $validated['tab'] ?? 'peserta';
-        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer'], true)) {
+        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast'], true)) {
             $tab = 'peserta';
         }
 
@@ -79,6 +100,7 @@ class RecruitmentPeriodController extends Controller
         $assignments = null;
         $interviewerCandidates = null;
         $screeningReasonOptions = [];
+        $broadcasts = null;
 
         if ($tab === 'peserta') {
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
@@ -146,6 +168,10 @@ class RecruitmentPeriodController extends Controller
             $report = $this->reportService->build($period->id);
         }
 
+        if ($tab === 'broadcast') {
+            $broadcasts = $this->broadcastsForPeriodTab($period);
+        }
+
         if ($tab === 'interviewer') {
             $this->authorize('assignInterviewer', RecruitmentDivision::class);
 
@@ -206,6 +232,10 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'laporan') {
             $props['report'] = $report;
+        }
+
+        if ($tab === 'broadcast') {
+            $props['broadcasts'] = $broadcasts;
         }
 
         if ($tab === 'interviewer') {

@@ -426,4 +426,44 @@ class BroadcastHubTest extends TestCase
                     return array_column($broadcasts, 'id') === [$periodBroadcast->id];
                 }));
     }
+
+    public function test_b17_period_show_broadcast_tab_returns_period_broadcasts(): void
+    {
+        $owner = User::factory()->create();
+        $owner->givePermissionTo('recruitment.periods.view');
+
+        $period = RecruitmentPeriod::factory()->create(['created_by' => $owner->id]);
+        $otherPeriod = RecruitmentPeriod::factory()->create();
+
+        $first = Broadcast::factory()->create([
+            'name' => 'Tab Broadcast 1',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+        $second = Broadcast::factory()->create([
+            'name' => 'Tab Broadcast 2',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+        Broadcast::factory()->create([
+            'name' => 'Tab Broadcast Lain',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $otherPeriod->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $period->id, 'tab' => 'broadcast']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'broadcast')
+                ->where('broadcasts', function (array $broadcasts) use ($first, $second): bool {
+                    $ids = array_column($broadcasts, 'id');
+                    sort($ids);
+
+                    $expected = [$first->id, $second->id];
+                    sort($expected);
+
+                    return $ids === $expected;
+                }));
+    }
 }
