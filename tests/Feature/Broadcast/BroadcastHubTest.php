@@ -13,6 +13,7 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Services\Broadcast\BroadcastDispatchService;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -788,6 +789,156 @@ class BroadcastHubTest extends TestCase
         file_put_contents($path, $contents);
 
         return new UploadedFile($path, $name, null, null, true);
+    }
+
+    public function test_b24_retry_by_non_owner_is_forbidden(): void
+    {
+        Bus::fake();
+
+        $contextAdmin = User::factory()->create();
+        $contextAdmin->givePermissionTo('events.view');
+
+        $otherAdmin = User::factory()->create();
+        $otherEvent = Event::factory()->create(['created_by' => $otherAdmin->id]);
+
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $otherEvent->id,
+            'status' => Broadcast::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs($contextAdmin)
+            ->postJson(route('dashboard.broadcasts.retry', $broadcast))
+            ->assertForbidden();
+
+        Bus::assertNotDispatched(SendBroadcastJob::class);
+        $this->assertSame(Broadcast::STATUS_DRAFT, $broadcast->refresh()->status);
+    }
+
+    public function test_b25_attachments_reject_non_owner_and_locked_broadcast(): void
+    {
+        Storage::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $draft = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson(route('dashboard.broadcasts.attachments.store', $draft), [
+                'file' => $this->fakeUpload('dokumen.pdf', "%PDF-1.4\ntes"),
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('broadcast_attachments', 0);
+
+        $locked = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $locked), [
+                'file' => $this->fakeUpload('dokumen.pdf', "%PDF-1.4\ntes"),
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_b26_retry_flips_to_processing_and_full_success_marks_sent(): void
+    {
+        Bus::fake();
+        Mail::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_DRAFT,
+            'created_by' => $admin->id,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 2,
+                'recipients' => [
+                    ['email' => 'ok@example.com', 'name' => 'Ok'],
+                    ['email' => 'gagal@example.com', 'name' => 'Gagal'],
+                ],
+            ],
+            'recipient_count' => 2,
+        ]);
+
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'gagal@example.com',
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => 'smtp down',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $broadcast))
+            ->assertOk()
+            ->assertJson(['retried' => 1]);
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $broadcast->refresh()->status);
+
+        (new SendBroadcastJob($broadcast->id, 'gagal@example.com'))
+            ->handle(app(BroadcastDispatchService::class));
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $broadcast->refresh()->status);
+
+        (new SendBroadcastJob($broadcast->id, 'ok@example.com'))
+            ->handle(app(BroadcastDispatchService::class));
+
+        $this->assertSame(Broadcast::STATUS_SENT, $broadcast->refresh()->status);
+
+        $partial = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+            'created_by' => $admin->id,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 2,
+                'recipients' => [
+                    ['email' => 'baik@example.com', 'name' => 'Baik'],
+                    ['email' => 'buruk@example.com', 'name' => 'Buruk'],
+                ],
+            ],
+            'recipient_count' => 2,
+        ]);
+
+        EmailLog::query()->create([
+            'broadcast_id' => $partial->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'baik@example.com',
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'sent_at' => now(),
+        ]);
+        EmailLog::query()->create([
+            'broadcast_id' => $partial->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'buruk@example.com',
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => 'tetap gagal',
+        ]);
+
+        (new SendBroadcastJob($partial->id, 'baik@example.com'))
+            ->handle(app(BroadcastDispatchService::class));
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $partial->refresh()->status);
     }
     public function test_b17_period_show_broadcast_tab_returns_period_broadcasts(): void
     {
