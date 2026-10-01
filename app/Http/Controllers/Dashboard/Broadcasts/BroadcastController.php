@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Dashboard\Broadcasts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcast\BroadcastCreateRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastRequest;
+use App\Http\Requests\Broadcast\UpdateBroadcastRequest;
 use App\Models\Broadcast;
 use App\Models\Event;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Policies\BroadcastPolicy;
+use App\Services\Broadcast\BroadcastBodyText;
+use App\Services\Broadcast\BroadcastDispatchService;
 use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -20,6 +23,8 @@ class BroadcastController extends Controller
     public function __construct(
         private readonly BroadcastPolicy $broadcastPolicy,
         private readonly BroadcastSnapshotBuilder $snapshotBuilder,
+        private readonly BroadcastBodyText $broadcastBodyText,
+        private readonly BroadcastDispatchService $dispatchService,
     ) {
     }
 
@@ -63,6 +68,9 @@ class BroadcastController extends Controller
 
         $broadcast = Broadcast::query()->create([
             'name' => $validated['name'],
+            'subject' => $validated['subject'] ?? null,
+            'body_html' => $validated['body_html'] ?? null,
+            'body_text' => $this->broadcastBodyText->fromHtml($validated['body_html'] ?? null),
             'source' => $validated['source'],
             'event_id' => $validated['event_id'] ?? null,
             'period_id' => $validated['period_id'] ?? null,
@@ -73,6 +81,36 @@ class BroadcastController extends Controller
             'recipient_count' => $snapshot['total'],
             'created_by' => $user->id,
         ]);
+
+        return redirect()->route('dashboard.broadcasts.show', $broadcast);
+    }
+
+    /** Ubah konten draft/scheduled; snapshot penerima tidak tersentuh. */
+    public function update(UpdateBroadcastRequest $request, Broadcast $broadcast): RedirectResponse
+    {
+        $this->authorize('update', $broadcast);
+
+        $validated = $request->validated();
+
+        $broadcast->update([
+            'subject' => $validated['subject'] ?? $broadcast->subject,
+            'body_html' => $validated['body_html'] ?? $broadcast->body_html,
+            'body_text' => array_key_exists('body_html', $validated)
+                ? $this->broadcastBodyText->fromHtml($validated['body_html'])
+                : $broadcast->body_text,
+            'scheduled_at' => $validated['scheduled_at'] ?? $broadcast->scheduled_at,
+            'send_delay_seconds' => $validated['send_delay_seconds'] ?? $broadcast->send_delay_seconds,
+        ]);
+
+        return redirect()->route('dashboard.broadcasts.show', $broadcast);
+    }
+
+    /** Kirim-sekarang: otorisasi konteks + kunci processing + antre job per penerima. */
+    public function send(Broadcast $broadcast): RedirectResponse
+    {
+        $this->authorize('send', $broadcast);
+
+        $this->dispatchService->sendNow($broadcast->fresh() ?? $broadcast);
 
         return redirect()->route('dashboard.broadcasts.show', $broadcast);
     }
@@ -88,6 +126,9 @@ class BroadcastController extends Controller
             'broadcast' => [
                 'id' => $broadcast->id,
                 'name' => $broadcast->name,
+                'subject' => $broadcast->subject,
+                'body_html' => $broadcast->body_html,
+                'body_text' => $broadcast->body_text,
                 'source' => $broadcast->source,
                 'event_id' => $broadcast->event_id,
                 'period_id' => $broadcast->period_id,

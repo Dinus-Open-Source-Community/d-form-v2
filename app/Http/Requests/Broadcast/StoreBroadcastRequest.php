@@ -17,6 +17,8 @@ class StoreBroadcastRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'subject' => ['nullable', 'string', 'max:255'],
+            'body_html' => ['nullable', 'string'],
             'source' => ['required', 'in:'.implode(',', Broadcast::SOURCES)],
             'event_id' => ['required_if:source,'.Broadcast::SOURCE_EVENT_PARTICIPANTS, 'nullable', 'uuid', 'exists:events,id'],
             'period_id' => ['required_if:source,'.Broadcast::SOURCE_RECRUITMENT_APPLICANTS, 'nullable', 'uuid', 'exists:recruitment_periods,id'],

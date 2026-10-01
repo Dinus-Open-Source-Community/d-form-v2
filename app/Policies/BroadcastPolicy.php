@@ -29,6 +29,20 @@ class BroadcastPolicy
         return $this->hasGlobalSend($user) || $user->can('view', $period);
     }
 
+    /** Ubah konten: izin konteks + hanya saat draft/scheduled. */
+    public function update(User $user, Broadcast $broadcast): bool
+    {
+        return $this->view($user, $broadcast)
+            && in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true);
+    }
+
+    /** Kirim: izin konteks + hanya saat draft/scheduled. */
+    public function send(User $user, Broadcast $broadcast): bool
+    {
+        return $this->view($user, $broadcast)
+            && in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true);
+    }
+
     /** Lihat broadcast: mengikuti izin konteks yang tersimpan di snapshot target. */
     public function view(User $user, Broadcast $broadcast): bool
     {

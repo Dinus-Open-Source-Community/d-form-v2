@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Broadcast;
 
+use App\Jobs\SendBroadcastJob;
 use App\Models\Broadcast;
 use App\Models\Event;
 use App\Models\Form;
@@ -9,6 +10,7 @@ use App\Models\FormAnswer;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Tests\TestCase;
 
 class BroadcastHubTest extends TestCase
@@ -223,5 +225,112 @@ class BroadcastHubTest extends TestCase
                 ->where('prefill.event_id', $ownEvent->id)
                 ->where('prefill.locked_event', true)
                 ->has('allowed_events'));
+    }
+
+    public function test_b09_edit_draft_keeps_snapshot_unchanged(): void
+    {
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $member = User::factory()->create(['email' => 'peserta-b09@example.com']);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $member->id]);
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.broadcasts.store'), [
+                'name' => 'Broadcast Konten',
+                'source' => 'event_participants',
+                'event_id' => $event->id,
+            ])
+            ->assertRedirect();
+
+        $broadcast = Broadcast::query()->where('name', 'Broadcast Konten')->firstOrFail();
+        $originalSnapshot = $broadcast->recipient_snapshot;
+
+        $this->actingAs($admin)
+            ->put(route('dashboard.broadcasts.update', $broadcast), [
+                'subject' => 'Subjek Baru',
+                'body_html' => '<p>Halo <strong>dunia</strong></p>',
+            ])
+            ->assertRedirect();
+
+        $broadcast->refresh();
+
+        $this->assertSame('Subjek Baru', $broadcast->subject);
+        $this->assertSame('<p>Halo <strong>dunia</strong></p>', $broadcast->body_html);
+        $this->assertSame('Halo dunia', $broadcast->body_text);
+        $this->assertSame($originalSnapshot, $broadcast->recipient_snapshot);
+    }
+
+    public function test_b10_edit_processing_is_locked(): void
+    {
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'status' => Broadcast::STATUS_PROCESSING,
+        ]);
+
+        $this->actingAs($this->superAdmin())
+            ->put(route('dashboard.broadcasts.update', $broadcast), [
+                'subject' => 'Ubah Terkunci',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('broadcasts', [
+            'id' => $broadcast->id,
+            'subject' => 'Ubah Terkunci',
+        ]);
+    }
+
+    public function test_b11_send_now_dispatches_per_recipient_jobs(): void
+    {
+        Bus::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $memberA = User::factory()->create(['email' => 'kirim-a@example.com']);
+        $memberB = User::factory()->create(['email' => 'kirim-b@example.com']);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $memberA->id]);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $memberB->id]);
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.broadcasts.store'), [
+                'name' => 'Broadcast Kirim',
+                'subject' => 'Info Penting',
+                'body_html' => '<p>Halo {{nama}}</p>',
+                'source' => 'event_participants',
+                'event_id' => $event->id,
+            ])
+            ->assertRedirect();
+
+        $broadcast = Broadcast::query()->where('name', 'Broadcast Kirim')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.broadcasts.send', $broadcast))
+            ->assertRedirect();
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $broadcast->refresh()->status);
+
+        Bus::assertDispatched(SendBroadcastJob::class, 2);
+    }
+
+    public function test_b12_send_now_by_non_owner_is_forbidden(): void
+    {
+        $contextAdmin = User::factory()->create();
+        $contextAdmin->givePermissionTo('events.view');
+
+        $otherAdmin = User::factory()->create();
+        $otherEvent = Event::factory()->create(['created_by' => $otherAdmin->id]);
+
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $otherEvent->id,
+            'status' => Broadcast::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs($contextAdmin)
+            ->post(route('dashboard.broadcasts.send', $broadcast))
+            ->assertForbidden();
+
+        $this->assertSame(Broadcast::STATUS_DRAFT, $broadcast->refresh()->status);
     }
 }

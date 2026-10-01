@@ -38,6 +38,9 @@ class Broadcast extends Model
 
     protected $fillable = [
         'name',
+        'subject',
+        'body_html',
+        'body_text',
         'source',
         'event_id',
         'period_id',
