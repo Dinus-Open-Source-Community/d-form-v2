@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
+import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { cn } from '@/lib/utils'
-import { ImageUp, X } from 'lucide-vue-next'
 
 interface PeriodSettings {
     id: string
@@ -62,53 +62,8 @@ const whatsappError = computed<string | null>(() => {
     return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.'
 })
 
-const bannerInput = ref<HTMLInputElement | null>(null)
-const bannerPreview = ref<string | null>(existingBannerUrl.value)
-const isDragging = ref(false)
-let bannerObjectUrl: string | null = null
-
 const dateErrorClass =
     'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
-
-onUnmounted(releaseBannerObjectUrl)
-
-function openBannerPicker(): void {
-    bannerInput.value?.click()
-}
-
-function releaseBannerObjectUrl(): void {
-    if (bannerObjectUrl) {
-        URL.revokeObjectURL(bannerObjectUrl)
-        bannerObjectUrl = null
-    }
-}
-
-function applyBannerFile(file: File): void {
-    releaseBannerObjectUrl()
-    bannerObjectUrl = URL.createObjectURL(file)
-    bannerPreview.value = bannerObjectUrl
-    form.banner = file
-}
-
-function handleBannerChange(event: Event): void {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    if (file) applyBannerFile(file)
-    input.value = ''
-}
-
-function handleBannerDrop(event: DragEvent): void {
-    isDragging.value = false
-    const file = event.dataTransfer?.files?.[0]
-    if (file && file.type.startsWith('image/')) applyBannerFile(file)
-}
-
-/** Membatalkan pilihan berkas baru; banner lama tetap dipakai (tidak dikirim ulang). */
-function removeBanner(): void {
-    releaseBannerObjectUrl()
-    form.banner = null
-    bannerPreview.value = existingBannerUrl.value
-}
 
 function submit(): void {
     if (whatsappError.value) {
@@ -182,90 +137,12 @@ function submit(): void {
                     </p>
                 </div>
 
-                <div class="space-y-2">
-                    <div class="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                            <Label for="period-banner">Banner</Label>
-                            <p class="text-muted-foreground mt-1 text-xs">
-                                Opsional — disarankan 16:9, maks 10MB. Pilih berkas baru untuk
-                                menggantikan banner saat ini.
-                            </p>
-                        </div>
-                        <div v-if="bannerPreview" class="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                class="h-9 text-xs"
-                                @click="openBannerPicker"
-                            >
-                                Ganti
-                            </Button>
-                            <Button
-                                v-if="form.banner"
-                                type="button"
-                                radius="icon"
-                                variant="ghost"
-                                size="icon-sm"
-                                class="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                aria-label="Batalkan pilihan banner baru"
-                                @click="removeBanner"
-                            >
-                                <X class="size-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div
-                        :class="
-                            cn(
-                                'border-border bg-muted/25 overflow-hidden rounded-xl border-2 transition-colors',
-                                isDragging && 'border-primary/60 bg-primary/5',
-                            )
-                        "
-                    >
-                        <div class="relative aspect-video w-full">
-                            <img
-                                v-if="bannerPreview"
-                                :src="bannerPreview"
-                                alt="Pratinjau banner"
-                                class="absolute inset-0 size-full object-cover"
-                            />
-                            <div
-                                v-else
-                                class="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2.5 px-6 text-center"
-                                @dragover.prevent="isDragging = true"
-                                @dragleave="isDragging = false"
-                                @drop.prevent="handleBannerDrop"
-                                @click="openBannerPicker"
-                            >
-                                <span
-                                    class="bg-muted text-muted-foreground grid size-12 place-items-center rounded-full"
-                                >
-                                    <ImageUp class="size-5.5 stroke-[1.75]" aria-hidden="true" />
-                                </span>
-                                <div>
-                                    <p class="text-sm font-medium">Unggah banner</p>
-                                    <p class="text-muted-foreground mt-0.5 text-xs">
-                                        Klik untuk memilih, atau seret gambar ke sini
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <p v-if="form.errors.banner" class="text-destructive text-xs">
-                        {{ form.errors.banner }}
-                    </p>
-                    <input
-                        id="period-banner"
-                        ref="bannerInput"
-                        type="file"
-                        accept="image/*"
-                        class="hidden"
-                        @change="handleBannerChange"
-                    />
-                </div>
+                <PeriodBannerField
+                    v-model="form.banner"
+                    :banner-url="existingBannerUrl"
+                    :error="form.errors.banner"
+                    :disabled="form.processing"
+                />
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <SplitDateTimeField
