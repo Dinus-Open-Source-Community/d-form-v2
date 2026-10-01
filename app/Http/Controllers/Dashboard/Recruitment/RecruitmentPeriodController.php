@@ -87,7 +87,7 @@ class RecruitmentPeriodController extends Controller
 
         $validated = $request->validated();
         $tab = $validated['tab'] ?? 'peserta';
-        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast'], true)) {
+        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast', 'settings'], true)) {
             $tab = 'peserta';
         }
 
