@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Broadcast;
 
+use App\Enums\EmailLogStatus;
+use App\Enums\EmailNotificationType;
 use App\Jobs\SendBroadcastJob;
+use App\Mail\BroadcastMail;
 use App\Models\Broadcast;
+use App\Models\EmailLog;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
@@ -11,7 +15,10 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class BroadcastHubTest extends TestCase
@@ -427,6 +434,361 @@ class BroadcastHubTest extends TestCase
                 }));
     }
 
+    public function test_b18_preview_renders_subject_body_with_sample_name(): void
+    {
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'subject' => 'Halo Peserta',
+            'body_html' => '<p>Hai {{nama}}, selamat datang!</p>',
+            'status' => Broadcast::STATUS_DRAFT,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 1,
+                'recipients' => [['email' => 'peserta@example.com', 'name' => 'Budi']],
+            ],
+            'recipient_count' => 1,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard.broadcasts.preview', $broadcast));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'text/html; charset=UTF-8');
+        $response->assertSee('Halo Peserta', false);
+        $response->assertSee('Hai Budi', false);
+        $response->assertDontSee('{{nama}}', false);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('dashboard.broadcasts.preview', $broadcast))
+            ->assertForbidden();
+    }
+
+    public function test_b19_test_send_delivers_one_mail_and_rejects_invalid(): void
+    {
+        Mail::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'subject' => 'Info Uji',
+            'body_html' => '<p>Halo {{nama}}</p>',
+            'status' => Broadcast::STATUS_DRAFT,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 0,
+                'recipients' => [],
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.test', $broadcast), ['email' => 'coba@example.com'])
+            ->assertOk()
+            ->assertJson(['sent' => true, 'email' => 'coba@example.com']);
+
+        Mail::assertSent(BroadcastMail::class, 1);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.test', $broadcast), ['email' => 'bukan-email'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        $this->actingAs(User::factory()->create())
+            ->postJson(route('dashboard.broadcasts.test', $broadcast), ['email' => 'coba@example.com'])
+            ->assertForbidden();
+    }
+
+    public function test_b20_attachments_crud_capped_and_attached_to_outgoing_mail(): void
+    {
+        Storage::fake();
+        Mail::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'subject' => 'Info Lampiran',
+            'body_html' => '<p>Lihat lampiran</p>',
+            'status' => Broadcast::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('catatan.txt', 'text-txt-tidak-valid'),
+            ])
+            ->assertUnprocessable();
+
+        $first = $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('dokumen.pdf', "%PDF-1.4\ntes lampiran"),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('attachment.original_name', 'dokumen.pdf');
+
+        Storage::disk()->assertExists($first->json('attachment.path'));
+        $this->assertDatabaseHas('broadcast_attachments', ['id' => $first->json('attachment.id')]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), ['email' => 'x'])
+            ->assertUnprocessable();
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('foto.jpg', "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00tess"),
+            ])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('info.pdf', "%PDF-1.4\nketiga"),
+            ])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('lebih.pdf', "%PDF-1.4\nkeempat"),
+            ])
+            ->assertUnprocessable();
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.test', $broadcast), ['email' => 'coba@example.com'])
+            ->assertOk();
+
+        Mail::assertSent(BroadcastMail::class, fn (BroadcastMail $mail): bool => count($mail->attachments()) === 3);
+
+        $path = (string) $first->json('attachment.path');
+
+        $this->actingAs($admin)
+            ->deleteJson(route('dashboard.broadcasts.attachments.destroy', [
+                'broadcast' => $broadcast->id,
+                'attachment' => $first->json('attachment.id'),
+            ]))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('broadcast_attachments', ['id' => $first->json('attachment.id')]);
+        Storage::disk()->assertMissing($path);
+    }
+
+    public function test_b21_retry_failed_redispatches_only_failed(): void
+    {
+        Bus::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_DRAFT,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 2,
+                'recipients' => [
+                    ['email' => 'ok@example.com', 'name' => 'Ok'],
+                    ['email' => 'gagal@example.com', 'name' => 'Gagal'],
+                ],
+            ],
+            'recipient_count' => 2,
+        ]);
+
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'ok@example.com',
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'sent_at' => now(),
+        ]);
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'gagal@example.com',
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => 'smtp down',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $broadcast))
+            ->assertOk()
+            ->assertJson(['retried' => 1]);
+
+        Bus::assertDispatched(SendBroadcastJob::class, fn (SendBroadcastJob $job): bool => $job->recipientEmail === 'gagal@example.com');
+        Bus::assertDispatchedTimes(SendBroadcastJob::class, 1);
+
+        $clean = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_DRAFT,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 1,
+                'recipients' => [['email' => 'baru@example.com', 'name' => 'Baru']],
+            ],
+            'recipient_count' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $clean))
+            ->assertOk()
+            ->assertJson(['retried' => 0]);
+
+        $busy = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.retry', $busy))
+            ->assertStatus(422);
+    }
+
+    public function test_b22_cancel_scheduled_returns_to_draft_and_reschedulable(): void
+    {
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $scheduled = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_SCHEDULED,
+            'scheduled_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.cancel', $scheduled))
+            ->assertOk()
+            ->assertJson(['status' => Broadcast::STATUS_DRAFT]);
+
+        $this->assertSame(Broadcast::STATUS_DRAFT, $scheduled->refresh()->status);
+        $this->assertNull($scheduled->refresh()->scheduled_at);
+
+        $this->actingAs($admin)
+            ->put(route('dashboard.broadcasts.update', $scheduled), ['scheduled_at' => now()->addDays(2)->toDateTimeString()])
+            ->assertRedirect();
+
+        $this->assertSame(Broadcast::STATUS_SCHEDULED, $scheduled->refresh()->status);
+
+        $busy = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.cancel', $busy))
+            ->assertStatus(422);
+
+        $this->assertSame(Broadcast::STATUS_PROCESSING, $busy->refresh()->status);
+
+        $other = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_SCHEDULED,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson(route('dashboard.broadcasts.cancel', $other))
+            ->assertForbidden();
+
+        $this->assertSame(Broadcast::STATUS_SCHEDULED, $other->refresh()->status);
+    }
+
+    public function test_b23_tracking_returns_per_recipient_rows_and_summary(): void
+    {
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_PROCESSING,
+            'recipient_snapshot' => [
+                'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+                'event_id' => $event->id,
+                'total' => 3,
+                'recipients' => [
+                    ['email' => 'kirim@example.com', 'name' => 'Kirim'],
+                    ['email' => 'gagal@example.com', 'name' => 'Gagal'],
+                    ['email' => 'tunggu@example.com', 'name' => 'Tunggu'],
+                ],
+            ],
+            'recipient_count' => 3,
+        ]);
+
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'kirim@example.com',
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'sent_at' => now(),
+        ]);
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'gagal@example.com',
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => 'coba 1',
+        ]);
+        EmailLog::query()->create([
+            'broadcast_id' => $broadcast->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'gagal@example.com',
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::BroadcastSent,
+            'error_message' => 'coba 2',
+        ]);
+
+        $response = $this->actingAs($admin)->getJson(route('dashboard.broadcasts.tracking', $broadcast));
+
+        $response->assertOk()->assertJson([
+            'summary' => ['total' => 3, 'sent' => 1, 'failed' => 1, 'pending' => 1],
+        ]);
+
+        $rows = collect($response->json('rows'))->keyBy('email');
+
+        $this->assertSame('sent', $rows['kirim@example.com']['status']);
+        $this->assertSame(1, $rows['kirim@example.com']['attempts']);
+        $this->assertNotNull($rows['kirim@example.com']['sent_at']);
+
+        $this->assertSame('failed', $rows['gagal@example.com']['status']);
+        $this->assertSame(2, $rows['gagal@example.com']['attempts']);
+        $this->assertNotNull($rows['gagal@example.com']['failed_at']);
+
+        $this->assertSame('pending', $rows['tunggu@example.com']['status']);
+        $this->assertSame(0, $rows['tunggu@example.com']['attempts']);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson(route('dashboard.broadcasts.tracking', $broadcast))
+            ->assertForbidden();
+    }
+
+    /** Berkas uploadунку nyata (magic bytes) agar validasi mimes lolos di fake disk. */
+    private function fakeUpload(string $name, string $contents): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'bcast-test');
+
+        if ($path === false) {
+            $this->fail('Gagal membuat berkas temp untuk upload uji.');
+        }
+
+        file_put_contents($path, $contents);
+
+        return new UploadedFile($path, $name, null, null, true);
+    }
     public function test_b17_period_show_broadcast_tab_returns_period_broadcasts(): void
     {
         $owner = User::factory()->create();
