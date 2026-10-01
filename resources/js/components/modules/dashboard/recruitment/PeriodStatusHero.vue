@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import {
     daysRemaining,
@@ -61,9 +59,6 @@ const canClose = computed(() => props.period.status === 'open')
                 <Button v-if="canOpen" size="sm" @click="emit('open')">Buka pendaftaran</Button>
                 <Button v-if="canClose" variant="destructive" size="sm" @click="emit('close')">
                     Tutup pendaftaran
-                </Button>
-                <Button as-child variant="outline" size="sm">
-                    <Link :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`">Edit</Link>
                 </Button>
             </div>
         </CardContent>

@@ -71,6 +71,7 @@ interface ApplicationRow {
     revision_required: boolean
     submitted_at: string | null
     primary_division: { id: string; name: string } | null
+    secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
 }
 
@@ -85,6 +86,13 @@ interface SessionRow {
     interviews_count: number
     period: { id: string; name: string } | null
     division: { id: string; name: string; code: string } | null
+}
+
+interface ApplicationPaginator {
+    data: ApplicationRow[]
+    current_page: number
+    last_page: number
+    total: number
 }
 
 interface SessionPaginator {
@@ -132,7 +140,8 @@ interface InterviewerCandidate {
 const props = withDefaults(
     defineProps<{
         period: Period
-        applications?: ApplicationRow[] | null
+        /** Array penuh (BE kini) atau paginator (BE 8a kelak) — dinormalkan ke rows. */
+        applications?: ApplicationRow[] | ApplicationPaginator | null
         queue_counts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -373,8 +382,19 @@ watch(
     },
 )
 
+const applicationRows = computed<ApplicationRow[]>(() => {
+    const value = props.applications
+    if (value === null || value === undefined) return []
+    return Array.isArray(value) ? value : (value.data ?? [])
+})
+
 const applicantTotal = computed<number>(() => {
-    return props.applications?.length ?? props.period.applications_count ?? 0
+    const value = props.applications
+    if (value !== null && value !== undefined && !Array.isArray(value) && value.total > 0)
+        return value.total
+    return applicationRows.value.length > 0
+        ? applicationRows.value.length
+        : (props.period.applications_count ?? 0)
 })
 
 const participantCountLabel = computed<string>(() => {
@@ -400,11 +420,38 @@ function initialTab(): TabValue {
 
 const activeTab = ref<TabValue>(initialTab())
 /**
- * Tab settings bersifat lokal (tak butuh data server — period sudah lengkap di props).
- * Penanda ini membedakan navigasi tab sungguhan dari echo server (redirect PUT update
+ * Membedakan navigasi tab sungguhan dari echo server (redirect PUT update settings
  * kembali tanpa query tab) agar pengguna tidak terlempar dari tab settings usai simpan.
  */
 const expectTab = ref<TabValue | null>(null)
+/** Indikator ringan selama pindah tab (navigasi Inertia replace). */
+const tabNavigating = ref<boolean>(false)
+
+/**
+ * Props yang diminta ulang per tab (partial reload): tab aktif selalu butuh
+ * period/tab/query segar, sisanya hanya data milik tab itu agar pindah tab
+ * tetap hit backend tanpa memuat ulang data tab lain.
+ */
+const TAB_ONLY: Record<TabValue, string[]> = {
+    peserta: [
+        'period',
+        'tab',
+        'query',
+        'applications',
+        'queue_counts',
+        'screening_reason_options',
+        'division_options',
+        'membership_type_options',
+        'divisionOptions',
+        'semesterOptions',
+        'stageOptions',
+    ],
+    interview: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
+    laporan: ['period', 'tab', 'query', 'report'],
+    interviewer: ['period', 'tab', 'query', 'divisions', 'assignments', 'interviewerCandidates'],
+    broadcast: ['period', 'tab', 'query', 'broadcasts'],
+    settings: ['period', 'tab', 'query'],
+}
 
 function settingsUrl(): string {
     return `${routes.admin.recruitment.periods.show(props.period.id)}?tab=settings`
@@ -424,29 +471,34 @@ watch(
     },
 )
 
-function onTabChange(value: string | number): void {
-    const next = String(value)
-    if (!(validTabs as readonly string[]).includes(next)) return
-    if (next === activeTab.value) return
-    if (next === 'settings') {
-        if (!canEdit.value) return
-        expectTab.value = null
-        activeTab.value = 'settings'
-        window.history.replaceState(null, '', settingsUrl())
-        return
-    }
-    expectTab.value = next as TabValue
+function visitTab(target: TabValue): void {
+    if (target === activeTab.value) return
+    expectTab.value = target
     router.get(
         routes.admin.recruitment.periods.show(props.period.id),
-        { tab: next === 'peserta' ? undefined : next },
+        { tab: target === 'peserta' ? undefined : target },
         {
             preserveState: true,
             preserveScroll: true,
+            replace: true,
+            only: TAB_ONLY[target],
+            onStart: () => {
+                tabNavigating.value = true
+            },
             onFinish: () => {
+                tabNavigating.value = false
                 expectTab.value = null
             },
         },
     )
+}
+
+function onTabChange(value: string | number): void {
+    const next = String(value)
+    if (!(validTabs as readonly string[]).includes(next)) return
+    const target = normalizeTab(next)
+    if (target === 'settings' && !canEdit.value) return
+    visitTab(target)
 }
 
 /** Usai simpan (PUT update redirect tanpa query tab): pin kembali tab settings + URL. */
@@ -658,14 +710,6 @@ function closePeriod(): void {
                                 Kirim Broadcast
                             </Link>
                         </Button>
-                        <Button v-if="canEdit" as-child size="sm" variant="outline">
-                            <Link
-                                :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`"
-                                :aria-label="'Edit periode ' + period.name"
-                            >
-                                Edit
-                            </Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -776,6 +820,14 @@ function closePeriod(): void {
                     <Settings class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
                     <span>Settings</span>
                 </TabsTrigger>
+                <span
+                    v-if="tabNavigating"
+                    role="status"
+                    class="ml-auto inline-flex shrink-0 animate-pulse items-center gap-1.5 px-1 py-2.5 text-xs text-muted-foreground"
+                >
+                    <span aria-hidden="true" class="size-1.5 animate-ping rounded-full bg-primary" />
+                    Memuat…
+                </span>
             </TabsList>
 
             <TabsContent value="peserta" class="mt-4">

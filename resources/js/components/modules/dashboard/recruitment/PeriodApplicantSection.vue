@@ -35,6 +35,13 @@ interface ApplicationRow {
     period: { id: string; name: string } | null
 }
 
+interface ApplicationPaginator {
+    data: ApplicationRow[]
+    current_page: number
+    last_page: number
+    total: number
+}
+
 const QUEUE_OPTIONS = [
     { key: '', label: 'Semua antrean' },
     { key: 'screening', label: 'Screening' },
@@ -47,7 +54,8 @@ const QUEUE_OPTIONS = [
 const props = withDefaults(
     defineProps<{
         periodId: string
-        applications: ApplicationRow[] | null
+        /** Array penuh (BE kini) atau paginator (BE 8a kelak) — dinormalkan ke rows. */
+        applications: ApplicationRow[] | ApplicationPaginator | null
         queueCounts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -185,9 +193,15 @@ function matchesQueue(row: ApplicationRow, activeQueue: string): boolean {
     }
 }
 
+const allRows = computed<ApplicationRow[]>(() => {
+    const value = props.applications
+    if (value === null) return []
+    return Array.isArray(value) ? value : (value.data ?? [])
+})
+
 const filteredRows = computed<ApplicationRow[]>(() => {
     const needle: string = search.value.trim().toLowerCase()
-    return (props.applications ?? []).filter((row) => {
+    return allRows.value.filter((row) => {
         if (needle !== '') {
             const haystack: string =
                 `${row.full_name} ${row.nim} ${row.registration_number}`.toLowerCase()
