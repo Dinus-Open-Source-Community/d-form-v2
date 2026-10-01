@@ -61,7 +61,7 @@ final class ScreeningService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening', null, null, null, $application->period?->whatsapp_group_url);
 
             return $screening;
         });

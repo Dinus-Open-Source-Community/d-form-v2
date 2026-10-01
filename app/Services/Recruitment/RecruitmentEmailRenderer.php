@@ -232,6 +232,7 @@ final class RecruitmentEmailRenderer
         $name = $this->e($variables, 'applicant_name');
         $reg = $this->e($variables, 'registration_number');
         $trackingUrl = $this->e($variables, 'tracking_url');
+        $whatsappUrl = $this->e($variables, 'whatsapp_group_url');
 
         $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
             .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
@@ -239,6 +240,16 @@ final class RecruitmentEmailRenderer
             .'Kamu lolos tahap screening OpenRecruitment DOSCOM.</p>'
             .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
             .'Jadwal interview akan kami kirim lewat email berikutnya. Pantau juga portal tracking untuk update terbaru.</p>';
+
+        if ($whatsappUrl !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 20px;">'
+                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
+                .'<a href="'.$whatsappUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Gabung Grup WA</a>'
+                .'</td></tr></table>';
+        }
 
         if ($reg !== '') {
             $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
@@ -272,10 +283,15 @@ final class RecruitmentEmailRenderer
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
         $rawTrackingUrl = (string) ($variables['tracking_url'] ?? '');
+        $rawWhatsappUrl = (string) ($variables['whatsapp_group_url'] ?? '');
 
         $bodyText = 'Halo '.$rawName.",\n\n"
             ."Kamu lolos tahap screening OpenRecruitment DOSCOM.\n\n"
             ."Jadwal interview akan kami kirim lewat email berikutnya. Pantau juga portal tracking untuk update terbaru.\n\n";
+
+        if (trim($rawWhatsappUrl) !== '') {
+            $bodyText .= "Gabung Grup WA:\n".trim($rawWhatsappUrl)."\n\n";
+        }
 
         if ($rawReg !== '') {
             $bodyText .= "────────────────────────\n"

@@ -36,6 +36,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
         public ?string $interviewId = null,
         public ?array $revisionSections = null,
         public ?string $revisionNotes = null,
+        public ?string $whatsappGroupUrl = null,
     ) {
     }
 
@@ -71,6 +72,10 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'primary_division' => $application->primaryDivision?->name ?? '',
             'tracking_url' => $trackingUrl,
         ];
+
+        if ($this->templateKey === 'passed_screening' && filled($this->whatsappGroupUrl)) {
+            $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
+        }
 
         if ($this->templateKey === 'revision_required') {
             $variables = array_merge($variables, [

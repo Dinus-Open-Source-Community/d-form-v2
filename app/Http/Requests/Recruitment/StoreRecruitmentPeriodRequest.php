@@ -25,6 +25,7 @@ class StoreRecruitmentPeriodRequest extends FormRequest
             'interview_ends_at' => ['nullable', 'date', 'after_or_equal:interview_starts_at'],
             'finalization_deadline_at' => ['nullable', 'date'],
             'banner' => ['sometimes', 'nullable', 'image', 'max:10240', 'mimes:jpg,jpeg,png,webp'],
+            'whatsapp_group_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
         ];
     }
 
@@ -37,6 +38,8 @@ class StoreRecruitmentPeriodRequest extends FormRequest
             'banner.image' => 'Banner harus berupa file gambar.',
             'banner.max' => 'Ukuran banner tidak boleh lebih dari 10 MB.',
             'banner.mimes' => 'Banner harus berformat JPG, JPEG, PNG, atau WEBP.',
+            'whatsapp_group_url.url' => 'Link grup WA harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
+            'whatsapp_group_url.starts_with' => 'Link grup WA harus memakai https://.',
         ];
     }
 }

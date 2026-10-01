@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ResendRecruitmentEmailRequest;
 use App\Http\Requests\Recruitment\ResendRecruitmentTrackingRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
+use App\Services\Recruitment\EmailResendCommand;
+use App\Services\Recruitment\RecruitmentEmailResendService;
 use App\Services\Recruitment\RecruitmentTrackingResendService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +20,7 @@ class RecruitmentApplicationController extends Controller
     public function __construct(
         private readonly ApplicationVerificationService $verificationService,
         private readonly RecruitmentTrackingResendService $trackingResendService,
+        private readonly RecruitmentEmailResendService $emailResendService,
     ) {
     }
 
@@ -110,5 +114,19 @@ class RecruitmentApplicationController extends Controller
         return redirect()
             ->back()
             ->with('message', 'Informasi tracking telah dikirim ulang ke applicant.');
+    }
+
+    public function resendEmail(ResendRecruitmentEmailRequest $request, RecruitmentApplication $application): RedirectResponse
+    {
+        $this->emailResendService->resend(new EmailResendCommand(
+            actor: $request->user(),
+            application: $application,
+            type: $request->validated('type'),
+            request: $request,
+        ));
+
+        return redirect()
+            ->back()
+            ->with('message', 'Email telah dikirim ulang ke applicant.');
     }
 }
