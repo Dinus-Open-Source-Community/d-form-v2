@@ -117,7 +117,7 @@ function removeBanner(): void {
         <div
             :class="
                 cn(
-                    'overflow-hidden rounded-xl border transition-colors',
+                    'aspect-video w-full max-w-xs overflow-hidden rounded-xl border transition-colors sm:max-w-sm',
                     preview
                         ? 'border-border bg-muted/25'
                         : 'border-border cursor-pointer border-dashed hover:border-primary/50 hover:bg-primary/[0.03]',
@@ -129,23 +129,23 @@ function removeBanner(): void {
                 v-if="preview"
                 :src="preview"
                 alt="Pratinjau banner"
-                class="h-40 w-full object-cover sm:h-48"
+                class="size-full object-cover"
             />
             <div
                 v-else
-                class="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 px-6 py-7 text-center"
+                class="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 px-4 text-center"
                 @dragover.prevent="isDragging = true"
                 @dragleave="isDragging = false"
                 @drop.prevent="handleBannerDrop"
                 @click="openBannerPicker"
             >
-                <span class="bg-muted text-muted-foreground grid size-12 place-items-center rounded-full">
-                    <ImagePlus class="size-5.5 stroke-[1.75]" aria-hidden="true" />
+                <span class="bg-muted text-muted-foreground grid size-10 place-items-center rounded-full">
+                    <ImagePlus class="size-5 stroke-[1.75]" aria-hidden="true" />
                 </span>
                 <div>
                     <p class="text-sm font-medium">Unggah banner</p>
                     <p class="text-muted-foreground mt-0.5 text-xs">
-                        Klik untuk memilih, atau seret gambar ke sini
+                        Klik atau seret gambar ke sini
                     </p>
                 </div>
             </div>
