@@ -13,7 +13,7 @@ export interface IBroadcastTrackingSummaryInput {
     tracking: IBroadcastHubTracking | null
 }
 
-/** Ringkasan tracking read-only untuk Show (tersembunyi saat draft kosong). */
+/** Ringkasan tracking read-only untuk Show (tersembunyi saat draft kosong). Seam Fase 2: kontrak Fase 1 tanpa objek tracking. */
 export function useBroadcastTrackingSummary(input: IBroadcastTrackingSummaryInput): {
     trackingVisible: ComputedRef<boolean>
     trackingRows: ComputedRef<IBroadcastTrackingRow[]>

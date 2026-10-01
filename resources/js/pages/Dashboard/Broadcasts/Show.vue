@@ -90,7 +90,7 @@ onMounted(() => {
             </CardContent>
         </Card>
 
-        <!-- Seam Fase 1: backend tidak mengirim objek tracking — tidak render apa pun. -->
+        <!-- Seam Fase 2: backend Fase 1 tidak mengirim objek tracking — tidak render apa pun. -->
         <BroadcastTrackingSummary :status="props.broadcast.status" :tracking="null" />
 
         <Card class="rounded-2xl border-border/70">

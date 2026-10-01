@@ -1,4 +1,5 @@
 /** Pustaka murni broadcast hub: kontrak provisional Fase 1+2 (?event_id=/&period_id=, chip terkunci, snapshot-only). */
+import { pad2 } from '@/lib/shadcnDateFormat'
 
 /** Sumber dataset snapshot yang didukung hub. */
 export type TBroadcastDatasetSource = 'event_participants' | 'recruitment_applicants'
@@ -21,6 +22,8 @@ export interface IBroadcastContextPrefill {
     eventName?: string | null
     periodId?: string | null
     periodName?: string | null
+    lockedEvent?: boolean | null
+    lockedPeriod?: boolean | null
 }
 
 /** Konteks terkunci: chip read-only, bukan dropdown bebas. */
@@ -44,7 +47,7 @@ export interface IBroadcastDatasetSelection {
     periodId: string | null
 }
 
-/** Ringkasan tracking read-only per broadcast (snapshot-only). */
+/** Ringkasan tracking read-only per broadcast (snapshot-only). Seam Fase 2: kontrak Fase 1 tanpa objek tracking. */
 export interface IBroadcastHubTracking {
     totalRecipients: number
     sentCount: number
@@ -93,13 +96,15 @@ export interface IBroadcastAllowedPeriod {
     name: string
 }
 
-/** Mapper prefill snake_case backend ke konteks camelCase hub. */
+/** Mapper prefill snake_case backend ke konteks camelCase hub (termasuk flag locked_*). */
 export function mapBroadcastPrefill(prefill: IBroadcastCreatePrefill): IBroadcastContextPrefill {
     return {
         eventId: prefill.event_id ?? null,
         eventName: prefill.event_title ?? null,
         periodId: prefill.period_id ?? null,
         periodName: prefill.period_name ?? null,
+        lockedEvent: prefill.locked_event ?? null,
+        lockedPeriod: prefill.locked_period ?? null,
     }
 }
 
@@ -158,9 +163,11 @@ export function buildBroadcastCreateHref(link: IBroadcastCreateLink): string {
     return suffix.length > 0 ? `${BROADCAST_BASE_PATH}/create?${suffix}` : `${BROADCAST_BASE_PATH}/create`
 }
 
-/** Konteks terkunci dari prefill query create (chip, bukan dropdown bebas). */
+/** Konteks terkunci dari prefill query create (chip, bukan dropdown bebas). Kunci hanya bila flag locked_* === true; fallback ke id-presence bila flag undefined. */
 export function resolveBroadcastLockedContext(prefill: IBroadcastContextPrefill): IBroadcastLockedContext {
-    if (prefill.eventId) {
+    const eventLocked = prefill.lockedEvent ?? Boolean(prefill.eventId)
+    const periodLocked = prefill.lockedPeriod ?? Boolean(prefill.periodId)
+    if (eventLocked && prefill.eventId) {
         return {
             kind: 'event',
             eventId: prefill.eventId,
@@ -168,7 +175,7 @@ export function resolveBroadcastLockedContext(prefill: IBroadcastContextPrefill)
             displayName: prefill.eventName ?? prefill.eventId,
         }
     }
-    if (prefill.periodId) {
+    if (periodLocked && prefill.periodId) {
         return {
             kind: 'period',
             eventId: null,
@@ -197,12 +204,12 @@ export function resolveBroadcastScopeError(selection: IBroadcastDatasetSelection
     return null
 }
 
-/** True bila dataset/composer wajib terkunci (scheduled/processing, snapshot-only). */
+/** True bila dataset/composer wajib terkunci (scheduled/processing, snapshot-only). Seam Fase 2: belum dipakai Show selama backend tanpa endpoint update. */
 export function isBroadcastHubLocked(status: TBroadcastHubStatus): boolean {
     return status === 'scheduled' || status === 'processing'
 }
 
-/** True bila ringkasan tracking boleh tampil (draft menyembunyikan tracking kosong). */
+/** True bila ringkasan tracking boleh tampil (draft menyembunyikan tracking kosong). Seam Fase 2: backend Fase 1 selalu mengirim tracking null. */
 export function canShowBroadcastTracking(
     status: TBroadcastHubStatus,
     tracking: IBroadcastHubTracking | null,
@@ -212,7 +219,7 @@ export function canShowBroadcastTracking(
     return true
 }
 
-/** Baris tampilan read-only dari payload tracking. */
+/** Baris tampilan read-only dari payload tracking. Seam Fase 2: aktif saat backend mengirim tracking. */
 export function buildBroadcastTrackingRows(tracking: IBroadcastHubTracking): IBroadcastTrackingRow[] {
     const formatCount = (value: number): string => value.toLocaleString('id-ID')
     return [
@@ -239,4 +246,18 @@ export function buildBroadcastSnapshotRows(
         { key: 'captured', label: 'Diambil', value: snapshot.captured_at ?? '—' },
         { key: 'total', label: 'Total penerima', value: snapshot.total.toLocaleString('id-ID') },
     ]
+}
+
+function padBroadcastTimeSegment(part: string): string {
+    const parsed = Number.parseInt(part, 10)
+    return pad2(Number.isNaN(parsed) ? 0 : parsed)
+}
+
+/** Normalisasi jadwal lokal (`YYYY-MM-DDTHH:mm`) ke `YYYY-MM-DD HH:mm:ss` backend; kosong berarti draft. */
+export function normalizeBroadcastScheduledAt(value: string): string {
+    const spacified = value.trim().replace('T', ' ')
+    const [datePart = '', timePart = ''] = spacified.split(' ')
+    if (datePart.length < 10) return ''
+    const segments = timePart.split(':')
+    return `${datePart.slice(0, 10)} ${padBroadcastTimeSegment(segments[0] ?? '')}:${padBroadcastTimeSegment(segments[1] ?? '')}:${padBroadcastTimeSegment(segments[2] ?? '')}`
 }

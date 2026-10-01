@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const summary = useBroadcastTrackingSummary({ status: props.status, tracking: props.tracking })
 
-/** Fase 1: backend tidak mengirim objek tracking — kartu hanya render bila ada baris. */
+/** Seam Fase 2: backend Fase 1 tidak mengirim objek tracking — kartu hanya render bila ada baris. */
 const hasTrackingRows = computed<boolean>(
     () => summary.trackingVisible.value && summary.trackingRows.value.length > 0,
 )

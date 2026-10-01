@@ -1,22 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import BroadcastDatasetSection from '@/components/modules/dashboard/broadcast/BroadcastDatasetSection.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBroadcastContextPrefill } from '@/utils/composables/useBroadcastContextPrefill'
 import { useBroadcastSnapshotPicker } from '@/utils/composables/useBroadcastSnapshotPicker'
 import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
+import { combineLocalDateTime, modelValueToCalendarDate } from '@/lib/shadcnDateFormat'
 import {
     BROADCAST_EVENT_DATASET,
     BROADCAST_PERIOD_DATASET,
     mapBroadcastEventOptions,
     mapBroadcastPeriodOptions,
     mapBroadcastPrefill,
+    normalizeBroadcastScheduledAt,
     type IBroadcastAllowedEvent,
     type IBroadcastAllowedPeriod,
     type IBroadcastCreatePrefill,
@@ -74,6 +77,15 @@ onMounted(() => {
     setTopbar({ title: 'Broadcast baru', subtitle: 'Pusat broadcast' })
 })
 
+/** Tanggal (yyyy-mm-dd) + jam (HH:mm) jadwal kirim; digabung saat submit. */
+const scheduleDate = ref<string>('')
+const scheduleTime = ref<string>('00:00')
+
+/** Jembatan ModelValue string|number ke jam HH:mm. */
+function onScheduleTimeInput(value: string | number): void {
+    scheduleTime.value = String(value).slice(0, 5)
+}
+
 /** Jembatan number|null form ke Input (string|number): kosong berarti tanpa jeda. */
 function onDelayInput(value: string | number): void {
     if (typeof value === 'number') {
@@ -92,6 +104,11 @@ function submit(): void {
     form.source = picker.datasetSource.value ?? ''
     form.event_id = picker.effectiveSelection.value.eventId ?? ''
     form.period_id = picker.effectiveSelection.value.periodId ?? ''
+    form.scheduled_at = scheduleDate.value
+        ? normalizeBroadcastScheduledAt(
+              combineLocalDateTime(modelValueToCalendarDate(scheduleDate.value), scheduleTime.value),
+          )
+        : ''
     form.post(routes.admin.broadcasts.store, {
         onError: (errors) => {
             handleInertiaFormErrors(errors, { title: 'Gagal menyimpan broadcast', fieldLabels: errorFieldLabels })
@@ -139,13 +156,23 @@ function submit(): void {
                         <p v-if="form.errors.name" class="text-destructive text-xs">{{ form.errors.name }}</p>
                     </div>
                     <div class="space-y-2">
-                        <Label for="broadcast-scheduled">Jadwal kirim</Label>
-                        <Input
-                            id="broadcast-scheduled"
-                            v-model="form.scheduled_at"
-                            type="datetime-local"
-                            :aria-invalid="!!form.errors.scheduled_at"
-                        />
+                        <Label for="broadcast-scheduled-date">Jadwal kirim</Label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <DatePicker
+                                id="broadcast-scheduled-date"
+                                v-model="scheduleDate"
+                                placeholder="Pilih tanggal"
+                                :aria-invalid="!!form.errors.scheduled_at"
+                            />
+                            <Input
+                                id="broadcast-scheduled-time"
+                                type="time"
+                                :model-value="scheduleTime"
+                                aria-label="Jam kirim"
+                                :aria-invalid="!!form.errors.scheduled_at"
+                                @update:model-value="onScheduleTimeInput"
+                            />
+                        </div>
                         <p class="text-xs text-muted-foreground">Kosong berarti draft — tanpa jadwal.</p>
                         <p v-if="form.errors.scheduled_at" class="text-destructive text-xs">
                             {{ form.errors.scheduled_at }}
