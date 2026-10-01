@@ -8,6 +8,7 @@ use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Mail\BroadcastMail;
 use App\Models\Broadcast;
 use App\Models\EmailLog;
+use App\Services\Broadcast\BroadcastDispatchService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,7 @@ class SendBroadcastJob implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(BroadcastDispatchService $dispatch): void
     {
         $broadcast = Broadcast::query()->find($this->broadcastId);
 
@@ -72,6 +73,8 @@ class SendBroadcastJob implements ShouldQueue
             ]);
 
             throw $e;
+        } finally {
+            $dispatch->markSentIfComplete($broadcast);
         }
     }
 }
