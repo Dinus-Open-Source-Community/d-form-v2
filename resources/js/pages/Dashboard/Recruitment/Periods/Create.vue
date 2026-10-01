@@ -172,7 +172,7 @@ function submit() {
                         </div>
 
                         <div class="flex flex-col gap-4">
-                            <div class="flex min-h-24 flex-col justify-start gap-1">
+                            <div class="flex min-h-24 flex-col justify-start gap-2">
                                 <Label for="interview_starts_at" class="leading-5">Mulai interview</Label>
                                 <DatePicker
                                     id="interview_starts_at"
@@ -185,7 +185,7 @@ function submit() {
                                 </p>
                             </div>
 
-                            <div class="flex min-h-24 flex-col justify-start gap-1">
+                            <div class="flex min-h-24 flex-col justify-start gap-2">
                                 <Label for="interview_ends_at" class="leading-5">Akhir interview</Label>
                                 <DatePicker
                                     id="interview_ends_at"
