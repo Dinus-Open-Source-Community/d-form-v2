@@ -147,47 +147,51 @@ function submit() {
                         :disabled="form.processing"
                     />
 
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid items-start gap-4 sm:grid-cols-2">
                         <div class="flex flex-col gap-4">
-                            <SplitDateTimeField
-                                id-prefix="reg_open"
-                                v-model="form.registration_opens_at"
-                                label="Buka pendaftaran"
-                                picker-class="bg-white"
-                                :error="form.errors.registration_opens_at"
-                                :invalid="!!form.errors.registration_opens_at"
-                            />
-                            <SplitDateTimeField
-                                id-prefix="reg_close"
-                                v-model="form.registration_closes_at"
-                                label="Tutup pendaftaran"
-                                picker-class="bg-white"
-                                :error="form.errors.registration_closes_at"
-                                :invalid="!!form.errors.registration_closes_at"
-                            />
+                            <div class="flex min-h-24 flex-col justify-start">
+                                <SplitDateTimeField
+                                    id-prefix="reg_open"
+                                    v-model="form.registration_opens_at"
+                                    label="Buka pendaftaran"
+                                    picker-class="bg-white"
+                                    :error="form.errors.registration_opens_at"
+                                    :invalid="!!form.errors.registration_opens_at"
+                                />
+                            </div>
+                            <div class="flex min-h-24 flex-col justify-start">
+                                <SplitDateTimeField
+                                    id-prefix="reg_close"
+                                    v-model="form.registration_closes_at"
+                                    label="Tutup pendaftaran"
+                                    picker-class="bg-white"
+                                    :error="form.errors.registration_closes_at"
+                                    :invalid="!!form.errors.registration_closes_at"
+                                />
+                            </div>
                         </div>
 
                         <div class="flex flex-col gap-4">
-                            <div class="space-y-2">
-                                <Label for="interview_starts_at">Mulai interview</Label>
+                            <div class="flex min-h-24 flex-col justify-start gap-2">
+                                <Label for="interview_starts_at" class="leading-5">Mulai interview</Label>
                                 <DatePicker
                                     id="interview_starts_at"
                                     v-model="form.interview_starts_at"
                                     :aria-invalid="!!form.errors.interview_starts_at"
-                                    :class="cn('bg-white', !!form.errors.interview_starts_at && dateErrorClass)"
+                                    :class="cn('h-9 bg-white', !!form.errors.interview_starts_at && dateErrorClass)"
                                 />
                                 <p v-if="form.errors.interview_starts_at" class="text-destructive text-xs">
                                     {{ form.errors.interview_starts_at }}
                                 </p>
                             </div>
 
-                            <div class="space-y-2">
-                                <Label for="interview_ends_at">Akhir interview</Label>
+                            <div class="flex min-h-24 flex-col justify-start gap-2">
+                                <Label for="interview_ends_at" class="leading-5">Akhir interview</Label>
                                 <DatePicker
                                     id="interview_ends_at"
                                     v-model="form.interview_ends_at"
                                     :aria-invalid="!!form.errors.interview_ends_at"
-                                    :class="cn('bg-white', !!form.errors.interview_ends_at && dateErrorClass)"
+                                    :class="cn('h-9 bg-white', !!form.errors.interview_ends_at && dateErrorClass)"
                                 />
                                 <p v-if="form.errors.interview_ends_at" class="text-destructive text-xs">
                                     {{ form.errors.interview_ends_at }}
