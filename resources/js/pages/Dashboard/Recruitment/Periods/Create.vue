@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ const errorFieldLabels: Record<string, string> = {
     interview_ends_at: 'Akhir interview',
     finalization_deadline_at: 'Target finalisasi',
     banner: 'Banner',
+    whatsapp_group_url: 'Link grup WA',
 }
 
 const form = useForm({
@@ -36,6 +37,14 @@ const form = useForm({
     interview_ends_at: '',
     finalization_deadline_at: '',
     banner: null as File | null,
+    whatsapp_group_url: '',
+})
+
+/** Validasi ringan: link WA opsional, bila diisi wajib https:// (cermin backend). */
+const whatsappError = computed<string | null>(() => {
+    const value = form.whatsapp_group_url.trim()
+    if (!value) return null
+    return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.'
 })
 
 const bannerInput = ref<HTMLInputElement | null>(null)
@@ -90,6 +99,10 @@ function removeBanner(): void {
 }
 
 function submit() {
+    if (whatsappError.value) {
+        showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' })
+        return
+    }
     form.post(routes.admin.recruitment.periods.store, {
         forceFormData: true,
         onError: (errors) => {
@@ -150,6 +163,26 @@ function submit() {
                             rows="3"
                             class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
                         />
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="whatsapp_group_url">Link grup WA (opsional)</Label>
+                        <Input
+                            id="whatsapp_group_url"
+                            v-model="form.whatsapp_group_url"
+                            type="url"
+                            inputmode="url"
+                            placeholder="https://chat.whatsapp.com/…"
+                            :aria-invalid="!!form.errors.whatsapp_group_url || !!whatsappError"
+                        />
+                        <p class="text-muted-foreground text-xs">
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
+                            kelulusan bila diisi.
+                        </p>
+                        <p v-if="whatsappError" class="text-destructive text-xs">{{ whatsappError }}</p>
+                        <p v-if="form.errors.whatsapp_group_url" class="text-destructive text-xs">
+                            {{ form.errors.whatsapp_group_url }}
+                        </p>
                     </div>
 
                     <div class="space-y-2">

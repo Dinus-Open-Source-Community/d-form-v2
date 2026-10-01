@@ -17,12 +17,14 @@ const props = withDefaults(
         divisionOptions?: { id: string; name: string; code: string }[]
         membershipTypeOptions?: { value: string; label: string }[]
         editable?: boolean
+        whatsappGroupUrl?: string | null
     }>(),
     {
         reasonOptions: () => [],
         divisionOptions: () => [],
         membershipTypeOptions: () => [],
         editable: false,
+        whatsappGroupUrl: null,
     },
 )
 
@@ -156,7 +158,9 @@ function handleSubmitted() {
                     :membership-type-options="membershipTypeOptions"
                     :hide-revision-action="true"
                     :hide-actions="true"
+                    :whatsapp-group-url="whatsappGroupUrl"
                     @submitted="handleSubmitted"
+                    @resent="$emit('submitted')"
                 />
             </div>
         </SheetContent>

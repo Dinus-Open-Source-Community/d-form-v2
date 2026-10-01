@@ -17,6 +17,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
+import ApplicantEmailingSection from './ApplicantEmailingSection.vue'
+import type {
+    IEmailResendPrereq,
+    IEmailResendTypeStatus,
+    TRecruitmentEmailResendType,
+} from '@/lib/recruitmentEmailResend'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
@@ -29,6 +35,7 @@ import {
     FileText,
     History,
     Instagram,
+    Mail,
     Trophy,
     User,
     XCircle,
@@ -137,6 +144,8 @@ export interface ApplicationDetail {
     can_verify: boolean
     can_decide_final: boolean
     can_resend_tracking: boolean
+    email_resend_status?: Partial<Record<TRecruitmentEmailResendType, IEmailResendTypeStatus>> | null
+    email_resend_prereq?: IEmailResendPrereq | null
 }
 
 const props = withDefaults(
@@ -148,6 +157,7 @@ const props = withDefaults(
         readonly?: boolean
         hideRevisionAction?: boolean
         hideActions?: boolean
+        whatsappGroupUrl?: string | null
     }>(),
     {
         screeningReasonOptions: () => [],
@@ -156,13 +166,14 @@ const props = withDefaults(
         readonly: false,
         hideRevisionAction: false,
         hideActions: false,
+        whatsappGroupUrl: null,
     },
 )
 
 const page = usePage()
 const user = useAuth(page.props)
 
-const emit = defineEmits<{ submitted: [] }>()
+const emit = defineEmits<{ submitted: []; resent: [] }>()
 
 const canScreen = computed(
     () => props.application.can_screen && user.value?.can_screen_recruitment_applications === true,
@@ -621,6 +632,13 @@ const defaultTab = computed(() => {
                 >
                     <History class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
                     <span>Riwayat</span>
+                </TabsTrigger>
+                <TabsTrigger
+                    value="emailing"
+                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                >
+                    <Mail class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <span>Emailing</span>
                 </TabsTrigger>
             </TabsList>
 
@@ -1150,6 +1168,18 @@ const defaultTab = computed(() => {
                         </p>
                     </CardContent>
                 </Card>
+            </TabsContent>
+
+            <TabsContent value="emailing" class="mt-4">
+                <ApplicantEmailingSection
+                    :application-id="application.id"
+                    :applicant-name="application.full_name"
+                    :status-map="application.email_resend_status ?? null"
+                    :prereq="application.email_resend_prereq ?? null"
+                    :can-resend="canResendTracking"
+                    :whatsapp-group-url="whatsappGroupUrl"
+                    @resent="emit('resent')"
+                />
             </TabsContent>
         </Tabs>
 

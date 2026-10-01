@@ -52,6 +52,7 @@ interface Period {
     interview_ends_at: string | null
     finalization_deadline_at: string | null
     applications_count: number
+    whatsapp_group_url?: string | null
 }
 
 interface ApplicationRow {
@@ -739,6 +740,7 @@ function closePeriod(): void {
                         :division-options="division_options"
                         :membership-type-options="membership_type_options"
                         :editable="canScreenApplications"
+                        :whatsapp-group-url="period.whatsapp_group_url ?? null"
                         @close="closePanel"
                         @submitted="refreshList"
                     />
