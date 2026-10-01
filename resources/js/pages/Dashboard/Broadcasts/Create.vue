@@ -7,85 +7,89 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { useBroadcastContextPrefill } from '@/utils/composables/useBroadcastContextPrefill'
 import { useBroadcastSnapshotPicker } from '@/utils/composables/useBroadcastSnapshotPicker'
 import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
-import type { IBroadcastScopeOption } from '@/lib/broadcastHub'
+import {
+    BROADCAST_EVENT_DATASET,
+    BROADCAST_PERIOD_DATASET,
+    mapBroadcastEventOptions,
+    mapBroadcastPeriodOptions,
+    mapBroadcastPrefill,
+    type IBroadcastAllowedEvent,
+    type IBroadcastAllowedPeriod,
+    type IBroadcastCreatePrefill,
+    type TBroadcastDatasetSource,
+} from '@/lib/broadcastHub'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 
-/** Konteks prefill dari query (?event_id=/&period_id=) via props Inertia. */
-interface IBroadcastCreatePageContext {
-    id: string
-    name: string
-}
-
 const props = withDefaults(
     defineProps<{
-        contextEvent?: IBroadcastCreatePageContext | null
-        contextPeriod?: IBroadcastCreatePageContext | null
-        eventOptions?: IBroadcastScopeOption[]
-        periodOptions?: IBroadcastScopeOption[]
+        prefill?: IBroadcastCreatePrefill | null
+        sources?: TBroadcastDatasetSource[]
+        allowedEvents?: IBroadcastAllowedEvent[]
+        allowedPeriods?: IBroadcastAllowedPeriod[]
     }>(),
-    { contextEvent: null, contextPeriod: null, eventOptions: () => [], periodOptions: () => [] },
+    {
+        prefill: null,
+        sources: () => [BROADCAST_EVENT_DATASET, BROADCAST_PERIOD_DATASET],
+        allowedEvents: () => [],
+        allowedPeriods: () => [],
+    },
 )
 
-const prefill = useBroadcastContextPrefill({
-    eventId: props.contextEvent?.id ?? null,
-    eventName: props.contextEvent?.name ?? null,
-    periodId: props.contextPeriod?.id ?? null,
-    periodName: props.contextPeriod?.name ?? null,
-})
+/** Prefill snake_case backend dipetakan ke konteks camelCase hub. */
+const prefill = useBroadcastContextPrefill(mapBroadcastPrefill(props.prefill ?? {}))
 
 const picker = useBroadcastSnapshotPicker({ locked: prefill.lockedContext.value })
 
+/** Opsi dropdown dari allowed_events (title) / allowed_periods (name). */
+const eventOptions = computed(() => mapBroadcastEventOptions(props.allowedEvents))
+const periodOptions = computed(() => mapBroadcastPeriodOptions(props.allowedPeriods))
+
 const form = useForm({
     name: '',
-    scheduled_at: '',
-    delay_seconds: 30 as number | null,
-    dataset_source: '',
+    source: '',
     event_id: '',
     period_id: '',
-    subject: '',
-    body: '',
+    scheduled_at: '',
+    send_delay_seconds: 0 as number | null,
 })
 
 const errorFieldLabels: Record<string, string> = {
     name: 'Nama broadcast',
-    scheduled_at: 'Jadwal kirim',
-    delay_seconds: 'Jeda antar email',
-    dataset_source: 'Sumber dataset',
+    source: 'Sumber dataset',
     event_id: 'Event',
     period_id: 'Periode',
-    subject: 'Subjek',
-    body: 'Isi pesan',
+    scheduled_at: 'Jadwal kirim',
+    send_delay_seconds: 'Jeda antar email',
 }
 
 const canSubmit = computed<boolean>(() => picker.canSubmitDataset.value && !form.processing)
 
-/** Jembatan number|null form ke Input (string|number): kosong berarti tanpa jeda. */
-function onDelayInput(value: string | number): void {
-    if (typeof value === 'number') {
-        form.delay_seconds = value
-        return
-    }
-    const parsed = Number.parseInt(value, 10)
-    form.delay_seconds = Number.isNaN(parsed) ? null : parsed
-}
-
 onMounted(() => {
     setTopbar({ title: 'Broadcast baru', subtitle: 'Pusat broadcast' })
 })
+
+/** Jembatan number|null form ke Input (string|number): kosong berarti tanpa jeda. */
+function onDelayInput(value: string | number): void {
+    if (typeof value === 'number') {
+        form.send_delay_seconds = value
+        return
+    }
+    const parsed = Number.parseInt(value, 10)
+    form.send_delay_seconds = Number.isNaN(parsed) ? null : parsed
+}
 
 function submit(): void {
     if (picker.scopeError.value) {
         showErrorToast(picker.scopeError.value, { title: 'Konteks belum lengkap' })
         return
     }
-    form.dataset_source = picker.datasetSource.value ?? ''
+    form.source = picker.datasetSource.value ?? ''
     form.event_id = picker.effectiveSelection.value.eventId ?? ''
     form.period_id = picker.effectiveSelection.value.periodId ?? ''
     form.post(routes.admin.broadcasts.store, {
@@ -142,6 +146,7 @@ function submit(): void {
                             type="datetime-local"
                             :aria-invalid="!!form.errors.scheduled_at"
                         />
+                        <p class="text-xs text-muted-foreground">Kosong berarti draft — tanpa jadwal.</p>
                         <p v-if="form.errors.scheduled_at" class="text-destructive text-xs">
                             {{ form.errors.scheduled_at }}
                         </p>
@@ -150,14 +155,14 @@ function submit(): void {
                         <Label for="broadcast-delay">Jeda antar email (detik)</Label>
                         <Input
                             id="broadcast-delay"
-                            :model-value="form.delay_seconds ?? ''"
+                            :model-value="form.send_delay_seconds ?? ''"
                             type="number"
                             min="0"
-                            :aria-invalid="!!form.errors.delay_seconds"
+                            :aria-invalid="!!form.errors.send_delay_seconds"
                             @update:model-value="onDelayInput"
                         />
-                        <p v-if="form.errors.delay_seconds" class="text-destructive text-xs">
-                            {{ form.errors.delay_seconds }}
+                        <p v-if="form.errors.send_delay_seconds" class="text-destructive text-xs">
+                            {{ form.errors.send_delay_seconds }}
                         </p>
                     </div>
                 </CardContent>
@@ -173,8 +178,9 @@ function submit(): void {
                 <CardContent>
                     <BroadcastDatasetSection
                         :locked="prefill.lockedContext.value"
-                        :event-options="props.eventOptions"
-                        :period-options="props.periodOptions"
+                        :sources="props.sources"
+                        :event-options="eventOptions"
+                        :period-options="periodOptions"
                         :source="picker.datasetSource.value"
                         :event-id="picker.selectedEventId.value"
                         :period-id="picker.selectedPeriodId.value"
@@ -184,35 +190,6 @@ function submit(): void {
                         @update:event-id="picker.selectedEventId.value = $event"
                         @update:period-id="picker.selectedPeriodId.value = $event"
                     />
-                </CardContent>
-            </Card>
-
-            <Card class="rounded-2xl border-border/70">
-                <CardHeader class="pb-2">
-                    <CardTitle class="text-base">Komposer</CardTitle>
-                </CardHeader>
-                <CardContent class="grid gap-4">
-                    <div class="space-y-2">
-                        <Label for="broadcast-subject">Subjek email</Label>
-                        <Input
-                            id="broadcast-subject"
-                            v-model="form.subject"
-                            placeholder="Hasil screening Open Recruitment 2026"
-                            :aria-invalid="!!form.errors.subject"
-                        />
-                        <p v-if="form.errors.subject" class="text-destructive text-xs">{{ form.errors.subject }}</p>
-                    </div>
-                    <div class="space-y-2">
-                        <Label for="broadcast-body">Isi pesan</Label>
-                        <Textarea
-                            id="broadcast-body"
-                            v-model="form.body"
-                            rows="6"
-                            placeholder="Halo {nama}, ..."
-                            :aria-invalid="!!form.errors.body"
-                        />
-                        <p v-if="form.errors.body" class="text-destructive text-xs">{{ form.errors.body }}</p>
-                    </div>
                 </CardContent>
             </Card>
         </form>

@@ -174,11 +174,9 @@ export const routes = {
             destroy: (id: string) => `${ADMIN_BASE}/users/${id}`,
         },
         broadcasts: {
-            index: `${ADMIN_BASE}/broadcasts`,
             create: (link?: IBroadcastCreateLink) => buildBroadcastCreateHref(link ?? {}),
             store: `${ADMIN_BASE}/broadcasts`,
             show: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
-            update: (id: string) => `${ADMIN_BASE}/broadcasts/${id}`,
         },
     },
 

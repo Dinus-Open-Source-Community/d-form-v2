@@ -65,6 +65,90 @@ export const BROADCAST_PERIOD_QUERY_KEY = 'period_id'
 export const BROADCAST_EVENT_DATASET: TBroadcastDatasetSource = 'event_participants'
 export const BROADCAST_PERIOD_DATASET: TBroadcastDatasetSource = 'recruitment_applicants'
 
+/** Label ID sumber dataset snapshot. */
+export const BROADCAST_DATASET_LABELS: Record<TBroadcastDatasetSource, string> = {
+    event_participants: 'Peserta event (event_participants)',
+    recruitment_applicants: 'Pelamar rekrutmen (recruitment_applicants)',
+}
+
+/** Prefill create mentah dari backend (snake_case verbatim kontrak Task 1). */
+export interface IBroadcastCreatePrefill {
+    event_id?: string | null
+    period_id?: string | null
+    event_title?: string | null
+    period_name?: string | null
+    locked_event?: boolean
+    locked_period?: boolean
+}
+
+/** Event yang boleh dipilih (backend memakai `title`). */
+export interface IBroadcastAllowedEvent {
+    id: string
+    title: string
+}
+
+/** Periode yang boleh dipilih (backend memakai `name`). */
+export interface IBroadcastAllowedPeriod {
+    id: string
+    name: string
+}
+
+/** Mapper prefill snake_case backend ke konteks camelCase hub. */
+export function mapBroadcastPrefill(prefill: IBroadcastCreatePrefill): IBroadcastContextPrefill {
+    return {
+        eventId: prefill.event_id ?? null,
+        eventName: prefill.event_title ?? null,
+        periodId: prefill.period_id ?? null,
+        periodName: prefill.period_name ?? null,
+    }
+}
+
+/** Mapper allowed_events (title) ke opsi dropdown hub. */
+export function mapBroadcastEventOptions(events: IBroadcastAllowedEvent[]): IBroadcastScopeOption[] {
+    return events.map((event) => ({ id: event.id, name: event.title }))
+}
+
+/** Mapper allowed_periods (name) ke opsi dropdown hub. */
+export function mapBroadcastPeriodOptions(periods: IBroadcastAllowedPeriod[]): IBroadcastScopeOption[] {
+    return periods.map((period) => ({ id: period.id, name: period.name }))
+}
+
+/** Satu penerima dalam snapshot (source of truth per broadcast). */
+export interface IBroadcastSnapshotRecipient {
+    email: string
+    name: string | null
+}
+
+/** Snapshot penerima mentah dari backend (snake_case verbatim kontrak Task 1). */
+export interface IBroadcastSnapshot {
+    source: TBroadcastDatasetSource
+    event_id: string | null
+    period_id: string | null
+    captured_at: string | null
+    total: number
+    recipients: IBroadcastSnapshotRecipient[]
+}
+
+/** Konteks tampilan show mentah dari backend (snake_case verbatim). */
+export interface IBroadcastShowContext {
+    event_title: string | null
+    period_name: string | null
+}
+
+/** Broadcast show mentah dari backend (snake_case verbatim kontrak Task 1). */
+export interface IBroadcastShownBroadcast {
+    id: string
+    name: string
+    source: TBroadcastDatasetSource
+    event_id: string | null
+    period_id: string | null
+    scheduled_at: string | null
+    send_delay_seconds: number | null
+    status: TBroadcastHubStatus
+    recipient_count: number
+    created_at: string | null
+}
+
 /** Href create hub dengan prefill konteks query (?event_id=&period_id=). */
 export function buildBroadcastCreateHref(link: IBroadcastCreateLink): string {
     const query = new URLSearchParams()
@@ -136,5 +220,23 @@ export function buildBroadcastTrackingRows(tracking: IBroadcastHubTracking): IBr
         { key: 'sent', label: 'Terkirim', value: formatCount(tracking.sentCount) },
         { key: 'pending', label: 'Menunggu', value: formatCount(tracking.pendingCount) },
         { key: 'failed', label: 'Gagal', value: formatCount(tracking.failedCount) },
+    ]
+}
+
+/** Baris tampilan read-only dari snapshot + konteks show. */
+export function buildBroadcastSnapshotRows(
+    snapshot: IBroadcastSnapshot | null,
+    context: IBroadcastShowContext | null,
+): IBroadcastTrackingRow[] {
+    if (!snapshot) return []
+    return [
+        { key: 'source', label: 'Sumber', value: BROADCAST_DATASET_LABELS[snapshot.source] },
+        {
+            key: 'context',
+            label: 'Konteks',
+            value: context?.event_title ?? context?.period_name ?? '—',
+        },
+        { key: 'captured', label: 'Diambil', value: snapshot.captured_at ?? '—' },
+        { key: 'total', label: 'Total penerima', value: snapshot.total.toLocaleString('id-ID') },
     ]
 }

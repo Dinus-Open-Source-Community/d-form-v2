@@ -5,8 +5,7 @@ import { SimpleSelect } from '@/components/ui/simple-select'
 import { TriangleAlert } from 'lucide-vue-next'
 import BroadcastContextChip from './BroadcastContextChip.vue'
 import {
-    BROADCAST_EVENT_DATASET,
-    BROADCAST_PERIOD_DATASET,
+    BROADCAST_DATASET_LABELS,
     resolveBroadcastContextError,
     type IBroadcastLockedContext,
     type IBroadcastScopeOption,
@@ -15,6 +14,7 @@ import {
 
 const props = defineProps<{
     locked: IBroadcastLockedContext
+    sources: TBroadcastDatasetSource[]
     eventOptions: IBroadcastScopeOption[]
     periodOptions: IBroadcastScopeOption[]
     source: TBroadcastDatasetSource | null
@@ -30,10 +30,9 @@ const emit = defineEmits<{
     'update:periodId': [value: string | null]
 }>()
 
-const datasetOptions = [
-    { value: BROADCAST_EVENT_DATASET, label: 'Peserta event (event_participants)' },
-    { value: BROADCAST_PERIOD_DATASET, label: 'Pelamar rekrutmen (recruitment_applicants)' },
-]
+const datasetOptions = computed(() =>
+    props.sources.map((source) => ({ value: source, label: BROADCAST_DATASET_LABELS[source] })),
+)
 
 /** SimpleSelect memakai {value,label}; IBroadcastScopeOption memakai {id,name}. */
 const eventSelectOptions = computed(() => props.eventOptions.map((option) => ({ value: option.id, label: option.name })))
@@ -42,11 +41,8 @@ const periodSelectOptions = computed(() => props.periodOptions.map((option) => (
 const contextError = computed<string | null>(() => resolveBroadcastContextError(props.locked))
 
 function onSourceChange(value: string): void {
-    if (value !== BROADCAST_EVENT_DATASET && value !== BROADCAST_PERIOD_DATASET) {
-        emit('update:source', null)
-        return
-    }
-    emit('update:source', value)
+    const match = props.sources.find((source) => source === value)
+    emit('update:source', match ?? null)
 }
 </script>
 
