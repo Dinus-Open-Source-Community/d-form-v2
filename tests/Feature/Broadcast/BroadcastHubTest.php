@@ -1014,6 +1014,58 @@ class BroadcastHubTest extends TestCase
 
         Bus::assertDispatchedTimes(SendBroadcastJob::class, 1);
     }
+    public function test_b28_show_includes_attachments_list(): void
+    {
+        Storage::fake();
+
+        $admin = $this->superAdmin();
+        $event = Event::factory()->create();
+        $broadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'status' => Broadcast::STATUS_DRAFT,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('dokumen.pdf', "%PDF-1.4\ntes"),
+            ])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.broadcasts.attachments.store', $broadcast), [
+                'file' => $this->fakeUpload('foto.jpg', "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00tess"),
+            ])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.broadcasts.show', $broadcast))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('attachments', 2)
+                ->where('attachments', function (array $attachments): bool {
+                    $names = array_column($attachments, 'name');
+                    sort($names);
+
+                    if ($names !== ['dokumen.pdf', 'foto.jpg']) {
+                        return false;
+                    }
+
+                    foreach ($attachments as $row) {
+                        foreach (['id', 'name', 'size', 'mime'] as $key) {
+                            if (! array_key_exists($key, $row)) {
+                                return false;
+                            }
+                        }
+
+                        if (! is_int($row['size'])) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }));
+    }
     public function test_b17_period_show_broadcast_tab_returns_period_broadcasts(): void
     {
         $owner = User::factory()->create();
