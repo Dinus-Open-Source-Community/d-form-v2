@@ -198,4 +198,30 @@ class BroadcastHubTest extends TestCase
             array_column($broadcast->recipient_snapshot['recipients'], 'email')
         );
     }
+
+    public function test_b08_cross_model_authorization_returns_403_not_500(): void
+    {
+        $contextAdmin = User::factory()->create();
+        $contextAdmin->givePermissionTo('events.view');
+
+        $otherAdmin = User::factory()->create();
+        $otherEvent = Event::factory()->create(['created_by' => $otherAdmin->id]);
+        $ownEvent = Event::factory()->create(['created_by' => $contextAdmin->id]);
+
+        $this->actingAs($contextAdmin)
+            ->post(route('dashboard.broadcasts.store'), [
+                'name' => 'Regresi Otorisasi',
+                'source' => 'event_participants',
+                'event_id' => $otherEvent->id,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($contextAdmin)
+            ->get(route('dashboard.broadcasts.create', ['event_id' => $ownEvent->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('prefill.event_id', $ownEvent->id)
+                ->where('prefill.locked_event', true)
+                ->has('allowed_events'));
+    }
 }

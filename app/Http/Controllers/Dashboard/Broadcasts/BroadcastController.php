@@ -9,6 +9,7 @@ use App\Models\Broadcast;
 use App\Models\Event;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Policies\BroadcastPolicy;
 use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -17,6 +18,7 @@ use Inertia\Response;
 class BroadcastController extends Controller
 {
     public function __construct(
+        private readonly BroadcastPolicy $broadcastPolicy,
         private readonly BroadcastSnapshotBuilder $snapshotBuilder,
     ) {
     }
@@ -55,7 +57,7 @@ class BroadcastController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $this->authorizeBroadcastTarget($validated);
+        $this->authorizeBroadcastTarget($user, $validated);
 
         $snapshot = $this->snapshotBuilder->build($validated);
 
@@ -103,20 +105,20 @@ class BroadcastController extends Controller
         ]);
     }
 
-    /** Otorisasi target ikut-konteks via Gate: event/period sendiri atau gate global. */
-    private function authorizeBroadcastTarget(array $validated): void
+    /** Direct call (bukan Gate): dispatch Gate me-resolve policy dari target class sehingga ability cross-model tak cocok — correctness dulu. */
+    private function authorizeBroadcastTarget(User $user, array $validated): void
     {
         if (($validated['source'] ?? null) === Broadcast::SOURCE_RECRUITMENT_APPLICANTS) {
             $period = RecruitmentPeriod::query()->findOrFail($validated['period_id']);
 
-            $this->authorize('sendToPeriod', [Broadcast::class, $period]);
+            abort_unless($this->broadcastPolicy->sendToPeriod($user, $period), 403);
 
             return;
         }
 
         $event = Event::query()->findOrFail($validated['event_id']);
 
-        $this->authorize('sendToEvent', [Broadcast::class, $event]);
+        abort_unless($this->broadcastPolicy->sendToEvent($user, $event), 403);
     }
 
     /** Ambil event prefill yang lolos validasi exists. */
@@ -135,25 +137,25 @@ class BroadcastController extends Controller
         return is_string($periodId) && $periodId !== '' ? RecruitmentPeriod::query()->find($periodId) : null;
     }
 
-    /** Daftar event yang boleh ditarget user ini (ikut-konteks atau global). */
+    /** Direct call (lihat authorizeBroadcastTarget): filter listing wajib signature (User, Event) yang tak bisa lewat Gate. */
     private function allowedEvents(User $user): array
     {
         return Event::query()
             ->orderBy('title')
             ->get(['id', 'title'])
-            ->filter(fn (Event $event): bool => $user->can('sendToEvent', [Broadcast::class, $event]))
+            ->filter(fn (Event $event): bool => $this->broadcastPolicy->sendToEvent($user, $event))
             ->map(fn (Event $event): array => ['id' => $event->id, 'title' => $event->title])
             ->values()
             ->all();
     }
 
-    /** Daftar periode yang boleh ditarget user ini (ikut-konteks atau global). */
+    /** Direct call (lihat authorizeBroadcastTarget): filter listing wajib signature (User, Period) yang tak bisa lewat Gate. */
     private function allowedPeriods(User $user): array
     {
         return RecruitmentPeriod::query()
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->filter(fn (RecruitmentPeriod $period): bool => $user->can('sendToPeriod', [Broadcast::class, $period]))
+            ->filter(fn (RecruitmentPeriod $period): bool => $this->broadcastPolicy->sendToPeriod($user, $period))
             ->map(fn (RecruitmentPeriod $period): array => ['id' => $period->id, 'name' => $period->name])
             ->values()
             ->all();
