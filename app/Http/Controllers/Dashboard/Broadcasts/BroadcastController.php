@@ -246,13 +246,15 @@ class BroadcastController extends Controller
         return response()->json(['deleted' => true]);
     }
 
-    /** Kirim-ulang hanya penerima gagal; 422 bila processing/sent. */
+    /** Kirim-ulang hanya penerima gagal; 422 bila sent / processing tanpa failed. */
     public function retry(Broadcast $broadcast): JsonResponse
     {
         $this->authorize('view', $broadcast);
 
-        if (in_array($broadcast->status, [Broadcast::STATUS_PROCESSING, Broadcast::STATUS_SENT], true)) {
-            return response()->json(['message' => 'Broadcast yang sedang diproses/sudah terkirim tidak bisa retry.', 'retried' => 0], 422);
+        if ($broadcast->status === Broadcast::STATUS_SENT
+            || ($broadcast->status === Broadcast::STATUS_PROCESSING
+                && ! $this->dispatchService->hasFailedRecipients($broadcast->fresh() ?? $broadcast))) {
+            return response()->json(['message' => 'Tidak ada penerima gagal — broadcast processing/sent tidak bisa retry.', 'retried' => 0], 422);
         }
 
         $retried = $this->dispatchService->retryFailed($broadcast->fresh() ?? $broadcast);

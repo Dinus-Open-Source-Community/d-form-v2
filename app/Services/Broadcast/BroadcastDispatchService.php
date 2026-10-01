@@ -62,6 +62,12 @@ final class BroadcastDispatchService
         return count($failed);
     }
 
+    /** Ada penerima ber-log-terakhir Failed (syarat retry dari processing). */
+    public function hasFailedRecipients(Broadcast $broadcast): bool
+    {
+        return $this->failedEmails($broadcast) !== [];
+    }
+
     /** Email snapshot yang log terakhirnya Failed. */
     private function failedEmails(Broadcast $broadcast): array
     {
