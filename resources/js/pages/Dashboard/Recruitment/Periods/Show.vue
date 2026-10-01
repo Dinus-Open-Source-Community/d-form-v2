@@ -17,10 +17,18 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, ChevronLeft, ChevronRight, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
@@ -102,6 +110,16 @@ interface SessionPaginator {
     total: number
 }
 
+interface BroadcastPaginator {
+    data: IBroadcastPeriodRow[]
+    current_page: number
+    last_page: number
+    total: number
+    per_page?: number
+    from?: number | null
+    to?: number | null
+}
+
 interface ReportPayload {
     period: { id: string; name: string } | null
     funnel: { stage: string; label: string; count: number }[]
@@ -164,7 +182,8 @@ const props = withDefaults(
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
-        broadcasts?: IBroadcastPeriodRow[]
+        /** Array penuh (tab lain) atau paginator 15/hal (tab broadcast, BE 8a). */
+        broadcasts?: IBroadcastPeriodRow[] | BroadcastPaginator
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -339,7 +358,82 @@ const groupedAssignments = computed<AssignmentGroup[]>(() => {
 
 const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
 
-const broadcastCountLabel = computed<string>(() => props.broadcasts.length.toLocaleString('id-ID'))
+const broadcastRows = computed<IBroadcastPeriodRow[]>(() => {
+    const value = props.broadcasts
+    if (value === null || value === undefined) return []
+    return Array.isArray(value) ? value : (value.data ?? [])
+})
+
+/** Meta paginator server; bentuk array lawas dianggap satu halaman penuh. */
+const broadcastMeta = computed<{
+    currentPage: number
+    lastPage: number
+    total: number
+    from: number | null
+    to: number | null
+}>(() => {
+    const value = props.broadcasts
+    if (value !== null && value !== undefined && !Array.isArray(value)) {
+        return {
+            currentPage: value.current_page,
+            lastPage: value.last_page,
+            total: value.total,
+            from: value.from ?? null,
+            to: value.to ?? null,
+        }
+    }
+    const total: number = broadcastRows.value.length
+    return {
+        currentPage: 1,
+        lastPage: 1,
+        total,
+        from: total > 0 ? 1 : null,
+        to: total > 0 ? total : null,
+    }
+})
+
+const broadcastPerPage = computed<number>(() => {
+    const value = props.broadcasts
+    if (value !== null && value !== undefined && !Array.isArray(value) && value.per_page !== undefined)
+        return value.per_page
+    return 15
+})
+
+const broadcastCountLabel = computed<string>(() => broadcastMeta.value.total.toLocaleString('id-ID'))
+
+const broadcastRangeLabel = computed<string>(() => {
+    const meta = broadcastMeta.value
+    const total: string = meta.total.toLocaleString('id-ID')
+    const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
+    const to: string = (meta.to ?? meta.total).toLocaleString('id-ID')
+    return `Menampilkan ${from}–${to} dari ${total} broadcast`
+})
+
+/** Navigasi halaman server tab broadcast (?tab=broadcast&page=N). */
+const isBroadcastNavigating = ref<boolean>(false)
+
+function goToBroadcastPage(pageNumber: number): void {
+    const meta = broadcastMeta.value
+    if (isBroadcastNavigating.value) return
+    const target: number = Math.max(1, Math.min(pageNumber, meta.lastPage))
+    if (target === meta.currentPage) return
+    router.get(
+        routes.admin.recruitment.periods.show(props.period.id),
+        { tab: 'broadcast', page: target > 1 ? target : undefined },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: TAB_ONLY.broadcast,
+            onStart: () => {
+                isBroadcastNavigating.value = true
+            },
+            onFinish: () => {
+                isBroadcastNavigating.value = false
+            },
+        },
+    )
+}
 
 const pendingUnassignDescription = computed<string>(() => {
     const row: InterviewerAssignment | null = pendingUnassign.value
@@ -1036,11 +1130,61 @@ function closePeriod(): void {
             </TabsContent>
 
             <TabsContent value="broadcast" class="mt-4">
-                <PeriodBroadcastList
-                    :broadcasts="props.broadcasts"
-                    :period-id="period.id"
-                    :period-name="period.name"
-                />
+                <div class="flex flex-col gap-3" :aria-busy="isBroadcastNavigating">
+                    <p
+                        v-if="isBroadcastNavigating"
+                        role="status"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Memuat halaman {{ broadcastMeta.currentPage }}…
+                    </p>
+                    <PeriodBroadcastList
+                        :broadcasts="broadcastRows"
+                        :period-id="period.id"
+                        :period-name="period.name"
+                    />
+                    <div
+                        v-if="broadcastMeta.lastPage > 1"
+                        class="flex flex-col items-center gap-3"
+                    >
+                        <Pagination
+                            :page="broadcastMeta.currentPage"
+                            :total="broadcastMeta.total"
+                            :items-per-page="broadcastPerPage"
+                            :sibling-count="1"
+                            @update:page="goToBroadcastPage"
+                        >
+                            <PaginationContent v-slot="{ items }">
+                                <PaginationPrevious>
+                                    <ChevronLeft class="size-4" aria-hidden="true" />
+                                    <span class="hidden sm:block">Sebelumnya</span>
+                                </PaginationPrevious>
+                                <template v-for="(item, index) in items" :key="index">
+                                    <PaginationItem
+                                        v-if="item.type === 'page'"
+                                        :value="item.value"
+                                        :is-active="item.value === broadcastMeta.currentPage"
+                                        :aria-label="`Ke halaman ${item.value}`"
+                                    >
+                                        {{ item.value }}
+                                    </PaginationItem>
+                                    <PaginationEllipsis v-else :index="index" />
+                                </template>
+                                <PaginationNext>
+                                    <span class="hidden sm:block">Berikutnya</span>
+                                    <ChevronRight class="size-4" aria-hidden="true" />
+                                </PaginationNext>
+                            </PaginationContent>
+                        </Pagination>
+                        <p class="text-sm text-muted-foreground">{{ broadcastRangeLabel }}</p>
+                    </div>
+                    <p
+                        v-else-if="broadcastRows.length > 0"
+                        class="text-center text-sm text-muted-foreground"
+                    >
+                        {{ broadcastRangeLabel }}
+                    </p>
+                </div>
             </TabsContent>
 
             <TabsContent value="settings" class="mt-4">

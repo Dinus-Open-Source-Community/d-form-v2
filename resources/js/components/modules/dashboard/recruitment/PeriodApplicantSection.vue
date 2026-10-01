@@ -5,6 +5,15 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -40,6 +49,9 @@ interface ApplicationPaginator {
     current_page: number
     last_page: number
     total: number
+    per_page?: number
+    from?: number | null
+    to?: number | null
 }
 
 const QUEUE_OPTIONS = [
@@ -87,7 +99,7 @@ function setRowRef(id: string, el: unknown): void {
     rowRefs.value[id] = (el as HTMLElement | null) ?? null
 }
 
-const rowIds = computed<string[]>(() => pagedRows.value.map((row) => row.id))
+const rowIds = computed<string[]>(() => filteredRows.value.map((row) => row.id))
 
 function focusRowAt(index: number): void {
     const ids = rowIds.value
@@ -124,8 +136,8 @@ const divisionId = ref<string>('')
 const stage = ref<string>('')
 const queue = ref<string>('')
 const semester = ref<string>('')
-const perPage = ref<number>(20)
-const currentPage = ref<number>(1)
+/** Navigasi halaman server (?tab=peserta&page=N, replace agar tak menumpuk riwayat). */
+const isNavigating = ref<boolean>(false)
 
 const divisionSelectOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua divisi' },
@@ -223,64 +235,96 @@ const filteredRows = computed<ApplicationRow[]>(() => {
     })
 })
 
-const totalCount = computed<number>(() => filteredRows.value.length)
-const lastPage = computed<number>(() => Math.max(1, Math.ceil(totalCount.value / perPage.value)))
-
-const pagedRows = computed<ApplicationRow[]>(() => {
-    const page: number = Math.max(1, Math.min(currentPage.value, lastPage.value))
-    const start: number = (page - 1) * perPage.value
-    return filteredRows.value.slice(start, start + perPage.value)
-})
-
-const perPageOptions = computed<SimpleSelectOption[]>(() =>
-    [5, 10, 20, 50].map((size) => ({ value: String(size), label: `${size} / halaman` })),
-)
-
-const perPageModel = computed<string>({
-    get: () => String(perPage.value),
-    set: (value: string) => {
-        perPage.value = Number(value) || 20
-        currentPage.value = 1
-    },
-})
-
-const rangeStart = computed<number>(() => {
-    if (totalCount.value === 0) return 0
-    return (Math.max(1, Math.min(currentPage.value, lastPage.value)) - 1) * perPage.value + 1
-})
-
-const rangeEnd = computed<number>(() => {
-    if (totalCount.value === 0) return 0
-    return Math.min(rangeStart.value + pagedRows.value.length - 1, totalCount.value)
-})
-
-const visiblePages = computed<(number | string)[]>(() => {
-    const current: number = currentPage.value
-    const last: number = lastPage.value
-    if (last <= 7) {
-        return Array.from({ length: last }, (_, index: number) => index + 1)
+/** Meta paginator server; bentuk array lawas dianggap satu halaman penuh. */
+const serverMeta = computed<{
+    currentPage: number
+    lastPage: number
+    total: number
+    from: number | null
+    to: number | null
+}>(() => {
+    const value = props.applications
+    if (value !== null && !Array.isArray(value)) {
+        return {
+            currentPage: value.current_page,
+            lastPage: value.last_page,
+            total: value.total,
+            from: value.from ?? null,
+            to: value.to ?? null,
+        }
     }
-    const pages = new Set<number>([1, last, current])
-    if (current - 1 > 1) pages.add(current - 1)
-    if (current + 1 < last) pages.add(current + 1)
-    const sorted: number[] = [...pages].sort((a: number, b: number) => a - b)
-    const result: (number | string)[] = []
-    let prev = 0
-    for (const page of sorted) {
-        if (prev && page - prev > 1) result.push('…')
-        result.push(page)
-        prev = page
+    const total: number = Array.isArray(value) ? value.length : 0
+    return {
+        currentPage: 1,
+        lastPage: 1,
+        total,
+        from: total > 0 ? 1 : null,
+        to: total > 0 ? total : null,
     }
-    return result
 })
 
-watch([search, divisionId, stage, semester, queue], () => {
-    currentPage.value = 1
+const hasActiveFilter = computed<boolean>(() => {
+    return (
+        search.value.trim() !== '' ||
+        divisionId.value !== '' ||
+        stage.value !== '' ||
+        queue.value !== '' ||
+        semester.value !== ''
+    )
 })
 
-function goToPage(page: number | string): void {
-    if (typeof page !== 'number') return
-    currentPage.value = Math.max(1, Math.min(page, lastPage.value))
+const perPage = computed<number>(() => {
+    const value = props.applications
+    if (value !== null && !Array.isArray(value) && value.per_page !== undefined) return value.per_page
+    return 15
+})
+
+const rangeLabel = computed<string>(() => {
+    if (hasActiveFilter.value) {
+        const count: string = filteredRows.value.length.toLocaleString('id-ID')
+        const page: string = serverMeta.value.currentPage.toLocaleString('id-ID')
+        return `${count} cocok filter di halaman ${page}`
+    }
+    const meta = serverMeta.value
+    const total: string = meta.total.toLocaleString('id-ID')
+    const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
+    const to: string = (meta.to ?? meta.total).toLocaleString('id-ID')
+    return `Menampilkan ${from}–${to} dari ${total} applicant`
+})
+
+function goToPage(pageNumber: number): void {
+    const meta = serverMeta.value
+    if (props.applications === null || isNavigating.value) return
+    const target: number = Math.max(1, Math.min(pageNumber, meta.lastPage))
+    if (target === meta.currentPage) return
+    router.get(
+        routes.admin.recruitment.periods.show(props.periodId),
+        { tab: 'peserta', page: target > 1 ? target : undefined },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: [
+                'period',
+                'tab',
+                'query',
+                'applications',
+                'queue_counts',
+                'screening_reason_options',
+                'division_options',
+                'membership_type_options',
+                'divisionOptions',
+                'semesterOptions',
+                'stageOptions',
+            ],
+            onStart: () => {
+                isNavigating.value = true
+            },
+            onFinish: () => {
+                isNavigating.value = false
+            },
+        },
+    )
 }
 
 interface RejectReasonOption {
@@ -453,8 +497,12 @@ function submitReject(): void {
             data-applicant-list
             tabindex="-1"
             class="rounded-2xl border-border/70 overflow-hidden focus-visible:outline-none"
+            :aria-busy="isNavigating"
         >
-            <CardContent class="p-0">
+            <CardContent class="p-0" :class="isNavigating && 'opacity-60 transition-opacity'">
+                <p v-if="isNavigating" role="status" class="border-b px-4 py-2 text-xs text-muted-foreground">
+                    Memuat halaman {{ serverMeta.currentPage }}…
+                </p>
                 <div class="overflow-x-auto overflow-y-hidden">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/40 border-b text-left">
@@ -470,7 +518,7 @@ function submitReject(): void {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in pagedRows"
+                                v-for="row in filteredRows"
                                 :key="row.id"
                                 :ref="(el) => setRowRef(row.id, el)"
                                 tabindex="0"
@@ -534,9 +582,13 @@ function submitReject(): void {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="pagedRows.length === 0">
+                            <tr v-if="filteredRows.length === 0">
                                 <td colspan="7" class="text-muted-foreground px-4 py-10 text-center">
-                                    Belum ada applicant untuk periode ini yang cocok dengan filter.
+                                    {{
+                                        hasActiveFilter
+                                            ? 'Belum ada applicant untuk periode ini yang cocok dengan filter.'
+                                            : 'Belum ada applicant untuk periode ini.'
+                                    }}
                                 </td>
                             </tr>
                         </tbody>
@@ -547,57 +599,39 @@ function submitReject(): void {
 
         <div
             v-if="applications"
-            class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+            class="flex flex-col items-center gap-3 text-sm"
         >
-            <div class="flex flex-wrap items-center gap-3">
-                <p class="text-muted-foreground">
-                    Menampilkan {{ rangeStart }}–{{ rangeEnd }} dari {{ totalCount }} applicant
-                </p>
-                <SimpleSelect
-                    v-model="perPageModel"
-                    :options="perPageOptions"
-                    id="per-halaman"
-                    class="h-8 w-36 text-xs"
-                    aria-label="Jumlah per halaman"
-                />
-            </div>
-            <nav class="flex flex-wrap items-center gap-1.5" aria-label="Pagination">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="currentPage <= 1"
-                    aria-label="Ke halaman sebelumnya"
-                    @click="goToPage(currentPage - 1)"
-                >
-                    Sebelumnya
-                </Button>
-                <template v-for="(item, index) in visiblePages" :key="`${item}-${index}`">
-                    <span v-if="typeof item === 'string'" class="text-muted-foreground px-1" aria-hidden="true">
-                        …
-                    </span>
-                    <Button
-                        v-else
-                        variant="outline"
-                        size="sm"
-                        :disabled="item === currentPage"
-                        :aria-label="`Ke halaman ${item}`"
-                        :aria-current="item === currentPage ? 'page' : undefined"
-                        :class="item === currentPage ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-transparent' : ''"
-                        @click="goToPage(item)"
-                    >
-                        {{ item }}
-                    </Button>
-                </template>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="currentPage >= lastPage"
-                    aria-label="Ke halaman berikutnya"
-                    @click="goToPage(currentPage + 1)"
-                >
-                    Berikutnya
-                </Button>
-            </nav>
+            <Pagination
+                v-if="serverMeta.lastPage > 1"
+                :page="serverMeta.currentPage"
+                :total="serverMeta.total"
+                :items-per-page="perPage"
+                :sibling-count="1"
+                @update:page="goToPage"
+            >
+                <PaginationContent v-slot="{ items }">
+                    <PaginationPrevious>
+                        <ChevronLeft class="size-4" aria-hidden="true" />
+                        <span class="hidden sm:block">Sebelumnya</span>
+                    </PaginationPrevious>
+                    <template v-for="(item, index) in items" :key="`${item.type}-${index}`">
+                        <PaginationItem
+                            v-if="item.type === 'page'"
+                            :value="item.value"
+                            :is-active="item.value === serverMeta.currentPage"
+                            :aria-label="`Ke halaman ${item.value}`"
+                        >
+                            {{ item.value }}
+                        </PaginationItem>
+                        <PaginationEllipsis v-else :index="index" />
+                    </template>
+                    <PaginationNext>
+                        <span class="hidden sm:block">Berikutnya</span>
+                        <ChevronRight class="size-4" aria-hidden="true" />
+                    </PaginationNext>
+                </PaginationContent>
+            </Pagination>
+            <p class="text-muted-foreground">{{ rangeLabel }}</p>
         </div>
 
         <ConfirmationModal
