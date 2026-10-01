@@ -99,4 +99,20 @@ class RecruitmentWhatsappGroupTest extends TestCase
             return str_contains($mail->bodyHtml, 'Gabung Grup WA');
         });
     }
+
+    public function test_period_show_props_contain_saved_whatsapp_link(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $period = RecruitmentPeriod::factory()->create([
+            'whatsapp_group_url' => 'https://chat.whatsapp.com/XyZ1234567890AbCdEfGh',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $period->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('period.whatsapp_group_url', 'https://chat.whatsapp.com/XyZ1234567890AbCdEfGh'));
+    }
 }
