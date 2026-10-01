@@ -3,8 +3,11 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import BroadcastAttachmentSection from '@/components/modules/dashboard/broadcast/BroadcastAttachmentSection.vue'
 import BroadcastComposerSection from '@/components/modules/dashboard/broadcast/BroadcastComposerSection.vue'
-import BroadcastTrackingSummary from '@/components/modules/dashboard/broadcast/BroadcastTrackingSummary.vue'
+import BroadcastPreviewSection from '@/components/modules/dashboard/broadcast/BroadcastPreviewSection.vue'
+import BroadcastTestSendSection from '@/components/modules/dashboard/broadcast/BroadcastTestSendSection.vue'
+import BroadcastTrackingSection from '@/components/modules/dashboard/broadcast/BroadcastTrackingSection.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useBroadcastComposer } from '@/utils/composables/useBroadcastComposer'
 import {
+    BROADCAST_BASE_PATH,
     BROADCAST_STATUS_META,
     buildBroadcastSnapshotRows,
     isBroadcastBodyFilled,
@@ -27,11 +31,12 @@ import type {
     IBroadcastShownBroadcast,
     IBroadcastSnapshot,
 } from '@/lib/broadcastHub'
-import { handleInertiaFormErrors } from '@/lib/error-message'
+import { handleInertiaFormErrors, showErrorToast, showHttpErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import { Lock, MailOpen, Send } from 'lucide-vue-next'
+import axios from 'axios'
+import { CalendarOff, Lock, MailOpen, Send } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -48,6 +53,9 @@ const statusMeta = computed(() => BROADCAST_STATUS_META[props.broadcast.status])
 const editable = computed<boolean>(
     () => props.broadcast.status === 'draft' || props.broadcast.status === 'scheduled',
 )
+
+/** Pembatalan jadwal hanya untuk scheduled (cancel -> draft, 422 selain itu). */
+const isScheduled = computed<boolean>(() => props.broadcast.status === 'scheduled')
 
 /** Baris snapshot read-only (source of truth per broadcast). */
 const snapshotRows = computed(() => buildBroadcastSnapshotRows(props.snapshot, props.context))
@@ -123,6 +131,8 @@ function submitEdit(): void {
 
 const sendDialogOpen = ref(false)
 const isSending = ref(false)
+const cancelDialogOpen = ref(false)
+const isCancelling = ref(false)
 
 function confirmSend(): void {
     if (isSending.value || !canSend.value) return
@@ -144,6 +154,32 @@ function confirmSend(): void {
             },
         },
     )
+}
+
+/** Batalkan jadwal (scheduled -> draft); jadwal-ulang via Simpan Perubahan + scheduled_at. */
+async function confirmCancel(): Promise<void> {
+    if (isCancelling.value || !isScheduled.value) return
+    isCancelling.value = true
+    try {
+        await axios.post(
+            `${BROADCAST_BASE_PATH}/${props.broadcast.id}/cancel`,
+            {},
+            { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        )
+        cancelDialogOpen.value = false
+        toast.success('Jadwal dibatalkan — broadcast kembali ke draft.')
+        router.reload()
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            showHttpErrorToast(error.response.status, error.response.data, {
+                422: 'Hanya broadcast terjadwal yang bisa dibatalkan.',
+            })
+            return
+        }
+        showErrorToast('Gagal membatalkan jadwal. Coba lagi.')
+    } finally {
+        isCancelling.value = false
+    }
 }
 
 onMounted(() => {
@@ -205,6 +241,15 @@ onMounted(() => {
                             <Send class="mr-2 size-4" aria-hidden="true" />
                             Kirim Sekarang
                         </Button>
+                        <Button
+                            v-if="isScheduled"
+                            size="sm"
+                            variant="outline"
+                            @click="cancelDialogOpen = true"
+                        >
+                            <CalendarOff class="mr-2 size-4" aria-hidden="true" />
+                            Batalkan Jadwal
+                        </Button>
                     </div>
                 </div>
                 <p v-if="editable && !canSend" class="mt-3 text-xs text-muted-foreground">
@@ -213,8 +258,7 @@ onMounted(() => {
             </CardContent>
         </Card>
 
-        <!-- Seam Fase 2: backend Fase 1 tidak mengirim objek tracking — tidak render apa pun. -->
-        <BroadcastTrackingSummary :status="props.broadcast.status" :tracking="null" />
+        <BroadcastTrackingSection :broadcast-id="props.broadcast.id" :status="props.broadcast.status" />
 
         <Card class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">
@@ -238,6 +282,12 @@ onMounted(() => {
                 </div>
             </CardContent>
         </Card>
+
+        <BroadcastPreviewSection v-if="editable" :broadcast-id="props.broadcast.id" />
+
+        <BroadcastTestSendSection v-if="editable" :broadcast-id="props.broadcast.id" />
+
+        <BroadcastAttachmentSection v-if="editable" :broadcast-id="props.broadcast.id" />
 
         <Card v-if="editable" class="rounded-2xl border-border/70">
             <CardHeader class="pb-2">
@@ -362,5 +412,17 @@ onMounted(() => {
         @confirm="confirmSend"
         @cancel="sendDialogOpen = false"
         @update:open="(v: boolean) => { sendDialogOpen = v }"
+    />
+
+    <ConfirmationModal
+        :open="cancelDialogOpen"
+        title="Batalkan jadwal broadcast?"
+        description="Broadcast kembali ke draft dan jadwalnya dihapus. Anda bisa menjadwalkan ulang lewat Simpan Perubahan."
+        confirm-text="Batalkan Jadwal"
+        cancel-text="Tutup"
+        :loading="isCancelling"
+        @confirm="confirmCancel"
+        @cancel="cancelDialogOpen = false"
+        @update:open="(v: boolean) => { cancelDialogOpen = v }"
     />
 </template>
