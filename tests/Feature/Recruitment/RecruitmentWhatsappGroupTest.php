@@ -115,4 +115,74 @@ class RecruitmentWhatsappGroupTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('period.whatsapp_group_url', 'https://chat.whatsapp.com/XyZ1234567890AbCdEfGh'));
     }
+
+    public function test_store_whatsapp_link_with_tags_and_whitespace_is_normalized(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.periods.store'), [
+                'name' => 'OpRec WA Normalize',
+                'whatsapp_group_url' => "  <b>https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt</b>\n",
+            ])
+            ->assertRedirect();
+
+        $period = RecruitmentPeriod::query()->where('name', 'OpRec WA Normalize')->firstOrFail();
+
+        $this->assertSame(
+            'https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt',
+            $period->whatsapp_group_url
+        );
+    }
+
+    public function test_update_whatsapp_link_with_control_chars_is_normalized(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $period = RecruitmentPeriod::factory()->create();
+
+        $this->actingAs($admin)
+            ->put(route('dashboard.recruitment.periods.update', $period), [
+                'name' => $period->name,
+                'whatsapp_group_url' => "https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt\x00\x1F  ",
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(
+            'https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt',
+            $period->refresh()->whatsapp_group_url
+        );
+    }
+
+    public function test_store_rejects_non_https_whatsapp_link(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->postJson(route('dashboard.recruitment.periods.store'), [
+                'name' => 'OpRec WA Bad',
+                'whatsapp_group_url' => 'http://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('whatsapp_group_url');
+    }
+
+    public function test_update_rejects_non_https_whatsapp_link(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $period = RecruitmentPeriod::factory()->create();
+
+        $this->actingAs($admin)
+            ->putJson(route('dashboard.recruitment.periods.update', $period), [
+                'name' => $period->name,
+                'whatsapp_group_url' => 'http://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrSt',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('whatsapp_group_url');
+    }
 }

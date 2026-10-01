@@ -11,6 +11,15 @@ class StoreRecruitmentPeriodRequest extends FormRequest
         return $this->user()?->can('recruitment.periods.create') ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('whatsapp_group_url')) {
+            return;
+        }
+
+        $this->merge(['whatsapp_group_url' => self::normalizeWhatsappUrl($this->input('whatsapp_group_url'))]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -41,5 +50,17 @@ class StoreRecruitmentPeriodRequest extends FormRequest
             'whatsapp_group_url.url' => 'Link grup WA harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
             'whatsapp_group_url.starts_with' => 'Link grup WA harus memakai https://.',
         ];
+    }
+
+    private static function normalizeWhatsappUrl(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $clean = trim(strip_tags($value));
+        $clean = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
+
+        return trim($clean) === '' ? null : trim($clean);
     }
 }
