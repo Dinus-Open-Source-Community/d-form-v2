@@ -519,12 +519,9 @@ function settingsUrl(): string {
 watch(
     () => props.tab,
     (value) => {
+        if (expectTab.value === null) return
         const next = normalizeTab(value)
-        if (next === activeTab.value) {
-            expectTab.value = null
-            return
-        }
-        if (activeTab.value === 'settings' && expectTab.value === null) return
+        if (next !== expectTab.value) return
         expectTab.value = null
         activeTab.value = next
     },
@@ -545,6 +542,9 @@ function visitTab(target: TabValue): void {
                 tabNavigating.value = true
             },
             onFinish: () => {
+                tabNavigating.value = false
+            },
+            onError: () => {
                 tabNavigating.value = false
                 expectTab.value = null
             },
