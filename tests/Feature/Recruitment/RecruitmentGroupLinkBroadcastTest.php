@@ -112,6 +112,31 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_final_rejected_with_pass_screening_is_excluded(): void
+    {
+        Mail::fake();
+
+        $passed = $this->makePassedApplicant();
+        $finalRejected = $this->makePassedApplicant();
+        $finalRejected->update(['result' => ApplicationResult::Rejected]);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.send-group-link', $this->period))
+            ->assertOk()
+            ->assertJson(['dispatched' => 1]);
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
+
+        $this->assertDatabaseHas('email_logs', [
+            'recruitment_application_id' => $passed->id,
+            'notification_type' => 'recruitment_group_link',
+        ]);
+        $this->assertDatabaseMissing('email_logs', [
+            'recruitment_application_id' => $finalRejected->id,
+            'notification_type' => 'recruitment_group_link',
+        ]);
+    }
+
     public function test_broadcast_with_zero_passed_returns_ok_zero(): void
     {
         Mail::fake();

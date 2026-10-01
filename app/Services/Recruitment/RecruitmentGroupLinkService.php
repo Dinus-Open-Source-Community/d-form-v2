@@ -2,6 +2,7 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ScreeningDecision;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -30,6 +31,7 @@ final class RecruitmentGroupLinkService
         $recipients = RecruitmentApplication::query()
             ->where('recruitment_period_id', $period->id)
             ->whereNull('cancelled_at')
+            ->where('result', '!=', ApplicationResult::Rejected->value)
             ->whereHas('screenings', fn ($query) => $query->where('decision', ScreeningDecision::Pass->value))
             ->orderBy('submitted_at')
             ->get();
