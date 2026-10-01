@@ -43,6 +43,12 @@ class BroadcastPolicy
             && in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true);
     }
 
+    /** Lihat daftar per periode: lolos view periode itu (owner-scoped). */
+    public function viewAnyForPeriod(User $user, RecruitmentPeriod $period): bool
+    {
+        return $user->can('view', $period);
+    }
+
     /** Lihat broadcast: mengikuti izin konteks yang tersimpan di snapshot target. */
     public function view(User $user, Broadcast $broadcast): bool
     {

@@ -7,6 +7,7 @@ use App\Models\Broadcast;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
+use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -332,5 +333,97 @@ class BroadcastHubTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(Broadcast::STATUS_DRAFT, $broadcast->refresh()->status);
+    }
+
+    public function test_b13_index_own_period_returns_only_its_broadcasts(): void
+    {
+        $owner = User::factory()->create();
+        $otherOwner = User::factory()->create();
+
+        $period = RecruitmentPeriod::factory()->create(['created_by' => $owner->id]);
+        $otherPeriod = RecruitmentPeriod::factory()->create(['created_by' => $otherOwner->id]);
+
+        $first = Broadcast::factory()->create([
+            'name' => 'Broadcast Period A1',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+        $second = Broadcast::factory()->create([
+            'name' => 'Broadcast Period A2',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+        Broadcast::factory()->create([
+            'name' => 'Broadcast Period Lain',
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $otherPeriod->id,
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('dashboard.broadcasts.index', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('period.id', $period->id)
+                ->where('broadcasts', function (array $broadcasts) use ($first, $second): bool {
+                    $ids = array_column($broadcasts, 'id');
+                    sort($ids);
+
+                    $expected = [$first->id, $second->id];
+                    sort($expected);
+
+                    return $ids === $expected;
+                }));
+    }
+
+    public function test_b14_index_other_period_is_forbidden(): void
+    {
+        $viewer = User::factory()->create();
+        $owner = User::factory()->create();
+
+        $period = RecruitmentPeriod::factory()->create(['created_by' => $owner->id]);
+
+        Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('dashboard.broadcasts.index', ['period_id' => $period->id]))
+            ->assertForbidden();
+    }
+
+    public function test_b15_index_without_period_id_is_rejected(): void
+    {
+        $this->actingAs($this->superAdmin())
+            ->getJson(route('dashboard.broadcasts.index'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('period_id')
+            ->assertJsonPath('errors.period_id.0', 'Pilih periode dulu — daftar broadcast wajib menyertakan period_id.');
+    }
+
+    public function test_b16_index_excludes_event_scoped_broadcasts(): void
+    {
+        $owner = User::factory()->create();
+
+        $period = RecruitmentPeriod::factory()->create(['created_by' => $owner->id]);
+        $event = Event::factory()->create();
+
+        $periodBroadcast = Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_RECRUITMENT_APPLICANTS,
+            'period_id' => $period->id,
+        ]);
+        Broadcast::factory()->create([
+            'source' => Broadcast::SOURCE_EVENT_PARTICIPANTS,
+            'event_id' => $event->id,
+            'period_id' => null,
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('dashboard.broadcasts.index', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('broadcasts', function (array $broadcasts) use ($periodBroadcast): bool {
+                    return array_column($broadcasts, 'id') === [$periodBroadcast->id];
+                }));
     }
 }

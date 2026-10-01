@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard\Broadcasts;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcast\BroadcastCreateRequest;
+use App\Http\Requests\Broadcast\BroadcastIndexRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastRequest;
 use App\Http\Requests\Broadcast\UpdateBroadcastRequest;
 use App\Models\Broadcast;
@@ -26,6 +27,41 @@ class BroadcastController extends Controller
         private readonly BroadcastBodyText $broadcastBodyText,
         private readonly BroadcastDispatchService $dispatchService,
     ) {
+    }
+
+    /** Daftar broadcast satu periode untuk tab Period (satu query, tanpa N+1). */
+    public function index(BroadcastIndexRequest $request): Response
+    {
+        $period = RecruitmentPeriod::query()->findOrFail($request->validated('period_id'));
+
+        /** @var User $user */
+        $user = $request->user();
+
+        abort_unless($this->broadcastPolicy->viewAnyForPeriod($user, $period), 403);
+
+        $broadcasts = Broadcast::query()
+            ->where('period_id', $period->id)
+            ->orderByDesc('created_at')
+            ->get(['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at']);
+
+        return Inertia::render('Dashboard/Broadcasts/Index', [
+            'broadcasts' => $broadcasts
+                ->map(fn (Broadcast $broadcast): array => [
+                    'id' => $broadcast->id,
+                    'name' => $broadcast->name,
+                    'subject' => $broadcast->subject,
+                    'status' => $broadcast->status,
+                    'scheduled_at' => $broadcast->scheduled_at?->toIso8601String(),
+                    'recipient_count' => $broadcast->recipient_count,
+                    'created_at' => $broadcast->created_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
+            'period' => [
+                'id' => $period->id,
+                'name' => $period->name,
+            ],
+        ]);
     }
 
     /** Hub create: prefill konteks terkunci dari query + daftar konteks yang boleh ditarget. */
