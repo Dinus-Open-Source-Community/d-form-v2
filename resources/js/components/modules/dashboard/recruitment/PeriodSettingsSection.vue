@@ -49,8 +49,8 @@ const form = useForm({
     description: props.period.description ?? '',
     registration_opens_at: toDatetimeLocal(props.period.registration_opens_at),
     registration_closes_at: toDatetimeLocal(props.period.registration_closes_at),
-    interview_starts_at: toDatetimeLocal(props.period.interview_starts_at),
-    interview_ends_at: toDatetimeLocal(props.period.interview_ends_at),
+    interview_starts_at: toDateInput(props.period.interview_starts_at),
+    interview_ends_at: toDateInput(props.period.interview_ends_at),
     finalization_deadline_at: toDateInput(props.period.finalization_deadline_at),
     banner: null as File | null,
     whatsapp_group_url: props.period.whatsapp_group_url ?? '',
@@ -166,25 +166,31 @@ function submit(): void {
                         :invalid="!!form.errors.registration_closes_at"
                     />
 
-                    <SplitDateTimeField
-                        id-prefix="interview_start"
-                        v-model="form.interview_starts_at"
-                        label="Mulai interview"
-                        picker-class="bg-white"
-                        class="sm:col-span-2"
-                        :error="form.errors.interview_starts_at"
-                        :invalid="!!form.errors.interview_starts_at"
-                    />
+                    <div class="space-y-2">
+                        <Label for="period-interview-starts">Mulai interview</Label>
+                        <DatePicker
+                            id="period-interview-starts"
+                            v-model="form.interview_starts_at"
+                            :aria-invalid="!!form.errors.interview_starts_at"
+                            :class="cn('bg-white', !!form.errors.interview_starts_at && dateErrorClass)"
+                        />
+                        <p v-if="form.errors.interview_starts_at" class="text-destructive text-xs">
+                            {{ form.errors.interview_starts_at }}
+                        </p>
+                    </div>
 
-                    <SplitDateTimeField
-                        id-prefix="interview_end"
-                        v-model="form.interview_ends_at"
-                        label="Akhir interview"
-                        picker-class="bg-white"
-                        class="sm:col-span-2"
-                        :error="form.errors.interview_ends_at"
-                        :invalid="!!form.errors.interview_ends_at"
-                    />
+                    <div class="space-y-2">
+                        <Label for="period-interview-ends">Akhir interview</Label>
+                        <DatePicker
+                            id="period-interview-ends"
+                            v-model="form.interview_ends_at"
+                            :aria-invalid="!!form.errors.interview_ends_at"
+                            :class="cn('bg-white', !!form.errors.interview_ends_at && dateErrorClass)"
+                        />
+                        <p v-if="form.errors.interview_ends_at" class="text-destructive text-xs">
+                            {{ form.errors.interview_ends_at }}
+                        </p>
+                    </div>
 
                     <div class="space-y-2 sm:col-span-2">
                         <Label for="period-finalization">Target finalisasi</Label>
