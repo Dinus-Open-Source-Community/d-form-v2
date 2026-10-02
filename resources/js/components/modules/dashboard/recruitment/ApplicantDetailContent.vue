@@ -300,6 +300,11 @@ function executeConfirmed() {
     }
 
     if (action === 'pass') {
+        if (!hasGroupLink.value) {
+            confirmOpen.value = false
+            openGroupLinkDialog()
+            return
+        }
         passApplication()
         return
     }
@@ -391,6 +396,68 @@ function passApplication() {
                 emit('submitted')
             },
             onError: () => showErrorToast('Gagal meloloskan applicant.'),
+        },
+    )
+}
+
+/** Link grup WA periode; sekali tersimpan lokal tetap dianggap ada sesi ini. */
+const groupLinkSavedLocal = ref(false)
+const hasGroupLink = computed<boolean>(
+    () =>
+        groupLinkSavedLocal.value ||
+        (props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== ''),
+)
+
+const waDialogOpen = ref(false)
+const waLinkInput = ref('')
+const waSaving = ref(false)
+const waLocalError = ref<string | null>(null)
+
+function openGroupLinkDialog(): void {
+    waLinkInput.value = props.whatsappGroupUrl ?? ''
+    waLocalError.value = null
+    waDialogOpen.value = true
+}
+
+function closeGroupLinkDialog(): void {
+    waDialogOpen.value = false
+    waLocalError.value = null
+}
+
+function submitGroupLink(): void {
+    const value = waLinkInput.value.trim()
+    if (value === '') {
+        waLocalError.value = 'Link grup WA wajib diisi.'
+        return
+    }
+    if (!value.startsWith('https://')) {
+        waLocalError.value = 'Link grup WA harus diawali https://.'
+        return
+    }
+    const periodId = props.application.period?.id
+    if (periodId === null || periodId === undefined || waSaving.value) return
+    waLocalError.value = null
+    waSaving.value = true
+    router.put(
+        routes.admin.recruitment.periods.update(periodId),
+        { whatsapp_group_url: value },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                groupLinkSavedLocal.value = true
+                waDialogOpen.value = false
+                toast.success('Link grup tersimpan. Melanjutkan lolos screening.')
+                passApplication()
+            },
+            onError: () => {
+                showErrorToast('Gagal menyimpan link. Minta admin mengisinya di tab Settings.', {
+                    title: 'Akses ditolak',
+                })
+            },
+            onFinish: () => {
+                waSaving.value = false
+            },
         },
     )
 }
@@ -1307,6 +1374,41 @@ const defaultTab = computed(() => {
                         @click="executeConfirmed"
                     >
                         Konfirmasi
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-if="!readonly" v-model:open="waDialogOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Isi link grup WA dulu</DialogTitle>
+                    <DialogDescription>
+                        Email lolos menyertakan link grup. Link tersimpan ke pengaturan periode ini.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-2">
+                    <Label for="drawer-wa-link">Link grup WA</Label>
+                    <input
+                        id="drawer-wa-link"
+                        v-model="waLinkInput"
+                        type="url"
+                        inputmode="url"
+                        placeholder="https://chat.whatsapp.com/..."
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                    />
+                    <p v-if="waLocalError" class="text-destructive text-xs">
+                        {{ waLocalError }}
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="closeGroupLinkDialog">
+                        Batal
+                    </Button>
+                    <Button type="button" :disabled="waSaving" @click="submitGroupLink">
+                        {{ waSaving ? 'Menyimpan…' : 'Simpan & lanjutkan' }}
                     </Button>
                 </DialogFooter>
             </DialogContent>
