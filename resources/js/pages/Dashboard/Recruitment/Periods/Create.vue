@@ -149,7 +149,7 @@ function submit() {
 
                     <div class="grid items-start gap-4 sm:grid-cols-2">
                         <div class="flex flex-col gap-4">
-                            <div class="flex min-h-24 flex-col justify-start">
+                            <div class="flex flex-col justify-start">
                                 <SplitDateTimeField
                                     id-prefix="reg_open"
                                     v-model="form.registration_opens_at"
@@ -159,7 +159,7 @@ function submit() {
                                     :invalid="!!form.errors.registration_opens_at"
                                 />
                             </div>
-                            <div class="flex min-h-24 flex-col justify-start">
+                            <div class="flex flex-col justify-start">
                                 <SplitDateTimeField
                                     id-prefix="reg_close"
                                     v-model="form.registration_closes_at"
@@ -172,7 +172,7 @@ function submit() {
                         </div>
 
                         <div class="flex flex-col gap-4">
-                            <div class="flex min-h-24 flex-col justify-start gap-2">
+                            <div class="flex flex-col justify-start gap-2">
                                 <Label for="interview_starts_at" class="leading-5">Mulai interview</Label>
                                 <DatePicker
                                     id="interview_starts_at"
@@ -185,7 +185,7 @@ function submit() {
                                 </p>
                             </div>
 
-                            <div class="flex min-h-24 flex-col justify-start gap-2">
+                            <div class="flex flex-col justify-start gap-2">
                                 <Label for="interview_ends_at" class="leading-5">Akhir interview</Label>
                                 <DatePicker
                                     id="interview_ends_at"

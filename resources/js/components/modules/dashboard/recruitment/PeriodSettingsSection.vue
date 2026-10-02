@@ -1,48 +1,48 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useForm } from '@inertiajs/vue3'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
-import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue'
-import { routes } from '@/lib/routes'
-import { showErrorToast } from '@/lib/error-message'
-import { cn } from '@/lib/utils'
-import { toast } from 'vue-sonner'
+import { computed } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
+import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue';
+import { routes } from '@/lib/routes';
+import { showErrorToast } from '@/lib/error-message';
+import { cn } from '@/lib/utils';
+import { toast } from 'vue-sonner';
 
 interface PeriodSettings {
-    id: string
-    name: string
-    description: string | null
-    registration_opens_at: string | null
-    registration_closes_at: string | null
-    interview_starts_at: string | null
-    interview_ends_at: string | null
-    finalization_deadline_at: string | null
-    banner_url: string | null
-    whatsapp_group_url?: string | null
+    id: string;
+    name: string;
+    description: string | null;
+    registration_opens_at: string | null;
+    registration_closes_at: string | null;
+    interview_starts_at: string | null;
+    interview_ends_at: string | null;
+    finalization_deadline_at: string | null;
+    banner_url: string | null;
+    whatsapp_group_url?: string | null;
 }
 
-const props = defineProps<{ period: PeriodSettings }>()
+const props = defineProps<{ period: PeriodSettings }>();
 
-const emit = defineEmits<{ saved: [] }>()
+const emit = defineEmits<{ saved: [] }>();
 
 function toDatetimeLocal(value: string | null): string {
-    if (!value) return ''
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return ''
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function toDateInput(value: string | null): string {
-    if (!value) return ''
-    return value.slice(0, 10)
+    if (!value) return '';
+    return value.slice(0, 10);
 }
 
-const existingBannerUrl = computed<string | null>(() => props.period.banner_url ?? null)
+const existingBannerUrl = computed<string | null>(() => props.period.banner_url ?? null);
 
 const form = useForm({
     name: props.period.name,
@@ -54,36 +54,36 @@ const form = useForm({
     finalization_deadline_at: toDateInput(props.period.finalization_deadline_at),
     banner: null as File | null,
     whatsapp_group_url: props.period.whatsapp_group_url ?? '',
-})
+});
 
 /** Validasi ringan: link WA opsional, bila diisi wajib https:// (cermin backend). */
 const whatsappError = computed<string | null>(() => {
-    const value = form.whatsapp_group_url.trim()
-    if (!value) return null
-    return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.'
-})
+    const value = form.whatsapp_group_url.trim();
+    if (!value) return null;
+    return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.';
+});
 
 const dateErrorClass =
-    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
+    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10';
 
 function submit(): void {
     if (whatsappError.value) {
-        showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' })
-        return
+        showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' });
+        return;
     }
     form.put(routes.admin.recruitment.periods.update(props.period.id), {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved')
-            toast.success('Perubahan periode disimpan.')
+            emit('saved');
+            toast.success('Perubahan periode disimpan.');
         },
-    })
+    });
 }
 </script>
 
 <template>
-    <Card class="rounded-2xl border-border/70">
+    <Card class="border-border/70 rounded-2xl">
         <CardContent class="space-y-5 p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -92,12 +92,7 @@ function submit(): void {
                         Nama, jadwal, banner, dan link grup WA periode ini.
                     </p>
                 </div>
-                <Button
-                    type="submit"
-                    form="period-settings-form"
-                    :disabled="form.processing"
-                    class="shrink-0"
-                >
+                <Button type="submit" form="period-settings-form" :disabled="form.processing" class="shrink-0">
                     {{ form.processing ? 'Menyimpan…' : 'Simpan perubahan' }}
                 </Button>
             </div>
@@ -130,8 +125,7 @@ function submit(): void {
                         :aria-invalid="!!form.errors.whatsapp_group_url || !!whatsappError"
                     />
                     <p class="text-muted-foreground text-xs">
-                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
-                        kelulusan bila diisi.
+                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email kelulusan bila diisi.
                     </p>
                     <p v-if="whatsappError" class="text-destructive text-xs">{{ whatsappError }}</p>
                     <p v-if="form.errors.whatsapp_group_url" class="text-destructive text-xs">
@@ -148,7 +142,7 @@ function submit(): void {
 
                 <div class="grid items-start gap-4 sm:grid-cols-2">
                     <div class="flex flex-col gap-4">
-                        <div class="flex min-h-24 flex-col justify-start">
+                        <div class="flex flex-col justify-start">
                             <SplitDateTimeField
                                 id-prefix="reg_open"
                                 v-model="form.registration_opens_at"
@@ -158,7 +152,7 @@ function submit(): void {
                                 :invalid="!!form.errors.registration_opens_at"
                             />
                         </div>
-                        <div class="flex min-h-24 flex-col justify-start">
+                        <div class="flex flex-col justify-start">
                             <SplitDateTimeField
                                 id-prefix="reg_close"
                                 v-model="form.registration_closes_at"
@@ -171,7 +165,7 @@ function submit(): void {
                     </div>
 
                     <div class="flex flex-col gap-4">
-                        <div class="flex min-h-24 flex-col justify-start gap-2">
+                        <div class="flex flex-col justify-start gap-2">
                             <Label for="period-interview-starts" class="leading-5">Mulai interview</Label>
                             <DatePicker
                                 id="period-interview-starts"
@@ -184,7 +178,7 @@ function submit(): void {
                             </p>
                         </div>
 
-                        <div class="flex min-h-24 flex-col justify-start gap-2">
+                        <div class="flex flex-col justify-start gap-2">
                             <Label for="period-interview-ends" class="leading-5">Akhir interview</Label>
                             <DatePicker
                                 id="period-interview-ends"
