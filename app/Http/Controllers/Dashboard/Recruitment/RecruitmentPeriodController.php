@@ -364,16 +364,15 @@ class RecruitmentPeriodController extends Controller
             ->with('message', 'Periode recruitment dibuka untuk pendaftaran.');
     }
 
-    public function sendGroupLink(Request $request, RecruitmentPeriod $period): JsonResponse
+    public function sendGroupLink(Request $request, RecruitmentPeriod $period): RedirectResponse
     {
         $this->authorize('sendGroupLink', $period);
 
         $result = $this->groupLinkService->send($request->user(), $period);
 
-        return response()->json([
-            'period_id' => $period->id,
-            'dispatched' => $result['dispatched'],
-        ]);
+        return redirect()
+            ->back()
+            ->with('message', "Link grup dikirim ke {$result['dispatched']} applicant yang lolos.");
     }
 
     public function close(RecruitmentPeriod $period): RedirectResponse

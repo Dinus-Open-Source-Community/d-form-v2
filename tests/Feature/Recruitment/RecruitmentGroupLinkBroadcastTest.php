@@ -60,8 +60,8 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
 
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.periods.send-group-link', $this->period))
-            ->assertOk()
-            ->assertJson(['dispatched' => 2]);
+            ->assertRedirect()
+            ->assertSessionHas('message');
 
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 2);
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail): bool {
@@ -122,8 +122,8 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
 
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.periods.send-group-link', $this->period))
-            ->assertOk()
-            ->assertJson(['dispatched' => 1]);
+            ->assertRedirect()
+            ->assertSessionHas('message');
 
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
 
@@ -145,8 +145,8 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
 
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.periods.send-group-link', $this->period))
-            ->assertOk()
-            ->assertJson(['dispatched' => 0]);
+            ->assertRedirect()
+            ->assertSessionHas('message');
 
         Mail::assertNothingSent();
     }
