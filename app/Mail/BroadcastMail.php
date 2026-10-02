@@ -2,66 +2,77 @@
 
 namespace App\Mail;
 
-use App\Models\Broadcast;
-use App\Models\BroadcastAttachment;
-use Illuminate\Mail\Attachment;
+use App\Models\EmailBroadcastAttachment;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Support\Facades\Storage;
 
+/**
+ * Email broadcast generik — memakai konfigurasi mail global DForm.
+ * Attachment diambil dari storage lokal (disk `local`).
+ */
 class BroadcastMail extends Mailable
 {
     public function __construct(
-        public Broadcast $broadcast,
-        public string $recipientEmail,
+        public string $subjectLine,
+        public string $htmlBody,
+        public string $textBody,
+        public string $broadcastId,
     ) {
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->broadcast->subject ?? $this->broadcast->name,
+            subject: $this->subjectLine,
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            htmlString: $this->personalizedBody(),
+            html: 'mail.broadcast-html',
+            text: 'mail.broadcast-text',
+            with: [
+                'htmlBody' => $this->htmlBody,
+                'subjectLine' => $this->subjectLine,
+            ],
         );
     }
 
-    /** Lampirkan file broadcast (pdf/jpg/png) ke email keluar. */
+    /**
+     * @return array<int, Attachment>
+     */
     public function attachments(): array
     {
-        return $this->broadcast->attachments
-            ->map(fn (BroadcastAttachment $attachment): Attachment => Attachment::fromStorage($attachment->path)
-                ->as($attachment->original_name)
-                ->withMime($attachment->mime_type ?? 'application/octet-stream'))
-            ->all();
-    }
+        $attachments = EmailBroadcastAttachment::query()
+            ->where('broadcast_id', $this->broadcastId)
+            ->get();
 
-    /** Ganti placeholder {{nama}} dengan nama penerima snapshot. */
-    private function personalizedBody(): string
-    {
-        $name = $this->recipientName() ?? 'Peserta';
+        $out = [];
 
-        return str_replace('{{nama}}', e($name), (string) $this->broadcast->body_html);
-    }
+        foreach ($attachments as $attachment) {
+            $path = $attachment->file_path;
+            $mime = $attachment->mime_type ?: 'application/octet-stream';
 
-    /** Cari nama penerima di snapshot berdasarkan email. */
-    private function recipientName(): ?string
-    {
-        $recipients = $this->broadcast->recipient_snapshot['recipients'] ?? [];
-
-        foreach ($recipients as $recipient) {
-            if (($recipient['email'] ?? null) === $this->recipientEmail) {
-                $name = $recipient['name'] ?? null;
-
-                return is_string($name) && trim($name) !== '' ? $name : null;
+            if (! Storage::disk('local')->exists($path)) {
+                continue;
             }
+
+            $out[] = Attachment::fromStorageDisk('local', $path)
+                ->as($attachment->file_name)
+                ->withMime($mime);
         }
 
-        return null;
+        return $out;
+    }
+
+    public static function textFallback(string $html): string
+    {
+        $text = strip_tags(preg_replace('#<(br|p|div|li|tr)[^>]*>#i', "\n\$0", $html) ?? '');
+
+        return html_entity_decode(trim($text), ENT_QUOTES, 'UTF-8');
     }
 }

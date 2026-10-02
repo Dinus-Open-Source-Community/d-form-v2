@@ -63,6 +63,7 @@ class HandleInertiaRequests extends Middleware
                     'has_local_password' => filled($user->getRawOriginal('password')),
                     'can_manage_events' => $user->can('events.list'),
                     'can_manage_users' => $user->can('users.list'),
+                    'can_access_broadcast' => $user->can('email-broadcast.view'),
                     'can_access_recruitment' => $user->can('recruitment.dashboard.view'),
                     'is_recruitment_interviewer_only' => app(\App\Services\Recruitment\RecruitmentDashboardService::class)
                         ->isInterviewerOnly($user),
