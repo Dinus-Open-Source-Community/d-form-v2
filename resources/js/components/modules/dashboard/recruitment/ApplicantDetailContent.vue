@@ -424,6 +424,13 @@ function closeGroupLinkDialog(): void {
     waLocalError.value = null
 }
 
+/** Lanjut lolos tanpa grup: email lolos terkirim tanpa blok WA. */
+function skipGroupLink(): void {
+    waDialogOpen.value = false
+    waLocalError.value = null
+    passApplication()
+}
+
 function submitGroupLink(): void {
     const value = waLinkInput.value.trim()
     if (value === '') {
@@ -1382,9 +1389,10 @@ const defaultTab = computed(() => {
         <Dialog v-if="!readonly" v-model:open="waDialogOpen">
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Isi link grup WA dulu</DialogTitle>
+                    <DialogTitle>Link grup WA belum diisi</DialogTitle>
                     <DialogDescription>
-                        Email lolos menyertakan link grup. Link tersimpan ke pengaturan periode ini.
+                        Email lolos menyertakan link grup bila ada. Isi sekarang, atau lanjut
+                        tanpa grup bila periode ini memang tidak punya grup.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -1406,6 +1414,9 @@ const defaultTab = computed(() => {
                 <DialogFooter>
                     <Button type="button" variant="outline" @click="closeGroupLinkDialog">
                         Batal
+                    </Button>
+                    <Button type="button" variant="outline" @click="skipGroupLink">
+                        Lanjut tanpa grup
                     </Button>
                     <Button type="button" :disabled="waSaving" @click="submitGroupLink">
                         {{ waSaving ? 'Menyimpan…' : 'Simpan & lanjutkan' }}
