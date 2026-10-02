@@ -20,13 +20,19 @@ import { Label } from '@/components/ui/label'
 import {
     type IPaginatorLink,
     type IPaginatorMeta,
-    paginatorLinkAriaLabel,
-    paginatorLinkLabel,
 } from '@/lib/paginatorLinks'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, ChevronLeft, ChevronRight, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
@@ -385,6 +391,9 @@ const broadcastRangeLabel = computed<string>(() => {
     return `Menampilkan ${from}–${to} dari ${total} broadcast`
 })
 
+/** Baris per halaman paginator broadcast server (kontrak: paginate 15). */
+const broadcastPerPage = computed<number>(() => props.broadcasts?.per_page ?? 15)
+
 /**
  * Pindah halaman via links[] paginator (url sudah membawa ?tab=broadcast&page=N).
  * Partial reload + replace agar riwayat tak menumpuk.
@@ -409,6 +418,17 @@ function goToBroadcastUrl(url: string | null): void {
             },
         },
     )
+}
+
+/**
+ * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
+ * links[] paginator lalu didelegasikan ke goToBroadcastUrl agar opsi sama.
+ */
+function goToBroadcastPage(pageNumber: number): void {
+    if (pageNumber === broadcastMeta.value.currentPage || isBroadcastNavigating.value) return
+    const target: string | null =
+        broadcastMeta.value.links.find((link) => link.label === String(pageNumber))?.url ?? null
+    goToBroadcastUrl(target)
 }
 
 const pendingUnassignDescription = computed<string>(() => {
@@ -1120,24 +1140,35 @@ function closePeriod(): void {
                         v-if="broadcastMeta.lastPage > 1"
                         class="flex flex-col items-center gap-3"
                     >
-                        <nav
-                            class="flex flex-wrap items-center justify-center gap-1.5"
-                            aria-label="Pagination"
+                        <Pagination
+                            :page="broadcastMeta.currentPage"
+                            :total="broadcastMeta.total"
+                            :items-per-page="broadcastPerPage"
+                            :sibling-count="1"
+                            @update:page="goToBroadcastPage"
                         >
-                            <Button
-                                v-for="link in broadcastMeta.links"
-                                :key="link.label"
-                                variant="outline"
-                                size="sm"
-                                :disabled="link.url === null || isBroadcastNavigating"
-                                :aria-label="paginatorLinkAriaLabel(link.label)"
-                                :aria-current="link.active ? 'page' : undefined"
-                                :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                                @click="goToBroadcastUrl(link.url)"
-                            >
-                                {{ paginatorLinkLabel(link.label) }}
-                            </Button>
-                        </nav>
+                            <PaginationContent v-slot="{ items }">
+                                <PaginationPrevious>
+                                    <ChevronLeft class="size-4" aria-hidden="true" />
+                                    <span class="hidden sm:block">Sebelumnya</span>
+                                </PaginationPrevious>
+                                <template v-for="(item, index) in items" :key="index">
+                                    <PaginationItem
+                                        v-if="item.type === 'page'"
+                                        :value="item.value"
+                                        :is-active="item.value === broadcastMeta.currentPage"
+                                        :aria-label="`Ke halaman ${item.value}`"
+                                    >
+                                        {{ item.value }}
+                                    </PaginationItem>
+                                    <PaginationEllipsis v-else :index="index" />
+                                </template>
+                                <PaginationNext>
+                                    <span class="hidden sm:block">Berikutnya</span>
+                                    <ChevronRight class="size-4" aria-hidden="true" />
+                                </PaginationNext>
+                            </PaginationContent>
+                        </Pagination>
                         <p class="text-sm text-muted-foreground">{{ broadcastRangeLabel }}</p>
                     </div>
                     <p

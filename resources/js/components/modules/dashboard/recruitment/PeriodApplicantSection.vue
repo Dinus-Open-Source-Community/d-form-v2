@@ -4,12 +4,15 @@ import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { type IPaginatorLink, type IPaginatorMeta } from '@/lib/paginatorLinks'
 import {
-    type IPaginatorLink,
-    type IPaginatorMeta,
-    paginatorLinkAriaLabel,
-    paginatorLinkLabel,
-} from '@/lib/paginatorLinks'
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
     Dialog,
     DialogContent,
@@ -19,7 +22,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowRight, Check, Send, X } from 'lucide-vue-next'
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Send, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -276,6 +279,9 @@ const rangeLabel = computed<string>(() => {
     return `Menampilkan ${from}–${to} dari ${total} applicant`
 })
 
+/** Baris per halaman paginator server (kontrak: paginate 15). */
+const perPage = computed<number>(() => props.applications?.per_page ?? 15)
+
 /**
  * Pindah halaman via links[] paginator (url sudah membawa ?tab=peserta&page=N).
  * Partial reload + replace agar riwayat tak menumpuk.
@@ -310,6 +316,17 @@ function goToUrl(url: string | null): void {
             },
         },
     )
+}
+
+/**
+ * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
+ * links[] paginator lalu didelegasikan ke goToUrl agar opsi navigasi sama.
+ */
+function goToPage(pageNumber: number): void {
+    if (pageNumber === serverMeta.value.currentPage || isNavigating.value) return
+    const target: string | null =
+        serverMeta.value.links.find((link) => link.label === String(pageNumber))?.url ?? null
+    goToUrl(target)
 }
 
 interface RejectReasonOption {
@@ -653,25 +670,36 @@ function submitReject(): void {
             v-if="applications"
             class="flex flex-col items-center gap-3 text-sm"
         >
-            <nav
+            <Pagination
                 v-if="serverMeta.lastPage > 1"
-                class="flex flex-wrap items-center justify-center gap-1.5"
-                aria-label="Pagination"
+                :page="serverMeta.currentPage"
+                :total="serverMeta.total"
+                :items-per-page="perPage"
+                :sibling-count="1"
+                @update:page="goToPage"
             >
-                <Button
-                    v-for="link in serverMeta.links"
-                    :key="link.label"
-                    variant="outline"
-                    size="sm"
-                    :disabled="link.url === null || isNavigating"
-                    :aria-label="paginatorLinkAriaLabel(link.label)"
-                    :aria-current="link.active ? 'page' : undefined"
-                    :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                    @click="goToUrl(link.url)"
-                >
-                    {{ paginatorLinkLabel(link.label) }}
-                </Button>
-            </nav>
+                <PaginationContent v-slot="{ items }">
+                    <PaginationPrevious>
+                        <ChevronLeft class="size-4" aria-hidden="true" />
+                        <span class="hidden sm:block">Sebelumnya</span>
+                    </PaginationPrevious>
+                    <template v-for="(item, index) in items" :key="index">
+                        <PaginationItem
+                            v-if="item.type === 'page'"
+                            :value="item.value"
+                            :is-active="item.value === serverMeta.currentPage"
+                            :aria-label="`Ke halaman ${item.value}`"
+                        >
+                            {{ item.value }}
+                        </PaginationItem>
+                        <PaginationEllipsis v-else :index="index" />
+                    </template>
+                    <PaginationNext>
+                        <span class="hidden sm:block">Berikutnya</span>
+                        <ChevronRight class="size-4" aria-hidden="true" />
+                    </PaginationNext>
+                </PaginationContent>
+            </Pagination>
             <p class="text-muted-foreground">{{ rangeLabel }}</p>
         </div>
 

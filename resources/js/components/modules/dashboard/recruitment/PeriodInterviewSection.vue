@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
-import { Plus } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { type IPaginatorMeta } from '@/lib/paginatorLinks'
 import {
-    type IPaginatorMeta,
-    paginatorLinkAriaLabel,
-    paginatorLinkLabel,
-} from '@/lib/paginatorLinks'
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import InterviewSessionCreateSheet, {
     type InterviewDivisionChoice,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue'
@@ -65,6 +69,9 @@ const rangeLabel = computed<string>(() => {
     return `Menampilkan ${start}–${end} dari ${total} sesi`
 })
 
+/** Baris per halaman paginator server. */
+const perPage = computed<number>(() => props.sessions?.per_page ?? 15)
+
 function goToUrl(url: string | null): void {
     if (url === null || props.sessions == null || isNavigating.value) return
     router.get(
@@ -83,6 +90,19 @@ function goToUrl(url: string | null): void {
             },
         },
     )
+}
+
+/**
+ * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
+ * links[] paginator lalu didelegasikan ke goToUrl agar opsi navigasi sama.
+ */
+function goToPage(pageNumber: number): void {
+    const sessions = props.sessions
+    if (sessions === null || sessions === undefined) return
+    if (pageNumber === sessions.current_page || isNavigating.value) return
+    const target: string | null =
+        sessions.links.find((link) => link.label === String(pageNumber))?.url ?? null
+    goToUrl(target)
 }
 </script>
 
@@ -155,21 +175,35 @@ function goToUrl(url: string | null): void {
         </Card>
 
         <div v-if="sessions && sessions.last_page > 1" class="flex flex-col items-center gap-3">
-            <nav class="flex flex-wrap items-center justify-center gap-1.5" aria-label="Pagination">
-                <Button
-                    v-for="link in sessions.links"
-                    :key="link.label"
-                    variant="outline"
-                    size="sm"
-                    :disabled="link.url === null || isNavigating"
-                    :aria-label="paginatorLinkAriaLabel(link.label)"
-                    :aria-current="link.active ? 'page' : undefined"
-                    :class="link.active ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : ''"
-                    @click="goToUrl(link.url)"
-                >
-                    {{ paginatorLinkLabel(link.label) }}
-                </Button>
-            </nav>
+            <Pagination
+                :page="sessions.current_page"
+                :total="sessions.total"
+                :items-per-page="perPage"
+                :sibling-count="1"
+                @update:page="goToPage"
+            >
+                <PaginationContent v-slot="{ items }">
+                    <PaginationPrevious>
+                        <ChevronLeft class="size-4" aria-hidden="true" />
+                        <span class="hidden sm:block">Sebelumnya</span>
+                    </PaginationPrevious>
+                    <template v-for="(item, index) in items" :key="index">
+                        <PaginationItem
+                            v-if="item.type === 'page'"
+                            :value="item.value"
+                            :is-active="item.value === sessions.current_page"
+                            :aria-label="`Ke halaman ${item.value}`"
+                        >
+                            {{ item.value }}
+                        </PaginationItem>
+                        <PaginationEllipsis v-else :index="index" />
+                    </template>
+                    <PaginationNext>
+                        <span class="hidden sm:block">Berikutnya</span>
+                        <ChevronRight class="size-4" aria-hidden="true" />
+                    </PaginationNext>
+                </PaginationContent>
+            </Pagination>
             <p class="text-sm text-muted-foreground">{{ rangeLabel }}</p>
         </div>
         <p v-else-if="sessions && sessions.data.length > 0" class="text-center text-sm text-muted-foreground">
