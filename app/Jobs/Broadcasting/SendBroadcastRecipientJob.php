@@ -33,6 +33,16 @@ class SendBroadcastRecipientJob implements ShouldQueue
         BroadcastPersonalization $personalization,
         BroadcastDispatchService $dispatchService,
     ): void {
+        // Fitur broadcast dinonaktifkan (config/features.php).
+        // Job yang mengendap di antrean dibuang tanpa mengirim.
+        if (! config('features.broadcast', false)) {
+            Log::notice('[SendBroadcastRecipientJob] Fitur broadcast dinonaktifkan; job dibuang.', [
+                'recipient_id' => $this->recipientId,
+            ]);
+
+            return;
+        }
+
         $recipient = EmailBroadcastRecipient::query()
             ->with(['broadcast.event', 'broadcast.attachments'])
             ->find($this->recipientId);

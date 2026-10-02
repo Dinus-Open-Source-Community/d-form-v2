@@ -13,6 +13,13 @@ class DispatchScheduledBroadcastsCommand extends Command
 
     public function handle(BroadcastDispatchService $dispatchService): int
     {
+        // Fitur broadcast dinonaktifkan (config/features.php). Sengaja no-op.
+        if (! config('features.broadcast', false)) {
+            $this->warn('Fitur broadcast dinonaktifkan: tidak ada yang dikirim.');
+
+            return self::SUCCESS;
+        }
+
         $processed = $dispatchService->dispatchDue();
 
         $this->info('Dispatched '.count($processed).' broadcast(s).');

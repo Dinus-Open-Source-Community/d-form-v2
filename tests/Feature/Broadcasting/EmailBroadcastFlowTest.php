@@ -80,6 +80,8 @@ class EmailBroadcastFlowTest extends TestCase
 
     public function test_full_http_flow_create_snapshot_content_schedule_cancel(): void
     {
+        // Fitur broadcast dinonaktifkan (config/features.php): route 404.
+        $this->markTestSkipped('Fitur broadcast dinonaktifkan.');
         Mail::fake();
         $admin = $this->superAdmin();
         $this->actingAs($admin);
@@ -133,6 +135,8 @@ class EmailBroadcastFlowTest extends TestCase
 
     public function test_send_test_does_not_touch_stats(): void
     {
+        // Fitur broadcast dinonaktifkan (config/features.php): route 404.
+        $this->markTestSkipped('Fitur broadcast dinonaktifkan.');
         Mail::fake();
         $admin = $this->superAdmin();
         $this->actingAs($admin);
