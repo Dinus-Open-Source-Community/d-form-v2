@@ -25,6 +25,8 @@ import { Label } from '@/components/ui/label'
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Send, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
+import axios from 'axios'
+import { showHttpErrorToast } from '@/lib/error-message'
 import { Input } from '@/components/ui/input'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
@@ -410,27 +412,35 @@ function cancelGroupLink(): void {
     groupLinkDialogOpen.value = false
 }
 
-function confirmGroupLink(): void {
+/** Respons JSON endpoint kirim link grup (bukan Inertia — wajib via axios). */
+interface IGroupLinkSendResponse {
+    dispatched: number
+}
+
+async function confirmGroupLink(): Promise<void> {
     if (!hasGroupLink.value || isSendingGroupLink.value) return
     isSendingGroupLink.value = true
-    router.post(
-        routes.admin.recruitment.periods.sendGroupLink(props.periodId),
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Link grup dikirim ke applicant yang lolos.')
-            },
-            onError: () => {
-                toast.error('Gagal mengirim link grup. Coba lagi.')
-            },
-            onFinish: () => {
-                isSendingGroupLink.value = false
-                groupLinkDialogOpen.value = false
-            },
-        },
-    )
+    try {
+        const { data } = await axios.post<IGroupLinkSendResponse>(
+            routes.admin.recruitment.periods.sendGroupLink(props.periodId),
+            {},
+        )
+        groupLinkDialogOpen.value = false
+        toast.success(`Link grup dikirim ke ${data.dispatched} applicant yang lolos.`)
+        router.reload({ only: ['applications'] })
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            showHttpErrorToast(error.response.status, error.response.data, {
+                403: 'Kamu tidak punya akses kirim ke periode ini.',
+                422: 'Link grup belum diisi. Isi dulu di tab Settings.',
+                429: 'Terlalu sering. Coba lagi nanti.',
+            })
+        } else {
+            showHttpErrorToast(0, undefined, { 0: 'Gagal mengirim link grup. Coba lagi.' })
+        }
+    } finally {
+        isSendingGroupLink.value = false
+    }
 }
 
 function openReject(row: ApplicationRow): void {
