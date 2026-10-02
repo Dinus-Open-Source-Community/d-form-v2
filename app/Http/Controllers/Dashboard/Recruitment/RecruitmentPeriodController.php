@@ -99,13 +99,13 @@ class RecruitmentPeriodController extends Controller
             ->count();
     }
 
-    /** Daftar broadcast satu periode, paginasi 15/hal selaras kontrak index 4a (tanpa N+1). */
-    private function broadcastsForPeriodTab(RecruitmentPeriod $period, int $page): LengthAwarePaginator
+    /** Daftar broadcast satu periode, paginasi per_page tervalidasi selaras kontrak index 4a (tanpa N+1). */
+    private function broadcastsForPeriodTab(RecruitmentPeriod $period, int $page, int $perPage): LengthAwarePaginator
     {
         $paginator = Broadcast::query()
             ->where('period_id', $period->id)
             ->orderByDesc('created_at')
-            ->paginate(15, ['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'], 'page', $page);
+            ->paginate($perPage, ['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'], 'page', $page);
         $paginator->setCollection(
             $paginator->getCollection()->map(fn (Broadcast $broadcast): array => [
                 'id' => $broadcast->id,
@@ -133,6 +133,10 @@ class RecruitmentPeriodController extends Controller
             $tab = 'peserta';
         }
 
+        // per_page sudah dibatasi validasi (nullable|integer|min:5|max:100);
+        // validated() tak me-cast string query, jadi cast eksplisit di sini.
+        $perPage = (int) ($validated['per_page'] ?? 15);
+
         $applications = null;
         $queueCounts = [];
         $sessions = null;
@@ -154,7 +158,7 @@ class RecruitmentPeriodController extends Controller
                     ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
                     ->where('recruitment_period_id', $period->id)
                     ->orderByDesc('submitted_at')
-                    ->paginate(15, ['*'], 'page', $request->integer('page', 1));
+                    ->paginate($perPage, ['*'], 'page', $request->integer('page', 1));
                 $groupLinkStatuses = $this->groupLinkStatusMap(
                     $applicationPaginator->getCollection()->map(fn ($item) => $item->id)->all()
                 );
@@ -224,7 +228,7 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'broadcast') {
-            $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1));
+            $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1), $perPage);
         }
 
         if ($tab === 'interviewer') {

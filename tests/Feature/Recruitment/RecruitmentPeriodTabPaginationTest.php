@@ -139,4 +139,54 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
                 ->where('applications.total', 1)
                 ->has('applications.data', 1));
     }
+
+    public function test_per_page_lima_peserta_lima_rows_meta_tepat(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        for ($i = 0; $i < 7; $i++) {
+            RecruitmentApplication::factory()->create([
+                'recruitment_period_id' => $this->period->id,
+                'primary_division_id' => $division->id,
+                'submitted_at' => now()->subMinutes($i),
+            ]);
+        }
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+                'per_page' => 5,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'peserta')
+                ->where('applications.current_page', 1)
+                ->where('applications.per_page', 5)
+                ->where('applications.total', 7)
+                ->where('applications.last_page', 2)
+                ->has('applications.data', 5));
+    }
+
+    public function test_per_page_melebihi_maks_ditolak_validasi(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+                'per_page' => 101,
+            ]))
+            ->assertSessionHasErrors('per_page');
+    }
+
+    public function test_per_page_non_numerik_ditolak_validasi(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+                'per_page' => 'abc',
+            ]))
+            ->assertSessionHasErrors('per_page');
+    }
 }
