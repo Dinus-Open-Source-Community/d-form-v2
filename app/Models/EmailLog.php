@@ -19,6 +19,7 @@ class EmailLog extends Model
     protected $fillable = [
         'form_answer_id',
         'recruitment_application_id',
+        'broadcast_id',
         'event_id',
         'user_id',
         'recipient_email',

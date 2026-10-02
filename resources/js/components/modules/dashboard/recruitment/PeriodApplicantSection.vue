@@ -4,6 +4,15 @@ import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { type IPaginatorLink, type IPaginatorMeta } from '@/lib/paginatorLinks'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
     Dialog,
     DialogContent,
@@ -13,7 +22,10 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowRight, Check, X } from 'lucide-vue-next'
+import { Switch } from '@/components/ui/switch'
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Send, X } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
@@ -30,9 +42,15 @@ interface ApplicationRow {
     result_label: string
     revision_required: boolean
     submitted_at: string | null
+    /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
+    group_link_status?: string | null
     primary_division: { id: string; name: string } | null
     secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
+}
+
+interface ApplicationPaginator extends IPaginatorMeta {
+    data: ApplicationRow[]
 }
 
 const QUEUE_OPTIONS = [
@@ -47,13 +65,18 @@ const QUEUE_OPTIONS = [
 const props = withDefaults(
     defineProps<{
         periodId: string
-        applications: ApplicationRow[] | null
+        /** Paginator kontrak 8a FINAL; null = tanpa izin, undefined = key absent (tab lain). */
+        applications: ApplicationPaginator | null | undefined
         queueCounts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
         semesterOptions?: { value: string; label: string }[]
         tab: string
         canScreen?: boolean
+        /** Link grup WA periode (null = belum diisi di Settings). */
+        whatsappGroupUrl?: string | null
+        /** Jumlah applicant eligible kirim link grup (lolos, bukan rejected). */
+        groupLinkEligibleCount?: number
         selectedId?: string | null
         query?: {
             search?: string
@@ -64,7 +87,7 @@ const props = withDefaults(
             per_page?: string | number
         }
     }>(),
-    { semesterOptions: () => [], canScreen: false, query: () => ({}) },
+    { semesterOptions: () => [], canScreen: false, query: () => ({}), whatsappGroupUrl: null, groupLinkEligibleCount: 0 },
 )
 
 const emit = defineEmits<{
@@ -79,7 +102,7 @@ function setRowRef(id: string, el: unknown): void {
     rowRefs.value[id] = (el as HTMLElement | null) ?? null
 }
 
-const rowIds = computed<string[]>(() => pagedRows.value.map((row) => row.id))
+const rowIds = computed<string[]>(() => filteredRows.value.map((row) => row.id))
 
 function focusRowAt(index: number): void {
     const ids = rowIds.value
@@ -116,8 +139,8 @@ const divisionId = ref<string>('')
 const stage = ref<string>('')
 const queue = ref<string>('')
 const semester = ref<string>('')
-const perPage = ref<number>(20)
-const currentPage = ref<number>(1)
+/** Navigasi halaman server (?tab=peserta&page=N, replace agar tak menumpuk riwayat). */
+const isNavigating = ref<boolean>(false)
 
 const divisionSelectOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua divisi' },
@@ -185,9 +208,11 @@ function matchesQueue(row: ApplicationRow, activeQueue: string): boolean {
     }
 }
 
+const allRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
+
 const filteredRows = computed<ApplicationRow[]>(() => {
     const needle: string = search.value.trim().toLowerCase()
-    return (props.applications ?? []).filter((row) => {
+    return allRows.value.filter((row) => {
         if (needle !== '') {
             const haystack: string =
                 `${row.full_name} ${row.nim} ${row.registration_number}`.toLowerCase()
@@ -209,64 +234,100 @@ const filteredRows = computed<ApplicationRow[]>(() => {
     })
 })
 
-const totalCount = computed<number>(() => filteredRows.value.length)
-const lastPage = computed<number>(() => Math.max(1, Math.ceil(totalCount.value / perPage.value)))
-
-const pagedRows = computed<ApplicationRow[]>(() => {
-    const page: number = Math.max(1, Math.min(currentPage.value, lastPage.value))
-    const start: number = (page - 1) * perPage.value
-    return filteredRows.value.slice(start, start + perPage.value)
-})
-
-const perPageOptions = computed<SimpleSelectOption[]>(() =>
-    [5, 10, 20, 50].map((size) => ({ value: String(size), label: `${size} / halaman` })),
-)
-
-const perPageModel = computed<string>({
-    get: () => String(perPage.value),
-    set: (value: string) => {
-        perPage.value = Number(value) || 20
-        currentPage.value = 1
-    },
-})
-
-const rangeStart = computed<number>(() => {
-    if (totalCount.value === 0) return 0
-    return (Math.max(1, Math.min(currentPage.value, lastPage.value)) - 1) * perPage.value + 1
-})
-
-const rangeEnd = computed<number>(() => {
-    if (totalCount.value === 0) return 0
-    return Math.min(rangeStart.value + pagedRows.value.length - 1, totalCount.value)
-})
-
-const visiblePages = computed<(number | string)[]>(() => {
-    const current: number = currentPage.value
-    const last: number = lastPage.value
-    if (last <= 7) {
-        return Array.from({ length: last }, (_, index: number) => index + 1)
+/** Meta paginator server; key absent (tab lain) dianggap halaman kosong. */
+const serverMeta = computed<{
+    currentPage: number
+    lastPage: number
+    total: number
+    from: number | null
+    to: number | null
+    links: IPaginatorLink[]
+}>(() => {
+    const value: ApplicationPaginator | null | undefined = props.applications
+    if (value === null || value === undefined) {
+        return { currentPage: 1, lastPage: 1, total: 0, from: null, to: null, links: [] }
     }
-    const pages = new Set<number>([1, last, current])
-    if (current - 1 > 1) pages.add(current - 1)
-    if (current + 1 < last) pages.add(current + 1)
-    const sorted: number[] = [...pages].sort((a: number, b: number) => a - b)
-    const result: (number | string)[] = []
-    let prev = 0
-    for (const page of sorted) {
-        if (prev && page - prev > 1) result.push('…')
-        result.push(page)
-        prev = page
+    return {
+        currentPage: value.current_page,
+        lastPage: value.last_page,
+        total: value.total,
+        from: value.from ?? null,
+        to: value.to ?? null,
+        links: value.links ?? [],
     }
-    return result
 })
 
-watch([search, divisionId, stage, semester, queue], () => {
-    currentPage.value = 1
+const hasActiveFilter = computed<boolean>(() => {
+    return (
+        search.value.trim() !== '' ||
+        divisionId.value !== '' ||
+        stage.value !== '' ||
+        queue.value !== '' ||
+        semester.value !== ''
+    )
 })
 
-function goToPage(page: number | string): void {
-    if (typeof page !== 'number') return
-    currentPage.value = Math.max(1, Math.min(page, lastPage.value))
+const rangeLabel = computed<string>(() => {
+    if (hasActiveFilter.value) {
+        const count: string = filteredRows.value.length.toLocaleString('id-ID')
+        const page: string = serverMeta.value.currentPage.toLocaleString('id-ID')
+        return `${count} cocok filter di halaman ${page}`
+    }
+    const meta = serverMeta.value
+    const total: string = meta.total.toLocaleString('id-ID')
+    const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
+    const to: string = (meta.to ?? meta.total).toLocaleString('id-ID')
+    return `Menampilkan ${from}–${to} dari ${total} applicant`
+})
+
+/** Baris per halaman paginator server (kontrak: paginate 15). */
+const perPage = computed<number>(() => props.applications?.per_page ?? 15)
+
+/**
+ * Pindah halaman via links[] paginator (url sudah membawa ?tab=peserta&page=N).
+ * Partial reload + replace agar riwayat tak menumpuk.
+ */
+function goToUrl(url: string | null): void {
+    if (url === null || props.applications == null || isNavigating.value) return
+    router.get(
+        url,
+        {},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: [
+                'period',
+                'tab',
+                'query',
+                'applications',
+                'queue_counts',
+                'screening_reason_options',
+                'division_options',
+                'membership_type_options',
+                'divisionOptions',
+                'semesterOptions',
+                'stageOptions',
+            ],
+            onStart: () => {
+                isNavigating.value = true
+            },
+            onFinish: () => {
+                isNavigating.value = false
+            },
+        },
+    )
+}
+
+/**
+ * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
+ * links[] paginator lalu didelegasikan ke goToUrl agar opsi navigasi sama.
+ */
+function goToPage(pageNumber: number): void {
+    if (pageNumber === serverMeta.value.currentPage || isNavigating.value) return
+    const target: string | null =
+        serverMeta.value.links.find((link) => link.label === String(pageNumber))?.url ?? null
+    goToUrl(target)
 }
 
 interface RejectReasonOption {
@@ -317,6 +378,14 @@ function cancelPass(): void {
 function confirmPass(): void {
     const target = passTarget.value
     if (target === null || processingId.value !== null) return
+    if (!hasGroupLink.value) {
+        passDialogOpen.value = false
+        passGroupLinkInput.value = ''
+        passGroupLinkInclude.value = true
+        passGroupLinkError.value = null
+        passGroupLinkDialogOpen.value = true
+        return
+    }
     processingId.value = target.id
     router.post(
         routes.admin.recruitment.applications.screening.pass(target.id),
@@ -324,10 +393,129 @@ function confirmPass(): void {
         {
             preserveState: true,
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Applicant lolos screening.')
+            },
+            onError: () => {
+                toast.error('Gagal meloloskan applicant.')
+            },
             onFinish: () => {
                 processingId.value = null
                 passTarget.value = null
                 passDialogOpen.value = false
+            },
+        },
+    )
+}
+
+const passGroupLinkDialogOpen = ref(false)
+const passGroupLinkInput = ref('')
+const passGroupLinkInclude = ref(true)
+const passGroupLinkError = ref<string | null>(null)
+
+function cancelPassGroupLink(): void {
+    passGroupLinkDialogOpen.value = false
+    passGroupLinkError.value = null
+}
+
+function submitPassGroupLink(): void {
+    const target = passTarget.value
+    if (target === null || processingId.value !== null) return
+    if (!passGroupLinkInclude.value) {
+        passGroupLinkError.value = null
+        processingId.value = target.id
+        router.post(
+            routes.admin.recruitment.applications.screening.pass(target.id),
+            { include_group_link: false },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onError: () => {
+                    passGroupLinkError.value = 'Gagal meloloskan applicant.'
+                    toast.error('Gagal meloloskan applicant.')
+                },
+                onSuccess: () => {
+                    passGroupLinkDialogOpen.value = false
+                    passTarget.value = null
+                    toast.success('Applicant lolos screening tanpa link grup.')
+                },
+                onFinish: () => {
+                    processingId.value = null
+                },
+            },
+        )
+        return
+    }
+    const value = passGroupLinkInput.value.trim()
+    if (value === '') {
+        passGroupLinkError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.'
+        return
+    }
+    if (!value.startsWith('https://')) {
+        passGroupLinkError.value = 'Link grup WA harus diawali https://.'
+        return
+    }
+    passGroupLinkError.value = null
+    processingId.value = target.id
+    router.post(
+        routes.admin.recruitment.applications.screening.pass(target.id),
+        { whatsapp_group_url: value, include_group_link: true },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onError: (errors: Record<string, string | string[]>) => {
+                const first = errors['whatsapp_group_url'] ?? errors['application']
+                passGroupLinkError.value =
+                    (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan link grup.'
+                toast.error(passGroupLinkError.value)
+            },
+            onSuccess: () => {
+                passGroupLinkDialogOpen.value = false
+                passTarget.value = null
+                toast.success('Link grup tersimpan. Applicant lolos screening.')
+            },
+            onFinish: () => {
+                processingId.value = null
+            },
+        },
+    )
+}
+
+/** Link grup WA tersedia bila periode menyimpannya (diisi di tab Settings). */
+const hasGroupLink = computed<boolean>(
+    () => props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== '',
+)
+
+const groupLinkDialogOpen = ref(false)
+const isSendingGroupLink = ref(false)
+
+function openGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    groupLinkDialogOpen.value = true
+}
+
+function cancelGroupLink(): void {
+    groupLinkDialogOpen.value = false
+}
+
+function confirmGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    isSendingGroupLink.value = true
+    router.post(
+        routes.admin.recruitment.periods.sendGroupLink(props.periodId),
+        {},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Link grup dikirim ke applicant yang lolos.')
+            },
+            onError: () => {
+                toast.error('Gagal mengirim link grup. Coba lagi.')
+            },
+            onFinish: () => {
+                isSendingGroupLink.value = false
+                groupLinkDialogOpen.value = false
             },
         },
     )
@@ -368,7 +556,13 @@ function submitReject(): void {
         {
             preserveState: true,
             preserveScroll: true,
-            onSuccess: () => closeReject(),
+            onSuccess: () => {
+                closeReject()
+                toast.success('Applicant ditolak pada tahap screening.')
+            },
+            onError: () => {
+                toast.error('Gagal menolak applicant.')
+            },
             onFinish: () => {
                 processingId.value = null
             },
@@ -383,6 +577,26 @@ function submitReject(): void {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Applicant periode ini
             </h2>
+            <div class="flex flex-col gap-1.5">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="!hasGroupLink || isSendingGroupLink"
+                    :title="
+                        hasGroupLink
+                            ? 'Kirim link grup WA ke applicant yang lolos'
+                            : 'Isi link grup WA di tab Settings dulu'
+                    "
+                    :aria-label="'Kirim link grup WA ke applicant yang lolos'"
+                    @click="openGroupLink"
+                >
+                    <Send class="mr-2 size-4" aria-hidden="true" />
+                    {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
+                </Button>
+                <p v-if="!hasGroupLink" class="text-muted-foreground text-xs">
+                    Isi link grup di tab Settings dulu.
+                </p>
+            </div>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -430,8 +644,12 @@ function submitReject(): void {
             data-applicant-list
             tabindex="-1"
             class="rounded-2xl border-border/70 overflow-hidden focus-visible:outline-none"
+            :aria-busy="isNavigating"
         >
-            <CardContent class="p-0">
+            <CardContent class="p-0" :class="isNavigating && 'opacity-60 transition-opacity'">
+                <p v-if="isNavigating" role="status" class="border-b px-4 py-2 text-xs text-muted-foreground">
+                    Memuat halaman {{ serverMeta.currentPage }}…
+                </p>
                 <div class="overflow-x-auto overflow-y-hidden">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/40 border-b text-left">
@@ -442,12 +660,13 @@ function submitReject(): void {
                                 <th class="px-4 py-3 font-medium">Divisi</th>
                                 <th class="px-4 py-3 font-medium">Tahap</th>
                                 <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">Link Grup</th>
                                 <th class="px-4 py-3"><span class="sr-only">Aksi</span></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in pagedRows"
+                                v-for="row in filteredRows"
                                 :key="row.id"
                                 :ref="(el) => setRowRef(row.id, el)"
                                 tabindex="0"
@@ -473,6 +692,21 @@ function submitReject(): void {
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">{{ row.result_label }}</td>
+                                <td class="px-4 py-3">
+                                    <Badge
+                                        v-if="row.group_link_status === 'sent'"
+                                        variant="secondary"
+                                    >
+                                        Terkirim
+                                    </Badge>
+                                    <Badge
+                                        v-else-if="row.group_link_status === 'failed'"
+                                        variant="destructive"
+                                    >
+                                        Gagal
+                                    </Badge>
+                                    <span v-else class="text-muted-foreground text-xs">—</span>
+                                </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-0.5">
                                         <Button
@@ -511,9 +745,13 @@ function submitReject(): void {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="pagedRows.length === 0">
-                                <td colspan="7" class="text-muted-foreground px-4 py-10 text-center">
-                                    Belum ada applicant untuk periode ini yang cocok dengan filter.
+                            <tr v-if="filteredRows.length === 0">
+                                <td colspan="8" class="text-muted-foreground px-4 py-10 text-center">
+                                    {{
+                                        hasActiveFilter
+                                            ? 'Belum ada applicant untuk periode ini yang cocok dengan filter.'
+                                            : 'Belum ada applicant untuk periode ini.'
+                                    }}
                                 </td>
                             </tr>
                         </tbody>
@@ -524,57 +762,39 @@ function submitReject(): void {
 
         <div
             v-if="applications"
-            class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+            class="flex flex-col items-center gap-3 text-sm"
         >
-            <div class="flex flex-wrap items-center gap-3">
-                <p class="text-muted-foreground">
-                    Menampilkan {{ rangeStart }}–{{ rangeEnd }} dari {{ totalCount }} applicant
-                </p>
-                <SimpleSelect
-                    v-model="perPageModel"
-                    :options="perPageOptions"
-                    id="per-halaman"
-                    class="h-8 w-36 text-xs"
-                    aria-label="Jumlah per halaman"
-                />
-            </div>
-            <nav class="flex flex-wrap items-center gap-1.5" aria-label="Pagination">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="currentPage <= 1"
-                    aria-label="Ke halaman sebelumnya"
-                    @click="goToPage(currentPage - 1)"
-                >
-                    Sebelumnya
-                </Button>
-                <template v-for="(item, index) in visiblePages" :key="`${item}-${index}`">
-                    <span v-if="typeof item === 'string'" class="text-muted-foreground px-1" aria-hidden="true">
-                        …
-                    </span>
-                    <Button
-                        v-else
-                        variant="outline"
-                        size="sm"
-                        :disabled="item === currentPage"
-                        :aria-label="`Ke halaman ${item}`"
-                        :aria-current="item === currentPage ? 'page' : undefined"
-                        :class="item === currentPage ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-transparent' : ''"
-                        @click="goToPage(item)"
-                    >
-                        {{ item }}
-                    </Button>
-                </template>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="currentPage >= lastPage"
-                    aria-label="Ke halaman berikutnya"
-                    @click="goToPage(currentPage + 1)"
-                >
-                    Berikutnya
-                </Button>
-            </nav>
+            <Pagination
+                v-if="serverMeta.lastPage > 1"
+                :page="serverMeta.currentPage"
+                :total="serverMeta.total"
+                :items-per-page="perPage"
+                :sibling-count="1"
+                @update:page="goToPage"
+            >
+                <PaginationContent v-slot="{ items }">
+                    <PaginationPrevious>
+                        <ChevronLeft class="size-4" aria-hidden="true" />
+                        <span class="hidden sm:block">Sebelumnya</span>
+                    </PaginationPrevious>
+                    <template v-for="(item, index) in items" :key="index">
+                        <PaginationItem
+                            v-if="item.type === 'page'"
+                            :value="item.value"
+                            :is-active="item.value === serverMeta.currentPage"
+                            :aria-label="`Ke halaman ${item.value}`"
+                        >
+                            {{ item.value }}
+                        </PaginationItem>
+                        <PaginationEllipsis v-else :index="index" />
+                    </template>
+                    <PaginationNext>
+                        <span class="hidden sm:block">Berikutnya</span>
+                        <ChevronRight class="size-4" aria-hidden="true" />
+                    </PaginationNext>
+                </PaginationContent>
+            </Pagination>
+            <p class="text-muted-foreground">{{ rangeLabel }}</p>
         </div>
 
         <ConfirmationModal
@@ -591,6 +811,81 @@ function submitReject(): void {
             @cancel="cancelPass"
             @update:open="(v: boolean) => { passDialogOpen = v }"
         />
+
+        <ConfirmationModal
+            :open="groupLinkDialogOpen"
+            title="Kirim link grup WA?"
+            :description="`Link grup dikirim 1 per 1 ke ${props.groupLinkEligibleCount} applicant yang lolos.`"
+            confirm-text="Kirim"
+            :loading="isSendingGroupLink"
+            @confirm="confirmGroupLink"
+            @cancel="cancelGroupLink"
+            @update:open="(v: boolean) => { groupLinkDialogOpen = v }"
+        />
+
+        <Dialog v-model:open="passGroupLinkDialogOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Link grup WA belum diisi</DialogTitle>
+                    <DialogDescription>
+                        {{
+                            passTarget
+                                ? `Periode ${passTarget.full_name} belum punya link grup. Isi sekarang atau matikan toggle bila tidak pakai grup.`
+                                : 'Periode ini belum punya link grup. Isi sekarang atau matikan toggle bila tidak pakai grup.'
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div class="space-y-0.5">
+                        <Label for="quick-pass-include-group">Sertakan link grup di email</Label>
+                        <p class="text-muted-foreground text-xs">
+                            {{
+                                passGroupLinkInclude
+                                    ? 'Email lolos akan ada tombol Gabung Grup WA.'
+                                    : 'Email lolos dikirim tanpa blok link grup.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch id="quick-pass-include-group" v-model="passGroupLinkInclude" />
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="quick-pass-wa-link">Link grup WA</Label>
+                    <input
+                        id="quick-pass-wa-link"
+                        v-model="passGroupLinkInput"
+                        type="url"
+                        inputmode="url"
+                        placeholder="https://chat.whatsapp.com/..."
+                        :disabled="!passGroupLinkInclude || (passTarget !== null && processingId === passTarget.id)"
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <p v-if="passGroupLinkError" class="text-destructive text-xs">
+                        {{ passGroupLinkError }}
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="cancelPassGroupLink">
+                        Batal
+                    </Button>
+                    <Button
+                        type="button"
+                        :disabled="passTarget !== null && processingId === passTarget.id"
+                        @click="submitPassGroupLink"
+                    >
+                        {{
+                            passTarget !== null && processingId === passTarget.id
+                                ? 'Menyimpan…'
+                                : passGroupLinkInclude
+                                  ? 'Simpan & loloskan'
+                                  : 'Loloskan tanpa link grup'
+                        }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="rejectDialogOpen">
             <DialogContent class="sm:max-w-md">

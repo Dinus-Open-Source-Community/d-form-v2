@@ -22,11 +22,42 @@ final class ScreeningService
     ) {
     }
 
-    public function pass(User $actor, RecruitmentApplication $application, ?string $notes = null, ?Request $request = null): RecruitmentScreening
+    public function pass(User $actor, RecruitmentApplication $application, ?string $notes = null, ?Request $request = null, ?string $newGroupUrl = null, ?bool $includeGroupLink = null): RecruitmentScreening
     {
         $this->assertCanScreen($application);
 
-        return DB::transaction(function () use ($actor, $application, $notes, $request): RecruitmentScreening {
+        $newGroupUrl = $newGroupUrl !== null ? trim($newGroupUrl) : null;
+        if ($newGroupUrl === '') {
+            $newGroupUrl = null;
+        }
+
+        if ($newGroupUrl !== null && ! str_starts_with($newGroupUrl, 'https://')) {
+            throw ValidationException::withMessages([
+                'whatsapp_group_url' => 'Link grup WA harus memakai https://.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($actor, $application, $notes, $request, $newGroupUrl, $includeGroupLink): RecruitmentScreening {
+            $period = $application->period;
+            if ($newGroupUrl !== null && $period !== null) {
+                if (! $actor->can('update', $period)) {
+                    throw ValidationException::withMessages([
+                        'whatsapp_group_url' => 'Kamu tidak punya akses mengubah link grup periode ini. Minta admin mengisinya di tab Settings.',
+                    ]);
+                }
+                $period->update(['whatsapp_group_url' => $newGroupUrl]);
+            }
+
+            $resolvedUrl = $newGroupUrl ?? $period?->whatsapp_group_url;
+            if ($includeGroupLink === false) {
+                $resolvedUrl = null;
+            }
+
+            if ($includeGroupLink === true && trim((string) $resolvedUrl) === '') {
+                throw ValidationException::withMessages([
+                    'whatsapp_group_url' => 'Link grup WA wajib diisi bila menyertakan link grup di email.',
+                ]);
+            }
             $oldStage = $application->stage;
             $oldRevision = $application->revision_required;
 
@@ -61,7 +92,7 @@ final class ScreeningService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null);
 
             return $screening;
         });

@@ -57,3 +57,4 @@ docs/superpowers/
 pnpm-lock.yaml
 pnpm-workspace.yaml
 .superpowers/
+.playwright-cli/

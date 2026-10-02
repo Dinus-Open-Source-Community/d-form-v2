@@ -38,6 +38,7 @@ class RecruitmentPeriod extends Model
         'finalization_deadline_at',
         'landing_content',
         'banner',
+        'whatsapp_group_url',
         'created_by',
     ];
 

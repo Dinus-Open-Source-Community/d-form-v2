@@ -36,6 +36,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
         public ?string $interviewId = null,
         public ?array $revisionSections = null,
         public ?string $revisionNotes = null,
+        public ?string $whatsappGroupUrl = null,
     ) {
     }
 
@@ -71,6 +72,14 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'primary_division' => $application->primaryDivision?->name ?? '',
             'tracking_url' => $trackingUrl,
         ];
+
+        if ($this->templateKey === 'passed_screening' && filled($this->whatsappGroupUrl)) {
+            $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
+        }
+
+        if ($this->templateKey === 'group_link') {
+            $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
+        }
 
         if ($this->templateKey === 'revision_required') {
             $variables = array_merge($variables, [
@@ -177,6 +186,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'interview_reminder_h2' => 'Reminder interview',
             'final_accepted' => 'Kamu diterima!',
             'final_rejected' => 'Hasil OpenRecruitment',
+            'group_link' => 'Link grup WA',
             default => null,
         };
     }
@@ -193,6 +203,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             'interview_reminder_h2' => EmailNotificationType::RecruitmentInterviewReminderH2,
             'final_accepted' => EmailNotificationType::RecruitmentFinalAccepted,
             'final_rejected' => EmailNotificationType::RecruitmentFinalRejected,
+            'group_link' => EmailNotificationType::RecruitmentGroupLink,
             default => EmailNotificationType::RecruitmentApplicationSubmitted,
         };
     }

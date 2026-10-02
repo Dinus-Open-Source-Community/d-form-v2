@@ -11,6 +11,15 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
         return $this->user()?->can('recruitment.periods.edit') ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('whatsapp_group_url')) {
+            return;
+        }
+
+        $this->merge(['whatsapp_group_url' => self::normalizeWhatsappUrl($this->input('whatsapp_group_url'))]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -25,6 +34,7 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
             'interview_ends_at' => ['nullable', 'date', 'after_or_equal:interview_starts_at'],
             'finalization_deadline_at' => ['nullable', 'date'],
             'banner' => ['sometimes', 'nullable', 'image', 'max:10240', 'mimes:jpg,jpeg,png,webp'],
+            'whatsapp_group_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
         ];
     }
 
@@ -37,6 +47,20 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
             'banner.image' => 'Banner harus berupa file gambar.',
             'banner.max' => 'Ukuran banner tidak boleh lebih dari 10 MB.',
             'banner.mimes' => 'Banner harus berformat JPG, JPEG, PNG, atau WEBP.',
+            'whatsapp_group_url.url' => 'Link grup WA harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
+            'whatsapp_group_url.starts_with' => 'Link grup WA harus memakai https://.',
         ];
+    }
+
+    private static function normalizeWhatsappUrl(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $clean = trim(strip_tags($value));
+        $clean = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
+
+        return trim($clean) === '' ? null : trim($clean);
     }
 }

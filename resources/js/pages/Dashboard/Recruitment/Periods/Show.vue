@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
+import { Head, router, useForm, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
+import PeriodSettingsSection from '@/components/modules/dashboard/recruitment/PeriodSettingsSection.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/ApplicantDetailPanel.vue'
@@ -15,10 +16,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import {
+    type IPaginatorMeta,
+} from '@/lib/paginatorLinks'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Plus, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
@@ -50,6 +54,9 @@ interface Period {
     interview_ends_at: string | null
     finalization_deadline_at: string | null
     applications_count: number
+    banner_url: string | null
+    can_edit?: boolean
+    whatsapp_group_url?: string | null
 }
 
 interface ApplicationRow {
@@ -64,7 +71,10 @@ interface ApplicationRow {
     result_label: string
     revision_required: boolean
     submitted_at: string | null
+    /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
+    group_link_status?: string | null
     primary_division: { id: string; name: string } | null
+    secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
 }
 
@@ -81,11 +91,12 @@ interface SessionRow {
     division: { id: string; name: string; code: string } | null
 }
 
-interface SessionPaginator {
+interface ApplicationPaginator extends IPaginatorMeta {
+    data: ApplicationRow[]
+}
+
+interface SessionPaginator extends IPaginatorMeta {
     data: SessionRow[]
-    current_page: number
-    last_page: number
-    total: number
 }
 
 interface ReportPayload {
@@ -126,7 +137,8 @@ interface InterviewerCandidate {
 const props = withDefaults(
     defineProps<{
         period: Period
-        applications?: ApplicationRow[] | null
+        /** Paginator kontrak 8a FINAL; null = tanpa izin, undefined = key absent (tab lain). */
+        applications?: ApplicationPaginator | null
         queue_counts: Record<string, number>
         divisionOptions: { id: string; name: string; code: string }[]
         stageOptions: { value: string; label: string }[]
@@ -149,6 +161,8 @@ const props = withDefaults(
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
+        /** Jumlah eligible kirim link grup (lolos, bukan rejected). */
+        group_link_eligible_count?: number
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -173,6 +187,10 @@ const canScreenApplications = computed(() => user.value?.can_screen_recruitment_
 const canViewReports = computed(() => user.value?.can_view_recruitment_reports === true)
 /** Sama seperti halaman Divisi semula: hanya pengelola periode yang mengatur interviewer. */
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
+/** Tab Settings + tombol Edit memakai izin edit per-periode dari backend (can_edit). */
+const canEdit = computed<boolean>(() => props.period.can_edit === true)
+/** Jumlah eligible kirim link grup; 0 bila key absent (tab lain). */
+const groupLinkEligibleCount = computed<number>(() => props.group_link_eligible_count ?? 0)
 
 const assignForm = useForm({
     user_id: '',
@@ -320,6 +338,8 @@ const groupedAssignments = computed<AssignmentGroup[]>(() => {
 
 const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
 
+// Fitur broadcast dinonaktifkan (config/features.php): seluruh state daftar
+// broadcast period dihapus dari halaman ini. File komponen broadcast tetap ada.
 const pendingUnassignDescription = computed<string>(() => {
     const row: InterviewerAssignment | null = pendingUnassign.value
     if (!row) return ''
@@ -361,38 +381,124 @@ watch(
     },
 )
 
+const applicationRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
+
 const applicantTotal = computed<number>(() => {
-    return props.applications?.length ?? props.period.applications_count ?? 0
+    const total: number | undefined = props.applications?.total
+    if (total !== undefined && total > 0) return total
+    return applicationRows.value.length > 0
+        ? applicationRows.value.length
+        : (props.period.applications_count ?? 0)
 })
 
 const participantCountLabel = computed<string>(() => {
     return applicantTotal.value.toLocaleString('id-ID')
 })
 
-const validTabs = ['peserta', 'interview', 'laporan', 'interviewer'] as const
+const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'settings'] as const
 type TabValue = (typeof validTabs)[number]
 
 function normalizeTab(value: string): TabValue {
-    return (validTabs as readonly string[]).includes(value) ? (value as TabValue) : 'peserta'
+    if (!(validTabs as readonly string[]).includes(value)) return 'peserta'
+    // Tab settings hanya untuk yang berizin edit; tanpa izin jatuh ke peserta.
+    if (value === 'settings' && !canEdit.value) return 'peserta'
+    return value as TabValue
 }
 
-const activeTab = ref<TabValue>(normalizeTab(props.tab))
+/** Deep-link ?tab=settings dibaca dari URL karena backend menormalkan tab asing ke peserta. */
+function initialTab(): TabValue {
+    const fromUrl = new URLSearchParams(window.location.search).get('tab') ?? ''
+    if ((validTabs as readonly string[]).includes(fromUrl)) return normalizeTab(fromUrl)
+    return normalizeTab(props.tab)
+}
+
+const activeTab = ref<TabValue>(initialTab())
+/**
+ * Membedakan navigasi tab sungguhan dari echo server (redirect PUT update settings
+ * kembali tanpa query tab) agar pengguna tidak terlempar dari tab settings usai simpan.
+ */
+const expectTab = ref<TabValue | null>(null)
+/** Indikator ringan selama pindah tab (navigasi Inertia replace). */
+const tabNavigating = ref<boolean>(false)
+
+/**
+ * Props yang diminta ulang per tab (partial reload): tab aktif selalu butuh
+ * period/tab/query segar, sisanya hanya data milik tab itu agar pindah tab
+ * tetap hit backend tanpa memuat ulang data tab lain.
+ */
+const TAB_ONLY: Record<TabValue, string[]> = {
+    peserta: [
+        'period',
+        'tab',
+        'query',
+        'applications',
+        'queue_counts',
+        'screening_reason_options',
+        'division_options',
+        'membership_type_options',
+        'divisionOptions',
+        'semesterOptions',
+        'stageOptions',
+    ],
+    interview: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
+    laporan: ['period', 'tab', 'query', 'report'],
+    interviewer: ['period', 'tab', 'query', 'divisions', 'assignments', 'interviewerCandidates'],
+    settings: ['period', 'tab', 'query'],
+}
+
+function settingsUrl(): string {
+    return `${routes.admin.recruitment.periods.show(props.period.id)}?tab=settings`
+}
+
 watch(
     () => props.tab,
     (value) => {
-        activeTab.value = normalizeTab(value)
+        if (expectTab.value === null) return
+        const next = normalizeTab(value)
+        if (next !== expectTab.value) return
+        expectTab.value = null
+        activeTab.value = next
     },
 )
+
+function visitTab(target: TabValue): void {
+    if (target === activeTab.value) return
+    expectTab.value = target
+    router.get(
+        routes.admin.recruitment.periods.show(props.period.id),
+        { tab: target === 'peserta' ? undefined : target },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: TAB_ONLY[target],
+            onStart: () => {
+                tabNavigating.value = true
+            },
+            onFinish: () => {
+                tabNavigating.value = false
+            },
+            onError: () => {
+                tabNavigating.value = false
+                expectTab.value = null
+            },
+        },
+    )
+}
 
 function onTabChange(value: string | number): void {
     const next = String(value)
     if (!(validTabs as readonly string[]).includes(next)) return
-    if (next === activeTab.value) return
-    router.get(
-        routes.admin.recruitment.periods.show(props.period.id),
-        { tab: next === 'peserta' ? undefined : next },
-        { preserveState: true, preserveScroll: true },
-    )
+    const target = normalizeTab(next)
+    if (target === 'settings' && !canEdit.value) return
+    visitTab(target)
+}
+
+/** Usai simpan (PUT update redirect tanpa query tab): pin kembali tab settings + URL. */
+function onSettingsSaved(): void {
+    expectTab.value = null
+    activeTab.value = 'settings'
+    window.history.replaceState(null, '', settingsUrl())
 }
 
 const selectedApplication = ref<ApplicationDetail | null>(null)
@@ -588,14 +694,6 @@ function closePeriod(): void {
                         >
                             Tutup pendaftaran
                         </Button>
-                        <Button as-child size="sm" variant="outline">
-                            <Link
-                                :href="routes.admin.recruitment.periods.edit(period.id)"
-                                :aria-label="'Edit periode ' + period.name"
-                            >
-                                Edit
-                            </Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -686,6 +784,22 @@ function closePeriod(): void {
                         {{ assignmentsCountLabel }}
                     </span>
                 </TabsTrigger>
+                <TabsTrigger
+                    v-if="canEdit"
+                    value="settings"
+                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                >
+                    <Settings class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <span>Settings</span>
+                </TabsTrigger>
+                <span
+                    v-if="tabNavigating"
+                    role="status"
+                    class="ml-auto inline-flex shrink-0 animate-pulse items-center gap-1.5 px-1 py-2.5 text-xs text-muted-foreground"
+                >
+                    <span aria-hidden="true" class="size-1.5 animate-ping rounded-full bg-primary" />
+                    Memuat…
+                </span>
             </TabsList>
 
             <TabsContent value="peserta" class="mt-4">
@@ -701,6 +815,8 @@ function closePeriod(): void {
                         :stage-options="stageOptions"
                         :semester-options="semesterOptions"
                         :query="query"
+                        :whatsapp-group-url="period.whatsapp_group_url ?? null"
+                        :group-link-eligible-count="groupLinkEligibleCount ?? 0"
                         @select="selectApplicant"
                         @deselect="closePanel"
                     />
@@ -712,6 +828,7 @@ function closePeriod(): void {
                         :division-options="division_options"
                         :membership-type-options="membership_type_options"
                         :editable="canScreenApplications"
+                        :whatsapp-group-url="period.whatsapp_group_url ?? null"
                         @close="closePanel"
                         @submitted="refreshList"
                     />
@@ -890,6 +1007,10 @@ function closePeriod(): void {
                     @close="closeCreateSheet"
                     @created="onInterviewerCreated"
                 />
+            </TabsContent>
+
+            <TabsContent value="settings" class="mt-4">
+                <PeriodSettingsSection v-if="canEdit" :period="period" @saved="onSettingsSaved" />
             </TabsContent>
         </Tabs>
     </div>

@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\EmailNotificationType;
+use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\MembershipType;
+use App\Enums\Recruitment\ScreeningDecision;
 use App\Enums\Recruitment\ScreeningReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
+use App\Models\Broadcast;
+use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -16,11 +21,14 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\RecruitmentApplicationService;
 use App\Services\Recruitment\RecruitmentDivisionService;
+use App\Services\Recruitment\RecruitmentGroupLinkService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,6 +41,7 @@ class RecruitmentPeriodController extends Controller
         private readonly InterviewSessionService $sessionService,
         private readonly RecruitmentReportService $reportService,
         private readonly RecruitmentDivisionService $divisionService,
+        private readonly RecruitmentGroupLinkService $groupLinkService,
     ) {
     }
 
@@ -58,6 +67,60 @@ class RecruitmentPeriodController extends Controller
         return redirect()->route('dashboard.recruitment.periods.show', $period);
     }
 
+    /** Status link-grup terakhir per applicant (1 query, tanpa N+1). */
+    private function groupLinkStatusMap(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $latest = EmailLog::query()
+            ->whereIn('recruitment_application_id', $ids)
+            ->where('notification_type', EmailNotificationType::RecruitmentGroupLink->value)
+            ->orderByDesc('id')
+            ->get(['recruitment_application_id', 'status']);
+
+        $map = [];
+        foreach ($latest as $log) {
+            $map[$log->recruitment_application_id] ??= $log->status->value;
+        }
+
+        return $map;
+    }
+
+    /** Jumlah eligible kirim link grup (cermin filter bulk service). */
+    private function groupLinkEligibleCount(RecruitmentPeriod $period): int
+    {
+        return RecruitmentApplication::query()
+            ->where('recruitment_period_id', $period->id)
+            ->whereNull('cancelled_at')
+            ->where('result', '!=', ApplicationResult::Rejected->value)
+            ->whereHas('screenings', fn ($query) => $query->where('decision', ScreeningDecision::Pass->value))
+            ->count();
+    }
+
+    /** Daftar broadcast satu periode, paginasi per_page tervalidasi selaras kontrak index 4a (tanpa N+1). */
+    private function broadcastsForPeriodTab(RecruitmentPeriod $period, int $page, int $perPage): LengthAwarePaginator
+    {
+        $paginator = Broadcast::query()
+            ->where('period_id', $period->id)
+            ->orderByDesc('created_at')
+            ->paginate($perPage, ['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'], 'page', $page);
+        $paginator->setCollection(
+            $paginator->getCollection()->map(fn (Broadcast $broadcast): array => [
+                'id' => $broadcast->id,
+                'name' => $broadcast->name,
+                'subject' => $broadcast->subject,
+                'status' => $broadcast->status,
+                'scheduled_at' => $broadcast->scheduled_at?->toIso8601String(),
+                'recipient_count' => $broadcast->recipient_count,
+                'created_at' => $broadcast->created_at?->toIso8601String(),
+            ])
+        );
+
+        return $paginator->withQueryString();
+    }
+
     public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
     {
         $this->authorize('view', $period);
@@ -65,10 +128,16 @@ class RecruitmentPeriodController extends Controller
         $period->loadCount('applications');
 
         $validated = $request->validated();
+        // Fitur broadcast dinonaktifkan (config/features.php): 'broadcast' dikeluarkan
+        // dari daftar tab sehingga ?tab=broadcast jatuh ke 'peserta'.
         $tab = $validated['tab'] ?? 'peserta';
-        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer'], true)) {
+        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'settings'], true)) {
             $tab = 'peserta';
         }
+
+        // per_page sudah dibatasi validasi (nullable|integer|min:5|max:100);
+        // validated() tak me-cast string query, jadi cast eksplisit di sini.
+        $perPage = (int) ($validated['per_page'] ?? 15);
 
         $applications = null;
         $queueCounts = [];
@@ -79,24 +148,38 @@ class RecruitmentPeriodController extends Controller
         $assignments = null;
         $interviewerCandidates = null;
         $screeningReasonOptions = [];
+        $broadcasts = null;
+        $divisionOptions = [];
+        $semesterOptions = [];
 
         if ($tab === 'peserta') {
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
             if ($canListApplications) {
-                $applications = RecruitmentApplication::query()
+                $applicationPaginator = RecruitmentApplication::query()
                     ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
                     ->where('recruitment_period_id', $period->id)
                     ->orderByDesc('submitted_at')
-                    ->get()
-                    ->map(
-                        fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
+                    ->paginate($perPage, ['*'], 'page', $request->integer('page', 1));
+                $groupLinkStatuses = $this->groupLinkStatusMap(
+                    $applicationPaginator->getCollection()->map(fn ($item) => $item->id)->all()
+                );
+                $applicationPaginator->setCollection(
+                    $applicationPaginator->getCollection()->map(
+                        fn (RecruitmentApplication $application) => [
+                            ...$this->applicationService->toListArray($application),
+                            'group_link_status' => $groupLinkStatuses[$application->id] ?? null,
+                        ]
                     )
-                    ->values()
-                    ->all();
+                );
+
+                $applications = $applicationPaginator->withQueryString();
+                $groupLinkEligibleCount = $this->groupLinkEligibleCount($period);
 
                 $queueCounts = $this->applicationService->queueCounts($period->id);
                 $screeningReasonOptions = ScreeningReason::options();
+                $divisionOptions = $this->applicationService->divisionOptions();
+                $semesterOptions = $this->applicationService->semesterOptions($period->id);
 
                 $applicationId = $validated['application'] ?? null;
 
@@ -146,6 +229,13 @@ class RecruitmentPeriodController extends Controller
             $report = $this->reportService->build($period->id);
         }
 
+        // Fitur broadcast dinonaktifkan: blok di bawah tidak terjangkau karena tab
+        // 'broadcast' selalu dinormalkan ke 'peserta'. Method broadcastsForPeriodTab
+        // dipertahankan agar mudah diaktifkan lagi.
+        if ($tab === 'broadcast' && config('features.broadcast', false)) {
+            $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1), $perPage);
+        }
+
         if ($tab === 'interviewer') {
             $this->authorize('assignInterviewer', RecruitmentDivision::class);
 
@@ -177,14 +267,12 @@ class RecruitmentPeriodController extends Controller
                 ->all();
         }
 
-        $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
-
         $props = [
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
             'tab' => $tab,
             'queue_counts' => (object) $queueCounts,
-            'divisionOptions' => $canListApplications ? $this->applicationService->divisionOptions() : [],
-            'semesterOptions' => $canListApplications ? $this->applicationService->semesterOptions($period->id) : [],
+            'divisionOptions' => $divisionOptions,
+            'semesterOptions' => $semesterOptions,
             'stageOptions' => collect(\App\Enums\Recruitment\ApplicationStage::cases())
                 ->map(fn ($stage) => ['value' => $stage->value, 'label' => $stage->label()])
                 ->values()
@@ -194,8 +282,9 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'peserta') {
             $props['applications'] = $applications;
+            $props['group_link_eligible_count'] = $groupLinkEligibleCount ?? 0;
             $props['screening_reason_options'] = $screeningReasonOptions;
-            $props['division_options'] = $canListApplications ? $this->applicationService->divisionOptions() : [];
+            $props['division_options'] = $divisionOptions;
             $props['membership_type_options'] = MembershipType::options();
         }
 
@@ -206,6 +295,10 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'laporan') {
             $props['report'] = $report;
+        }
+
+        if ($tab === 'broadcast') {
+            $props['broadcasts'] = $broadcasts;
         }
 
         if ($tab === 'interviewer') {
@@ -237,15 +330,6 @@ class RecruitmentPeriodController extends Controller
             'division_options' => $this->applicationService->divisionOptions(),
             'membership_type_options' => MembershipType::options(),
             'can_screen' => $detail['can_screen'] ?? false,
-        ]);
-    }
-
-    public function edit(RecruitmentPeriod $period): Response
-    {
-        $this->authorize('update', $period);
-
-        return Inertia::render('Dashboard/Recruitment/Periods/Edit', [
-            'period' => $this->periodService->toInertiaArray($period, auth()->user()),
         ]);
     }
 
@@ -283,6 +367,17 @@ class RecruitmentPeriodController extends Controller
         return redirect()
             ->back()
             ->with('message', 'Periode recruitment dibuka untuk pendaftaran.');
+    }
+
+    public function sendGroupLink(Request $request, RecruitmentPeriod $period): RedirectResponse
+    {
+        $this->authorize('sendGroupLink', $period);
+
+        $result = $this->groupLinkService->send($request->user(), $period);
+
+        return redirect()
+            ->back()
+            ->with('message', "Link grup dikirim ke {$result['dispatched']} applicant yang lolos.");
     }
 
     public function close(RecruitmentPeriod $period): RedirectResponse

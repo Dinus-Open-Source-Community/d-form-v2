@@ -24,4 +24,6 @@ enum EmailNotificationType: string
     case RecruitmentInterviewAssignment = 'recruitment_interview_assignment';
     case RecruitmentFinalAccepted = 'recruitment_final_accepted';
     case RecruitmentFinalRejected = 'recruitment_final_rejected';
+    case RecruitmentGroupLink = 'recruitment_group_link';
+    case BroadcastSent = 'broadcast_sent';
 }

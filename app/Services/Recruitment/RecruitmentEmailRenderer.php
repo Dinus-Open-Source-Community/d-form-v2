@@ -23,6 +23,7 @@ final class RecruitmentEmailRenderer
             'interview_assignment' => $this->interviewAssignment($variables),
             'final_accepted' => $this->finalAccepted($variables),
             'final_rejected' => $this->finalRejected($variables),
+            'group_link' => $this->groupLink($variables),
             default => $this->applicationSubmitted($variables),
         };
     }
@@ -232,6 +233,7 @@ final class RecruitmentEmailRenderer
         $name = $this->e($variables, 'applicant_name');
         $reg = $this->e($variables, 'registration_number');
         $trackingUrl = $this->e($variables, 'tracking_url');
+        $whatsappUrl = $this->e($variables, 'whatsapp_group_url');
 
         $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
             .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
@@ -240,23 +242,62 @@ final class RecruitmentEmailRenderer
             .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
             .'Jadwal interview akan kami kirim lewat email berikutnya. Pantau juga portal tracking untuk update terbaru.</p>';
 
-        if ($reg !== '') {
+        if ($reg !== '' || $whatsappUrl !== '') {
             $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
                 .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
                 .'<tr><td style="padding:18px 20px;">'
                 .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
                 .'Data kamu</p>'
                 .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .'<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                .'</tr>'
-                .'</table>'
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">';
+            if ($reg !== '') {
+                $bodyHtml .= '<tr>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
+                    .'</tr>';
+            }
+            if ($whatsappUrl !== '') {
+                $bodyHtml .= '<tr>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Grup WA</td>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;word-break:break-all;overflow-wrap:break-word;">'
+                    .'<a href="'.$whatsappUrl.'" style="color:#16a34a;font-weight:600;word-break:break-all;">'.$whatsappUrl.'</a>'
+                    .'</td>'
+                    .'</tr>';
+            }
+            $bodyHtml .= '</table>'
                 .'</td></tr></table>';
         }
 
-        if ($trackingUrl !== '') {
+        if ($whatsappUrl !== '' && $trackingUrl !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 12px;">'
+                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
+                .'<a href="'.$whatsappUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Gabung Grup WA</a>'
+                .'</td></tr></table>'
+                .'<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
+                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
+                .'<a href="'.$trackingUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Pantau progress pendaftaran</a>'
+                .'</td></tr></table>'
+                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
+                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
+                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
+        } elseif ($whatsappUrl !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
+                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
+                .'<a href="'.$whatsappUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Gabung Grup WA</a>'
+                .'</td></tr></table>'
+                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
+                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
+                .'<span style="word-break:break-all;color:#374151;">'.$whatsappUrl.'</span></p>';
+        } elseif ($trackingUrl !== '') {
             $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
                 .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
                 .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
@@ -272,15 +313,22 @@ final class RecruitmentEmailRenderer
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
         $rawTrackingUrl = (string) ($variables['tracking_url'] ?? '');
+        $rawWhatsappUrl = (string) ($variables['whatsapp_group_url'] ?? '');
 
         $bodyText = 'Halo '.$rawName.",\n\n"
             ."Kamu lolos tahap screening OpenRecruitment DOSCOM.\n\n"
             ."Jadwal interview akan kami kirim lewat email berikutnya. Pantau juga portal tracking untuk update terbaru.\n\n";
 
-        if ($rawReg !== '') {
+        if ($rawReg !== '' || trim($rawWhatsappUrl) !== '') {
             $bodyText .= "────────────────────────\n"
-                ."Data kamu\n\n"
-                .'Nomor Pendaftaran: '.$rawReg."\n\n";
+                ."Data kamu\n\n";
+            if ($rawReg !== '') {
+                $bodyText .= 'Nomor Pendaftaran: '.$rawReg."\n";
+            }
+            if (trim($rawWhatsappUrl) !== '') {
+                $bodyText .= 'Grup WA: '.trim($rawWhatsappUrl)."\n";
+            }
+            $bodyText .= "\n";
         }
 
         if ($rawTrackingUrl !== '') {
@@ -674,6 +722,77 @@ final class RecruitmentEmailRenderer
 
         return [
             'subject' => '[DOSCOM OpRec] Selamat — Kamu Diterima!',
+            'body_html' => $bodyHtml,
+            'body_text' => rtrim($bodyText),
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $variables
+     * @return array{subject: string, body_html: string, body_text: string}
+     */
+    private function groupLink(array $variables): array
+    {
+        $name = $this->e($variables, 'applicant_name');
+        $reg = $this->e($variables, 'registration_number');
+        $periodName = $this->e($variables, 'period_name');
+        $whatsappUrl = $this->e($variables, 'whatsapp_group_url');
+
+        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
+            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
+            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
+            .'Kamu lolos tahap screening OpenRecruitment DOSCOM. Gabung ke grup WhatsApp '
+            .'agar tidak ketinggalan info tahap berikutnya.</p>';
+
+        if ($whatsappUrl !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 20px;">'
+                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
+                .'<a href="'.$whatsappUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Gabung Grup WA</a>'
+                .'</td></tr></table>'
+                .'<p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
+                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
+                .'<span style="word-break:break-all;color:#374151;">'.$whatsappUrl.'</span></p>';
+        }
+
+        if ($reg !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
+                .'<tr><td style="padding:18px 20px;">'
+                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
+                .'Data kamu</p>'
+                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
+                .'<tr>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
+                .'</tr>'
+                .'</table>'
+                .'</td></tr></table>';
+        }
+
+        $rawName = (string) ($variables['applicant_name'] ?? '');
+        $rawReg = (string) ($variables['registration_number'] ?? '');
+        $rawPeriod = (string) ($variables['period_name'] ?? '');
+        $rawWhatsappUrl = (string) ($variables['whatsapp_group_url'] ?? '');
+
+        $bodyText = 'Halo '.$rawName.",\n\n"
+            ."Kamu lolos tahap screening OpenRecruitment DOSCOM. Gabung ke grup WhatsApp agar tidak ketinggalan info tahap berikutnya.\n\n";
+
+        if (trim($rawWhatsappUrl) !== '') {
+            $bodyText .= "Gabung Grup WA:\n".trim($rawWhatsappUrl)."\n\n";
+        }
+
+        if ($rawReg !== '') {
+            $bodyText .= "────────────────────────\n"
+                ."Data kamu\n\n"
+                .'Nomor Pendaftaran: '.$rawReg."\n";
+        }
+
+        return [
+            'subject' => '[DOSCOM OpRec] Link Grup WA'.($rawPeriod !== '' ? ' — '.$rawPeriod : ''),
             'body_html' => $bodyHtml,
             'body_text' => rtrim($bodyText),
         ];

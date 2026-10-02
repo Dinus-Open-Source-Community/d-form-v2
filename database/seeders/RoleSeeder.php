@@ -90,6 +90,9 @@ class RoleSeeder extends Seeder
             'recruitment.reports.export',
             'recruitment.activity.view',
 
+            // broadcast hub (kirim lintas-event; tanpa ini hanya ikut-konteks)
+            'email-broadcast.send',
+
             // form submissions management
             'form_submissions.list',
             'form_submissions.create',

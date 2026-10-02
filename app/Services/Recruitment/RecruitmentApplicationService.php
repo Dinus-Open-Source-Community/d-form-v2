@@ -2,8 +2,10 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\EmailLogStatus;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
+use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -11,6 +13,7 @@ use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentEvaluation;
 use App\Models\Recruitment\RecruitmentFinalDecision;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentScreening;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -259,6 +262,8 @@ final class RecruitmentApplicationService
             'can_verify' => $this->canVerify($application),
             'can_decide_final' => $this->canDecideFinal($application),
             'can_resend_tracking' => $this->canResendTracking($application),
+            'email_resend_status' => $this->emailResendStatus($application),
+            'prereq' => $this->emailResendPrereq($application),
         ];
     }
 
@@ -355,6 +360,78 @@ final class RecruitmentApplicationService
         }
 
         return filled($application->personal_email);
+    }
+
+    /** Status percobaan resend per jenis dari activity logs ("Terakhir dicoba"). */
+    private function emailResendStatus(RecruitmentApplication $application): array
+    {
+        $status = [];
+
+        foreach (RecruitmentEmailResendService::TYPES as $type) {
+            $attempts = $application->activityLogs
+                ->filter(fn (RecruitmentActivityLog $log): bool => $this->isResendAttempt($log, $type));
+
+            $recent = $attempts->filter(
+                fn (RecruitmentActivityLog $log): bool => $log->created_at !== null && $log->created_at->gte(now()->subDay())
+            );
+
+            $status[$type] = [
+                'last_attempt_at' => $attempts->sortByDesc('created_at')->first()?->created_at?->toIso8601String(),
+                'count_24h' => $recent->count(),
+            ];
+        }
+
+        return $status;
+    }
+
+    /** Satu percobaan resend jenis ini (tracking gabung log lama + baru). */
+    private function isResendAttempt(RecruitmentActivityLog $log, string $type): bool
+    {
+        if ($type === 'tracking') {
+            return $log->action === 'tracking.resend'
+                || ($log->action === 'email.resend' && ($log->new_values['type'] ?? null) === 'tracking');
+        }
+
+        return $log->action === 'email.resend' && ($log->new_values['type'] ?? null) === $type;
+    }
+
+    /** Prasyarat tombol resend per jenis untuk applicant ini. */
+    private function emailResendPrereq(RecruitmentApplication $application): array
+    {
+        $hasInterview = RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->whereNotNull('interviewer_id')
+            ->exists();
+
+        return [
+            'has_correction' => $application->correctionRequests->isNotEmpty(),
+            'has_interview' => $hasInterview,
+            'has_replayable_notification' => $this->hasReplayableNotification($application, $hasInterview),
+        ];
+    }
+
+    /** Ada notifikasi terkirim yang bisa diputar ulang (cermin aturan resend). */
+    private function hasReplayableNotification(RecruitmentApplication $application, bool $hasInterview): bool
+    {
+        $lastType = EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('status', EmailLogStatus::Sent)
+            ->orderByDesc('created_at')
+            ->first()?->notification_type?->value;
+
+        $templateKey = is_string($lastType)
+            ? (RecruitmentEmailResendService::RESENDABLE_TEMPLATES[$lastType] ?? null)
+            : null;
+
+        if ($templateKey === null) {
+            return false;
+        }
+
+        if (in_array($templateKey, ['interview_scheduled', 'interview_rescheduled'], true)) {
+            return $hasInterview;
+        }
+
+        return true;
     }
 
     private function canDecideFinal(RecruitmentApplication $application): bool

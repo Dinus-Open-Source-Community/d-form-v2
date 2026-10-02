@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Recruitment;
 
+use App\Models\EmailLog;
+use App\Enums\EmailLogStatus;
+use App\Enums\EmailNotificationType;
+use App\Models\Event;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
@@ -205,5 +209,46 @@ class RecruitmentPeriodQueryTabsTest extends TestCase
                 'tab' => str_repeat('x', 21),
             ]))
             ->assertSessionHasErrors('tab');
+    }
+
+    public function test_tab_settings_diteruskan_tanpa_normalisasi(): void
+    {
+        $this->actingAs($this->admin(['recruitment.periods.view']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'settings',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('tab', 'settings')
+                ->has('period.can_edit'));
+    }
+
+    public function test_tab_peserta_memuat_status_link_grup_dan_jumlah_eligible(): void
+    {
+        $admin = $this->admin(['recruitment.periods.view', 'recruitment.applications.list']);
+        $event = Event::factory()->create();
+        $application = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+        ]);
+        EmailLog::query()->create([
+            'recruitment_application_id' => $application->id,
+            'event_id' => $event->id,
+            'user_id' => $admin->id,
+            'recipient_email' => 'peserta@example.com',
+            'status' => EmailLogStatus::Sent,
+            'notification_type' => EmailNotificationType::RecruitmentGroupLink,
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('group_link_eligible_count')
+                ->where('applications.data.0.group_link_status', 'sent'));
     }
 }

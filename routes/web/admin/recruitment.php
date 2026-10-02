@@ -40,11 +40,12 @@ Route::middleware(['auth', 'recruitment.access'])
             ->defaults('destination', '/admin/recruitment')
             ->defaults('status', 302);
 
-        Route::resource('periods', RecruitmentPeriodController::class)->except(['index']);
+        Route::resource('periods', RecruitmentPeriodController::class)->except(['index', 'edit']);
         Route::get('periods/{period}/applications/{application}', [RecruitmentPeriodController::class, 'application'])
             ->name('periods.applications.show');
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
+        Route::post('periods/{period}/send-group-link', [RecruitmentPeriodController::class, 'sendGroupLink'])->name('periods.send-group-link');
 
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
@@ -64,6 +65,8 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('applications.verify');
         Route::post('applications/{application}/resend-tracking', [RecruitmentApplicationController::class, 'resendTracking'])
             ->name('applications.resend-tracking');
+        Route::post('applications/{application}/resend-email', [RecruitmentApplicationController::class, 'resendEmail'])
+            ->name('applications.resend-email');
         Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'override'])
             ->name('applications.evaluation.override');
         Route::post('applications/{application}/final/accept', [RecruitmentFinalSelectionController::class, 'accept'])

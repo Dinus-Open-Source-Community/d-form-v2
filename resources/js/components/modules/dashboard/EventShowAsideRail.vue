@@ -89,6 +89,7 @@ defineEmits<{
                 >
                     <Link :href="laporanHref"><BarChart3 class="mr-2 size-4" />Laporan dan log kehadiran</Link>
                 </Button>
+                <!-- Fitur broadcast dinonaktifkan (config/features.php): tombol Kirim Broadcast disembunyikan. -->
             </CardContent>
         </Card>
 
