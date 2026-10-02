@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { SimpleSelect } from '@/components/ui/simple-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -246,6 +247,7 @@ defineExpose({
     openFinalModal,
     verifyApplication,
     passApplication,
+    requestConfirm,
     requestResendTracking,
     resendTrackingApplication,
 })
@@ -385,10 +387,10 @@ function submitFinalDecision() {
     }
 }
 
-function passApplication() {
+function passApplication(payload: Record<string, unknown> = {}) {
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
-        {},
+        payload,
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -412,9 +414,11 @@ const waDialogOpen = ref(false)
 const waLinkInput = ref('')
 const waSaving = ref(false)
 const waLocalError = ref<string | null>(null)
+const waIncludeGroup = ref<boolean>(true)
 
 function openGroupLinkDialog(): void {
     waLinkInput.value = props.whatsappGroupUrl ?? ''
+    waIncludeGroup.value = true
     waLocalError.value = null
     waDialogOpen.value = true
 }
@@ -424,43 +428,69 @@ function closeGroupLinkDialog(): void {
     waLocalError.value = null
 }
 
-/** Lanjut lolos tanpa grup: email lolos terkirim tanpa blok WA. */
-function skipGroupLink(): void {
-    waDialogOpen.value = false
+/** Lolos tanpa menyertakan link grup di email (toggle OFF). */
+function submitGroupLinkWithoutLink(): void {
+    if (waSaving.value) return
     waLocalError.value = null
-    passApplication()
+    waSaving.value = true
+    router.post(
+        routes.admin.recruitment.applications.screening.pass(props.application.id),
+        { include_group_link: false },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                waDialogOpen.value = false
+                toast.success('Applicant lolos screening tanpa link grup.')
+                emit('submitted')
+            },
+            onError: (errors: Record<string, string | string[]>) => {
+                const first = errors['whatsapp_group_url'] ?? errors['application']
+                waLocalError.value =
+                    (Array.isArray(first) ? first[0] : first) ?? 'Gagal meloloskan applicant.'
+            },
+            onFinish: () => {
+                waSaving.value = false
+            },
+        },
+    )
 }
 
 function submitGroupLink(): void {
+    if (!waIncludeGroup.value) {
+        submitGroupLinkWithoutLink()
+        return
+    }
     const value = waLinkInput.value.trim()
     if (value === '') {
-        waLocalError.value = 'Link grup WA wajib diisi.'
+        waLocalError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.'
         return
     }
     if (!value.startsWith('https://')) {
         waLocalError.value = 'Link grup WA harus diawali https://.'
         return
     }
-    const periodId = props.application.period?.id
-    if (periodId === null || periodId === undefined || waSaving.value) return
+    if (waSaving.value) return
     waLocalError.value = null
     waSaving.value = true
-    router.put(
-        routes.admin.recruitment.periods.update(periodId),
-        { whatsapp_group_url: value },
+    router.post(
+        routes.admin.recruitment.applications.screening.pass(props.application.id),
+        { whatsapp_group_url: value, include_group_link: true },
         {
-            preserveState: true,
             preserveScroll: true,
             onSuccess: () => {
                 groupLinkSavedLocal.value = true
                 waDialogOpen.value = false
-                toast.success('Link grup tersimpan. Melanjutkan lolos screening.')
-                passApplication()
+                toast.success('Link grup tersimpan. Applicant lolos screening.')
+                emit('submitted')
             },
-            onError: () => {
-                showErrorToast('Gagal menyimpan link. Minta admin mengisinya di tab Settings.', {
-                    title: 'Akses ditolak',
-                })
+            onError: (errors: Record<string, string | string[]>) => {
+                const first =
+                    errors['whatsapp_group_url'] ??
+                    errors['include_group_link'] ??
+                    errors['application']
+                waLocalError.value =
+                    (Array.isArray(first) ? first[0] : first) ??
+                    'Gagal menyimpan link. Minta admin mengisinya di tab Settings.'
             },
             onFinish: () => {
                 waSaving.value = false
@@ -1391,10 +1421,24 @@ const defaultTab = computed(() => {
                 <DialogHeader>
                     <DialogTitle>Link grup WA belum diisi</DialogTitle>
                     <DialogDescription>
-                        Email lolos menyertakan link grup bila ada. Isi sekarang, atau lanjut
-                        tanpa grup bila periode ini memang tidak punya grup.
+                        Periode ini belum punya link grup. Isi sekarang agar email lolos menyertakan
+                        link grup, atau matikan toggle bila periode ini memang tidak pakai grup.
                     </DialogDescription>
                 </DialogHeader>
+
+                <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div class="space-y-0.5">
+                        <Label for="wa-include-group">Sertakan link grup di email</Label>
+                        <p class="text-muted-foreground text-xs">
+                            {{
+                                waIncludeGroup
+                                    ? 'Email lolos akan ada tombol Gabung Grup WA.'
+                                    : 'Email lolos dikirim tanpa blok link grup.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch id="wa-include-group" v-model="waIncludeGroup" />
+                </div>
 
                 <div class="space-y-2">
                     <Label for="drawer-wa-link">Link grup WA</Label>
@@ -1404,7 +1448,8 @@ const defaultTab = computed(() => {
                         type="url"
                         inputmode="url"
                         placeholder="https://chat.whatsapp.com/..."
-                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                        :disabled="!waIncludeGroup || waSaving"
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <p v-if="waLocalError" class="text-destructive text-xs">
                         {{ waLocalError }}
@@ -1415,11 +1460,8 @@ const defaultTab = computed(() => {
                     <Button type="button" variant="outline" @click="closeGroupLinkDialog">
                         Batal
                     </Button>
-                    <Button type="button" variant="outline" @click="skipGroupLink">
-                        Lanjut tanpa grup
-                    </Button>
                     <Button type="button" :disabled="waSaving" @click="submitGroupLink">
-                        {{ waSaving ? 'Menyimpan…' : 'Simpan & lanjutkan' }}
+                        {{ waSaving ? 'Menyimpan…' : waIncludeGroup ? 'Simpan & loloskan' : 'Loloskan tanpa link grup' }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

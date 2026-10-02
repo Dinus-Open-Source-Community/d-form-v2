@@ -9,9 +9,22 @@ use App\Models\User;
 
 class BroadcastPolicy
 {
+    // Fitur broadcast dinonaktifkan (config/features.php, default mati).
+    // Seluruh method diganjal di baris pertama; logika asli di bawahnya tetap
+    // dipertahankan agar bisa aktif lagi via FEATURE_BROADCAST=true.
+
+    private function disabled(): bool
+    {
+        return ! config('features.broadcast', false);
+    }
+
     /** Akses halaman hub: izin global atau admin salah satu konteks. */
     public function create(User $user): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $this->hasGlobalSend($user)
             || $user->can('events.view')
             || $user->can('recruitment.periods.view');
@@ -20,18 +33,30 @@ class BroadcastPolicy
     /** Izin kirim ke event: global lintas-event atau admin event tersebut. */
     public function sendToEvent(User $user, Event $event): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $this->hasGlobalSend($user) || $user->can('view', $event);
     }
 
     /** Izin kirim ke periode: global lintas-event atau admin periode tersebut. */
     public function sendToPeriod(User $user, RecruitmentPeriod $period): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $this->hasGlobalSend($user) || $user->can('view', $period);
     }
 
     /** Ubah konten: izin konteks + hanya saat draft/scheduled. */
     public function update(User $user, Broadcast $broadcast): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $this->view($user, $broadcast)
             && in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true);
     }
@@ -39,6 +64,10 @@ class BroadcastPolicy
     /** Kirim: izin konteks + hanya saat draft/scheduled. */
     public function send(User $user, Broadcast $broadcast): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $this->view($user, $broadcast)
             && in_array($broadcast->status, [Broadcast::STATUS_DRAFT, Broadcast::STATUS_SCHEDULED], true);
     }
@@ -46,12 +75,20 @@ class BroadcastPolicy
     /** Lihat daftar per periode: lolos view periode itu (owner-scoped). */
     public function viewAnyForPeriod(User $user, RecruitmentPeriod $period): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         return $user->can('view', $period);
     }
 
     /** Lihat broadcast: mengikuti izin konteks yang tersimpan di snapshot target. */
     public function view(User $user, Broadcast $broadcast): bool
     {
+        if ($this->disabled()) {
+            return false;
+        }
+
         if ($broadcast->event_id !== null && $broadcast->event !== null) {
             return $this->sendToEvent($user, $broadcast->event);
         }

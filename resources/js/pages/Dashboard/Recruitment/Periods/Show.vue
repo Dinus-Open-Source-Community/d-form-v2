@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
+import { Head, router, useForm, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import PeriodSettingsSection from '@/components/modules/dashboard/recruitment/PeriodSettingsSection.vue'
-import PeriodBroadcastList from '@/components/modules/dashboard/broadcast/PeriodBroadcastList.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/ApplicantDetailPanel.vue'
@@ -18,24 +17,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
-    type IPaginatorLink,
     type IPaginatorMeta,
 } from '@/lib/paginatorLinks'
-import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, ChevronLeft, ChevronRight, Megaphone, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
-import type { IBroadcastPeriodRow } from '@/lib/broadcastHub'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import {
     daysRemaining,
@@ -110,10 +99,6 @@ interface SessionPaginator extends IPaginatorMeta {
     data: SessionRow[]
 }
 
-interface BroadcastPaginator extends IPaginatorMeta {
-    data: IBroadcastPeriodRow[]
-}
-
 interface ReportPayload {
     period: { id: string; name: string } | null
     funnel: { stage: string; label: string; count: number }[]
@@ -178,8 +163,6 @@ const props = withDefaults(
         applicant_detail?: ApplicationDetail | null
         /** Jumlah eligible kirim link grup (lolos, bukan rejected). */
         group_link_eligible_count?: number
-        /** Paginator kontrak 8a FINAL; null/undefined = key absent (tab lain). */
-        broadcasts?: BroadcastPaginator | null
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -355,82 +338,8 @@ const groupedAssignments = computed<AssignmentGroup[]>(() => {
 
 const assignmentsCountLabel = computed<string>(() => props.assignments.length.toLocaleString('id-ID'))
 
-/** Baris broadcast dibaca dari .data paginator; key absent (tab lain) = kosong. */
-const broadcastRows = computed<IBroadcastPeriodRow[]>(() => props.broadcasts?.data ?? [])
-
-/** Meta paginator server; key absent (tab lain) dianggap halaman kosong. */
-const broadcastMeta = computed<{
-    currentPage: number
-    lastPage: number
-    total: number
-    from: number | null
-    to: number | null
-    links: IPaginatorLink[]
-}>(() => {
-    const value: BroadcastPaginator | null | undefined = props.broadcasts
-    if (value === null || value === undefined) {
-        return { currentPage: 1, lastPage: 1, total: 0, from: null, to: null, links: [] }
-    }
-    return {
-        currentPage: value.current_page,
-        lastPage: value.last_page,
-        total: value.total,
-        from: value.from ?? null,
-        to: value.to ?? null,
-        links: value.links ?? [],
-    }
-})
-
-const broadcastCountLabel = computed<string>(() => broadcastMeta.value.total.toLocaleString('id-ID'))
-
-const broadcastRangeLabel = computed<string>(() => {
-    const meta = broadcastMeta.value
-    const total: string = meta.total.toLocaleString('id-ID')
-    const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
-    const to: string = (meta.to ?? meta.total).toLocaleString('id-ID')
-    return `Menampilkan ${from}–${to} dari ${total} broadcast`
-})
-
-/** Baris per halaman paginator broadcast server (kontrak: paginate 15). */
-const broadcastPerPage = computed<number>(() => props.broadcasts?.per_page ?? 15)
-
-/**
- * Pindah halaman via links[] paginator (url sudah membawa ?tab=broadcast&page=N).
- * Partial reload + replace agar riwayat tak menumpuk.
- */
-const isBroadcastNavigating = ref<boolean>(false)
-
-function goToBroadcastUrl(url: string | null): void {
-    if (url === null || props.broadcasts == null || isBroadcastNavigating.value) return
-    router.get(
-        url,
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-            only: TAB_ONLY.broadcast,
-            onStart: () => {
-                isBroadcastNavigating.value = true
-            },
-            onFinish: () => {
-                isBroadcastNavigating.value = false
-            },
-        },
-    )
-}
-
-/**
- * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
- * links[] paginator lalu didelegasikan ke goToBroadcastUrl agar opsi sama.
- */
-function goToBroadcastPage(pageNumber: number): void {
-    if (pageNumber === broadcastMeta.value.currentPage || isBroadcastNavigating.value) return
-    const target: string | null =
-        broadcastMeta.value.links.find((link) => link.label === String(pageNumber))?.url ?? null
-    goToBroadcastUrl(target)
-}
-
+// Fitur broadcast dinonaktifkan (config/features.php): seluruh state daftar
+// broadcast period dihapus dari halaman ini. File komponen broadcast tetap ada.
 const pendingUnassignDescription = computed<string>(() => {
     const row: InterviewerAssignment | null = pendingUnassign.value
     if (!row) return ''
@@ -486,7 +395,7 @@ const participantCountLabel = computed<string>(() => {
     return applicantTotal.value.toLocaleString('id-ID')
 })
 
-const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast', 'settings'] as const
+const validTabs = ['peserta', 'interview', 'laporan', 'interviewer', 'settings'] as const
 type TabValue = (typeof validTabs)[number]
 
 function normalizeTab(value: string): TabValue {
@@ -534,7 +443,6 @@ const TAB_ONLY: Record<TabValue, string[]> = {
     interview: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
     laporan: ['period', 'tab', 'query', 'report'],
     interviewer: ['period', 'tab', 'query', 'divisions', 'assignments', 'interviewerCandidates'],
-    broadcast: ['period', 'tab', 'query', 'broadcasts'],
     settings: ['period', 'tab', 'query'],
 }
 
@@ -786,15 +694,6 @@ function closePeriod(): void {
                         >
                             Tutup pendaftaran
                         </Button>
-                        <Button as-child size="sm" variant="outline">
-                            <Link
-                                :href="routes.admin.broadcasts.create({ periodId: period.id })"
-                                :aria-label="'Kirim broadcast untuk ' + period.name"
-                            >
-                                <Megaphone class="mr-2 size-4" aria-hidden="true" />
-                                Kirim Broadcast
-                            </Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -883,18 +782,6 @@ function closePeriod(): void {
                         class="ml-1 inline-flex min-h-5 min-w-6 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium tabular-nums leading-4 text-muted-foreground transition-colors group-hover:text-foreground group-data-[state=active]:bg-foreground/10 group-data-[state=active]:text-foreground"
                     >
                         {{ assignmentsCountLabel }}
-                    </span>
-                </TabsTrigger>
-                <TabsTrigger
-                    value="broadcast"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                >
-                    <Megaphone class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
-                    <span>Broadcast</span>
-                    <span
-                        class="ml-1 inline-flex min-h-5 min-w-6 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium tabular-nums leading-4 text-muted-foreground transition-colors group-hover:text-foreground group-data-[state=active]:bg-foreground/10 group-data-[state=active]:text-foreground"
-                    >
-                        {{ broadcastCountLabel }}
                     </span>
                 </TabsTrigger>
                 <TabsTrigger
@@ -1120,64 +1007,6 @@ function closePeriod(): void {
                     @close="closeCreateSheet"
                     @created="onInterviewerCreated"
                 />
-            </TabsContent>
-
-            <TabsContent value="broadcast" class="mt-4">
-                <div class="flex flex-col gap-3" :aria-busy="isBroadcastNavigating">
-                    <p
-                        v-if="isBroadcastNavigating"
-                        role="status"
-                        class="text-xs text-muted-foreground"
-                    >
-                        Memuat halaman {{ broadcastMeta.currentPage }}…
-                    </p>
-                    <PeriodBroadcastList
-                        :broadcasts="broadcastRows"
-                        :period-id="period.id"
-                        :period-name="period.name"
-                    />
-                    <div
-                        v-if="broadcastMeta.lastPage > 1"
-                        class="flex flex-col items-center gap-3"
-                    >
-                        <Pagination
-                            :page="broadcastMeta.currentPage"
-                            :total="broadcastMeta.total"
-                            :items-per-page="broadcastPerPage"
-                            :sibling-count="1"
-                            @update:page="goToBroadcastPage"
-                        >
-                            <PaginationContent v-slot="{ items }">
-                                <PaginationPrevious>
-                                    <ChevronLeft class="size-4" aria-hidden="true" />
-                                    <span class="hidden sm:block">Sebelumnya</span>
-                                </PaginationPrevious>
-                                <template v-for="(item, index) in items" :key="index">
-                                    <PaginationItem
-                                        v-if="item.type === 'page'"
-                                        :value="item.value"
-                                        :is-active="item.value === broadcastMeta.currentPage"
-                                        :aria-label="`Ke halaman ${item.value}`"
-                                    >
-                                        {{ item.value }}
-                                    </PaginationItem>
-                                    <PaginationEllipsis v-else :index="index" />
-                                </template>
-                                <PaginationNext>
-                                    <span class="hidden sm:block">Berikutnya</span>
-                                    <ChevronRight class="size-4" aria-hidden="true" />
-                                </PaginationNext>
-                            </PaginationContent>
-                        </Pagination>
-                        <p class="text-sm text-muted-foreground">{{ broadcastRangeLabel }}</p>
-                    </div>
-                    <p
-                        v-else-if="broadcastRows.length > 0"
-                        class="text-center text-sm text-muted-foreground"
-                    >
-                        {{ broadcastRangeLabel }}
-                    </p>
-                </div>
             </TabsContent>
 
             <TabsContent value="settings" class="mt-4">

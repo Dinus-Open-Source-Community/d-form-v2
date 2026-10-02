@@ -21,6 +21,20 @@ class ScreeningPassRequest extends FormRequest
     {
         return [
             'notes' => ['nullable', 'string', 'max:2000'],
+            'whatsapp_group_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
+            'include_group_link' => ['nullable', 'boolean'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('whatsapp_group_url')) {
+            $raw = $this->input('whatsapp_group_url');
+            if (is_string($raw)) {
+                $clean = trim(strip_tags($raw));
+                $clean = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
+                $this->merge(['whatsapp_group_url' => trim($clean) === '' ? null : trim($clean)]);
+            }
+        }
     }
 }

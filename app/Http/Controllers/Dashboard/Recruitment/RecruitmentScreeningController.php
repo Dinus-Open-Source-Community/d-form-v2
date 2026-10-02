@@ -20,11 +20,15 @@ class RecruitmentScreeningController extends Controller
 
     public function pass(ScreeningPassRequest $request, RecruitmentApplication $application): RedirectResponse
     {
+        $validated = $request->validated();
+
         $this->screeningService->pass(
             $request->user(),
             $application,
-            $request->validated('notes'),
+            $validated['notes'] ?? null,
             $request,
+            $validated['whatsapp_group_url'] ?? null,
+            array_key_exists('include_group_link', $validated) ? (bool) $validated['include_group_link'] : null,
         );
 
         return redirect()

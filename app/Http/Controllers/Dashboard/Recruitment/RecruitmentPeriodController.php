@@ -128,8 +128,10 @@ class RecruitmentPeriodController extends Controller
         $period->loadCount('applications');
 
         $validated = $request->validated();
+        // Fitur broadcast dinonaktifkan (config/features.php): 'broadcast' dikeluarkan
+        // dari daftar tab sehingga ?tab=broadcast jatuh ke 'peserta'.
         $tab = $validated['tab'] ?? 'peserta';
-        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'broadcast', 'settings'], true)) {
+        if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'settings'], true)) {
             $tab = 'peserta';
         }
 
@@ -227,7 +229,10 @@ class RecruitmentPeriodController extends Controller
             $report = $this->reportService->build($period->id);
         }
 
-        if ($tab === 'broadcast') {
+        // Fitur broadcast dinonaktifkan: blok di bawah tidak terjangkau karena tab
+        // 'broadcast' selalu dinormalkan ke 'peserta'. Method broadcastsForPeriodTab
+        // dipertahankan agar mudah diaktifkan lagi.
+        if ($tab === 'broadcast' && config('features.broadcast', false)) {
             $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1), $perPage);
         }
 

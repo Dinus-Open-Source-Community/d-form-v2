@@ -30,6 +30,10 @@ class BroadcastHubTest extends TestCase
     {
         parent::setUp();
 
+        // Fitur broadcast dinonaktifkan (config/features.php). Seluruh test di
+        // file ini dilewati; file dan case dipertahankan apa adanya.
+        $this->markTestSkipped('Fitur broadcast dinonaktifkan.');
+
         $this->seed(RoleSeeder::class);
     }
 
@@ -952,7 +956,9 @@ class BroadcastHubTest extends TestCase
             'total' => count($recipients),
             'recipients' => $recipients,
         ];
-        $log = fn (Broadcast $broadcast, string $email, EmailLogStatus $status): void => EmailLog::query()->create([
+        // Catatan: closure dibuat tanpa return type void karena arrow-fn mengembalikan
+        // nilai create(); file dipertahankan apa adanya (fitur dinonaktifkan).
+        $log = fn (Broadcast $broadcast, string $email, EmailLogStatus $status) => EmailLog::query()->create([
             'broadcast_id' => $broadcast->id,
             'event_id' => $event->id,
             'user_id' => $admin->id,

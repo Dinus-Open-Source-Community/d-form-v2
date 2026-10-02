@@ -22,6 +22,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Send, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
@@ -377,6 +378,14 @@ function cancelPass(): void {
 function confirmPass(): void {
     const target = passTarget.value
     if (target === null || processingId.value !== null) return
+    if (!hasGroupLink.value) {
+        passDialogOpen.value = false
+        passGroupLinkInput.value = ''
+        passGroupLinkInclude.value = true
+        passGroupLinkError.value = null
+        passGroupLinkDialogOpen.value = true
+        return
+    }
     processingId.value = target.id
     router.post(
         routes.admin.recruitment.applications.screening.pass(target.id),
@@ -384,10 +393,89 @@ function confirmPass(): void {
         {
             preserveState: true,
             preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Applicant lolos screening.')
+            },
+            onError: () => {
+                toast.error('Gagal meloloskan applicant.')
+            },
             onFinish: () => {
                 processingId.value = null
                 passTarget.value = null
                 passDialogOpen.value = false
+            },
+        },
+    )
+}
+
+const passGroupLinkDialogOpen = ref(false)
+const passGroupLinkInput = ref('')
+const passGroupLinkInclude = ref(true)
+const passGroupLinkError = ref<string | null>(null)
+
+function cancelPassGroupLink(): void {
+    passGroupLinkDialogOpen.value = false
+    passGroupLinkError.value = null
+}
+
+function submitPassGroupLink(): void {
+    const target = passTarget.value
+    if (target === null || processingId.value !== null) return
+    if (!passGroupLinkInclude.value) {
+        passGroupLinkError.value = null
+        processingId.value = target.id
+        router.post(
+            routes.admin.recruitment.applications.screening.pass(target.id),
+            { include_group_link: false },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                onError: () => {
+                    passGroupLinkError.value = 'Gagal meloloskan applicant.'
+                    toast.error('Gagal meloloskan applicant.')
+                },
+                onSuccess: () => {
+                    passGroupLinkDialogOpen.value = false
+                    passTarget.value = null
+                    toast.success('Applicant lolos screening tanpa link grup.')
+                },
+                onFinish: () => {
+                    processingId.value = null
+                },
+            },
+        )
+        return
+    }
+    const value = passGroupLinkInput.value.trim()
+    if (value === '') {
+        passGroupLinkError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.'
+        return
+    }
+    if (!value.startsWith('https://')) {
+        passGroupLinkError.value = 'Link grup WA harus diawali https://.'
+        return
+    }
+    passGroupLinkError.value = null
+    processingId.value = target.id
+    router.post(
+        routes.admin.recruitment.applications.screening.pass(target.id),
+        { whatsapp_group_url: value, include_group_link: true },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onError: (errors: Record<string, string | string[]>) => {
+                const first = errors['whatsapp_group_url'] ?? errors['application']
+                passGroupLinkError.value =
+                    (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan link grup.'
+                toast.error(passGroupLinkError.value)
+            },
+            onSuccess: () => {
+                passGroupLinkDialogOpen.value = false
+                passTarget.value = null
+                toast.success('Link grup tersimpan. Applicant lolos screening.')
+            },
+            onFinish: () => {
+                processingId.value = null
             },
         },
     )
@@ -468,7 +556,13 @@ function submitReject(): void {
         {
             preserveState: true,
             preserveScroll: true,
-            onSuccess: () => closeReject(),
+            onSuccess: () => {
+                closeReject()
+                toast.success('Applicant ditolak pada tahap screening.')
+            },
+            onError: () => {
+                toast.error('Gagal menolak applicant.')
+            },
             onFinish: () => {
                 processingId.value = null
             },
@@ -728,6 +822,70 @@ function submitReject(): void {
             @cancel="cancelGroupLink"
             @update:open="(v: boolean) => { groupLinkDialogOpen = v }"
         />
+
+        <Dialog v-model:open="passGroupLinkDialogOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Link grup WA belum diisi</DialogTitle>
+                    <DialogDescription>
+                        {{
+                            passTarget
+                                ? `Periode ${passTarget.full_name} belum punya link grup. Isi sekarang atau matikan toggle bila tidak pakai grup.`
+                                : 'Periode ini belum punya link grup. Isi sekarang atau matikan toggle bila tidak pakai grup.'
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div class="space-y-0.5">
+                        <Label for="quick-pass-include-group">Sertakan link grup di email</Label>
+                        <p class="text-muted-foreground text-xs">
+                            {{
+                                passGroupLinkInclude
+                                    ? 'Email lolos akan ada tombol Gabung Grup WA.'
+                                    : 'Email lolos dikirim tanpa blok link grup.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch id="quick-pass-include-group" v-model="passGroupLinkInclude" />
+                </div>
+
+                <div class="space-y-2">
+                    <Label for="quick-pass-wa-link">Link grup WA</Label>
+                    <input
+                        id="quick-pass-wa-link"
+                        v-model="passGroupLinkInput"
+                        type="url"
+                        inputmode="url"
+                        placeholder="https://chat.whatsapp.com/..."
+                        :disabled="!passGroupLinkInclude || (passTarget !== null && processingId === passTarget.id)"
+                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <p v-if="passGroupLinkError" class="text-destructive text-xs">
+                        {{ passGroupLinkError }}
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="cancelPassGroupLink">
+                        Batal
+                    </Button>
+                    <Button
+                        type="button"
+                        :disabled="passTarget !== null && processingId === passTarget.id"
+                        @click="submitPassGroupLink"
+                    >
+                        {{
+                            passTarget !== null && processingId === passTarget.id
+                                ? 'Menyimpan…'
+                                : passGroupLinkInclude
+                                  ? 'Simpan & loloskan'
+                                  : 'Loloskan tanpa link grup'
+                        }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="rejectDialogOpen">
             <DialogContent class="sm:max-w-md">

@@ -5,6 +5,14 @@ use Illuminate\Support\Facades\Route;
 
 // Broadcast hub: index per-period untuk tab; konten boleh diubah saat draft/scheduled;
 // snapshot-only untuk penerima (tanpa destroy dan tanpa endpoint datasets reusable).
+// Fitur broadcast dinonaktifkan (config/features.php, default mati).
+// File ini sengaja dipertahankan tanpa dihapus; bila flag mati, route di bawah
+// tidak didaftarkan sehingga seluruh URL /admin/broadcasts/* 404.
+// Aktifkan lagi via FEATURE_BROADCAST=true.
+if (! config('features.broadcast', false)) {
+    return;
+}
+
 Route::middleware('auth')->prefix('/admin/broadcasts')->name('dashboard.broadcasts.')->group(function (): void {
     Route::get('/create', [BroadcastController::class, 'create'])->name('create');
     Route::get('/', [BroadcastController::class, 'index'])->name('index');

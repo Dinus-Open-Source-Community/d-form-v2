@@ -70,11 +70,11 @@ function openFinal(action: 'accept' | 'reject') {
 }
 
 function verifyRegistration() {
-    contentRef.value?.verifyApplication()
+    contentRef.value?.requestConfirm('verify')
 }
 
 function passScreening() {
-    contentRef.value?.passApplication()
+    contentRef.value?.requestConfirm('pass')
 }
 
 function resendTracking() {

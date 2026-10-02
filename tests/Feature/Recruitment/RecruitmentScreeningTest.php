@@ -201,4 +201,84 @@ class RecruitmentScreeningTest extends TestCase
             ->get(route('dashboard.recruitment.periods.show', $this->application->recruitment_period_id))
             ->assertForbidden();
     }
+
+    public function test_pass_with_new_group_link_saves_period_and_queues_job_with_url(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $url = 'https://chat.whatsapp.com/abc123';
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.screening.pass', $this->application), [
+                'whatsapp_group_url' => $url,
+                'include_group_link' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recruitment_periods', [
+            'id' => $this->application->recruitment_period_id,
+            'whatsapp_group_url' => $url,
+        ]);
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job) use ($url): bool {
+            return $job->applicationId === $this->application->id
+                && $job->templateKey === 'passed_screening'
+                && $job->whatsappGroupUrl === $url;
+        });
+    }
+
+    public function test_pass_with_include_group_link_false_queues_job_without_url(): void
+    {
+        $period = $this->application->period;
+        $period->update(['whatsapp_group_url' => 'https://chat.whatsapp.com/existing']);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.screening.pass', $this->application), [
+                'include_group_link' => false,
+            ])
+            ->assertRedirect();
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job): bool {
+            return $job->applicationId === $this->application->id
+                && $job->templateKey === 'passed_screening'
+                && ($job->whatsappGroupUrl === null || $job->whatsappGroupUrl === '');
+        });
+    }
+
+    public function test_pass_with_include_true_but_no_url_fails_validation(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.screening.pass', $this->application), [
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+
+        $this->assertSame(0, RecruitmentScreening::query()->where('recruitment_application_id', $this->application->id)->count());
+    }
+
+    public function test_pass_with_invalid_group_url_fails_validation(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.screening.pass', $this->application), [
+                'whatsapp_group_url' => 'http://not-https.example/grup',
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+    }
+
+    public function test_staff_without_period_edit_cannot_save_group_link(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.screening.pass', $this->application), [
+                'whatsapp_group_url' => 'https://chat.whatsapp.com/abc123',
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+
+        $this->assertSame(0, RecruitmentScreening::query()->where('recruitment_application_id', $this->application->id)->count());
+    }
 }

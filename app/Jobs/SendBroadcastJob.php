@@ -27,6 +27,18 @@ class SendBroadcastJob implements ShouldQueue
 
     public function handle(BroadcastDispatchService $dispatch): void
     {
+        // Fitur broadcast dinonaktifkan (config/features.php).
+        // Job lama yang masih mengendap di antrean sengaja dibuang tanpa mengirim.
+        // Logika asli di bawah dipertahankan agar bisa aktif lagi.
+        if (! config('features.broadcast', false)) {
+            Log::notice('[SendBroadcastJob] Fitur broadcast dinonaktifkan; job dibuang.', [
+                'broadcast_id' => $this->broadcastId,
+                'recipient_email' => $this->recipientEmail,
+            ]);
+
+            return;
+        }
+
         $broadcast = Broadcast::query()->find($this->broadcastId);
 
         if ($broadcast === null) {
