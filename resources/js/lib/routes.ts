@@ -80,6 +80,7 @@ export const routes = {
                 open: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/open`,
                 close: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/close`,
                 destroy: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
+                sendGroupLink: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-group-link`,
             },
             divisions: {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,

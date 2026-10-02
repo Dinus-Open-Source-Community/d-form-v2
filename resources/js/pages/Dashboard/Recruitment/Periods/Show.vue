@@ -76,6 +76,8 @@ interface ApplicationRow {
     result_label: string
     revision_required: boolean
     submitted_at: string | null
+    /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
+    group_link_status?: string | null
     primary_division: { id: string; name: string } | null
     secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
@@ -168,6 +170,8 @@ const props = withDefaults(
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
         applicant_detail?: ApplicationDetail | null
+        /** Jumlah eligible kirim link grup (lolos, bukan rejected). */
+        group_link_eligible_count?: number
         /** Paginator kontrak 8a FINAL; null/undefined = key absent (tab lain). */
         broadcasts?: BroadcastPaginator | null
         divisions?: InterviewerDivision[]
@@ -196,6 +200,8 @@ const canViewReports = computed(() => user.value?.can_view_recruitment_reports =
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
 /** Tab Settings + tombol Edit memakai izin edit per-periode dari backend (can_edit). */
 const canEdit = computed<boolean>(() => props.period.can_edit === true)
+/** Jumlah eligible kirim link grup; 0 bila key absent (tab lain). */
+const groupLinkEligibleCount = computed<number>(() => props.group_link_eligible_count ?? 0)
 
 const assignForm = useForm({
     user_id: '',
@@ -902,6 +908,8 @@ function closePeriod(): void {
                         :stage-options="stageOptions"
                         :semester-options="semesterOptions"
                         :query="query"
+                        :whatsapp-group-url="period.whatsapp_group_url ?? null"
+                        :group-link-eligible-count="groupLinkEligibleCount ?? 0"
                         @select="selectApplicant"
                         @deselect="closePanel"
                     />

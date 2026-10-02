@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { router, useForm, Link } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,7 +19,9 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowRight, Check, Megaphone, X } from 'lucide-vue-next'
+import { ArrowRight, Check, Send, X } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
@@ -36,6 +38,8 @@ interface ApplicationRow {
     result_label: string
     revision_required: boolean
     submitted_at: string | null
+    /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
+    group_link_status?: string | null
     primary_division: { id: string; name: string } | null
     secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
@@ -65,6 +69,10 @@ const props = withDefaults(
         semesterOptions?: { value: string; label: string }[]
         tab: string
         canScreen?: boolean
+        /** Link grup WA periode (null = belum diisi di Settings). */
+        whatsappGroupUrl?: string | null
+        /** Jumlah applicant eligible kirim link grup (lolos, bukan rejected). */
+        groupLinkEligibleCount?: number
         selectedId?: string | null
         query?: {
             search?: string
@@ -75,7 +83,7 @@ const props = withDefaults(
             per_page?: string | number
         }
     }>(),
-    { semesterOptions: () => [], canScreen: false, query: () => ({}) },
+    { semesterOptions: () => [], canScreen: false, query: () => ({}), whatsappGroupUrl: null, groupLinkEligibleCount: 0 },
 )
 
 const emit = defineEmits<{
@@ -368,6 +376,46 @@ function confirmPass(): void {
     )
 }
 
+/** Link grup WA tersedia bila periode menyimpannya (diisi di tab Settings). */
+const hasGroupLink = computed<boolean>(
+    () => props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== '',
+)
+
+const groupLinkDialogOpen = ref(false)
+const isSendingGroupLink = ref(false)
+
+function openGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    groupLinkDialogOpen.value = true
+}
+
+function cancelGroupLink(): void {
+    groupLinkDialogOpen.value = false
+}
+
+function confirmGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    isSendingGroupLink.value = true
+    router.post(
+        routes.admin.recruitment.periods.sendGroupLink(props.periodId),
+        {},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Link grup dikirim ke applicant yang lolos.')
+            },
+            onError: () => {
+                toast.error('Gagal mengirim link grup. Coba lagi.')
+            },
+            onFinish: () => {
+                isSendingGroupLink.value = false
+                groupLinkDialogOpen.value = false
+            },
+        },
+    )
+}
+
 function openReject(row: ApplicationRow): void {
     if (!canDecide(row) || processingId.value !== null) return
     rejectTarget.value = row
@@ -418,15 +466,26 @@ function submitReject(): void {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Applicant periode ini
             </h2>
-            <Button as-child variant="outline" size="sm">
-                <Link
-                    :href="routes.admin.broadcasts.create({ periodId: props.periodId })"
-                    aria-label="Kirim broadcast ke pelamar periode ini"
+            <div class="flex flex-col gap-1.5">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="!hasGroupLink || isSendingGroupLink"
+                    :title="
+                        hasGroupLink
+                            ? 'Kirim link grup WA ke applicant yang lolos'
+                            : 'Isi link grup WA di tab Settings dulu'
+                    "
+                    :aria-label="'Kirim link grup WA ke applicant yang lolos'"
+                    @click="openGroupLink"
                 >
-                    <Megaphone class="mr-2 size-4" aria-hidden="true" />
-                    Kirim Broadcast
-                </Link>
-            </Button>
+                    <Send class="mr-2 size-4" aria-hidden="true" />
+                    {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
+                </Button>
+                <p v-if="!hasGroupLink" class="text-muted-foreground text-xs">
+                    Isi link grup di tab Settings dulu.
+                </p>
+            </div>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -490,6 +549,7 @@ function submitReject(): void {
                                 <th class="px-4 py-3 font-medium">Divisi</th>
                                 <th class="px-4 py-3 font-medium">Tahap</th>
                                 <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">Link Grup</th>
                                 <th class="px-4 py-3"><span class="sr-only">Aksi</span></th>
                             </tr>
                         </thead>
@@ -521,6 +581,21 @@ function submitReject(): void {
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-muted-foreground">{{ row.result_label }}</td>
+                                <td class="px-4 py-3">
+                                    <Badge
+                                        v-if="row.group_link_status === 'sent'"
+                                        variant="secondary"
+                                    >
+                                        Terkirim
+                                    </Badge>
+                                    <Badge
+                                        v-else-if="row.group_link_status === 'failed'"
+                                        variant="destructive"
+                                    >
+                                        Gagal
+                                    </Badge>
+                                    <span v-else class="text-muted-foreground text-xs">—</span>
+                                </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-0.5">
                                         <Button
@@ -560,7 +635,7 @@ function submitReject(): void {
                                 </td>
                             </tr>
                             <tr v-if="filteredRows.length === 0">
-                                <td colspan="7" class="text-muted-foreground px-4 py-10 text-center">
+                                <td colspan="8" class="text-muted-foreground px-4 py-10 text-center">
                                     {{
                                         hasActiveFilter
                                             ? 'Belum ada applicant untuk periode ini yang cocok dengan filter.'
@@ -613,6 +688,17 @@ function submitReject(): void {
             @confirm="confirmPass"
             @cancel="cancelPass"
             @update:open="(v: boolean) => { passDialogOpen = v }"
+        />
+
+        <ConfirmationModal
+            :open="groupLinkDialogOpen"
+            title="Kirim link grup WA?"
+            :description="`Link grup dikirim 1 per 1 ke ${props.groupLinkEligibleCount} applicant yang lolos.`"
+            confirm-text="Kirim"
+            :loading="isSendingGroupLink"
+            @confirm="confirmGroupLink"
+            @cancel="cancelGroupLink"
+            @update:open="(v: boolean) => { groupLinkDialogOpen = v }"
         />
 
         <Dialog v-model:open="rejectDialogOpen">

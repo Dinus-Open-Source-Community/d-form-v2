@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\EmailNotificationType;
+use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\MembershipType;
+use App\Enums\Recruitment\ScreeningDecision;
 use App\Enums\Recruitment\ScreeningReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
 use App\Models\Broadcast;
+use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -61,6 +65,38 @@ class RecruitmentPeriodController extends Controller
         ]);
 
         return redirect()->route('dashboard.recruitment.periods.show', $period);
+    }
+
+    /** Status link-grup terakhir per applicant (1 query, tanpa N+1). */
+    private function groupLinkStatusMap(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $latest = EmailLog::query()
+            ->whereIn('recruitment_application_id', $ids)
+            ->where('notification_type', EmailNotificationType::RecruitmentGroupLink->value)
+            ->orderByDesc('id')
+            ->get(['recruitment_application_id', 'status']);
+
+        $map = [];
+        foreach ($latest as $log) {
+            $map[$log->recruitment_application_id] ??= $log->status->value;
+        }
+
+        return $map;
+    }
+
+    /** Jumlah eligible kirim link grup (cermin filter bulk service). */
+    private function groupLinkEligibleCount(RecruitmentPeriod $period): int
+    {
+        return RecruitmentApplication::query()
+            ->where('recruitment_period_id', $period->id)
+            ->whereNull('cancelled_at')
+            ->where('result', '!=', ApplicationResult::Rejected->value)
+            ->whereHas('screenings', fn ($query) => $query->where('decision', ScreeningDecision::Pass->value))
+            ->count();
     }
 
     /** Daftar broadcast satu periode, paginasi 15/hal selaras kontrak index 4a (tanpa N+1). */
@@ -119,13 +155,20 @@ class RecruitmentPeriodController extends Controller
                     ->where('recruitment_period_id', $period->id)
                     ->orderByDesc('submitted_at')
                     ->paginate(15, ['*'], 'page', $request->integer('page', 1));
+                $groupLinkStatuses = $this->groupLinkStatusMap(
+                    $applicationPaginator->getCollection()->map(fn ($item) => $item->id)->all()
+                );
                 $applicationPaginator->setCollection(
                     $applicationPaginator->getCollection()->map(
-                        fn (RecruitmentApplication $application) => $this->applicationService->toListArray($application)
+                        fn (RecruitmentApplication $application) => [
+                            ...$this->applicationService->toListArray($application),
+                            'group_link_status' => $groupLinkStatuses[$application->id] ?? null,
+                        ]
                     )
                 );
 
                 $applications = $applicationPaginator->withQueryString();
+                $groupLinkEligibleCount = $this->groupLinkEligibleCount($period);
 
                 $queueCounts = $this->applicationService->queueCounts($period->id);
                 $screeningReasonOptions = ScreeningReason::options();
@@ -230,6 +273,7 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'peserta') {
             $props['applications'] = $applications;
+            $props['group_link_eligible_count'] = $groupLinkEligibleCount ?? 0;
             $props['screening_reason_options'] = $screeningReasonOptions;
             $props['division_options'] = $divisionOptions;
             $props['membership_type_options'] = MembershipType::options();
