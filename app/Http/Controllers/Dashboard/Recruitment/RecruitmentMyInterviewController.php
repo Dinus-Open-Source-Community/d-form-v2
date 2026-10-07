@@ -7,10 +7,8 @@ use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\EvaluationService;
 use App\Services\Recruitment\MyInterviewService;
-use App\Services\Recruitment\WaitingRoomService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +17,6 @@ class RecruitmentMyInterviewController extends Controller
     public function __construct(
         private readonly MyInterviewService $myInterviewService,
         private readonly EvaluationService $evaluationService,
-        private readonly WaitingRoomService $waitingRoomService,
     ) {
     }
 
@@ -89,49 +86,7 @@ class RecruitmentMyInterviewController extends Controller
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
-            'waiting_pool_poll_url' => route('dashboard.recruitment.my-interviews.waiting-pool'),
-            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
         ]);
-    }
-
-    public function waitingPool(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        abort_unless($user?->can('recruitment.evaluations.view'), 403);
-
-        $sessionId = $request->query('session_id');
-        $search = $request->query('q');
-
-        return response()->json([
-            'entries' => $this->waitingRoomService->waitingPoolSnapshot(
-                $user,
-                is_string($sessionId) ? $sessionId : null,
-                is_string($search) ? $search : null,
-            ),
-            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
-        ]);
-    }
-
-    public function book(Request $request, RecruitmentApplication $application): RedirectResponse
-    {
-        $this->authorize('bookInterview', $application);
-
-        $this->waitingRoomService->book($request->user(), $application, $request);
-
-        return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $application)
-            ->with('message', 'Applicant berhasil dibooking.');
-    }
-
-    public function release(Request $request, RecruitmentApplication $application): RedirectResponse
-    {
-        $this->authorize('releaseInterview', $application);
-
-        $this->waitingRoomService->release($request->user(), $application, $request);
-
-        return redirect()
-            ->route('dashboard.recruitment.my-interviews.index', ['tab' => 'waiting'])
-            ->with('message', 'Booking dibatalkan. Applicant kembali ke ruang tunggu.');
     }
 
     public function show(RecruitmentApplication $application): Response
@@ -141,7 +96,6 @@ class RecruitmentMyInterviewController extends Controller
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Show', [
             'detail' => $this->myInterviewService->toShowArray($application),
             'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $application),
-            'releaseUrl' => route('dashboard.recruitment.my-interviews.release', $application),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
             'flashMessage' => session('message'),
         ]);
@@ -153,9 +107,17 @@ class RecruitmentMyInterviewController extends Controller
     ): RedirectResponse {
         $this->authorize('evaluate', $application);
 
+        $interview = $application->primaryInterview()->first();
+
+        if ($interview === null) {
+            throw ValidationException::withMessages([
+                'interview' => ['Applicant has no scheduled interview.'],
+            ]);
+        }
+
         $this->evaluationService->submit(
             $request->user(),
-            $application,
+            $interview,
             $request->validated(),
             staffOverride: false,
             request: $request,

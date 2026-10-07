@@ -5,9 +5,11 @@ namespace Tests\Feature\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\EvaluationRecommendation;
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentEvaluation;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
@@ -78,7 +80,10 @@ class RecruitmentEvaluationTest extends TestCase
         ]);
     }
 
-    private function createBookedApplication(string $suffix = '1'): RecruitmentApplication
+    /**
+     * Pre-assign applicant ke owner via DB (pengganti endpoint book).
+     */
+    private function createBookedApplication(string $suffix = '1', ?User $owner = null): RecruitmentApplication
     {
         $application = RecruitmentApplication::factory()->create([
             'recruitment_period_id' => $this->period->id,
@@ -90,9 +95,15 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->checkInApplicant($this->session, $application, $this->staff);
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $application))
-            ->assertRedirect();
+        // Pre-assign: interviewer langsung ditempel di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => ($owner ?? $this->interviewer)->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+                'scheduled_at' => now()->subHour(),
+            ]);
 
         return $application->fresh(['interview']);
     }
@@ -134,17 +145,24 @@ class RecruitmentEvaluationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_interviewer_cannot_edit_evaluation_after_lock(): void
+    public function test_interviewer_cannot_edit_evaluation_after_budget_exhausted(): void
     {
         $application = $this->createBookedApplication('5');
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload());
+        for ($i = 1; $i <= 3; $i++) {
+            $payload = $this->validEvaluationPayload();
+            $payload['speaking_score'] = 4 + $i;
+
+            $this->actingAs($this->interviewer)
+                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $payload)
+                ->assertRedirect();
+        }
 
         $evaluation = RecruitmentEvaluation::query()
             ->where('recruitment_application_id', $application->id)
             ->firstOrFail();
 
+        $this->assertSame(3, $evaluation->save_count);
         $this->assertNotNull($evaluation->locked_at);
 
         $updated = $this->validEvaluationPayload();
@@ -155,7 +173,7 @@ class RecruitmentEvaluationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_staff_can_override_locked_evaluation_with_audit(): void
+    public function test_staff_can_override_unlocked_evaluation_with_audit(): void
     {
         $application = $this->createBookedApplication('6');
 
@@ -171,6 +189,72 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_application_id' => $application->id,
+            'technical_score' => 10,
+            'save_count' => 2,
+        ]);
+    }
+
+    public function test_evaluate_rejected_while_earlier_applicant_pending(): void
+    {
+        $earlier = $this->createBookedApplication('SQ1');
+        $earlier->interview->update(['scheduled_at' => now()->subHours(2)]);
+        $later = $this->createBookedApplication('SQ2');
+
+        $this->actingAs($this->interviewer)
+            ->postJson(route('dashboard.recruitment.my-interviews.evaluate', $later), $this->validEvaluationPayload())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('evaluation');
+
+        $this->assertDatabaseMissing('recruitment_evaluations', [
+            'recruitment_application_id' => $later->id,
+        ]);
+    }
+
+    public function test_evaluate_allowed_after_earlier_applicant_scored(): void
+    {
+        $earlier = $this->createBookedApplication('SQ3');
+        $earlier->interview->update(['scheduled_at' => now()->subHours(2)]);
+        $later = $this->createBookedApplication('SQ4');
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $earlier), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $later), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $earlier->id,
+        ]);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $later->id,
+        ]);
+    }
+
+    public function test_staff_override_bypasses_sequential_guard(): void
+    {
+        // Pending milik staff dengan jadwal lebih awal.
+        $pending = $this->createBookedApplication('SQ5', $this->staff);
+        $pending->interview->update(['scheduled_at' => now()->subHours(2)]);
+
+        // Applicant lain dinilai interviewer-nya lalu dikunci.
+        $locked = $this->createBookedApplication('SQ6');
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $locked), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        // Override staff tetap lolos walau staff punya pending lebih awal.
+        $override = $this->validEvaluationPayload();
+        $override['technical_score'] = 10;
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.evaluation.override', $locked), $override)
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $locked->id,
             'technical_score' => 10,
         ]);
     }
@@ -215,6 +299,37 @@ class RecruitmentEvaluationTest extends TestCase
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_application_id' => $application->id,
             'recommendation' => EvaluationRecommendation::NotRecommended->value,
+        ]);
+    }
+
+    public function test_evaluation_requires_notes_for_both_recommendations(): void
+    {
+        $application = $this->createBookedApplication('34');
+
+        $recommended = $this->validEvaluationPayload();
+        unset($recommended['notes']);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $recommended)
+            ->assertSessionHasErrors('notes');
+
+        $notRecommended = $this->validEvaluationPayload();
+        $notRecommended['recommendation'] = EvaluationRecommendation::NotRecommended->value;
+        unset($notRecommended['notes']);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $notRecommended)
+            ->assertSessionHasErrors('notes');
+
+        $tooShort = $this->validEvaluationPayload();
+        $tooShort['notes'] = 'Bagus';
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $tooShort)
+            ->assertSessionHasErrors('notes');
+
+        $this->assertDatabaseMissing('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
         ]);
     }
 

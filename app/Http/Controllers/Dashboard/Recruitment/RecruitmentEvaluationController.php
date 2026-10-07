@@ -7,6 +7,7 @@ use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\EvaluationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 
 class RecruitmentEvaluationController extends Controller
 {
@@ -21,9 +22,17 @@ class RecruitmentEvaluationController extends Controller
     ): RedirectResponse {
         $this->authorize('overrideEvaluation', $application);
 
+        $interview = $application->primaryInterview()->first();
+
+        if ($interview === null) {
+            throw ValidationException::withMessages([
+                'interview' => ['Applicant has no scheduled interview.'],
+            ]);
+        }
+
         $this->evaluationService->submit(
             $request->user(),
-            $application,
+            $interview,
             $request->validated(),
             staffOverride: true,
             request: $request,

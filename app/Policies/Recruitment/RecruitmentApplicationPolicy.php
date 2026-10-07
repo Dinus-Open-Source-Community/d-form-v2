@@ -2,10 +2,9 @@
 
 namespace App\Policies\Recruitment;
 
-use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentEvaluation;
 use App\Models\Recruitment\RecruitmentInterview;
-use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
@@ -59,48 +58,6 @@ class RecruitmentApplicationPolicy
             && $user->can('recruitment.evaluations.view');
     }
 
-    public function bookInterview(User $user, RecruitmentApplication $application): bool
-    {
-        if (! $user->can('recruitment.evaluations.submit')) {
-            return false;
-        }
-
-        $application->loadMissing('interview', 'evaluation', 'attendance');
-
-        if ($application->attendance === null || $application->evaluation !== null) {
-            return false;
-        }
-
-        $interview = $application->interview;
-
-        if ($interview === null
-            || $interview->status !== InterviewStatus::Waiting
-            || $interview->interviewer_id !== null) {
-            return false;
-        }
-
-        return $this->interviewerAssignedToApplicationDivision($user, $application);
-    }
-
-    public function releaseInterview(User $user, RecruitmentApplication $application): bool
-    {
-        if (! $user->can('recruitment.evaluations.submit')) {
-            return false;
-        }
-
-        $application->loadMissing('interview', 'evaluation');
-
-        if ($application->evaluation !== null) {
-            return false;
-        }
-
-        $interview = $application->interview;
-
-        return $interview !== null
-            && $interview->status === InterviewStatus::InProgress
-            && $interview->interviewer_id === $user->id;
-    }
-
     public function evaluate(User $user, RecruitmentApplication $application): Response|bool
     {
         if (! $user->can('recruitment.evaluations.submit')) {
@@ -108,13 +65,15 @@ class RecruitmentApplicationPolicy
         }
 
         $application->loadMissing('evaluation');
+        $application->loadMissing('primaryInterview.evaluation');
 
         // Nilai hanya boleh di-submit bila applicant sudah regis ulang (kecuali super-admin).
         if (! $this->hasCheckedIn($application) && ! $this->isSuperAdmin($user)) {
             return Response::deny('Belum regis ulang (scan QR).');
         }
 
-        if ($application->evaluation?->isLocked() && ! $this->canStaffManage($user)) {
+        // Budget habis → terkunci untuk semua pihak, termasuk staff.
+        if (($application->primaryInterview?->evaluation?->save_count ?? 0) >= RecruitmentEvaluation::MAX_SAVES) {
             return false;
         }
 
@@ -131,6 +90,13 @@ class RecruitmentApplicationPolicy
 
     public function overrideEvaluation(User $user, RecruitmentApplication $application): bool
     {
+        $application->loadMissing('primaryInterview.evaluation');
+
+        // Budget habis → override ditolak untuk semua pihak.
+        if (($application->primaryInterview?->evaluation?->save_count ?? 0) >= RecruitmentEvaluation::MAX_SAVES) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -183,18 +149,6 @@ class RecruitmentApplicationPolicy
         return RecruitmentInterview::query()
             ->where('recruitment_application_id', $application->id)
             ->where('interviewer_id', $user->id)
-            ->exists();
-    }
-
-    private function interviewerAssignedToApplicationDivision(User $user, RecruitmentApplication $application): bool
-    {
-        $application->loadMissing('interview.session');
-        $divisionId = $application->interview?->session?->recruitment_division_id
-            ?? $application->primary_division_id;
-
-        return RecruitmentInterviewerDivision::query()
-            ->where('user_id', $user->id)
-            ->where('recruitment_division_id', $divisionId)
             ->exists();
     }
 
