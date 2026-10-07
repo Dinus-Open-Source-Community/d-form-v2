@@ -73,14 +73,14 @@ final class AttendanceCheckInResolver
 
     public function resolveSessionForApplication(RecruitmentApplication $application): RecruitmentInterviewSession
     {
-        $application->loadMissing('interview.session', 'attendance.session');
+        $application->loadMissing('primaryInterview.session', 'attendance.session');
 
         if ($application->attendance?->session !== null) {
             return $application->attendance->session;
         }
 
-        if ($application->interview?->session !== null) {
-            return $application->interview->session;
+        if ($application->primaryInterview?->session !== null) {
+            return $application->primaryInterview->session;
         }
 
         $sessions = RecruitmentInterviewSession::query()

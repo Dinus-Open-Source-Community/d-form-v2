@@ -105,7 +105,7 @@ class RecruitmentEvaluationTest extends TestCase
                 'scheduled_at' => now()->subHour(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     /**
@@ -127,8 +127,8 @@ class RecruitmentEvaluationTest extends TestCase
         $application = $this->createBookedApplication('1');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload())
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->interview));
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
 
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_application_id' => $application->id,
@@ -141,7 +141,7 @@ class RecruitmentEvaluationTest extends TestCase
         $application = $this->createBookedApplication('3');
 
         $this->actingAs($this->otherInterviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
             ->assertForbidden();
     }
 
@@ -154,7 +154,7 @@ class RecruitmentEvaluationTest extends TestCase
             $payload['speaking_score'] = 4 + $i;
 
             $this->actingAs($this->interviewer)
-                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $payload)
+                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
                 ->assertRedirect();
         }
 
@@ -169,7 +169,7 @@ class RecruitmentEvaluationTest extends TestCase
         $updated['speaking_score'] = 5;
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $updated)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $updated)
             ->assertForbidden();
     }
 
@@ -178,13 +178,13 @@ class RecruitmentEvaluationTest extends TestCase
         $application = $this->createBookedApplication('6');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload());
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload());
 
         $override = $this->validEvaluationPayload();
         $override['technical_score'] = 10;
 
         $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->interview), $override)
+            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->primaryInterview), $override)
             ->assertRedirect();
 
         $this->assertDatabaseHas('recruitment_evaluations', [
@@ -197,11 +197,11 @@ class RecruitmentEvaluationTest extends TestCase
     public function test_evaluate_rejected_while_earlier_applicant_pending(): void
     {
         $earlier = $this->createBookedApplication('SQ1');
-        $earlier->interview->update(['scheduled_at' => now()->subHours(2)]);
+        $earlier->primaryInterview->update(['scheduled_at' => now()->subHours(2)]);
         $later = $this->createBookedApplication('SQ2');
 
         $this->actingAs($this->interviewer)
-            ->postJson(route('dashboard.recruitment.my-interviews.evaluate', $later->interview), $this->validEvaluationPayload())
+            ->postJson(route('dashboard.recruitment.my-interviews.evaluate', $later->primaryInterview), $this->validEvaluationPayload())
             ->assertStatus(422)
             ->assertJsonValidationErrors('evaluation');
 
@@ -213,15 +213,15 @@ class RecruitmentEvaluationTest extends TestCase
     public function test_evaluate_allowed_after_earlier_applicant_scored(): void
     {
         $earlier = $this->createBookedApplication('SQ3');
-        $earlier->interview->update(['scheduled_at' => now()->subHours(2)]);
+        $earlier->primaryInterview->update(['scheduled_at' => now()->subHours(2)]);
         $later = $this->createBookedApplication('SQ4');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $earlier->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $earlier->primaryInterview), $this->validEvaluationPayload())
             ->assertRedirect();
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $later->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $later->primaryInterview), $this->validEvaluationPayload())
             ->assertRedirect();
 
         $this->assertDatabaseHas('recruitment_evaluations', [
@@ -236,13 +236,13 @@ class RecruitmentEvaluationTest extends TestCase
     {
         // Pending milik staff dengan jadwal lebih awal.
         $pending = $this->createBookedApplication('SQ5', $this->staff);
-        $pending->interview->update(['scheduled_at' => now()->subHours(2)]);
+        $pending->primaryInterview->update(['scheduled_at' => now()->subHours(2)]);
 
         // Applicant lain dinilai interviewer-nya lalu dikunci.
         $locked = $this->createBookedApplication('SQ6');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $locked->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $locked->primaryInterview), $this->validEvaluationPayload())
             ->assertRedirect();
 
         // Override staff tetap lolos walau staff punya pending lebih awal.
@@ -250,7 +250,7 @@ class RecruitmentEvaluationTest extends TestCase
         $override['technical_score'] = 10;
 
         $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.interviews.evaluation.override', $locked->interview), $override)
+            ->post(route('dashboard.recruitment.interviews.evaluation.override', $locked->primaryInterview), $override)
             ->assertRedirect();
 
         $this->assertDatabaseHas('recruitment_evaluations', [
@@ -272,8 +272,8 @@ class RecruitmentEvaluationTest extends TestCase
         $application = $this->createBookedApplication('30');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload())
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->interview));
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
 
         $application->refresh();
         $this->assertSame(ApplicationStage::FinalReview, $application->stage);
@@ -291,8 +291,8 @@ class RecruitmentEvaluationTest extends TestCase
         $payload['recommendation'] = EvaluationRecommendation::NotRecommended->value;
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $payload)
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->interview));
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
 
         $application->refresh();
         $this->assertSame(ApplicationStage::FinalReview, $application->stage);
@@ -310,7 +310,7 @@ class RecruitmentEvaluationTest extends TestCase
         unset($recommended['notes']);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $recommended)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $recommended)
             ->assertSessionHasErrors('notes');
 
         $notRecommended = $this->validEvaluationPayload();
@@ -318,14 +318,14 @@ class RecruitmentEvaluationTest extends TestCase
         unset($notRecommended['notes']);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $notRecommended)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $notRecommended)
             ->assertSessionHasErrors('notes');
 
         $tooShort = $this->validEvaluationPayload();
         $tooShort['notes'] = 'Bagus';
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $tooShort)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $tooShort)
             ->assertSessionHasErrors('notes');
 
         $this->assertDatabaseMissing('recruitment_evaluations', [
@@ -339,7 +339,7 @@ class RecruitmentEvaluationTest extends TestCase
         $application->update(['stage' => ApplicationStage::Completed]);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
             ->assertRedirect();
 
         $application->refresh();
@@ -354,7 +354,7 @@ class RecruitmentEvaluationTest extends TestCase
         $application = $this->createBookedApplication('33');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->validEvaluationPayload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
             ->assertRedirect();
 
         // Simulasi data lama yang dinilai sebelum transisi otomatis ada.
@@ -364,7 +364,7 @@ class RecruitmentEvaluationTest extends TestCase
         $override['technical_score'] = 10;
 
         $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->interview), $override)
+            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->primaryInterview), $override)
             ->assertRedirect();
 
         $application->refresh();

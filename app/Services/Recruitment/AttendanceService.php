@@ -65,12 +65,12 @@ final class AttendanceService
                     throw $exception;
                 }
 
-                $application->loadMissing('interview');
+                $application->loadMissing('primaryInterview');
 
                 return [
                     'duplicate' => true,
                     'attendance' => $existing,
-                    'interview' => $application->interview,
+                    'interview' => $application->primaryInterview,
                     'application' => $application,
                 ];
             }
@@ -110,7 +110,7 @@ final class AttendanceService
                 'duplicate' => false,
                 'attendance' => $attendance,
                 'interview' => $interview,
-                'application' => $application->fresh(['interview']),
+                'application' => $application->fresh(['primaryInterview']),
             ];
         });
     }
@@ -181,9 +181,9 @@ final class AttendanceService
             ]);
         }
 
-        $application->loadMissing('interview');
+        $application->loadMissing('primaryInterview');
 
-        $interview = $application->interview;
+        $interview = $application->primaryInterview;
 
         if ($interview !== null) {
             if ($interview->status === InterviewStatus::Completed) {
@@ -205,14 +205,14 @@ final class AttendanceService
      */
     public function applicantPayload(RecruitmentApplication $application): array
     {
-        $application->loadMissing('interview');
+        $application->loadMissing('primaryInterview');
 
         return [
             'name' => $application->full_name,
             'registration_number' => $application->registration_number,
             'application_id' => $application->id,
-            'interview_status' => $application->interview?->status->value,
-            'interview_status_label' => $application->interview?->status?->label(),
+            'interview_status' => $application->primaryInterview?->status->value,
+            'interview_status_label' => $application->primaryInterview?->status?->label(),
         ];
     }
 }

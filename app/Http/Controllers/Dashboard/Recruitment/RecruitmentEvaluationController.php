@@ -36,6 +36,10 @@ class RecruitmentEvaluationController extends Controller
             ->with('message', 'Penilaian interview diperbarui (staff override).');
     }
 
+    /**
+     * BC shim (rilis transisi) untuk route lama applications.evaluation.override.
+     * Hapus bersama route-nya bila tidak ada lagi pemakai lama.
+     */
     public function legacyOverride(
         Request $request,
         RecruitmentApplication $application,

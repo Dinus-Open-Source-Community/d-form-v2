@@ -46,7 +46,7 @@ final class MyInterviewService
                 'application.primaryDivision',
                 'application.secondaryDivision',
                 'application.attendance',
-                'application.evaluation',
+                'application.primaryInterview.evaluation',
                 'session.division',
             ]);
 
@@ -55,7 +55,7 @@ final class MyInterviewService
         $this->startedScope($query);
 
         match ($tab) {
-            'done' => $query->whereHas('application.evaluation'),
+            'done' => $query->whereHas('application.evaluations'),
             'in_progress' => $query
                 ->whereIn('status', [InterviewStatus::Waiting, InterviewStatus::InProgress])
                 ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q)),
@@ -107,7 +107,7 @@ final class MyInterviewService
 
         $doneQuery = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
-            ->whereHas('application.evaluation');
+            ->whereHas('application.evaluations');
         $this->openSessionScope($doneQuery);
         $done = $doneQuery->count();
 
@@ -320,7 +320,7 @@ final class MyInterviewService
     public function toListArray(RecruitmentInterview $interview): array
     {
         $application = $interview->application;
-        $evaluation = $application?->evaluation;
+        $evaluation = $application?->primaryInterview?->evaluation;
         $needsEvaluation = $application !== null && $evaluation === null;
 
         return [
@@ -364,7 +364,7 @@ final class MyInterviewService
      */
     private function pendingEvaluationScope(Builder $query): void
     {
-        $query->whereDoesntHave('evaluation');
+        $query->whereDoesntHave('evaluations');
     }
 
     /**
@@ -404,8 +404,8 @@ final class MyInterviewService
     {
         match ($eval) {
             'pending' => $query->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q)),
-            'done' => $query->whereHas('application.evaluation'),
-            'locked' => $query->whereHas('application.evaluation', fn ($q) => $q->whereNotNull('locked_at')),
+            'done' => $query->whereHas('application.evaluations'),
+            'locked' => $query->whereHas('application.evaluations', fn ($q) => $q->whereNotNull('locked_at')),
             default => null,
         };
     }

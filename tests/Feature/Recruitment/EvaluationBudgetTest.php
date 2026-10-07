@@ -77,8 +77,8 @@ class EvaluationBudgetTest extends TestCase
             $payload['speaking_score'] = 5 + $i;
 
             $this->actingAs($this->interviewer)
-                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $payload)
-                ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->interview));
+                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
+                ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
         }
 
         $evaluation = RecruitmentEvaluation::query()
@@ -89,7 +89,7 @@ class EvaluationBudgetTest extends TestCase
         $this->assertNotNull($evaluation->locked_at);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->payload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->payload())
             ->assertForbidden();
 
         $this->assertSame(3, $evaluation->fresh()->save_count);
@@ -100,7 +100,7 @@ class EvaluationBudgetTest extends TestCase
         $application = $this->bookedApplication('B2');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->payload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->payload())
             ->assertRedirect();
 
         // Override staff ikut memakan budget: 2 override → cap 3.
@@ -109,7 +109,7 @@ class EvaluationBudgetTest extends TestCase
             $override['technical_score'] = $score;
 
             $this->actingAs($this->staff)
-                ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->interview), $override)
+                ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->primaryInterview), $override)
                 ->assertRedirect();
         }
 
@@ -118,11 +118,11 @@ class EvaluationBudgetTest extends TestCase
             ->value('save_count'));
 
         $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->interview), $this->payload())
+            ->post(route('dashboard.recruitment.interviews.evaluation.override', $application->primaryInterview), $this->payload())
             ->assertForbidden();
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $this->payload())
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->payload())
             ->assertForbidden();
     }
 
@@ -135,7 +135,7 @@ class EvaluationBudgetTest extends TestCase
             $payload['attitude_score'] = 4 + $expected;
 
             $this->actingAs($this->interviewer)
-                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), $payload)
+                ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
                 ->assertRedirect();
 
             $this->assertSame($expected, RecruitmentEvaluation::query()
@@ -165,7 +165,7 @@ class EvaluationBudgetTest extends TestCase
                 'scheduled_at' => now()->subHour(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     /**

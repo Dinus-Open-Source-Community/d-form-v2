@@ -165,7 +165,7 @@ final class EvaluationService
      */
     private function findBlockingPending(User $actor, RecruitmentApplication $current): ?RecruitmentApplication
     {
-        $threshold = $current->interview?->scheduled_at ?? now();
+        $threshold = $current->primaryInterview?->scheduled_at ?? now();
 
         $interview = RecruitmentInterview::query()
             ->where('interviewer_id', $actor->id)

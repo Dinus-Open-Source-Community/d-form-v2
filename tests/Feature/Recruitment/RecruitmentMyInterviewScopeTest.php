@@ -101,7 +101,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
                 'scheduled_at' => now()->subMinute(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     /**
@@ -122,7 +122,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
                 'scheduled_at' => now()->subMinute(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     public function test_index_lists_booked_without_attendance_as_locked(): void
@@ -145,11 +145,11 @@ class RecruitmentMyInterviewScopeTest extends TestCase
 
         // Terkunci: detail + nilai ditolak sampai regis ulang (attendance guard di policy).
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertForbidden();
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,
@@ -175,7 +175,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
                 'scheduled_at' => now()->subMinute(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     public function test_in_progress_tab_lists_waiting_and_in_progress_without_evaluation(): void
@@ -321,7 +321,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
                 ->where('session_options.0.value', $this->session->id));
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertOk();
     }
 
@@ -330,7 +330,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         $started = $this->bookedApplication('006');
         $future = $this->bookedApplication('007');
 
-        $future->interview->update(['scheduled_at' => now()->addHours(3)]);
+        $future->primaryInterview->update(['scheduled_at' => now()->addHours(3)]);
 
         // Belum mulai (future) tersembunyi; started tetap tampil.
         $this->actingAs($this->interviewer)

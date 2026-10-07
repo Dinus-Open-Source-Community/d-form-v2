@@ -79,11 +79,6 @@ class RecruitmentApplication extends Model
         return $this->hasOne(RecruitmentDocument::class, 'recruitment_application_id');
     }
 
-    public function interview(): HasOne
-    {
-        return $this->primaryInterview();
-    }
-
     public function interviews(): HasMany
     {
         return $this->hasMany(RecruitmentInterview::class, 'recruitment_application_id');

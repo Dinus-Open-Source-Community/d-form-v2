@@ -106,10 +106,10 @@ class RecruitmentWorkflowTest extends TestCase
             ]);
 
         // Instance di atas memegang cache relasi interview=null dari check-in.
-        $application = $application->fresh(['interview']);
+        $application = $application->fresh(['primaryInterview']);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
                 'speaking_score' => 8,
                 'technical_score' => 9,
                 'attitude_score' => 8,

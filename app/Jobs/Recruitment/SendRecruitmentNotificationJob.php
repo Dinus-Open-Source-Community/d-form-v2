@@ -13,7 +13,6 @@ use App\Models\Recruitment\RecruitmentScreening;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentInterviewVariableBuilder;
 use App\Services\Recruitment\RecruitmentQrPngGenerator;
-use App\Enums\Recruitment\InterviewStatus;
 use App\Enums\Recruitment\MembershipType;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -46,7 +45,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
         RecruitmentQrPngGenerator $qrGenerator,
     ): void {
         $application = RecruitmentApplication::query()
-            ->with(['period', 'primaryDivision', 'interview', 'attendance'])
+            ->with(['period', 'primaryDivision', 'primaryInterview', 'attendance'])
             ->find($this->applicationId);
 
         if ($application === null) {
@@ -225,7 +224,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             return null;
         }
 
-        $interview = $application->interview;
+        $interview = $application->primaryInterview;
 
         if ($application->stage !== \App\Enums\Recruitment\ApplicationStage::Interview) {
             return null;

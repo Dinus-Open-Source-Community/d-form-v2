@@ -327,7 +327,7 @@ class SecondaryInterviewTest extends TestCase
                 'scheduled_at' => now()->subHour(),
             ]);
 
-        return $application->fresh(['interview']);
+        return $application->fresh(['primaryInterview']);
     }
 
     private function evaluatedPrimaryApplication(string $suffix, bool $withSecondary = true): RecruitmentApplication
@@ -335,7 +335,7 @@ class SecondaryInterviewTest extends TestCase
         $application = $this->assignedApplication($suffix, $withSecondary);
 
         $this->actingAs($this->primaryInterviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,

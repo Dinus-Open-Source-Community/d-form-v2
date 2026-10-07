@@ -98,6 +98,8 @@ class RecruitmentMyInterviewController extends Controller
     {
         $interview = RecruitmentInterview::query()->find($id);
 
+        // BC shim (rilis transisi): URL lama per-application diarahkan ke
+        // interview primary. Hapus bila tidak ada lagi link/bookmark lama.
         if ($interview === null) {
             $application = RecruitmentApplication::query()->find($id);
             $primary = $application?->primaryInterview()->first();

@@ -138,7 +138,7 @@ class RecruitmentPermissionTest extends TestCase
             'portfolio_url' => 'https://example.com',
         ]);
 
-        return $application->fresh(['document', 'interview']);
+        return $application->fresh(['document', 'primaryInterview']);
     }
 
     public function test_p01_member_cannot_access_recruitment_dashboard(): void
@@ -226,7 +226,7 @@ class RecruitmentPermissionTest extends TestCase
         $application = $this->assignedApplication('9');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,

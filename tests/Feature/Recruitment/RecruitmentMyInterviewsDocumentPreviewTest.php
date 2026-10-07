@@ -97,7 +97,7 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
                 'booked_at' => now(),
             ]);
 
-        return $application->fresh(['interview', 'document']);
+        return $application->fresh(['primaryInterview', 'document']);
     }
 
     public function test_show_exposes_document_preview_urls_and_metadata(): void
@@ -135,7 +135,7 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
         ]);
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/MyInterviews/Show')
@@ -166,7 +166,7 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
         $application = $this->createAssignedApplication('2');
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/MyInterviews/Show')

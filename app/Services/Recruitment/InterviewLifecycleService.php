@@ -39,8 +39,8 @@ final class InterviewLifecycleService
         RecruitmentApplication $application,
         RecruitmentInterviewSession $session,
     ): RecruitmentInterview {
-        $application->loadMissing('interview');
-        $interview = $application->interview;
+        $application->loadMissing('primaryInterview');
+        $interview = $application->primaryInterview;
 
         if ($interview === null) {
             return $this->createWaitingInterview($application, $session);

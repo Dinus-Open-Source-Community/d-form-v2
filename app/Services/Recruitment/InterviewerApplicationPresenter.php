@@ -9,33 +9,6 @@ use App\Models\Recruitment\RecruitmentInterview;
 final class InterviewerApplicationPresenter
 {
     /**
-     * @return array<string, mixed>
-     */
-    public function present(RecruitmentApplication $application): array
-    {
-        $application->loadMissing([
-            'primaryDivision',
-            'secondaryDivision',
-            'document',
-            'interview.session.division',
-            'interview.interviewer:id,name',
-            'attendance',
-            'evaluation.evaluator:id,name',
-            'finalDecision.finalDivision',
-            'attendance',
-        ]);
-
-        return [
-            'application' => $this->applicationBlock($application),
-            'documents' => $this->documentsBlock($application),
-            'interview' => $this->interviewBlock($application->interview),
-            'attendance' => $this->attendanceBlock($application),
-            'evaluation' => $this->evaluationBlock($application->evaluation),
-            'final' => $this->finalBlock($application),
-        ];
-    }
-
-    /**
      * Sajikan satu interview spesifik (primary atau secondary) beserta
      * evaluasinya sendiri.
      *
