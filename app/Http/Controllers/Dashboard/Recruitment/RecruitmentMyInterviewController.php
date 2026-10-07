@@ -118,7 +118,6 @@ class RecruitmentMyInterviewController extends Controller
             'detail' => $this->myInterviewService->toShowArray($interview),
             'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $interview),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
-            'flashMessage' => session('message'),
         ]);
     }
 
@@ -137,8 +136,8 @@ class RecruitmentMyInterviewController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $interview)
-            ->with('message', 'Penilaian interview berhasil disimpan.');
+            ->route('dashboard.recruitment.my-interviews.index', ['tab' => 'done'])
+            ->with('toast', ['message' => 'Penilaian interview berhasil disimpan.', 'type' => 'success']);
     }
 
     public function claimSecondary(ClaimSecondaryInterviewRequest $request): RedirectResponse
@@ -157,6 +156,6 @@ class RecruitmentMyInterviewController extends Controller
 
         return redirect()
             ->route('dashboard.recruitment.my-interviews.show', $secondaryInterview)
-            ->with('message', 'Interview secondary berhasil diambil.');
+            ->with('toast', ['message' => 'Interview secondary berhasil diambil.', 'type' => 'success']);
     }
 }

@@ -237,7 +237,8 @@ class SecondaryInterviewTest extends TestCase
                 'recommendation' => EvaluationRecommendation::NotRecommended->value,
                 'notes' => 'Kurang cocok untuk kebutuhan divisi data.',
             ])
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $secondary));
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+            ->assertSessionHas('toast');
 
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_interview_id' => $secondary->id,

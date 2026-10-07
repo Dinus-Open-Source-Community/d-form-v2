@@ -128,7 +128,8 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+            ->assertSessionHas('toast');
 
         $this->assertDatabaseHas('recruitment_evaluations', [
             'recruitment_application_id' => $application->id,
@@ -273,7 +274,8 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $this->validEvaluationPayload())
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+            ->assertSessionHas('toast');
 
         $application->refresh();
         $this->assertSame(ApplicationStage::FinalReview, $application->stage);
@@ -292,7 +294,8 @@ class RecruitmentEvaluationTest extends TestCase
 
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+            ->assertSessionHas('toast');
 
         $application->refresh();
         $this->assertSame(ApplicationStage::FinalReview, $application->stage);

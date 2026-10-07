@@ -78,7 +78,8 @@ class EvaluationBudgetTest extends TestCase
 
             $this->actingAs($this->interviewer)
                 ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), $payload)
-                ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview));
+                ->assertRedirect(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+                ->assertSessionHas('toast');
         }
 
         $evaluation = RecruitmentEvaluation::query()

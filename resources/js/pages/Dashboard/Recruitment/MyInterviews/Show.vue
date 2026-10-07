@@ -84,7 +84,6 @@ const props = defineProps<{
     detail: DetailPayload
     evaluateUrl: string
     recommendationOptions: { value: string; label: string }[]
-    flashMessage: string | null
 }>()
 
 const canEdit = computed(() => props.detail.evaluation.can_edit !== false)
@@ -798,14 +797,6 @@ function confirmSave(): void {
                         class="mt-4 rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm"
                     >
                         Applicant belum regis ulang (scan QR). Penilaian dikunci sampai applicant scan QR.
-                    </p>
-
-                    <p
-                        v-if="flashMessage"
-                        role="status"
-                        class="mt-4 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-sm"
-                    >
-                        {{ flashMessage }}
                     </p>
 
                     <form v-if="canEdit" class="mt-4 space-y-4" @submit.prevent="submit">
