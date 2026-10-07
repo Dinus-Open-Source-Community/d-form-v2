@@ -89,14 +89,10 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
-        Route::get('my-interviews/waiting-pool', [RecruitmentMyInterviewController::class, 'waitingPool'])
-            ->name('my-interviews.waiting-pool');
         Route::get('my-interviews/{application}', [RecruitmentMyInterviewController::class, 'show'])
             ->name('my-interviews.show');
-        Route::post('my-interviews/{application}/book', [RecruitmentMyInterviewController::class, 'book'])
-            ->name('my-interviews.book');
-        Route::post('my-interviews/{application}/release', [RecruitmentMyInterviewController::class, 'release'])
-            ->name('my-interviews.release');
         Route::post('my-interviews/{application}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
             ->name('my-interviews.evaluate');
+        Route::post('my-interviews/secondary-claim', [RecruitmentMyInterviewController::class, 'claimSecondary'])
+            ->name('my-interviews.secondary-claim');
     });

@@ -7,8 +7,14 @@ use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
+use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
+use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class InterviewLifecycleService
 {
@@ -53,6 +59,83 @@ final class InterviewLifecycleService
         ]);
 
         return $interview->fresh();
+    }
+
+    public function secondaryEligible(RecruitmentApplication $application): bool
+    {
+        if ($application->secondary_division_id === null) {
+            return false;
+        }
+
+        if ($application->stage === ApplicationStage::Completed) {
+            return false;
+        }
+
+        $application->loadMissing(['primaryInterview.evaluation', 'secondaryInterview']);
+
+        $primaryEvaluation = $application->primaryInterview?->evaluation;
+
+        if ($primaryEvaluation === null || $primaryEvaluation->save_count < 1) {
+            return false;
+        }
+
+        return $application->secondaryInterview === null;
+    }
+
+    public function createSecondaryInterview(
+        User $actor,
+        RecruitmentApplication $application,
+        RecruitmentInterviewSession $session,
+    ): RecruitmentInterview {
+        if (! $actor->can('recruitment.evaluations.submit')) {
+            throw new AuthorizationException('Tidak berhak menilai interview.');
+        }
+
+        if (! $this->secondaryEligible($application)) {
+            throw ValidationException::withMessages([
+                'application_id' => ['Applicant tidak eligible untuk interview secondary.'],
+            ]);
+        }
+
+        $inSecondaryDivision = $application->secondary_division_id !== null
+            && RecruitmentInterviewerDivision::query()
+                ->where('user_id', $actor->id)
+                ->where('recruitment_division_id', $application->secondary_division_id)
+                ->exists();
+
+        if (! $inSecondaryDivision) {
+            throw new AuthorizationException('Hanya interviewer divisi secondary yang boleh mengambil interview ini.');
+        }
+
+        if ($session->recruitment_period_id !== $application->recruitment_period_id
+            || $session->recruitment_division_id !== $application->secondary_division_id
+            || ! $session->is_active) {
+            throw ValidationException::withMessages([
+                'session_id' => ['Sesi tidak valid untuk divisi secondary applicant.'],
+            ]);
+        }
+
+        try {
+            return DB::transaction(fn (): RecruitmentInterview => RecruitmentInterview::query()->create([
+                'recruitment_application_id' => $application->id,
+                'recruitment_interview_session_id' => $session->id,
+                'interview_kind' => RecruitmentInterview::KIND_SECONDARY,
+                'interviewer_id' => $actor->id,
+                'booked_at' => now(),
+                'scheduled_at' => $this->buildScheduledAt($session),
+                'location' => $session->location,
+                'room' => $session->room,
+                'status' => InterviewStatus::InProgress,
+            ]));
+        } catch (QueryException $e) {
+            if (($e->errorInfo[1] ?? null) === 1062) {
+                throw ValidationException::withMessages([
+                    'application_id' => ['Interview secondary sudah ada untuk applicant ini.'],
+                ]);
+            }
+
+            throw $e;
+        }
     }
 
     public function markCompleted(RecruitmentInterview $interview): void

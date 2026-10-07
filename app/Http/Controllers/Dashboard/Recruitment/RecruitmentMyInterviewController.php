@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ClaimSecondaryInterviewRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\EvaluationService;
+use App\Services\Recruitment\InterviewLifecycleService;
 use App\Services\Recruitment\MyInterviewService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +20,7 @@ class RecruitmentMyInterviewController extends Controller
     public function __construct(
         private readonly MyInterviewService $myInterviewService,
         private readonly EvaluationService $evaluationService,
+        private readonly InterviewLifecycleService $interviewLifecycleService,
     ) {
     }
 
@@ -126,5 +130,21 @@ class RecruitmentMyInterviewController extends Controller
         return redirect()
             ->route('dashboard.recruitment.my-interviews.show', $application)
             ->with('message', 'Penilaian interview berhasil disimpan.');
+    }
+
+    public function claimSecondary(ClaimSecondaryInterviewRequest $request): RedirectResponse
+    {
+        $application = RecruitmentApplication::query()->findOrFail($request->validated('application_id'));
+        $session = RecruitmentInterviewSession::query()->findOrFail($request->validated('session_id'));
+
+        $this->interviewLifecycleService->createSecondaryInterview(
+            $request->user(),
+            $application,
+            $session,
+        );
+
+        return redirect()
+            ->route('dashboard.recruitment.my-interviews.show', $application)
+            ->with('message', 'Interview secondary berhasil diambil.');
     }
 }
