@@ -81,6 +81,28 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         ]);
     }
 
+    /**
+     * Regis ulang + booking langsung di DB agar deterministik dan tidak
+     * tergantung jam eksekusi test (startedScope memakai scheduled_at).
+     */
+    private function bookedApplication(string $suffix): RecruitmentApplication
+    {
+        $application = $this->application($suffix);
+
+        $this->checkInApplicant($this->session, $application, $this->staff);
+
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+                'scheduled_at' => now()->subMinute(),
+            ]);
+
+        return $application->fresh(['interview']);
+    }
+
     public function test_index_only_lists_booked_in_progress_applicants(): void
     {
         $booked = $this->application('001');
@@ -92,6 +114,11 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.book', $booked))
             ->assertRedirect();
+
+        // Kunci scheduled_at ke masa lalu agar startedScope deterministik.
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $booked->id)
+            ->update(['scheduled_at' => now()->subMinute()]);
 
         $this->actingAs($this->interviewer)
             ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'in_progress']))
@@ -116,6 +143,9 @@ class RecruitmentMyInterviewScopeTest extends TestCase
             ->where('recruitment_application_id', $applicant->id)
             ->firstOrFail();
 
+        // Kunci scheduled_at ke masa lalu agar startedScope deterministik.
+        $interview->update(['scheduled_at' => now()->subMinute()]);
+
         RecruitmentEvaluation::query()->create([
             'recruitment_application_id' => $applicant->id,
             'recruitment_interview_id' => $interview->id,
@@ -133,5 +163,73 @@ class RecruitmentMyInterviewScopeTest extends TestCase
             ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('interviews.total', 1));
+    }
+
+    public function test_index_hides_assignments_while_session_closed(): void
+    {
+        $application = $this->bookedApplication('005');
+
+        $this->session->update(['is_active' => false]);
+
+        // Sesi belum dibuka: kartu tidak tampil, counts ikut nol.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 0)
+                ->where('tab_counts.waiting', 0)
+                ->where('tab_counts.in_progress', 0)
+                ->where('tab_counts.done', 0)
+                ->where('pending_start_count', 0)
+                ->has('today_sessions', 0)
+                ->has('division_options', 0)
+                ->has('session_options', 0));
+
+        $this->session->update(['is_active' => true]);
+
+        // Sesi dibuka: kartu muncul kembali dengan flag attendance.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 1)
+                ->where('interviews.data.0.application.id', $application->id)
+                ->where('interviews.data.0.has_attendance', true)
+                ->where('tab_counts.in_progress', 1)
+                ->where('tab_counts.done', 0)
+                ->where('pending_start_count', 0)
+                ->has('today_sessions', 1)
+                ->has('division_options', 1)
+                ->where('division_options.0.value', $this->programming->id)
+                ->has('session_options', 1)
+                ->where('session_options.0.value', $this->session->id));
+
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.show', $application))
+            ->assertOk();
+    }
+
+    public function test_index_hides_interviews_not_started_yet(): void
+    {
+        $started = $this->bookedApplication('006');
+        $future = $this->bookedApplication('007');
+
+        $future->interview->update(['scheduled_at' => now()->addHours(3)]);
+
+        // Belum mulai (future) tersembunyi; started tetap tampil.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 1)
+                ->where('interviews.data.0.application.id', $started->id)
+                ->where('pending_start_count', 1));
+
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index', ['q' => $future->registration_number]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 0)
+                ->where('pending_start_count', 1));
     }
 }

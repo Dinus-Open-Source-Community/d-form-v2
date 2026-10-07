@@ -109,6 +109,8 @@ export const routes = {
             interviewSessions: {
                 store: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
+                update: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
+                destroy: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
             },
             myInterviews: {
                 index: `${ADMIN_BASE}/recruitment/my-interviews`,

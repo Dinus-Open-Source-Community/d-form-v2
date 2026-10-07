@@ -22,6 +22,16 @@ class RecruitmentInterviewSessionPolicy
         return $this->viewAny($user);
     }
 
+    public function update(User $user, RecruitmentInterviewSession $session): bool
+    {
+        return $this->viewAny($user);
+    }
+
+    public function delete(User $user, RecruitmentInterviewSession $session): bool
+    {
+        return $this->viewAny($user);
+    }
+
     public function scanAttendance(User $user, ?RecruitmentInterviewSession $session = null): bool
     {
         return $this->isSuperAdmin($user) || $user->can('recruitment.attendance.scan');

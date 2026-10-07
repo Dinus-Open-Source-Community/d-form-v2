@@ -64,7 +64,11 @@ interface DetailPayload {
         status_label: string
         session: { id: string; session_date: string; division: string | null } | null
     } | null
-    attendance: { checked_in_at: string } | null
+    queue: { queue_number: number; status_label: string } | null
+    attendance?: {
+        has_attendance?: boolean
+        checked_in_at?: string | null
+    }
     evaluation: {
         speaking_score?: number
         technical_score?: number
@@ -92,6 +96,10 @@ const canEdit = computed(() => props.detail.evaluation.can_edit !== false)
 
 const isLocked = computed<boolean>((): boolean => props.detail.evaluation.is_locked === true)
 
+const isLockedByAttendance = computed<boolean>(
+    (): boolean => props.detail.attendance?.has_attendance !== true,
+)
+
 const interviewStartsInFuture = computed<boolean>((): boolean => {
     const iso: string | null = props.detail.interview?.scheduled_at ?? null
     if (!iso) return false
@@ -101,6 +109,8 @@ const interviewStartsInFuture = computed<boolean>((): boolean => {
 })
 
 const blockReason = computed<string | null>((): string | null => {
+    if (isLockedByAttendance.value)
+        return 'Applicant belum regis ulang (scan QR). Penilaian dikunci sampai applicant scan QR.'
     if (isLocked.value) return 'Penilaian sudah terkunci. Hubungi staff jika perlu koreksi.'
     if (!props.detail.interview) {
         return 'Jadwal interview belum tersedia. Penilaian bisa disimpan setelah jadwal ditentukan.'
@@ -183,11 +193,11 @@ function scoreValue(field: ScoreField): number {
 }
 
 function canDecrease(field: ScoreField): boolean {
-    return !form.processing && !isLocked.value && scoreValue(field) > SCORE_MIN
+    return !form.processing && !isLocked.value && !isLockedByAttendance.value && scoreValue(field) > SCORE_MIN
 }
 
 function canIncrease(field: ScoreField): boolean {
-    return !form.processing && !isLocked.value && scoreValue(field) < SCORE_MAX
+    return !form.processing && !isLocked.value && !isLockedByAttendance.value && scoreValue(field) < SCORE_MAX
 }
 
 function adjustScore(field: ScoreField, delta: number): void {
@@ -755,6 +765,14 @@ function submit(): void {
                     <h2 class="text-sm font-semibold">Penilaian interview</h2>
 
                     <p
+                        v-if="isLockedByAttendance"
+                        role="alert"
+                        class="mt-4 rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm"
+                    >
+                        Applicant belum regis ulang (scan QR). Penilaian dikunci sampai applicant scan QR.
+                    </p>
+
+                    <p
                         v-if="flashMessage"
                         role="status"
                         class="mt-4 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-sm"
@@ -784,6 +802,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Kurangi nilai Speaking"
                                         :disabled="!canDecrease('speaking_score')"
+                                        :aria-disabled="!canDecrease('speaking_score') ? 'true' : undefined"
                                         @click="adjustScore('speaking_score', -1)"
                                     >
                                         <Minus class="size-5" aria-hidden="true" />
@@ -802,7 +821,11 @@ function submit(): void {
                                             :aria-valuemax="SCORE_MAX"
                                             :aria-valuenow="scoreValue('speaking_score')"
                                             :aria-invalid="form.errors.speaking_score ? true : undefined"
-                                            :disabled="form.processing || isLocked"
+                                            :aria-disabled="
+                                                form.processing || isLocked || isLockedByAttendance ? 'true' : undefined
+                                            "
+                                            aria-label="Nilai Speaking, 1 sampai 10"
+                                            :disabled="form.processing || isLocked || isLockedByAttendance"
                                             class="text-foreground focus-visible:bg-background focus-visible:ring-ring/30 h-11 w-10 shrink-0 rounded-lg bg-transparent p-0 text-center text-2xl font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-[3px] disabled:opacity-50 motion-reduce:transition-none"
                                             @input="onScoreInput('speaking_score', $event)"
                                             @keydown="onScoreKeydown('speaking_score', $event)"
@@ -818,6 +841,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Tambah nilai Speaking"
                                         :disabled="!canIncrease('speaking_score')"
+                                        :aria-disabled="!canIncrease('speaking_score') ? 'true' : undefined"
                                         @click="adjustScore('speaking_score', 1)"
                                     >
                                         <Plus class="size-5" aria-hidden="true" />
@@ -849,6 +873,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Kurangi nilai Technical"
                                         :disabled="!canDecrease('technical_score')"
+                                        :aria-disabled="!canDecrease('technical_score') ? 'true' : undefined"
                                         @click="adjustScore('technical_score', -1)"
                                     >
                                         <Minus class="size-5" aria-hidden="true" />
@@ -867,7 +892,11 @@ function submit(): void {
                                             :aria-valuemax="SCORE_MAX"
                                             :aria-valuenow="scoreValue('technical_score')"
                                             :aria-invalid="form.errors.technical_score ? true : undefined"
-                                            :disabled="form.processing || isLocked"
+                                            :aria-disabled="
+                                                form.processing || isLocked || isLockedByAttendance ? 'true' : undefined
+                                            "
+                                            aria-label="Nilai Technical, 1 sampai 10"
+                                            :disabled="form.processing || isLocked || isLockedByAttendance"
                                             class="text-foreground focus-visible:bg-background focus-visible:ring-ring/30 h-11 w-10 shrink-0 rounded-lg bg-transparent p-0 text-center text-2xl font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-[3px] disabled:opacity-50 motion-reduce:transition-none"
                                             @input="onScoreInput('technical_score', $event)"
                                             @keydown="onScoreKeydown('technical_score', $event)"
@@ -883,6 +912,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Tambah nilai Technical"
                                         :disabled="!canIncrease('technical_score')"
+                                        :aria-disabled="!canIncrease('technical_score') ? 'true' : undefined"
                                         @click="adjustScore('technical_score', 1)"
                                     >
                                         <Plus class="size-5" aria-hidden="true" />
@@ -914,6 +944,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Kurangi nilai Attitude"
                                         :disabled="!canDecrease('attitude_score')"
+                                        :aria-disabled="!canDecrease('attitude_score') ? 'true' : undefined"
                                         @click="adjustScore('attitude_score', -1)"
                                     >
                                         <Minus class="size-5" aria-hidden="true" />
@@ -932,7 +963,11 @@ function submit(): void {
                                             :aria-valuemax="SCORE_MAX"
                                             :aria-valuenow="scoreValue('attitude_score')"
                                             :aria-invalid="form.errors.attitude_score ? true : undefined"
-                                            :disabled="form.processing || isLocked"
+                                            :aria-disabled="
+                                                form.processing || isLocked || isLockedByAttendance ? 'true' : undefined
+                                            "
+                                            aria-label="Nilai Attitude, 1 sampai 10"
+                                            :disabled="form.processing || isLocked || isLockedByAttendance"
                                             class="text-foreground focus-visible:bg-background focus-visible:ring-ring/30 h-11 w-10 shrink-0 rounded-lg bg-transparent p-0 text-center text-2xl font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-[3px] disabled:opacity-50 motion-reduce:transition-none"
                                             @input="onScoreInput('attitude_score', $event)"
                                             @keydown="onScoreKeydown('attitude_score', $event)"
@@ -948,6 +983,7 @@ function submit(): void {
                                         class="text-muted-foreground shrink-0"
                                         aria-label="Tambah nilai Attitude"
                                         :disabled="!canIncrease('attitude_score')"
+                                        :aria-disabled="!canIncrease('attitude_score') ? 'true' : undefined"
                                         @click="adjustScore('attitude_score', 1)"
                                     >
                                         <Plus class="size-5" aria-hidden="true" />
@@ -967,7 +1003,7 @@ function submit(): void {
                             </div>
                         </div>
 
-                        <fieldset class="space-y-2" :disabled="form.processing || isLocked">
+                        <fieldset class="space-y-2" :disabled="form.processing || isLocked || isLockedByAttendance">
                             <legend class="text-sm font-medium leading-none">Rekomendasi</legend>
                             <div class="flex flex-col gap-2">
                                 <label
@@ -1045,7 +1081,11 @@ function submit(): void {
                                 rows="4"
                                 class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
                                 placeholder="Observasi singkat..."
-                                :disabled="form.processing || isLocked"
+                                :disabled="form.processing || isLocked || isLockedByAttendance"
+                                :aria-disabled="
+                                    form.processing || isLocked || isLockedByAttendance ? 'true' : undefined
+                                "
+                                aria-label="Catatan penilaian"
                                 :aria-invalid="form.errors.notes ? true : undefined"
                             />
                             <p v-if="form.errors.notes" class="text-xs text-destructive">
@@ -1053,7 +1093,16 @@ function submit(): void {
                             </p>
                         </div>
 
-                        <Button type="submit" :disabled="form.processing || blockReason !== null">
+                        <Button
+                            type="submit"
+                            :disabled="form.processing || blockReason !== null"
+                            :aria-disabled="form.processing || blockReason !== null ? 'true' : undefined"
+                            :aria-label="
+                                isLockedByAttendance
+                                    ? 'Simpan penilaian terkunci — applicant belum regis ulang'
+                                    : 'Simpan penilaian'
+                            "
+                        >
                             Simpan penilaian
                         </Button>
                     </form>

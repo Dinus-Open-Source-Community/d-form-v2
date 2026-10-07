@@ -2,6 +2,8 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\ApplicationResult;
+use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\EvaluationRecommendation;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -93,6 +95,8 @@ final class EvaluationService
                     $request,
                 );
 
+                $this->advanceToFinalReview($application);
+
                 return $existing->fresh();
             }
 
@@ -123,6 +127,8 @@ final class EvaluationService
             if ($interview !== null && $interview->status !== InterviewStatus::Completed) {
                 $this->interviewLifecycle->markCompleted($interview);
             }
+
+            $this->advanceToFinalReview($application);
 
             $this->lockForApplication($application->fresh());
 
@@ -200,6 +206,19 @@ final class EvaluationService
             $request,
         );
 
+        $this->advanceToFinalReview($application);
+
         return $evaluation->fresh();
+    }
+
+    /**
+     * Samakan guard QueueService: nilai masuk memajukan tahap Interview ke FinalReview.
+     */
+    private function advanceToFinalReview(RecruitmentApplication $application): void
+    {
+        if ($application->stage === ApplicationStage::Interview
+            && $application->result === ApplicationResult::Pending) {
+            $application->update(['stage' => ApplicationStage::FinalReview]);
+        }
     }
 }

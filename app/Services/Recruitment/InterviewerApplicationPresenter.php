@@ -20,6 +20,7 @@ final class InterviewerApplicationPresenter
             'attendance',
             'evaluation.evaluator:id,name',
             'finalDecision.finalDivision',
+            'attendance',
         ]);
 
         $evaluation = $application->evaluation;
@@ -114,6 +115,10 @@ final class InterviewerApplicationPresenter
             'attendance' => $application->attendance ? [
                 'checked_in_at' => $application->attendance->checked_in_at?->toIso8601String(),
             ] : null,
+            'attendance' => [
+                'has_attendance' => $application->attendance !== null,
+                'checked_in_at' => $application->attendance?->checked_in_at?->toIso8601String(),
+            ],
             'evaluation' => $evaluation ? [
                 'speaking_score' => $evaluation->speaking_score,
                 'technical_score' => $evaluation->technical_score,

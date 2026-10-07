@@ -183,4 +183,80 @@ class RecruitmentEvaluationTest extends TestCase
             ->get(route('dashboard.recruitment.my-interviews.index'))
             ->assertOk();
     }
+    public function test_submit_recommended_moves_application_to_final_review(): void
+    {
+        $application = $this->createBookedApplication('30');
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application));
+
+        $application->refresh();
+        $this->assertSame(ApplicationStage::FinalReview, $application->stage);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
+            'recommendation' => EvaluationRecommendation::Recommended->value,
+        ]);
+    }
+
+    public function test_submit_not_recommended_moves_application_to_final_review(): void
+    {
+        $application = $this->createBookedApplication('31');
+
+        $payload = $this->validEvaluationPayload();
+        $payload['recommendation'] = EvaluationRecommendation::NotRecommended->value;
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $payload)
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application));
+
+        $application->refresh();
+        $this->assertSame(ApplicationStage::FinalReview, $application->stage);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
+            'recommendation' => EvaluationRecommendation::NotRecommended->value,
+        ]);
+    }
+
+    public function test_submit_on_completed_stage_keeps_stage(): void
+    {
+        $application = $this->createBookedApplication('32');
+        $application->update(['stage' => ApplicationStage::Completed]);
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        $application->refresh();
+        $this->assertSame(ApplicationStage::Completed, $application->stage);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
+        ]);
+    }
+
+    public function test_staff_override_on_locked_evaluation_moves_to_final_review(): void
+    {
+        $application = $this->createBookedApplication('33');
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), $this->validEvaluationPayload())
+            ->assertRedirect();
+
+        // Simulasi data lama yang dinilai sebelum transisi otomatis ada.
+        $application->update(['stage' => ApplicationStage::Interview]);
+
+        $override = $this->validEvaluationPayload();
+        $override['technical_score'] = 10;
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.evaluation.override', $application), $override)
+            ->assertRedirect();
+
+        $application->refresh();
+        $this->assertSame(ApplicationStage::FinalReview, $application->stage);
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_application_id' => $application->id,
+            'technical_score' => 10,
+        ]);
+    }
 }

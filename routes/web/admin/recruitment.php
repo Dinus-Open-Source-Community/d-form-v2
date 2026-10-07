@@ -81,6 +81,10 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('interview-sessions.store');
         Route::get('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'show'])
             ->name('interview-sessions.show');
+        Route::match(['put', 'patch'], 'interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'update'])
+            ->name('interview-sessions.update');
+        Route::delete('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'destroy'])
+            ->name('interview-sessions.destroy');
         Route::get('attendance-scan', fn () => to_route('dashboard.scan.index'))->name('attendance-scan');
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])

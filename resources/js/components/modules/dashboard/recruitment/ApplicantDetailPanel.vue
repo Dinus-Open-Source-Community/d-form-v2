@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import ApplicantDetailContent, { type ApplicationDetail } from './ApplicantDetailContent.vue'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import useAuth from '@/utils/composables/useAuth'
-import { CheckCircle2, Mail, Trophy, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, Mail, XCircle } from 'lucide-vue-next'
 
 const props = withDefaults(
     defineProps<{
@@ -38,11 +38,6 @@ const canScreen = computed(
 const canVerify = computed(
     () => (props.application?.can_verify ?? false) && user.value?.can_screen_recruitment_applications === true,
 )
-const canDecideFinal = computed(
-    () =>
-        (props.application?.can_decide_final ?? false) &&
-        user.value?.can_decide_recruitment_final === true,
-)
 const canResendTracking = computed(() => {
     const application = props.application
     if (!application) {
@@ -63,10 +58,6 @@ const sheetOpen = computed<boolean>({
 
 function openScreening(action: 'revision' | 'reject') {
     contentRef.value?.openScreeningModal(action)
-}
-
-function openFinal(action: 'accept' | 'reject') {
-    contentRef.value?.openFinalModal(action)
 }
 
 function verifyRegistration() {
@@ -118,14 +109,6 @@ function handleSubmitted() {
                         </Button>
                         <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyRegistration">
                             Verifikasi
-                        </Button>
-                        <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinal('reject')">
-                            <XCircle class="mr-2 size-4" />
-                            Tolak final
-                        </Button>
-                        <Button v-if="canDecideFinal" size="sm" @click="openFinal('accept')">
-                            <Trophy class="mr-2 size-4" />
-                            Terima
                         </Button>
                         <Button v-if="canScreen" size="sm" variant="outline" @click="openScreening('revision')">
                             Revisi

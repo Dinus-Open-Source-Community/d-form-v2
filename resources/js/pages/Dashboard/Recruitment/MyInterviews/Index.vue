@@ -1,7 +1,7 @@
 <!--
 THESIS: Command center interviewer — satu bar filter + tab antrean + daftar terkelompok urgensi,
   menggantikan tumpukan kartu lama yang tanpa feedback. Back-button dan scroll terjaga.
-OWN-WORLD: Sistem admin yang sudah ada (Card rounded-2xl, Badge, Button, SimpleSelect, Input);
+OWN-WORLD: Sistem admin yang sudah ada (Card rounded-2xl, Badge, Button, Input);
   kartu slip janji: zona identitas (nama + satu badge prioritas + meta mono) di atas hairline,
   zona logistik (jadwal + antrean) dan aksi di bawahnya. Daftar sesi hari ini tampil sebagai
   panel baris ringkas, bukan kartu geser.
@@ -29,7 +29,6 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
@@ -52,6 +51,7 @@ interface InterviewRow {
     needs_evaluation: boolean
     has_evaluation: boolean
     evaluation_locked: boolean
+    has_attendance?: boolean
     application: {
         id: string
         full_name: string
@@ -173,10 +173,12 @@ const props = withDefaults(
         has_active_booking?: boolean
         today_sessions: TodaySession[]
         next_action: NextAction | null
+        pending_start_count?: number
         division_options?: FilterOption[]
         session_options?: FilterOption[]
     }>(),
     {
+        pending_start_count: 0,
         division_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
     },
@@ -579,6 +581,21 @@ function actionLabel(row: InterviewRow): string {
     return 'Detail'
 }
 
+function isLockedByAttendance(row: InterviewRow): boolean {
+    return row.has_attendance !== true
+}
+
+function attendanceLockedLabel(row: InterviewRow): string {
+    const name: string = row.application?.full_name ?? 'Applicant'
+    return `${actionLabel(row)} ${name} terkunci — belum regis ulang (scan QR)`
+}
+
+const pendingStartCount = computed<number>((): number => {
+    const raw: number | undefined = props.pending_start_count
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+    return Math.floor(raw)
+})
+
 const emptyTitle = computed<string>((): string => {
     if (isWaitingTab.value) {
         return hasActiveFilters.value ? 'Tidak ada peserta di ruang tunggu' : 'Ruang tunggu kosong'
@@ -594,7 +611,7 @@ const emptyDescription = computed<string>((): string => {
     }
     return hasActiveFilters.value
         ? 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
-        : 'Daftar ini hanya memuat peserta yang sudah regis ulang (scan QR) di sesi interviewmu.'
+        : 'Daftar ini memuat semua assignment kamu. Yang belum scan QR terkunci.'
 })
 </script>
 
@@ -695,7 +712,7 @@ const emptyDescription = computed<string>((): string => {
                     mem-booking yang baru.
                 </p>
                 <p v-else class="text-xs text-muted-foreground">
-                    Hanya peserta yang sudah regis ulang (scan QR) yang tampil di sini.
+                    Peserta yang belum regis ulang (scan QR) terkunci — tidak bisa dinilai sebelum scan.
                 </p>
             </div>
         </div>
@@ -785,66 +802,154 @@ const emptyDescription = computed<string>((): string => {
             </Card>
         </div>
 
+        <template v-else-if="!isWaitingTab && pendingStartCount > 0 && interviews.data.length === 0">
+            <div
+                role="status"
+                class="rounded-2xl border border-border/70 bg-background px-6 py-10 text-center"
+            >
+                <p class="text-sm font-semibold">Interview belum dimulai.</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Kartu penilaian muncul setelah jadwal dimulai.
+                </p>
+            </div>
+        </template>
+
         <template v-else-if="!isWaitingTab && interviews.data.length > 0">
-            <section v-for="group in interviewGroups" :key="group.key" :aria-label="group.title">
-                <div class="mt-1 mb-2 flex items-center gap-2">
-                    <h2 class="text-sm font-semibold">{{ group.title }}</h2>
-                    <Badge variant="secondary" class="tabular-nums">{{ formatInt(group.rows.length) }}</Badge>
-                    <p class="hidden text-xs text-muted-foreground sm:block">{{ group.hint }}</p>
-                </div>
-                <div class="grid gap-3">
-                    <Card
-                        v-for="row in group.rows"
-                        :key="row.interview_id"
-                        class="relative rounded-2xl border-border/70 transition-colors hover:border-primary/40 hover:bg-muted/30"
-                    >
-                        <CardContent class="p-4 sm:p-5">
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                                <Link
-                                    v-if="row.application"
-                                    :href="showUrl(row.application.id)"
-                                    class="rounded text-sm font-semibold before:absolute before:inset-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+            <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                <section aria-label="Daftar primary division">
+                    <div class="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 class="text-sm font-semibold">Primary Division</h2>
+                        <p class="text-xs text-muted-foreground">Pilihan divisi pertama applicant</p>
+                    </div>
+                    <div class="grid gap-3">
+                        <section v-for="group in interviewGroups" :key="group.key" :aria-label="group.title">
+                            <div class="mt-1 mb-2 flex items-center gap-2">
+                                <h2 class="text-sm font-semibold">{{ group.title }}</h2>
+                                <Badge variant="secondary" class="tabular-nums">{{ formatInt(group.rows.length) }}</Badge>
+                                <p class="hidden text-xs text-muted-foreground sm:block">{{ group.hint }}</p>
+                            </div>
+                            <div class="grid gap-3">
+                                <Card
+                                    v-for="row in group.rows"
+                                    :key="row.interview_id"
+                                    class="relative rounded-2xl border-border/70 transition-colors hover:border-primary/40 hover:bg-muted/30"
                                 >
-                                    {{ row.application.full_name }}
-                                </Link>
-                                <p v-else class="text-sm font-semibold">—</p>
-                                <Badge :variant="statusBadge(row).variant">
-                                    {{ statusBadge(row).label }}
-                                </Badge>
+                                    <CardContent class="p-4 sm:p-5">
+                                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                            <Link
+                                                v-if="row.application && !isLockedByAttendance(row)"
+                                                :href="showUrl(row.application.id)"
+                                                class="rounded text-sm font-semibold before:absolute before:inset-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                                            >
+                                                {{ row.application.full_name }}
+                                            </Link>
+                                            <span
+                                                v-else-if="row.application"
+                                                class="text-sm font-semibold text-muted-foreground"
+                                                aria-label="Nama applicant terkunci — belum regis ulang"
+                                            >
+                                                {{ row.application.full_name }}
+                                            </span>
+                                            <p v-else class="text-sm font-semibold">—</p>
+                                            <Badge
+                                                v-if="!row.needs_evaluation"
+                                                :variant="statusBadge(row).variant"
+                                            >
+                                                {{ statusBadge(row).label }}
+                                            </Badge>
+                                            <Badge
+                                                v-if="isLockedByAttendance(row)"
+                                                variant="secondary"
+                                            >
+                                                Belum regis ulang
+                                            </Badge>
+                                        </div>
+                                        <p class="mt-1 font-mono text-xs text-muted-foreground">
+                                            {{ row.application?.registration_number ?? '—' }}
+                                            <span v-if="row.application?.nim">
+                                                · {{ row.application.nim }}</span
+                                            >
+                                            · {{ row.application?.primary_division ?? '—' }}
+                                        </p>
+                                        <div
+                                            class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3"
+                                        >
+                                            <div class="min-w-0">
+                                                <p class="text-sm">
+                                                    {{ formatSchedule(row.scheduled_at) }}
+                                                    · {{ row.location }} · {{ row.room }}
+                                                </p>
+                                            </div>
+                                            <div class="relative flex shrink-0 flex-wrap gap-2">
+                                                <Button
+                                                    v-if="row.application && isLockedByAttendance(row)"
+                                                    size="sm"
+                                                    disabled
+                                                    aria-disabled="true"
+                                                    :aria-label="attendanceLockedLabel(row)"
+                                                >
+                                                    <ClipboardCheck
+                                                        class="mr-2 size-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                    {{ actionLabel(row) }}
+                                                </Button>
+                                                <Button
+                                                    v-else-if="row.application"
+                                                    as-child
+                                                    size="sm"
+                                                >
+                                                    <Link :href="showUrl(row.application.id)">
+                                                        <ClipboardCheck
+                                                            class="mr-2 size-4"
+                                                            aria-hidden="true"
+                                                        />
+                                                        {{ actionLabel(row) }}
+                                                    </Link>
+                                                </Button>
+                                                <Button
+                                                    v-if="row.session && isLockedByAttendance(row)"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled
+                                                    aria-disabled="true"
+                                                    aria-label="Lihat antrean terkunci — applicant belum regis ulang"
+                                                >
+                                                    Antrean
+                                                </Button>
+                                                <Button
+                                                    v-else-if="row.session"
+                                                    as-child
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <Link :href="sessionUrl(row.session.id)">Sesi</Link>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
-                            <p class="mt-1 font-mono text-xs text-muted-foreground">
-                                {{ row.application?.registration_number ?? '—' }}
-                                <span v-if="row.application?.nim"> · {{ row.application.nim }}</span>
-                                · {{ row.application?.primary_division ?? '—' }}
+                        </section>
+                    </div>
+                </section>
+                <section aria-label="Daftar secondary division">
+                    <div class="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 class="text-sm font-semibold">Secondary Division</h2>
+                        <p class="text-xs text-muted-foreground">Segera hadir</p>
+                    </div>
+                    <Card class="rounded-2xl border-dashed border-border/70">
+                        <CardContent
+                            class="flex flex-col items-center gap-2 p-8 text-center sm:p-10"
+                        >
+                            <h3 class="text-sm font-semibold">Secondary menyusul</h3>
+                            <p class="max-w-xs text-sm text-muted-foreground">
+                                Pilihan divisi kedua akan tampil di sini. Logic menyusul.
                             </p>
-                            <div
-                                class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3"
-                            >
-                                <div class="min-w-0">
-                                    <p class="text-sm">
-                                        {{ formatSchedule(row.scheduled_at) }}
-                                        · {{ row.location }} · {{ row.room }}
-                                    </p>
-                                    <p v-if="row.session" class="mt-0.5 text-xs text-muted-foreground">
-                                        {{ row.session.division ?? 'Interview' }}
-                                    </p>
-                                </div>
-                                <div class="relative flex shrink-0 flex-wrap gap-2">
-                                    <Button v-if="row.application" as-child size="sm">
-                                        <Link :href="showUrl(row.application.id)">
-                                            <ClipboardCheck class="mr-2 size-4" aria-hidden="true" />
-                                            {{ actionLabel(row) }}
-                                        </Link>
-                                    </Button>
-                                    <Button v-if="row.session" as-child size="sm" variant="outline">
-                                        <Link :href="sessionUrl(row.session.id)">Sesi</Link>
-                                    </Button>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
-                </div>
-            </section>
+                </section>
+            </div>
         </template>
 
         <EmptyState

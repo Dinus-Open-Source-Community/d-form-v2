@@ -84,6 +84,7 @@ class RecruitmentMyInterviewController extends Controller
                 'page' => $page,
             ],
             'tab_counts' => $this->myInterviewService->tabCounts($user),
+            'pending_start_count' => $this->myInterviewService->countPendingStart($user),
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),

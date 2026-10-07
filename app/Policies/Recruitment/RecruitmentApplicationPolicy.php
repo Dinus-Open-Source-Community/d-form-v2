@@ -7,6 +7,7 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class RecruitmentApplicationPolicy
 {
@@ -25,14 +26,23 @@ class RecruitmentApplicationPolicy
             || ($user->can('recruitment.applications.view') && $user->can('recruitment.screening.decide'));
     }
 
-    public function viewAssignedInterview(User $user, RecruitmentApplication $application): bool
+    public function viewAssignedInterview(User $user, RecruitmentApplication $application): Response|bool
     {
         if ($this->view($user, $application)) {
             return true;
         }
 
-        return $this->isAssignedInterviewer($user, $application)
-            && $user->can('recruitment.evaluations.view');
+        if (! $this->isAssignedInterviewer($user, $application)
+            || ! $user->can('recruitment.evaluations.view')) {
+            return false;
+        }
+
+        // Interviewer murni hanya boleh membuka applicant yang sudah regis ulang.
+        if (! $this->hasCheckedIn($application)) {
+            return Response::deny('Belum regis ulang (scan QR).');
+        }
+
+        return true;
     }
 
     public function downloadDocument(User $user, RecruitmentApplication $application): bool
@@ -91,13 +101,18 @@ class RecruitmentApplicationPolicy
             && $interview->interviewer_id === $user->id;
     }
 
-    public function evaluate(User $user, RecruitmentApplication $application): bool
+    public function evaluate(User $user, RecruitmentApplication $application): Response|bool
     {
         if (! $user->can('recruitment.evaluations.submit')) {
             return false;
         }
 
         $application->loadMissing('evaluation');
+
+        // Nilai hanya boleh di-submit bila applicant sudah regis ulang (kecuali super-admin).
+        if (! $this->hasCheckedIn($application) && ! $this->isSuperAdmin($user)) {
+            return Response::deny('Belum regis ulang (scan QR).');
+        }
 
         if ($application->evaluation?->isLocked() && ! $this->canStaffManage($user)) {
             return false;
@@ -181,6 +196,16 @@ class RecruitmentApplicationPolicy
             ->where('user_id', $user->id)
             ->where('recruitment_division_id', $divisionId)
             ->exists();
+    }
+
+    /**
+     * Regist ulang sudah dilakukan bila baris attendance tersedia.
+     */
+    private function hasCheckedIn(RecruitmentApplication $application): bool
+    {
+        $application->loadMissing('attendance');
+
+        return $application->attendance !== null;
     }
 
     private function canStaffManage(User $user): bool
