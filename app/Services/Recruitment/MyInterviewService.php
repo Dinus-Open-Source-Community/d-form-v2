@@ -354,9 +354,9 @@ final class MyInterviewService
     /**
      * @return array<string, mixed>
      */
-    public function toShowArray(RecruitmentApplication $application): array
+    public function toShowArray(RecruitmentInterview $interview): array
     {
-        return $this->presenter->present($application);
+        return $this->presenter->presentForInterview($interview);
     }
 
     /**

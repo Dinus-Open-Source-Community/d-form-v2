@@ -5,12 +5,14 @@ namespace Tests\Feature\Recruitment;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\EvaluationRecommendation;
+use App\Enums\Recruitment\InterviewStatus;
 use App\Enums\Recruitment\MembershipType;
 use App\Enums\Recruitment\ScreeningReason;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentFeedback;
 use App\Models\Recruitment\RecruitmentFinalDecision;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
@@ -94,12 +96,20 @@ class RecruitmentWorkflowTest extends TestCase
 
         $this->checkInApplicant($this->session, $application, $this->staff);
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $application))
-            ->assertRedirect();
+        // Pre-assign langsung di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
+
+        // Instance di atas memegang cache relasi interview=null dari check-in.
+        $application = $application->fresh(['interview']);
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
                 'speaking_score' => 8,
                 'technical_score' => 9,
                 'attitude_score' => 8,

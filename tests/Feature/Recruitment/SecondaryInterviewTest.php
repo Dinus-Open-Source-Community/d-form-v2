@@ -8,6 +8,7 @@ use App\Enums\Recruitment\EvaluationRecommendation;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
+use App\Models\Recruitment\RecruitmentEvaluation;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -78,12 +79,18 @@ class SecondaryInterviewTest extends TestCase
     {
         $application = $this->evaluatedPrimaryApplication('C1');
 
-        $this->actingAs($this->secondaryInterviewer)
+        $response = $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
                 'session_id' => $this->dataSession->id,
-            ])
-            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $application));
+            ]);
+
+        $secondary = RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('interview_kind', 'secondary')
+            ->firstOrFail();
+
+        $response->assertRedirect(route('dashboard.recruitment.my-interviews.show', $secondary));
 
         $this->assertDatabaseHas('recruitment_interviews', [
             'recruitment_application_id' => $application->id,
@@ -205,6 +212,99 @@ class SecondaryInterviewTest extends TestCase
         ]);
     }
 
+    public function test_secondary_show_displays_secondary_context_and_empty_form(): void
+    {
+        [$application, $secondary] = $this->claimedSecondary('C7');
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->get(route('dashboard.recruitment.my-interviews.show', $secondary))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('detail.interview.session.division', 'Data')
+                ->where('detail.application.secondary_division', 'Data')
+                ->where('detail.evaluation.can_edit', true));
+    }
+
+    public function test_evaluate_on_secondary_saves_against_secondary_interview(): void
+    {
+        [$application, $secondary] = $this->claimedSecondary('C8');
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $secondary), [
+                'speaking_score' => 6,
+                'technical_score' => 6,
+                'attitude_score' => 6,
+                'recommendation' => EvaluationRecommendation::NotRecommended->value,
+                'notes' => 'Kurang cocok untuk kebutuhan divisi data.',
+            ])
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $secondary));
+
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_interview_id' => $secondary->id,
+            'recommendation' => EvaluationRecommendation::NotRecommended->value,
+        ]);
+
+        $this->assertSame(1, RecruitmentEvaluation::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('recommendation', EvaluationRecommendation::Recommended->value)
+            ->count());
+    }
+
+    public function test_primary_interviewer_forbidden_on_secondary_interview(): void
+    {
+        [$application, $secondary] = $this->claimedSecondary('C9');
+
+        $this->actingAs($this->primaryInterviewer)
+            ->get(route('dashboard.recruitment.my-interviews.show', $secondary))
+            ->assertForbidden();
+
+        $this->actingAs($this->primaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $secondary), [
+                'speaking_score' => 9,
+                'technical_score' => 9,
+                'attitude_score' => 9,
+                'recommendation' => EvaluationRecommendation::Recommended->value,
+                'notes' => 'Mencoba menilai interview divisi lain.',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_legacy_application_show_redirects_to_primary_interview(): void
+    {
+        $application = $this->evaluatedPrimaryApplication('C10');
+
+        $primary = RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('interview_kind', 'primary')
+            ->firstOrFail();
+
+        $this->actingAs($this->primaryInterviewer)
+            ->get('/admin/recruitment/my-interviews/'.$application->id)
+            ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $primary));
+    }
+
+    /**
+     * @return array{0: RecruitmentApplication, 1: RecruitmentInterview}
+     */
+    private function claimedSecondary(string $suffix): array
+    {
+        $application = $this->evaluatedPrimaryApplication($suffix);
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
+                'application_id' => $application->id,
+                'session_id' => $this->dataSession->id,
+            ])
+            ->assertRedirect();
+
+        $secondary = RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('interview_kind', 'secondary')
+            ->firstOrFail();
+
+        return [$application->fresh(), $secondary];
+    }
+
     private function assignedApplication(string $suffix, bool $withSecondary = true): RecruitmentApplication
     {
         $application = RecruitmentApplication::factory()->create([
@@ -235,7 +335,7 @@ class SecondaryInterviewTest extends TestCase
         $application = $this->assignedApplication($suffix, $withSecondary);
 
         $this->actingAs($this->primaryInterviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,

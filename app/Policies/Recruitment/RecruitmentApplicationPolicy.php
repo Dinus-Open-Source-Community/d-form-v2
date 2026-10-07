@@ -88,6 +88,16 @@ class RecruitmentApplicationPolicy
         return $this->isAssignedInterviewer($user, $application);
     }
 
+    /**
+     * Gerbang kasar klaim secondary: cek permission saja di sini.
+     * Cakupan (divisi + eligibility) ditegakkan di InterviewLifecycleService
+     * agar kontrak error-nya presisi (403 vs 422 per-field).
+     */
+    public function claimSecondaryInterview(User $user, RecruitmentApplication $application): bool
+    {
+        return $user->can('recruitment.evaluations.submit');
+    }
+
     public function overrideEvaluation(User $user, RecruitmentApplication $application): bool
     {
         $application->loadMissing('primaryInterview.evaluation');

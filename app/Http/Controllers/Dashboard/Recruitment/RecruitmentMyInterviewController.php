@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ClaimSecondaryInterviewRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\EvaluationService;
 use App\Services\Recruitment\InterviewLifecycleService;
 use App\Services\Recruitment\MyInterviewService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -93,13 +93,26 @@ class RecruitmentMyInterviewController extends Controller
         ]);
     }
 
-    public function show(RecruitmentApplication $application): Response
+    public function show(string $id): Response|RedirectResponse
     {
-        $this->authorize('viewAssignedInterview', $application);
+        $interview = RecruitmentInterview::query()->find($id);
+
+        if ($interview === null) {
+            $application = RecruitmentApplication::query()->find($id);
+            $primary = $application?->primaryInterview()->first();
+
+            if ($primary !== null) {
+                return redirect()->route('dashboard.recruitment.my-interviews.show', $primary);
+            }
+
+            abort(404);
+        }
+
+        $this->authorize('view', $interview);
 
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Show', [
-            'detail' => $this->myInterviewService->toShowArray($application),
-            'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $application),
+            'detail' => $this->myInterviewService->toShowArray($interview),
+            'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $interview),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
             'flashMessage' => session('message'),
         ]);
@@ -107,17 +120,9 @@ class RecruitmentMyInterviewController extends Controller
 
     public function evaluate(
         StoreRecruitmentEvaluationRequest $request,
-        RecruitmentApplication $application,
+        RecruitmentInterview $interview,
     ): RedirectResponse {
-        $this->authorize('evaluate', $application);
-
-        $interview = $application->primaryInterview()->first();
-
-        if ($interview === null) {
-            throw ValidationException::withMessages([
-                'interview' => ['Applicant has no scheduled interview.'],
-            ]);
-        }
+        $this->authorize('evaluate', $interview);
 
         $this->evaluationService->submit(
             $request->user(),
@@ -128,23 +133,26 @@ class RecruitmentMyInterviewController extends Controller
         );
 
         return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $application)
+            ->route('dashboard.recruitment.my-interviews.show', $interview)
             ->with('message', 'Penilaian interview berhasil disimpan.');
     }
 
     public function claimSecondary(ClaimSecondaryInterviewRequest $request): RedirectResponse
     {
         $application = RecruitmentApplication::query()->findOrFail($request->validated('application_id'));
+
+        $this->authorize('claimSecondaryInterview', $application);
+
         $session = RecruitmentInterviewSession::query()->findOrFail($request->validated('session_id'));
 
-        $this->interviewLifecycleService->createSecondaryInterview(
+        $secondaryInterview = $this->interviewLifecycleService->createSecondaryInterview(
             $request->user(),
             $application,
             $session,
         );
 
         return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $application)
+            ->route('dashboard.recruitment.my-interviews.show', $secondaryInterview)
             ->with('message', 'Interview secondary berhasil diambil.');
     }
 }

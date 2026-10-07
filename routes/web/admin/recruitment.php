@@ -65,8 +65,10 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('applications.resend-tracking');
         Route::post('applications/{application}/resend-email', [RecruitmentApplicationController::class, 'resendEmail'])
             ->name('applications.resend-email');
-        Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'override'])
+        Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'legacyOverride'])
             ->name('applications.evaluation.override');
+        Route::post('interviews/{interview}/evaluation-override', [RecruitmentEvaluationController::class, 'override'])
+            ->name('interviews.evaluation.override');
         Route::post('applications/{application}/final/accept', [RecruitmentFinalSelectionController::class, 'accept'])
             ->name('applications.final.accept');
         Route::post('applications/{application}/final/reject', [RecruitmentFinalSelectionController::class, 'reject'])
@@ -89,9 +91,9 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
-        Route::get('my-interviews/{application}', [RecruitmentMyInterviewController::class, 'show'])
+        Route::get('my-interviews/{interview}', [RecruitmentMyInterviewController::class, 'show'])
             ->name('my-interviews.show');
-        Route::post('my-interviews/{application}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
+        Route::post('my-interviews/{interview}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
             ->name('my-interviews.evaluate');
         Route::post('my-interviews/secondary-claim', [RecruitmentMyInterviewController::class, 'claimSecondary'])
             ->name('my-interviews.secondary-claim');

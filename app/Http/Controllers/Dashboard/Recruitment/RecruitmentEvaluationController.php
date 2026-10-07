@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Services\Recruitment\EvaluationService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
 
 class RecruitmentEvaluationController extends Controller
 {
@@ -18,17 +19,9 @@ class RecruitmentEvaluationController extends Controller
 
     public function override(
         StoreRecruitmentEvaluationRequest $request,
-        RecruitmentApplication $application,
+        RecruitmentInterview $interview,
     ): RedirectResponse {
-        $this->authorize('overrideEvaluation', $application);
-
-        $interview = $application->primaryInterview()->first();
-
-        if ($interview === null) {
-            throw ValidationException::withMessages([
-                'interview' => ['Applicant has no scheduled interview.'],
-            ]);
-        }
+        $this->authorize('override', $interview);
 
         $this->evaluationService->submit(
             $request->user(),
@@ -41,5 +34,14 @@ class RecruitmentEvaluationController extends Controller
         return redirect()
             ->back()
             ->with('message', 'Penilaian interview diperbarui (staff override).');
+    }
+
+    public function legacyOverride(
+        Request $request,
+        RecruitmentApplication $application,
+    ): RedirectResponse {
+        $primary = $application->primaryInterview()->firstOrFail();
+
+        return redirect()->route('dashboard.recruitment.interviews.evaluation.override', $primary, 307);
     }
 }

@@ -14,6 +14,7 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Services\Recruitment\InterviewLifecycleService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -103,6 +104,112 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         return $application->fresh(['interview']);
     }
 
+    /**
+     * Booking langsung di DB tanpa regis ulang (policy book butuh attendance).
+     */
+    private function bookedWithoutCheckIn(string $suffix): RecruitmentApplication
+    {
+        $application = $this->application($suffix);
+
+        app(InterviewLifecycleService::class)->createWaitingInterview($application, $this->session);
+
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+                'scheduled_at' => now()->subMinute(),
+            ]);
+
+        return $application->fresh(['interview']);
+    }
+
+    public function test_index_lists_booked_without_attendance_as_locked(): void
+    {
+        $application = $this->bookedWithoutCheckIn('008');
+
+        // Tanpa attendance tetap tampil (flag false), counts + opsi sesi/divisi ikut mencakup.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'in_progress']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 1)
+                ->where('interviews.data.0.application.id', $application->id)
+                ->where('interviews.data.0.has_attendance', false)
+                ->where('tab_counts.in_progress', 1)
+                ->where('tab_counts.done', 0)
+                ->where('pending_start_count', 0)
+                ->has('session_options', 1)
+                ->has('division_options', 1));
+
+        // Terkunci: detail + nilai ditolak sampai regis ulang (attendance guard di policy).
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
+            ->assertForbidden();
+
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->interview), [
+                'speaking_score' => 8,
+                'technical_score' => 7,
+                'attitude_score' => 9,
+                'recommendation' => EvaluationRecommendation::Recommended->value,
+                'notes' => 'Solid candidate.',
+            ])
+            ->assertForbidden();
+    }
+
+    /**
+     * Assignment Waiting yang sudah ditempati interviewer tapi belum dipanggil.
+     */
+    private function waitingAssigned(string $suffix): RecruitmentApplication
+    {
+        $application = $this->application($suffix);
+
+        app(InterviewLifecycleService::class)->createWaitingInterview($application, $this->session);
+
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'scheduled_at' => now()->subMinute(),
+            ]);
+
+        return $application->fresh(['interview']);
+    }
+
+    public function test_in_progress_tab_lists_waiting_and_in_progress_without_evaluation(): void
+    {
+        $waiting = $this->waitingAssigned('009');
+        $progress = $this->bookedWithoutCheckIn('011');
+
+        // Tab default (in_progress) memuat Waiting + InProgress yang belum dinilai.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 2)
+                ->has('interviews.data', 2)
+                ->where('interviews.data', function (mixed $rows) use ($waiting, $progress): bool {
+                    $list = $rows instanceof \Illuminate\Support\Collection ? $rows->all() : (array) $rows;
+                    $ids = array_column(array_column($list, 'application'), 'id');
+                    sort($ids);
+
+                    $expected = [$waiting->id, $progress->id];
+                    sort($expected);
+
+                    return $ids === $expected;
+                })
+                ->where('tab_counts.in_progress', 2)
+                ->where('tab_counts.done', 0));
+
+        // Done tetap hanya yang sudah dievaluasi.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'done']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('interviews.total', 0));
+    }
+
     public function test_index_only_lists_booked_in_progress_applicants(): void
     {
         $booked = $this->application('001');
@@ -111,9 +218,14 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         $this->checkInApplicant($this->session, $booked, $this->staff);
         $this->checkInApplicant($this->session, $waitingOnly, $this->staff);
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $booked))
-            ->assertRedirect();
+        // Pre-assign langsung di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $booked->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
 
         // Kunci scheduled_at ke masa lalu agar startedScope deterministik.
         RecruitmentInterview::query()
@@ -135,9 +247,14 @@ class RecruitmentMyInterviewScopeTest extends TestCase
         $applicant = $this->application('010');
         $this->checkInApplicant($this->session, $applicant, $this->staff);
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $applicant))
-            ->assertRedirect();
+        // Pre-assign langsung di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $applicant->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
 
         $interview = RecruitmentInterview::query()
             ->where('recruitment_application_id', $applicant->id)
@@ -177,7 +294,6 @@ class RecruitmentMyInterviewScopeTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('interviews.total', 0)
-                ->where('tab_counts.waiting', 0)
                 ->where('tab_counts.in_progress', 0)
                 ->where('tab_counts.done', 0)
                 ->where('pending_start_count', 0)
@@ -205,7 +321,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
                 ->where('session_options.0.value', $this->session->id));
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->interview))
             ->assertOk();
     }
 
