@@ -32,10 +32,6 @@ export const routes = {
             logout: '/recruitment/track/logout',
         },
         attendance: '/recruitment/attendance',
-        queue: {
-            index: '/recruitment/queue',
-            show: (sessionId: string) => `/recruitment/queue/${sessionId}`,
-        },
     },
 
     auth: {
@@ -113,23 +109,14 @@ export const routes = {
             interviewSessions: {
                 store: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
-                schedule: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}/schedule`,
-            },
-            interviews: {
-                reschedule: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/reschedule`,
-                reassign: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/reassign`,
             },
             myInterviews: {
                 index: `${ADMIN_BASE}/recruitment/my-interviews`,
+                waitingPool: `${ADMIN_BASE}/recruitment/my-interviews/waiting-pool`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
+                book: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/book`,
+                release: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/release`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
-            },
-            queue: {
-                show: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}`,
-                poll: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/poll`,
-                callNext: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/call-next`,
-                complete: (entryId: string) => `${ADMIN_BASE}/recruitment/queue/${entryId}/complete`,
-                noShow: (sessionId: string) => `${ADMIN_BASE}/recruitment/queue/${sessionId}/no-show`,
             },
         },
         events: {
@@ -252,9 +239,6 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href === routes.admin.scan.index) {
         return path === routes.admin.scan.index;
-    }
-    if (href.includes('/recruitment/queue/')) {
-        return path.includes('/recruitment/queue/');
     }
 
     return path.startsWith(href);

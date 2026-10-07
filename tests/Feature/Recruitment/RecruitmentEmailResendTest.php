@@ -16,7 +16,8 @@ use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
+use App\Services\Recruitment\AttendanceService;
+use App\Enums\Recruitment\AttendanceMethod;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,15 +122,20 @@ class RecruitmentEmailResendTest extends TestCase
             'is_active' => true,
         ]);
 
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->staff,
+        app(AttendanceService::class)->checkIn(
             $session,
-            [$this->application->id],
+            $this->application,
+            AttendanceMethod::RegistrationNumber,
+            $this->staff,
         );
 
         RecruitmentInterview::query()
             ->where('recruitment_application_id', $this->application->id)
-            ->update(['interviewer_id' => $interviewer->id]);
+            ->update([
+                'interviewer_id' => $interviewer->id,
+                'status' => \App\Enums\Recruitment\InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
 
         $this->actingAs($this->staff)
             ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [

@@ -4,26 +4,18 @@ namespace App\Enums\Recruitment;
 
 enum InterviewStatus: string
 {
-    case Scheduled = 'scheduled';
-    case Cancelled = 'cancelled';
-    case CheckedIn = 'checked_in';
-    case Queued = 'queued';
-    case Called = 'called';
+    case Waiting = 'waiting';
     case InProgress = 'in_progress';
     case Completed = 'completed';
-    case NoShow = 'no_show';
+    case Cancelled = 'cancelled';
 
     public function label(): string
     {
         return match ($this) {
-            self::Scheduled => 'Terjadwal',
-            self::Cancelled => 'Dibatalkan',
-            self::CheckedIn => 'Check-in',
-            self::Queued => 'Antrean',
-            self::Called => 'Dipanggil',
-            self::InProgress => 'Berlangsung',
+            self::Waiting => 'Menunggu interview',
+            self::InProgress => 'Sedang interview',
             self::Completed => 'Selesai',
-            self::NoShow => 'Tidak hadir',
+            self::Cancelled => 'Dibatalkan',
         };
     }
 }

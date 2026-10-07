@@ -4,7 +4,6 @@ namespace App\Services\Recruitment;
 
 use App\Enums\Recruitment\AttendanceMethod;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Support\RecruitmentQrPayload;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -74,14 +73,34 @@ final class AttendanceCheckInResolver
 
     public function resolveSessionForApplication(RecruitmentApplication $application): RecruitmentInterviewSession
     {
-        $application->loadMissing('interview.session');
+        $application->loadMissing('interview.session', 'attendance.session');
 
-        $interview = $application->interview;
-
-        if ($interview === null || $interview->session === null) {
-            throw new InvalidArgumentException('Applicant has no scheduled interview session.');
+        if ($application->attendance?->session !== null) {
+            return $application->attendance->session;
         }
 
-        return $interview->session;
+        if ($application->interview?->session !== null) {
+            return $application->interview->session;
+        }
+
+        $sessions = RecruitmentInterviewSession::query()
+            ->where('recruitment_period_id', $application->recruitment_period_id)
+            ->where('recruitment_division_id', $application->primary_division_id)
+            ->where('is_active', true)
+            ->whereDate('session_date', today())
+            ->orderBy('starts_at')
+            ->get();
+
+        if ($sessions->count() === 1) {
+            return $sessions->first();
+        }
+
+        if ($sessions->isEmpty()) {
+            throw new InvalidArgumentException('No active interview session today for this applicant division.');
+        }
+
+        throw new InvalidArgumentException(
+            'Multiple active interview sessions today. Select the session on the scan screen before check-in.',
+        );
     }
 }

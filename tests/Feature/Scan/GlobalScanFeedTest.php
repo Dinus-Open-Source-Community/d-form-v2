@@ -15,7 +15,6 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,21 +75,7 @@ class GlobalScanFeedTest extends TestCase
             'result' => ApplicationResult::Pending,
         ]);
 
-        $interviewer = User::factory()->create();
-        $interviewer->assignRole('recruitment-interviewer');
-
-        RecruitmentInterviewerDivision::query()->create([
-            'user_id' => $interviewer->id,
-            'recruitment_division_id' => $this->programming->id,
-        ]);
-
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->staff,
-            $this->session,
-            [$application->id],
-        );
-
-        return $application->fresh(['interview']);
+        return $application;
     }
 
     private function checkIn(RecruitmentApplication $application): void
@@ -98,6 +83,7 @@ class GlobalScanFeedTest extends TestCase
         $this->actingAs($this->staff)
             ->postJson(route('dashboard.scan.store'), [
                 'raw' => $application->registration_number,
+                'recruitment_session_id' => $this->session->id,
             ])
             ->assertOk();
     }

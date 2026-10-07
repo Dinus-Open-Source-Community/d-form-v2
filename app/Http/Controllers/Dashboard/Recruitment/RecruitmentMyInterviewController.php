@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
-use App\Enums\Recruitment\QueueStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Services\Recruitment\EvaluationService;
 use App\Services\Recruitment\MyInterviewService;
-use App\Services\Recruitment\QueueService;
+use App\Services\Recruitment\WaitingRoomService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,7 +19,7 @@ class RecruitmentMyInterviewController extends Controller
     public function __construct(
         private readonly MyInterviewService $myInterviewService,
         private readonly EvaluationService $evaluationService,
-        private readonly QueueService $queueService,
+        private readonly WaitingRoomService $waitingRoomService,
     ) {
     }
 
@@ -30,7 +29,7 @@ class RecruitmentMyInterviewController extends Controller
         abort_unless($user?->can('recruitment.evaluations.view'), 403);
 
         $page = (int) request()->integer('page', 1);
-        $queue = request()->query('queue');
+        $tab = request()->query('tab');
         $q = request()->query('q');
         $divisionId = request()->query('division_id');
         $sessionId = request()->query('session_id');
@@ -40,8 +39,8 @@ class RecruitmentMyInterviewController extends Controller
         $sort = request()->query('sort');
 
         $filters = [];
-        if (is_string($queue) && $queue !== '') {
-            $filters['queue'] = $queue;
+        if (is_string($tab) && $tab !== '') {
+            $filters['tab'] = $tab;
         }
         if (is_string($q) && trim($q) !== '') {
             $filters['q'] = trim($q);
@@ -74,6 +73,7 @@ class RecruitmentMyInterviewController extends Controller
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Index', [
             'interviews' => $interviews,
             'query' => [
+                'tab' => is_string($tab) ? $tab : 'in_progress',
                 'q' => is_string($q) ? $q : '',
                 'division_id' => is_string($divisionId) ? $divisionId : '',
                 'session_id' => is_string($sessionId) ? $sessionId : '',
@@ -81,15 +81,56 @@ class RecruitmentMyInterviewController extends Controller
                 'date_to' => is_string($dateTo) ? $dateTo : '',
                 'eval' => is_string($eval) ? $eval : '',
                 'sort' => is_string($sort) ? $sort : '',
-                'queue' => is_string($queue) ? $queue : '',
                 'page' => $page,
             ],
-            'queue_counts' => $this->myInterviewService->queueCounts($user),
+            'tab_counts' => $this->myInterviewService->tabCounts($user),
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
+            'waiting_pool_poll_url' => route('dashboard.recruitment.my-interviews.waiting-pool'),
+            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
         ]);
+    }
+
+    public function waitingPool(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user?->can('recruitment.evaluations.view'), 403);
+
+        $sessionId = $request->query('session_id');
+        $search = $request->query('q');
+
+        return response()->json([
+            'entries' => $this->waitingRoomService->waitingPoolSnapshot(
+                $user,
+                is_string($sessionId) ? $sessionId : null,
+                is_string($search) ? $search : null,
+            ),
+            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
+        ]);
+    }
+
+    public function book(Request $request, RecruitmentApplication $application): RedirectResponse
+    {
+        $this->authorize('bookInterview', $application);
+
+        $this->waitingRoomService->book($request->user(), $application, $request);
+
+        return redirect()
+            ->route('dashboard.recruitment.my-interviews.show', $application)
+            ->with('message', 'Applicant berhasil dibooking.');
+    }
+
+    public function release(Request $request, RecruitmentApplication $application): RedirectResponse
+    {
+        $this->authorize('releaseInterview', $application);
+
+        $this->waitingRoomService->release($request->user(), $application, $request);
+
+        return redirect()
+            ->route('dashboard.recruitment.my-interviews.index', ['tab' => 'waiting'])
+            ->with('message', 'Booking dibatalkan. Applicant kembali ke ruang tunggu.');
     }
 
     public function show(RecruitmentApplication $application): Response
@@ -99,6 +140,7 @@ class RecruitmentMyInterviewController extends Controller
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Show', [
             'detail' => $this->myInterviewService->toShowArray($application),
             'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $application),
+            'releaseUrl' => route('dashboard.recruitment.my-interviews.release', $application),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
             'flashMessage' => session('message'),
         ]);
@@ -118,53 +160,8 @@ class RecruitmentMyInterviewController extends Controller
             request: $request,
         );
 
-        $calledNext = $this->callNextIfEvaluatedEntryActive($application);
-
-        $message = 'Penilaian interview berhasil disimpan.';
-
-        if ($calledNext !== null) {
-            $message .= sprintf(
-                ' Berikutnya dipanggil: #%s.',
-                str_pad((string) $calledNext->queue_number, 2, '0', STR_PAD_LEFT),
-            );
-        }
-
         return redirect()
             ->route('dashboard.recruitment.my-interviews.show', $application)
-            ->with('message', $message);
-    }
-
-    /**
-     * Finalisasi antrean applicant yang baru dinilai lalu panggil waiting berikutnya.
-     *
-     * Guard idempoten: `callNext` hanya dipanggil bila entri antrean milik
-     * application ini masih aktif (Called/InProgress). Baris entri dikunci di
-     * dalam transaksi sehingga dua submit paralel tidak memanggil antrean dua kali.
-     */
-    private function callNextIfEvaluatedEntryActive(RecruitmentApplication $application): ?RecruitmentQueueEntry
-    {
-        return DB::transaction(function () use ($application): ?RecruitmentQueueEntry {
-            $entry = RecruitmentQueueEntry::query()
-                ->where('recruitment_application_id', $application->id)
-                ->lockForUpdate()
-                ->first();
-
-            if ($entry === null) {
-                return null;
-            }
-
-            if (! in_array($entry->status, [QueueStatus::Called, QueueStatus::InProgress], true)) {
-                return null;
-            }
-
-            $application->loadMissing('interview.session');
-            $session = $application->interview?->session;
-
-            if ($session === null) {
-                return null;
-            }
-
-            return $this->queueService->callNext($session);
-        });
+            ->with('message', 'Penilaian interview berhasil disimpan.');
     }
 }

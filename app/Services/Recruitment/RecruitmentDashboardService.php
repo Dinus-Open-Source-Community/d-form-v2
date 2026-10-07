@@ -136,15 +136,12 @@ final class RecruitmentDashboardService
             'active_period' => app(RecruitmentPeriodService::class)->toInertiaArray($activePeriod),
             'stats' => [
                 'assigned_total' => (clone $interviews)->count(),
-                'scheduled' => (clone $interviews)->where('status', InterviewStatus::Scheduled)->count(),
+                'waiting' => (clone $interviews)->where('status', InterviewStatus::Waiting)->count(),
+                'in_progress' => (clone $interviews)->where('status', InterviewStatus::InProgress)->count(),
                 'completed' => (clone $interviews)->where('status', InterviewStatus::Completed)->count(),
                 'pending_evaluation' => (clone $interviews)
                     ->whereHas('application', fn ($q) => $q->whereDoesntHave('evaluation'))
-                    ->whereIn('status', [
-                        InterviewStatus::Called,
-                        InterviewStatus::Completed,
-                        InterviewStatus::InProgress,
-                    ])
+                    ->where('status', InterviewStatus::InProgress)
                     ->count(),
             ],
             'is_interviewer_view' => true,
@@ -184,7 +181,8 @@ final class RecruitmentDashboardService
     {
         return [
             'assigned_total' => 0,
-            'scheduled' => 0,
+            'waiting' => 0,
+            'in_progress' => 0,
             'completed' => 0,
             'pending_evaluation' => 0,
         ];
@@ -196,11 +194,10 @@ final class RecruitmentDashboardService
     private function emptyInterviewStats(): array
     {
         return [
-            'scheduled' => 0,
-            'called' => 0,
+            'waiting' => 0,
+            'in_progress' => 0,
             'completed' => 0,
             'cancelled' => 0,
-            'no_show' => 0,
             'total' => 0,
         ];
     }

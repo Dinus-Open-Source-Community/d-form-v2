@@ -55,19 +55,4 @@ class RecruitmentInterviewSession extends Model
         return $this->hasMany(RecruitmentAttendance::class);
     }
 
-    public function queueEntries(): HasMany
-    {
-        return $this->hasMany(RecruitmentQueueEntry::class);
-    }
-
-    /**
-     * Sesi yang boleh tayang di papan antrean publik: cukup aktif.
-     *
-     * Data sensitif sudah disanitasi di {@see \App\Services\Recruitment\QueueService::publicSnapshot()},
-     * sehingga tanggal sesi tidak lagi menjadi syarat (papan display-only).
-     */
-    public function isVisibleToPublic(): bool
-    {
-        return $this->is_active === true;
-    }
 }

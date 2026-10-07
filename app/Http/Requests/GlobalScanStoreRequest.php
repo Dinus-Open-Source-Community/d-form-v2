@@ -22,6 +22,7 @@ class GlobalScanStoreRequest extends FormRequest
         return [
             'raw' => ['required', 'string', 'max:4096'],
             'desk' => ['nullable', 'string', 'max:32'],
+            'recruitment_session_id' => ['nullable', 'uuid', 'exists:recruitment_interview_sessions,id'],
         ];
     }
 }

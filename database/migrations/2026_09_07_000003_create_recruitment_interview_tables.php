@@ -30,18 +30,19 @@ return new class () extends Migration {
             $table->uuid('id')->primary();
             $table->uuid('recruitment_application_id')->unique();
             $table->uuid('recruitment_interview_session_id');
-            $table->uuid('interviewer_id');
+            $table->uuid('interviewer_id')->nullable();
+            $table->dateTime('booked_at')->nullable();
             $table->dateTime('scheduled_at');
             $table->string('location');
             $table->string('room', 100);
-            $table->string('status', 30)->default('scheduled');
+            $table->string('status', 30)->default('waiting');
             $table->dateTime('reminder_h1_sent_at')->nullable();
             $table->dateTime('reminder_h2_sent_at')->nullable();
             $table->timestamps();
 
             $table->foreign('recruitment_application_id', 'rec_interviews_app_fk')->references('id')->on('recruitment_applications')->cascadeOnDelete();
             $table->foreign('recruitment_interview_session_id', 'rec_interviews_sess_fk')->references('id')->on('recruitment_interview_sessions')->cascadeOnDelete();
-            $table->foreign('interviewer_id', 'rec_interviews_iv_fk')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('interviewer_id', 'rec_interviews_iv_fk')->references('id')->on('users')->nullOnDelete();
             $table->index(['interviewer_id', 'scheduled_at'], 'rec_interviews_iv_sched_idx');
             $table->index(['recruitment_interview_session_id', 'status'], 'rec_interviews_sess_stat_idx');
         });
@@ -59,22 +60,6 @@ return new class () extends Migration {
             $table->foreign('recruitment_interview_session_id', 'rec_attendance_sess_fk')->references('id')->on('recruitment_interview_sessions')->cascadeOnDelete();
             $table->foreign('checked_in_by', 'rec_attendance_user_fk')->references('id')->on('users')->nullOnDelete();
             $table->index(['recruitment_interview_session_id', 'checked_in_at'], 'rec_attendance_sess_check_idx');
-        });
-
-        Schema::create('recruitment_queue_entries', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('recruitment_application_id')->unique();
-            $table->uuid('recruitment_interview_session_id');
-            $table->unsignedInteger('queue_number');
-            $table->string('status', 20)->default('waiting');
-            $table->dateTime('called_at')->nullable();
-            $table->dateTime('completed_at')->nullable();
-            $table->timestamps();
-
-            $table->foreign('recruitment_application_id', 'rec_queue_app_fk')->references('id')->on('recruitment_applications')->cascadeOnDelete();
-            $table->foreign('recruitment_interview_session_id', 'rec_queue_sess_fk')->references('id')->on('recruitment_interview_sessions')->cascadeOnDelete();
-            $table->unique(['recruitment_interview_session_id', 'queue_number'], 'rec_queue_sess_num_uniq');
-            $table->index(['recruitment_interview_session_id', 'status', 'queue_number'], 'rec_queue_sess_stat_num_idx');
         });
 
         Schema::create('recruitment_evaluations', function (Blueprint $table): void {
@@ -158,7 +143,6 @@ return new class () extends Migration {
         Schema::dropIfExists('recruitment_feedbacks');
         Schema::dropIfExists('recruitment_final_decisions');
         Schema::dropIfExists('recruitment_evaluations');
-        Schema::dropIfExists('recruitment_queue_entries');
         Schema::dropIfExists('recruitment_attendances');
         Schema::dropIfExists('recruitment_interviews');
         Schema::dropIfExists('recruitment_interview_sessions');

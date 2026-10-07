@@ -227,7 +227,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
 
         $interview = $application->interview;
 
-        if ($interview === null || $interview->status !== InterviewStatus::Scheduled) {
+        if ($application->stage !== \App\Enums\Recruitment\ApplicationStage::Interview) {
             return null;
         }
 

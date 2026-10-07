@@ -3,6 +3,7 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\Recruitment\EvaluationRecommendation;
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentEvaluation;
 use App\Models\User;
@@ -15,6 +16,7 @@ final class EvaluationService
 {
     public function __construct(
         private readonly RecruitmentActivityLogger $activityLogger,
+        private readonly InterviewLifecycleService $interviewLifecycle,
     ) {
     }
 
@@ -116,6 +118,13 @@ final class EvaluationService
                 $evaluation->id,
                 $request,
             );
+
+            $interview = $application->interview;
+            if ($interview !== null && $interview->status !== InterviewStatus::Completed) {
+                $this->interviewLifecycle->markCompleted($interview);
+            }
+
+            $this->lockForApplication($application->fresh());
 
             return $evaluation;
         });

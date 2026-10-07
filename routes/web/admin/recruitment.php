@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentApplicationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentCorrectionController;
-use App\Http\Controllers\Dashboard\Recruitment\RecruitmentInterviewController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentInterviewSessionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentActivityLogController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentDashboardController;
@@ -13,7 +12,6 @@ use App\Http\Controllers\Dashboard\Recruitment\RecruitmentScreeningController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentEvaluationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentFinalSelectionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentMyInterviewController;
-use App\Http\Controllers\Dashboard\Recruitment\RecruitmentQueueController;
 use Illuminate\Routing\RedirectController;
 use Illuminate\Support\Facades\Route;
 
@@ -83,30 +81,18 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('interview-sessions.store');
         Route::get('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'show'])
             ->name('interview-sessions.show');
-        Route::post('interview-sessions/{session}/schedule', [RecruitmentInterviewSessionController::class, 'schedule'])
-            ->name('interview-sessions.schedule');
-        Route::post('interviews/{interview}/reschedule', [RecruitmentInterviewController::class, 'reschedule'])
-            ->name('interviews.reschedule');
-        Route::post('interviews/{interview}/reassign', [RecruitmentInterviewController::class, 'reassign'])
-            ->name('interviews.reassign');
-
-        Route::get('queue/{session}', [RecruitmentQueueController::class, 'show'])
-            ->name('queue.show');
-        Route::get('queue/{session}/poll', [RecruitmentQueueController::class, 'poll'])
-            ->name('queue.poll');
-        Route::post('queue/{session}/call-next', [RecruitmentQueueController::class, 'callNext'])
-            ->name('queue.call-next');
-        Route::post('queue/{session}/no-show', [RecruitmentQueueController::class, 'markNoShow'])
-            ->name('queue.no-show');
-        Route::post('queue/{entry}/complete', [RecruitmentQueueController::class, 'complete'])
-            ->name('queue.complete');
-
         Route::get('attendance-scan', fn () => to_route('dashboard.scan.index'))->name('attendance-scan');
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
+        Route::get('my-interviews/waiting-pool', [RecruitmentMyInterviewController::class, 'waitingPool'])
+            ->name('my-interviews.waiting-pool');
         Route::get('my-interviews/{application}', [RecruitmentMyInterviewController::class, 'show'])
             ->name('my-interviews.show');
+        Route::post('my-interviews/{application}/book', [RecruitmentMyInterviewController::class, 'book'])
+            ->name('my-interviews.book');
+        Route::post('my-interviews/{application}/release', [RecruitmentMyInterviewController::class, 'release'])
+            ->name('my-interviews.release');
         Route::post('my-interviews/{application}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
             ->name('my-interviews.evaluate');
     });
