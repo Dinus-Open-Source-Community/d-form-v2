@@ -83,7 +83,12 @@ class GlobalScanController extends Controller
         $resolved = $this->scanResolver->resolve($raw);
 
         if ($resolved['kind'] === 'recruitment') {
-            $session = $this->checkInResolver->resolveSessionForApplication($resolved['application']);
+            $sessionId = $request->validated('recruitment_session_id');
+            if (is_string($sessionId) && $sessionId !== '') {
+                $session = \App\Models\Recruitment\RecruitmentInterviewSession::query()->findOrFail($sessionId);
+            } else {
+                $session = $this->checkInResolver->resolveSessionForApplication($resolved['application']);
+            }
             $this->authorize('scanAttendance', $session);
 
             $result = $this->attendanceService->checkInFromInput(

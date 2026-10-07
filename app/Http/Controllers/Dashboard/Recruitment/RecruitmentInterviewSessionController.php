@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Recruitment\ScheduleInterviewApplicantsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentInterviewSessionRequest;
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Services\Recruitment\InterviewSchedulingService;
 use App\Services\Recruitment\InterviewSessionService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -16,7 +14,6 @@ class RecruitmentInterviewSessionController extends Controller
 {
     public function __construct(
         private readonly InterviewSessionService $sessionService,
-        private readonly InterviewSchedulingService $schedulingService,
     ) {
     }
 
@@ -42,49 +39,8 @@ class RecruitmentInterviewSessionController extends Controller
     {
         $this->authorize('view', $session);
 
-        $eligible = $this->schedulingService->eligibleApplicants($session)
-            ->map(fn ($application): array => [
-                'id' => $application->id,
-                'full_name' => $application->full_name,
-                'registration_number' => $application->registration_number,
-                'nim' => $application->nim,
-            ])
-            ->values()
-            ->all();
-
         return Inertia::render('Dashboard/Recruitment/InterviewSessions/Show', [
             'session' => $this->sessionService->toShowArray($session),
-            'eligibleApplicants' => $eligible,
-            'interviewerOptions' => $this->schedulingService->interviewerOptionsForDivision(
-                $session->recruitment_division_id,
-            ),
-            'otherSessions' => RecruitmentInterviewSession::query()
-                ->where('recruitment_period_id', $session->recruitment_period_id)
-                ->where('id', '!=', $session->id)
-                ->where('is_active', true)
-                ->orderBy('session_date')
-                ->get()
-                ->map(fn (RecruitmentInterviewSession $item): array => $this->sessionService->toListArray($item))
-                ->values()
-                ->all(),
         ]);
-    }
-
-    public function schedule(
-        ScheduleInterviewApplicantsRequest $request,
-        RecruitmentInterviewSession $session,
-    ): RedirectResponse {
-        $this->authorize('view', $session);
-
-        $this->schedulingService->scheduleApplicants(
-            $request->user(),
-            $session,
-            $request->validated('application_ids'),
-            $request,
-        );
-
-        return redirect()
-            ->route('dashboard.recruitment.interview-sessions.show', $session)
-            ->with('message', 'Applicant berhasil dijadwalkan.');
     }
 }

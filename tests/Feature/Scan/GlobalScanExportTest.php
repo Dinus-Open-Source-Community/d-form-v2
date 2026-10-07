@@ -15,7 +15,8 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
+use App\Services\Recruitment\AttendanceService;
+use App\Enums\Recruitment\AttendanceMethod;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,18 +118,11 @@ class GlobalScanExportTest extends TestCase
             'result' => ApplicationResult::Pending,
         ]);
 
-        $interviewer = User::factory()->create();
-        $interviewer->assignRole('recruitment-interviewer');
-
-        RecruitmentInterviewerDivision::query()->create([
-            'user_id' => $interviewer->id,
-            'recruitment_division_id' => $programming->id,
-        ]);
-
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $staff,
+        app(AttendanceService::class)->checkIn(
             $session,
-            [$application->id],
+            $application,
+            AttendanceMethod::RegistrationNumber,
+            $staff,
         );
 
         return [$staff, $application->fresh(), $session];

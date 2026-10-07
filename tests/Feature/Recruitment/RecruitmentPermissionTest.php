@@ -15,7 +15,8 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
+use App\Services\Recruitment\AttendanceService;
+use App\Enums\Recruitment\AttendanceMethod;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -109,15 +110,15 @@ class RecruitmentPermissionTest extends TestCase
             'is_active' => true,
         ]);
 
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->staff,
+        app(AttendanceService::class)->checkIn(
             $session,
-            [$application->id],
+            $application,
+            AttendanceMethod::RegistrationNumber,
+            $this->staff,
         );
 
-        RecruitmentInterview::query()
-            ->where('recruitment_application_id', $application->id)
-            ->update(['interviewer_id' => $this->interviewer->id]);
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.book', $application));
 
         $cvPath = 'recruitment/cv/test-'.$suffix.'.pdf';
         Storage::disk('local')->put($cvPath, 'fake pdf content');

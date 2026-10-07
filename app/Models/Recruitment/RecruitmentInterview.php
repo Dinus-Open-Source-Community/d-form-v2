@@ -19,6 +19,7 @@ class RecruitmentInterview extends Model
         'recruitment_application_id',
         'recruitment_interview_session_id',
         'interviewer_id',
+        'booked_at',
         'scheduled_at',
         'location',
         'room',
@@ -30,6 +31,7 @@ class RecruitmentInterview extends Model
     protected function casts(): array
     {
         return [
+            'booked_at' => 'datetime',
             'scheduled_at' => 'datetime',
             'reminder_h1_sent_at' => 'datetime',
             'reminder_h2_sent_at' => 'datetime',

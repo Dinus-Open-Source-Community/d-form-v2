@@ -22,16 +22,6 @@ class RecruitmentInterviewSessionPolicy
         return $this->viewAny($user);
     }
 
-    public function viewQueue(User $user, RecruitmentInterviewSession $session): bool
-    {
-        return $this->isSuperAdmin($user) || $user->can('recruitment.queue.view');
-    }
-
-    public function manageQueue(User $user, RecruitmentInterviewSession $session): bool
-    {
-        return $this->isSuperAdmin($user) || $user->can('recruitment.queue.manage');
-    }
-
     public function scanAttendance(User $user, ?RecruitmentInterviewSession $session = null): bool
     {
         return $this->isSuperAdmin($user) || $user->can('recruitment.attendance.scan');

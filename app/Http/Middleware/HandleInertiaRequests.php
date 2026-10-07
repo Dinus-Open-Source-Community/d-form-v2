@@ -74,8 +74,6 @@ class HandleInertiaRequests extends Middleware
                     'can_screen_recruitment_applications' => $user->can('recruitment.screening.decide'),
                     'can_review_recruitment_corrections' => $user->can('recruitment.corrections.review'),
                     'can_schedule_recruitment_interviews' => $user->can('recruitment.interviews.schedule'),
-                    'can_view_recruitment_queue' => $user->can('recruitment.queue.view'),
-                    'can_manage_recruitment_queue' => $user->can('recruitment.queue.manage'),
                     'can_scan_recruitment_attendance' => $user->can('recruitment.attendance.scan'),
                     'can_evaluate_recruitment_interviews' => $user->can('recruitment.evaluations.submit'),
                     'can_view_my_recruitment_interviews' => $user->can('recruitment.evaluations.view'),

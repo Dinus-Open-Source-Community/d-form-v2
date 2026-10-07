@@ -18,7 +18,6 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
 use App\Support\RecruitmentQrPayload;
 use App\Support\RegistrationQrPayload;
 use Database\Seeders\RecruitmentDivisionSeeder;
@@ -93,13 +92,7 @@ class GlobalScanTest extends TestCase
             'recruitment_division_id' => $programming->id,
         ]);
 
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $staff,
-            $session,
-            [$application->id],
-        );
-
-        return [$staff, $application->fresh()];
+        return [$staff, $application->fresh(), $session];
     }
 
     /**
@@ -173,15 +166,16 @@ class GlobalScanTest extends TestCase
         ])->assertUnprocessable();
     }
 
-    public function test_staff_recruitment_qr_returns_200_with_queue_number(): void
+    public function test_staff_recruitment_qr_returns_200_with_waiting_status(): void
     {
-        [$staff, $application] = $this->scheduledRecruitmentApplication('R1');
+        [$staff, $application, $session] = $this->scheduledRecruitmentApplication('R1');
 
         $this->actingAs($staff)->postJson(route('dashboard.scan.store'), [
             'raw' => RecruitmentQrPayload::encode($application->id),
+            'recruitment_session_id' => $session->id,
         ])->assertOk()
             ->assertJsonPath('type', 'recruitment')
-            ->assertJsonPath('attendee.queue_number', 1);
+            ->assertJsonPath('attendee.interview_status', 'waiting');
 
         $this->assertDatabaseHas('recruitment_attendances', [
             'recruitment_application_id' => $application->id,
@@ -190,14 +184,17 @@ class GlobalScanTest extends TestCase
 
     public function test_staff_recruitment_duplicate_returns_409(): void
     {
-        [$staff, $application] = $this->scheduledRecruitmentApplication('R2');
-        $payload = ['raw' => RecruitmentQrPayload::encode($application->id)];
+        [$staff, $application, $session] = $this->scheduledRecruitmentApplication('R2');
+        $payload = [
+            'raw' => RecruitmentQrPayload::encode($application->id),
+            'recruitment_session_id' => $session->id,
+        ];
 
         $this->actingAs($staff)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
 
         $this->actingAs($staff)->postJson(route('dashboard.scan.store'), $payload)
             ->assertStatus(409)
-            ->assertJsonPath('attendee.queue_number', 1);
+            ->assertJsonPath('attendee.interview_status', 'waiting');
     }
 
     public function test_scan_store_is_rate_limited_per_user(): void

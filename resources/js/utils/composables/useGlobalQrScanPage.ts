@@ -481,9 +481,15 @@ export function useGlobalQrScanPage(
         const rawDisplay = extractQrCandidate(trimmed)
 
         try {
+            const selected = selectedTargetOption.value
+            const payload: Record<string, string> = { raw: trimmed, desk: deskId }
+            if (selected?.kind === 'oprec') {
+                payload.recruitment_session_id = selected.id
+            }
+
             const { data } = await axios.post<GlobalScanEnvelope>(
                 storeUrl,
-                { raw: trimmed, desk: deskId },
+                payload,
                 { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
             )
 
@@ -494,7 +500,7 @@ export function useGlobalQrScanPage(
 
             if (kind === 'oprec') {
                 const identifier = data.attendee.registration_number?.trim() || '-'
-                const queueNumber = data.attendee.queue_number ?? null
+                const queueNumber = null
                 result = {
                     name: data.attendee.name?.trim() || 'Tanpa nama',
                     email: identifier,
@@ -505,8 +511,9 @@ export function useGlobalQrScanPage(
                     eventTitle: title,
                     queueNumber,
                 }
+                const statusLabel = data.attendee.interview_status_label ?? 'ruang tunggu'
                 toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
-                    description: `#${padQueueNumber(queueNumber)} — arahkan ke ruang tunggu`,
+                    description: `${statusLabel} — arahkan ke ruang tunggu`,
                 })
             }
             else {

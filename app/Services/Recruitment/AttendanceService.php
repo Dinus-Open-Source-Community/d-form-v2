@@ -3,11 +3,11 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\Recruitment\AttendanceMethod;
+use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Models\User;
 use App\Support\Database\UniqueConstraintViolation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -20,9 +20,9 @@ use InvalidArgumentException;
 final class AttendanceService
 {
     public function __construct(
-        private readonly QueueService $queueService,
         private readonly AttendanceCheckInResolver $resolver,
         private readonly RecruitmentActivityLogger $activityLogger,
+        private readonly InterviewLifecycleService $interviewLifecycle,
     ) {
     }
 
@@ -30,7 +30,7 @@ final class AttendanceService
      * @return array{
      *     duplicate: bool,
      *     attendance: RecruitmentAttendance,
-     *     queue: RecruitmentQueueEntry|null,
+     *     interview: \App\Models\Recruitment\RecruitmentInterview|null,
      *     application: RecruitmentApplication
      * }
      */
@@ -65,24 +65,17 @@ final class AttendanceService
                     throw $exception;
                 }
 
-                $application->loadMissing('queueEntry');
+                $application->loadMissing('interview');
 
                 return [
                     'duplicate' => true,
                     'attendance' => $existing,
-                    'queue' => $application->queueEntry,
+                    'interview' => $application->interview,
                     'application' => $application,
                 ];
             }
 
-            $queue = $this->queueService->createFromAttendance($attendance);
-
-            $application->loadMissing('interview');
-            $interview = $application->interview;
-
-            if ($interview !== null) {
-                $interview->update(['status' => InterviewStatus::Queued]);
-            }
+            $interview = $this->interviewLifecycle->syncOrCreateWaitingInterview($application, $session);
 
             if ($operator !== null) {
                 $this->activityLogger->log(
@@ -92,7 +85,7 @@ final class AttendanceService
                     [],
                     [
                         'method' => $method->value,
-                        'queue_number' => $queue->queue_number,
+                        'session_id' => $session->id,
                     ],
                     'recruitment_attendance',
                     $attendance->id,
@@ -105,7 +98,7 @@ final class AttendanceService
                     [],
                     [
                         'method' => $method->value,
-                        'queue_number' => $queue->queue_number,
+                        'session_id' => $session->id,
                     ],
                     'recruitment_attendance',
                     $attendance->id,
@@ -116,8 +109,8 @@ final class AttendanceService
             return [
                 'duplicate' => false,
                 'attendance' => $attendance,
-                'queue' => $queue,
-                'application' => $application->fresh(['queueEntry']),
+                'interview' => $interview,
+                'application' => $application->fresh(['interview']),
             ];
         });
     }
@@ -126,7 +119,7 @@ final class AttendanceService
      * @return array{
      *     duplicate: bool,
      *     attendance: RecruitmentAttendance,
-     *     queue: RecruitmentQueueEntry|null,
+     *     interview: \App\Models\Recruitment\RecruitmentInterview|null,
      *     application: RecruitmentApplication
      * }
      */
@@ -160,50 +153,6 @@ final class AttendanceService
         return $this->checkIn($session, $application, $method, $operator, $request);
     }
 
-    public function markNoShow(RecruitmentApplication $application, User $staff, ?Request $request = null): void
-    {
-        $application->loadMissing(['interview', 'attendance']);
-
-        $interview = $application->interview;
-
-        if ($interview === null) {
-            throw ValidationException::withMessages([
-                'interview' => ['Applicant has no scheduled interview.'],
-            ]);
-        }
-
-        if ($application->attendance !== null) {
-            throw ValidationException::withMessages([
-                'attendance' => ['Applicant has already checked in.'],
-            ]);
-        }
-
-        if ($interview->status === InterviewStatus::NoShow) {
-            return;
-        }
-
-        if (! in_array($interview->status, [InterviewStatus::Scheduled, InterviewStatus::Cancelled], true)) {
-            throw ValidationException::withMessages([
-                'status' => ['Interview cannot be marked as no-show from current status.'],
-            ]);
-        }
-
-        $oldStatus = $interview->status->value;
-
-        $interview->update(['status' => InterviewStatus::NoShow]);
-
-        $this->activityLogger->log(
-            'interview.no_show',
-            $staff,
-            $application,
-            ['status' => $oldStatus],
-            ['status' => InterviewStatus::NoShow->value],
-            'recruitment_interview',
-            $interview->id,
-            $request,
-        );
-    }
-
     private function assertEligibleForCheckIn(
         RecruitmentInterviewSession $session,
         RecruitmentApplication $application,
@@ -214,26 +163,40 @@ final class AttendanceService
             ]);
         }
 
+        if ($application->stage !== ApplicationStage::Interview) {
+            throw ValidationException::withMessages([
+                'application' => ['Applicant is not in the interview stage.'],
+            ]);
+        }
+
+        if ($application->recruitment_period_id !== $session->recruitment_period_id) {
+            throw ValidationException::withMessages([
+                'application' => ['Applicant is not in the same recruitment period as this session.'],
+            ]);
+        }
+
+        if ($application->primary_division_id !== $session->recruitment_division_id) {
+            throw ValidationException::withMessages([
+                'application' => ['Applicant primary division does not match this interview session.'],
+            ]);
+        }
+
         $application->loadMissing('interview');
 
         $interview = $application->interview;
 
-        if ($interview === null) {
-            throw ValidationException::withMessages([
-                'application' => ['Applicant has no scheduled interview.'],
-            ]);
-        }
+        if ($interview !== null) {
+            if ($interview->status === InterviewStatus::Completed) {
+                throw ValidationException::withMessages([
+                    'status' => ['Interview already completed for this applicant.'],
+                ]);
+            }
 
-        if ($interview->recruitment_interview_session_id !== $session->id) {
-            throw ValidationException::withMessages([
-                'application' => ['Applicant is not scheduled for this interview session.'],
-            ]);
-        }
-
-        if (! in_array($interview->status, [InterviewStatus::Scheduled, InterviewStatus::CheckedIn, InterviewStatus::Queued], true)) {
-            throw ValidationException::withMessages([
-                'status' => ['Interview is not eligible for check-in.'],
-            ]);
+            if ($interview->status === InterviewStatus::InProgress) {
+                throw ValidationException::withMessages([
+                    'status' => ['Applicant is currently in an interview.'],
+                ]);
+            }
         }
     }
 
@@ -242,13 +205,14 @@ final class AttendanceService
      */
     public function applicantPayload(RecruitmentApplication $application): array
     {
-        $application->loadMissing('queueEntry');
+        $application->loadMissing('interview');
 
         return [
             'name' => $application->full_name,
             'registration_number' => $application->registration_number,
             'application_id' => $application->id,
-            'queue_number' => $application->queueEntry?->queue_number,
+            'interview_status' => $application->interview?->status->value,
+            'interview_status_label' => $application->interview?->status?->label(),
         ];
     }
 }

@@ -106,8 +106,6 @@ const page = usePage()
 const user = useAuth(page.props)
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
 const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true)
-const canViewQueue = computed(() => user.value?.can_view_recruitment_queue === true)
-
 const actionQueues = computed(() => props.summary.action_queues ?? [])
 const todaySessions = computed(() => props.summary.today_sessions ?? [])
 
@@ -437,19 +435,13 @@ onMounted(() => {
                             </p>
                             <p class="text-muted-foreground text-sm">
                                 {{ session.location }} · {{ session.room }}
-                                · {{ session.interviews_count }} terjadwal
+                                · {{ session.interviews_count }} sudah absen
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <Button as-child variant="outline" size="sm">
                                 <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">
-                                    Kelola sesi
-                                </Link>
-                            </Button>
-                            <Button v-if="canViewQueue" as-child size="sm">
-                                <Link :href="routes.admin.recruitment.queue.show(session.id)">
-                                    <ListOrdered class="mr-2 size-4" />
-                                    Antrean
+                                    Detail sesi
                                 </Link>
                             </Button>
                         </div>

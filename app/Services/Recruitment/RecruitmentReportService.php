@@ -154,11 +154,10 @@ final class RecruitmentReportService
             ->whereIn('recruitment_application_id', $applicationIds);
 
         return [
-            'scheduled' => (clone $interviews)->where('status', InterviewStatus::Scheduled)->count(),
-            'called' => (clone $interviews)->where('status', InterviewStatus::Called)->count(),
+            'waiting' => (clone $interviews)->where('status', InterviewStatus::Waiting)->count(),
+            'in_progress' => (clone $interviews)->where('status', InterviewStatus::InProgress)->count(),
             'completed' => (clone $interviews)->where('status', InterviewStatus::Completed)->count(),
             'cancelled' => (clone $interviews)->where('status', InterviewStatus::Cancelled)->count(),
-            'no_show' => (clone $interviews)->where('status', InterviewStatus::NoShow)->count(),
             'total' => (clone $interviews)->count(),
         ];
     }
@@ -194,11 +193,10 @@ final class RecruitmentReportService
     private function emptyInterviewStats(): array
     {
         return [
-            'scheduled' => 0,
-            'called' => 0,
+            'waiting' => 0,
+            'in_progress' => 0,
             'completed' => 0,
             'cancelled' => 0,
-            'no_show' => 0,
             'total' => 0,
         ];
     }

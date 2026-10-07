@@ -17,7 +17,7 @@ final class InterviewerApplicationPresenter
             'document',
             'interview.session.division',
             'interview.interviewer:id,name',
-            'queueEntry',
+            'attendance',
             'evaluation.evaluator:id,name',
             'finalDecision.finalDivision',
         ]);
@@ -100,16 +100,19 @@ final class InterviewerApplicationPresenter
                 'room' => $application->interview->room,
                 'status' => $application->interview->status->value,
                 'status_label' => $application->interview->status->label(),
+                'booked_at' => $application->interview->booked_at?->toIso8601String(),
+                'interviewer' => $application->interview->interviewer ? [
+                    'id' => $application->interview->interviewer->id,
+                    'name' => $application->interview->interviewer->name,
+                ] : null,
                 'session' => $application->interview->session ? [
                     'id' => $application->interview->session->id,
                     'session_date' => $application->interview->session->session_date?->toDateString(),
                     'division' => $application->interview->session->division?->name,
                 ] : null,
             ] : null,
-            'queue' => $application->queueEntry ? [
-                'queue_number' => $application->queueEntry->queue_number,
-                'status' => $application->queueEntry->status->value,
-                'status_label' => $application->queueEntry->status->label(),
+            'attendance' => $application->attendance ? [
+                'checked_in_at' => $application->attendance->checked_in_at?->toIso8601String(),
             ] : null,
             'evaluation' => $evaluation ? [
                 'speaking_score' => $evaluation->speaking_score,

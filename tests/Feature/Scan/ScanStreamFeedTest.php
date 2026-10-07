@@ -19,7 +19,7 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
+use App\Services\Recruitment\AttendanceService;
 use App\Services\Scan\ScanStreamFeed;
 use App\Support\RecruitmentQrPayload;
 use Database\Seeders\RecruitmentDivisionSeeder;
@@ -103,17 +103,12 @@ class ScanStreamFeedTest extends TestCase
             'recruitment_division_id' => $programming->id,
         ]);
 
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $staff,
+        app(AttendanceService::class)->checkIn(
             $session,
-            [$application->id],
+            $application,
+            AttendanceMethod::Qr,
+            $staff,
         );
-
-        $this->actingAs($staff)
-            ->postJson(route('dashboard.scan.store'), [
-                'raw' => RecruitmentQrPayload::encode($application->id),
-            ])
-            ->assertOk();
 
         $feed = app(\App\Services\Scan\ScanStreamFeed::class);
 
@@ -129,8 +124,11 @@ class ScanStreamFeedTest extends TestCase
         sort($ascending);
         $this->assertSame($ascending, $sorted);
 
-        $this->assertSame($application->registration_number, $rows[1]['identifier']);
-        $this->assertSame(1, $rows[1]['queueNumber']);
+        $recRow = collect($rows)->firstWhere('type', 'recruitment');
+        $this->assertNotNull($recRow);
+        $this->assertSame($application->registration_number, $recRow['identifier']);
+        $this->assertNull($recRow['queueNumber']);
+        $this->assertSame('waiting', $recRow['interviewStatus']);
     }
 
     public function test_since_merges_interleaved_sources_without_gaps(): void

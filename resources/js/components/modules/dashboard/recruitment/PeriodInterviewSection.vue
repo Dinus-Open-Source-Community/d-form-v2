@@ -158,7 +158,7 @@ function goToPage(pageNumber: number): void {
                                         <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail</Link>
                                     </Button>
                                     <Button as-child size="sm" variant="ghost">
-                                        <Link :href="routes.admin.recruitment.queue.show(session.id)">Antrean</Link>
+                                        <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail</Link>
                                     </Button>
                                 </td>
                             </tr>

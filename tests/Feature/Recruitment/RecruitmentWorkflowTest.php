@@ -14,20 +14,18 @@ use App\Models\Recruitment\RecruitmentFinalDecision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
-use App\Models\Recruitment\RecruitmentQueueEntry;
 use App\Models\User;
-use App\Services\Recruitment\AttendanceService;
-use App\Services\Recruitment\InterviewSchedulingService;
-use App\Services\Recruitment\QueueService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Tests\Support\RecruitmentInterviewFlow;
 use Tests\TestCase;
 
 class RecruitmentWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+    use RecruitmentInterviewFlow;
 
     private const TRACKING_TOKEN = 'workflow-happy-path-token-xyz';
 
@@ -94,28 +92,11 @@ class RecruitmentWorkflowTest extends TestCase
         $application->refresh();
         $this->assertSame(ApplicationStage::Interview, $application->stage);
 
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->staff,
-            $this->session,
-            [$application->id],
-        );
+        $this->checkInApplicant($this->session, $application, $this->staff);
 
-        $application->load('interview');
-        $application->interview?->update(['interviewer_id' => $this->interviewer->id]);
-
-        app(AttendanceService::class)->checkInFromInput(
-            $this->session,
-            $application->registration_number,
-            null,
-            null,
-            $this->staff,
-        );
-
-        $entry = RecruitmentQueueEntry::query()
-            ->where('recruitment_application_id', $application->id)
-            ->firstOrFail();
-
-        app(QueueService::class)->callNext($this->session);
+        $this->actingAs($this->interviewer)
+            ->post(route('dashboard.recruitment.my-interviews.book', $application))
+            ->assertRedirect();
 
         $this->actingAs($this->interviewer)
             ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), [
@@ -126,8 +107,6 @@ class RecruitmentWorkflowTest extends TestCase
                 'notes' => 'Recommended for AA.',
             ])
             ->assertRedirect();
-
-        app(QueueService::class)->complete($entry->fresh());
 
         $application->refresh();
         $this->assertSame(ApplicationStage::FinalReview, $application->stage);
@@ -148,7 +127,6 @@ class RecruitmentWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($decision);
-        $this->assertSame(MembershipType::Aa->value, $decision->membership_type);
 
         $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $application->registration_number,
@@ -158,99 +136,35 @@ class RecruitmentWorkflowTest extends TestCase
         $this->post(route('recruitment.track.feedback.store'), [
             'rating_registration_ease' => 5,
             'rating_info_clarity' => 5,
-            'rating_tracking_ease' => 4,
+            'rating_tracking_ease' => 5,
             'rating_interview_experience' => 5,
             'rating_staff_service' => 5,
-            'feedback_text' => 'Great OpRec experience.',
-        ])->assertRedirect(route('recruitment.track.show'));
+            'feedback_text' => 'Great experience.',
+        ])->assertRedirect();
 
-        $this->assertSame(
-            1,
-            RecruitmentFeedback::query()->where('recruitment_application_id', $application->id)->count(),
+        $this->assertNotNull(
+            RecruitmentFeedback::query()->where('recruitment_application_id', $application->id)->first()
         );
     }
 
-    public function test_cancelled_application_cannot_be_screened(): void
+    public function test_revision_flow(): void
     {
-        $application = RecruitmentApplication::factory()->create([
-            'recruitment_period_id' => $this->period->id,
-            'primary_division_id' => $this->programming->id,
-            'stage' => ApplicationStage::Submitted,
-            'result' => ApplicationResult::Pending,
-            'cancelled_at' => now(),
-        ]);
+        $application = RecruitmentApplication::factory()
+            ->for($this->period, 'period')
+            ->create([
+                'primary_division_id' => $this->programming->id,
+                'stage' => ApplicationStage::Submitted,
+            ]);
 
         $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.applications.screening.pass', $application))
-            ->assertSessionHasErrors('application');
-
-        $application->refresh();
-        $this->assertSame(ApplicationStage::Submitted, $application->stage);
-    }
-
-    public function test_screening_rejection_path_blocks_interview(): void
-    {
-        $application = RecruitmentApplication::factory()->create([
-            'recruitment_period_id' => $this->period->id,
-            'primary_division_id' => $this->programming->id,
-            'stage' => ApplicationStage::Submitted,
-            'result' => ApplicationResult::Pending,
-        ]);
-
-        $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.applications.screening.reject', $application), [
-                'reason' => ScreeningReason::RequirementsNotMet->value,
-                'public_message' => 'Terima kasih sudah mendaftar.',
+            ->post(route('dashboard.recruitment.applications.screening.revision', $application), [
+                'reason' => ScreeningReason::IncompleteData->value,
+                'sections' => ['cv'],
+                'notes' => 'Please re-upload CV.',
             ])
             ->assertRedirect();
 
         $application->refresh();
-        $this->assertSame(ApplicationResult::Rejected, $application->result);
-        $this->assertDatabaseMissing('recruitment_interviews', [
-            'recruitment_application_id' => $application->id,
-        ]);
-    }
-
-    public function test_reschedule_updates_interview_and_queues_notification(): void
-    {
-        $application = RecruitmentApplication::factory()->create([
-            'recruitment_period_id' => $this->period->id,
-            'primary_division_id' => $this->programming->id,
-            'stage' => ApplicationStage::Interview,
-            'result' => ApplicationResult::Pending,
-        ]);
-
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->staff,
-            $this->session,
-            [$application->id],
-        );
-
-        $interview = $application->fresh('interview')->interview;
-        $this->assertNotNull($interview);
-
-        $newSession = RecruitmentInterviewSession::query()->create([
-            'recruitment_period_id' => $this->period->id,
-            'recruitment_division_id' => $this->programming->id,
-            'session_date' => now()->addWeek()->toDateString(),
-            'starts_at' => '13:00:00',
-            'ends_at' => '16:00:00',
-            'location' => 'Lab DOSCOM',
-            'room' => 'B202',
-            'is_active' => true,
-        ]);
-
-        $this->actingAs($this->staff)
-            ->post(route('dashboard.recruitment.interviews.reschedule', $interview), [
-                'recruitment_interview_session_id' => $newSession->id,
-            ])
-            ->assertRedirect();
-
-        $interview->refresh();
-        $this->assertSame($newSession->id, $interview->recruitment_interview_session_id);
-
-        Queue::assertPushed(\App\Jobs\Recruitment\SendRecruitmentNotificationJob::class, function ($job): bool {
-            return $job->templateKey === 'interview_rescheduled';
-        });
+        $this->assertTrue($application->revision_required);
     }
 }

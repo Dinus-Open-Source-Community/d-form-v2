@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { Head, useForm, usePage } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import SessionQueueDrawer from '@/components/modules/dashboard/recruitment/SessionQueueDrawer.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -61,10 +60,11 @@ interface DetailPayload {
         scheduled_at: string
         location: string
         room: string
+        status: string
         status_label: string
         session: { id: string; session_date: string; division: string | null } | null
     } | null
-    queue: { queue_number: number; status_label: string } | null
+    attendance: { checked_in_at: string } | null
     evaluation: {
         speaking_score?: number
         technical_score?: number
@@ -77,26 +77,16 @@ interface DetailPayload {
     }
 }
 
-interface QueuePermission {
-    can_view_recruitment_queue?: boolean
-}
-
 const props = defineProps<{
     detail: DetailPayload
     evaluateUrl: string
+    releaseUrl: string
     recommendationOptions: { value: string; label: string }[]
     flashMessage: string | null
 }>()
 
 const page = usePage()
 const authUser = useAuth(page.props)
-
-const canViewQueue = computed<boolean>((): boolean => {
-    const candidate: QueuePermission | null = authUser.value
-    return candidate?.can_view_recruitment_queue === true
-})
-
-const queueDrawerOpen = ref<boolean>(false)
 
 const canEdit = computed(() => props.detail.evaluation.can_edit !== false)
 
@@ -242,10 +232,11 @@ const interviewSchedule = computed(() => {
     })
 })
 
-const queuePollUrl = computed<string>((): string => {
-    const sessionId: string | null = props.detail.interview?.session?.id ?? null
-    return sessionId !== null ? routes.admin.recruitment.queue.poll(sessionId) : ''
-})
+const releaseForm = useForm({})
+
+function submitRelease(): void {
+    releaseForm.post(props.releaseUrl, { preserveScroll: true })
+}
 
 function isFilled(value: string | null | undefined): value is string {
     return typeof value === 'string' && value.trim() !== ''
@@ -392,27 +383,24 @@ function submit(): void {
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="p-6">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-semibold">Sesi interview &amp; antrean</h2>
+                            <h2 class="text-sm font-semibold">Sesi interview</h2>
                             <Button
-                                v-if="detail.interview?.session && canViewQueue"
+                                v-if="detail.interview?.status === 'in_progress' && canEdit"
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 class="shrink-0"
-                                @click="queueDrawerOpen = true"
+                                :disabled="releaseForm.processing"
+                                @click="submitRelease"
                             >
-                                <ListOrdered class="mr-2 size-4" aria-hidden="true" />
-                                Antrean sesi
+                                Batalkan booking
                             </Button>
                         </div>
 
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                            <div class="sm:col-span-2">
-                                <p class="text-muted-foreground text-xs uppercase">Jadwal</p>
-                                <p v-if="interviewSchedule" class="mt-0.5 font-medium">
-                                    {{ interviewSchedule }}
-                                </p>
-                                <p v-else class="mt-0.5 text-muted-foreground">Jadwal belum ditetapkan</p>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Status</p>
+                                <p class="mt-0.5 font-medium">{{ detail.interview?.status_label ?? '—' }}</p>
                             </div>
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Lokasi</p>
@@ -421,15 +409,9 @@ function submit(): void {
                                 </p>
                                 <p v-else class="mt-0.5 text-muted-foreground">—</p>
                             </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Antrean</p>
-                                <p v-if="detail.queue" class="mt-0.5 font-medium">
-                                    <span class="font-mono tabular-nums">
-                                        #{{ String(detail.queue.queue_number).padStart(2, '0') }}
-                                    </span>
-                                    <span class="text-muted-foreground"> · {{ detail.queue.status_label }}</span>
-                                </p>
-                                <p v-else class="mt-0.5 text-muted-foreground">—</p>
+                            <div v-if="detail.attendance?.checked_in_at" class="sm:col-span-2">
+                                <p class="text-muted-foreground text-xs uppercase">Absen</p>
+                                <p class="mt-0.5 font-medium">{{ detail.attendance.checked_in_at }}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -1117,19 +1099,5 @@ function submit(): void {
             </Card>
         </div>
 
-        <Sheet v-model:open="queueDrawerOpen">
-            <SheetContent
-                side="right"
-                overlay-class="bg-black/60 backdrop-blur-sm"
-                class="inset-y-0 right-0 h-full w-full gap-0 p-0 sm:inset-y-3 sm:right-3 sm:h-[calc(100%-1.5rem)] sm:w-[27rem] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-2xl sm:border sm:shadow-xl"
-            >
-                <SessionQueueDrawer
-                    v-if="queuePollUrl !== ''"
-                    :poll-url="queuePollUrl"
-                    :session-date="detail.interview?.session?.session_date ?? null"
-                    :division="detail.interview?.session?.division ?? null"
-                />
-            </SheetContent>
-        </Sheet>
     </div>
 </template>

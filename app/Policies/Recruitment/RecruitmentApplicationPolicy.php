@@ -2,8 +2,10 @@
 
 namespace App\Policies\Recruitment;
 
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
+use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\User;
 
 class RecruitmentApplicationPolicy
@@ -45,6 +47,48 @@ class RecruitmentApplicationPolicy
 
         return $this->isAssignedInterviewer($user, $application)
             && $user->can('recruitment.evaluations.view');
+    }
+
+    public function bookInterview(User $user, RecruitmentApplication $application): bool
+    {
+        if (! $user->can('recruitment.evaluations.submit')) {
+            return false;
+        }
+
+        $application->loadMissing('interview', 'evaluation', 'attendance');
+
+        if ($application->attendance === null || $application->evaluation !== null) {
+            return false;
+        }
+
+        $interview = $application->interview;
+
+        if ($interview === null
+            || $interview->status !== InterviewStatus::Waiting
+            || $interview->interviewer_id !== null) {
+            return false;
+        }
+
+        return $this->interviewerAssignedToApplicationDivision($user, $application);
+    }
+
+    public function releaseInterview(User $user, RecruitmentApplication $application): bool
+    {
+        if (! $user->can('recruitment.evaluations.submit')) {
+            return false;
+        }
+
+        $application->loadMissing('interview', 'evaluation');
+
+        if ($application->evaluation !== null) {
+            return false;
+        }
+
+        $interview = $application->interview;
+
+        return $interview !== null
+            && $interview->status === InterviewStatus::InProgress
+            && $interview->interviewer_id === $user->id;
     }
 
     public function evaluate(User $user, RecruitmentApplication $application): bool
@@ -124,6 +168,18 @@ class RecruitmentApplicationPolicy
         return RecruitmentInterview::query()
             ->where('recruitment_application_id', $application->id)
             ->where('interviewer_id', $user->id)
+            ->exists();
+    }
+
+    private function interviewerAssignedToApplicationDivision(User $user, RecruitmentApplication $application): bool
+    {
+        $application->loadMissing('interview.session');
+        $divisionId = $application->interview?->session?->recruitment_division_id
+            ?? $application->primary_division_id;
+
+        return RecruitmentInterviewerDivision::query()
+            ->where('user_id', $user->id)
+            ->where('recruitment_division_id', $divisionId)
             ->exists();
     }
 

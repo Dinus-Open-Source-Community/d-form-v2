@@ -28,7 +28,6 @@ final class TrackingPresenter
             'primaryDivision',
             'secondaryDivision',
             'interview',
-            'queueEntry',
             'attendance',
             'finalDecision.finalDivision',
             'correctionRequests',
@@ -71,7 +70,6 @@ final class TrackingPresenter
             'interview' => $interview,
             'attendance' => $this->presentAttendance($application),
             'attendance_qr_base64' => $attendanceQr,
-            'queue' => $this->presentQueue($application),
             'final' => $this->presentFinal($application),
             'edit' => $edit,
             'feedback' => $feedback,
@@ -148,23 +146,15 @@ final class TrackingPresenter
         }
 
         if ($application->stage === ApplicationStage::Interview) {
-            $queue = $application->queueEntry;
+            $liveInterview = $application->interview;
+            $status = $liveInterview?->status;
 
-            if ($queue !== null && in_array($queue->status->value, ['called', 'in_progress'], true)) {
+            if ($status === InterviewStatus::InProgress) {
                 return [
                     'tone' => 'warning',
-                    'title' => 'Giliran interview kamu',
-                    'description' => 'Silakan menuju ruang interview sesuai panggilan panitia.',
-                    'action' => 'queue',
-                ];
-            }
-
-            if ($queue !== null) {
-                return [
-                    'tone' => 'info',
-                    'title' => 'Nomor antrean #'.$queue->queue_number,
-                    'description' => 'Status: '.$queue->status->label().'. Tunggu panggilan panitia.',
-                    'action' => 'queue',
+                    'title' => 'Sedang interview',
+                    'description' => 'Ikuti sesi interview di ruangan yang ditentukan panitia.',
+                    'action' => 'interview',
                 ];
             }
 
@@ -172,7 +162,7 @@ final class TrackingPresenter
                 return [
                     'tone' => 'info',
                     'title' => 'Sudah check-in',
-                    'description' => 'Menunggu nomor antrean dari panitia.',
+                    'description' => 'Tunggu panggilan panitia, lalu menuju ruang interviewer yang tersedia.',
                     'action' => null,
                 ];
             }
@@ -186,28 +176,10 @@ final class TrackingPresenter
                 ];
             }
 
-            if ($interview !== null) {
-                $when = $interview['scheduled_at'] !== null
-                    ? \Illuminate\Support\Carbon::parse($interview['scheduled_at'])
-                        ->timezone(config('app.timezone'))
-                        ->locale('id')
-                        ->translatedFormat('l, j F Y · H:i')
-                    : null;
-
-                return [
-                    'tone' => 'info',
-                    'title' => 'Interview dijadwalkan',
-                    'description' => $when !== null
-                        ? $when.' · '.$interview['location'].' · Ruang '.$interview['room']
-                        : 'Cek detail jadwal di bagian interview.',
-                    'action' => 'interview',
-                ];
-            }
-
             return [
                 'tone' => 'info',
-                'title' => 'Menunggu jadwal interview',
-                'description' => 'Tim akan mengirim jadwal lewat email. Pantau halaman ini.',
+                'title' => 'Hari interview',
+                'description' => 'Datang ke lokasi sesu pengumuman periode, lalu lakukan absensi ke panitia.',
                 'action' => null,
             ];
         }
@@ -411,17 +383,7 @@ final class TrackingPresenter
             return null;
         }
 
-        $interview = $application->interview;
-
-        if ($interview === null) {
-            return null;
-        }
-
-        $status = $interview->status instanceof InterviewStatus
-            ? $interview->status
-            : InterviewStatus::tryFrom((string) $interview->status);
-
-        if ($status !== InterviewStatus::Scheduled) {
+        if ($application->stage !== ApplicationStage::Interview) {
             return null;
         }
 
@@ -430,28 +392,6 @@ final class TrackingPresenter
         } catch (\JsonException) {
             return null;
         }
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function presentQueue(RecruitmentApplication $application): ?array
-    {
-        $queue = $application->queueEntry;
-
-        if ($queue === null) {
-            return null;
-        }
-
-        return [
-            'queue_number' => $queue->queue_number,
-            'status' => $queue->status instanceof \App\Enums\Recruitment\QueueStatus
-                ? $queue->status->value
-                : (string) $queue->status,
-            'status_label' => $queue->status instanceof \App\Enums\Recruitment\QueueStatus
-                ? $queue->status->label()
-                : (string) $queue->status,
-        ];
     }
 
     /**

@@ -64,7 +64,7 @@ final class ScanStreamFeed
         }
         $recAttendances = $recQuery->limit($fetchLimit)->get();
         $applications = RecruitmentApplication::query()
-            ->with('queueEntry')
+            ->with('interview')
             ->whereIn('id', $recAttendances->pluck('recruitment_application_id')->unique()->values()->all())
             ->get()
             ->keyBy('id');
@@ -86,7 +86,8 @@ final class ScanStreamFeed
                 'eventTitle' => 'Oprec · '.($session?->division?->name ?? '').' · '.($session?->session_date ?? ''),
                 'name' => $application->full_name,
                 'identifier' => $application->registration_number,
-                'queueNumber' => $application->queueEntry?->queue_number,
+                'queueNumber' => null,
+                'interviewStatus' => $application->interview?->status->value,
             ];
         }
 

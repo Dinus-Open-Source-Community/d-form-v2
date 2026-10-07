@@ -89,11 +89,6 @@ class RecruitmentApplication extends Model
         return $this->hasOne(RecruitmentAttendance::class, 'recruitment_application_id');
     }
 
-    public function queueEntry(): HasOne
-    {
-        return $this->hasOne(RecruitmentQueueEntry::class, 'recruitment_application_id');
-    }
-
     public function evaluation(): HasOne
     {
         return $this->hasOne(RecruitmentEvaluation::class, 'recruitment_application_id');

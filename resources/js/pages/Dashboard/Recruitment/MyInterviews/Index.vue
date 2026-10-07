@@ -12,8 +12,9 @@ FIRST VIEWPORT: Panel sesi hari ini, satu panel filter (search + selects + count
 FORM: Approach A Filter Bar Command Center (spec 2026-09-18-my-interviews-redesign-design).
 -->
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import { Badge } from '@/components/ui/badge'
@@ -31,14 +32,13 @@ import {
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import useAuth from '@/utils/composables/useAuth'
 import {
     ChevronLeft,
     ChevronRight,
     ClipboardCheck,
-    ListOrdered,
     RotateCcw,
     Search,
+    UserPlus,
 } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
@@ -49,7 +49,6 @@ interface InterviewRow {
     status_label: string
     location: string
     room: string
-    queue_number: number | null
     needs_evaluation: boolean
     has_evaluation: boolean
     evaluation_locked: boolean
@@ -88,7 +87,7 @@ interface NextAction {
 }
 
 interface MyInterviewsQuery {
-    queue?: string
+    tab?: string
     q?: string
     division_id?: string
     session_id?: string
@@ -107,7 +106,7 @@ interface InterviewFilterParams {
     session_id?: string
     eval?: string
     sort?: string
-    queue?: string
+    tab?: string
     page?: number
 }
 
@@ -125,14 +124,18 @@ interface StatusBadge {
     variant: 'default' | 'secondary' | 'outline'
 }
 
-interface QueuePermission {
-    can_view_recruitment_queue?: boolean
+interface WaitingPoolEntry {
+    application_id: string
+    full_name: string
+    registration_number: string
+    nim: string | null
+    checked_in_at: string | null
+    session: { id: string; division: string | null } | null
 }
 
-const QUEUE_TABS: { key: string; label: string }[] = [
-    { key: '', label: 'Semua' },
-    { key: 'pending', label: 'Perlu dinilai' },
-    { key: 'today', label: 'Hari ini' },
+const TABS: { key: string; label: string }[] = [
+    { key: 'waiting', label: 'Ruang tunggu' },
+    { key: 'in_progress', label: 'Sedang interview' },
     { key: 'done', label: 'Selesai' },
 ]
 
@@ -146,11 +149,11 @@ const EVAL_OPTIONS: FilterOption[] = [
 const SORT_OPTIONS: FilterOption[] = [
     { value: '', label: 'Jadwal terdekat' },
     { value: 'pending_first', label: 'Belum dinilai dulu' },
-    { value: 'queue', label: 'No. antrean' },
     { value: 'name', label: 'Nama A–Z' },
 ]
 
 const SEARCH_DEBOUNCE_MS = 300
+const WAITING_POOL_POLL_MS = 5000
 const FALLBACK_PER_PAGE = 20
 
 const props = withDefaults(
@@ -165,7 +168,9 @@ const props = withDefaults(
             to?: number | null
         }
         query: MyInterviewsQuery
-        queue_counts: Record<string, number>
+        tab_counts: Record<string, number>
+        waiting_pool_poll_url?: string
+        has_active_booking?: boolean
         today_sessions: TodaySession[]
         next_action: NextAction | null
         division_options?: FilterOption[]
@@ -177,23 +182,19 @@ const props = withDefaults(
     },
 )
 
-const page = usePage()
-const authUser = useAuth(page.props)
-
-const canViewQueue = computed<boolean>((): boolean => {
-    const candidate: QueuePermission | null = authUser.value
-    return candidate?.can_view_recruitment_queue === true
-})
-
 const searchInput = ref<string>(props.query.q ?? '')
 const divisionId = ref<string>(props.query.division_id ?? '')
 const sessionId = ref<string>(props.query.session_id ?? '')
 const evalFilter = ref<string>(props.query.eval ?? '')
 const sortKey = ref<string>(props.query.sort ?? '')
-const queueTab = ref<string>(props.query.queue ?? '')
+const activeTab = ref<string>(props.query.tab ?? 'in_progress')
 const isNavigating = ref<boolean>(false)
+const waitingEntries = ref<WaitingPoolEntry[]>([])
+const poolHasActiveBooking = ref<boolean>(props.has_active_booking ?? false)
+const poolLoading = ref<boolean>(false)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let poolPollTimer: ReturnType<typeof setInterval> | null = null
 let skipFilterRun = false
 
 function clearSearchTimer(): void {
@@ -215,7 +216,7 @@ function refsMatchQuery(): boolean {
         sessionId.value === (current.session_id ?? '') &&
         evalFilter.value === (current.eval ?? '') &&
         sortKey.value === (current.sort ?? '') &&
-        queueTab.value === (current.queue ?? '')
+        activeTab.value === (current.tab ?? 'in_progress')
     )
 }
 
@@ -226,7 +227,7 @@ function baseParams(pageNumber: number): InterviewFilterParams {
         session_id: sessionId.value || undefined,
         eval: evalFilter.value || undefined,
         sort: sortKey.value || undefined,
-        queue: queueTab.value || undefined,
+        tab: activeTab.value || undefined,
         page: pageNumber > 1 ? pageNumber : undefined,
     }
 }
@@ -268,7 +269,7 @@ function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     applyFilters(1)
 }
 
-watch([searchInput, divisionId, sessionId, evalFilter, sortKey, queueTab], handleFilterChange)
+watch([searchInput, divisionId, sessionId, evalFilter, sortKey, activeTab], handleFilterChange)
 
 function syncRefsFromQuery(next: MyInterviewsQuery): void {
     clearSearchTimer()
@@ -277,19 +278,93 @@ function syncRefsFromQuery(next: MyInterviewsQuery): void {
     sessionId.value = next.session_id ?? ''
     evalFilter.value = next.eval ?? ''
     sortKey.value = next.sort ?? ''
-    queueTab.value = next.queue ?? ''
+    activeTab.value = next.tab ?? 'in_progress'
     skipFilterRun = true
     void nextTick(resetSkipFilterRun)
 }
 
 watch((): MyInterviewsQuery => props.query, syncRefsFromQuery)
 
+function stopPoolPolling(): void {
+    if (poolPollTimer !== null) {
+        clearInterval(poolPollTimer)
+        poolPollTimer = null
+    }
+}
+
+async function fetchWaitingPool(): Promise<void> {
+    const pollUrl: string | undefined = props.waiting_pool_poll_url
+    if (!pollUrl || activeTab.value !== 'waiting') return
+
+    if (waitingEntries.value.length === 0) {
+        poolLoading.value = true
+    }
+
+    try {
+        const { data } = await axios.get<{
+            entries: WaitingPoolEntry[]
+            has_active_booking: boolean
+        }>(pollUrl, {
+            params: {
+                session_id: sessionId.value || undefined,
+                q: searchInput.value.trim() || undefined,
+            },
+        })
+        waitingEntries.value = data.entries
+        poolHasActiveBooking.value = data.has_active_booking
+    } finally {
+        poolLoading.value = false
+    }
+}
+
+function startPoolPolling(): void {
+    stopPoolPolling()
+    if (activeTab.value !== 'waiting') return
+    void fetchWaitingPool()
+    poolPollTimer = setInterval((): void => {
+        void fetchWaitingPool()
+    }, WAITING_POOL_POLL_MS)
+}
+
+function bookApplicant(applicationId: string): void {
+    router.post(
+        routes.admin.recruitment.myInterviews.book(applicationId),
+        {},
+        { preserveScroll: true },
+    )
+}
+
+function formatCheckedIn(iso: string | null): string {
+    if (!iso) return 'Waktu check-in tidak tersedia'
+    const parsed: Date = new Date(iso)
+    if (Number.isNaN(parsed.getTime())) return 'Waktu check-in tidak tersedia'
+    return parsed.toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+}
+
+const isWaitingTab = computed<boolean>((): boolean => activeTab.value === 'waiting')
+
+watch(isWaitingTab, (waiting: boolean): void => {
+    if (waiting) startPoolPolling()
+    else stopPoolPolling()
+})
+
+watch([searchInput, sessionId], (): void => {
+    if (activeTab.value === 'waiting') void fetchWaitingPool()
+})
+
 onBeforeUnmount((): void => {
     clearSearchTimer()
+    stopPoolPolling()
 })
 
 onMounted((): void => {
     setTopbar({ title: 'Interview Saya', subtitle: 'Penugasan & penilaian Open Recruitment' })
+    if (activeTab.value === 'waiting') startPoolPolling()
 })
 
 const hasActiveFilters = computed<boolean>((): boolean => {
@@ -299,7 +374,7 @@ const hasActiveFilters = computed<boolean>((): boolean => {
         sessionId.value !== '' ||
         evalFilter.value !== '' ||
         sortKey.value !== '' ||
-        queueTab.value !== ''
+        activeTab.value !== ''
     )
 })
 
@@ -310,19 +385,19 @@ function resetFilters(): void {
     sessionId.value = ''
     evalFilter.value = ''
     sortKey.value = ''
-    queueTab.value = ''
+    activeTab.value = ''
 }
 
 function selectQueue(key: string): void {
-    queueTab.value = key
+    activeTab.value = key
 }
 
 function showUrl(applicationId: string): string {
     return routes.admin.recruitment.myInterviews.show(applicationId)
 }
 
-function queueUrl(sessionIdValue: string): string {
-    return routes.recruitment.queue.show(sessionIdValue)
+function sessionUrl(sessionIdValue: string): string {
+    return routes.admin.recruitment.interviewSessions.show(sessionIdValue)
 }
 
 function formatInt(value: number): string {
@@ -395,8 +470,7 @@ const evalOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] => E
 const sortOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] => SORT_OPTIONS)
 
 function queueBadgeCount(key: string): number | null {
-    if (key === '') return props.queue_counts.all ?? null
-    const count: number | undefined = props.queue_counts[key]
+    const count: number | undefined = props.tab_counts[key]
     return count !== undefined ? count : null
 }
 
@@ -505,20 +579,23 @@ function actionLabel(row: InterviewRow): string {
     return 'Detail'
 }
 
-function queueNumberLabel(value: number | null): string {
-    if (value === null) return ''
-    return `Antrean #${String(value).padStart(2, '0')}`
-}
+const emptyTitle = computed<string>((): string => {
+    if (isWaitingTab.value) {
+        return hasActiveFilters.value ? 'Tidak ada peserta di ruang tunggu' : 'Ruang tunggu kosong'
+    }
+    return hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada peserta regis ulang'
+})
 
-const emptyTitle = computed<string>((): string =>
-    hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada peserta regis ulang',
-)
-
-const emptyDescription = computed<string>((): string =>
-    hasActiveFilters.value
+const emptyDescription = computed<string>((): string => {
+    if (isWaitingTab.value) {
+        return hasActiveFilters.value
+            ? 'Coba ubah kata kunci atau sesi. Peserta muncul setelah check-in scan QR.'
+            : 'Peserta yang sudah check-in akan muncul di sini. Kamu bisa mem-booking satu orang untuk diinterview.'
+    }
+    return hasActiveFilters.value
         ? 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
-        : 'Daftar ini hanya memuat peserta yang sudah regis ulang (scan QR) di sesi interviewmu.',
-)
+        : 'Daftar ini hanya memuat peserta yang sudah regis ulang (scan QR) di sesi interviewmu.'
+})
 </script>
 
 <template>
@@ -551,11 +628,8 @@ const emptyDescription = computed<string>((): string =>
                                 {{ session.room }} · {{ formatInt(session.my_interviews_count) }} assignment kamu
                             </p>
                         </div>
-                        <Button v-if="canViewQueue" as-child variant="outline" size="sm" class="shrink-0">
-                            <Link :href="queueUrl(session.id)">
-                                <ListOrdered class="mr-2 size-4" aria-hidden="true" />
-                                Lihat antrean
-                            </Link>
+                        <Button as-child variant="outline" size="sm" class="shrink-0">
+                            <Link :href="sessionUrl(session.id)">Detail sesi</Link>
                         </Button>
                     </div>
                 </CardContent>
@@ -577,8 +651,12 @@ const emptyDescription = computed<string>((): string =>
                         class="pl-9"
                     />
                 </div>
-                <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                <div
+                    class="grid grid-cols-2 gap-2.5"
+                    :class="isWaitingTab ? 'lg:grid-cols-2' : 'lg:grid-cols-4'"
+                >
                     <SimpleSelect
+                        v-if="!isWaitingTab"
                         id="filter-divisi"
                         v-model="divisionId"
                         :options="divisionOptions"
@@ -591,12 +669,14 @@ const emptyDescription = computed<string>((): string =>
                         aria-label="Filter sesi"
                     />
                     <SimpleSelect
+                        v-if="!isWaitingTab"
                         id="filter-status"
                         v-model="evalFilter"
                         :options="evalOptions"
                         aria-label="Filter status penilaian"
                     />
                     <SimpleSelect
+                        v-if="!isWaitingTab"
                         id="filter-urut"
                         v-model="sortKey"
                         :options="sortOptions"
@@ -610,7 +690,11 @@ const emptyDescription = computed<string>((): string =>
                         Atur ulang
                     </Button>
                 </div>
-                <p class="text-xs text-muted-foreground">
+                <p v-if="isWaitingTab" class="text-xs text-muted-foreground">
+                    Daftar diperbarui otomatis. Selesaikan penilaian applicant yang sedang kamu booking sebelum
+                    mem-booking yang baru.
+                </p>
+                <p v-else class="text-xs text-muted-foreground">
                     Hanya peserta yang sudah regis ulang (scan QR) yang tampil di sini.
                 </p>
             </div>
@@ -618,13 +702,13 @@ const emptyDescription = computed<string>((): string =>
 
         <div class="flex flex-wrap gap-2" aria-label="Pintasan antrean">
             <button
-                v-for="tab in QUEUE_TABS"
+                v-for="tab in TABS"
                 :key="tab.key || 'all'"
                 type="button"
-                :aria-pressed="queueTab === tab.key"
+                :aria-pressed="activeTab === tab.key"
                 class="inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors"
                 :class="
-                    queueTab === tab.key
+                    activeTab === tab.key
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-background hover:bg-muted/50'
                 "
@@ -635,14 +719,60 @@ const emptyDescription = computed<string>((): string =>
                     v-if="queueBadgeCount(tab.key) !== null && queueBadgeCount(tab.key)! > 0"
                     variant="secondary"
                     class="tabular-nums"
-                    :class="queueTab === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : ''"
+                    :class="activeTab === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : ''"
                 >
                     {{ formatInt(queueBadgeCount(tab.key)!) }}
                 </Badge>
             </button>
         </div>
 
-        <div v-if="isNavigating" class="grid gap-3" aria-hidden="true">
+        <div
+            v-if="isWaitingTab && (poolLoading || isNavigating)"
+            class="grid gap-3"
+            aria-hidden="true"
+        >
+            <Card v-for="n in 3" :key="n" class="rounded-2xl border-border/70">
+                <CardContent class="flex animate-pulse items-start justify-between gap-4 p-5">
+                    <div class="min-w-0 flex-1 space-y-2">
+                        <div class="h-4 w-2/5 rounded bg-muted" />
+                        <div class="h-3 w-3/5 rounded bg-muted" />
+                    </div>
+                    <div class="h-8 w-24 shrink-0 rounded-lg bg-muted" />
+                </CardContent>
+            </Card>
+        </div>
+
+        <div v-else-if="isWaitingTab && waitingEntries.length > 0" class="grid gap-3">
+            <Card
+                v-for="entry in waitingEntries"
+                :key="entry.application_id"
+                class="rounded-2xl border-border/70"
+            >
+                <CardContent class="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold">{{ entry.full_name }}</p>
+                        <p class="mt-1 font-mono text-xs text-muted-foreground">
+                            {{ entry.registration_number }}
+                            <span v-if="entry.nim"> · {{ entry.nim }}</span>
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Check-in {{ formatCheckedIn(entry.checked_in_at) }}
+                            <span v-if="entry.session?.division"> · {{ entry.session.division }}</span>
+                        </p>
+                    </div>
+                    <Button
+                        size="sm"
+                        :disabled="poolHasActiveBooking"
+                        @click="bookApplicant(entry.application_id)"
+                    >
+                        <UserPlus class="mr-2 size-4" aria-hidden="true" />
+                        Booking
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div v-else-if="!isWaitingTab && isNavigating" class="grid gap-3" aria-hidden="true">
             <Card v-for="n in 3" :key="n" class="rounded-2xl border-border/70">
                 <CardContent class="flex animate-pulse items-start justify-between gap-4 p-5">
                     <div class="min-w-0 flex-1 space-y-2">
@@ -655,7 +785,7 @@ const emptyDescription = computed<string>((): string =>
             </Card>
         </div>
 
-        <template v-else-if="interviews.data.length > 0">
+        <template v-else-if="!isWaitingTab && interviews.data.length > 0">
             <section v-for="group in interviewGroups" :key="group.key" :aria-label="group.title">
                 <div class="mt-1 mb-2 flex items-center gap-2">
                     <h2 class="text-sm font-semibold">{{ group.title }}</h2>
@@ -695,14 +825,8 @@ const emptyDescription = computed<string>((): string =>
                                         {{ formatSchedule(row.scheduled_at) }}
                                         · {{ row.location }} · {{ row.room }}
                                     </p>
-                                    <p
-                                        v-if="row.queue_number !== null"
-                                        class="mt-0.5 text-xs text-muted-foreground"
-                                    >
-                                        {{ queueNumberLabel(row.queue_number) }}
-                                        <span v-if="row.session">
-                                            · {{ row.session.division ?? 'Interview' }}</span
-                                        >
+                                    <p v-if="row.session" class="mt-0.5 text-xs text-muted-foreground">
+                                        {{ row.session.division ?? 'Interview' }}
                                     </p>
                                 </div>
                                 <div class="relative flex shrink-0 flex-wrap gap-2">
@@ -712,13 +836,8 @@ const emptyDescription = computed<string>((): string =>
                                             {{ actionLabel(row) }}
                                         </Link>
                                     </Button>
-                                    <Button
-                                        v-if="row.session && canViewQueue"
-                                        as-child
-                                        size="sm"
-                                        variant="outline"
-                                    >
-                                        <Link :href="queueUrl(row.session.id)">Antrean</Link>
+                                    <Button v-if="row.session" as-child size="sm" variant="outline">
+                                        <Link :href="sessionUrl(row.session.id)">Sesi</Link>
                                     </Button>
                                 </div>
                             </div>
@@ -729,7 +848,7 @@ const emptyDescription = computed<string>((): string =>
         </template>
 
         <EmptyState
-            v-else
+            v-else-if="!isWaitingTab || waitingEntries.length === 0"
             :title="emptyTitle"
             :description="emptyDescription"
             animation-name="emptyData"
@@ -740,7 +859,7 @@ const emptyDescription = computed<string>((): string =>
             </Button>
         </EmptyState>
 
-        <div v-if="interviews.last_page > 1" class="flex flex-col items-center gap-3">
+        <div v-if="!isWaitingTab && interviews.last_page > 1" class="flex flex-col items-center gap-3">
             <Pagination
                 :page="interviews.current_page"
                 :total="interviews.total"
@@ -772,7 +891,10 @@ const emptyDescription = computed<string>((): string =>
             </Pagination>
             <p class="text-sm text-muted-foreground">{{ rangeLabel }}</p>
         </div>
-        <p v-else-if="interviews.data.length > 0" class="text-center text-sm text-muted-foreground">
+        <p
+            v-else-if="!isWaitingTab && interviews.data.length > 0"
+            class="text-center text-sm text-muted-foreground"
+        >
             {{ rangeLabel }}
         </p>
     </div>
