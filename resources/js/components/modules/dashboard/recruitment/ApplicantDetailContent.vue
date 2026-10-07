@@ -86,6 +86,9 @@ interface EvaluationDetail {
     is_locked: boolean
     evaluated_at: string | null
     evaluator: { id: string; name: string } | null
+    division?: string | null
+    save_count?: number
+    saves_remaining?: number
 }
 
 interface FinalDecisionDetail {
@@ -139,6 +142,10 @@ export interface ApplicationDetail {
     activity_logs: ActivityRow[]
     correction_requests: CorrectionRow[]
     evaluation: EvaluationDetail | null
+    evaluations: {
+        primary: EvaluationDetail | null
+        secondary: EvaluationDetail | null
+    }
     final_decision: FinalDecisionDetail | null
     can_screen: boolean
     can_verify: boolean
@@ -413,7 +420,7 @@ const confirmConsequence = computed(() => {
     return ''
 })
 
-function passApplication(payload: Record<string, unknown> = {}) {
+function passApplication(payload: Record<string, string | boolean> = {}) {
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
         payload,
@@ -1214,6 +1221,54 @@ const defaultTab = computed(() => {
                         </p>
                     </CardContent>
                 </Card>
+
+                <Card
+                    v-if="application.evaluations?.secondary"
+                    class="rounded-2xl border-border/70"
+                >
+                    <CardContent class="space-y-3 p-6">
+                        <p class="text-sm font-semibold">
+                            Evaluasi secondary
+                            <span
+                                v-if="application.evaluations.secondary.division"
+                                class="text-muted-foreground font-normal"
+                            >
+                                — {{ application.evaluations.secondary.division }}
+                            </span>
+                        </p>
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Speaking</p>
+                                <p class="font-medium">{{ application.evaluations.secondary.speaking_score }}/10</p>
+                            </div>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Technical</p>
+                                <p class="font-medium">{{ application.evaluations.secondary.technical_score }}/10</p>
+                            </div>
+                            <div>
+                                <p class="text-muted-foreground text-xs uppercase">Attitude</p>
+                                <p class="font-medium">{{ application.evaluations.secondary.attitude_score }}/10</p>
+                            </div>
+                        </div>
+                        <p class="text-sm">
+                            Rekomendasi:
+                            <span class="font-medium">{{ application.evaluations.secondary.recommendation_label }}</span>
+                        </p>
+                        <p v-if="application.evaluations.secondary.notes" class="text-muted-foreground text-sm">
+                            {{ application.evaluations.secondary.notes }}
+                        </p>
+                        <p class="text-muted-foreground text-xs">
+                            {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}
+                            · {{ application.evaluations.secondary.is_locked ? 'Terkunci' : 'Draft' }}
+                        </p>
+                    </CardContent>
+                </Card>
+                <p
+                    v-else-if="application.secondary_division && application.evaluations?.primary"
+                    class="text-muted-foreground text-xs"
+                >
+                    Belum diinterview secondary (opsional) — keputusan final memakai hasil primary.
+                </p>
 
                 <Card v-if="application.final_decision" class="rounded-2xl border-border/70">
                     <CardContent class="space-y-3 p-6">

@@ -11,7 +11,7 @@ FIRST VIEWPORT: Satu panel filter (search + selects + count),
 FORM: Approach A Filter Bar Command Center (spec 2026-09-18-my-interviews-redesign-design).
 -->
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
@@ -84,6 +84,17 @@ interface NextAction {
     session_id: string | null
 }
 
+interface SecondaryOpportunity {
+    application: {
+        id: string
+        full_name: string
+        registration_number: string
+        nim: string
+        secondary_division: string | null
+    }
+    sessions: { value: string; label: string }[]
+}
+
 interface MyInterviewsQuery {
     tab?: string
     q?: string
@@ -143,11 +154,13 @@ const props = withDefaults(
         pending_start_count?: number
         division_options?: FilterOption[]
         session_options?: FilterOption[]
+        secondary_opportunities?: SecondaryOpportunity[]
     }>(),
     {
         pending_start_count: 0,
         division_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
+        secondary_opportunities: (): SecondaryOpportunity[] => [],
     },
 )
 
@@ -265,7 +278,7 @@ function refreshTaskList(): void {
     if (searchTimer !== null) return
     if (isNavigating.value) return
     router.reload({
-        only: ['interviews', 'tab_counts', 'pending_start_count'],
+        only: ['interviews', 'tab_counts', 'pending_start_count', 'secondary_opportunities'],
         replace: true,
     })
 }
@@ -335,6 +348,48 @@ function showUrl(interviewId: string): string {
 
 function sessionUrl(sessionIdValue: string): string {
     return routes.admin.recruitment.interviewSessions.show(sessionIdValue)
+}
+
+const claimSession: Record<string, string> = reactive({})
+const claimingId = ref<string | null>(null)
+
+function claimOptions(opp: SecondaryOpportunity): FilterOption[] {
+    return [
+        { value: '', label: 'Pilih sesi…' },
+        ...opp.sessions.map(
+            (session): FilterOption => ({ value: session.value, label: session.label }),
+        ),
+    ]
+}
+
+function canClaim(opp: SecondaryOpportunity): boolean {
+    return (
+        opp.sessions.length > 0 &&
+        (claimSession[opp.application.id] ?? '') !== '' &&
+        claimingId.value === null
+    )
+}
+
+function isClaiming(opp: SecondaryOpportunity): boolean {
+    return claimingId.value === opp.application.id
+}
+
+function claimSecondary(opp: SecondaryOpportunity): void {
+    if (!canClaim(opp)) return
+    claimingId.value = opp.application.id
+    router.post(
+        routes.admin.recruitment.myInterviews.secondaryClaim,
+        {
+            application_id: opp.application.id,
+            session_id: claimSession[opp.application.id],
+        },
+        {
+            preserveScroll: true,
+            onFinish: (): void => {
+                claimingId.value = null
+            },
+        },
+    )
 }
 
 function formatInt(value: number): string {
@@ -697,15 +752,50 @@ const emptyDescription = computed<string>((): string => {
                 <section aria-label="Daftar secondary division">
                     <div class="mb-3 flex items-baseline justify-between gap-3">
                         <h2 class="text-sm font-semibold">Secondary Division</h2>
-                        <p class="text-xs text-muted-foreground">Segera hadir</p>
+                        <p class="text-xs text-muted-foreground">Pilihan divisi kedua · opsional</p>
                     </div>
-                    <Card class="rounded-2xl border-dashed border-border/70">
+                    <div v-if="props.secondary_opportunities.length > 0" class="grid gap-3">
+                        <Card
+                            v-for="opp in props.secondary_opportunities"
+                            :key="opp.application.id"
+                            class="rounded-2xl border-border/70"
+                        >
+                            <CardContent class="space-y-3 p-4 sm:p-5">
+                                <div>
+                                    <p class="text-sm font-semibold">{{ opp.application.full_name }}</p>
+                                    <p class="mt-1 font-mono text-xs text-muted-foreground">
+                                        {{ opp.application.registration_number }} · {{ opp.application.nim }} ·
+                                        {{ opp.application.secondary_division ?? '—' }}
+                                    </p>
+                                </div>
+                                <div v-if="opp.sessions.length > 0" class="flex flex-col gap-2">
+                                    <SimpleSelect
+                                        :id="`claim-sesi-${opp.application.id}`"
+                                        v-model="claimSession[opp.application.id]"
+                                        :options="claimOptions(opp)"
+                                        aria-label="Pilih sesi secondary"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        :disabled="!canClaim(opp)"
+                                        @click="claimSecondary(opp)"
+                                    >
+                                        {{ isClaiming(opp) ? 'Mengambil…' : 'Ambil' }}
+                                    </Button>
+                                </div>
+                                <p v-else class="text-xs text-muted-foreground">
+                                    Belum ada sesi aktif untuk divisi ini.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    <Card v-else class="rounded-2xl border-dashed border-border/70">
                         <CardContent
                             class="flex flex-col items-center gap-2 p-8 text-center sm:p-10"
                         >
-                            <h3 class="text-sm font-semibold">Secondary menyusul</h3>
+                            <h3 class="text-sm font-semibold">Belum ada peluang secondary</h3>
                             <p class="max-w-xs text-sm text-muted-foreground">
-                                Pilihan divisi kedua akan tampil di sini. Logic menyusul.
+                                Applicant yang primary-nya sudah dinilai akan tampil di sini.
                             </p>
                         </CardContent>
                     </Card>

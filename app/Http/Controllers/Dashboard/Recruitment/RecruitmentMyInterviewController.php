@@ -90,6 +90,7 @@ class RecruitmentMyInterviewController extends Controller
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
+            'secondary_opportunities' => $this->myInterviewService->secondaryOpportunitiesForInterviewer($user),
         ]);
     }
 

@@ -119,6 +119,7 @@ export const routes = {
                 book: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/book`,
                 release: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/release`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
+                secondaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/secondary-claim`,
             },
         },
         events: {

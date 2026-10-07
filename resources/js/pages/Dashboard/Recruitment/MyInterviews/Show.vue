@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { Head, useForm, usePage } from '@inertiajs/vue3'
+import { Head, useForm } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import useAuth from '@/utils/composables/useAuth'
 import {
     Check,
     CheckCircle2,
@@ -18,7 +16,6 @@ import {
     Download,
     ExternalLink,
     FileText,
-    ListOrdered,
     Minus,
     Plus,
     XCircle,
@@ -78,19 +75,17 @@ interface DetailPayload {
         notes?: string | null
         is_locked?: boolean
         can_edit?: boolean
+        save_count?: number
+        saves_remaining?: number
     }
 }
 
 const props = defineProps<{
     detail: DetailPayload
     evaluateUrl: string
-    releaseUrl: string
     recommendationOptions: { value: string; label: string }[]
     flashMessage: string | null
 }>()
-
-const page = usePage()
-const authUser = useAuth(page.props)
 
 const canEdit = computed(() => props.detail.evaluation.can_edit !== false)
 
@@ -173,6 +168,7 @@ type ScoreField = 'speaking_score' | 'technical_score' | 'attitude_score'
 const SCORE_MIN: number = 1
 const SCORE_MAX: number = 10
 const SCORE_DEFAULT: number = 5
+const NOTES_MIN_LENGTH: number = 10
 
 function clampScore(value: number): number {
     return Math.min(SCORE_MAX, Math.max(SCORE_MIN, Math.round(value)))
@@ -185,6 +181,29 @@ const form = useForm({
     recommendation: props.detail.evaluation.recommendation ?? 'recommended',
     notes: props.detail.evaluation.notes ?? '',
 })
+
+const sessionDivisionName = computed<string | null>(() => {
+    const division: unknown = props.detail.interview?.session?.division
+    return typeof division === 'string' && division.trim() !== '' ? division : null
+})
+
+const notesLabel = computed<string>((): string =>
+    form.recommendation === 'not_recommended'
+        ? `Alasan tidak direkomendasikan untuk divisi ${sessionDivisionName.value ?? 'ini'}`
+        : `Alasan direkomendasikan untuk divisi ${sessionDivisionName.value ?? 'ini'}`,
+)
+
+const notesPlaceholder = computed<string>((): string =>
+    form.recommendation === 'not_recommended'
+        ? `Jelaskan mengapa beliau tidak direkomendasikan untuk divisi ${sessionDivisionName.value ?? 'yang di-interview'}…`
+        : `Jelaskan mengapa beliau direkomendasikan untuk divisi ${sessionDivisionName.value ?? 'yang di-interview'}…`,
+)
+
+const notesClientError = ref<string | null>(null)
+
+const notesErrorMessage = computed<string | null>(
+    (): string | null => notesClientError.value ?? form.errors.notes ?? null,
+)
 
 function scoreValue(field: ScoreField): number {
     const raw: unknown = form[field]
@@ -241,12 +260,6 @@ const interviewSchedule = computed(() => {
         minute: '2-digit',
     })
 })
-
-const releaseForm = useForm({})
-
-function submitRelease(): void {
-    releaseForm.post(props.releaseUrl, { preserveScroll: true })
-}
 
 function isFilled(value: string | null | undefined): value is string {
     return typeof value === 'string' && value.trim() !== ''
@@ -371,6 +384,10 @@ watch(
     },
 )
 
+watch([() => form.recommendation, () => form.notes], () => {
+    notesClientError.value = null
+})
+
 onMounted(() => {
     setTopbar({
         title: props.detail.application.full_name,
@@ -379,6 +396,30 @@ onMounted(() => {
 })
 
 function submit(): void {
+    if (blockReason.value !== null || form.processing) return
+    if (form.notes.trim().length < NOTES_MIN_LENGTH) {
+        notesClientError.value =
+            'Catatan wajib diisi (min. 10 karakter) — jelaskan alasan rekomendasi untuk divisi yang di-interview.'
+        document.getElementById('notes')?.focus()
+        return
+    }
+    notesClientError.value = null
+    confirmOpen.value = true
+}
+
+const confirmOpen = ref<boolean>(false)
+
+const savesRemaining = computed<number>(
+    (): number => props.detail.evaluation.saves_remaining ?? 3,
+)
+
+const confirmDescription = computed<string>(
+    (): string =>
+        `Data akan disimpan. Kesempatan simpan tersisa ${savesRemaining.value} dari 3. Setelah habis, penilaian terkunci permanen termasuk untuk staff.`,
+)
+
+function confirmSave(): void {
+    confirmOpen.value = false
     if (blockReason.value !== null || form.processing) return
     form.post(props.evaluateUrl, { preserveScroll: true })
 }
@@ -392,20 +433,7 @@ function submit(): void {
             <div class="flex min-w-0 flex-col gap-6 lg:col-span-7">
                 <Card class="rounded-2xl border-border/70">
                     <CardContent class="p-6">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-semibold">Sesi interview</h2>
-                            <Button
-                                v-if="detail.interview?.status === 'in_progress' && canEdit"
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                class="shrink-0"
-                                :disabled="releaseForm.processing"
-                                @click="submitRelease"
-                            >
-                                Batalkan booking
-                            </Button>
-                        </div>
+                        <h2 class="text-sm font-semibold">Sesi interview</h2>
 
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
                             <div>
@@ -1004,7 +1032,16 @@ function submit(): void {
                         </div>
 
                         <fieldset class="space-y-2" :disabled="form.processing || isLocked || isLockedByAttendance">
-                            <legend class="text-sm font-medium leading-none">Rekomendasi</legend>
+                            <legend class="text-sm font-medium leading-none">
+                                Rekomendasi
+                                <span class="text-muted-foreground font-normal">
+                                    — hanya untuk divisi {{ sessionDivisionName ?? 'sesi interview ini' }}
+                                </span>
+                            </legend>
+                            <p class="text-muted-foreground text-xs">
+                                Penilaian ini hanya berlaku untuk divisi tersebut, bukan divisi lain yang
+                                dipilih applicant.
+                            </p>
                             <div class="flex flex-col gap-2">
                                 <label
                                     v-for="opt in recommendationChoices"
@@ -1074,22 +1111,34 @@ function submit(): void {
                         </fieldset>
 
                         <div class="space-y-2">
-                            <Label for="notes">Catatan</Label>
+                            <Label for="notes">
+                                {{ notesLabel }}
+                                <span class="text-destructive" aria-hidden="true">*</span>
+                                <span class="sr-only">(wajib diisi)</span>
+                            </Label>
                             <textarea
                                 id="notes"
                                 v-model="form.notes"
                                 rows="4"
+                                required
+                                minlength="10"
+                                maxlength="5000"
                                 class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-                                placeholder="Observasi singkat..."
+                                :placeholder="notesPlaceholder"
                                 :disabled="form.processing || isLocked || isLockedByAttendance"
                                 :aria-disabled="
                                     form.processing || isLocked || isLockedByAttendance ? 'true' : undefined
                                 "
                                 aria-label="Catatan penilaian"
-                                :aria-invalid="form.errors.notes ? true : undefined"
+                                :aria-invalid="notesErrorMessage ? true : undefined"
+                                aria-describedby="notes-hint"
                             />
-                            <p v-if="form.errors.notes" class="text-xs text-destructive">
-                                {{ form.errors.notes }}
+                            <p id="notes-hint" class="text-muted-foreground text-xs">
+                                Wajib diisi (min. 10 karakter) — ceritakan alasan rekomendasi untuk divisi
+                                {{ sessionDivisionName ?? 'yang di-interview' }}.
+                            </p>
+                            <p v-if="notesErrorMessage" class="text-xs text-destructive">
+                                {{ notesErrorMessage }}
                             </p>
                         </div>
 
@@ -1139,11 +1188,27 @@ function submit(): void {
                                 <dd class="font-medium">{{ detail.evaluation.recommendation_label }}</dd>
                             </div>
                         </dl>
+                        <p class="text-muted-foreground text-xs">
+                            Rekomendasi ini hanya berlaku untuk divisi
+                            {{ sessionDivisionName ?? 'sesi interview ini' }}.
+                        </p>
                         <div v-if="detail.evaluation.notes">
                             <p class="text-muted-foreground text-xs uppercase">Catatan</p>
                             <p class="mt-1 whitespace-pre-wrap text-sm">{{ detail.evaluation.notes }}</p>
                         </div>
                     </div>
+
+                    <ConfirmationModal
+                        :open="confirmOpen"
+                        title="Simpan penilaian?"
+                        :description="confirmDescription"
+                        confirm-text="Ya, simpan"
+                        cancel-text="Batal"
+                        :loading="form.processing"
+                        @confirm="confirmSave"
+                        @cancel="confirmOpen = false"
+                        @update:open="confirmOpen = $event"
+                    />
                 </CardContent>
             </Card>
         </div>

@@ -197,6 +197,7 @@ final class InterviewerApplicationPresenter
         if ($evaluation === null) {
             return [
                 'can_edit' => true,
+                'saves_remaining' => RecruitmentEvaluation::MAX_SAVES,
             ];
         }
 
@@ -212,6 +213,8 @@ final class InterviewerApplicationPresenter
             'locked_at' => $evaluation->locked_at?->toIso8601String(),
             'is_locked' => $evaluation->isLocked(),
             'can_edit' => ! $evaluation->isLocked(),
+            'save_count' => $evaluation->save_count,
+            'saves_remaining' => max(0, RecruitmentEvaluation::MAX_SAVES - $evaluation->save_count),
         ];
     }
 
