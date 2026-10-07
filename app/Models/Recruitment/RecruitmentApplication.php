@@ -81,7 +81,24 @@ class RecruitmentApplication extends Model
 
     public function interview(): HasOne
     {
-        return $this->hasOne(RecruitmentInterview::class, 'recruitment_application_id');
+        return $this->primaryInterview();
+    }
+
+    public function interviews(): HasMany
+    {
+        return $this->hasMany(RecruitmentInterview::class, 'recruitment_application_id');
+    }
+
+    public function primaryInterview(): HasOne
+    {
+        return $this->hasOne(RecruitmentInterview::class, 'recruitment_application_id')
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY);
+    }
+
+    public function secondaryInterview(): HasOne
+    {
+        return $this->hasOne(RecruitmentInterview::class, 'recruitment_application_id')
+            ->where('interview_kind', RecruitmentInterview::KIND_SECONDARY);
     }
 
     public function attendance(): HasOne
@@ -92,6 +109,11 @@ class RecruitmentApplication extends Model
     public function evaluation(): HasOne
     {
         return $this->hasOne(RecruitmentEvaluation::class, 'recruitment_application_id');
+    }
+
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(RecruitmentEvaluation::class, 'recruitment_application_id');
     }
 
     public function finalDecision(): HasOne
