@@ -9,19 +9,20 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\InterviewSchedulingService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
+use Tests\Support\RecruitmentInterviewFlow;
 use Tests\TestCase;
 
 class RecruitmentInterviewSessionUpdateTest extends TestCase
 {
     use RefreshDatabase;
+    use RecruitmentInterviewFlow;
 
     private RecruitmentPeriod $period;
 
@@ -37,6 +38,7 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
+        Queue::fake();
 
         $this->period = RecruitmentPeriod::factory()->create();
         $this->division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
@@ -57,7 +59,11 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
         ]);
     }
 
-    private function scheduleApplicant(string $suffix = '1'): RecruitmentInterview
+    /**
+     * Regis ulang applicant sehingga baris interview Waiting terbentuk
+     * (scheduled_at/lokasi/ruang disalin dari sesi via InterviewLifecycleService).
+     */
+    private function checkedInInterview(string $suffix = '1'): RecruitmentInterview
     {
         $application = RecruitmentApplication::factory()->create([
             'recruitment_period_id' => $this->period->id,
@@ -67,19 +73,7 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
             'result' => ApplicationResult::Pending,
         ]);
 
-        $interviewer = User::factory()->create();
-        $interviewer->assignRole('recruitment-interviewer');
-
-        RecruitmentInterviewerDivision::query()->create([
-            'user_id' => $interviewer->id,
-            'recruitment_division_id' => $this->division->id,
-        ]);
-
-        app(InterviewSchedulingService::class)->scheduleApplicants(
-            $this->scheduler,
-            $this->session,
-            [$application->id],
-        );
+        $this->checkInApplicant($this->session, $application, $this->scheduler);
 
         return RecruitmentInterview::query()
             ->where('recruitment_application_id', $application->id)
@@ -104,7 +98,7 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
 
     public function test_update_menyinkron_scheduled_at_lokasi_dan_ruang_interview(): void
     {
-        $interview = $this->scheduleApplicant();
+        $interview = $this->checkedInInterview();
         $oldScheduledAt = $interview->scheduled_at?->copy();
 
         $payload = $this->updatePayload();
@@ -130,12 +124,12 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
         $this->assertTrue($fresh->scheduled_at->equalTo($expected));
         $this->assertSame('Gedung B', $fresh->location);
         $this->assertSame('B202', $fresh->room);
-        $this->assertSame(InterviewStatus::Scheduled, $fresh->status);
+        $this->assertSame(InterviewStatus::Waiting, $fresh->status);
     }
 
     public function test_update_tidak_mereset_status_dan_reminder_interview(): void
     {
-        $interview = $this->scheduleApplicant();
+        $interview = $this->checkedInInterview();
         $interview->update([
             'status' => InterviewStatus::Completed,
             'reminder_h1_sent_at' => now()->subHour(),
@@ -156,7 +150,7 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
 
     public function test_update_melewati_interview_cancelled(): void
     {
-        $interview = $this->scheduleApplicant();
+        $interview = $this->checkedInInterview();
         $interview->update(['status' => InterviewStatus::Cancelled]);
 
         $oldScheduledAt = $interview->scheduled_at?->copy();
@@ -175,7 +169,7 @@ class RecruitmentInterviewSessionUpdateTest extends TestCase
 
     public function test_update_tanpa_perubahan_jadwal_tidak_menyentuh_interview(): void
     {
-        $interview = $this->scheduleApplicant();
+        $interview = $this->checkedInInterview();
 
         RecruitmentInterview::query()
             ->where('id', $interview->id)

@@ -325,8 +325,7 @@ class RecruitmentMyInterviewScopeTest extends TestCase
             ->assertOk();
     }
 
-    public function test_index_hides_interviews_not_started_yet(): void
-    {
+    public function test_index_hides_interviews_not_started_yet(): void    {
         $started = $this->bookedApplication('006');
         $future = $this->bookedApplication('007');
 

@@ -107,9 +107,11 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
         $member = User::factory()->create();
         $member->assignRole('member');
 
+        // Member tanpa recruitment.dashboard.view ditolak di middleware
+        // EnsureRecruitmentAccess via redirect ke dashboard (bukan 403 policy).
         $this->actingAs($member)
             ->post(route('dashboard.recruitment.periods.send-group-link', $this->period))
-            ->assertForbidden();
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_final_rejected_with_pass_screening_is_excluded(): void

@@ -462,7 +462,7 @@ class ScanTestSeeder extends Seeder
                         'scheduled_at' => $scheduledAt,
                         'location' => (string) $session->location,
                         'room' => (string) $session->room,
-                        'status' => InterviewStatus::Scheduled,
+                        'status' => InterviewStatus::Waiting,
                     ],
                 );
                 if ($interview->wasRecentlyCreated) {

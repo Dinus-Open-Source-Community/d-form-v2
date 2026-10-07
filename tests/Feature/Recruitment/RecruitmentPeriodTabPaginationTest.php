@@ -72,6 +72,8 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
 
     public function test_tab_broadcast_page_satu_memuat_rows_ter_scoped(): void
     {
+        // Fitur broadcast dinonaktifkan (config/features.php + migrasi .bak).
+        $this->markTestSkipped('Fitur broadcast dinonaktifkan.');
         $otherPeriod = RecruitmentPeriod::factory()->create();
 
         $first = Broadcast::factory()->create([

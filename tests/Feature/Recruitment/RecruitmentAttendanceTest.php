@@ -83,8 +83,7 @@ class RecruitmentAttendanceTest extends TestCase
         ]);
     }
 
-    public function test_duplicate_check_in_is_idempotent(): void
-    {
+    public function test_duplicate_check_in_is_idempotent(): void    {
         $application = $this->eligibleApplication('002');
 
         $this->checkInApplicant($this->session, $application, $this->staff);

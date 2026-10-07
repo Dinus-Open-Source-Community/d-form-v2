@@ -57,7 +57,7 @@ onMounted(() => {
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <div class="flex flex-wrap items-center justify-end gap-3">
             <Button variant="outline" as-child>
-                <Link :href="routes.admin.recruitment.myInterviews.index()">Interview saya</Link>
+                <Link :href="routes.admin.recruitment.myInterviews.index">Interview saya</Link>
             </Button>
         </div>
 
