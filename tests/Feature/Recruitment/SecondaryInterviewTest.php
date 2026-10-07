@@ -283,6 +283,32 @@ class SecondaryInterviewTest extends TestCase
             ->assertRedirect(route('dashboard.recruitment.my-interviews.show', $primary));
     }
 
+    public function test_index_lists_opportunities_excluding_applicants_without_secondary(): void
+    {
+        $eligible = $this->evaluatedPrimaryApplication('C11');
+        $this->evaluatedPrimaryApplication('C12', withSecondary: false);
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('secondary_opportunities', 1)
+                ->where('secondary_opportunities.0.application.id', $eligible->id));
+    }
+
+    public function test_index_lists_claimed_secondary_outside_primary_list(): void
+    {
+        [$application, $secondary] = $this->claimedSecondary('C13');
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 0)
+                ->has('claimed_secondary', 1)
+                ->where('claimed_secondary.0.interview_id', $secondary->id));
+    }
+
     /**
      * @return array{0: RecruitmentApplication, 1: RecruitmentInterview}
      */

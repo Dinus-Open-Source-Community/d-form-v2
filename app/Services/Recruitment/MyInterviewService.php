@@ -42,11 +42,13 @@ final class MyInterviewService
 
         $query = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
             ->with([
                 'application.primaryDivision',
                 'application.secondaryDivision',
                 'application.attendance',
                 'application.primaryInterview.evaluation',
+                'evaluation',
                 'session.division',
             ]);
 
@@ -100,6 +102,7 @@ final class MyInterviewService
     {
         $inProgressQuery = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
             ->whereIn('status', [InterviewStatus::Waiting, InterviewStatus::InProgress])
             ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q));
         $this->openSessionScope($inProgressQuery);
@@ -107,6 +110,7 @@ final class MyInterviewService
 
         $doneQuery = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
             ->whereHas('application.evaluations');
         $this->openSessionScope($doneQuery);
         $done = $doneQuery->count();
@@ -315,13 +319,38 @@ final class MyInterviewService
     }
 
     /**
+     * Interview secondary yang sudah diklaim interviewer, masing-masing
+     * membawa status evaluasinya sendiri.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function claimedSecondaryForInterviewer(User $interviewer): array
+    {
+        return RecruitmentInterview::query()
+            ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_SECONDARY)
+            ->with([
+                'application.primaryDivision',
+                'application.secondaryDivision',
+                'application.attendance',
+                'evaluation',
+                'session.division',
+            ])
+            ->orderByDesc('booked_at')
+            ->get()
+            ->map(fn (RecruitmentInterview $interview): array => $this->toListArray($interview))
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toListArray(RecruitmentInterview $interview): array
     {
         $application = $interview->application;
-        $evaluation = $application?->primaryInterview?->evaluation;
-        $needsEvaluation = $application !== null && $evaluation === null;
+        $evaluation = $interview->evaluation;
+        $needsEvaluation = $evaluation === null;
 
         return [
             'interview_id' => $interview->id,

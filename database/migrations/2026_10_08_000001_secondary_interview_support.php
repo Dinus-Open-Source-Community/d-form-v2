@@ -42,7 +42,7 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('recruitment_evaluations', function (Blueprint $table): void {
-            $table->dropUnique(['recruitment_interview_id']);
+            $table->dropUnique('rec_eval_interview_uniq');
             $table->dropColumn('save_count');
         });
 

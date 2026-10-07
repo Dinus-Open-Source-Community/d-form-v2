@@ -155,12 +155,14 @@ const props = withDefaults(
         division_options?: FilterOption[]
         session_options?: FilterOption[]
         secondary_opportunities?: SecondaryOpportunity[]
+        claimed_secondary?: InterviewRow[]
     }>(),
     {
         pending_start_count: 0,
         division_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
         secondary_opportunities: (): SecondaryOpportunity[] => [],
+        claimed_secondary: (): InterviewRow[] => [],
     },
 )
 
@@ -754,6 +756,66 @@ const emptyDescription = computed<string>((): string => {
                         <h2 class="text-sm font-semibold">Secondary Division</h2>
                         <p class="text-xs text-muted-foreground">Pilihan divisi kedua · opsional</p>
                     </div>
+                    <div v-if="props.claimed_secondary.length > 0" class="mb-3 grid gap-3">
+                        <Card
+                            v-for="row in props.claimed_secondary"
+                            :key="row.interview_id"
+                            class="relative rounded-2xl transition-colors hover:border-primary/40 hover:bg-muted/30"
+                            :class="
+                                isLockedByAttendance(row)
+                                    ? 'border-dashed border-border/70 opacity-70'
+                                    : 'border-border/70'
+                            "
+                        >
+                            <CardContent class="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold">{{ row.application?.full_name ?? '—' }}</p>
+                                    <p class="mt-1 font-mono text-xs text-muted-foreground">
+                                        {{ row.application?.registration_number ?? '—' }} ·
+                                        {{ row.session?.division ?? '—' }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-muted-foreground">
+                                        {{ formatSchedule(row.scheduled_at) }} · {{ row.location }} ·
+                                        {{ row.room }}
+                                    </p>
+                                </div>
+                                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                    <Badge
+                                        v-if="!row.needs_evaluation"
+                                        :variant="statusBadge(row).variant"
+                                    >
+                                        {{ statusBadge(row).label }}
+                                    </Badge>
+                                    <Button
+                                        v-if="row.application && isLockedByAttendance(row)"
+                                        size="sm"
+                                        disabled
+                                        aria-disabled="true"
+                                        :aria-label="attendanceLockedLabel(row)"
+                                    >
+                                        <ClipboardCheck
+                                            class="mr-2 size-4"
+                                            aria-hidden="true"
+                                        />
+                                        {{ actionLabel(row) }}
+                                    </Button>
+                                    <Button
+                                        v-else-if="row.application"
+                                        as-child
+                                        size="sm"
+                                    >
+                                        <Link :href="showUrl(row.interview_id)">
+                                            <ClipboardCheck
+                                                class="mr-2 size-4"
+                                                aria-hidden="true"
+                                            />
+                                            {{ actionLabel(row) }}
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                     <div v-if="props.secondary_opportunities.length > 0" class="grid gap-3">
                         <Card
                             v-for="opp in props.secondary_opportunities"
@@ -789,7 +851,7 @@ const emptyDescription = computed<string>((): string => {
                             </CardContent>
                         </Card>
                     </div>
-                    <Card v-else class="rounded-2xl border-dashed border-border/70">
+                    <Card v-else-if="props.claimed_secondary.length === 0" class="rounded-2xl border-dashed border-border/70">
                         <CardContent
                             class="flex flex-col items-center gap-2 p-8 text-center sm:p-10"
                         >
