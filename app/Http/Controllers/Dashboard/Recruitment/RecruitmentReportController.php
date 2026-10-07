@@ -62,6 +62,7 @@ class RecruitmentReportController extends Controller
                 'nim',
                 'semester',
                 'primary_division',
+                'secondary_division',
                 'stage',
                 'result',
                 'submitted_at',
@@ -75,7 +76,7 @@ class RecruitmentReportController extends Controller
 
             RecruitmentApplication::query()
                 ->where('recruitment_period_id', $resolvedPeriodId)
-                ->with(['primaryDivision:id,name'])
+                ->with(['primaryDivision:id,name', 'secondaryDivision:id,name'])
                 ->orderBy('registration_number')
                 ->chunk(200, function ($applications) use ($out): void {
                     foreach ($applications as $application) {
@@ -85,6 +86,7 @@ class RecruitmentReportController extends Controller
                             $application->nim,
                             $application->semester,
                             $application->primaryDivision?->name ?? '',
+                            $application->secondaryDivision?->name ?? '',
                             $application->stage->value,
                             $application->result->value,
                             $application->submitted_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
