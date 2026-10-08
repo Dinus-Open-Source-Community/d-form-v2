@@ -35,11 +35,17 @@ import {
     Download,
     ExternalLink,
     FileText,
+    GraduationCap,
     History,
     Instagram,
+    Lock,
     Mail,
+    MicVocal,
+    PenLine,
     Trophy,
     User,
+    Users,
+    VideoOff,
     XCircle,
 } from 'lucide-vue-next'
 
@@ -625,6 +631,14 @@ function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function scoreBarWidth(score: number): string {
+    return `${Math.min(100, Math.max(0, (score / 10) * 100))}%`
+}
+
+function evaluationAverageLabel(speaking: number, technical: number, attitude: number): string {
+    return ((speaking + technical + attitude) / 3).toFixed(1).replace('.', ',')
 }
 
 const activityActionLabels: Record<string, string> = {
@@ -1236,137 +1250,324 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="final" class="mt-4 space-y-5">
-                <Card v-if="application.evaluation" class="rounded-2xl border-border/70">
-                    <CardContent class="space-y-3 p-6">
-                        <p class="text-sm font-semibold">
-                            Evaluasi primary
-                            <span v-if="primaryDivisionName !== '—'" class="text-muted-foreground font-normal">
-                                — {{ primaryDivisionName }}
+                <Card v-if="application.evaluation" class="overflow-hidden rounded-2xl border-border/70">
+                    <CardContent class="p-0">
+                        <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
+                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                Evaluasi primary
+                                <span v-if="primaryDivisionName !== '—'" class="normal-case tracking-normal">
+                                    — {{ primaryDivisionName }}
+                                </span>
+                            </p>
+                            <span
+                                v-if="application.evaluation.is_locked"
+                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            >
+                                <Lock class="size-3" aria-hidden="true" />
+                                Terkunci
                             </span>
-                        </p>
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Speaking</p>
-                                <p class="font-medium">{{ application.evaluation.speaking_score }}/10</p>
-                            </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Technical</p>
-                                <p class="font-medium">{{ application.evaluation.technical_score }}/10</p>
-                            </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Attitude</p>
-                                <p class="font-medium">{{ application.evaluation.attitude_score }}/10</p>
-                            </div>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+                            >
+                                <PenLine class="size-3" aria-hidden="true" />
+                                Draft
+                            </span>
                         </div>
-                        <p class="text-sm">
-                            Rekomendasi:
-                            <span class="font-medium">{{ application.evaluation.recommendation_label }}</span>
-                        </p>
-                        <p v-if="application.evaluation.notes" class="text-muted-foreground text-sm">
-                            {{ application.evaluation.notes }}
-                        </p>
-                        <p class="text-muted-foreground text-xs">
-                            {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}
-                            · {{ application.evaluation.is_locked ? 'Terkunci' : 'Draft' }}
-                        </p>
+
+                        <div class="px-6 pt-3">
+                            <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
+                            <p class="mt-0.5 text-xl font-semibold tracking-tight">
+                                {{ application.evaluation.recommendation_label }}
+                            </p>
+                        </div>
+
+                        <div class="px-6 pt-5">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                    Penilaian
+                                </p>
+                                <p class="text-muted-foreground text-xs">
+                                    Rata-rata
+                                    <span class="text-foreground font-semibold tabular-nums">{{
+                                        evaluationAverageLabel(
+                                            application.evaluation.speaking_score,
+                                            application.evaluation.technical_score,
+                                            application.evaluation.attitude_score,
+                                        )
+                                    }}</span>
+                                </p>
+                            </div>
+                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Speaking</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.speaking_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Technical</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.technical_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Attitude</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.attitude_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div v-if="application.evaluation.notes" class="px-6 pt-4">
+                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
+                                <figcaption class="text-muted-foreground text-xs">
+                                    Catatan interviewer
+                                </figcaption>
+                                <blockquote class="mt-1 text-sm leading-relaxed">
+                                    {{ application.evaluation.notes }}
+                                </blockquote>
+                            </figure>
+                        </div>
+
+                        <div
+                            class="px-6 pt-4"
+                            :class="{ 'pb-6': !(showFinalDecision && primaryDivisionId) }"
+                        >
+                            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <MicVocal class="size-3.5 shrink-0" aria-hidden="true" />
+                                <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
+                            </p>
+                        </div>
+
                         <div
                             v-if="showFinalDecision && primaryDivisionId"
-                            class="flex flex-wrap gap-2 border-t border-border/60 pt-4"
+                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
                         >
-                            <Button
-                                type="button"
-                                size="sm"
-                                :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
-                                @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
-                            >
-                                <Trophy class="mr-2 size-4" aria-hidden="true" />
-                                Diterima sebagai AA — {{ primaryDivisionName }}
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
-                                @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
-                            >
-                                <User class="mr-2 size-4" aria-hidden="true" />
-                                Diterima sebagai Member — {{ primaryDivisionName }}
-                            </Button>
+                            <p class="text-muted-foreground text-xs">
+                                Keputusan final — tempatkan applicant di {{ primaryDivisionName }}
+                            </p>
+                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
+                                >
+                                    <GraduationCap class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai AA — {{ primaryDivisionName }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
+                                >
+                                    <Users class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai Member — {{ primaryDivisionName }}
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card
                     v-if="application.evaluations?.secondary"
-                    class="rounded-2xl border-border/70"
+                    class="overflow-hidden rounded-2xl border-border/70"
                 >
-                    <CardContent class="space-y-3 p-6">
-                        <p class="text-sm font-semibold">
-                            Evaluasi secondary
+                    <CardContent class="p-0">
+                        <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
+                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                Evaluasi secondary
+                                <span
+                                    v-if="application.evaluations.secondary.division"
+                                    class="normal-case tracking-normal"
+                                >
+                                    — {{ application.evaluations.secondary.division }}
+                                </span>
+                            </p>
                             <span
-                                v-if="application.evaluations.secondary.division"
-                                class="text-muted-foreground font-normal"
+                                v-if="application.evaluations.secondary.is_locked"
+                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
                             >
-                                — {{ application.evaluations.secondary.division }}
+                                <Lock class="size-3" aria-hidden="true" />
+                                Terkunci
                             </span>
-                        </p>
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Speaking</p>
-                                <p class="font-medium">{{ application.evaluations.secondary.speaking_score }}/10</p>
-                            </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Technical</p>
-                                <p class="font-medium">{{ application.evaluations.secondary.technical_score }}/10</p>
-                            </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Attitude</p>
-                                <p class="font-medium">{{ application.evaluations.secondary.attitude_score }}/10</p>
-                            </div>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+                            >
+                                <PenLine class="size-3" aria-hidden="true" />
+                                Draft
+                            </span>
                         </div>
-                        <p class="text-sm">
-                            Rekomendasi:
-                            <span class="font-medium">{{ application.evaluations.secondary.recommendation_label }}</span>
-                        </p>
-                        <p v-if="application.evaluations.secondary.notes" class="text-muted-foreground text-sm">
-                            {{ application.evaluations.secondary.notes }}
-                        </p>
-                        <p class="text-muted-foreground text-xs">
-                            {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}
-                            · {{ application.evaluations.secondary.is_locked ? 'Terkunci' : 'Draft' }}
-                        </p>
+
+                        <div class="px-6 pt-3">
+                            <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
+                            <p class="mt-0.5 text-xl font-semibold tracking-tight">
+                                {{ application.evaluations.secondary.recommendation_label }}
+                            </p>
+                        </div>
+
+                        <div class="px-6 pt-5">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                    Penilaian
+                                </p>
+                                <p class="text-muted-foreground text-xs">
+                                    Rata-rata
+                                    <span class="text-foreground font-semibold tabular-nums">{{
+                                        evaluationAverageLabel(
+                                            application.evaluations.secondary.speaking_score,
+                                            application.evaluations.secondary.technical_score,
+                                            application.evaluations.secondary.attitude_score,
+                                        )
+                                    }}</span>
+                                </p>
+                            </div>
+                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Speaking</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.speaking_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Technical</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.technical_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Attitude</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.attitude_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div v-if="application.evaluations.secondary.notes" class="px-6 pt-4">
+                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
+                                <figcaption class="text-muted-foreground text-xs">
+                                    Catatan interviewer
+                                </figcaption>
+                                <blockquote class="mt-1 text-sm leading-relaxed">
+                                    {{ application.evaluations.secondary.notes }}
+                                </blockquote>
+                            </figure>
+                        </div>
+
+                        <div
+                            class="px-6 pt-4"
+                            :class="{ 'pb-6': !(showFinalDecision && secondaryDivisionId) }"
+                        >
+                            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <MicVocal class="size-3.5 shrink-0" aria-hidden="true" />
+                                <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
+                            </p>
+                        </div>
+
                         <div
                             v-if="showFinalDecision && secondaryDivisionId"
-                            class="flex flex-wrap gap-2 border-t border-border/60 pt-4"
+                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
                         >
-                            <Button
-                                type="button"
-                                size="sm"
-                                :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
-                                @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
-                            >
-                                <Trophy class="mr-2 size-4" aria-hidden="true" />
-                                Diterima sebagai AA — {{ secondaryDivisionName }}
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
-                                @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
-                            >
-                                <User class="mr-2 size-4" aria-hidden="true" />
-                                Diterima sebagai Member — {{ secondaryDivisionName }}
-                            </Button>
+                            <p class="text-muted-foreground text-xs">
+                                Keputusan final — tempatkan applicant di {{ secondaryDivisionName }}
+                            </p>
+                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
+                                >
+                                    <GraduationCap class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai AA — {{ secondaryDivisionName }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
+                                >
+                                    <Users class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai Member — {{ secondaryDivisionName }}
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
-                <p
+                <div
                     v-else-if="application.secondary_division && application.evaluations?.primary"
-                    class="text-muted-foreground text-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-4 py-3.5"
                 >
-                    Belum diinterview secondary (opsional) — keputusan final memakai hasil primary.
-                </p>
+                    <VideoOff class="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <p class="text-muted-foreground text-xs leading-relaxed">
+                        Belum diinterview secondary (opsional) — keputusan final memakai hasil primary.
+                    </p>
+                </div>
 
                 <Card v-if="application.final_decision" class="rounded-2xl border-border/70">
                     <CardContent class="space-y-3 p-6">
