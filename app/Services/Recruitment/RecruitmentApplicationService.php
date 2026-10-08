@@ -266,10 +266,12 @@ final class RecruitmentApplicationService
                 'primary' => $this->evaluationArray(
                     $application->primaryInterview?->evaluation,
                     $application->primaryInterview?->session?->division?->name,
+                    $application->primaryInterview?->session?->division?->id,
                 ),
                 'secondary' => $this->evaluationArray(
                     $application->secondaryInterview?->evaluation,
                     $application->secondaryInterview?->session?->division?->name,
+                    $application->secondaryInterview?->session?->division?->id,
                 ),
             ],
             'final_decision' => $this->finalDecisionArray($application->finalDecision),
@@ -465,7 +467,7 @@ final class RecruitmentApplicationService
     /**
      * @return array<string, mixed>|null
      */
-    private function evaluationArray(?RecruitmentEvaluation $evaluation, ?string $division = null): ?array
+    private function evaluationArray(?RecruitmentEvaluation $evaluation, ?string $division = null, ?string $divisionId = null): ?array
     {
         if ($evaluation === null) {
             return null;
@@ -483,6 +485,7 @@ final class RecruitmentApplicationService
             'save_count' => $evaluation->save_count,
             'saves_remaining' => max(0, RecruitmentEvaluation::MAX_SAVES - $evaluation->save_count),
             'division' => $division,
+            'division_id' => $divisionId,
             'evaluator' => $evaluation->evaluator ? [
                 'id' => $evaluation->evaluator->id,
                 'name' => $evaluation->evaluator->name,

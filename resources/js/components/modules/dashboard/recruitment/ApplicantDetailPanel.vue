@@ -47,6 +47,16 @@ const canResendTracking = computed(() => {
     return applicantAllowsTrackingResend(application) && userAllowsTrackingResend(user.value)
 })
 
+const canDecideFinal = computed<boolean>(() => {
+    const application = props.application
+    if (!application) return false
+    if (!application.can_decide_final) return false
+    if (application.final_decision) return false
+    if (application.stage === 'completed') return false
+
+    return user.value?.can_decide_recruitment_final === true
+})
+
 const contentRef = ref<InstanceType<typeof ApplicantDetailContent> | null>(null)
 
 const sheetOpen = computed<boolean>({
@@ -70,6 +80,10 @@ function passScreening() {
 
 function resendTracking() {
     contentRef.value?.requestResendTracking()
+}
+
+function rejectFinal() {
+    contentRef.value?.openFinalReject()
 }
 
 function handleSubmitted() {
@@ -106,6 +120,16 @@ function handleSubmitted() {
                         >
                             <Mail class="mr-2 size-4" />
                             Kirim ulang tracking
+                        </Button>
+                        <Button
+                            v-if="canDecideFinal"
+                            size="sm"
+                            variant="destructive"
+                            :aria-label="`Tolak ${application.full_name} pada seleksi final`"
+                            @click="rejectFinal"
+                        >
+                            <XCircle class="mr-2 size-4" />
+                            Ditolak
                         </Button>
                         <Button v-if="canVerify" size="sm" variant="secondary" @click="verifyRegistration">
                             Verifikasi

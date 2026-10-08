@@ -87,6 +87,7 @@ interface EvaluationDetail {
     evaluated_at: string | null
     evaluator: { id: string; name: string } | null
     division?: string | null
+    division_id?: string | null
     save_count?: number
     saves_remaining?: number
 }
@@ -242,6 +243,9 @@ defineExpose({
     requestConfirm,
     requestResendTracking,
     resendTrackingApplication,
+    openFinalConfirm,
+    openFinalAcceptForDivision,
+    openFinalReject,
 })
 
 function submitScreening() {
@@ -280,6 +284,7 @@ type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject'
 const finalConfirmOpen = ref(false)
 const finalChoice = ref<FinalDecisionChoice | null>(null)
 const finalCancelRef = ref<ComponentPublicInstance | null>(null)
+const finalDivisionName = ref<string>('')
 
 const finalConfirmForm = useForm({
     membership_type: '',
@@ -304,20 +309,60 @@ const finalChoiceActionLabel = computed<string>((): string => {
     return 'Ditolak'
 })
 
-const finalConfirmDivisionName = computed<string>((): string => {
-    const selected = props.divisionOptions.find(
-        (division): boolean => division.id === finalConfirmForm.final_division_id,
-    )
-    return selected?.name ?? props.application.primary_division?.name ?? '—'
-})
+const primaryDivisionId = computed<string>(
+    (): string =>
+        props.application.evaluations?.primary?.division_id ??
+        props.application.primary_division?.id ??
+        '',
+)
 
-function openFinalConfirm(choice: FinalDecisionChoice): void {
+const primaryDivisionName = computed<string>(
+    (): string =>
+        props.application.evaluations?.primary?.division ??
+        props.application.primary_division?.name ??
+        '—',
+)
+
+const secondaryDivisionId = computed<string>(
+    (): string =>
+        props.application.evaluations?.secondary?.division_id ??
+        props.application.secondary_division?.id ??
+        '',
+)
+
+const secondaryDivisionName = computed<string>(
+    (): string =>
+        props.application.evaluations?.secondary?.division ??
+        props.application.secondary_division?.name ??
+        '—',
+)
+
+function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divisionName?: string): void {
     finalChoice.value = choice
     finalConfirmForm.reset()
     finalConfirmForm.clearErrors()
-    finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
-    finalConfirmForm.final_division_id = props.application.primary_division?.id ?? ''
+    if (choice === 'accept_aa' || choice === 'accept_member') {
+        finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
+        finalConfirmForm.final_division_id = divisionId ?? ''
+        finalDivisionName.value = divisionName ?? ''
+    } else {
+        finalConfirmForm.membership_type = ''
+        finalConfirmForm.final_division_id = ''
+        finalDivisionName.value = ''
+    }
     finalConfirmOpen.value = true
+}
+
+function openFinalAcceptForDivision(
+    divisionId: string,
+    divisionName: string,
+    membershipType: 'aa' | 'member',
+): void {
+    openFinalConfirm(membershipType === 'aa' ? 'accept_aa' : 'accept_member', divisionId, divisionName)
+}
+
+function openFinalReject(): void {
+    openFinalConfirm('reject')
 }
 
 function focusFinalCancel(event: Event): void {
@@ -1193,7 +1238,12 @@ const defaultTab = computed(() => {
             <TabsContent value="final" class="mt-4 space-y-5">
                 <Card v-if="application.evaluation" class="rounded-2xl border-border/70">
                     <CardContent class="space-y-3 p-6">
-                        <p class="text-sm font-semibold">Evaluasi interviewer</p>
+                        <p class="text-sm font-semibold">
+                            Evaluasi primary
+                            <span v-if="primaryDivisionName !== '—'" class="text-muted-foreground font-normal">
+                                — {{ primaryDivisionName }}
+                            </span>
+                        </p>
                         <div class="grid gap-3 sm:grid-cols-3">
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Speaking</p>
@@ -1219,6 +1269,30 @@ const defaultTab = computed(() => {
                             {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}
                             · {{ application.evaluation.is_locked ? 'Terkunci' : 'Draft' }}
                         </p>
+                        <div
+                            v-if="showFinalDecision && primaryDivisionId"
+                            class="flex flex-wrap gap-2 border-t border-border/60 pt-4"
+                        >
+                            <Button
+                                type="button"
+                                size="sm"
+                                :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
+                                @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
+                            >
+                                <Trophy class="mr-2 size-4" aria-hidden="true" />
+                                Diterima sebagai AA — {{ primaryDivisionName }}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
+                                @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
+                            >
+                                <User class="mr-2 size-4" aria-hidden="true" />
+                                Diterima sebagai Member — {{ primaryDivisionName }}
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -1261,6 +1335,30 @@ const defaultTab = computed(() => {
                             {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}
                             · {{ application.evaluations.secondary.is_locked ? 'Terkunci' : 'Draft' }}
                         </p>
+                        <div
+                            v-if="showFinalDecision && secondaryDivisionId"
+                            class="flex flex-wrap gap-2 border-t border-border/60 pt-4"
+                        >
+                            <Button
+                                type="button"
+                                size="sm"
+                                :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
+                                @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
+                            >
+                                <Trophy class="mr-2 size-4" aria-hidden="true" />
+                                Diterima sebagai AA — {{ secondaryDivisionName }}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
+                                @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
+                            >
+                                <User class="mr-2 size-4" aria-hidden="true" />
+                                Diterima sebagai Member — {{ secondaryDivisionName }}
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
                 <p
@@ -1296,38 +1394,6 @@ const defaultTab = computed(() => {
                         </p>
                     </CardContent>
                 </Card>
-
-                <div v-if="showFinalDecision" class="flex flex-wrap gap-2.5">
-                    <Button
-                        type="button"
-                        size="sm"
-                        :aria-label="`Terima ${application.full_name} sebagai AA`"
-                        @click="openFinalConfirm('accept_aa')"
-                    >
-                        <Trophy class="mr-2 size-4" aria-hidden="true" />
-                        Diterima sebagai AA
-                    </Button>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        :aria-label="`Terima ${application.full_name} sebagai Member`"
-                        @click="openFinalConfirm('accept_member')"
-                    >
-                        <User class="mr-2 size-4" aria-hidden="true" />
-                        Diterima sebagai Member
-                    </Button>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        :aria-label="`Tolak ${application.full_name} pada seleksi final`"
-                        @click="openFinalConfirm('reject')"
-                    >
-                        <XCircle class="mr-2 size-4" aria-hidden="true" />
-                        Ditolak
-                    </Button>
-                </div>
 
                 <p
                     v-if="!application.evaluation && !application.final_decision && !canDecideFinal"
@@ -1518,32 +1584,21 @@ const defaultTab = computed(() => {
                     </p>
                     <p class="mt-2">
                         {{ finalChoiceActionLabel }}
-                        <span v-if="!isFinalRejectChoice"> — {{ finalConfirmDivisionName }}</span>
+                        <span v-if="!isFinalRejectChoice"> — {{ finalDivisionName }}</span>
+                    </p>
+                    <p v-if="!isFinalRejectChoice" class="text-muted-foreground mt-1 text-xs">
+                        Divisi penempatan final mengikuti kartu evaluasi yang dipilih.
                     </p>
                 </div>
 
-                <div v-if="!isFinalRejectChoice" class="space-y-2">
-                    <Label for="final_confirm_division">Divisi penempatan final</Label>
-                    <select
-                        id="final_confirm_division"
-                        v-model="finalConfirmForm.final_division_id"
-                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                        required
-                    >
-                        <option value="" disabled>Pilih divisi</option>
-                        <option v-for="div in divisionOptions" :key="div.id" :value="div.id">
-                            {{ div.name }}
-                        </option>
-                    </select>
-                    <p
-                        v-if="finalConfirmForm.errors.final_division_id"
-                        class="text-destructive text-xs"
-                    >
-                        {{ finalConfirmForm.errors.final_division_id }}
-                    </p>
-                </div>
+                <p
+                    v-if="!isFinalRejectChoice && finalConfirmForm.errors.final_division_id"
+                    class="text-destructive text-xs"
+                >
+                    {{ finalConfirmForm.errors.final_division_id }}
+                </p>
 
-                <div v-else class="space-y-4">
+                <div v-if="isFinalRejectChoice" class="space-y-4">
                     <div class="space-y-2">
                         <Label for="final_confirm_internal_reason">Alasan internal</Label>
                         <textarea
