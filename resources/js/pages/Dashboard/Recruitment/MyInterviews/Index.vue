@@ -28,7 +28,7 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination'
 import { routes } from '@/lib/routes'
-import type { SimpleSelectOption } from '@/components/ui/simple-select'
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
     ChevronLeft,
