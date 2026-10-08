@@ -11,7 +11,7 @@ FIRST VIEWPORT: Satu panel filter (search + selects + count),
 FORM: Approach A Filter Bar Command Center (spec 2026-09-18-my-interviews-redesign-design).
 -->
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
@@ -352,38 +352,19 @@ function sessionUrl(sessionIdValue: string): string {
     return routes.admin.recruitment.interviewSessions.show(sessionIdValue)
 }
 
-const claimSession: Record<string, string> = reactive({})
 const claimingId = ref<string | null>(null)
-
-function claimOptions(opp: SecondaryOpportunity): FilterOption[] {
-    return [
-        { value: '', label: 'Pilih sesi…' },
-        ...opp.sessions.map(
-            (session): FilterOption => ({ value: session.value, label: session.label }),
-        ),
-    ]
-}
-
-function canClaim(opp: SecondaryOpportunity): boolean {
-    return (
-        opp.sessions.length > 0 &&
-        (claimSession[opp.application.id] ?? '') !== '' &&
-        claimingId.value === null
-    )
-}
 
 function isClaiming(opp: SecondaryOpportunity): boolean {
     return claimingId.value === opp.application.id
 }
 
 function claimSecondary(opp: SecondaryOpportunity): void {
-    if (!canClaim(opp)) return
+    if (claimingId.value !== null) return
     claimingId.value = opp.application.id
     router.post(
         routes.admin.recruitment.myInterviews.secondaryClaim,
         {
             application_id: opp.application.id,
-            session_id: claimSession[opp.application.id],
         },
         {
             preserveScroll: true,
@@ -831,15 +812,13 @@ const emptyDescription = computed<string>((): string => {
                                     </p>
                                 </div>
                                 <div v-if="opp.sessions.length > 0" class="flex flex-col gap-2">
-                                    <SimpleSelect
-                                        :id="`claim-sesi-${opp.application.id}`"
-                                        v-model="claimSession[opp.application.id]"
-                                        :options="claimOptions(opp)"
-                                        aria-label="Pilih sesi secondary"
-                                    />
+                                    <p class="text-xs text-muted-foreground">
+                                        Diambil ke {{ opp.sessions[0]?.label ?? 'sesi divisi ini' }} —
+                                        pengarahan ruangan manual oleh staff.
+                                    </p>
                                     <Button
                                         size="sm"
-                                        :disabled="!canClaim(opp)"
+                                        :disabled="claimingId !== null"
                                         @click="claimSecondary(opp)"
                                     >
                                         {{ isClaiming(opp) ? 'Mengambil…' : 'Ambil' }}

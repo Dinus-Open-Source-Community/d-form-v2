@@ -19,7 +19,6 @@ class ClaimSecondaryInterviewRequest extends FormRequest
     {
         return [
             'application_id' => ['required', 'uuid', Rule::exists('recruitment_applications', 'id')],
-            'session_id' => ['required', 'uuid', Rule::exists('recruitment_interview_sessions', 'id')],
         ];
     }
 }

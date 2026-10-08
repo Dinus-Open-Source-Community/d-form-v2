@@ -7,7 +7,6 @@ use App\Http\Requests\Recruitment\ClaimSecondaryInterviewRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
-use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\EvaluationService;
 use App\Services\Recruitment\InterviewLifecycleService;
 use App\Services\Recruitment\MyInterviewService;
@@ -146,12 +145,9 @@ class RecruitmentMyInterviewController extends Controller
 
         $this->authorize('claimSecondaryInterview', $application);
 
-        $session = RecruitmentInterviewSession::query()->findOrFail($request->validated('session_id'));
-
         $secondaryInterview = $this->interviewLifecycleService->createSecondaryInterview(
             $request->user(),
             $application,
-            $session,
         );
 
         return redirect()

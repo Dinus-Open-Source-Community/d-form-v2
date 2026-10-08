@@ -86,7 +86,7 @@ final class InterviewLifecycleService
     public function createSecondaryInterview(
         User $actor,
         RecruitmentApplication $application,
-        RecruitmentInterviewSession $session,
+        ?RecruitmentInterviewSession $session = null,
     ): RecruitmentInterview {
         if (! $actor->can('recruitment.evaluations.submit')) {
             throw new AuthorizationException('Tidak berhak menilai interview.');
@@ -107,6 +107,8 @@ final class InterviewLifecycleService
         if (! $inSecondaryDivision) {
             throw new AuthorizationException('Hanya interviewer divisi secondary yang boleh mengambil interview ini.');
         }
+
+        $session ??= $this->resolveSecondarySession($application);
 
         if ($session->recruitment_period_id !== $application->recruitment_period_id
             || $session->recruitment_division_id !== $application->secondary_division_id
@@ -137,6 +139,29 @@ final class InterviewLifecycleService
 
             throw $e;
         }
+    }
+
+    /**
+     * Sesi secondary otomatis: sesi aktif terdekat milik divisi secondary
+     * pada periode yang sama. Klaim selalu satu klik tanpa pilih sesi.
+     */
+    private function resolveSecondarySession(RecruitmentApplication $application): RecruitmentInterviewSession
+    {
+        $session = RecruitmentInterviewSession::query()
+            ->where('recruitment_period_id', $application->recruitment_period_id)
+            ->where('recruitment_division_id', $application->secondary_division_id)
+            ->where('is_active', true)
+            ->orderBy('session_date')
+            ->orderBy('starts_at')
+            ->first();
+
+        if ($session === null) {
+            throw ValidationException::withMessages([
+                'application_id' => ['Belum ada sesi aktif untuk divisi secondary applicant.'],
+            ]);
+        }
+
+        return $session;
     }
 
     public function markCompleted(RecruitmentInterview $interview): void

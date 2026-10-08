@@ -82,7 +82,6 @@ class SecondaryInterviewTest extends TestCase
         $response = $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ]);
 
         $secondary = RecruitmentInterview::query()
@@ -107,7 +106,6 @@ class SecondaryInterviewTest extends TestCase
         $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ])
             ->assertSessionHasErrors('application_id');
 
@@ -124,7 +122,6 @@ class SecondaryInterviewTest extends TestCase
         $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ])
             ->assertSessionHasErrors('application_id');
 
@@ -140,7 +137,6 @@ class SecondaryInterviewTest extends TestCase
 
         $claim = [
             'application_id' => $application->id,
-            'session_id' => $this->dataSession->id,
         ];
 
         $this->actingAs($this->secondaryInterviewer)
@@ -157,25 +153,17 @@ class SecondaryInterviewTest extends TestCase
             ->count());
     }
 
-    public function test_claim_rejected_for_wrong_or_inactive_session(): void
+    public function test_claim_rejected_when_no_active_secondary_session(): void
     {
         $application = $this->evaluatedPrimaryApplication('C5');
 
-        $this->actingAs($this->secondaryInterviewer)
-            ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
-                'application_id' => $application->id,
-                'session_id' => $this->programmingSession->id,
-            ])
-            ->assertSessionHasErrors('session_id');
-
-        $inactive = $this->makeSession($this->data->id, isActive: false);
+        $this->dataSession->update(['is_active' => false]);
 
         $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $inactive->id,
             ])
-            ->assertSessionHasErrors('session_id');
+            ->assertSessionHasErrors('application_id');
 
         $this->assertDatabaseMissing('recruitment_interviews', [
             'recruitment_application_id' => $application->id,
@@ -191,7 +179,6 @@ class SecondaryInterviewTest extends TestCase
         $this->actingAs($this->primaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ])
             ->assertForbidden();
 
@@ -202,7 +189,6 @@ class SecondaryInterviewTest extends TestCase
         $this->actingAs($outsider)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ])
             ->assertForbidden();
 
@@ -320,7 +306,6 @@ class SecondaryInterviewTest extends TestCase
         $this->actingAs($this->secondaryInterviewer)
             ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
                 'application_id' => $application->id,
-                'session_id' => $this->dataSession->id,
             ])
             ->assertRedirect();
 
