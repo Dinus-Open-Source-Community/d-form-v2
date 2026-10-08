@@ -135,6 +135,8 @@ final class RecruitmentPeriodService
             'description' => $period->description,
             'banner_url' => PublicStorage::url($period->banner),
             'whatsapp_group_url' => $period->whatsapp_group_url,
+            'whatsapp_group_aa_url' => $period->whatsapp_group_aa_url,
+            'whatsapp_group_member_url' => $period->whatsapp_group_member_url,
             'registration_opens_at' => $period->registration_opens_at?->toIso8601String(),
             'registration_closes_at' => $period->registration_closes_at?->toIso8601String(),
             'interview_starts_at' => $period->interview_starts_at?->toDateString(),

@@ -18,6 +18,8 @@ const props = withDefaults(
         membershipTypeOptions?: { value: string; label: string }[]
         editable?: boolean
         whatsappGroupUrl?: string | null
+        whatsappGroupAaUrl?: string | null
+        whatsappGroupMemberUrl?: string | null
     }>(),
     {
         reasonOptions: () => [],
@@ -25,6 +27,8 @@ const props = withDefaults(
         membershipTypeOptions: () => [],
         editable: false,
         whatsappGroupUrl: null,
+        whatsappGroupAaUrl: null,
+        whatsappGroupMemberUrl: null,
     },
 )
 
@@ -166,6 +170,8 @@ function handleSubmitted() {
                     :hide-revision-action="true"
                     :hide-actions="true"
                     :whatsapp-group-url="whatsappGroupUrl"
+                    :whatsapp-group-aa-url="whatsappGroupAaUrl"
+                    :whatsapp-group-member-url="whatsappGroupMemberUrl"
                     @submitted="handleSubmitted"
                     @resent="$emit('submitted')"
                 />

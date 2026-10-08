@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { ArrowRight, Check, ChevronLeft, ChevronRight, Send, X } from 'lucide-vue-next'
+import { ArrowRight, Check, ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -44,6 +44,10 @@ interface ApplicationRow {
     submitted_at: string | null
     /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
     group_link_status?: string | null
+    /** Status kirim QR terakhir: sent | failed | queued | null (belum pernah). */
+    qr_status?: 'sent' | 'failed' | 'queued' | string | null
+    /** Pesan error kirim QR terakhir (bila gagal). */
+    qr_error?: string | null
     primary_division: { id: string; name: string } | null
     secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
@@ -496,41 +500,6 @@ const hasGroupLink = computed<boolean>(
     () => props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== '',
 )
 
-const groupLinkDialogOpen = ref(false)
-const isSendingGroupLink = ref(false)
-
-function openGroupLink(): void {
-    if (!hasGroupLink.value || isSendingGroupLink.value) return
-    groupLinkDialogOpen.value = true
-}
-
-function cancelGroupLink(): void {
-    groupLinkDialogOpen.value = false
-}
-
-function confirmGroupLink(): void {
-    if (!hasGroupLink.value || isSendingGroupLink.value) return
-    isSendingGroupLink.value = true
-    router.post(
-        routes.admin.recruitment.periods.sendGroupLink(props.periodId),
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Link grup dikirim ke applicant yang lolos.')
-            },
-            onError: () => {
-                toast.error('Gagal mengirim link grup. Coba lagi.')
-            },
-            onFinish: () => {
-                isSendingGroupLink.value = false
-                groupLinkDialogOpen.value = false
-            },
-        },
-    )
-}
-
 function openReject(row: ApplicationRow): void {
     if (!canDecide(row) || processingId.value !== null) return
     rejectTarget.value = row
@@ -587,26 +556,6 @@ function submitReject(): void {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Applicant periode ini
             </h2>
-            <div class="flex flex-col gap-1.5">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="!hasGroupLink || isSendingGroupLink"
-                    :title="
-                        hasGroupLink
-                            ? 'Kirim link grup WA ke applicant yang lolos'
-                            : 'Isi link grup WA di tab Settings dulu'
-                    "
-                    :aria-label="'Kirim link grup WA ke applicant yang lolos'"
-                    @click="openGroupLink"
-                >
-                    <Send class="mr-2 size-4" aria-hidden="true" />
-                    {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
-                </Button>
-                <p v-if="!hasGroupLink" class="text-muted-foreground text-xs">
-                    Isi link grup di tab Settings dulu.
-                </p>
-            </div>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -671,6 +620,7 @@ function submitReject(): void {
                                 <th class="px-4 py-3 font-medium">Tahap</th>
                                 <th class="px-4 py-3 font-medium">Status</th>
                                 <th class="px-4 py-3 font-medium">Link Grup</th>
+                                <th class="px-4 py-3 font-medium">QR</th>
                                 <th class="px-4 py-3"><span class="sr-only">Aksi</span></th>
                             </tr>
                         </thead>
@@ -682,7 +632,7 @@ function submitReject(): void {
                                 tabindex="0"
                                 :aria-current="selectedId === row.id ? 'true' : undefined"
                                 class="border-b last:border-0 cursor-pointer transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
-                                :class="selectedId === row.id ? 'bg-muted/40' : ''"
+                                :class="[selectedId === row.id ? 'bg-muted/40' : '', row.qr_status === 'failed' ? 'bg-destructive/[0.04]' : '']"
                                 @click="emit('select', row.id)"
                                 @keydown.enter.prevent="emit('select', row.id)"
                                 @keydown.arrow-down.prevent="moveRowFocus(row.id, 1)"
@@ -715,6 +665,29 @@ function submitReject(): void {
                                     >
                                         Gagal
                                     </Badge>
+                                    <span v-else class="text-muted-foreground text-xs">—</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Badge
+                                        v-if="row.qr_status === 'sent'"
+                                        variant="secondary"
+                                    >
+                                        Terkirim
+                                    </Badge>
+                                    <Badge
+                                        v-else-if="row.qr_status === 'failed'"
+                                        variant="destructive"
+                                        :title="row.qr_error ?? 'Pengiriman gagal. Kirim ulang QR untuk mencoba lagi.'"
+                                    >
+                                        Gagal
+                                    </Badge>
+                                    <span
+                                        v-else-if="row.qr_status === 'queued'"
+                                        class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                                        title="Menunggu giliran pengiriman QR."
+                                    >
+                                        Antrean
+                                    </span>
                                     <span v-else class="text-muted-foreground text-xs">—</span>
                                 </td>
                                 <td class="px-4 py-3">
@@ -756,7 +729,7 @@ function submitReject(): void {
                                 </td>
                             </tr>
                             <tr v-if="serverRows.length === 0">
-                                <td colspan="8" class="text-muted-foreground px-4 py-10 text-center">
+                                <td colspan="9" class="text-muted-foreground px-4 py-10 text-center">
                                     {{
                                         hasActiveFilter
                                             ? 'Belum ada applicant untuk periode ini yang cocok dengan filter.'
@@ -820,17 +793,6 @@ function submitReject(): void {
             @confirm="confirmPass"
             @cancel="cancelPass"
             @update:open="(v: boolean) => { passDialogOpen = v }"
-        />
-
-        <ConfirmationModal
-            :open="groupLinkDialogOpen"
-            title="Kirim link grup WA?"
-            :description="`Link grup dikirim 1 per 1 ke ${props.groupLinkEligibleCount} applicant yang lolos.`"
-            confirm-text="Kirim"
-            :loading="isSendingGroupLink"
-            @confirm="confirmGroupLink"
-            @cancel="cancelGroupLink"
-            @update:open="(v: boolean) => { groupLinkDialogOpen = v }"
         />
 
         <Dialog v-model:open="passGroupLinkDialogOpen">

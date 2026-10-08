@@ -39,6 +39,8 @@ class RecruitmentPeriod extends Model
         'landing_content',
         'banner',
         'whatsapp_group_url',
+        'whatsapp_group_aa_url',
+        'whatsapp_group_member_url',
         'created_by',
     ];
 

@@ -14,6 +14,7 @@ import InterviewerCreateSheet from '@/components/modules/dashboard/recruitment/I
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
@@ -22,8 +23,9 @@ import {
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BarChart3, CalendarClock, Plus, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
+import { BarChart3, CalendarClock, Plus, QrCode, RefreshCw, Send, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
+import { toast } from 'vue-sonner'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
 import {
@@ -57,6 +59,8 @@ interface Period {
     banner_url: string | null
     can_edit?: boolean
     whatsapp_group_url?: string | null
+    whatsapp_group_aa_url?: string | null
+    whatsapp_group_member_url?: string | null
 }
 
 interface ApplicationRow {
@@ -73,6 +77,10 @@ interface ApplicationRow {
     submitted_at: string | null
     /** Status kirim link grup terakhir: sent | failed | null (belum pernah). */
     group_link_status?: string | null
+    /** Status kirim QR terakhir: sent | failed | queued | null (belum pernah). */
+    qr_status?: 'sent' | 'failed' | 'queued' | string | null
+    /** Pesan error kirim QR terakhir (bila gagal). */
+    qr_error?: string | null
     primary_division: { id: string; name: string } | null
     secondary_division: { id: string; name: string } | null
     period: { id: string; name: string } | null
@@ -163,6 +171,12 @@ const props = withDefaults(
         applicant_detail?: ApplicationDetail | null
         /** Jumlah eligible kirim link grup (lolos, bukan rejected). */
         group_link_eligible_count?: number
+        /** Jumlah eligible kirim QR (tahap interview, belum absen, belum terkirim). */
+        qr_eligible_count?: number
+        /** Jumlah applicant yang QR-nya sudah terkirim (opsi kirim ulang); 0 bila key absent. */
+        qr_sent_count?: number
+        /** Ringkasan progres kirim QR bulk ({ sent, failed, queued }); absent = backend belum mengirim. */
+        qr_status_summary?: { sent: number; failed: number; queued: number } | null
         divisions?: InterviewerDivision[]
         assignments?: InterviewerAssignment[]
         interviewerCandidates?: InterviewerCandidate[]
@@ -191,6 +205,160 @@ const canManagePeriods = computed(() => user.value?.can_manage_recruitment_perio
 const canEdit = computed<boolean>(() => props.period.can_edit === true)
 /** Jumlah eligible kirim link grup; 0 bila key absent (tab lain). */
 const groupLinkEligibleCount = computed<number>(() => props.group_link_eligible_count ?? 0)
+/** Jumlah eligible kirim QR bulk; 0 bila key absent (tab lain). */
+const qrEligibleCount = computed<number>(() => props.qr_eligible_count ?? 0)
+/** Jumlah applicant yang QR-nya sudah terkirim (opsi kirim ulang); 0 bila key absent. */
+const qrSentCount = computed<number>(() => props.qr_sent_count ?? 0)
+/** Tombol Kirim QR aktif bila ada penerima baru atau ada yang bisa dikirimi ulang. */
+const canSendQr = computed<boolean>(() => qrEligibleCount.value > 0 || qrSentCount.value > 0)
+const qrButtonTitle = computed<string>(() => {
+    if (qrEligibleCount.value > 0) return `Kirim QR ke ${qrEligibleCount.value} applicant tahap interview`
+    if (qrSentCount.value > 0)
+        return `Kirim ulang QR ke ${qrSentCount.value} applicant yang sudah terkirim`
+    return 'Belum ada applicant yang bisa dikirimi QR'
+})
+/** Centang bila admin ingin menyertakan ulang applicant yang sudah terkirim. */
+const includeSentQr = ref<boolean>(false)
+const qrDialogDescription = computed<string>(() => {
+    const base = `QR dikirim 1 per 1 ke ${qrEligibleCount.value} applicant tahap interview yang belum absen.`
+    const retry = 'Kirim ulang hanya mengulang yang gagal atau belum terkirim.'
+    if (includeSentQr.value && qrSentCount.value > 0) {
+        return `${base} Termasuk ${qrSentCount.value} applicant yang sudah dikirimi. ${retry}`
+    }
+    return `${base} ${retry}`
+})
+/** Ringkasan progres kirim QR bulk; defensif bila backend belum mengirim key. */
+const qrSummary = computed<{ sent: number; failed: number; queued: number }>(() => ({
+    sent: props.qr_status_summary?.sent ?? 0,
+    failed: props.qr_status_summary?.failed ?? 0,
+    queued: props.qr_status_summary?.queued ?? 0,
+}))
+/** Chip progres tampil bila sudah ada aktivitas kirim QR. */
+const hasQrActivity = computed<boolean>(
+    () => qrSummary.value.sent + qrSummary.value.failed + qrSummary.value.queued > 0,
+)
+const qrStatusLabel = computed<string>(() => {
+    const s = qrSummary.value
+    return `Progres kirim QR: ${s.queued} antrean, ${s.sent} terkirim, ${s.failed} gagal`
+})
+
+const isRefreshingQr = ref<boolean>(false)
+let qrPollTimer: ReturnType<typeof setInterval> | null = null
+
+/** Props yang dimuat ulang saat memantau progres kirim QR. */
+const QR_RELOAD_ONLY: string[] = ['qr_status_summary', 'applications', 'qr_eligible_count', 'qr_sent_count']
+
+function stopQrPolling(): void {
+    if (qrPollTimer !== null) {
+        clearInterval(qrPollTimer)
+        qrPollTimer = null
+    }
+}
+
+function refreshQrStatus(): void {
+    if (isRefreshingQr.value) return
+    router.reload({
+        only: QR_RELOAD_ONLY,
+        onStart: () => {
+            isRefreshingQr.value = true
+        },
+        onFinish: () => {
+            isRefreshingQr.value = false
+        },
+    })
+}
+
+function startQrPolling(): void {
+    stopQrPolling()
+    qrPollTimer = setInterval(() => {
+        if (qrSummary.value.queued <= 0) {
+            stopQrPolling()
+            return
+        }
+        refreshQrStatus()
+    }, 5000)
+}
+
+/** Hentikan polling saat antrean habis (mis. selesai di tab lain atau usai reload manual). */
+watch(
+    () => qrSummary.value.queued,
+    (queued) => {
+        if (queued <= 0) stopQrPolling()
+    },
+)
+/** Link grup WA tersedia bila periode menyimpannya (diisi di tab Settings). */
+const hasGroupLink = computed<boolean>(
+    () => props.period.whatsapp_group_url !== null && props.period.whatsapp_group_url !== undefined && props.period.whatsapp_group_url !== '',
+)
+
+const groupLinkDialogOpen = ref(false)
+const isSendingGroupLink = ref(false)
+const qrDialogOpen = ref(false)
+const isSendingQr = ref(false)
+
+function openGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    groupLinkDialogOpen.value = true
+}
+
+function cancelGroupLink(): void {
+    groupLinkDialogOpen.value = false
+}
+
+function confirmGroupLink(): void {
+    if (!hasGroupLink.value || isSendingGroupLink.value) return
+    isSendingGroupLink.value = true
+    router.post(
+        routes.admin.recruitment.periods.sendGroupLink(props.period.id),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Link grup dikirim ke applicant yang lolos.')
+            },
+            onError: () => {
+                toast.error('Gagal mengirim link grup. Coba lagi.')
+            },
+            onFinish: () => {
+                isSendingGroupLink.value = false
+                groupLinkDialogOpen.value = false
+            },
+        },
+    )
+}
+
+function openQr(): void {
+    if (!canSendQr.value || isSendingQr.value) return
+    includeSentQr.value = false
+    qrDialogOpen.value = true
+}
+
+function cancelQr(): void {
+    includeSentQr.value = false
+    qrDialogOpen.value = false
+}
+
+function confirmQr(): void {
+    if (!canSendQr.value || isSendingQr.value) return
+    isSendingQr.value = true
+    router.post(
+        routes.admin.recruitment.periods.sendQr(props.period.id),
+        includeSentQr.value ? { include_sent: true } : {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                startQrPolling()
+            },
+            onError: () => {
+                showErrorToast('Gagal mengirim QR. Coba lagi.')
+            },
+            onFinish: () => {
+                isSendingQr.value = false
+                qrDialogOpen.value = false
+            },
+        },
+    )
+}
 
 const assignForm = useForm({
     user_id: '',
@@ -432,6 +600,10 @@ const TAB_ONLY: Record<TabValue, string[]> = {
         'tab',
         'query',
         'applications',
+        'group_link_eligible_count',
+        'qr_eligible_count',
+        'qr_sent_count',
+        'qr_status_summary',
         'queue_counts',
         'screening_reason_options',
         'division_options',
@@ -550,6 +722,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('keydown', onGlobalKeydown)
+    stopQrPolling()
 })
 
 const phaseInput = computed(() => ({
@@ -634,6 +807,7 @@ const scheduleNodes = computed<ScheduleItem[]>(() => {
 
 onMounted(() => {
     setTopbar({ title: props.period.name, subtitle: 'Detail periode Open Recruitment' })
+    if (qrSummary.value.queued > 0) startQrPolling()
 })
 
 function openPeriod(): void {
@@ -677,6 +851,78 @@ function closePeriod(): void {
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            :disabled="!canSendQr || isSendingQr"
+                            :title="qrButtonTitle"
+                            :aria-label="qrButtonTitle"
+                            @click="openQr"
+                        >
+                            <QrCode class="mr-2 size-4" aria-hidden="true" />
+                            {{ isSendingQr ? 'Mengirim…' : 'Kirim QR' }}
+                        </Button>
+                        <div
+                            v-if="hasQrActivity"
+                            role="status"
+                            :aria-label="qrStatusLabel"
+                            class="flex items-center gap-1.5"
+                        >
+                            <span
+                                class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium tabular-nums text-amber-800"
+                                title="Menunggu giliran pengiriman QR"
+                            >
+                                Antrean {{ qrSummary.queued.toLocaleString('id-ID') }}
+                            </span>
+                            <Badge
+                                variant="secondary"
+                                class="shrink-0 tabular-nums"
+                                title="QR sudah terkirim"
+                            >
+                                Terkirim {{ qrSummary.sent.toLocaleString('id-ID') }}
+                            </Badge>
+                            <Badge
+                                :variant="qrSummary.failed > 0 ? 'destructive' : 'outline'"
+                                class="shrink-0 tabular-nums"
+                                :title="
+                                    qrSummary.failed > 0
+                                        ? 'Sebagian pengiriman gagal. Kirim ulang untuk mencoba lagi.'
+                                        : 'Belum ada pengiriman yang gagal'
+                                "
+                            >
+                                Gagal {{ qrSummary.failed.toLocaleString('id-ID') }}
+                            </Badge>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                class="size-8"
+                                title="Perbarui status pengiriman QR"
+                                aria-label="Perbarui status pengiriman QR"
+                                :disabled="isRefreshingQr"
+                                @click="refreshQrStatus"
+                            >
+                                <RefreshCw
+                                    class="size-4"
+                                    :class="isRefreshingQr && 'animate-spin'"
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            :disabled="!hasGroupLink || isSendingGroupLink"
+                            :title="
+                                hasGroupLink
+                                    ? 'Kirim link grup WA ke applicant yang lolos'
+                                    : 'Isi link grup WA di tab Settings dulu'
+                            "
+                            :aria-label="'Kirim link grup WA ke applicant yang lolos'"
+                            @click="openGroupLink"
+                        >
+                            <Send class="mr-2 size-4" aria-hidden="true" />
+                            {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
+                        </Button>
                         <Button
                             v-if="canOpen"
                             size="sm"
@@ -829,6 +1075,8 @@ function closePeriod(): void {
                         :membership-type-options="membership_type_options"
                         :editable="canScreenApplications"
                         :whatsapp-group-url="period.whatsapp_group_url ?? null"
+                        :whatsapp-group-aa-url="period.whatsapp_group_aa_url ?? null"
+                        :whatsapp-group-member-url="period.whatsapp_group_member_url ?? null"
                         @close="closePanel"
                         @submitted="refreshList"
                     />
@@ -998,6 +1246,49 @@ function closePeriod(): void {
                     @confirm="confirmUnassign"
                     @cancel="cancelUnassign"
                     @update:open="(v: boolean) => { unassignDialogOpen = v }"
+                />
+
+                <ConfirmationModal
+                    :open="qrDialogOpen"
+                    title="Kirim QR interview?"
+                    :description="qrDialogDescription"
+                    confirm-text="Kirim"
+                    :loading="isSendingQr"
+                    @confirm="confirmQr"
+                    @cancel="cancelQr"
+                    @update:open="(v: boolean) => { qrDialogOpen = v }"
+                >
+                    <template #extra>
+                        <label
+                            v-if="qrSentCount > 0"
+                            for="qr-include-sent"
+                            class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/70 px-3 py-2.5 text-left"
+                        >
+                            <Checkbox
+                                id="qr-include-sent"
+                                :model-value="includeSentQr"
+                                class="mt-0.5"
+                                @update:model-value="includeSentQr = $event === true"
+                            />
+                            <span class="text-sm leading-snug">
+                                Sertakan {{ qrSentCount.toLocaleString('id-ID') }} applicant yang sudah terkirim
+                                <span class="block text-xs text-muted-foreground">
+                                    Kirim ulang QR ke applicant yang sudah dikirimi sebelumnya.
+                                </span>
+                            </span>
+                        </label>
+                    </template>
+                </ConfirmationModal>
+
+                <ConfirmationModal
+                    :open="groupLinkDialogOpen"
+                    title="Kirim link grup WA?"
+                    :description="`Link grup dikirim 1 per 1 ke ${groupLinkEligibleCount} applicant yang lolos.`"
+                    confirm-text="Kirim"
+                    :loading="isSendingGroupLink"
+                    @confirm="confirmGroupLink"
+                    @cancel="cancelGroupLink"
+                    @update:open="(v: boolean) => { groupLinkDialogOpen = v }"
                 />
 
                 <InterviewerCreateSheet

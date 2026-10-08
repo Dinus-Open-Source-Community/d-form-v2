@@ -80,6 +80,10 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
         }
 
+        if ($this->templateKey === 'final_accepted' && filled($this->whatsappGroupUrl)) {
+            $variables['whatsapp_group_url'] = (string) $this->whatsappGroupUrl;
+        }
+
         if ($this->templateKey === 'revision_required') {
             $variables = array_merge($variables, [
                 'revision_sections' => $this->revisionSectionLabels(),
@@ -93,6 +97,12 @@ class SendRecruitmentNotificationJob implements ShouldQueue
             if ($interview !== null) {
                 $variables = array_merge($variables, $variableBuilder->build($interview));
             }
+        }
+
+        if ($this->templateKey === 'interview_scheduled' && $this->interviewId === null) {
+            $sessionList = $variableBuilder->buildSessionList($application);
+            $variables['session_list'] = $sessionList['sessions'];
+            $variables['session_division_name'] = $sessionList['session_division_name'];
         }
 
         if (in_array($this->templateKey, ['final_accepted', 'final_rejected'], true)) {
@@ -111,16 +121,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue
         }
 
         if ($recipientEmail === '') {
-            EmailLog::query()->create([
-                'recruitment_application_id' => $application->id,
-                'event_id' => null,
-                'user_id' => null,
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => $notificationType,
-                'error_message' => 'No recipient email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markQueuedLogFailed($application, $notificationType, 'No recipient email address configured.');
 
             return;
         }
@@ -138,6 +139,38 @@ class SendRecruitmentNotificationJob implements ShouldQueue
                 headline: $this->resolveHeadline(),
             ));
 
+            $this->markQueuedLogSent($application, $notificationType, $recipientEmail);
+        } catch (\Throwable $exception) {
+            $this->markQueuedLogFailed($application, $notificationType, $exception->getMessage());
+
+            throw $exception;
+        }
+    }
+
+    /** Ambil baris Queued terbaru untuk (application, type) — hanya dipakai template interview_scheduled. */
+    private function latestQueuedLog(RecruitmentApplication $application, EmailNotificationType $notificationType): ?EmailLog
+    {
+        if ($this->templateKey !== 'interview_scheduled') {
+            return null;
+        }
+
+        return EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('notification_type', $notificationType)
+            ->where('status', EmailLogStatus::Queued)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function markQueuedLogSent(
+        RecruitmentApplication $application,
+        EmailNotificationType $notificationType,
+        string $recipientEmail,
+    ): void {
+        $queuedLog = $this->latestQueuedLog($application, $notificationType);
+
+        if ($queuedLog === null) {
             EmailLog::query()->create([
                 'recruitment_application_id' => $application->id,
                 'event_id' => null,
@@ -148,20 +181,46 @@ class SendRecruitmentNotificationJob implements ShouldQueue
                 'error_message' => null,
                 'sent_at' => now(),
             ]);
-        } catch (\Throwable $exception) {
+
+            return;
+        }
+
+        $queuedLog->update([
+            'recipient_email' => $recipientEmail,
+            'status' => EmailLogStatus::Sent,
+            'error_message' => null,
+            'sent_at' => now(),
+        ]);
+    }
+
+    private function markQueuedLogFailed(
+        RecruitmentApplication $application,
+        EmailNotificationType $notificationType,
+        string $errorMessage,
+    ): void {
+        $queuedLog = $this->latestQueuedLog($application, $notificationType);
+
+        if ($queuedLog === null) {
             EmailLog::query()->create([
                 'recruitment_application_id' => $application->id,
                 'event_id' => null,
                 'user_id' => null,
-                'recipient_email' => $recipientEmail,
+                'recipient_email' => (string) $application->personal_email,
                 'status' => EmailLogStatus::Failed,
                 'notification_type' => $notificationType,
-                'error_message' => $exception->getMessage(),
+                'error_message' => $errorMessage,
                 'sent_at' => null,
             ]);
 
-            throw $exception;
+            return;
         }
+
+        $queuedLog->update([
+            'recipient_email' => (string) $application->personal_email,
+            'status' => EmailLogStatus::Failed,
+            'error_message' => $errorMessage,
+            'sent_at' => null,
+        ]);
     }
 
     /**

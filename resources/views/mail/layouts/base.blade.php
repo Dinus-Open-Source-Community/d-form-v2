@@ -36,8 +36,11 @@
 </head>
 <body style="margin:0;padding:0;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:#f4f4f4;">
     <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;" aria-hidden="true">@yield('mail_preheader')</div>
-    <table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#178ADF;background-image:url('https://i.imgur.com/r76QizC.png');background-size:cover;background-repeat:no-repeat;padding:40px 0;">
+    <table role="presentation" border="0" cellspacing="0" cellpadding="0" width="100%" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#178ADF;background-image:url('https://i.imgur.com/r76QizC.png');background-size:cover;background-repeat:no-repeat;">
         <tbody>
+            <tr>
+                <td height="40" style="font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td>
+            </tr>
             <tr>
                 <td align="center">
                     <!--[if mso]>
@@ -71,6 +74,9 @@
                     </table>
                     <![endif]-->
                 </td>
+            </tr>
+            <tr>
+                <td height="40" style="font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td>
             </tr>
         </tbody>
     </table>

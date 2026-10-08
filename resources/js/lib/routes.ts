@@ -76,6 +76,7 @@ export const routes = {
                 close: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/close`,
                 destroy: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
                 sendGroupLink: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-group-link`,
+                sendQr: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-qr`,
             },
             divisions: {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,
