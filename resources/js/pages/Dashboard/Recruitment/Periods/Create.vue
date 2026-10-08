@@ -26,6 +26,8 @@ const errorFieldLabels: Record<string, string> = {
     finalization_deadline_at: 'Target finalisasi',
     banner: 'Banner',
     whatsapp_group_url: 'Link grup WA',
+    whatsapp_group_aa_url: 'Link grup WA AA',
+    whatsapp_group_member_url: 'Link grup WA Member',
 }
 
 const form = useForm({
@@ -38,6 +40,8 @@ const form = useForm({
     finalization_deadline_at: '',
     banner: null as File | null,
     whatsapp_group_url: '',
+    whatsapp_group_aa_url: '',
+    whatsapp_group_member_url: '',
 })
 
 /** Validasi ringan: link WA opsional, bila diisi wajib https:// (cermin backend). */
@@ -45,6 +49,20 @@ const whatsappError = computed<string | null>(() => {
     const value = form.whatsapp_group_url.trim()
     if (!value) return null
     return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.'
+})
+
+/** Validasi ringan: link grup WA AA opsional, bila diisi wajib https://. */
+const whatsappAaError = computed<string | null>(() => {
+    const value = form.whatsapp_group_aa_url.trim()
+    if (!value) return null
+    return value.startsWith('https://') ? null : 'Link grup WA AA harus diawali https://.'
+})
+
+/** Validasi ringan: link grup WA Member opsional, bila diisi wajib https://. */
+const whatsappMemberError = computed<string | null>(() => {
+    const value = form.whatsapp_group_member_url.trim()
+    if (!value) return null
+    return value.startsWith('https://') ? null : 'Link grup WA Member harus diawali https://.'
 })
 
 const dateErrorClass =
@@ -57,6 +75,14 @@ onMounted(() => {
 function submit() {
     if (whatsappError.value) {
         showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' })
+        return
+    }
+    if (whatsappAaError.value) {
+        showErrorToast(whatsappAaError.value, { title: 'Link grup WA AA tidak valid' })
+        return
+    }
+    if (whatsappMemberError.value) {
+        showErrorToast(whatsappMemberError.value, { title: 'Link grup WA Member tidak valid' })
         return
     }
     form.post(routes.admin.recruitment.periods.store, {
@@ -138,6 +164,46 @@ function submit() {
                         <p v-if="whatsappError" class="text-destructive text-xs">{{ whatsappError }}</p>
                         <p v-if="form.errors.whatsapp_group_url" class="text-destructive text-xs">
                             {{ form.errors.whatsapp_group_url }}
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="whatsapp_group_aa_url">Link grup WA AA (opsional)</Label>
+                        <Input
+                            id="whatsapp_group_aa_url"
+                            v-model="form.whatsapp_group_aa_url"
+                            type="url"
+                            inputmode="url"
+                            placeholder="https://chat.whatsapp.com/…"
+                            :aria-invalid="!!form.errors.whatsapp_group_aa_url || !!whatsappAaError"
+                        />
+                        <p class="text-muted-foreground text-xs">
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
+                            penerimaan AA bila diisi.
+                        </p>
+                        <p v-if="whatsappAaError" class="text-destructive text-xs">{{ whatsappAaError }}</p>
+                        <p v-if="form.errors.whatsapp_group_aa_url" class="text-destructive text-xs">
+                            {{ form.errors.whatsapp_group_aa_url }}
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <Label for="whatsapp_group_member_url">Link grup WA Member (opsional)</Label>
+                        <Input
+                            id="whatsapp_group_member_url"
+                            v-model="form.whatsapp_group_member_url"
+                            type="url"
+                            inputmode="url"
+                            placeholder="https://chat.whatsapp.com/…"
+                            :aria-invalid="!!form.errors.whatsapp_group_member_url || !!whatsappMemberError"
+                        />
+                        <p class="text-muted-foreground text-xs">
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
+                            penerimaan Member bila diisi.
+                        </p>
+                        <p v-if="whatsappMemberError" class="text-destructive text-xs">{{ whatsappMemberError }}</p>
+                        <p v-if="form.errors.whatsapp_group_member_url" class="text-destructive text-xs">
+                            {{ form.errors.whatsapp_group_member_url }}
                         </p>
                     </div>
 

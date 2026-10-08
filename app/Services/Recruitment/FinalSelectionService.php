@@ -27,8 +27,21 @@ final class FinalSelectionService
         MembershipType $membershipType,
         string $finalDivisionId,
         ?Request $request = null,
+        ?bool $includeGroupLink = null,
+        ?string $newGroupUrl = null,
     ): RecruitmentFinalDecision {
         $this->assertCanDecide($application);
+
+        $newGroupUrl = $newGroupUrl !== null ? trim($newGroupUrl) : null;
+        if ($newGroupUrl === '') {
+            $newGroupUrl = null;
+        }
+
+        if ($newGroupUrl !== null && ! str_starts_with($newGroupUrl, 'https://')) {
+            throw ValidationException::withMessages([
+                'whatsapp_group_url' => 'Link grup WA harus memakai https://.',
+            ]);
+        }
 
         $division = RecruitmentDivision::query()
             ->where('id', $finalDivisionId)
@@ -41,9 +54,32 @@ final class FinalSelectionService
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $application, $membershipType, $finalDivisionId, $division, $request): RecruitmentFinalDecision {
+        return DB::transaction(function () use ($actor, $application, $membershipType, $finalDivisionId, $division, $request, $includeGroupLink, $newGroupUrl): RecruitmentFinalDecision {
             $oldStage = $application->stage;
             $oldResult = $application->result;
+
+            $groupColumn = $membershipType === MembershipType::Aa ? 'whatsapp_group_aa_url' : 'whatsapp_group_member_url';
+
+            $period = $application->period;
+            if ($newGroupUrl !== null && $period !== null) {
+                if (! $actor->can('update', $period)) {
+                    throw ValidationException::withMessages([
+                        'whatsapp_group_url' => 'Kamu tidak punya akses mengubah link grup periode ini. Minta admin mengisinya di tab Settings.',
+                    ]);
+                }
+                $period->update([$groupColumn => $newGroupUrl]);
+            }
+
+            $resolvedUrl = $newGroupUrl ?? $period?->{$groupColumn};
+            if ($includeGroupLink === false) {
+                $resolvedUrl = null;
+            }
+
+            if ($includeGroupLink === true && trim((string) $resolvedUrl) === '') {
+                throw ValidationException::withMessages([
+                    'whatsapp_group_url' => 'Link grup WA wajib diisi bila menyertakan link grup di email.',
+                ]);
+            }
 
             $application->update([
                 'stage' => ApplicationStage::Completed,
@@ -82,7 +118,7 @@ final class FinalSelectionService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'final_accepted');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'final_accepted', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null);
 
             return $decision;
         });

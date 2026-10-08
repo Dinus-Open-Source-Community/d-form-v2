@@ -2,7 +2,9 @@
 
 namespace App\Services\Recruitment;
 
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
+use App\Models\Recruitment\RecruitmentInterviewSession;
 
 final class RecruitmentInterviewVariableBuilder
 {
@@ -34,6 +36,44 @@ final class RecruitmentInterviewVariableBuilder
             'application_admin_url' => $application
                 ? url(route('dashboard.recruitment.periods.show', $application->recruitment_period_id, false))
                 : '',
+        ];
+    }
+
+    /**
+     * Daftar sesi interview aktif mendatang milik divisi primer applicant
+     * (pengisi kartu jadwal email bulk QR yang tidak membawa interviewId).
+     *
+     * @return array{sessions: list<array{date: string, time_range: string, location: string, room: string}>, session_division_name: string}
+     */
+    public function buildSessionList(RecruitmentApplication $application): array
+    {
+        $application->loadMissing('primaryDivision');
+
+        $sessions = RecruitmentInterviewSession::query()
+            ->where('recruitment_period_id', $application->recruitment_period_id)
+            ->where('recruitment_division_id', $application->primary_division_id)
+            ->where('is_active', true)
+            ->whereDate('session_date', '>=', today())
+            ->orderBy('session_date')
+            ->orderBy('starts_at')
+            ->limit(10)
+            ->get();
+
+        $timezone = (string) config('app.timezone');
+
+        $list = $sessions
+            ->map(fn (RecruitmentInterviewSession $session): array => [
+                'date' => $session->session_date?->timezone($timezone)->translatedFormat('d F Y') ?? '',
+                'time_range' => substr((string) $session->starts_at, 0, 5).'-'.substr((string) $session->ends_at, 0, 5),
+                'location' => (string) ($session->location ?? ''),
+                'room' => (string) ($session->room ?? ''),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'sessions' => $list,
+            'session_division_name' => $application->primaryDivision?->name ?? '',
         ];
     }
 }

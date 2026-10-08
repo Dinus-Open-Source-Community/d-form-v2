@@ -33,6 +33,7 @@ const emit = defineEmits<{
             <AlertDialogHeader>
                 <AlertDialogTitle class="font-display text-xl font-bold tracking-[-0.02em]">{{ title }}</AlertDialogTitle>
                 <AlertDialogDescription class="text-sm leading-relaxed text-muted-foreground">{{ description }}</AlertDialogDescription>
+                <slot name="extra" />
             </AlertDialogHeader>
             <AlertDialogFooter class="gap-2">
                 <AlertDialogCancel @click="emit('cancel')">

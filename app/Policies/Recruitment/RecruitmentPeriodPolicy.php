@@ -55,6 +55,16 @@ class RecruitmentPeriodPolicy
         return $this->update($user, $period);
     }
 
+    public function sendQr(User $user, RecruitmentPeriod $period): bool
+    {
+        return $this->update($user, $period);
+    }
+
+    public function qrStatus(User $user, RecruitmentPeriod $period): bool
+    {
+        return $this->view($user, $period);
+    }
+
     private function isSuperAdmin(User $user): bool
     {
         return $user->hasRole('super-admin');

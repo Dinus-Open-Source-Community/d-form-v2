@@ -27,6 +27,8 @@ class RecruitmentFinalSelectionController extends Controller
             MembershipType::from($validated['membership_type']),
             $validated['final_division_id'],
             $request,
+            array_key_exists('include_group_link', $validated) ? (bool) $validated['include_group_link'] : null,
+            $validated['whatsapp_group_url'] ?? null,
         );
 
         return redirect()

@@ -6,6 +6,7 @@ use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\MembershipType;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
+use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentFinalDecision;
@@ -238,5 +239,194 @@ class RecruitmentFinalSelectionTest extends TestCase
                 'final_division_id' => $this->dataDivision->id,
             ])
             ->assertForbidden();
+    }
+
+    public function test_accept_aa_with_new_group_link_saves_to_aa_column(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $application = $this->applicationInFinalReview('aa1');
+        $aaUrl = 'https://chat.whatsapp.com/aa123';
+        $memberUrl = 'https://chat.whatsapp.com/member123';
+        $this->period->update(['whatsapp_group_member_url' => $memberUrl]);
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'whatsapp_group_url' => $aaUrl,
+                'include_group_link' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recruitment_periods', [
+            'id' => $this->period->id,
+            'whatsapp_group_aa_url' => $aaUrl,
+            'whatsapp_group_member_url' => $memberUrl,
+        ]);
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job) use ($application, $aaUrl): bool {
+            return $job->applicationId === $application->id
+                && $job->templateKey === 'final_accepted'
+                && $job->whatsappGroupUrl === $aaUrl;
+        });
+    }
+
+    public function test_accept_member_with_new_group_link_saves_to_member_column(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $application = $this->applicationInFinalReview('m1');
+        $aaUrl = 'https://chat.whatsapp.com/aa123';
+        $memberUrl = 'https://chat.whatsapp.com/member123';
+        $this->period->update(['whatsapp_group_aa_url' => $aaUrl]);
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Member->value,
+                'final_division_id' => $this->programming->id,
+                'whatsapp_group_url' => $memberUrl,
+                'include_group_link' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recruitment_periods', [
+            'id' => $this->period->id,
+            'whatsapp_group_aa_url' => $aaUrl,
+            'whatsapp_group_member_url' => $memberUrl,
+        ]);
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job) use ($application, $memberUrl): bool {
+            return $job->applicationId === $application->id
+                && $job->templateKey === 'final_accepted'
+                && $job->whatsappGroupUrl === $memberUrl;
+        });
+    }
+
+    public function test_accept_uses_stored_membership_link_without_override(): void
+    {
+        $application = $this->applicationInFinalReview('aa2');
+        $aaUrl = 'https://chat.whatsapp.com/aa-stored';
+        $this->period->update([
+            'whatsapp_group_aa_url' => $aaUrl,
+            'whatsapp_group_member_url' => 'https://chat.whatsapp.com/member-stored',
+        ]);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'include_group_link' => true,
+            ])
+            ->assertRedirect();
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job) use ($application, $aaUrl): bool {
+            return $job->applicationId === $application->id
+                && $job->templateKey === 'final_accepted'
+                && $job->whatsappGroupUrl === $aaUrl;
+        });
+    }
+
+    public function test_accept_with_include_group_link_false_queues_job_without_url(): void
+    {
+        $application = $this->applicationInFinalReview('aa3');
+        $this->period->update(['whatsapp_group_aa_url' => 'https://chat.whatsapp.com/aa-existing']);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'include_group_link' => false,
+            ])
+            ->assertRedirect();
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, function (SendRecruitmentNotificationJob $job) use ($application): bool {
+            return $job->applicationId === $application->id
+                && $job->templateKey === 'final_accepted'
+                && ($job->whatsappGroupUrl === null || $job->whatsappGroupUrl === '');
+        });
+    }
+
+    public function test_accept_with_include_true_but_no_url_fails_validation(): void
+    {
+        $application = $this->applicationInFinalReview('aa4');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+
+        $this->assertSame(0, RecruitmentFinalDecision::query()->where('recruitment_application_id', $application->id)->count());
+    }
+
+    public function test_accept_with_invalid_group_url_fails_validation(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+
+        $application = $this->applicationInFinalReview('aa5');
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'whatsapp_group_url' => 'http://not-https.example/grup',
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+    }
+
+    public function test_accept_staff_without_period_edit_cannot_save_group_link(): void
+    {
+        $application = $this->applicationInFinalReview('aa6');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'whatsapp_group_url' => 'https://chat.whatsapp.com/aa123',
+                'include_group_link' => true,
+            ])
+            ->assertSessionHasErrors('whatsapp_group_url');
+
+        $this->assertSame(0, RecruitmentFinalDecision::query()->where('recruitment_application_id', $application->id)->count());
+    }
+
+    public function test_accept_email_contains_membership_group_link(): void
+    {
+        Mail::fake();
+
+        $application = $this->applicationInFinalReview('mail2');
+        $aaUrl = 'https://chat.whatsapp.com/aa-mail';
+        $this->period->update([
+            'whatsapp_group_aa_url' => $aaUrl,
+            'whatsapp_group_member_url' => 'https://chat.whatsapp.com/member-mail',
+        ]);
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+                'include_group_link' => true,
+            ])
+            ->assertRedirect();
+
+        $job = new SendRecruitmentNotificationJob($application->id, 'final_accepted', null, null, null, $aaUrl);
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentInterviewVariableBuilder::class),
+            app(RecruitmentQrPngGenerator::class),
+        );
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail) use ($aaUrl): bool {
+            return str_contains($mail->bodyHtml, $aaUrl)
+                && ! str_contains($mail->bodyHtml, 'member-mail')
+                && str_contains($mail->bodyText, $aaUrl);
+        });
     }
 }

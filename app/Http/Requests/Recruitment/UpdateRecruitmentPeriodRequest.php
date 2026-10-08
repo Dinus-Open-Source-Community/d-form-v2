@@ -13,11 +13,13 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (! $this->has('whatsapp_group_url')) {
-            return;
-        }
+        foreach (['whatsapp_group_url', 'whatsapp_group_aa_url', 'whatsapp_group_member_url'] as $field) {
+            if (! $this->has($field)) {
+                continue;
+            }
 
-        $this->merge(['whatsapp_group_url' => self::normalizeWhatsappUrl($this->input('whatsapp_group_url'))]);
+            $this->merge([$field => self::normalizeWhatsappUrl($this->input($field))]);
+        }
     }
 
     /**
@@ -35,6 +37,8 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
             'finalization_deadline_at' => ['nullable', 'date'],
             'banner' => ['sometimes', 'nullable', 'image', 'max:10240', 'mimes:jpg,jpeg,png,webp'],
             'whatsapp_group_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
+            'whatsapp_group_aa_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
+            'whatsapp_group_member_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
         ];
     }
 
@@ -49,6 +53,10 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
             'banner.mimes' => 'Banner harus berformat JPG, JPEG, PNG, atau WEBP.',
             'whatsapp_group_url.url' => 'Link grup WA harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
             'whatsapp_group_url.starts_with' => 'Link grup WA harus memakai https://.',
+            'whatsapp_group_aa_url.url' => 'Link grup WA AA harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
+            'whatsapp_group_aa_url.starts_with' => 'Link grup WA AA harus memakai https://.',
+            'whatsapp_group_member_url.url' => 'Link grup WA Member harus berupa URL valid (mis. https://chat.whatsapp.com/...).',
+            'whatsapp_group_member_url.starts_with' => 'Link grup WA Member harus memakai https://.',
         ];
     }
 

@@ -218,7 +218,7 @@ final class RecruitmentEmailRenderer
     }
 
     /**
-     * @param  array<string, string>  $variables
+     * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
      */
     private function interviewScheduled(array $variables): array
@@ -357,6 +357,7 @@ final class RecruitmentEmailRenderer
         $rawMembership = (string) ($variables['membership_type'] ?? '');
         $rawDivision = (string) ($variables['final_division'] ?? '');
         $rawPublicMessage = (string) ($variables['public_message'] ?? '');
+        $rawWhatsappUrl = (string) ($variables['whatsapp_group_url'] ?? '');
 
         $bodyText = 'Halo '.$rawName.",\n\n"
             .'Selamat! Kamu diterima sebagai '.$rawMembership.' di divisi '.$rawDivision.".\n\n"
@@ -370,9 +371,16 @@ final class RecruitmentEmailRenderer
         if ($rawMembership !== '') {
             $bodyText .= 'Tipe: '.$rawMembership."\n";
         }
+        if (trim($rawWhatsappUrl) !== '') {
+            $bodyText .= 'Grup WA: '.trim($rawWhatsappUrl)."\n";
+        }
 
         if ($rawPublicMessage !== '') {
             $bodyText .= "\nCatatan dari tim:\n".$rawPublicMessage."\n";
+        }
+
+        if (trim($rawWhatsappUrl) !== '') {
+            $bodyText .= "\nGabung Grup WA:\n".trim($rawWhatsappUrl)."\n";
         }
 
         $bodyText .= "\nInformasi orientasi dan langkah berikutnya akan kami kirim lewat email berikutnya.";
@@ -437,10 +445,117 @@ final class RecruitmentEmailRenderer
     }
 
     /**
-     * @param  array<string, string>  $variables
+     * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
      */
     private function interviewBody(
+        string $subject,
+        array $variables,
+        string $intro,
+        bool $includeTrackingLink,
+        string $qrNote,
+    ): array {
+        $name = $this->e($variables, 'applicant_name');
+        $date = $this->e($variables, 'interview_date');
+        $time = $this->e($variables, 'interview_time');
+        $trackingUrl = $this->e($variables, 'tracking_url');
+
+        $rawName = (string) ($variables['applicant_name'] ?? '');
+        $rawTrackingUrl = (string) ($variables['tracking_url'] ?? '');
+        $sessions = $this->sessionList($variables);
+
+        if ($date !== '' || $time !== '') {
+            return $this->singleScheduleBody(
+                subject: $subject,
+                variables: $variables,
+                intro: $intro,
+                includeTrackingLink: $includeTrackingLink,
+                qrNote: $qrNote,
+            );
+        }
+
+        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
+            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>';
+
+        $bodyText = 'Halo '.$rawName.",\n\n";
+
+        if ($sessions !== []) {
+            $divisionName = trim((string) ($variables['session_division_name'] ?? ''));
+
+            if ($divisionName !== '') {
+                $bodyHtml .= '<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
+                    .'Datang ke salah satu sesi interview divisi <strong style="color:#111827;">'
+                    .$this->e($variables, 'session_division_name').'</strong> berikut.</p>';
+                $bodyText .= 'Datang ke salah satu sesi interview divisi '.$divisionName." berikut.\n\n";
+            } else {
+                $bodyHtml .= '<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
+                    .'Datang ke salah satu sesi interview divisimu berikut.</p>';
+                $bodyText .= "Datang ke salah satu sesi interview divisimu berikut.\n\n";
+            }
+
+            $bodyHtml .= $this->sessionListCardHtml($sessions);
+
+            $bodyText .= "────────────────────────\n"
+                ."Jadwal interview\n\n";
+
+            foreach ($sessions as $index => $session) {
+                if ($index > 0) {
+                    $bodyText .= "\n";
+                }
+                $bodyText .= 'Tanggal: '.$session['date']."\n";
+                $bodyText .= 'Jam: '.$session['time_range']."\n";
+                if ($session['location'] !== '') {
+                    $bodyText .= 'Lokasi: '.$session['location']."\n";
+                }
+                if ($session['room'] !== '') {
+                    $bodyText .= 'Ruang: '.$session['room']."\n";
+                }
+                $bodyText .= "\n";
+            }
+        } else {
+            $bodyHtml .= '<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
+                .'Tunjukkan QR code di bawah ke panitia saat tiba di lokasi interview.</p>';
+            $bodyText .= "Tunjukkan QR code di bawah ke panitia saat tiba di lokasi interview.\n";
+        }
+
+        $bodyHtml .= '<p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#4b5563;">'
+            .$qrNote.'</p>';
+
+        if ($includeTrackingLink && $trackingUrl !== '') {
+            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
+                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:16px auto 8px;">'
+                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
+                .'<a href="'.$trackingUrl.'" '
+                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
+                .'Pantau progress pendaftaran</a>'
+                .'</td></tr></table>'
+                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
+                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
+                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
+        }
+
+        $bodyText .= "\n".$qrNote."\n";
+
+        if ($includeTrackingLink && $rawTrackingUrl !== '') {
+            $bodyText .= "\nPortal: ".$rawTrackingUrl."\n\n"
+                ."Jika tombol tidak berfungsi, buka URL berikut:\n"
+                .$rawTrackingUrl;
+        }
+
+        return [
+            'subject' => $subject,
+            'body_html' => $bodyHtml,
+            'body_text' => rtrim($bodyText),
+        ];
+    }
+
+    /**
+     * Kartu jadwal tunggal (jadwal interview pasti: tanggal/jam terisi).
+     *
+     * @param  array<string, mixed>  $variables
+     * @return array{subject: string, body_html: string, body_text: string}
+     */
+    private function singleScheduleBody(
         string $subject,
         array $variables,
         string $intro,
@@ -556,6 +671,100 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     * Normalisasi daftar sesi interview dari variabel bulk (aman untuk blade/text).
+     *
+     * @param  array<string, mixed>  $variables
+     * @return list<array{date: string, time_range: string, location: string, room: string}>
+     */
+    private function sessionList(array $variables): array
+    {
+        $raw = $variables['session_list'] ?? [];
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $date = trim((string) ($row['date'] ?? ''));
+            $timeRange = trim((string) ($row['time_range'] ?? ''));
+
+            if ($date === '' && $timeRange === '') {
+                continue;
+            }
+
+            $items[] = [
+                'date' => $date,
+                'time_range' => $timeRange,
+                'location' => trim((string) ($row['location'] ?? '')),
+                'room' => trim((string) ($row['room'] ?? '')),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Kartu "Jadwal interview" berisi daftar sesi (satu grup baris per sesi).
+     *
+     * @param  list<array{date: string, time_range: string, location: string, room: string}>  $sessions
+     */
+    private function sessionListCardHtml(array $sessions): string
+    {
+        $rows = '';
+
+        foreach ($sessions as $index => $session) {
+            if ($index > 0) {
+                $rows .= '<tr><td colspan="2" style="padding:4px 0;"></td></tr>';
+            }
+
+            $date = htmlspecialchars($session['date'], ENT_QUOTES, 'UTF-8');
+            $timeRange = htmlspecialchars($session['time_range'], ENT_QUOTES, 'UTF-8');
+            $location = htmlspecialchars($session['location'], ENT_QUOTES, 'UTF-8');
+            $room = htmlspecialchars($session['room'], ENT_QUOTES, 'UTF-8');
+
+            $rows .= '<tr>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Tanggal</td>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$date.'</td>'
+                .'</tr>'
+                .'<tr>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Jam</td>'
+                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$timeRange.'</td>'
+                .'</tr>';
+
+            if ($location !== '') {
+                $rows .= '<tr>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Lokasi</td>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$location.'</td>'
+                    .'</tr>';
+            }
+
+            if ($room !== '') {
+                $rows .= '<tr>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Ruang</td>'
+                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$room.'</td>'
+                    .'</tr>';
+            }
+        }
+
+        return '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
+            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
+            .'<tr><td style="padding:18px 20px;">'
+            .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
+            .'Jadwal interview</p>'
+            .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
+            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
+            .$rows
+            .'</table>'
+            .'</td></tr></table>';
+    }
+
+    /**
      * @param  array<string, mixed>  $variables
      * @return list<string>
      */
@@ -600,7 +809,7 @@ final class RecruitmentEmailRenderer
     }
 
     /**
-     * @param  array<string, string>  $variables
+     * @param  array<string, mixed>  $variables
      */
     private function e(array $variables, string $key, ?string $fallback = null): string
     {
