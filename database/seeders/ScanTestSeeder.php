@@ -14,6 +14,7 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
+use App\Models\Recruitment\RecruitmentDocument;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
@@ -38,9 +39,15 @@ use Illuminate\Support\Facades\Mail;
  * + 20 oprec applicants (stage Interview + Scheduled interview), all
  * scannable, plus QR PNGs under storage/app/scan-test/.
  *
+ * Setiap applicant oprec mendapat secondary division (round-robin divisi
+ * berikutnya, tidak pernah sama dengan primary) serta berkas dokumen
+ * (CV + portfolio + bukti follow IG) yang disalin dari pool berkas yang
+ * sudah ada di storage/app/private/recruitment/.
+ *
  * Safe to re-run: every row is firstOrCreate/firstOrNew keyed on a unique
  * column, existing rows are normalised back to scannable state, never
- * duplicated.
+ * duplicated. Secondary yang sudah terisi dan dokumen yang sudah ada
+ * tidak pernah ditimpa.
  */
 class ScanTestSeeder extends Seeder
 {
@@ -366,13 +373,25 @@ class ScanTestSeeder extends Seeder
         $dir = storage_path('app/scan-test/oprec');
         File::ensureDirectoryExists($dir);
 
+        // Pool berkas nyata untuk dokumen seed: PDF -> CV, PNG -> portfolio
+        // dan bukti follow IG. Disalin (tidak dipindah) agar data asli utuh.
+        // Urutan di-sort agar deterministik antar run.
+        $pdfPool = collect(File::glob(storage_path('app/private/recruitment/*/*/*.pdf')))->sort()->values()->all();
+        $pngPool = collect(File::glob(storage_path('app/private/recruitment/*/*/*.png')))->sort()->values()->all();
+
+        if ($pdfPool === [] || $pngPool === []) {
+            $this->command->warn('ScanTestSeeder: pool berkas seed kosong, dokumen oprec dilewati.');
+        }
+
         $numbers = [];
         $createdApps = 0;
         $createdInterviews = 0;
+        $filledSecondary = 0;
+        $createdDocuments = 0;
         $n = 0;
         $sessionDate = today()->addDay();
 
-        foreach ($divisions as $division) {
+        foreach ($divisions->values() as $divisionIndex => $division) {
             $interviewer = User::query()->firstOrCreate(
                 ['email' => "scan-test-interviewer-{$division->code}@example.test"],
                 ['name' => "Scan Test Interviewer {$division->code}", 'password' => 'password'],
@@ -446,6 +465,16 @@ class ScanTestSeeder extends Seeder
                     ]);
                 }
 
+                // Secondary = divisi berikutnya (urut sort_order, siklik):
+                // deterministik, merata, dan tidak pernah sama dengan primary.
+                // Hanya mengisi yang masih kosong; nilai eksisting dipertahankan.
+                $secondaryDivision = $divisions[($divisionIndex + 1) % $divisions->count()];
+
+                if ($application->secondary_division_id === null) {
+                    $application->update(['secondary_division_id' => $secondaryDivision->id]);
+                    $filledSecondary++;
+                }
+
                 // Direct insert (not InterviewSchedulingService): the service
                 // dispatches applicant/interviewer notification emails, which a
                 // scan-test seed must not trigger. Same end state: Scheduled.
@@ -469,13 +498,88 @@ class ScanTestSeeder extends Seeder
                     $createdInterviews++;
                 }
 
+                if ($this->seedOprecDocuments($application, $period->id, $n, $pdfPool, $pngPool)) {
+                    $createdDocuments++;
+                }
+
                 File::put($dir.'/oprec-'.$application->registration_number.'.png', $qr->pngForApplication($application->id));
                 $numbers[] = $application->registration_number;
             }
         }
 
         $this->command->info("  OPREC: {$createdApps} applications created, {$createdInterviews} interviews created (".count($numbers).' total, 5 per division).');
+        $this->command->info("  OPREC: {$filledSecondary} secondary divisions filled, {$createdDocuments} document sets attached.");
 
         return $numbers;
+    }
+
+    /**
+     * Lampirkan set dokumen (CV + portfolio + bukti follow IG) ke applicant
+     * oprec bila belum punya, dengan menyalin dari pool berkas nyata di
+     * storage/app/private/recruitment/. Deterministik per $n agar stabil
+     * antar run; tidak pernah menimpa dokumen eksisting.
+     */
+    private function seedOprecDocuments(
+        RecruitmentApplication $application,
+        string $periodId,
+        int $n,
+        array $pdfPool,
+        array $pngPool,
+    ): bool {
+        if ($pdfPool === [] || $pngPool === []) {
+            return false;
+        }
+
+        if (RecruitmentDocument::query()->where('recruitment_application_id', $application->id)->exists()) {
+            return false;
+        }
+
+        $relativeBase = 'recruitment/'.$periodId.'/'.$application->id;
+        $absoluteBase = storage_path('app/private/'.$relativeBase);
+        File::ensureDirectoryExists($absoluteBase);
+
+        $copy = static function (string $source, string $fileName, string $mime) use ($relativeBase, $absoluteBase): array {
+            File::copy($source, $absoluteBase.'/'.$fileName);
+
+            return [$relativeBase.'/'.$fileName, $mime, File::size($absoluteBase.'/'.$fileName)];
+        };
+
+        [$cvPath, $cvMime, $cvSize] = $copy(
+            $pdfPool[($n - 1) % count($pdfPool)],
+            'cv-'.$application->nim.'.pdf',
+            'application/pdf',
+        );
+
+        [$portfolioPath, $portfolioMime, $portfolioSize] = $copy(
+            $pngPool[($n - 1) % count($pngPool)],
+            'portfolio-'.$application->nim.'.png',
+            'image/png',
+        );
+
+        [$instagramPath, $instagramMime, $instagramSize] = $copy(
+            $pngPool[($n - 1 + intdiv(count($pngPool), 2)) % count($pngPool)],
+            'instagram-follow-'.$application->nim.'.png',
+            'image/png',
+        );
+
+        RecruitmentDocument::query()->create([
+            'recruitment_application_id' => $application->id,
+            'cv_path' => $cvPath,
+            'cv_original_name' => 'CV-'.$application->nim.'.pdf',
+            'cv_mime' => $cvMime,
+            'cv_size_bytes' => $cvSize,
+            'portfolio_type' => 'file',
+            'portfolio_path' => $portfolioPath,
+            'portfolio_original_name' => 'Portfolio-'.$application->nim.'.png',
+            'portfolio_mime' => $portfolioMime,
+            'portfolio_size_bytes' => $portfolioSize,
+            'instagram_follow_path' => $instagramPath,
+            'instagram_follow_original_name' => 'Bukti-Follow-'.$application->nim.'.png',
+            'instagram_follow_mime' => $instagramMime,
+            'instagram_follow_size_bytes' => $instagramSize,
+            'twibbon_url' => null,
+        ]);
+
+        return true;
     }
 }
