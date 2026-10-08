@@ -14,9 +14,26 @@ return new class () extends Migration {
             $driver = Schema::getConnection()->getDriverName();
 
             if ($driver === 'mysql') {
-                Schema::table('recruitment_interviews', function (Blueprint $table): void {
-                    $table->dropForeign(['interviewer_id']);
-                });
+                // MySQL-safe: drop by explicit custom name (default-convention
+                // name from dropForeign(['col']) does not exist; actual FK is
+                // `rec_interviews_iv_fk`). Check information_schema first so a
+                // missing FK never throws 1091, and also cover the legacy
+                // default name in case an old schema used it.
+                $database = Schema::getConnection()->getDatabaseName();
+                $existingFks = DB::select(
+                    "SELECT CONSTRAINT_NAME AS name FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME IN (?, ?)",
+                    [$database, 'recruitment_interviews', 'rec_interviews_iv_fk', 'recruitment_interviews_interviewer_id_foreign']
+                );
+
+                foreach ($existingFks as $fkRow) {
+                    $fkName = is_array($fkRow) ? ($fkRow['name'] ?? null) : ($fkRow->name ?? null);
+                    if (! is_string($fkName) || $fkName === '') {
+                        continue;
+                    }
+                    Schema::table('recruitment_interviews', function (Blueprint $table) use ($fkName): void {
+                        $table->dropForeign($fkName);
+                    });
+                }
 
                 DB::statement('ALTER TABLE recruitment_interviews MODIFY interviewer_id CHAR(36) NULL');
 
@@ -24,11 +41,27 @@ return new class () extends Migration {
                     $table->dateTime('booked_at')->nullable()->after('interviewer_id');
                 });
 
+                // Guard re-add so a partial-failure resume does not fail on
+                // duplicate FK (1826) when `rec_interviews_iv_fk` already exists.
+                $fkExists = DB::selectOne(
+                    "SELECT CONSTRAINT_NAME AS name FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = ?",
+                    [$database, 'recruitment_interviews', 'rec_interviews_iv_fk']
+                );
+
+                if ($fkExists === null) {
+                    Schema::table('recruitment_interviews', function (Blueprint $table): void {
+                        $table->foreign('interviewer_id', 'rec_interviews_iv_fk')
+                            ->references('id')
+                            ->on('users')
+                            ->nullOnDelete();
+                    });
+                }
+            } else {
+                // SQLite / other drivers (tests, --database=sqlite): no
+                // MODIFY support and no named-FK drop; just add the column.
+                // `after()` is MySQL-only so it is omitted here.
                 Schema::table('recruitment_interviews', function (Blueprint $table): void {
-                    $table->foreign('interviewer_id', 'rec_interviews_iv_fk')
-                        ->references('id')
-                        ->on('users')
-                        ->nullOnDelete();
+                    $table->dateTime('booked_at')->nullable();
                 });
             }
         }
