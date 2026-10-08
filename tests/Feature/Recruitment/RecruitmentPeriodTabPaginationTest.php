@@ -39,11 +39,11 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
         return $admin;
     }
 
-    public function test_tab_peserta_page_dua_meta_paginator_tepat(): void
+    public function test_tab_peserta_duapuluh_satu_page_dua_satu_row(): void
     {
         $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
 
-        for ($i = 0; $i < 16; $i++) {
+        for ($i = 0; $i < 21; $i++) {
             RecruitmentApplication::factory()->create([
                 'recruitment_period_id' => $this->period->id,
                 'primary_division_id' => $division->id,
@@ -61,13 +61,38 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('tab', 'peserta')
                 ->where('applications.current_page', 2)
-                ->where('applications.per_page', 15)
-                ->where('applications.total', 16)
+                ->where('applications.per_page', 20)
+                ->where('applications.total', 21)
                 ->where('applications.last_page', 2)
                 ->has('applications.data', 1)
                 ->missing('broadcasts')
                 ->missing('sessions')
                 ->missing('report'));
+    }
+
+    public function test_tab_peserta_enambelas_jadi_satu_halaman_tanpa_pager(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        for ($i = 0; $i < 16; $i++) {
+            RecruitmentApplication::factory()->create([
+                'recruitment_period_id' => $this->period->id,
+                'primary_division_id' => $division->id,
+                'submitted_at' => now()->subMinutes($i),
+            ]);
+        }
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.per_page', 20)
+                ->where('applications.total', 16)
+                ->where('applications.last_page', 1)
+                ->has('applications.data', 16));
     }
 
     public function test_tab_broadcast_page_satu_memuat_rows_ter_scoped(): void
@@ -137,12 +162,12 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('tab', 'peserta')
                 ->where('applications.current_page', 1)
-                ->where('applications.per_page', 15)
+                ->where('applications.per_page', 20)
                 ->where('applications.total', 1)
                 ->has('applications.data', 1));
     }
 
-    public function test_per_page_lima_peserta_lima_rows_meta_tepat(): void
+    public function test_per_page_param_diabaikan_selalu_duapuluh(): void
     {
         $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
 
@@ -164,10 +189,91 @@ class RecruitmentPeriodTabPaginationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('tab', 'peserta')
                 ->where('applications.current_page', 1)
-                ->where('applications.per_page', 5)
+                ->where('applications.per_page', 20)
                 ->where('applications.total', 7)
-                ->where('applications.last_page', 2)
-                ->has('applications.data', 5));
+                ->where('applications.last_page', 1)
+                ->has('applications.data', 7));
+    }
+
+    public function test_peserta_search_server_side_memfilter_nama(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        $target = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => 'Cari Saya Budi',
+        ]);
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'full_name' => 'Orang Lain Saja',
+        ]);
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+                'search' => 'Cari Saya',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.total', 1)
+                ->where('applications.data.0.id', $target->id));
+    }
+
+    public function test_peserta_terurut_submitted_terbaru_dulu(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+
+        $older = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'submitted_at' => now()->subDay(),
+        ]);
+        $newer = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $division->id,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.data.0.id', $newer->id)
+                ->where('applications.data.1.id', $older->id));
+    }
+
+    public function test_peserta_filter_divisi_mencakup_secondary(): void
+    {
+        $programming = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+        $data = RecruitmentDivision::query()->where('code', 'data')->firstOrFail();
+
+        $secondaryMatch = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $programming->id,
+            'secondary_division_id' => $data->id,
+        ]);
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $this->period->id,
+            'primary_division_id' => $programming->id,
+            'secondary_division_id' => null,
+        ]);
+
+        $this->actingAs($this->admin(['recruitment.periods.view', 'recruitment.applications.list']))
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $this->period->id,
+                'tab' => 'peserta',
+                'division_id' => $data->id,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.total', 1)
+                ->where('applications.data.0.id', $secondaryMatch->id));
     }
 
     public function test_per_page_melebihi_maks_ditolak_validasi(): void

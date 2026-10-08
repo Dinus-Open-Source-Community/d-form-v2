@@ -78,6 +78,26 @@ class UserManagementTest extends TestCase
             );
     }
 
+    public function test_users_index_ordered_newest_first_with_twenty_per_page(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super-admin');
+
+        $older = User::factory()->create(['created_at' => now()->subDay()]);
+        $newer = User::factory()->create();
+
+        $this->actingAs($superAdmin)
+            ->get(route('dashboard.users.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('users.per_page', 20)
+                ->where('users.data', function ($rows) use ($newer, $older): bool {
+                    $ids = collect($rows)->pluck('id')->all();
+
+                    return array_search($newer->id, $ids) < array_search($older->id, $ids);
+                }));
+    }
+
     public function test_super_admin_can_create_admin_user(): void
     {
         $superAdmin = User::factory()->create();

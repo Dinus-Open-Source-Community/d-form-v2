@@ -23,11 +23,12 @@ final class RecruitmentApplicationService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 5): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
     {
         $query = RecruitmentApplication::query()
             ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
-            ->orderByDesc('submitted_at');
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id');
 
         if (! empty($filters['period_id'])) {
             $query->where('recruitment_period_id', $filters['period_id']);

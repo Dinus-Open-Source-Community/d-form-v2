@@ -13,7 +13,7 @@ final class InterviewSessionService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
     {
         $query = RecruitmentInterviewSession::query()
             ->with(['period:id,name', 'division:id,name,code'])

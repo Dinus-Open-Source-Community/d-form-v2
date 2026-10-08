@@ -136,8 +136,8 @@ class RecruitmentPeriodController extends Controller
         }
 
         // per_page sudah dibatasi validasi (nullable|integer|min:5|max:100);
-        // validated() tak me-cast string query, jadi cast eksplisit di sini.
-        $perPage = (int) ($validated['per_page'] ?? 15);
+        // aturan global: selalu 20 per halaman, pager hanya bila total > 20.
+        $perPage = 20;
 
         $applications = null;
         $queueCounts = [];
@@ -156,11 +156,18 @@ class RecruitmentPeriodController extends Controller
             $canListApplications = $request->user()?->can('recruitment.applications.list') ?? false;
 
             if ($canListApplications) {
-                $applicationPaginator = RecruitmentApplication::query()
-                    ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
-                    ->where('recruitment_period_id', $period->id)
-                    ->orderByDesc('submitted_at')
-                    ->paginate($perPage, ['*'], 'page', $request->integer('page', 1));
+                $applicationPaginator = $this->applicationService->paginate(
+                    [
+                        'period_id' => $period->id,
+                        'division_id' => $validated['division_id'] ?? null,
+                        'stage' => $validated['stage'] ?? null,
+                        'queue' => $validated['queue'] ?? null,
+                        'semester' => $validated['semester'] ?? null,
+                        'search' => $validated['search'] ?? null,
+                    ],
+                    $request->integer('page', 1),
+                    $perPage,
+                );
                 $groupLinkStatuses = $this->groupLinkStatusMap(
                     $applicationPaginator->getCollection()->map(fn ($item) => $item->id)->all()
                 );
