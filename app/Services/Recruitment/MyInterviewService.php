@@ -329,6 +329,7 @@ final class MyInterviewService
         return RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
             ->where('interview_kind', RecruitmentInterview::KIND_SECONDARY)
+            ->whereDoesntHave('evaluation')
             ->with([
                 'application.primaryDivision',
                 'application.secondaryDivision',

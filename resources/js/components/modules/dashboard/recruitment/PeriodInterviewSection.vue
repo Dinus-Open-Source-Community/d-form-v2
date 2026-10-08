@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
-import { ChevronLeft, ChevronRight, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Download, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { type IPaginatorMeta } from '@/lib/paginatorLinks'
 import {
     Pagination,
@@ -20,6 +29,7 @@ import InterviewSessionEditSheet, {
     type EditableInterviewSession,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue'
 import { routes } from '@/lib/routes'
+import { toast } from 'vue-sonner'
 
 interface SessionRow {
     id: string
@@ -135,6 +145,148 @@ function handleDelete(session: SessionRow): void {
         only: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
     })
 }
+
+type ExportScope = 'all' | 'evaluated' | 'pending'
+
+const EXPORT_SCOPES: { value: ExportScope; label: string; hint: string }[] = [
+    { value: 'all', label: 'Semua interview', hint: 'Seluruh jadwal interview periode ini.' },
+    { value: 'evaluated', label: 'Sudah dinilai', hint: 'Hanya interview yang sudah ada nilainya.' },
+    { value: 'pending', label: 'Belum dinilai', hint: 'Hanya interview yang belum dinilai.' },
+]
+
+interface ExportColumn {
+    key: string
+    label: string
+}
+
+interface ExportColumnGroup {
+    label: string
+    columns: ExportColumn[]
+}
+
+/** Urutan kunci kolom persis kontrak backend (columns[] dikirim dalam urutan ini). */
+const EXPORT_COLUMN_GROUPS: ExportColumnGroup[] = [
+    {
+        label: 'Identitas',
+        columns: [
+            { key: 'registration_number', label: 'No. Registrasi' },
+            { key: 'full_name', label: 'Nama' },
+            { key: 'nim', label: 'NIM' },
+            { key: 'semester', label: 'Semester' },
+            { key: 'phone', label: 'Telepon' },
+            { key: 'personal_email', label: 'Email' },
+        ],
+    },
+    {
+        label: 'Divisi & Sesi',
+        columns: [
+            { key: 'primary_division', label: 'Divisi primer' },
+            { key: 'secondary_division', label: 'Divisi sekunder' },
+            { key: 'interview_kind', label: 'Jenis interview' },
+            { key: 'session_date', label: 'Tanggal sesi' },
+            { key: 'session_time', label: 'Jam sesi' },
+            { key: 'location', label: 'Lokasi' },
+            { key: 'room', label: 'Ruang' },
+            { key: 'session_division', label: 'Divisi sesi' },
+        ],
+    },
+    {
+        label: 'Status',
+        columns: [
+            { key: 'interview_status', label: 'Status interview' },
+            { key: 'checked_in_at', label: 'Waktu check-in' },
+            { key: 'attendance_method', label: 'Metode absensi' },
+            { key: 'interviewer_name', label: 'Interviewer' },
+        ],
+    },
+    {
+        label: 'Penilaian',
+        columns: [
+            { key: 'speaking_score', label: 'Speaking' },
+            { key: 'technical_score', label: 'Teknis' },
+            { key: 'attitude_score', label: 'Attitude' },
+            { key: 'recommendation', label: 'Rekomendasi' },
+            { key: 'save_count', label: 'Jumlah simpan' },
+            { key: 'evaluated_at', label: 'Dinilai pada' },
+        ],
+    },
+    {
+        label: 'Hasil',
+        columns: [
+            { key: 'application_stage', label: 'Tahap' },
+            { key: 'application_result', label: 'Hasil' },
+            { key: 'final_division', label: 'Divisi final' },
+            { key: 'membership_type', label: 'Tipe keanggotaan' },
+        ],
+    },
+]
+
+const ALL_EXPORT_COLUMN_KEYS: string[] = EXPORT_COLUMN_GROUPS.flatMap((group) =>
+    group.columns.map((column) => column.key),
+)
+
+const exportOpen = ref<boolean>(false)
+const exportScope = ref<ExportScope>('all')
+const exportIncludeSecondary = ref<boolean>(true)
+const exportColumns = ref<string[]>([...ALL_EXPORT_COLUMN_KEYS])
+
+const exportColumnCountLabel = computed<string>(
+    () => `${exportColumns.value.length} dari ${ALL_EXPORT_COLUMN_KEYS.length} kolom dipilih`,
+)
+
+function openExport(): void {
+    exportScope.value = 'all'
+    exportIncludeSecondary.value = true
+    exportColumns.value = [...ALL_EXPORT_COLUMN_KEYS]
+    exportOpen.value = true
+}
+
+function closeExport(): void {
+    exportOpen.value = false
+}
+
+function isExportColumnChecked(key: string): boolean {
+    return exportColumns.value.includes(key)
+}
+
+function setExportColumn(key: string, checked: boolean | 'indeterminate'): void {
+    if (checked === true) {
+        if (!exportColumns.value.includes(key)) exportColumns.value = [...exportColumns.value, key]
+        return
+    }
+    exportColumns.value = exportColumns.value.filter((item) => item !== key)
+}
+
+function groupExportKeys(group: ExportColumnGroup): string[] {
+    return group.columns.map((column) => column.key)
+}
+
+function isExportGroupComplete(group: ExportColumnGroup): boolean {
+    return groupExportKeys(group).every((key) => exportColumns.value.includes(key))
+}
+
+function setExportGroup(group: ExportColumnGroup, checked: boolean): void {
+    const keys = groupExportKeys(group)
+    if (checked) {
+        exportColumns.value = Array.from(new Set([...exportColumns.value, ...keys]))
+        return
+    }
+    exportColumns.value = exportColumns.value.filter((key) => !keys.includes(key))
+}
+
+function submitExport(): void {
+    if (exportColumns.value.length === 0) return
+    const params = new URLSearchParams()
+    params.set('scope', exportScope.value)
+    if (exportIncludeSecondary.value) params.set('include_secondary', '1')
+    const selected = new Set(exportColumns.value)
+    for (const key of ALL_EXPORT_COLUMN_KEYS) {
+        if (selected.has(key)) params.append('columns[]', key)
+    }
+    toast.info('Mengekspor…')
+    exportOpen.value = false
+    window.location.href = `${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`
+}
 </script>
 
 <template>
@@ -143,11 +295,126 @@ function handleDelete(session: SessionRow): void {
             <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
                 Interview periode ini
             </h2>
-            <Button size="sm" class="gap-1.5" @click="createOpen = true">
-                <Plus class="size-4" aria-hidden="true" />
-                Buat sesi
-            </Button>
+            <div class="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" class="gap-1.5" @click="openExport">
+                    <Download class="size-4" aria-hidden="true" />
+                    Export CSV
+                </Button>
+                <Button size="sm" class="gap-1.5" @click="createOpen = true">
+                    <Plus class="size-4" aria-hidden="true" />
+                    Buat sesi
+                </Button>
+            </div>
         </div>
+
+        <Dialog v-model:open="exportOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Export interview ke CSV</DialogTitle>
+                    <DialogDescription>
+                        Unduh rekap interview periode ini sebagai berkas CSV.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <fieldset class="space-y-2">
+                    <legend class="text-sm font-medium">Cakupan data</legend>
+                    <div class="grid gap-2">
+                        <label
+                            v-for="option in EXPORT_SCOPES"
+                            :key="option.value"
+                            class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/70 px-3 py-2.5"
+                        >
+                            <input
+                                v-model="exportScope"
+                                type="radio"
+                                name="export-scope"
+                                :value="option.value"
+                                class="mt-0.5 size-4 shrink-0 accent-primary"
+                            />
+                            <span class="text-sm leading-snug">
+                                {{ option.label }}
+                                <span class="block text-xs text-muted-foreground">{{ option.hint }}</span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <label
+                    for="export-include-secondary"
+                    class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/70 px-3 py-2.5"
+                >
+                    <Checkbox id="export-include-secondary" v-model:checked="exportIncludeSecondary" class="mt-0.5" />
+                    <span class="text-sm leading-snug">
+                        Sertakan interview secondary
+                        <span class="block text-xs text-muted-foreground">
+                            Selain interview primer, jadwal secondary ikut diekspor.
+                        </span>
+                    </span>
+                </label>
+
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-sm font-medium">Kolom</p>
+                        <p class="text-xs tabular-nums text-muted-foreground">{{ exportColumnCountLabel }}</p>
+                    </div>
+                    <div class="max-h-64 space-y-4 overflow-y-auto rounded-xl border border-border/70 p-3">
+                        <section v-for="group in EXPORT_COLUMN_GROUPS" :key="group.label" class="space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {{ group.label }}
+                                </h4>
+                                <div class="flex items-center gap-3">
+                                    <button
+                                        v-if="!isExportGroupComplete(group)"
+                                        type="button"
+                                        class="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+                                        @click="setExportGroup(group, true)"
+                                    >
+                                        Pilih semua
+                                    </button>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        class="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
+                                        @click="setExportGroup(group, false)"
+                                    >
+                                        Kosongkan
+                                    </button>
+                                </div>
+                            </div>
+                            <ul class="grid gap-1 sm:grid-cols-2">
+                                <li v-for="column in group.columns" :key="column.key">
+                                    <label
+                                        :for="`export-col-${column.key}`"
+                                        class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/40"
+                                    >
+                                        <Checkbox
+                                            :id="`export-col-${column.key}`"
+                                            :checked="isExportColumnChecked(column.key)"
+                                            @update:checked="(checked) => setExportColumn(column.key, checked)"
+                                        />
+                                        <span class="min-w-0 truncate">{{ column.label }}</span>
+                                    </label>
+                                </li>
+                            </ul>
+                        </section>
+                    </div>
+                    <p v-if="exportColumns.length === 0" role="alert" class="text-xs text-destructive">
+                        Pilih minimal satu kolom untuk mengekspor.
+                    </p>
+                </div>
+
+                <DialogFooter>
+                    <Button type="button" variant="outline" @click="closeExport">
+                        Batal
+                    </Button>
+                    <Button type="button" :disabled="exportColumns.length === 0" @click="submitExport">
+                        <Download class="mr-2 size-4" aria-hidden="true" />
+                        Export CSV
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <InterviewSessionCreateSheet
             :open="createOpen"

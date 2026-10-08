@@ -429,4 +429,131 @@ class RecruitmentFinalSelectionTest extends TestCase
                 && str_contains($mail->bodyText, $aaUrl);
         });
     }
+
+    public function test_accept_email_aa_shows_anggota_aktif_copy(): void
+    {
+        Mail::fake();
+
+        $application = $this->applicationInFinalReview('copy1');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->programming->id,
+            ])
+            ->assertRedirect();
+
+        $job = new SendRecruitmentNotificationJob($application->id, 'final_accepted');
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentInterviewVariableBuilder::class),
+            app(RecruitmentQrPngGenerator::class),
+        );
+
+        $announcement = 'diterima sebagai Anggota Aktif DOSCOM di divisi '.$this->programming->name;
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail) use ($application, $announcement): bool {
+            return str_contains($mail->bodyHtml, 'Halo, '.$application->full_name.'.')
+                && str_contains($mail->bodyHtml, 'Selamat! 🎉')
+                && str_contains($mail->bodyHtml, $announcement)
+                && str_contains($mail->bodyText, $announcement);
+        });
+    }
+
+    public function test_accept_email_member_shows_member_copy(): void
+    {
+        Mail::fake();
+
+        $application = $this->applicationInFinalReview('copy2');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Member->value,
+                'final_division_id' => $this->programming->id,
+            ])
+            ->assertRedirect();
+
+        $job = new SendRecruitmentNotificationJob($application->id, 'final_accepted');
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentInterviewVariableBuilder::class),
+            app(RecruitmentQrPngGenerator::class),
+        );
+
+        $announcement = 'diterima sebagai Member DOSCOM di divisi '.$this->programming->name;
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail) use ($announcement): bool {
+            return str_contains($mail->bodyHtml, $announcement)
+                && str_contains($mail->bodyText, $announcement)
+                && ! str_contains($mail->bodyHtml, 'Anggota Aktif');
+        });
+    }
+
+    public function test_accept_email_uses_default_team_note_when_no_public_message(): void
+    {
+        Mail::fake();
+
+        $application = $this->applicationInFinalReview('copy3');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Member->value,
+                'final_division_id' => $this->programming->id,
+            ])
+            ->assertRedirect();
+
+        $job = new SendRecruitmentNotificationJob($application->id, 'final_accepted');
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentInterviewVariableBuilder::class),
+            app(RecruitmentQrPngGenerator::class),
+        );
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail): bool {
+            return str_contains($mail->bodyHtml, 'Catatan Dari Team')
+                && str_contains($mail->bodyHtml, 'Selamat datang di keluarga besar DOSCOM')
+                && str_contains($mail->bodyHtml, 'create together. 🚀')
+                && str_contains($mail->bodyText, 'Catatan Dari Team:')
+                && str_contains($mail->bodyText, "Let's grow, learn, and create together. 🚀");
+        });
+    }
+
+    public function test_reject_email_shows_new_copy(): void
+    {
+        Mail::fake();
+
+        $application = $this->applicationInFinalReview('copy4');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.reject', $application), [
+                'internal_reason' => 'Skor di bawah standar.',
+                'public_message' => 'Terima kasih sudah mengikuti seleksi.',
+            ])
+            ->assertRedirect();
+
+        $job = new SendRecruitmentNotificationJob($application->id, 'final_rejected');
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentInterviewVariableBuilder::class),
+            app(RecruitmentQrPngGenerator::class),
+        );
+
+        Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (object $mail) use ($application): bool {
+            $expected = [
+                'Halo '.$application->full_name.'.',
+                'Terima kasih telah mengikuti seluruh rangkaian Open Recruitment DOSCOM 2026.',
+                'kamu belum lolos pada tahap akhir seleksi.',
+                'Kami sangat mengapresiasi antusiasme dan usaha yang telah kamu berikan selama proses ini.',
+                'Thank you for being part of our journey, and keep growing! 💙',
+            ];
+
+            foreach ($expected as $snippet) {
+                if (! str_contains($mail->bodyHtml, $snippet) || ! str_contains($mail->bodyText, $snippet)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
 }

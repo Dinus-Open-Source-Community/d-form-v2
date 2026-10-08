@@ -351,16 +351,18 @@ final class RecruitmentEmailRenderer
      */
     private function finalAccepted(array $variables): array
     {
+        $variables['membership_display'] = $this->membershipDisplay($variables);
+        $teamNote = trim((string) ($variables['public_message'] ?? '')) !== '' ? (string) $variables['public_message'] : self::DEFAULT_TEAM_NOTE;
+        $variables['team_note'] = $teamNote;
         $bodyHtml = view('mail.recruitment.final-accepted', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
-        $rawMembership = (string) ($variables['membership_type'] ?? '');
         $rawDivision = (string) ($variables['final_division'] ?? '');
-        $rawPublicMessage = (string) ($variables['public_message'] ?? '');
         $rawWhatsappUrl = (string) ($variables['whatsapp_group_url'] ?? '');
 
-        $bodyText = 'Halo '.$rawName.",\n\n"
-            .'Selamat! Kamu diterima sebagai '.$rawMembership.' di divisi '.$rawDivision.".\n\n"
+        $bodyText = 'Halo, '.$rawName.".\n\n"
+            ."Selamat! 🎉\n\n"
+            .'Setelah melalui seluruh rangkaian seleksi Open Recruitment DOSCOM 2026, dengan bangga kami mengumumkan bahwa kamu diterima sebagai '.$variables['membership_display'].' DOSCOM di divisi '.$rawDivision.".\n\n"
             ."────────────────────────\n"
             ."Hasil akhir\n\n"
             ."Status: Diterima\n";
@@ -368,28 +370,38 @@ final class RecruitmentEmailRenderer
         if ($rawDivision !== '') {
             $bodyText .= 'Divisi: '.$rawDivision."\n";
         }
-        if ($rawMembership !== '') {
-            $bodyText .= 'Tipe: '.$rawMembership."\n";
-        }
+        $bodyText .= 'Tipe: '.$variables['membership_display']."\n";
         if (trim($rawWhatsappUrl) !== '') {
             $bodyText .= 'Grup WA: '.trim($rawWhatsappUrl)."\n";
         }
 
-        if ($rawPublicMessage !== '') {
-            $bodyText .= "\nCatatan dari tim:\n".$rawPublicMessage."\n";
-        }
+        $bodyText .= "\nCatatan Dari Team:\n".$teamNote."\n";
 
         if (trim($rawWhatsappUrl) !== '') {
             $bodyText .= "\nGabung Grup WA:\n".trim($rawWhatsappUrl)."\n";
         }
-
-        $bodyText .= "\nInformasi orientasi dan langkah berikutnya akan kami kirim lewat email berikutnya.";
 
         return [
             'subject' => '[DOSCOM OpRec] Selamat — Kamu Diterima!',
             'body_html' => $bodyHtml,
             'body_text' => rtrim($bodyText),
         ];
+    }
+
+    private const DEFAULT_TEAM_NOTE = 'Selamat datang di keluarga besar DOSCOM. Kami berharap kamu dapat bertumbuh, berkontribusi, dan mendapatkan pengalaman berharga selama menjadi bagian dari DOSCOM. Let\'s grow, learn, and create together. 🚀';
+
+    /**
+     * @param  array<string, mixed>  $variables
+     */
+    private function membershipDisplay(array $variables): string
+    {
+        $raw = trim((string) ($variables['membership_type'] ?? ''));
+
+        return match (strtolower($raw)) {
+            'aa' => 'Anggota Aktif',
+            'member' => 'Member',
+            default => $raw,
+        };
     }
 
     /**
@@ -438,9 +450,10 @@ final class RecruitmentEmailRenderer
         return [
             'subject' => '[DOSCOM OpRec] Hasil OpenRecruitment',
             'body_html' => $bodyHtml,
-            'body_text' => 'Halo '.$rawName.",\n\n"
-                ."Terima kasih telah mengikuti seluruh rangkaian OpenRecruitment DOSCOM.\n\n"
-                .'Mohon maaf, kamu belum lolos seleksi tahap akhir.',
+            'body_text' => 'Halo '.$rawName.".\n\n"
+                ."Terima kasih telah mengikuti seluruh rangkaian Open Recruitment DOSCOM 2026. Setelah melalui proses seleksi, mohon maaf, kamu belum lolos pada tahap akhir seleksi.\n\n"
+                ."Kami sangat mengapresiasi antusiasme dan usaha yang telah kamu berikan selama proses ini. Semoga pengalaman yang kamu dapatkan selama mengikuti seleksi dapat menjadi bagian dari perjalananmu untuk terus berkembang.\n\n"
+                .'Thank you for being part of our journey, and keep growing! 💙',
         ];
     }
 

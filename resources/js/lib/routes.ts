@@ -77,6 +77,7 @@ export const routes = {
                 destroy: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
                 sendGroupLink: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-group-link`,
                 sendQr: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-qr`,
+                exportInterviews: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/interviews/export.csv`,
             },
             divisions: {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,

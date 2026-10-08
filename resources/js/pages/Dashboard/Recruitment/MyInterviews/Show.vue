@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
+import { toast } from 'vue-sonner'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Badge } from '@/components/ui/badge'
@@ -420,7 +421,12 @@ const confirmDescription = computed<string>(
 function confirmSave(): void {
     confirmOpen.value = false
     if (blockReason.value !== null || form.processing) return
-    form.post(props.evaluateUrl, { preserveScroll: true })
+    form.post(props.evaluateUrl, {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.success('Penilaian interview berhasil disimpan.')
+        },
+    })
 }
 </script>
 
@@ -458,41 +464,55 @@ function confirmSave(): void {
                     <CardContent class="p-6">
                         <h2 class="text-sm font-semibold">Profil applicant</h2>
 
-                        <div class="mt-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                            <div class="min-w-0">
-                                <p class="text-xl font-semibold tracking-tight">
-                                    {{ detail.application.full_name }}
-                                </p>
-                                <p class="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                                    {{ detail.application.registration_number }}
-                                </p>
-                            </div>
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <p class="text-lg font-semibold tracking-tight">
+                                {{ detail.application.full_name }}
+                            </p>
                             <Badge v-if="detail.interview?.status_label" variant="outline" class="shrink-0">
                                 {{ detail.interview?.status_label }}
                             </Badge>
                         </div>
+                        <p class="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                            {{ detail.application.registration_number }}
+                        </p>
 
-                        <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                        <div class="mt-4 grid gap-2 sm:grid-cols-3">
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">NIM</p>
-                                <p class="mt-0.5 font-medium">{{ detail.application.nim }}</p>
+                                <p class="mt-0.5 text-sm font-medium">{{ detail.application.nim }}</p>
                             </div>
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Semester</p>
-                                <p class="mt-0.5 font-medium tabular-nums">{{ detail.application.semester }}</p>
+                                <p class="mt-0.5 text-sm font-medium tabular-nums">{{ detail.application.semester }}</p>
                             </div>
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Divisi</p>
-                                <p class="mt-0.5 font-medium">
-                                    {{ detail.application.primary_division }}
-                                    <span v-if="detail.application.secondary_division">
-                                        / {{ detail.application.secondary_division }}
+                                <div class="mt-1 flex flex-wrap gap-1.5">
+                                    <Badge
+                                        v-if="detail.application.primary_division"
+                                        variant="secondary"
+                                        class="text-xs font-medium"
+                                    >
+                                        {{ detail.application.primary_division }}
+                                    </Badge>
+                                    <Badge
+                                        v-if="detail.application.secondary_division"
+                                        variant="outline"
+                                        class="text-xs font-medium"
+                                    >
+                                        {{ detail.application.secondary_division }}
+                                    </Badge>
+                                    <span
+                                        v-if="!detail.application.primary_division && !detail.application.secondary_division"
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        —
                                     </span>
-                                </p>
+                                </div>
                             </div>
                         </div>
 
-                        <Separator class="my-6" />
+                        <Separator class="my-4" />
 
                         <h3 class="text-sm font-semibold">Berkas</h3>
 

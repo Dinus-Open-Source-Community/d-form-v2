@@ -3,6 +3,7 @@
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentApplicationController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentCorrectionController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentInterviewSessionController;
+use App\Http\Controllers\Dashboard\Recruitment\RecruitmentInterviewExportController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentActivityLogController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentDashboardController;
 use App\Http\Controllers\Dashboard\Recruitment\RecruitmentDivisionController;
@@ -46,6 +47,7 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::post('periods/{period}/send-group-link', [RecruitmentPeriodController::class, 'sendGroupLink'])->name('periods.send-group-link');
         Route::post('periods/{period}/send-qr', [RecruitmentPeriodController::class, 'sendQr'])->name('periods.send-qr');
         Route::get('periods/{period}/qr-status', [RecruitmentPeriodController::class, 'qrStatus'])->name('periods.qr-status');
+        Route::get('periods/{period}/interviews/export.csv', RecruitmentInterviewExportController::class)->name('periods.interviews.export');
 
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');
