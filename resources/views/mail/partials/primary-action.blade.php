@@ -6,7 +6,7 @@
     <td style="padding:16px 32px 28px;text-align:center;">
         <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;margin:0 auto;">
             <tr>
-                <td style="border-radius:10px;background-color:#4f46e5;">
+                <td style="border-radius:10px;background-color:#178ADF;">
                     <a href="{{ $url }}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">{{ $label }}</a>
                 </td>
             </tr>

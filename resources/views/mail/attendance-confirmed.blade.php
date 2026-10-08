@@ -43,5 +43,4 @@
             <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#6b7280;">{{ __('If you did not attend this event, contact the organizer.') }}</p>
         </td>
     </tr>
-    @include('mail.partials.card-footer-by-app')
 @endsection
