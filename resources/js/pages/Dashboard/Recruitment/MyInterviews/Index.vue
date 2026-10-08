@@ -1,20 +1,18 @@
 <!--
-THESIS: Command center interviewer — satu bar filter + tab antrean + daftar terkelompok urgensi,
+THESIS: Command center interviewer — satu bar filter + tab antrean + daftar flat berurutan,
   menggantikan tumpukan kartu lama yang tanpa feedback. Back-button dan scroll terjaga.
-OWN-WORLD: Sistem admin yang sudah ada (Card rounded-2xl, Badge, Button, SimpleSelect, Input);
+OWN-WORLD: Sistem admin yang sudah ada (Card rounded-2xl, Badge, Button, Input);
   kartu slip janji: zona identitas (nama + satu badge prioritas + meta mono) di atas hairline,
-  zona logistik (jadwal + antrean) dan aksi di bawahnya. Daftar sesi hari ini tampil sebagai
-  panel baris ringkas, bukan kartu geser.
+  zona logistik (jadwal + antrean) dan aksi di bawahnya.
 STORY: Interviewer menyerbu yang mendesak lewat filter, membaca tiap kartu sebagai satu janji,
   menilai tanpa tersesat.
-FIRST VIEWPORT: Panel sesi hari ini, satu panel filter (search + selects + count),
-  lalu daftar terkelompok. Aksi primer selalu "Nilai / Ubah / Detail" di kanan kartu.
+FIRST VIEWPORT: Satu panel filter (search + selects + count),
+  lalu daftar flat. Aksi primer selalu "Nilai / Ubah / Detail" di kanan kartu.
 FORM: Approach A Filter Bar Command Center (spec 2026-09-18-my-interviews-redesign-design).
 -->
 <script setup lang="ts">
-import axios from 'axios'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head, router } from '@inertiajs/vue3'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import { Badge } from '@/components/ui/badge'
@@ -29,42 +27,18 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
     ChevronLeft,
     ChevronRight,
-    ClipboardCheck,
     RotateCcw,
     Search,
-    UserPlus,
 } from 'lucide-vue-next'
+import InterviewRowCard, { type InterviewRow } from './InterviewRowCard.vue'
 
 defineOptions({ layout: DashboardLayout })
-
-interface InterviewRow {
-    interview_id: string
-    scheduled_at: string | null
-    status_label: string
-    location: string
-    room: string
-    needs_evaluation: boolean
-    has_evaluation: boolean
-    evaluation_locked: boolean
-    application: {
-        id: string
-        full_name: string
-        nim?: string | null
-        registration_number: string
-        primary_division: string | null
-    } | null
-    session: {
-        id: string
-        session_date: string
-        division: string | null
-    } | null
-}
 
 interface TodaySession {
     id: string
@@ -86,6 +60,17 @@ interface NextAction {
     session_id: string | null
 }
 
+interface SecondaryOpportunity {
+    application: {
+        id: string
+        full_name: string
+        registration_number: string
+        nim: string
+        secondary_division: string | null
+    }
+    sessions: { value: string; label: string }[]
+}
+
 interface MyInterviewsQuery {
     tab?: string
     q?: string
@@ -100,41 +85,7 @@ interface FilterOption {
     label: string
 }
 
-interface InterviewFilterParams {
-    q?: string
-    division_id?: string
-    session_id?: string
-    eval?: string
-    sort?: string
-    tab?: string
-    page?: number
-}
-
-type InterviewGroupKey = 'urgent' | 'today' | 'upcoming' | 'done'
-
-interface InterviewGroup {
-    key: InterviewGroupKey
-    title: string
-    hint: string
-    rows: InterviewRow[]
-}
-
-interface StatusBadge {
-    label: string
-    variant: 'default' | 'secondary' | 'outline'
-}
-
-interface WaitingPoolEntry {
-    application_id: string
-    full_name: string
-    registration_number: string
-    nim: string | null
-    checked_in_at: string | null
-    session: { id: string; division: string | null } | null
-}
-
 const TABS: { key: string; label: string }[] = [
-    { key: 'waiting', label: 'Ruang tunggu' },
     { key: 'in_progress', label: 'Sedang interview' },
     { key: 'done', label: 'Selesai' },
 ]
@@ -153,7 +104,7 @@ const SORT_OPTIONS: FilterOption[] = [
 ]
 
 const SEARCH_DEBOUNCE_MS = 300
-const WAITING_POOL_POLL_MS = 5000
+const TASK_POLL_MS = 15000
 const FALLBACK_PER_PAGE = 20
 
 const props = withDefaults(
@@ -169,16 +120,20 @@ const props = withDefaults(
         }
         query: MyInterviewsQuery
         tab_counts: Record<string, number>
-        waiting_pool_poll_url?: string
-        has_active_booking?: boolean
         today_sessions: TodaySession[]
         next_action: NextAction | null
+        pending_start_count?: number
         division_options?: FilterOption[]
         session_options?: FilterOption[]
+        secondary_opportunities?: SecondaryOpportunity[]
+        claimed_secondary?: InterviewRow[]
     }>(),
     {
+        pending_start_count: 0,
         division_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
+        secondary_opportunities: (): SecondaryOpportunity[] => [],
+        claimed_secondary: (): InterviewRow[] => [],
     },
 )
 
@@ -189,12 +144,9 @@ const evalFilter = ref<string>(props.query.eval ?? '')
 const sortKey = ref<string>(props.query.sort ?? '')
 const activeTab = ref<string>(props.query.tab ?? 'in_progress')
 const isNavigating = ref<boolean>(false)
-const waitingEntries = ref<WaitingPoolEntry[]>([])
-const poolHasActiveBooking = ref<boolean>(props.has_active_booking ?? false)
-const poolLoading = ref<boolean>(false)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-let poolPollTimer: ReturnType<typeof setInterval> | null = null
+let taskPollTimer: ReturnType<typeof setInterval> | null = null
 let skipFilterRun = false
 
 function clearSearchTimer(): void {
@@ -220,16 +172,17 @@ function refsMatchQuery(): boolean {
     )
 }
 
-function baseParams(pageNumber: number): InterviewFilterParams {
-    return {
-        q: searchInput.value.trim() || undefined,
-        division_id: divisionId.value || undefined,
-        session_id: sessionId.value || undefined,
-        eval: evalFilter.value || undefined,
-        sort: sortKey.value || undefined,
-        tab: activeTab.value || undefined,
-        page: pageNumber > 1 ? pageNumber : undefined,
-    }
+function baseParams(pageNumber: number): Record<string, string | number> {
+    const params: Record<string, string | number> = {}
+    const q: string = searchInput.value.trim()
+    if (q !== '') params.q = q
+    if (divisionId.value !== '') params.division_id = divisionId.value
+    if (sessionId.value !== '') params.session_id = sessionId.value
+    if (evalFilter.value !== '') params.eval = evalFilter.value
+    if (sortKey.value !== '') params.sort = sortKey.value
+    if (activeTab.value !== '') params.tab = activeTab.value
+    if (pageNumber > 1) params.page = pageNumber
+    return params
 }
 
 function handleFilterStart(): void {
@@ -285,86 +238,56 @@ function syncRefsFromQuery(next: MyInterviewsQuery): void {
 
 watch((): MyInterviewsQuery => props.query, syncRefsFromQuery)
 
-function stopPoolPolling(): void {
-    if (poolPollTimer !== null) {
-        clearInterval(poolPollTimer)
-        poolPollTimer = null
+function stopTaskPolling(): void {
+    if (taskPollTimer !== null) {
+        clearInterval(taskPollTimer)
+        taskPollTimer = null
     }
 }
 
-async function fetchWaitingPool(): Promise<void> {
-    const pollUrl: string | undefined = props.waiting_pool_poll_url
-    if (!pollUrl || activeTab.value !== 'waiting') return
-
-    if (waitingEntries.value.length === 0) {
-        poolLoading.value = true
-    }
-
-    try {
-        const { data } = await axios.get<{
-            entries: WaitingPoolEntry[]
-            has_active_booking: boolean
-        }>(pollUrl, {
-            params: {
-                session_id: sessionId.value || undefined,
-                q: searchInput.value.trim() || undefined,
-            },
-        })
-        waitingEntries.value = data.entries
-        poolHasActiveBooking.value = data.has_active_booking
-    } finally {
-        poolLoading.value = false
-    }
-}
-
-function startPoolPolling(): void {
-    stopPoolPolling()
-    if (activeTab.value !== 'waiting') return
-    void fetchWaitingPool()
-    poolPollTimer = setInterval((): void => {
-        void fetchWaitingPool()
-    }, WAITING_POOL_POLL_MS)
-}
-
-function bookApplicant(applicationId: string): void {
-    router.post(
-        routes.admin.recruitment.myInterviews.book(applicationId),
-        {},
-        { preserveScroll: true },
-    )
-}
-
-function formatCheckedIn(iso: string | null): string {
-    if (!iso) return 'Waktu check-in tidak tersedia'
-    const parsed: Date = new Date(iso)
-    if (Number.isNaN(parsed.getTime())) return 'Waktu check-in tidak tersedia'
-    return parsed.toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
+function refreshTaskList(): void {
+    if (document.hidden) return
+    if (activeTab.value !== 'in_progress') return
+    if (searchTimer !== null) return
+    if (isNavigating.value) return
+    router.reload({
+        only: ['interviews', 'tab_counts', 'pending_start_count', 'secondary_opportunities'],
+        replace: true,
     })
 }
 
-const isWaitingTab = computed<boolean>((): boolean => activeTab.value === 'waiting')
+function startTaskPolling(): void {
+    stopTaskPolling()
+    if (activeTab.value !== 'in_progress') return
+    taskPollTimer = setInterval((): void => {
+        refreshTaskList()
+    }, TASK_POLL_MS)
+}
 
-watch(isWaitingTab, (waiting: boolean): void => {
-    if (waiting) startPoolPolling()
-    else stopPoolPolling()
-})
+function handleVisibilityChange(): void {
+    if (document.hidden) {
+        stopTaskPolling()
+        return
+    }
+    refreshTaskList()
+    startTaskPolling()
+}
 
-watch([searchInput, sessionId], (): void => {
-    if (activeTab.value === 'waiting') void fetchWaitingPool()
+watch(activeTab, (): void => {
+    if (activeTab.value === 'in_progress') startTaskPolling()
+    else stopTaskPolling()
 })
 
 onBeforeUnmount((): void => {
     clearSearchTimer()
-    stopPoolPolling()
+    stopTaskPolling()
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onMounted((): void => {
     setTopbar({ title: 'Interview Saya', subtitle: 'Penugasan & penilaian Open Recruitment' })
-    if (activeTab.value === 'waiting') startPoolPolling()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    startTaskPolling()
 })
 
 const hasActiveFilters = computed<boolean>((): boolean => {
@@ -392,29 +315,31 @@ function selectQueue(key: string): void {
     activeTab.value = key
 }
 
-function showUrl(applicationId: string): string {
-    return routes.admin.recruitment.myInterviews.show(applicationId)
+const claimingId = ref<string | null>(null)
+
+function isClaiming(opp: SecondaryOpportunity): boolean {
+    return claimingId.value === opp.application.id
 }
 
-function sessionUrl(sessionIdValue: string): string {
-    return routes.admin.recruitment.interviewSessions.show(sessionIdValue)
+function claimSecondary(opp: SecondaryOpportunity): void {
+    if (claimingId.value !== null) return
+    claimingId.value = opp.application.id
+    router.post(
+        routes.admin.recruitment.myInterviews.secondaryClaim,
+        {
+            application_id: opp.application.id,
+        },
+        {
+            preserveScroll: true,
+            onFinish: (): void => {
+                claimingId.value = null
+            },
+        },
+    )
 }
 
 function formatInt(value: number): string {
     return new Intl.NumberFormat('id-ID').format(value)
-}
-
-function formatSchedule(iso: string | null): string {
-    if (!iso) return 'Jadwal belum ditetapkan'
-    const parsed: Date = new Date(iso)
-    if (Number.isNaN(parsed.getTime())) return 'Jadwal belum ditetapkan'
-    return parsed.toLocaleString('id-ID', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
 }
 
 function formatSessionDay(value: string): string {
@@ -494,107 +419,20 @@ const rangeLabel = computed<string>(
         `Menampilkan ${formatInt(rangeStart.value)}–${formatInt(rangeEnd.value)} dari ${formatInt(props.interviews.total)}`,
 )
 
-function parseSchedule(value: string | null): Date | null {
-    if (!value) return null
-    const parsed: Date = new Date(value)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-function isSameCalendarDay(a: Date, b: Date): boolean {
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
-function startOfCalendarDay(value: Date): Date {
-    const day: Date = new Date(value)
-    day.setHours(0, 0, 0, 0)
-    return day
-}
-
-function groupKeyForRow(row: InterviewRow, now: Date): InterviewGroupKey {
-    if (row.evaluation_locked || row.has_evaluation) return 'done'
-    const scheduled: Date | null = parseSchedule(row.scheduled_at)
-    if (scheduled === null) return row.needs_evaluation ? 'urgent' : 'upcoming'
-    if (isSameCalendarDay(scheduled, now)) return row.needs_evaluation ? 'urgent' : 'today'
-    if (scheduled < startOfCalendarDay(now)) return 'urgent'
-    return 'upcoming'
-}
-
-const interviewGroups = computed<InterviewGroup[]>((): InterviewGroup[] => {
-    const now: Date = new Date()
-    const buckets: Record<InterviewGroupKey, InterviewRow[]> = {
-        urgent: [],
-        today: [],
-        upcoming: [],
-        done: [],
-    }
-    for (const row of props.interviews.data) {
-        buckets[groupKeyForRow(row, now)].push(row)
-    }
-    const groups: InterviewGroup[] = []
-    if (buckets.urgent.length > 0) {
-        groups.push({
-            key: 'urgent',
-            title: 'Mendesak',
-            hint: 'Perlu dinilai, jadwalnya hari ini atau belum ada jadwal',
-            rows: buckets.urgent,
-        })
-    }
-    if (buckets.today.length > 0) {
-        groups.push({
-            key: 'today',
-            title: 'Hari ini',
-            hint: 'Terjadwal hari ini',
-            rows: buckets.today,
-        })
-    }
-    if (buckets.upcoming.length > 0) {
-        groups.push({
-            key: 'upcoming',
-            title: 'Mendatang',
-            hint: 'Jadwal berikutnya',
-            rows: buckets.upcoming,
-        })
-    }
-    if (buckets.done.length > 0) {
-        groups.push({
-            key: 'done',
-            title: 'Selesai',
-            hint: 'Sudah dinilai atau terkunci',
-            rows: buckets.done,
-        })
-    }
-    return groups
+const pendingStartCount = computed<number>((): number => {
+    const raw: number | undefined = props.pending_start_count
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+    return Math.floor(raw)
 })
 
-function statusBadge(row: InterviewRow): StatusBadge {
-    if (row.needs_evaluation) return { label: 'Perlu dinilai', variant: 'default' }
-    if (row.evaluation_locked) return { label: 'Terkunci', variant: 'secondary' }
-    if (row.has_evaluation) return { label: 'Sudah dinilai', variant: 'outline' }
-    return { label: row.status_label, variant: 'outline' }
-}
-
-function actionLabel(row: InterviewRow): string {
-    if (row.needs_evaluation) return 'Nilai'
-    if (row.has_evaluation && !row.evaluation_locked) return 'Ubah'
-    return 'Detail'
-}
-
 const emptyTitle = computed<string>((): string => {
-    if (isWaitingTab.value) {
-        return hasActiveFilters.value ? 'Tidak ada peserta di ruang tunggu' : 'Ruang tunggu kosong'
-    }
     return hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada peserta regis ulang'
 })
 
 const emptyDescription = computed<string>((): string => {
-    if (isWaitingTab.value) {
-        return hasActiveFilters.value
-            ? 'Coba ubah kata kunci atau sesi. Peserta muncul setelah check-in scan QR.'
-            : 'Peserta yang sudah check-in akan muncul di sini. Kamu bisa mem-booking satu orang untuk diinterview.'
-    }
     return hasActiveFilters.value
         ? 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
-        : 'Daftar ini hanya memuat peserta yang sudah regis ulang (scan QR) di sesi interviewmu.'
+        : 'Daftar ini memuat semua assignment kamu. Yang belum scan QR terkunci.'
 })
 </script>
 
@@ -602,40 +440,6 @@ const emptyDescription = computed<string>((): string => {
     <Head title="Interview Saya" />
 
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <section v-if="today_sessions.length > 0" aria-label="Sesi hari ini">
-            <div class="mb-3 flex items-baseline justify-between gap-3">
-                <h2 class="text-sm font-semibold">Sesi hari ini</h2>
-                <p class="text-xs text-muted-foreground">{{ formatInt(today_sessions.length) }} sesi</p>
-            </div>
-            <Card class="rounded-2xl border-border/70">
-                <CardContent class="divide-y divide-border/60 p-0">
-                    <div
-                        v-for="session in today_sessions"
-                        :key="session.id"
-                        class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
-                    >
-                        <div class="min-w-0">
-                            <p class="text-sm">
-                                <span class="font-semibold tabular-nums"
-                                    >{{ session.starts_at }}–{{ session.ends_at }}</span
-                                >
-                                <span class="text-muted-foreground">
-                                    · {{ session.division?.name ?? 'Interview' }}</span
-                                >
-                            </p>
-                            <p class="mt-0.5 text-xs text-muted-foreground">
-                                {{ formatSessionDay(session.session_date) }} · {{ session.location }} ·
-                                {{ session.room }} · {{ formatInt(session.my_interviews_count) }} assignment kamu
-                            </p>
-                        </div>
-                        <Button as-child variant="outline" size="sm" class="shrink-0">
-                            <Link :href="sessionUrl(session.id)">Detail sesi</Link>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        </section>
-
         <div class="rounded-2xl border border-border/70 bg-background p-3">
             <div class="flex flex-col gap-2.5">
                 <div class="relative">
@@ -651,12 +455,8 @@ const emptyDescription = computed<string>((): string => {
                         class="pl-9"
                     />
                 </div>
-                <div
-                    class="grid grid-cols-2 gap-2.5"
-                    :class="isWaitingTab ? 'lg:grid-cols-2' : 'lg:grid-cols-4'"
-                >
+                <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
                     <SimpleSelect
-                        v-if="!isWaitingTab"
                         id="filter-divisi"
                         v-model="divisionId"
                         :options="divisionOptions"
@@ -669,14 +469,12 @@ const emptyDescription = computed<string>((): string => {
                         aria-label="Filter sesi"
                     />
                     <SimpleSelect
-                        v-if="!isWaitingTab"
                         id="filter-status"
                         v-model="evalFilter"
                         :options="evalOptions"
                         aria-label="Filter status penilaian"
                     />
                     <SimpleSelect
-                        v-if="!isWaitingTab"
                         id="filter-urut"
                         v-model="sortKey"
                         :options="sortOptions"
@@ -690,12 +488,8 @@ const emptyDescription = computed<string>((): string => {
                         Atur ulang
                     </Button>
                 </div>
-                <p v-if="isWaitingTab" class="text-xs text-muted-foreground">
-                    Daftar diperbarui otomatis. Selesaikan penilaian applicant yang sedang kamu booking sebelum
-                    mem-booking yang baru.
-                </p>
-                <p v-else class="text-xs text-muted-foreground">
-                    Hanya peserta yang sudah regis ulang (scan QR) yang tampil di sini.
+                <p class="text-xs text-muted-foreground">
+                    Peserta yang belum regis ulang (scan QR) terkunci — tidak bisa dinilai sebelum scan.
                 </p>
             </div>
         </div>
@@ -726,53 +520,7 @@ const emptyDescription = computed<string>((): string => {
             </button>
         </div>
 
-        <div
-            v-if="isWaitingTab && (poolLoading || isNavigating)"
-            class="grid gap-3"
-            aria-hidden="true"
-        >
-            <Card v-for="n in 3" :key="n" class="rounded-2xl border-border/70">
-                <CardContent class="flex animate-pulse items-start justify-between gap-4 p-5">
-                    <div class="min-w-0 flex-1 space-y-2">
-                        <div class="h-4 w-2/5 rounded bg-muted" />
-                        <div class="h-3 w-3/5 rounded bg-muted" />
-                    </div>
-                    <div class="h-8 w-24 shrink-0 rounded-lg bg-muted" />
-                </CardContent>
-            </Card>
-        </div>
-
-        <div v-else-if="isWaitingTab && waitingEntries.length > 0" class="grid gap-3">
-            <Card
-                v-for="entry in waitingEntries"
-                :key="entry.application_id"
-                class="rounded-2xl border-border/70"
-            >
-                <CardContent class="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold">{{ entry.full_name }}</p>
-                        <p class="mt-1 font-mono text-xs text-muted-foreground">
-                            {{ entry.registration_number }}
-                            <span v-if="entry.nim"> · {{ entry.nim }}</span>
-                        </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            Check-in {{ formatCheckedIn(entry.checked_in_at) }}
-                            <span v-if="entry.session?.division"> · {{ entry.session.division }}</span>
-                        </p>
-                    </div>
-                    <Button
-                        size="sm"
-                        :disabled="poolHasActiveBooking"
-                        @click="bookApplicant(entry.application_id)"
-                    >
-                        <UserPlus class="mr-2 size-4" aria-hidden="true" />
-                        Booking
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-
-        <div v-else-if="!isWaitingTab && isNavigating" class="grid gap-3" aria-hidden="true">
+        <div v-if="isNavigating" class="grid gap-3" aria-hidden="true">
             <Card v-for="n in 3" :key="n" class="rounded-2xl border-border/70">
                 <CardContent class="flex animate-pulse items-start justify-between gap-4 p-5">
                     <div class="min-w-0 flex-1 space-y-2">
@@ -785,70 +533,101 @@ const emptyDescription = computed<string>((): string => {
             </Card>
         </div>
 
-        <template v-else-if="!isWaitingTab && interviews.data.length > 0">
-            <section v-for="group in interviewGroups" :key="group.key" :aria-label="group.title">
-                <div class="mt-1 mb-2 flex items-center gap-2">
-                    <h2 class="text-sm font-semibold">{{ group.title }}</h2>
-                    <Badge variant="secondary" class="tabular-nums">{{ formatInt(group.rows.length) }}</Badge>
-                    <p class="hidden text-xs text-muted-foreground sm:block">{{ group.hint }}</p>
-                </div>
-                <div class="grid gap-3">
-                    <Card
-                        v-for="row in group.rows"
-                        :key="row.interview_id"
-                        class="relative rounded-2xl border-border/70 transition-colors hover:border-primary/40 hover:bg-muted/30"
-                    >
-                        <CardContent class="p-4 sm:p-5">
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                                <Link
-                                    v-if="row.application"
-                                    :href="showUrl(row.application.id)"
-                                    class="rounded text-sm font-semibold before:absolute before:inset-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+        <template v-else-if="pendingStartCount > 0 && interviews.data.length === 0">
+            <div
+                role="status"
+                class="rounded-2xl border border-border/70 bg-background px-6 py-10 text-center"
+            >
+                <p class="text-sm font-semibold">Interview belum dimulai.</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Kartu penilaian muncul setelah jadwal dimulai.
+                </p>
+            </div>
+        </template>
+
+        <template v-else-if="interviews.data.length > 0">
+            <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+                <section aria-label="Daftar primary division">
+                    <div class="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 class="text-sm font-semibold">Primary Division</h2>
+                        <p class="text-xs text-muted-foreground">Pilihan divisi pertama applicant</p>
+                    </div>
+                    <div class="grid gap-3">
+                        <InterviewRowCard
+                            v-for="row in interviews.data"
+                            :key="row.interview_id"
+                            :row="row"
+                        />
+                    </div>
+                </section>
+                <section aria-label="Daftar secondary division">
+                    <div class="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 class="text-sm font-semibold">Secondary Division</h2>
+                        <p class="text-xs text-muted-foreground">Pilihan divisi kedua · opsional</p>
+                    </div>
+                    <div v-if="props.claimed_secondary.length > 0" class="mb-3 grid gap-3">
+                        <InterviewRowCard
+                            v-for="row in props.claimed_secondary"
+                            :key="row.interview_id"
+                            :row="row"
+                        />
+                    </div>
+                    <div v-if="props.secondary_opportunities.length > 0" class="grid gap-3">
+                        <Card
+                            v-for="opp in props.secondary_opportunities"
+                            :key="opp.application.id"
+                            class="rounded-2xl border-border/70"
+                        >
+                            <CardContent class="p-4 sm:p-5">
+                                <div>
+                                    <p class="text-sm font-semibold">{{ opp.application.full_name }}</p>
+                                    <p class="mt-1 font-mono text-xs text-muted-foreground">
+                                        {{ opp.application.registration_number }} · {{ opp.application.nim }} ·
+                                        {{ opp.application.secondary_division ?? '—' }}
+                                    </p>
+                                </div>
+                                <div
+                                    class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3"
                                 >
-                                    {{ row.application.full_name }}
-                                </Link>
-                                <p v-else class="text-sm font-semibold">—</p>
-                                <Badge :variant="statusBadge(row).variant">
-                                    {{ statusBadge(row).label }}
-                                </Badge>
-                            </div>
-                            <p class="mt-1 font-mono text-xs text-muted-foreground">
-                                {{ row.application?.registration_number ?? '—' }}
-                                <span v-if="row.application?.nim"> · {{ row.application.nim }}</span>
-                                · {{ row.application?.primary_division ?? '—' }}
+                                    <div class="min-w-0">
+                                        <p v-if="opp.sessions.length > 0" class="text-sm">
+                                            Diambil ke {{ opp.sessions[0]?.label ?? 'sesi divisi ini' }} ·
+                                            pengarahan ruangan manual oleh staff
+                                        </p>
+                                        <p v-else class="text-muted-foreground text-sm">
+                                            Belum ada sesi aktif untuk divisi ini.
+                                        </p>
+                                    </div>
+                                    <div class="relative flex shrink-0 flex-wrap gap-2">
+                                        <Button
+                                            v-if="opp.sessions.length > 0"
+                                            size="sm"
+                                            :disabled="claimingId !== null"
+                                            @click="claimSecondary(opp)"
+                                        >
+                                            {{ isClaiming(opp) ? 'Mengambil…' : 'Ambil' }}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    <Card v-else-if="props.claimed_secondary.length === 0" class="rounded-2xl border-dashed border-border/70">
+                        <CardContent
+                            class="flex flex-col items-center gap-2 p-8 text-center sm:p-10"
+                        >
+                            <h3 class="text-sm font-semibold">Belum ada peluang secondary</h3>
+                            <p class="max-w-xs text-sm text-muted-foreground">
+                                Applicant yang primary-nya sudah dinilai akan tampil di sini.
                             </p>
-                            <div
-                                class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3"
-                            >
-                                <div class="min-w-0">
-                                    <p class="text-sm">
-                                        {{ formatSchedule(row.scheduled_at) }}
-                                        · {{ row.location }} · {{ row.room }}
-                                    </p>
-                                    <p v-if="row.session" class="mt-0.5 text-xs text-muted-foreground">
-                                        {{ row.session.division ?? 'Interview' }}
-                                    </p>
-                                </div>
-                                <div class="relative flex shrink-0 flex-wrap gap-2">
-                                    <Button v-if="row.application" as-child size="sm">
-                                        <Link :href="showUrl(row.application.id)">
-                                            <ClipboardCheck class="mr-2 size-4" aria-hidden="true" />
-                                            {{ actionLabel(row) }}
-                                        </Link>
-                                    </Button>
-                                    <Button v-if="row.session" as-child size="sm" variant="outline">
-                                        <Link :href="sessionUrl(row.session.id)">Sesi</Link>
-                                    </Button>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
-                </div>
-            </section>
+                </section>
+            </div>
         </template>
 
         <EmptyState
-            v-else-if="!isWaitingTab || waitingEntries.length === 0"
+            v-else
             :title="emptyTitle"
             :description="emptyDescription"
             animation-name="emptyData"
@@ -859,7 +638,7 @@ const emptyDescription = computed<string>((): string => {
             </Button>
         </EmptyState>
 
-        <div v-if="!isWaitingTab && interviews.last_page > 1" class="flex flex-col items-center gap-3">
+        <div v-if="interviews.last_page > 1" class="flex flex-col items-center gap-3">
             <Pagination
                 :page="interviews.current_page"
                 :total="interviews.total"
@@ -892,7 +671,7 @@ const emptyDescription = computed<string>((): string => {
             <p class="text-sm text-muted-foreground">{{ rangeLabel }}</p>
         </div>
         <p
-            v-else-if="!isWaitingTab && interviews.data.length > 0"
+            v-else-if="interviews.data.length > 0"
             class="text-center text-sm text-muted-foreground"
         >
             {{ rangeLabel }}

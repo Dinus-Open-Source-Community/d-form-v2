@@ -144,7 +144,7 @@ final class EventReportingQuery
     /**
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function paginateAttendanceLog(Event $event, int $perPage = 15): LengthAwarePaginator
+    public function paginateAttendanceLog(Event $event, int $perPage = 20): LengthAwarePaginator
     {
         return EventAttendance::query()
             ->where('event_id', $event->id)

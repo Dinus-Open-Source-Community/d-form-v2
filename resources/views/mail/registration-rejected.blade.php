@@ -42,5 +42,4 @@
         </td>
     </tr>
     @include('mail.partials.registration-details-button')
-    @include('mail.partials.card-footer-by-app')
 @endsection

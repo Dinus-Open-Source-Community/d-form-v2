@@ -109,14 +109,14 @@ export const routes = {
             interviewSessions: {
                 store: `${ADMIN_BASE}/recruitment/interview-sessions`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
+                update: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
+                destroy: (id: string) => `${ADMIN_BASE}/recruitment/interview-sessions/${id}`,
             },
             myInterviews: {
                 index: `${ADMIN_BASE}/recruitment/my-interviews`,
-                waitingPool: `${ADMIN_BASE}/recruitment/my-interviews/waiting-pool`,
                 show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
-                book: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/book`,
-                release: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/release`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
+                secondaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/secondary-claim`,
             },
         },
         events: {

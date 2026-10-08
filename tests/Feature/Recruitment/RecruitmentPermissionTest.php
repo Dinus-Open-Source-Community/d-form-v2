@@ -20,7 +20,6 @@ use App\Enums\Recruitment\AttendanceMethod;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -117,8 +116,14 @@ class RecruitmentPermissionTest extends TestCase
             $this->staff,
         );
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $application));
+        // Pre-assign langsung di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
 
         $cvPath = 'recruitment/cv/test-'.$suffix.'.pdf';
         Storage::disk('local')->put($cvPath, 'fake pdf content');
@@ -133,7 +138,7 @@ class RecruitmentPermissionTest extends TestCase
             'portfolio_url' => 'https://example.com',
         ]);
 
-        return $application->fresh(['document', 'interview']);
+        return $application->fresh(['document', 'primaryInterview']);
     }
 
     public function test_p01_member_cannot_access_recruitment_dashboard(): void
@@ -221,7 +226,7 @@ class RecruitmentPermissionTest extends TestCase
         $application = $this->assignedApplication('9');
 
         $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application), [
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,

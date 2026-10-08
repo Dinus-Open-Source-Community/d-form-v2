@@ -24,7 +24,6 @@ import {
     User,
     Users,
     ClipboardList,
-    ListOrdered,
     Trash2,
 } from 'lucide-vue-next'
 

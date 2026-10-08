@@ -2,15 +2,18 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 final class InterviewSessionService
 {
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
     {
         $query = RecruitmentInterviewSession::query()
             ->with(['period:id,name', 'division:id,name,code'])
@@ -61,6 +64,63 @@ final class InterviewSessionService
     public function create(array $data): RecruitmentInterviewSession
     {
         return RecruitmentInterviewSession::query()->create($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function update(RecruitmentInterviewSession $session, array $data): RecruitmentInterviewSession
+    {
+        unset($data['recruitment_period_id']);
+
+        return DB::transaction(function () use ($session, $data): RecruitmentInterviewSession {
+            $session->update($data);
+
+            $this->syncInterviews($session);
+
+            return $session->refresh();
+        });
+    }
+
+    /** Sinkron scheduled_at/location/room interview non-cancelled bila field sesi terkait berubah. */
+    private function syncInterviews(RecruitmentInterviewSession $session): void
+    {
+        $sync = [];
+
+        if ($session->wasChanged('session_date') || $this->startsAtChanged($session)) {
+            $sync['scheduled_at'] = $this->buildScheduledAt($session);
+        }
+
+        foreach (['location', 'room'] as $field) {
+            if ($session->wasChanged($field)) {
+                $sync[$field] = $session->getAttribute($field);
+            }
+        }
+
+        if ($sync === []) {
+            return;
+        }
+
+        $session->interviews()
+            ->where('status', '!=', InterviewStatus::Cancelled->value)
+            ->update($sync);
+    }
+
+    /** Bandingkan jam mulai ternormalisasi H:i (DB menyimpan H:i:s, form mengirim H:i). */
+    private function startsAtChanged(RecruitmentInterviewSession $session): bool
+    {
+        $normalize = fn (mixed $value): string => substr((string) $value, 0, 5);
+
+        return $normalize($session->getOriginal('starts_at')) !== $normalize($session->starts_at);
+    }
+
+    /** scheduled_at = session_date + starts_at pada zona app.timezone. */
+    private function buildScheduledAt(RecruitmentInterviewSession $session): Carbon
+    {
+        $date = $session->session_date?->format('Y-m-d');
+        $time = substr((string) $session->starts_at, 0, 8);
+
+        return Carbon::parse($date.' '.$time, config('app.timezone'));
     }
 
     /**

@@ -23,7 +23,20 @@ class StoreRecruitmentEvaluationRequest extends FormRequest
             'technical_score' => ['required', 'integer', 'min:1', 'max:10'],
             'attitude_score' => ['required', 'integer', 'min:1', 'max:10'],
             'recommendation' => ['required', 'string', Rule::enum(EvaluationRecommendation::class)],
-            'notes' => ['nullable', 'string', 'max:5000'],
+            // Rekomendasi hanya berlaku untuk divisi sesi interview ini,
+            // sehingga alasan wajib ditulis setiap kali menilai.
+            'notes' => ['required', 'string', 'min:10', 'max:5000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'notes.required' => 'Catatan wajib diisi — jelaskan mengapa applicant direkomendasikan / tidak direkomendasikan untuk divisi yang di-interview.',
+            'notes.min' => 'Catatan minimal :min karakter — jelaskan alasan rekomendasi untuk divisi yang di-interview.',
         ];
     }
 }

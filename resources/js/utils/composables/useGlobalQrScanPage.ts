@@ -45,6 +45,7 @@ interface GlobalScanAttendee {
     email?: string
     registration_number?: string
     application_id?: string
+    interview_status_label?: string
     queue_number?: number | null
     form_answer_id?: string
 }
@@ -88,14 +89,6 @@ function resolveDeskId(): string {
     catch {
         return Math.random().toString(16).slice(2, 10)
     }
-}
-
-function padQueueNumber(value: number | null | undefined): string {
-    if (value === null || value === undefined) {
-        return '-'
-    }
-
-    return String(value).padStart(2, '0')
 }
 
 function formatGlobalEventTitle(kind: 'event' | 'oprec', rawTitle: string): string {

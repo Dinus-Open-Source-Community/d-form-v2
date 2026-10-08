@@ -87,10 +87,11 @@ final class RecruitmentDashboardService
      * @param  array<string, mixed>  $filters
      * @return array{periods: LengthAwarePaginator, query: array<string, mixed>, statusOptions: list<array{value: string, label: string}>}
      */
-    private function periodsPayload(array $filters = [], int $page = 1, int $perPage = 10, ?User $user = null): array
+    private function periodsPayload(array $filters = [], int $page = 1, int $perPage = 20, ?User $user = null): array
     {
         $page = max(1, $page);
-        $perPage = max(1, min(50, $perPage));
+        // Aturan global: 20 data per halaman; pager hanya bila total > 20.
+        $perPage = 20;
 
         $paginator = $this->periodService->paginate($filters, $page, $perPage, $user);
         $paginator->setCollection(

@@ -4,6 +4,7 @@ namespace Tests\Feature\Recruitment;
 
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
+use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentDocument;
@@ -87,10 +88,16 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
             $this->staff,
         );
 
-        $this->actingAs($this->interviewer)
-            ->post(route('dashboard.recruitment.my-interviews.book', $application));
+        // Pre-assign langsung di DB (endpoint book dibuang).
+        RecruitmentInterview::query()
+            ->where('recruitment_application_id', $application->id)
+            ->update([
+                'interviewer_id' => $this->interviewer->id,
+                'status' => InterviewStatus::InProgress,
+                'booked_at' => now(),
+            ]);
 
-        return $application->fresh(['interview', 'document']);
+        return $application->fresh(['primaryInterview', 'document']);
     }
 
     public function test_show_exposes_document_preview_urls_and_metadata(): void
@@ -128,7 +135,7 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
         ]);
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/MyInterviews/Show')
@@ -159,7 +166,7 @@ class RecruitmentMyInterviewsDocumentPreviewTest extends TestCase
         $application = $this->createAssignedApplication('2');
 
         $this->actingAs($this->interviewer)
-            ->get(route('dashboard.recruitment.my-interviews.show', $application))
+            ->get(route('dashboard.recruitment.my-interviews.show', $application->primaryInterview))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboard/Recruitment/MyInterviews/Show')

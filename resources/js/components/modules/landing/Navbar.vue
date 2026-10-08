@@ -123,18 +123,11 @@ const links = [
     { label: 'Beranda', href: routes.home },
     { label: 'Fitur', href: routes.landing.features },
     { label: 'Acara', href: routes.landing.events.index },
-    { label: 'Antrean', href: routes.recruitment.queue.index },
     { label: 'Dokumentasi', href: routes.landing.docs },
 ];
 
-/**
- * Menu antrean juga aktif di halaman papan per-sesi (`/recruitment/queue/{id}`),
- * jadi pencocokan memakai prefix path, bukan kesamaan persis.
- */
+/** Pencocokan path persis untuk menu navbar. */
 function isLinkActive(href: string): boolean {
-    if (href === routes.recruitment.queue.index) {
-        return currentPath.value === href || currentPath.value.startsWith(`${href}/`);
-    }
     return currentPath.value === href;
 }
 </script>

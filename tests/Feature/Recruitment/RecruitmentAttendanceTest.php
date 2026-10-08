@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Recruitment;
 
-use App\Enums\Recruitment\ApplicationResult;
-use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
@@ -80,6 +78,32 @@ class RecruitmentAttendanceTest extends TestCase
             'recruitment_application_id' => $application->id,
             'status' => InterviewStatus::Waiting->value,
             'interviewer_id' => null,
+        ]);
+    }
+
+    public function test_check_in_preserves_existing_interviewer_assignment(): void
+    {
+        $application = $this->eligibleApplication('010');
+        $owner = User::factory()->create();
+
+        RecruitmentInterview::query()->create([
+            'recruitment_application_id' => $application->id,
+            'recruitment_interview_session_id' => $this->session->id,
+            'interview_kind' => RecruitmentInterview::KIND_PRIMARY,
+            'interviewer_id' => $owner->id,
+            'booked_at' => now()->subHour(),
+            'scheduled_at' => now()->subHour(),
+            'location' => 'Lab DOSCOM',
+            'room' => 'A101',
+            'status' => InterviewStatus::Waiting,
+        ]);
+
+        $this->checkInApplicant($this->session, $application, $this->staff);
+
+        $this->assertDatabaseHas('recruitment_interviews', [
+            'recruitment_application_id' => $application->id,
+            'interviewer_id' => $owner->id,
+            'status' => InterviewStatus::Waiting->value,
         ]);
     }
 

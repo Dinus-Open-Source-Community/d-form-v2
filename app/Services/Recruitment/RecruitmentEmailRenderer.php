@@ -34,47 +34,7 @@ final class RecruitmentEmailRenderer
      */
     private function applicationSubmitted(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $token = $this->e($variables, 'tracking_token');
-        $portalUrl = $this->e($variables, 'tracking_portal_url', $variables['tracking_url'] ?? '');
-        $portalButton = str_replace(
-            '#2563eb',
-            '#4f46e5',
-            $variables['tracking_portal_button'] ?? ''
-        );
-
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Terima kasih — pendaftaran OpenRecruitment DOSCOM kamu sudah kami terima. '
-            .'Tim kami akan meninjau berkasmu dan menghubungimu lagi untuk tahap berikutnya.</p>'
-            .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-            .'<tr><td style="padding:18px 20px;">'
-            .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-            .'Data untuk tracking</p>'
-            .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-            .'<tr>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-            .'</tr>'
-            .'<tr>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Token Tracking</td>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;">'
-            .'<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;letter-spacing:0.08em;color:#111827;word-break:break-all;overflow-wrap:break-word;">'
-            .$token.'</span></td>'
-            .'</tr>'
-            .'</table>'
-            .'</td></tr></table>'
-            .'<p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#4b5563;">'
-            .'Simpan nomor dan token ini baik-baik. Keduanya dipakai untuk masuk ke portal tracking.</p>'
-            .$portalButton
-            .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">'
-            .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-            .'<span style="word-break:break-all;color:#374151;">'.$portalUrl.'</span>'
-            .' lalu masukkan nomor dan token secara manual.</p>';
+        $portalUrl = (string) ($variables['tracking_portal_url'] ?? $variables['tracking_url'] ?? '');
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -93,7 +53,7 @@ final class RecruitmentEmailRenderer
 
         return [
             'subject' => '[DOSCOM OpRec] Konfirmasi Pendaftaran — '.($variables['registration_number'] ?? ''),
-            'body_html' => $bodyHtml,
+            'body_html' => view('mail.recruitment.application-submitted', $variables)->render(),
             'body_text' => $bodyText,
         ];
     }
@@ -104,79 +64,9 @@ final class RecruitmentEmailRenderer
      */
     private function revisionRequired(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $trackingUrl = $this->e($variables, 'tracking_url');
-        $revisionSections = $this->revisionSections($variables);
-        $revisionNotes = $this->e($variables, 'revision_notes');
+        $variables['revision_labels'] = $this->revisionSections($variables);
 
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Pendaftaranmu perlu sedikit revisi sebelum bisa kami proses lebih lanjut.</p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Silakan buka portal tracking, periksa catatan revisinya, lalu perbarui berkasmu.</p>';
-
-        if ($revisionSections !== []) {
-            $rows = '';
-
-            foreach ($revisionSections as $label) {
-                $rows .= '<tr>'
-                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$label.'</td>'
-                    .'</tr>';
-            }
-
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Bagian yang perlu diperbaiki</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .$rows
-                .'</table>'
-                .'</td></tr></table>';
-        }
-
-        if ($revisionNotes !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Catatan dari tim</p>'
-                .'<p style="margin:0;font-size:15px;line-height:1.65;color:#374151;overflow-wrap:break-word;">'
-                .nl2br($revisionNotes).'</p>'
-                .'</td></tr></table>';
-        }
-
-        if ($reg !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Data kamu</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .'<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                .'</tr>'
-                .'</table>'
-                .'</td></tr></table>';
-        }
-
-        if ($trackingUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
-                .'<a href="'.$trackingUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Buka portal tracking</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
-        }
+        $bodyHtml = view('mail.recruitment.revision-required', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -230,85 +120,7 @@ final class RecruitmentEmailRenderer
      */
     private function passedScreening(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $trackingUrl = $this->e($variables, 'tracking_url');
-        $whatsappUrl = $this->e($variables, 'whatsapp_group_url');
-
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Kamu lolos tahap screening OpenRecruitment DOSCOM.</p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Jadwal interview akan kami kirim lewat email berikutnya. Pantau juga portal tracking untuk update terbaru.</p>';
-
-        if ($reg !== '' || $whatsappUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Data kamu</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">';
-            if ($reg !== '') {
-                $bodyHtml .= '<tr>'
-                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                    .'</tr>';
-            }
-            if ($whatsappUrl !== '') {
-                $bodyHtml .= '<tr>'
-                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Grup WA</td>'
-                    .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;word-break:break-all;overflow-wrap:break-word;">'
-                    .'<a href="'.$whatsappUrl.'" style="color:#16a34a;font-weight:600;word-break:break-all;">'.$whatsappUrl.'</a>'
-                    .'</td>'
-                    .'</tr>';
-            }
-            $bodyHtml .= '</table>'
-                .'</td></tr></table>';
-        }
-
-        if ($whatsappUrl !== '' && $trackingUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 12px;">'
-                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
-                .'<a href="'.$whatsappUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Gabung Grup WA</a>'
-                .'</td></tr></table>'
-                .'<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
-                .'<a href="'.$trackingUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Pantau progress pendaftaran</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
-        } elseif ($whatsappUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
-                .'<a href="'.$whatsappUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Gabung Grup WA</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$whatsappUrl.'</span></p>';
-        } elseif ($trackingUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
-                .'<a href="'.$trackingUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Pantau progress pendaftaran</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
-        }
+        $bodyHtml = view('mail.recruitment.passed-screening', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -350,42 +162,7 @@ final class RecruitmentEmailRenderer
      */
     private function rejectedScreening(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $trackingUrl = $this->e($variables, 'tracking_url');
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Terima kasih telah mengikuti OpenRecruitment DOSCOM. Mohon maaf, kamu belum lolos tahap screening.</p>';
-
-        if ($reg !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Data kamu</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .'<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                .'</tr>'
-                .'</table>'
-                .'</td></tr></table>';
-        }
-
-        if ($trackingUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
-                .'<a href="'.$trackingUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Pantau informasi terbaru</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$trackingUrl.'</span></p>';
-        }
+        $bodyHtml = view('mail.recruitment.rejected-screening', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -419,19 +196,7 @@ final class RecruitmentEmailRenderer
      */
     private function correctionRequestStaff(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $message = $this->e($variables, 'correction_request_message');
-        $adminUrl = $this->e($variables, 'application_admin_url');
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Applicant <strong style="color:#111827;">'.$name.'</strong> ('.$reg.') mengajukan permintaan koreksi.</p>'
-            .'<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;overflow-wrap:break-word;">'
-            .'<strong style="color:#111827;">Pesan:</strong> '.$message.'</p>';
-
-        if ($adminUrl !== '') {
-            $bodyHtml .= '<p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">'
-                .'<a href="'.$adminUrl.'" style="color:#4f46e5;word-break:break-all;">Buka di dashboard</a></p>';
-        }
+        $bodyHtml = view('mail.recruitment.correction-request-staff', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -458,13 +223,17 @@ final class RecruitmentEmailRenderer
      */
     private function interviewScheduled(array $variables): array
     {
-        return $this->interviewBody(
+        $rendered = $this->interviewBody(
             subject: '[DOSCOM OpRec] Jadwal Interview — '.($variables['registration_number'] ?? ''),
             variables: $variables,
             intro: 'Interview kamu dijadwalkan pada',
             includeTrackingLink: true,
             qrNote: 'QR code absensi ada di bagian bawah email ini atau di halaman tracking. Tunjukkan ke panitia saat tiba.',
         );
+
+        $rendered['body_html'] = view('mail.recruitment.interview-scheduled', $variables)->render();
+
+        return $rendered;
     }
 
     /**
@@ -473,13 +242,17 @@ final class RecruitmentEmailRenderer
      */
     private function interviewRescheduled(array $variables): array
     {
-        return $this->interviewBody(
+        $rendered = $this->interviewBody(
             subject: '[DOSCOM OpRec] Jadwal Interview Diubah',
             variables: $variables,
             intro: 'Jadwal interview kamu diperbarui menjadi',
             includeTrackingLink: false,
             qrNote: 'QR code absensi ada di bagian bawah email ini atau di halaman tracking. Tunjukkan ke panitia saat tiba.',
         );
+
+        $rendered['body_html'] = view('mail.recruitment.interview-rescheduled', $variables)->render();
+
+        return $rendered;
     }
 
     /**
@@ -488,13 +261,17 @@ final class RecruitmentEmailRenderer
      */
     private function interviewReminderH1(array $variables): array
     {
-        return $this->interviewBody(
+        $rendered = $this->interviewBody(
             subject: '[DOSCOM OpRec] Reminder Interview Besok',
             variables: $variables,
             intro: 'Interview kamu besok pada',
             includeTrackingLink: false,
             qrNote: 'QR code absensi ada di bagian bawah email ini atau di halaman tracking. Tunjukkan ke panitia saat tiba.',
         );
+
+        $rendered['body_html'] = view('mail.recruitment.interview-reminder-h1', $variables)->render();
+
+        return $rendered;
     }
 
     /**
@@ -503,13 +280,17 @@ final class RecruitmentEmailRenderer
      */
     private function interviewReminderH2(array $variables): array
     {
-        return $this->interviewBody(
+        $rendered = $this->interviewBody(
             subject: '[DOSCOM OpRec] Reminder Interview 2 Jam Lagi',
             variables: $variables,
             intro: 'Interview kamu dimulai sekitar 2 jam lagi pada',
             includeTrackingLink: false,
             qrNote: 'QR code absensi ada di bagian bawah email ini atau di halaman tracking. Tunjukkan ke panitia saat tiba.',
         );
+
+        $rendered['body_html'] = view('mail.recruitment.interview-reminder-h2', $variables)->render();
+
+        return $rendered;
     }
 
     /**
@@ -518,82 +299,7 @@ final class RecruitmentEmailRenderer
      */
     private function interviewAssignment(array $variables): array
     {
-        $interviewer = $this->e($variables, 'interviewer_name');
-        $applicant = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $date = $this->e($variables, 'interview_date');
-        $time = $this->e($variables, 'interview_time');
-        $location = $this->e($variables, 'interview_location');
-        $room = $this->e($variables, 'interview_room');
-        $adminUrl = $this->e($variables, 'application_admin_url');
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$interviewer.',</strong></p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Kamu ditugaskan sebagai interviewer untuk <strong style="color:#111827;">'.$applicant.'</strong> ('.$reg.').</p>';
-
-        $rows = '';
-        if ($applicant !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Applicant</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$applicant.'</td>'
-                .'</tr>';
-        }
-        if ($reg !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Nomor Pendaftaran</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                .'</tr>';
-        }
-        if ($date !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Tanggal</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$date.'</td>'
-                .'</tr>';
-        }
-        if ($time !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Jam</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$time.'</td>'
-                .'</tr>';
-        }
-        if ($location !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Lokasi</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$location.'</td>'
-                .'</tr>';
-        }
-        if ($room !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Ruang</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$room.'</td>'
-                .'</tr>';
-        }
-
-        if ($rows !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Penugasan interview</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .$rows
-                .'</table>'
-                .'</td></tr></table>';
-        }
-
-        if ($adminUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 8px;">'
-                .'<tr><td bgcolor="#4f46e5" style="border-radius:10px;background-color:#4f46e5;">'
-                .'<a href="'.$adminUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Lihat applicant</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$adminUrl.'</span></p>';
-        }
+        $bodyHtml = view('mail.recruitment.interview-assignment', $variables)->render();
 
         $rawInterviewer = (string) ($variables['interviewer_name'] ?? '');
         $rawApplicant = (string) ($variables['applicant_name'] ?? '');
@@ -645,56 +351,7 @@ final class RecruitmentEmailRenderer
      */
     private function finalAccepted(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $membership = $this->e($variables, 'membership_type');
-        $division = $this->e($variables, 'final_division');
-        $publicMessage = $this->e($variables, 'public_message');
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Selamat! Kamu diterima sebagai '.$membership.' di divisi '.$division.'.</p>';
-
-        $rows = '<tr>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Status</td>'
-            .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">Diterima</td>'
-            .'</tr>';
-        if ($division !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Divisi</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$division.'</td>'
-                .'</tr>';
-        }
-        if ($membership !== '') {
-            $rows .= '<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;">Tipe</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#374151;">'.$membership.'</td>'
-                .'</tr>';
-        }
-
-        $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-            .'<tr><td style="padding:18px 20px;">'
-            .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-            .'Hasil akhir</p>'
-            .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-            .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-            .$rows
-            .'</table>'
-            .'</td></tr></table>';
-
-        if ($publicMessage !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Catatan dari tim</p>'
-                .'<p style="margin:0;font-size:15px;line-height:1.6;color:#374151;overflow-wrap:break-word;">'
-                .$publicMessage.'</p>'
-                .'</td></tr></table>';
-        }
-
-        $bodyHtml .= '<p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">'
-            .'Informasi orientasi dan langkah berikutnya akan kami kirim lewat email berikutnya.</p>';
+        $bodyHtml = view('mail.recruitment.final-accepted', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawMembership = (string) ($variables['membership_type'] ?? '');
@@ -733,45 +390,7 @@ final class RecruitmentEmailRenderer
      */
     private function groupLink(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $reg = $this->e($variables, 'registration_number');
-        $periodName = $this->e($variables, 'period_name');
-        $whatsappUrl = $this->e($variables, 'whatsapp_group_url');
-
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Kamu lolos tahap screening OpenRecruitment DOSCOM. Gabung ke grup WhatsApp '
-            .'agar tidak ketinggalan info tahap berikutnya.</p>';
-
-        if ($whatsappUrl !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;margin:0 auto 20px;">'
-                .'<tr><td bgcolor="#25d366" style="border-radius:10px;background-color:#25d366;">'
-                .'<a href="'.$whatsappUrl.'" '
-                .'style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">'
-                .'Gabung Grup WA</a>'
-                .'</td></tr></table>'
-                .'<p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#6b7280;text-align:center;">'
-                .'Jika tombol tidak berfungsi, salin URL ini ke browser:<br>'
-                .'<span style="word-break:break-all;color:#374151;">'.$whatsappUrl.'</span></p>';
-        }
-
-        if ($reg !== '') {
-            $bodyHtml .= '<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin:0 0 20px;">'
-                .'<tr><td style="padding:18px 20px;">'
-                .'<p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">'
-                .'Data kamu</p>'
-                .'<table role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0" '
-                .'style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;font-size:15px;line-height:1.55;color:#374151;">'
-                .'<tr>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;color:#6b7280;width:38%;">Nomor Pendaftaran</td>'
-                .'<td style="padding:8px 0;border-top:1px solid #e5e7eb;font-weight:600;color:#111827;">'.$reg.'</td>'
-                .'</tr>'
-                .'</table>'
-                .'</td></tr></table>';
-        }
+        $bodyHtml = view('mail.recruitment.group-link', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
         $rawReg = (string) ($variables['registration_number'] ?? '');
@@ -804,13 +423,7 @@ final class RecruitmentEmailRenderer
      */
     private function finalRejected(array $variables): array
     {
-        $name = $this->e($variables, 'applicant_name');
-        $bodyHtml = '<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'<strong style="color:#111827;">Halo '.$name.',</strong></p>'
-            .'<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Terima kasih telah mengikuti seluruh rangkaian OpenRecruitment DOSCOM.</p>'
-            .'<p style="margin:0;font-size:16px;line-height:1.65;color:#374151;">'
-            .'Mohon maaf, kamu belum lolos seleksi tahap akhir.</p>';
+        $bodyHtml = view('mail.recruitment.final-rejected', $variables)->render();
 
         $rawName = (string) ($variables['applicant_name'] ?? '');
 

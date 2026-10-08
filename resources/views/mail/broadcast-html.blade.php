@@ -8,5 +8,4 @@
             {!! $htmlBody !!}
         </td>
     </tr>
-    @include('mail.partials.card-footer-by-app')
 @endsection

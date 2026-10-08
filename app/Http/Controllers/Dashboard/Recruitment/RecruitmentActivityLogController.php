@@ -20,7 +20,8 @@ class RecruitmentActivityLogController extends Controller
 
         $query = RecruitmentActivityLog::query()
             ->with(['actor:id,name', 'application:id,recruitment_period_id,registration_number,full_name'])
-            ->orderByDesc('created_at');
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if ($periodId !== null && $periodId !== '') {
             $query->where('recruitment_period_id', $periodId);
@@ -30,7 +31,7 @@ class RecruitmentActivityLogController extends Controller
             $query->where('action', 'like', '%'.$action.'%');
         }
 
-        $paginator = $query->paginate(30)->withQueryString();
+        $paginator = $query->paginate(20)->withQueryString();
 
         return Inertia::render('Dashboard/Recruitment/ActivityLogs/Index', [
             'logs' => $paginator->through(fn (RecruitmentActivityLog $log): array => [

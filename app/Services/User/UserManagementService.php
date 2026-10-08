@@ -30,18 +30,20 @@ class UserManagementService
     ];
 
     /**
-     * @param  array{search?: string|null, role?: string|null, per_page?: int}  $filters
+     * @param  array{search?: string|null, role?: string|null}  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
     public function paginateForAdminIndex(array $filters, int $page = 1): LengthAwarePaginator
     {
         $search = trim((string) ($filters['search'] ?? ''));
         $role = $filters['role'] ?? null;
-        $perPage = (int) ($filters['per_page'] ?? 10);
+        // Aturan global: 20 data per halaman; pager hanya bila total > 20.
+        $perPage = 20;
 
         $query = User::query()
             ->with('roles:id,name')
-            ->orderBy('name');
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if ($search !== '') {
             $query->where(function ($q) use ($search): void {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\StoreRecruitmentInterviewSessionRequest;
+use App\Http\Requests\Recruitment\UpdateRecruitmentInterviewSessionRequest;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Recruitment\InterviewSessionService;
 use Illuminate\Http\RedirectResponse;
@@ -41,6 +42,59 @@ class RecruitmentInterviewSessionController extends Controller
 
         return Inertia::render('Dashboard/Recruitment/InterviewSessions/Show', [
             'session' => $this->sessionService->toShowArray($session),
+        ]);
+    }
+
+    public function update(
+        UpdateRecruitmentInterviewSessionRequest $request,
+        RecruitmentInterviewSession $session,
+    ): RedirectResponse {
+        $this->authorize('update', $session);
+
+        $validated = $request->validated();
+        $validated['is_active'] = $request->boolean('is_active', true);
+
+        $session = $this->sessionService->update($session, $validated);
+
+        Inertia::flash('toast', [
+            'message' => 'Sesi interview berhasil diperbarui.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.recruitment.periods.show', [
+            'period' => $session->recruitment_period_id,
+            'tab' => 'interview',
+        ]);
+    }
+
+    public function destroy(RecruitmentInterviewSession $session): RedirectResponse
+    {
+        $this->authorize('delete', $session);
+
+        if (
+            $session->interviews()->exists()
+            || $session->attendances()->exists()
+        ) {
+            Inertia::flash('toast', [
+                'message' => 'Sesi dengan jadwal tidak bisa dihapus.',
+                'type' => 'error',
+            ]);
+
+            abort(422, 'Sesi dengan jadwal tidak bisa dihapus.');
+        }
+
+        $periodId = $session->recruitment_period_id;
+
+        $session->delete();
+
+        Inertia::flash('toast', [
+            'message' => 'Sesi interview berhasil dihapus.',
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.recruitment.periods.show', [
+            'period' => $periodId,
+            'tab' => 'interview',
         ]);
     }
 }

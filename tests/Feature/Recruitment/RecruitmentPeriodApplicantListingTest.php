@@ -116,14 +116,15 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ->assertInertia(fn ($page) => $page                ->where('queue_counts.all', 4));
     }
 
-    public function test_period_show_returns_full_list_search_is_filtered_in_frontend(): void
+    public function test_period_show_search_difilter_di_server(): void
     {
         $this->actingAs($this->admin())
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period, 'search' => 'Budi']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('applications.data', 4)
-                ->where('applications.data.1.id', $this->budi->id));
+                ->where('applications.total', 1)
+                ->has('applications.data', 1)
+                ->where('applications.data.0.id', $this->budi->id));
     }
 
     public function test_staff_without_period_view_cannot_open_period_show(): void
@@ -165,7 +166,7 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ]));
     }
 
-    public function test_period_show_semester_options_ignore_active_filters(): void
+    public function test_period_show_semester_menyaring_data_tapi_options_tetap(): void
     {
         $this->actingAs($this->admin())
             ->get(route('dashboard.recruitment.periods.show', [
@@ -174,7 +175,9 @@ class RecruitmentPeriodApplicantListingTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('applications.data', 4)
+                ->where('applications.total', 2)
+                ->has('applications.data', 2)
+                ->where('applications.data.0.id', $this->budi->id)
                 ->where('semesterOptions', [
                     ['value' => '1', 'label' => 'Semester 1'],
                     ['value' => '3', 'label' => 'Semester 3'],

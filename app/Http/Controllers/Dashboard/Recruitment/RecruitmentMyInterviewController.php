@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ClaimSecondaryInterviewRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentInterview;
 use App\Services\Recruitment\EvaluationService;
+use App\Services\Recruitment\InterviewLifecycleService;
 use App\Services\Recruitment\MyInterviewService;
-use App\Services\Recruitment\WaitingRoomService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +19,7 @@ class RecruitmentMyInterviewController extends Controller
     public function __construct(
         private readonly MyInterviewService $myInterviewService,
         private readonly EvaluationService $evaluationService,
-        private readonly WaitingRoomService $waitingRoomService,
+        private readonly InterviewLifecycleService $interviewLifecycleService,
     ) {
     }
 
@@ -84,84 +84,74 @@ class RecruitmentMyInterviewController extends Controller
                 'page' => $page,
             ],
             'tab_counts' => $this->myInterviewService->tabCounts($user),
+            'pending_start_count' => $this->myInterviewService->countPendingStart($user),
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
-            'waiting_pool_poll_url' => route('dashboard.recruitment.my-interviews.waiting-pool'),
-            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
+            'secondary_opportunities' => $this->myInterviewService->secondaryOpportunitiesForInterviewer($user),
+            'claimed_secondary' => $this->myInterviewService->claimedSecondaryForInterviewer($user),
         ]);
     }
 
-    public function waitingPool(Request $request): JsonResponse
+    public function show(string $id): Response|RedirectResponse
     {
-        $user = $request->user();
-        abort_unless($user?->can('recruitment.evaluations.view'), 403);
+        $interview = RecruitmentInterview::query()->find($id);
 
-        $sessionId = $request->query('session_id');
-        $search = $request->query('q');
+        // BC shim (rilis transisi): URL lama per-application diarahkan ke
+        // interview primary. Hapus bila tidak ada lagi link/bookmark lama.
+        if ($interview === null) {
+            $application = RecruitmentApplication::query()->find($id);
+            $primary = $application?->primaryInterview()->first();
 
-        return response()->json([
-            'entries' => $this->waitingRoomService->waitingPoolSnapshot(
-                $user,
-                is_string($sessionId) ? $sessionId : null,
-                is_string($search) ? $search : null,
-            ),
-            'has_active_booking' => $this->waitingRoomService->hasActiveInProgressBooking($user),
-        ]);
-    }
+            if ($primary !== null) {
+                return redirect()->route('dashboard.recruitment.my-interviews.show', $primary);
+            }
 
-    public function book(Request $request, RecruitmentApplication $application): RedirectResponse
-    {
-        $this->authorize('bookInterview', $application);
+            abort(404);
+        }
 
-        $this->waitingRoomService->book($request->user(), $application, $request);
-
-        return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $application)
-            ->with('message', 'Applicant berhasil dibooking.');
-    }
-
-    public function release(Request $request, RecruitmentApplication $application): RedirectResponse
-    {
-        $this->authorize('releaseInterview', $application);
-
-        $this->waitingRoomService->release($request->user(), $application, $request);
-
-        return redirect()
-            ->route('dashboard.recruitment.my-interviews.index', ['tab' => 'waiting'])
-            ->with('message', 'Booking dibatalkan. Applicant kembali ke ruang tunggu.');
-    }
-
-    public function show(RecruitmentApplication $application): Response
-    {
-        $this->authorize('viewAssignedInterview', $application);
+        $this->authorize('view', $interview);
 
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Show', [
-            'detail' => $this->myInterviewService->toShowArray($application),
-            'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $application),
-            'releaseUrl' => route('dashboard.recruitment.my-interviews.release', $application),
+            'detail' => $this->myInterviewService->toShowArray($interview),
+            'evaluateUrl' => route('dashboard.recruitment.my-interviews.evaluate', $interview),
             'recommendationOptions' => \App\Enums\Recruitment\EvaluationRecommendation::options(),
-            'flashMessage' => session('message'),
         ]);
     }
 
     public function evaluate(
         StoreRecruitmentEvaluationRequest $request,
-        RecruitmentApplication $application,
+        RecruitmentInterview $interview,
     ): RedirectResponse {
-        $this->authorize('evaluate', $application);
+        $this->authorize('evaluate', $interview);
 
         $this->evaluationService->submit(
             $request->user(),
-            $application,
+            $interview,
             $request->validated(),
             staffOverride: false,
             request: $request,
         );
 
         return redirect()
-            ->route('dashboard.recruitment.my-interviews.show', $application)
-            ->with('message', 'Penilaian interview berhasil disimpan.');
+            ->route('dashboard.recruitment.my-interviews.index', ['tab' => 'done'])
+            ->with('toast', ['message' => 'Penilaian interview berhasil disimpan.', 'type' => 'success']);
+    }
+
+    public function claimSecondary(ClaimSecondaryInterviewRequest $request): RedirectResponse
+    {
+        $application = RecruitmentApplication::query()->findOrFail($request->validated('application_id'));
+
+        $this->authorize('claimSecondaryInterview', $application);
+
+        $secondaryInterview = $this->interviewLifecycleService->createSecondaryInterview(
+            $request->user(),
+            $application,
+        );
+
+        return redirect()
+            ->route('dashboard.recruitment.my-interviews.show', $secondaryInterview)
+            ->with('toast', ['message' => 'Interview secondary berhasil diambil.', 'type' => 'success']);
     }
 }

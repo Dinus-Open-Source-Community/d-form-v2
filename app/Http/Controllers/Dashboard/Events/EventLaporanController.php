@@ -22,7 +22,7 @@ class EventLaporanController extends Controller
         $this->authorize('view', $event);
 
         $attendanceLog = $this->eventReportingQuery
-            ->paginateAttendanceLog($event, perPage: 15)
+            ->paginateAttendanceLog($event)
             ->withQueryString();
 
         return Inertia::render('Dashboard/Events/Laporan', [

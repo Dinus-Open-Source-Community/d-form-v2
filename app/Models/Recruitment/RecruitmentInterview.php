@@ -11,6 +11,10 @@ class RecruitmentInterview extends Model
 {
     use HasUuids;
 
+    public const KIND_PRIMARY = 'primary';
+
+    public const KIND_SECONDARY = 'secondary';
+
     public $incrementing = false;
 
     protected $keyType = 'string';
@@ -18,6 +22,7 @@ class RecruitmentInterview extends Model
     protected $fillable = [
         'recruitment_application_id',
         'recruitment_interview_session_id',
+        'interview_kind',
         'interviewer_id',
         'booked_at',
         'scheduled_at',

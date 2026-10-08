@@ -2,11 +2,11 @@
 
 namespace App\Policies\Recruitment;
 
-use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentEvaluation;
 use App\Models\Recruitment\RecruitmentInterview;
-use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class RecruitmentApplicationPolicy
 {
@@ -25,14 +25,23 @@ class RecruitmentApplicationPolicy
             || ($user->can('recruitment.applications.view') && $user->can('recruitment.screening.decide'));
     }
 
-    public function viewAssignedInterview(User $user, RecruitmentApplication $application): bool
+    public function viewAssignedInterview(User $user, RecruitmentApplication $application): Response|bool
     {
         if ($this->view($user, $application)) {
             return true;
         }
 
-        return $this->isAssignedInterviewer($user, $application)
-            && $user->can('recruitment.evaluations.view');
+        if (! $this->isAssignedInterviewer($user, $application)
+            || ! $user->can('recruitment.evaluations.view')) {
+            return false;
+        }
+
+        // Interviewer murni hanya boleh membuka applicant yang sudah regis ulang.
+        if (! $this->hasCheckedIn($application)) {
+            return Response::deny('Belum regis ulang (scan QR).');
+        }
+
+        return true;
     }
 
     public function downloadDocument(User $user, RecruitmentApplication $application): bool
@@ -49,57 +58,22 @@ class RecruitmentApplicationPolicy
             && $user->can('recruitment.evaluations.view');
     }
 
-    public function bookInterview(User $user, RecruitmentApplication $application): bool
-    {
-        if (! $user->can('recruitment.evaluations.submit')) {
-            return false;
-        }
-
-        $application->loadMissing('interview', 'evaluation', 'attendance');
-
-        if ($application->attendance === null || $application->evaluation !== null) {
-            return false;
-        }
-
-        $interview = $application->interview;
-
-        if ($interview === null
-            || $interview->status !== InterviewStatus::Waiting
-            || $interview->interviewer_id !== null) {
-            return false;
-        }
-
-        return $this->interviewerAssignedToApplicationDivision($user, $application);
-    }
-
-    public function releaseInterview(User $user, RecruitmentApplication $application): bool
-    {
-        if (! $user->can('recruitment.evaluations.submit')) {
-            return false;
-        }
-
-        $application->loadMissing('interview', 'evaluation');
-
-        if ($application->evaluation !== null) {
-            return false;
-        }
-
-        $interview = $application->interview;
-
-        return $interview !== null
-            && $interview->status === InterviewStatus::InProgress
-            && $interview->interviewer_id === $user->id;
-    }
-
-    public function evaluate(User $user, RecruitmentApplication $application): bool
+    public function evaluate(User $user, RecruitmentApplication $application): Response|bool
     {
         if (! $user->can('recruitment.evaluations.submit')) {
             return false;
         }
 
         $application->loadMissing('evaluation');
+        $application->loadMissing('primaryInterview.evaluation');
 
-        if ($application->evaluation?->isLocked() && ! $this->canStaffManage($user)) {
+        // Nilai hanya boleh di-submit bila applicant sudah regis ulang (kecuali super-admin).
+        if (! $this->hasCheckedIn($application) && ! $this->isSuperAdmin($user)) {
+            return Response::deny('Belum regis ulang (scan QR).');
+        }
+
+        // Budget habis → terkunci untuk semua pihak, termasuk staff.
+        if (($application->primaryInterview?->evaluation?->save_count ?? 0) >= RecruitmentEvaluation::MAX_SAVES) {
             return false;
         }
 
@@ -114,8 +88,25 @@ class RecruitmentApplicationPolicy
         return $this->isAssignedInterviewer($user, $application);
     }
 
+    /**
+     * Gerbang kasar klaim secondary: cek permission saja di sini.
+     * Cakupan (divisi + eligibility) ditegakkan di InterviewLifecycleService
+     * agar kontrak error-nya presisi (403 vs 422 per-field).
+     */
+    public function claimSecondaryInterview(User $user, RecruitmentApplication $application): bool
+    {
+        return $user->can('recruitment.evaluations.submit');
+    }
+
     public function overrideEvaluation(User $user, RecruitmentApplication $application): bool
     {
+        $application->loadMissing('primaryInterview.evaluation');
+
+        // Budget habis → override ditolak untuk semua pihak.
+        if (($application->primaryInterview?->evaluation?->save_count ?? 0) >= RecruitmentEvaluation::MAX_SAVES) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -171,16 +162,14 @@ class RecruitmentApplicationPolicy
             ->exists();
     }
 
-    private function interviewerAssignedToApplicationDivision(User $user, RecruitmentApplication $application): bool
+    /**
+     * Regist ulang sudah dilakukan bila baris attendance tersedia.
+     */
+    private function hasCheckedIn(RecruitmentApplication $application): bool
     {
-        $application->loadMissing('interview.session');
-        $divisionId = $application->interview?->session?->recruitment_division_id
-            ?? $application->primary_division_id;
+        $application->loadMissing('attendance');
 
-        return RecruitmentInterviewerDivision::query()
-            ->where('user_id', $user->id)
-            ->where('recruitment_division_id', $divisionId)
-            ->exists();
+        return $application->attendance !== null;
     }
 
     private function canStaffManage(User $user): bool

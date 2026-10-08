@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { router, useForm, usePage } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
 import useAuth from '@/utils/composables/useAuth'
 import {
+    CalendarClock,
     CheckCircle2,
     ClipboardCheck,
     Download,
@@ -36,13 +38,18 @@ import {
     FileText,
     History,
     Instagram,
+    Lock,
     Mail,
+    PencilLine,
+    Star,
+    ThumbsDown,
+    ThumbsUp,
     Trophy,
     User,
+    UserCheck,
+    UserPlus,
     XCircle,
 } from 'lucide-vue-next'
-
-type FinalAction = 'accept' | 'reject' | null
 
 type ScreeningAction = 'revision' | 'reject' | null
 
@@ -87,6 +94,10 @@ interface EvaluationDetail {
     is_locked: boolean
     evaluated_at: string | null
     evaluator: { id: string; name: string } | null
+    division?: string | null
+    division_id?: string | null
+    save_count?: number
+    saves_remaining?: number
 }
 
 interface FinalDecisionDetail {
@@ -140,6 +151,10 @@ export interface ApplicationDetail {
     activity_logs: ActivityRow[]
     correction_requests: CorrectionRow[]
     evaluation: EvaluationDetail | null
+    evaluations: {
+        primary: EvaluationDetail | null
+        secondary: EvaluationDetail | null
+    }
     final_decision: FinalDecisionDetail | null
     can_screen: boolean
     can_verify: boolean
@@ -199,9 +214,6 @@ const screeningAction = ref<ScreeningAction>(null)
 const confirmOpen = ref(false)
 const confirmAction = ref<'verify' | 'pass' | 'reject' | 'resend_tracking' | null>(null)
 
-const finalModalOpen = ref(false)
-const finalAction = ref<FinalAction>(null)
-
 const screeningForm = useForm({
     reason: '',
     notes: '',
@@ -220,16 +232,6 @@ function toggleRevisionSection(value: string, checked: boolean) {
     screeningForm.sections = toggleCheckboxSelection(screeningForm.sections, value, checked)
 }
 
-const finalAcceptForm = useForm({
-    membership_type: '',
-    final_division_id: props.application.primary_division?.id ?? '',
-})
-
-const finalRejectForm = useForm({
-    internal_reason: '',
-    public_message: '',
-})
-
 function openScreeningModal(action: ScreeningAction) {
     screeningAction.value = action
     screeningForm.reset()
@@ -244,12 +246,14 @@ function openRevisionModal() {
 defineExpose({
     openRevisionModal,
     openScreeningModal,
-    openFinalModal,
     verifyApplication,
     passApplication,
     requestConfirm,
     requestResendTracking,
     resendTrackingApplication,
+    openFinalConfirm,
+    openFinalAcceptForDivision,
+    openFinalReject,
 })
 
 function submitScreening() {
@@ -281,6 +285,125 @@ function postScreeningReject() {
         },
         onError: () => showErrorToast('Gagal menolak applicant.'),
     })
+}
+
+type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject'
+
+const finalConfirmOpen = ref(false)
+const finalChoice = ref<FinalDecisionChoice | null>(null)
+const finalCancelRef = ref<ComponentPublicInstance | null>(null)
+const finalDivisionName = ref<string>('')
+
+const finalConfirmForm = useForm({
+    membership_type: '',
+    final_division_id: '',
+    internal_reason: '',
+    public_message: '',
+})
+
+const showFinalDecision = computed<boolean>((): boolean => {
+    if (props.readonly) return false
+    if (!canDecideFinal.value) return false
+    if (props.application.final_decision) return false
+    if (props.application.stage === 'completed') return false
+    return true
+})
+
+const isFinalRejectChoice = computed<boolean>((): boolean => finalChoice.value === 'reject')
+
+const finalChoiceActionLabel = computed<string>((): string => {
+    if (finalChoice.value === 'accept_aa') return 'Diterima sebagai AA'
+    if (finalChoice.value === 'accept_member') return 'Diterima sebagai Member'
+    return 'Ditolak'
+})
+
+const primaryDivisionId = computed<string>(
+    (): string =>
+        props.application.evaluations?.primary?.division_id ??
+        props.application.primary_division?.id ??
+        '',
+)
+
+const primaryDivisionName = computed<string>(
+    (): string =>
+        props.application.evaluations?.primary?.division ??
+        props.application.primary_division?.name ??
+        '—',
+)
+
+const secondaryDivisionId = computed<string>(
+    (): string =>
+        props.application.evaluations?.secondary?.division_id ??
+        props.application.secondary_division?.id ??
+        '',
+)
+
+const secondaryDivisionName = computed<string>(
+    (): string =>
+        props.application.evaluations?.secondary?.division ??
+        props.application.secondary_division?.name ??
+        '—',
+)
+
+function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divisionName?: string): void {
+    finalChoice.value = choice
+    finalConfirmForm.reset()
+    finalConfirmForm.clearErrors()
+    if (choice === 'accept_aa' || choice === 'accept_member') {
+        finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
+        finalConfirmForm.final_division_id = divisionId ?? ''
+        finalDivisionName.value = divisionName ?? ''
+    } else {
+        finalConfirmForm.membership_type = ''
+        finalConfirmForm.final_division_id = ''
+        finalDivisionName.value = ''
+    }
+    finalConfirmOpen.value = true
+}
+
+function openFinalAcceptForDivision(
+    divisionId: string,
+    divisionName: string,
+    membershipType: 'aa' | 'member',
+): void {
+    openFinalConfirm(membershipType === 'aa' ? 'accept_aa' : 'accept_member', divisionId, divisionName)
+}
+
+function openFinalReject(): void {
+    openFinalConfirm('reject')
+}
+
+function focusFinalCancel(event: Event): void {
+    event.preventDefault()
+    const target: unknown = finalCancelRef.value?.$el
+    if (target instanceof HTMLElement) target.focus()
+}
+
+function submitFinalConfirm(): void {
+    if (finalChoice.value === 'accept_aa' || finalChoice.value === 'accept_member') {
+        finalConfirmForm.post(routes.admin.recruitment.applications.final.accept(props.application.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                finalConfirmOpen.value = false
+                toast.success('Applicant diterima. Email hasil telah dikirim.')
+                emit('submitted')
+            },
+            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
+        })
+        return
+    }
+
+    if (finalChoice.value === 'reject') {
+        finalConfirmForm.post(routes.admin.recruitment.applications.final.reject(props.application.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                finalConfirmOpen.value = false
+                toast.success('Applicant ditolak. Email hasil telah dikirim.')
+                emit('submitted')
+            },
+            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
+        })
+    }
 }
 
 function requestConfirm(action: 'verify' | 'pass' | 'reject' | 'resend_tracking') {
@@ -350,44 +473,7 @@ const confirmConsequence = computed(() => {
     return ''
 })
 
-function openFinalModal(action: FinalAction) {
-    finalAction.value = action
-    finalAcceptForm.reset()
-    finalRejectForm.reset()
-    finalAcceptForm.final_division_id = props.application.primary_division?.id ?? ''
-    finalAcceptForm.clearErrors()
-    finalRejectForm.clearErrors()
-    finalModalOpen.value = true
-}
-
-function submitFinalDecision() {
-    if (finalAction.value === 'accept') {
-        finalAcceptForm.post(routes.admin.recruitment.applications.final.accept(props.application.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                finalModalOpen.value = false
-                toast.success('Applicant diterima. Email hasil telah dikirim.')
-                emit('submitted')
-            },
-            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
-        })
-        return
-    }
-
-    if (finalAction.value === 'reject') {
-        finalRejectForm.post(routes.admin.recruitment.applications.final.reject(props.application.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                finalModalOpen.value = false
-                toast.success('Applicant ditolak. Email hasil telah dikirim.')
-                emit('submitted')
-            },
-            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
-        })
-    }
-}
-
-function passApplication(payload: Record<string, unknown> = {}) {
+function passApplication(payload: Record<string, string | boolean> = {}) {
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
         payload,
@@ -549,6 +635,14 @@ function formatBytes(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function scoreBarWidth(score: number): string {
+    return `${Math.min(100, Math.max(0, (score / 10) * 100))}%`
+}
+
+function evaluationAverageLabel(speaking: number, technical: number, attitude: number): string {
+    return ((speaking + technical + attitude) / 3).toFixed(1).replace('.', ',')
+}
+
 const activityActionLabels: Record<string, string> = {
     'screening.pass': 'Lolos screening',
     'screening.revision_required': 'Diminta revisi',
@@ -646,12 +740,6 @@ const modalTitle = computed(() => {
     return 'Keputusan screening'
 })
 
-const finalModalTitle = computed(() => {
-    if (finalAction.value === 'accept') return 'Terima applicant'
-    if (finalAction.value === 'reject') return 'Tolak applicant (final)'
-    return 'Keputusan final'
-})
-
 const defaultTab = computed(() => {
     const { stage, revision_required, correction_requests } = props.application
     const hasPendingCorrection = correction_requests.some((c) => c.status === 'pending')
@@ -669,14 +757,6 @@ const defaultTab = computed(() => {
         <div v-if="!readonly && !hideActions" class="flex flex-wrap items-center justify-end gap-3">
             <Button v-if="canVerify" size="sm" variant="secondary" @click="requestConfirm('verify')">
                 Verifikasi
-            </Button>
-            <Button v-if="canDecideFinal" size="sm" variant="destructive" @click="openFinalModal('reject')">
-                <XCircle class="mr-2 size-4" />
-                Tolak final
-            </Button>
-            <Button v-if="canDecideFinal" size="sm" @click="openFinalModal('accept')">
-                <Trophy class="mr-2 size-4" />
-                Terima
             </Button>
             <Button v-if="canScreen && !hideRevisionAction" size="sm" variant="outline" @click="openScreeningModal('revision')">
                 Revisi
@@ -1172,36 +1252,336 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="final" class="mt-4 space-y-5">
-                <Card v-if="application.evaluation" class="rounded-2xl border-border/70">
-                    <CardContent class="space-y-3 p-6">
-                        <p class="text-sm font-semibold">Evaluasi interviewer</p>
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Speaking</p>
-                                <p class="font-medium">{{ application.evaluation.speaking_score }}/10</p>
+                <Card v-if="application.evaluation" class="overflow-hidden rounded-2xl border-border/70">
+                    <CardContent class="p-0">
+                        <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
+                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                Evaluasi primary
+                                <span v-if="primaryDivisionName !== '—'" class="normal-case tracking-normal">
+                                    — {{ primaryDivisionName }}
+                                </span>
+                            </p>
+                            <span
+                                v-if="application.evaluation.is_locked"
+                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            >
+                                <Lock class="size-3" aria-hidden="true" />
+                                Terkunci
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+                            >
+                                <PencilLine class="size-3" aria-hidden="true" />
+                                Draft
+                            </span>
+                        </div>
+
+                        <div class="px-6 pt-3">
+                            <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
+                            <p class="mt-0.5 flex items-center gap-2 text-xl font-semibold tracking-tight">
+                                <ThumbsUp
+                                    v-if="application.evaluation.recommendation === 'recommended'"
+                                    class="size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <ThumbsDown v-else class="size-5 shrink-0" aria-hidden="true" />
+                                <span>{{ application.evaluation.recommendation_label }}</span>
+                            </p>
+                        </div>
+
+                        <div class="px-6 pt-5">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                    Penilaian
+                                </p>
+                                <p class="text-muted-foreground text-xs">
+                                    Rata-rata
+                                    <span class="text-foreground font-semibold tabular-nums">{{
+                                        evaluationAverageLabel(
+                                            application.evaluation.speaking_score,
+                                            application.evaluation.technical_score,
+                                            application.evaluation.attitude_score,
+                                        )
+                                    }}</span>
+                                </p>
                             </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Technical</p>
-                                <p class="font-medium">{{ application.evaluation.technical_score }}/10</p>
-                            </div>
-                            <div>
-                                <p class="text-muted-foreground text-xs uppercase">Attitude</p>
-                                <p class="font-medium">{{ application.evaluation.attitude_score }}/10</p>
+                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Speaking</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.speaking_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Technical</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.technical_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Attitude</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluation.attitude_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluation.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div v-if="application.evaluation.notes" class="px-6 pt-4">
+                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
+                                <figcaption class="text-muted-foreground text-xs">
+                                    Catatan interviewer
+                                </figcaption>
+                                <blockquote class="mt-1 text-sm leading-relaxed">
+                                    {{ application.evaluation.notes }}
+                                </blockquote>
+                            </figure>
+                        </div>
+
+                        <div
+                            class="px-6 pt-4"
+                            :class="{ 'pb-6': !(showFinalDecision && primaryDivisionId) }"
+                        >
+                            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
+                                <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="showFinalDecision && primaryDivisionId"
+                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
+                        >
+                            <p class="text-muted-foreground text-xs">
+                                Keputusan final — tempatkan applicant di {{ primaryDivisionName }}
+                            </p>
+                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
+                                >
+                                    <Star class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai AA — {{ primaryDivisionName }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
+                                >
+                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai Member — {{ primaryDivisionName }}
+                                </Button>
                             </div>
                         </div>
-                        <p class="text-sm">
-                            Rekomendasi:
-                            <span class="font-medium">{{ application.evaluation.recommendation_label }}</span>
-                        </p>
-                        <p v-if="application.evaluation.notes" class="text-muted-foreground text-sm">
-                            {{ application.evaluation.notes }}
-                        </p>
-                        <p class="text-muted-foreground text-xs">
-                            {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}
-                            · {{ application.evaluation.is_locked ? 'Terkunci' : 'Draft' }}
-                        </p>
                     </CardContent>
                 </Card>
+
+                <Card
+                    v-if="application.evaluations?.secondary"
+                    class="overflow-hidden rounded-2xl border-border/70"
+                >
+                    <CardContent class="p-0">
+                        <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
+                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                Evaluasi secondary
+                                <span
+                                    v-if="application.evaluations.secondary.division"
+                                    class="normal-case tracking-normal"
+                                >
+                                    — {{ application.evaluations.secondary.division }}
+                                </span>
+                            </p>
+                            <span
+                                v-if="application.evaluations.secondary.is_locked"
+                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            >
+                                <Lock class="size-3" aria-hidden="true" />
+                                Terkunci
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+                            >
+                                <PencilLine class="size-3" aria-hidden="true" />
+                                Draft
+                            </span>
+                        </div>
+
+                        <div class="px-6 pt-3">
+                            <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
+                            <p class="mt-0.5 flex items-center gap-2 text-xl font-semibold tracking-tight">
+                                <ThumbsUp
+                                    v-if="application.evaluations.secondary.recommendation === 'recommended'"
+                                    class="size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <ThumbsDown v-else class="size-5 shrink-0" aria-hidden="true" />
+                                <span>{{ application.evaluations.secondary.recommendation_label }}</span>
+                            </p>
+                        </div>
+
+                        <div class="px-6 pt-5">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                    Penilaian
+                                </p>
+                                <p class="text-muted-foreground text-xs">
+                                    Rata-rata
+                                    <span class="text-foreground font-semibold tabular-nums">{{
+                                        evaluationAverageLabel(
+                                            application.evaluations.secondary.speaking_score,
+                                            application.evaluations.secondary.technical_score,
+                                            application.evaluations.secondary.attitude_score,
+                                        )
+                                    }}</span>
+                                </p>
+                            </div>
+                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Speaking</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.speaking_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Technical</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.technical_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-center gap-3 py-2">
+                                    <dt class="w-24 shrink-0 text-sm">Attitude</dt>
+                                    <dd
+                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-foreground/70"
+                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.attitude_score) }"
+                                        />
+                                    </dd>
+                                    <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
+                                        <span class="font-semibold">{{ application.evaluations.secondary.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div v-if="application.evaluations.secondary.notes" class="px-6 pt-4">
+                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
+                                <figcaption class="text-muted-foreground text-xs">
+                                    Catatan interviewer
+                                </figcaption>
+                                <blockquote class="mt-1 text-sm leading-relaxed">
+                                    {{ application.evaluations.secondary.notes }}
+                                </blockquote>
+                            </figure>
+                        </div>
+
+                        <div
+                            class="px-6 pt-4"
+                            :class="{ 'pb-6': !(showFinalDecision && secondaryDivisionId) }"
+                        >
+                            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
+                                <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="showFinalDecision && secondaryDivisionId"
+                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
+                        >
+                            <p class="text-muted-foreground text-xs">
+                                Keputusan final — tempatkan applicant di {{ secondaryDivisionName }}
+                            </p>
+                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
+                                >
+                                    <Star class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai AA — {{ secondaryDivisionName }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
+                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
+                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
+                                >
+                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
+                                    Diterima sebagai Member — {{ secondaryDivisionName }}
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <div
+                    v-else-if="application.secondary_division && application.evaluations?.primary"
+                    class="flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-4 py-3.5"
+                >
+                    <CalendarClock class="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <p class="text-muted-foreground text-xs leading-relaxed">
+                        Belum diinterview secondary (opsional) — keputusan final memakai hasil primary.
+                    </p>
+                </div>
 
                 <Card v-if="application.final_decision" class="rounded-2xl border-border/70">
                     <CardContent class="space-y-3 p-6">
@@ -1227,19 +1607,6 @@ const defaultTab = computed(() => {
                         <p class="text-muted-foreground text-xs">
                             {{ application.final_decision.decider?.name ?? 'Staff' }}
                         </p>
-                    </CardContent>
-                </Card>
-
-                <Card v-if="!readonly && canDecideFinal" class="rounded-2xl border-dashed border-border/70">
-                    <CardContent class="flex flex-wrap gap-3 p-6">
-                        <Button size="sm" @click="openFinalModal('accept')">
-                            <Trophy class="mr-2 size-4" />
-                            Terima (AA / Member)
-                        </Button>
-                        <Button size="sm" variant="destructive" @click="openFinalModal('reject')">
-                            <XCircle class="mr-2 size-4" />
-                            Tolak final
-                        </Button>
                     </CardContent>
                 </Card>
 
@@ -1416,6 +1783,94 @@ const defaultTab = computed(() => {
             </DialogContent>
         </Dialog>
 
+        <Dialog v-if="!readonly" v-model:open="finalConfirmOpen">
+            <DialogContent class="sm:max-w-md" @open-auto-focus="focusFinalCancel">
+                <DialogHeader>
+                    <DialogTitle>Konfirmasi keputusan final</DialogTitle>
+                    <DialogDescription>
+                        Periksa kembali sebelum dikirim — keputusan ini tidak bisa dibatalkan.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                    <p class="font-semibold">{{ application.full_name }}</p>
+                    <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {{ application.registration_number }}
+                    </p>
+                    <p class="mt-2">
+                        {{ finalChoiceActionLabel }}
+                        <span v-if="!isFinalRejectChoice"> — {{ finalDivisionName }}</span>
+                    </p>
+                    <p v-if="!isFinalRejectChoice" class="text-muted-foreground mt-1 text-xs">
+                        Divisi penempatan final mengikuti kartu evaluasi yang dipilih.
+                    </p>
+                </div>
+
+                <p
+                    v-if="!isFinalRejectChoice && finalConfirmForm.errors.final_division_id"
+                    class="text-destructive text-xs"
+                >
+                    {{ finalConfirmForm.errors.final_division_id }}
+                </p>
+
+                <div v-if="isFinalRejectChoice" class="space-y-4">
+                    <div class="space-y-2">
+                        <Label for="final_confirm_internal_reason">Alasan internal</Label>
+                        <textarea
+                            id="final_confirm_internal_reason"
+                            v-model="finalConfirmForm.internal_reason"
+                            rows="3"
+                            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                            placeholder="Catatan internal untuk tim..."
+                            required
+                        />
+                        <p
+                            v-if="finalConfirmForm.errors.internal_reason"
+                            class="text-destructive text-xs"
+                        >
+                            {{ finalConfirmForm.errors.internal_reason }}
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="final_confirm_public_message">Pesan untuk applicant</Label>
+                        <textarea
+                            id="final_confirm_public_message"
+                            v-model="finalConfirmForm.public_message"
+                            rows="3"
+                            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                            placeholder="Pesan yang tampil di tracking portal..."
+                            required
+                        />
+                        <p
+                            v-if="finalConfirmForm.errors.public_message"
+                            class="text-destructive text-xs"
+                        >
+                            {{ finalConfirmForm.errors.public_message }}
+                        </p>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        ref="finalCancelRef"
+                        type="button"
+                        variant="outline"
+                        @click="finalConfirmOpen = false"
+                    >
+                        Batal
+                    </Button>
+                    <Button
+                        type="button"
+                        :variant="isFinalRejectChoice ? 'destructive' : 'default'"
+                        :disabled="finalConfirmForm.processing"
+                        @click="submitFinalConfirm"
+                    >
+                        Ya, lanjutkan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <Dialog v-if="!readonly" v-model:open="waDialogOpen">
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
@@ -1467,122 +1922,5 @@ const defaultTab = computed(() => {
             </DialogContent>
         </Dialog>
 
-        <Dialog v-if="!readonly" v-model:open="finalModalOpen">
-            <DialogContent class="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>{{ finalModalTitle }}</DialogTitle>
-                    <DialogDescription>
-                        <span v-if="finalAction === 'accept'">
-                            Pilih tipe keanggotaan dan divisi penempatan final.
-                        </span>
-                        <span v-else>
-                            Alasan internal hanya untuk staff. Pesan applicant akan tampil di tracking portal.
-                        </span>
-                    </DialogDescription>
-                </DialogHeader>
-
-                <form
-                    v-if="finalAction === 'accept'"
-                    class="space-y-4"
-                    @submit.prevent="submitFinalDecision"
-                >
-                    <div class="space-y-2">
-                        <Label for="membership_type">Tipe keanggotaan</Label>
-                        <select
-                            id="membership_type"
-                            v-model="finalAcceptForm.membership_type"
-                            class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                            required
-                        >
-                            <option value="" disabled>Pilih tipe</option>
-                            <option
-                                v-for="opt in membershipTypeOptions"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                        <p v-if="finalAcceptForm.errors.membership_type" class="text-destructive text-xs">
-                            {{ finalAcceptForm.errors.membership_type }}
-                        </p>
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="final_division_id">Divisi penempatan</Label>
-                        <select
-                            id="final_division_id"
-                            v-model="finalAcceptForm.final_division_id"
-                            class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-                            required
-                        >
-                            <option value="" disabled>Pilih divisi</option>
-                            <option v-for="div in divisionOptions" :key="div.id" :value="div.id">
-                                {{ div.name }}
-                            </option>
-                        </select>
-                        <p v-if="finalAcceptForm.errors.final_division_id" class="text-destructive text-xs">
-                            {{ finalAcceptForm.errors.final_division_id }}
-                        </p>
-                    </div>
-
-                    <DialogFooter>
-                        <Button type="button" variant="outline" @click="finalModalOpen = false">
-                            Batal
-                        </Button>
-                        <Button type="submit" :disabled="finalAcceptForm.processing">
-                            Simpan keputusan
-                        </Button>
-                    </DialogFooter>
-                </form>
-
-                <form
-                    v-else-if="finalAction === 'reject'"
-                    class="space-y-4"
-                    @submit.prevent="submitFinalDecision"
-                >
-                    <div class="space-y-2">
-                        <Label for="internal_reason">Alasan internal</Label>
-                        <textarea
-                            id="internal_reason"
-                            v-model="finalRejectForm.internal_reason"
-                            rows="3"
-                            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-                            required
-                        />
-                        <p v-if="finalRejectForm.errors.internal_reason" class="text-destructive text-xs">
-                            {{ finalRejectForm.errors.internal_reason }}
-                        </p>
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="final_public_message">Pesan untuk applicant</Label>
-                        <textarea
-                            id="final_public_message"
-                            v-model="finalRejectForm.public_message"
-                            rows="3"
-                            class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-                            required
-                        />
-                        <p v-if="finalRejectForm.errors.public_message" class="text-destructive text-xs">
-                            {{ finalRejectForm.errors.public_message }}
-                        </p>
-                    </div>
-
-                    <DialogFooter>
-                        <Button type="button" variant="outline" @click="finalModalOpen = false">
-                            Batal
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="destructive"
-                            :disabled="finalRejectForm.processing"
-                        >
-                            Tolak applicant
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
     </div>
 </template>

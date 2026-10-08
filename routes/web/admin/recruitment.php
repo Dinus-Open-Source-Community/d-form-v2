@@ -65,8 +65,10 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('applications.resend-tracking');
         Route::post('applications/{application}/resend-email', [RecruitmentApplicationController::class, 'resendEmail'])
             ->name('applications.resend-email');
-        Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'override'])
+        Route::post('applications/{application}/evaluation', [RecruitmentEvaluationController::class, 'legacyOverride'])
             ->name('applications.evaluation.override');
+        Route::post('interviews/{interview}/evaluation-override', [RecruitmentEvaluationController::class, 'override'])
+            ->name('interviews.evaluation.override');
         Route::post('applications/{application}/final/accept', [RecruitmentFinalSelectionController::class, 'accept'])
             ->name('applications.final.accept');
         Route::post('applications/{application}/final/reject', [RecruitmentFinalSelectionController::class, 'reject'])
@@ -81,18 +83,18 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('interview-sessions.store');
         Route::get('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'show'])
             ->name('interview-sessions.show');
+        Route::match(['put', 'patch'], 'interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'update'])
+            ->name('interview-sessions.update');
+        Route::delete('interview-sessions/{session}', [RecruitmentInterviewSessionController::class, 'destroy'])
+            ->name('interview-sessions.destroy');
         Route::get('attendance-scan', fn () => to_route('dashboard.scan.index'))->name('attendance-scan');
 
         Route::get('my-interviews', [RecruitmentMyInterviewController::class, 'index'])
             ->name('my-interviews.index');
-        Route::get('my-interviews/waiting-pool', [RecruitmentMyInterviewController::class, 'waitingPool'])
-            ->name('my-interviews.waiting-pool');
-        Route::get('my-interviews/{application}', [RecruitmentMyInterviewController::class, 'show'])
+        Route::get('my-interviews/{interview}', [RecruitmentMyInterviewController::class, 'show'])
             ->name('my-interviews.show');
-        Route::post('my-interviews/{application}/book', [RecruitmentMyInterviewController::class, 'book'])
-            ->name('my-interviews.book');
-        Route::post('my-interviews/{application}/release', [RecruitmentMyInterviewController::class, 'release'])
-            ->name('my-interviews.release');
-        Route::post('my-interviews/{application}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
+        Route::post('my-interviews/{interview}/evaluate', [RecruitmentMyInterviewController::class, 'evaluate'])
             ->name('my-interviews.evaluate');
+        Route::post('my-interviews/secondary-claim', [RecruitmentMyInterviewController::class, 'claimSecondary'])
+            ->name('my-interviews.secondary-claim');
     });

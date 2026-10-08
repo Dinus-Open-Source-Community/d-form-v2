@@ -15,8 +15,6 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
-use App\Services\Recruitment\AttendanceService;
-use App\Enums\Recruitment\AttendanceMethod;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,6 +85,8 @@ class GlobalScanExportTest extends TestCase
     }
 
     /**
+     * Bangun applicant tahap interview tanpa check-in (scan store yang check-in via QR).
+     *
      * @return array{0: User, 1: RecruitmentApplication, 2: RecruitmentInterviewSession}
      */
     private function scheduledRecruitmentApplication(string $suffix): array
@@ -117,13 +117,6 @@ class GlobalScanExportTest extends TestCase
             'stage' => ApplicationStage::Interview,
             'result' => ApplicationResult::Pending,
         ]);
-
-        app(AttendanceService::class)->checkIn(
-            $session,
-            $application,
-            AttendanceMethod::RegistrationNumber,
-            $staff,
-        );
 
         return [$staff, $application->fresh(), $session];
     }

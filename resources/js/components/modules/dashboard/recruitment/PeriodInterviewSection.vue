@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { type IPaginatorMeta } from '@/lib/paginatorLinks'
@@ -16,6 +16,9 @@ import {
 import InterviewSessionCreateSheet, {
     type InterviewDivisionChoice,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue'
+import InterviewSessionEditSheet, {
+    type EditableInterviewSession,
+} from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue'
 import { routes } from '@/lib/routes'
 
 interface SessionRow {
@@ -25,6 +28,7 @@ interface SessionRow {
     ends_at: string
     location: string
     room: string
+    notes?: string | null
     is_active: boolean
     interviews_count: number
     period: { id: string; name: string } | null
@@ -43,6 +47,9 @@ const props = defineProps<{
 }>()
 
 const createOpen = ref<boolean>(false)
+/** Sesi yang sedang diedit; null = sheet edit tertutup. */
+const editingSession = ref<EditableInterviewSession | null>(null)
+const editOpen = computed<boolean>(() => editingSession.value !== null)
 /** Navigasi halaman sesi via links[] paginator (replace agar tak menumpuk riwayat). */
 const isNavigating = ref<boolean>(false)
 
@@ -104,6 +111,30 @@ function goToPage(pageNumber: number): void {
         sessions.links.find((link) => link.label === String(pageNumber))?.url ?? null
     goToUrl(target)
 }
+
+function openEdit(session: SessionRow): void {
+    editingSession.value = session
+}
+
+function closeEdit(): void {
+    editingSession.value = null
+}
+
+function destroyPath(id: string): string {
+    return routes.admin.recruitment.interviewSessions.destroy(id)
+}
+
+function handleDelete(session: SessionRow): void {
+    const divisionName: string = session.division?.name ?? '-'
+    const confirmed: boolean = window.confirm(
+        `Sesi tanggal ${session.session_date} divisi ${divisionName} akan dihapus. Data jadwal tetap aman?`,
+    )
+    if (!confirmed) return
+    router.delete(destroyPath(session.id), {
+        preserveScroll: true,
+        only: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
+    })
+}
 </script>
 
 <template>
@@ -123,6 +154,13 @@ function goToPage(pageNumber: number): void {
             :period-id="periodId"
             :divisions="divisionOptions"
             @close="createOpen = false"
+        />
+
+        <InterviewSessionEditSheet
+            :open="editOpen"
+            :session="editingSession"
+            :divisions="divisionOptions"
+            @close="closeEdit"
         />
 
         <Card v-if="sessions" class="overflow-hidden rounded-2xl border-border/70" :aria-busy="isNavigating">
@@ -154,12 +192,32 @@ function goToPage(pageNumber: number): void {
                                 <td class="px-4 py-3">{{ session.location }} · {{ session.room }}</td>
                                 <td class="px-4 py-3">{{ session.interviews_count }}</td>
                                 <td class="px-4 py-3 text-right">
-                                    <Button as-child size="sm" variant="ghost">
-                                        <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail</Link>
-                                    </Button>
-                                    <Button as-child size="sm" variant="ghost">
-                                        <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">Detail</Link>
-                                    </Button>
+                                    <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                                        <Button as-child size="icon-sm" variant="ghost" aria-label="Detail sesi">
+                                            <Link
+                                                :href="routes.admin.recruitment.interviewSessions.show(session.id)"
+                                            >
+                                                <Eye class="size-4" aria-hidden="true" />
+                                            </Link>
+                                        </Button>
+                                        <Button
+                                            size="icon-sm"
+                                            variant="ghost"
+                                            aria-label="Edit sesi"
+                                            @click="openEdit(session)"
+                                        >
+                                            <Pencil class="size-4" aria-hidden="true" />
+                                        </Button>
+                                        <Button
+                                            size="icon-sm"
+                                            variant="ghost"
+                                            aria-label="Hapus sesi"
+                                            class="text-destructive hover:text-destructive"
+                                            @click="handleDelete(session)"
+                                        >
+                                            <Trash2 class="size-4" aria-hidden="true" />
+                                        </Button>
+                                    </div>
                                 </td>
                             </tr>
                             <tr v-if="sessions.data.length === 0">

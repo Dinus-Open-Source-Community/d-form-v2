@@ -12,6 +12,8 @@ class RecruitmentEvaluation extends Model
 {
     use HasUuids;
 
+    public const MAX_SAVES = 3;
+
     public $incrementing = false;
 
     protected $keyType = 'string';
@@ -24,6 +26,7 @@ class RecruitmentEvaluation extends Model
         'attitude_score',
         'recommendation',
         'notes',
+        'save_count',
         'evaluated_by',
         'evaluated_at',
         'locked_at',
@@ -36,6 +39,7 @@ class RecruitmentEvaluation extends Model
             'technical_score' => 'integer',
             'attitude_score' => 'integer',
             'recommendation' => EvaluationRecommendation::class,
+            'save_count' => 'integer',
             'evaluated_at' => 'datetime',
             'locked_at' => 'datetime',
         ];

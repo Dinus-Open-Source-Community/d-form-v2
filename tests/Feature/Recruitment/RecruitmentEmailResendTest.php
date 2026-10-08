@@ -204,11 +204,13 @@ class RecruitmentEmailResendTest extends TestCase
         $member = User::factory()->create();
         $member->assignRole('member');
 
+        // Member tanpa recruitment.dashboard.view ditolak di middleware
+        // EnsureRecruitmentAccess via redirect ke dashboard (bukan 403 policy).
         $this->actingAs($member)
             ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
                 'type' => 'tracking',
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('dashboard'));
     }
 
     public function test_resend_unknown_application_returns_not_found(): void

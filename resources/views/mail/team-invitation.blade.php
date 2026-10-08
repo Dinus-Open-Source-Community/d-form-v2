@@ -45,5 +45,4 @@
         </td>
     </tr>
     @include('mail.partials.primary-action', ['url' => $confirmUrl, 'label' => __('Review and confirm')])
-    @include('mail.partials.card-footer-by-app')
 @endsection

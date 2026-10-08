@@ -27,7 +27,7 @@ final class TrackingPresenter
             'period',
             'primaryDivision',
             'secondaryDivision',
-            'interview',
+            'primaryInterview',
             'attendance',
             'finalDecision.finalDivision',
             'correctionRequests',
@@ -146,7 +146,7 @@ final class TrackingPresenter
         }
 
         if ($application->stage === ApplicationStage::Interview) {
-            $liveInterview = $application->interview;
+            $liveInterview = $application->primaryInterview;
             $status = $liveInterview?->status;
 
             if ($status === InterviewStatus::InProgress) {
@@ -339,7 +339,7 @@ final class TrackingPresenter
      */
     private function presentInterview(RecruitmentApplication $application): ?array
     {
-        $interview = $application->interview;
+        $interview = $application->primaryInterview;
 
         if ($interview === null) {
             return null;

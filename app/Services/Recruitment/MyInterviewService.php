@@ -2,6 +2,7 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
@@ -17,7 +18,7 @@ final class MyInterviewService
 {
     public function __construct(
         private readonly InterviewerApplicationPresenter $presenter,
-        private readonly WaitingRoomService $waitingRoomService,
+        private readonly InterviewLifecycleService $lifecycle,
     ) {
     }
 
@@ -41,20 +42,24 @@ final class MyInterviewService
 
         $query = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
             ->with([
                 'application.primaryDivision',
                 'application.secondaryDivision',
                 'application.attendance',
-                'application.evaluation',
+                'application.primaryInterview.evaluation',
+                'evaluation',
                 'session.division',
             ]);
 
-        $this->attendedApplicationScope($query);
+        // Tampil-semua: tanpa attendance tetap tampil (terkunci via policy show/evaluate); flag has_attendance jadi penanda.
+        $this->openSessionScope($query);
+        $this->startedScope($query);
 
         match ($tab) {
-            'done' => $query->whereHas('application.evaluation'),
+            'done' => $query->whereHas('application.evaluations'),
             'in_progress' => $query
-                ->where('status', InterviewStatus::InProgress)
+                ->whereIn('status', [InterviewStatus::Waiting, InterviewStatus::InProgress])
                 ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q)),
             default => null,
         };
@@ -95,26 +100,40 @@ final class MyInterviewService
      */
     public function tabCounts(User $interviewer): array
     {
-        $waiting = count($this->waitingRoomService->waitingPoolSnapshot($interviewer));
-
-        $inProgress = RecruitmentInterview::query()
+        $inProgressQuery = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
-            ->where('status', InterviewStatus::InProgress)
-            ->whereHas('application.attendance')
-            ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q))
-            ->count();
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
+            ->whereIn('status', [InterviewStatus::Waiting, InterviewStatus::InProgress])
+            ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q));
+        $this->openSessionScope($inProgressQuery);
+        $inProgress = $inProgressQuery->count();
 
-        $done = RecruitmentInterview::query()
+        $doneQuery = RecruitmentInterview::query()
             ->where('interviewer_id', $interviewer->id)
-            ->whereHas('application.attendance')
-            ->whereHas('application.evaluation')
-            ->count();
+            ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY)
+            ->whereHas('application.evaluations');
+        $this->openSessionScope($doneQuery);
+        $done = $doneQuery->count();
 
         return [
-            'waiting' => $waiting,
             'in_progress' => $inProgress,
             'done' => $done,
         ];
+    }
+
+    /**
+     * Hitung interview sesi terbuka yang jadwalnya belum mulai.
+     */
+    public function countPendingStart(User $interviewer): int
+    {
+        $query = RecruitmentInterview::query()
+            ->where('interviewer_id', $interviewer->id);
+
+        $this->openSessionScope($query);
+
+        return $query
+            ->where(fn ($pending) => $pending->whereNull('scheduled_at')->orWhere('scheduled_at', '>', now()))
+            ->count();
     }
 
     /**
@@ -159,6 +178,7 @@ final class MyInterviewService
             ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q));
 
         $this->attendedApplicationScope($interview);
+        $this->openSessionScope($interview);
 
         $interview = $interview
             ->orderBy('booked_at')
@@ -213,9 +233,24 @@ final class MyInterviewService
     public function divisionsForInterviewer(User $interviewer): array
     {
         return RecruitmentDivision::query()
-            ->whereIn('id', RecruitmentInterviewerDivision::query()
-                ->where('user_id', $interviewer->id)
-                ->pluck('recruitment_division_id'))
+            ->where(function ($q) use ($interviewer): void {
+                $q->whereExists(function ($sq) use ($interviewer): void {
+                    $sq->selectRaw('1')
+                        ->from('recruitment_interview_sessions')
+                        ->join('recruitment_interviews', 'recruitment_interviews.recruitment_interview_session_id', '=', 'recruitment_interview_sessions.id')
+                        ->whereColumn('recruitment_interview_sessions.recruitment_division_id', 'recruitment_divisions.id')
+                        ->where('recruitment_interviews.interviewer_id', $interviewer->id)
+                        ->where('recruitment_interview_sessions.is_active', true);
+                })->orWhereExists(function ($aq) use ($interviewer): void {
+                    $aq->selectRaw('1')
+                        ->from('recruitment_applications')
+                        ->join('recruitment_interviews', 'recruitment_interviews.recruitment_application_id', '=', 'recruitment_applications.id')
+                        ->join('recruitment_interview_sessions', 'recruitment_interview_sessions.id', '=', 'recruitment_interviews.recruitment_interview_session_id')
+                        ->whereColumn('recruitment_applications.primary_division_id', 'recruitment_divisions.id')
+                        ->where('recruitment_interviews.interviewer_id', $interviewer->id)
+                        ->where('recruitment_interview_sessions.is_active', true);
+                });
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -228,13 +263,94 @@ final class MyInterviewService
     }
 
     /**
+     * Peluang interview secondary untuk interviewer: applicant eligible yang
+     * secondary-nya termasuk divisi interviewer, beserta sesi aktif divisinya.
+     *
+     * @return list<array{application: array{id: string, full_name: string, registration_number: string, nim: string, secondary_division: string|null}, sessions: list<array{value: string, label: string}>}>
+     */
+    public function secondaryOpportunitiesForInterviewer(User $interviewer): array
+    {
+        $divisionIds = RecruitmentInterviewerDivision::query()
+            ->where('user_id', $interviewer->id)
+            ->pluck('recruitment_division_id');
+
+        if ($divisionIds->isEmpty()) {
+            return [];
+        }
+
+        $applications = RecruitmentApplication::query()
+            ->whereIn('secondary_division_id', $divisionIds)
+            ->where('stage', '!=', ApplicationStage::Completed)
+            ->whereHas('primaryInterview.evaluation', fn (Builder $query) => $query->where('save_count', '>=', 1))
+            ->whereDoesntHave('secondaryInterview')
+            ->with(['secondaryDivision:id,name'])
+            ->orderBy('full_name')
+            ->get()
+            ->filter(fn (RecruitmentApplication $application): bool => $this->lifecycle->secondaryEligible($application))
+            ->values();
+
+        return $applications->map(function (RecruitmentApplication $application): array {
+            $sessions = RecruitmentInterviewSession::query()
+                ->where('recruitment_period_id', $application->recruitment_period_id)
+                ->where('recruitment_division_id', $application->secondary_division_id)
+                ->where('is_active', true)
+                ->with(['division:id,name'])
+                ->orderBy('session_date')
+                ->orderBy('starts_at')
+                ->get()
+                ->map(fn (RecruitmentInterviewSession $session): array => [
+                    'value' => $session->id,
+                    'label' => $this->formatSessionOptionLabel($session),
+                ])
+                ->values()
+                ->all();
+
+            return [
+                'application' => [
+                    'id' => $application->id,
+                    'full_name' => $application->full_name,
+                    'registration_number' => $application->registration_number,
+                    'nim' => $application->nim,
+                    'secondary_division' => $application->secondaryDivision?->name,
+                ],
+                'sessions' => $sessions,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Interview secondary yang sudah diklaim interviewer, masing-masing
+     * membawa status evaluasinya sendiri.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function claimedSecondaryForInterviewer(User $interviewer): array
+    {
+        return RecruitmentInterview::query()
+            ->where('interviewer_id', $interviewer->id)
+            ->where('interview_kind', RecruitmentInterview::KIND_SECONDARY)
+            ->with([
+                'application.primaryDivision',
+                'application.secondaryDivision',
+                'application.attendance',
+                'evaluation',
+                'session.division',
+            ])
+            ->orderByDesc('booked_at')
+            ->get()
+            ->map(fn (RecruitmentInterview $interview): array => $this->toListArray($interview))
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toListArray(RecruitmentInterview $interview): array
     {
         $application = $interview->application;
-        $evaluation = $application?->evaluation;
-        $needsEvaluation = $application !== null && $evaluation === null;
+        $evaluation = $interview->evaluation;
+        $needsEvaluation = $evaluation === null;
 
         return [
             'interview_id' => $interview->id,
@@ -245,6 +361,7 @@ final class MyInterviewService
             'location' => $interview->location,
             'room' => $interview->room,
             'needs_evaluation' => $needsEvaluation,
+            'has_attendance' => $application?->attendance !== null,
             'application' => $application ? [
                 'id' => $application->id,
                 'full_name' => $application->full_name,
@@ -266,9 +383,9 @@ final class MyInterviewService
     /**
      * @return array<string, mixed>
      */
-    public function toShowArray(RecruitmentApplication $application): array
+    public function toShowArray(RecruitmentInterview $interview): array
     {
-        return $this->presenter->present($application);
+        return $this->presenter->presentForInterview($interview);
     }
 
     /**
@@ -276,10 +393,32 @@ final class MyInterviewService
      */
     private function pendingEvaluationScope(Builder $query): void
     {
-        $query->whereDoesntHave('evaluation');
+        $query->whereDoesntHave('evaluations');
     }
 
     /**
+     * Batasi ke interview yang waktunya sudah mulai (scheduled_at lewat).
+     *
+     * @param  Builder<RecruitmentInterview>  $query
+     */
+    private function startedScope(Builder $query): void
+    {
+        $query->whereNotNull('scheduled_at')->where('scheduled_at', '<=', now());
+    }
+
+    /**
+     * Batasi ke interview yang sesinya sudah dibuka (is_active true).
+     *
+     * @param  Builder<RecruitmentInterview>  $query
+     */
+    private function openSessionScope(Builder $query): void
+    {
+        $query->whereHas('session', fn ($session) => $session->where('is_active', true));
+    }
+
+    /**
+     * Saran next-action hanya untuk applicant actionable (sudah regis ulang).
+     *
      * @param  Builder<RecruitmentInterview>  $query
      */
     private function attendedApplicationScope(Builder $query): void
@@ -294,8 +433,8 @@ final class MyInterviewService
     {
         match ($eval) {
             'pending' => $query->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q)),
-            'done' => $query->whereHas('application.evaluation'),
-            'locked' => $query->whereHas('application.evaluation', fn ($q) => $q->whereNotNull('locked_at')),
+            'done' => $query->whereHas('application.evaluations'),
+            'locked' => $query->whereHas('application.evaluations', fn ($q) => $q->whereNotNull('locked_at')),
             default => null,
         };
     }

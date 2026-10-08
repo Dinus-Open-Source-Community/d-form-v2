@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Button } from '@/components/ui/button'
@@ -102,7 +102,7 @@ function setRowRef(id: string, el: unknown): void {
     rowRefs.value[id] = (el as HTMLElement | null) ?? null
 }
 
-const rowIds = computed<string[]>(() => filteredRows.value.map((row) => row.id))
+const rowIds = computed<string[]>(() => serverRows.value.map((row) => row.id))
 
 function focusRowAt(index: number): void {
     const ids = rowIds.value
@@ -134,11 +134,11 @@ watch(
     },
 )
 
-const search = ref<string>('')
-const divisionId = ref<string>('')
-const stage = ref<string>('')
-const queue = ref<string>('')
-const semester = ref<string>('')
+const search = ref<string>(String(props.query?.search ?? ''))
+const divisionId = ref<string>(String(props.query?.division_id ?? ''))
+const stage = ref<string>(String(props.query?.stage ?? ''))
+const queue = ref<string>(String(props.query?.queue ?? ''))
+const semester = ref<string>(String(props.query?.semester ?? ''))
 /** Navigasi halaman server (?tab=peserta&page=N, replace agar tak menumpuk riwayat). */
 const isNavigating = ref<boolean>(false)
 
@@ -187,51 +187,66 @@ const queueModel = computed<string>({
     },
 })
 
-function matchesQueue(row: ApplicationRow, activeQueue: string): boolean {
-    switch (activeQueue) {
-        case 'screening':
-            return (
-                (row.stage === 'submitted' || row.stage === 'screening') &&
-                row.result === 'pending' &&
-                !row.revision_required
-            )
-        case 'revision':
-            return row.revision_required
-        case 'interview':
-            return row.stage === 'interview'
-        case 'final':
-            return row.stage === 'final_review'
-        case 'done':
-            return row.stage === 'completed'
-        default:
-            return true
+const serverRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
+
+/** Filter dikirim ke server sebagai query param (partial reload); bukan filter klien. */
+function serverFilterParams(): Record<string, string> {
+    const params: Record<string, string> = { tab: 'peserta' }
+    const needle: string = search.value.trim()
+    if (needle !== '') params.search = needle
+    if (divisionId.value !== '') params.division_id = divisionId.value
+    if (queue.value !== '') {
+        params.queue = queue.value
+    } else if (stage.value !== '') {
+        params.stage = stage.value
+    }
+    if (semester.value !== '') params.semester = semester.value
+    return params
+}
+
+function applyServerFilters(): void {
+    if (isNavigating.value) return
+    router.get(routes.admin.recruitment.periods.show(props.periodId), serverFilterParams(), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        only: ['tab', 'query', 'applications'],
+    })
+}
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearSearchTimer(): void {
+    if (searchTimer !== null) {
+        clearTimeout(searchTimer)
+        searchTimer = null
     }
 }
 
-const allRows = computed<ApplicationRow[]>(() => props.applications?.data ?? [])
+watch(search, (): void => {
+    clearSearchTimer()
+    searchTimer = setTimeout((): void => {
+        applyServerFilters()
+    }, 300)
+})
 
-const filteredRows = computed<ApplicationRow[]>(() => {
-    const needle: string = search.value.trim().toLowerCase()
-    return allRows.value.filter((row) => {
-        if (needle !== '') {
-            const haystack: string =
-                `${row.full_name} ${row.nim} ${row.registration_number}`.toLowerCase()
-            if (!haystack.includes(needle)) return false
-        }
-        if (
-            divisionId.value !== '' &&
-            row.primary_division?.id !== divisionId.value &&
-            row.secondary_division?.id !== divisionId.value
-        )
-            return false
-        if (queue.value !== '') {
-            if (!matchesQueue(row, queue.value)) return false
-        } else if (stage.value !== '' && row.stage !== stage.value) {
-            return false
-        }
-        if (semester.value !== '' && String(row.semester) !== semester.value) return false
-        return true
-    })
+watch([divisionId, stage, queue, semester], (): void => {
+    applyServerFilters()
+})
+
+watch(
+    () => props.query,
+    (next): void => {
+        search.value = String(next?.search ?? '')
+        divisionId.value = String(next?.division_id ?? '')
+        stage.value = String(next?.stage ?? '')
+        queue.value = String(next?.queue ?? '')
+        semester.value = String(next?.semester ?? '')
+    },
+)
+
+onBeforeUnmount((): void => {
+    clearSearchTimer()
 })
 
 /** Meta paginator server; key absent (tab lain) dianggap halaman kosong. */
@@ -268,11 +283,6 @@ const hasActiveFilter = computed<boolean>(() => {
 })
 
 const rangeLabel = computed<string>(() => {
-    if (hasActiveFilter.value) {
-        const count: string = filteredRows.value.length.toLocaleString('id-ID')
-        const page: string = serverMeta.value.currentPage.toLocaleString('id-ID')
-        return `${count} cocok filter di halaman ${page}`
-    }
     const meta = serverMeta.value
     const total: string = meta.total.toLocaleString('id-ID')
     const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
@@ -666,7 +676,7 @@ function submitReject(): void {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in filteredRows"
+                                v-for="row in serverRows"
                                 :key="row.id"
                                 :ref="(el) => setRowRef(row.id, el)"
                                 tabindex="0"
@@ -745,7 +755,7 @@ function submitReject(): void {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="filteredRows.length === 0">
+                            <tr v-if="serverRows.length === 0">
                                 <td colspan="8" class="text-muted-foreground px-4 py-10 text-center">
                                     {{
                                         hasActiveFilter

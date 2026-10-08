@@ -23,11 +23,12 @@ final class RecruitmentApplicationService
     /**
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $page = 1, int $perPage = 5): LengthAwarePaginator
+    public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
     {
         $query = RecruitmentApplication::query()
             ->with(['primaryDivision:id,name,code', 'secondaryDivision:id,name,code', 'period:id,name'])
-            ->orderByDesc('submitted_at');
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('id');
 
         if (! empty($filters['period_id'])) {
             $query->where('recruitment_period_id', $filters['period_id']);
@@ -163,6 +164,10 @@ final class RecruitmentApplicationService
             'activityLogs.actor',
             'correctionRequests.reviewer',
             'evaluation.evaluator',
+            'primaryInterview.session.division',
+            'primaryInterview.evaluation.evaluator',
+            'secondaryInterview.session.division',
+            'secondaryInterview.evaluation.evaluator',
             'finalDecision.finalDivision',
             'finalDecision.decider',
         ]);
@@ -257,6 +262,18 @@ final class RecruitmentApplicationService
                 ])
                 ->all(),
             'evaluation' => $this->evaluationArray($application->evaluation),
+            'evaluations' => [
+                'primary' => $this->evaluationArray(
+                    $application->primaryInterview?->evaluation,
+                    $application->primaryInterview?->session?->division?->name,
+                    $application->primaryInterview?->session?->division?->id,
+                ),
+                'secondary' => $this->evaluationArray(
+                    $application->secondaryInterview?->evaluation,
+                    $application->secondaryInterview?->session?->division?->name,
+                    $application->secondaryInterview?->session?->division?->id,
+                ),
+            ],
             'final_decision' => $this->finalDecisionArray($application->finalDecision),
             'can_screen' => $this->canScreen($application),
             'can_verify' => $this->canVerify($application),
@@ -450,7 +467,7 @@ final class RecruitmentApplicationService
     /**
      * @return array<string, mixed>|null
      */
-    private function evaluationArray(?RecruitmentEvaluation $evaluation): ?array
+    private function evaluationArray(?RecruitmentEvaluation $evaluation, ?string $division = null, ?string $divisionId = null): ?array
     {
         if ($evaluation === null) {
             return null;
@@ -465,6 +482,10 @@ final class RecruitmentApplicationService
             'notes' => $evaluation->notes,
             'is_locked' => $evaluation->isLocked(),
             'evaluated_at' => $evaluation->evaluated_at?->toIso8601String(),
+            'save_count' => $evaluation->save_count,
+            'saves_remaining' => max(0, RecruitmentEvaluation::MAX_SAVES - $evaluation->save_count),
+            'division' => $division,
+            'division_id' => $divisionId,
             'evaluator' => $evaluation->evaluator ? [
                 'id' => $evaluation->evaluator->id,
                 'name' => $evaluation->evaluator->name,

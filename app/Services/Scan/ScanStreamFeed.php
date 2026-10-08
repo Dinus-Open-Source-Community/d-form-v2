@@ -30,7 +30,7 @@ final class ScanStreamFeed
     }
 
     /**
-     * @return array<int, array{id:string,ts:string,type:string,eventTitle:string,name:string,identifier:string,queueNumber:int|null}>
+     * @return array<int, array{id:string,ts:string,type:string,eventTitle:string,name:string,identifier:string,queueNumber:int|null,interviewStatus?:string|null}>
      */
     public function since(?string $cursorIso, int $limit = 50): array
     {
@@ -64,7 +64,7 @@ final class ScanStreamFeed
         }
         $recAttendances = $recQuery->limit($fetchLimit)->get();
         $applications = RecruitmentApplication::query()
-            ->with('interview')
+            ->with('primaryInterview')
             ->whereIn('id', $recAttendances->pluck('recruitment_application_id')->unique()->values()->all())
             ->get()
             ->keyBy('id');
@@ -87,7 +87,7 @@ final class ScanStreamFeed
                 'name' => $application->full_name,
                 'identifier' => $application->registration_number,
                 'queueNumber' => null,
-                'interviewStatus' => $application->interview?->status->value,
+                'interviewStatus' => $application->primaryInterview?->status->value,
             ];
         }
 

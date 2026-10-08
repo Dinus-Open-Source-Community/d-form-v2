@@ -100,7 +100,7 @@ class GlobalScanFeedTest extends TestCase
         $rows = $first->json('rows');
         $this->assertNotEmpty($rows);
         $this->assertSame(
-            ['id', 'ts', 'type', 'eventTitle', 'name', 'identifier', 'queueNumber'],
+            ['id', 'ts', 'type', 'eventTitle', 'name', 'identifier', 'queueNumber', 'interviewStatus'],
             array_keys($rows[0]),
         );
 
