@@ -48,14 +48,15 @@ final class InterviewLifecycleService
 
         $scheduledAt = $this->buildScheduledAt($session);
 
+        // Sinkronisasi hanya menyelaraskan sesi (jadwal/lokasi bisa berubah);
+        // pemilik, booking, dan status yang ada dipertahankan agar scan ulang
+        // tidak men-stranded interview (tanpa booking flow, reset = hilang
+        // dari tab interviewer selamanya).
         $interview->update([
             'recruitment_interview_session_id' => $session->id,
-            'interviewer_id' => null,
-            'booked_at' => null,
             'scheduled_at' => $scheduledAt,
             'location' => $session->location,
             'room' => $session->room,
-            'status' => InterviewStatus::Waiting,
         ]);
 
         return $interview->fresh();
