@@ -30,22 +30,24 @@ import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
 import useAuth from '@/utils/composables/useAuth'
 import {
+    CalendarClock,
     CheckCircle2,
     ClipboardCheck,
     Download,
     ExternalLink,
     FileText,
-    GraduationCap,
     History,
     Instagram,
     Lock,
     Mail,
-    MicVocal,
-    PenLine,
+    PencilLine,
+    Star,
+    ThumbsDown,
+    ThumbsUp,
     Trophy,
     User,
-    Users,
-    VideoOff,
+    UserCheck,
+    UserPlus,
     XCircle,
 } from 'lucide-vue-next'
 
@@ -1270,15 +1272,21 @@ const defaultTab = computed(() => {
                                 v-else
                                 class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
                             >
-                                <PenLine class="size-3" aria-hidden="true" />
+                                <PencilLine class="size-3" aria-hidden="true" />
                                 Draft
                             </span>
                         </div>
 
                         <div class="px-6 pt-3">
                             <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
-                            <p class="mt-0.5 text-xl font-semibold tracking-tight">
-                                {{ application.evaluation.recommendation_label }}
+                            <p class="mt-0.5 flex items-center gap-2 text-xl font-semibold tracking-tight">
+                                <ThumbsUp
+                                    v-if="application.evaluation.recommendation === 'recommended'"
+                                    class="size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <ThumbsDown v-else class="size-5 shrink-0" aria-hidden="true" />
+                                <span>{{ application.evaluation.recommendation_label }}</span>
                             </p>
                         </div>
 
@@ -1363,7 +1371,7 @@ const defaultTab = computed(() => {
                             :class="{ 'pb-6': !(showFinalDecision && primaryDivisionId) }"
                         >
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
-                                <MicVocal class="size-3.5 shrink-0" aria-hidden="true" />
+                                <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
                         </div>
@@ -1383,7 +1391,7 @@ const defaultTab = computed(() => {
                                     :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
                                     @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
                                 >
-                                    <GraduationCap class="size-4 shrink-0" aria-hidden="true" />
+                                    <Star class="size-4 shrink-0" aria-hidden="true" />
                                     Diterima sebagai AA — {{ primaryDivisionName }}
                                 </Button>
                                 <Button
@@ -1394,7 +1402,7 @@ const defaultTab = computed(() => {
                                     :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
                                     @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
                                 >
-                                    <Users class="size-4 shrink-0" aria-hidden="true" />
+                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
                                     Diterima sebagai Member — {{ primaryDivisionName }}
                                 </Button>
                             </div>
@@ -1428,15 +1436,21 @@ const defaultTab = computed(() => {
                                 v-else
                                 class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900"
                             >
-                                <PenLine class="size-3" aria-hidden="true" />
+                                <PencilLine class="size-3" aria-hidden="true" />
                                 Draft
                             </span>
                         </div>
 
                         <div class="px-6 pt-3">
                             <p class="text-muted-foreground text-xs">Rekomendasi interviewer</p>
-                            <p class="mt-0.5 text-xl font-semibold tracking-tight">
-                                {{ application.evaluations.secondary.recommendation_label }}
+                            <p class="mt-0.5 flex items-center gap-2 text-xl font-semibold tracking-tight">
+                                <ThumbsUp
+                                    v-if="application.evaluations.secondary.recommendation === 'recommended'"
+                                    class="size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <ThumbsDown v-else class="size-5 shrink-0" aria-hidden="true" />
+                                <span>{{ application.evaluations.secondary.recommendation_label }}</span>
                             </p>
                         </div>
 
@@ -1521,7 +1535,7 @@ const defaultTab = computed(() => {
                             :class="{ 'pb-6': !(showFinalDecision && secondaryDivisionId) }"
                         >
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
-                                <MicVocal class="size-3.5 shrink-0" aria-hidden="true" />
+                                <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
                         </div>
@@ -1541,7 +1555,7 @@ const defaultTab = computed(() => {
                                     :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
                                     @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
                                 >
-                                    <GraduationCap class="size-4 shrink-0" aria-hidden="true" />
+                                    <Star class="size-4 shrink-0" aria-hidden="true" />
                                     Diterima sebagai AA — {{ secondaryDivisionName }}
                                 </Button>
                                 <Button
@@ -1552,7 +1566,7 @@ const defaultTab = computed(() => {
                                     :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
                                     @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
                                 >
-                                    <Users class="size-4 shrink-0" aria-hidden="true" />
+                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
                                     Diterima sebagai Member — {{ secondaryDivisionName }}
                                 </Button>
                             </div>
@@ -1563,7 +1577,7 @@ const defaultTab = computed(() => {
                     v-else-if="application.secondary_division && application.evaluations?.primary"
                     class="flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-4 py-3.5"
                 >
-                    <VideoOff class="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <CalendarClock class="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p class="text-muted-foreground text-xs leading-relaxed">
                         Belum diinterview secondary (opsional) — keputusan final memakai hasil primary.
                     </p>
