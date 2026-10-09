@@ -22,6 +22,7 @@ final class InterviewerApplicationPresenter
             'application.document',
             'application.attendance',
             'application.finalDecision.finalDivision',
+            'application.primaryInterview.evaluation',
             'session.division',
             'interviewer:id,name',
             'evaluation.evaluator:id,name',
@@ -37,6 +38,9 @@ final class InterviewerApplicationPresenter
             'interview' => $this->interviewBlock($interview),
             'attendance' => $this->attendanceBlock($application),
             'evaluation' => $this->evaluationBlock($interview->evaluation),
+            'primary_evaluation' => (string) $interview->interview_kind === RecruitmentInterview::KIND_SECONDARY
+                ? $this->evaluationBlock($application->primaryInterview?->evaluation)
+                : null,
             'final' => $this->finalBlock($application),
         ];
     }
