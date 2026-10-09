@@ -19,6 +19,7 @@ final class ScreeningService
 {
     public function __construct(
         private readonly RecruitmentActivityLogger $activityLogger,
+        private readonly InterviewAutoEnrollService $autoEnroll,
     ) {
     }
 
@@ -93,6 +94,13 @@ final class ScreeningService
             );
 
             SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null);
+
+            $freshApplication = $application->fresh();
+            $interview = $freshApplication !== null ? $this->autoEnroll->enroll($freshApplication) : null;
+
+            if ($interview !== null) {
+                SendRecruitmentNotificationJob::dispatch($application->id, 'interview_scheduled', $interview->id);
+            }
 
             return $screening;
         });

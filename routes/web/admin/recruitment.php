@@ -101,4 +101,8 @@ Route::middleware(['auth', 'recruitment.access'])
             ->name('my-interviews.evaluate');
         Route::post('my-interviews/secondary-claim', [RecruitmentMyInterviewController::class, 'claimSecondary'])
             ->name('my-interviews.secondary-claim');
+        Route::post('my-interviews/primary-claim', [RecruitmentMyInterviewController::class, 'claimPrimary'])
+            ->name('my-interviews.primary-claim');
+        Route::post('interviews/{interview}/assign', [RecruitmentMyInterviewController::class, 'assign'])
+            ->name('interviews.assign');
     });

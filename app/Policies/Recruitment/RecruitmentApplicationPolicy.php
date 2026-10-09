@@ -98,6 +98,16 @@ class RecruitmentApplicationPolicy
         return $user->can('recruitment.evaluations.submit');
     }
 
+    /**
+     * Gerbang kasar klaim primary: cek permission saja di sini.
+     * Cakupan (divisi + eligibility) ditegakkan di InterviewLifecycleService
+     * agar kontrak error-nya presisi (403 vs 422 per-field).
+     */
+    public function claimPrimaryInterview(User $user, RecruitmentApplication $application): bool
+    {
+        return $user->can('recruitment.evaluations.submit');
+    }
+
     public function overrideEvaluation(User $user, RecruitmentApplication $application): bool
     {
         $application->loadMissing('primaryInterview.evaluation');

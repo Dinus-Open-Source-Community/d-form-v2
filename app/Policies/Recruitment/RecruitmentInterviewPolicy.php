@@ -86,6 +86,15 @@ class RecruitmentInterviewPolicy
         return $this->canStaffManage($user);
     }
 
+    public function assignInterview(User $user, RecruitmentInterview $interview): bool
+    {
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
+        return $this->canStaffManage($user);
+    }
+
     private function broadView(User $user): bool
     {
         return $user->can('recruitment.applications.list')

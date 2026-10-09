@@ -18,6 +18,7 @@ use App\Models\User;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RecruitmentInterviewExportTest extends TestCase
@@ -87,7 +88,7 @@ class RecruitmentInterviewExportTest extends TestCase
 
         // Label enum, bukan value mentah.
         self::assertStringContainsString('Menunggu interview', $content);
-        self::assertStringContainsString('Primer', $content);
+        self::assertStringContainsString(',Primer,', $content);
         self::assertStringContainsString('Direkomendasikan', $content);
         self::assertStringContainsString('Nomor pendaftaran', $content);
         self::assertStringContainsString($this->programming->name, $content);
@@ -153,11 +154,11 @@ class RecruitmentInterviewExportTest extends TestCase
         ]);
 
         $all = $this->exportContent();
-        self::assertStringContainsString('Sekunder', $all);
+        self::assertStringContainsString(',Sekunder,', $all);
 
         $primaryOnly = $this->exportContent(['include_secondary' => false]);
-        self::assertStringNotContainsString('Sekunder', $primaryOnly);
-        self::assertStringContainsString('Primer', $primaryOnly);
+        self::assertStringNotContainsString(',Sekunder,', $primaryOnly);
+        self::assertStringContainsString(',Primer,', $primaryOnly);
     }
 
     public function test_export_column_subset_keeps_requested_order(): void
@@ -203,6 +204,23 @@ class RecruitmentInterviewExportTest extends TestCase
             ->assertHeader('content-disposition', 'attachment; filename=interview-'.$this->period->slug.'-'.now()->format('Ymd').'.csv');
     }
 
+    public function test_export_query_count_does_not_scale_with_rows(): void
+    {
+        $this->makeInterviewRow(fullName: 'Export N1', withEvaluation: true);
+        $this->makeInterviewRow(fullName: 'Export N2', withEvaluation: false);
+
+        $twoRows = $this->countExportQueries();
+
+        $this->makeInterviewRow(fullName: 'Export N3', withEvaluation: true);
+        $this->makeInterviewRow(fullName: 'Export N4', withEvaluation: false);
+        $this->makeInterviewRow(fullName: 'Export N5', withEvaluation: false);
+        $this->makeInterviewRow(fullName: 'Export N6', withEvaluation: false);
+
+        $sixRows = $this->countExportQueries();
+
+        self::assertSame($twoRows, $sixRows);
+    }
+
     /**
      * @return list<string>
      */
@@ -231,6 +249,33 @@ class RecruitmentInterviewExportTest extends TestCase
         self::assertIsString($content);
 
         return $content;
+    }
+
+    private function countExportQueries(): int
+    {
+        DB::enableQueryLog();
+
+        try {
+            $this->actingAs($this->staff)
+                ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+                ->assertOk()
+                ->streamedContent();
+
+            $count = 0;
+
+            foreach (DB::getQueryLog() as $entry) {
+                $sql = (string) ($entry['query'] ?? '');
+
+                if (str_contains($sql, 'recruitment_') || str_contains($sql, 'users')) {
+                    $count++;
+                }
+            }
+
+            return $count;
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
     }
 
     private function makeApplicant(string $fullName, ?string $secondaryDivisionId = null): RecruitmentApplication

@@ -119,6 +119,8 @@ export const routes = {
                 show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
                 secondaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/secondary-claim`,
+                primaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/primary-claim`,
+                primaryAssign: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/assign`,
             },
         },
         events: {
