@@ -32,7 +32,7 @@ class ResendRecruitmentEmailRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'type.in' => 'Jenis resend tidak valid — pilih tracking, confirmation, correction, interviewer, atau notification.',
+            'type.in' => 'Jenis resend tidak valid — pilih qr, final, tracking, confirmation, correction, interviewer, atau notification.',
         ];
     }
 }

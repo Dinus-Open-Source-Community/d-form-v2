@@ -424,6 +424,7 @@ final class RecruitmentApplicationService
             'has_correction' => $application->correctionRequests->isNotEmpty(),
             'has_interview' => $hasInterview,
             'has_replayable_notification' => $this->hasReplayableNotification($application, $hasInterview),
+            'has_final_decision' => in_array($application->result, [ApplicationResult::Accepted, ApplicationResult::Rejected], true),
         ];
     }
 

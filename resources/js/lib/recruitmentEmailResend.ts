@@ -2,6 +2,8 @@ import { formatIdDateTimeLabel } from '@/lib/shadcnDateFormat'
 
 /** Jenis resend email applicant (verbatim kontrak 5a). */
 export type TRecruitmentEmailResendType =
+    | 'qr'
+    | 'final'
     | 'tracking'
     | 'confirmation'
     | 'correction'
@@ -19,6 +21,7 @@ export interface IEmailResendPrereq {
     has_correction: boolean
     has_interview: boolean
     has_replayable_notification: boolean
+    has_final_decision?: boolean
 }
 
 /** Meta tampilan satu opsi resend. */
@@ -31,8 +34,10 @@ export interface IEmailResendOption {
 /** Batas kirim per 24 jam per applicant per jenis (verbatim throttle backend). */
 export const RECRUITMENT_EMAIL_RESEND_DAILY_LIMIT = 3
 
-/** Lima opsi resend (label + deskripsi ID). */
+/** Tujuh opsi resend (label + deskripsi ID). */
 export const RECRUITMENT_EMAIL_RESEND_OPTIONS: IEmailResendOption[] = [
+    { type: 'qr', label: 'QR Presensi', description: 'Kirim ulang email jadwal interview beserta lampiran QR presensi.' },
+    { type: 'final', label: 'Pengumuman Hasil Akhir', description: 'Kirim ulang email pengumuman hasil akhir (diterima/ditolak).' },
     { type: 'tracking', label: 'Info tracking', description: 'Email token pelacakan pendaftaran (token lama dirotasi).' },
     { type: 'confirmation', label: 'Konfirmasi pendaftaran', description: 'Email konfirmasi pendaftaran awal.' },
     { type: 'correction', label: 'Permintaan koreksi', description: 'Teruskan email permintaan koreksi terakhir.' },
@@ -67,6 +72,12 @@ export function resolveEmailResendDisabled(gate: IEmailResendGate): string | nul
     }
     if (gate.type === 'interviewer' && gate.prereq?.has_interview !== true) {
         return 'Belum ada jadwal interview untuk applicant ini.'
+    }
+    if (gate.type === 'qr' && gate.prereq?.has_interview !== true) {
+        return 'Belum ada jadwal interview untuk applicant ini.'
+    }
+    if (gate.type === 'final' && gate.prereq?.has_final_decision !== true) {
+        return 'Hasil akhir belum ditentukan (masih pending).'
     }
     if (gate.type === 'notification' && gate.prereq?.has_replayable_notification !== true) {
         return 'Belum ada notifikasi yang bisa dikirim ulang.'

@@ -3,6 +3,7 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\EmailLogStatus;
+use App\Enums\Recruitment\ApplicationResult;
 use App\Jobs\Recruitment\SendRecruitmentApplicationConfirmationJob;
 use App\Jobs\Recruitment\SendRecruitmentCorrectionRequestStaffJob;
 use App\Jobs\Recruitment\SendRecruitmentInterviewerNotificationJob;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 final class RecruitmentEmailResendService
 {
     /** @var list<string> */
-    public const TYPES = ['tracking', 'confirmation', 'correction', 'interviewer', 'notification'];
+    public const TYPES = ['tracking', 'confirmation', 'correction', 'interviewer', 'notification', 'qr', 'final'];
 
     /** @var array<string, string> */
     public const RESENDABLE_TEMPLATES = [
@@ -60,6 +61,8 @@ final class RecruitmentEmailResendService
             'correction' => $this->resendCorrection($command),
             'interviewer' => $this->resendInterviewer($command),
             'notification' => $this->resendNotification($command),
+            'qr' => $this->resendQr($command),
+            'final' => $this->resendFinal($command),
             default => throw ValidationException::withMessages([
                 'type' => ['Jenis resend tidak dikenal.'],
             ]),
@@ -151,6 +154,54 @@ final class RecruitmentEmailResendService
             null,
             null,
             $templateKey === 'passed_screening' ? $command->application->period?->whatsapp_group_url : null,
+        );
+    }
+
+    /** Kirim ulang email jadwal interview beserta QR presensi. */
+    private function resendQr(EmailResendCommand $command): void
+    {
+        $interview = RecruitmentInterview::query()
+            ->where('recruitment_application_id', $command->application->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($interview === null) {
+            throw ValidationException::withMessages([
+                'application' => ['Belum ada jadwal interview untuk applicant ini.'],
+            ]);
+        }
+
+        SendRecruitmentNotificationJob::dispatch(
+            $command->application->id,
+            'interview_scheduled',
+            $interview->id,
+        );
+    }
+
+    /** Kirim ulang pengumuman hasil akhir (diterima/ditolak). */
+    private function resendFinal(EmailResendCommand $command): void
+    {
+        $application = $command->application->loadMissing(['period', 'finalDecision.finalDivision']);
+
+        $templateKey = match ($application->result) {
+            ApplicationResult::Accepted => 'final_accepted',
+            ApplicationResult::Rejected => 'final_rejected',
+            default => null,
+        };
+
+        if ($templateKey === null) {
+            throw ValidationException::withMessages([
+                'application' => ['Hasil akhir pendaftar belum ditentukan (masih pending).'],
+            ]);
+        }
+
+        SendRecruitmentNotificationJob::dispatch(
+            $application->id,
+            $templateKey,
+            null,
+            null,
+            null,
+            $templateKey === 'final_accepted' ? $application->period?->whatsapp_group_url : null,
         );
     }
 
