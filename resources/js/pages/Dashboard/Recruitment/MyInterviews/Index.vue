@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/pagination'
 import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { Switch } from '@/components/ui/switch'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
     ChevronLeft,
@@ -100,9 +99,6 @@ interface MyInterviewsQuery {
     q?: string
     division_id?: string
     session_id?: string
-    date_from?: string
-    date_to?: string
-    show_all?: string
     period_id?: string
     sort?: string
 }
@@ -168,9 +164,6 @@ const props = withDefaults(
 const searchInput = ref<string>(props.query.q ?? '')
 const divisionId = ref<string>(props.query.division_id ?? '')
 const sessionId = ref<string>(props.query.session_id ?? '')
-const dateFrom = ref<string>(props.query.date_from ?? '')
-const dateTo = ref<string>(props.query.date_to ?? '')
-const showAll = ref<string>(props.query.show_all ?? '')
 const periodId = ref<string>(props.query.period_id ?? '')
 const sortKey = ref<string>(props.query.sort ?? '')
 const activeTab = ref<string>(props.query.tab ?? 'waiting')
@@ -197,9 +190,6 @@ function refsMatchQuery(): boolean {
         searchInput.value === (current.q ?? '') &&
         divisionId.value === (current.division_id ?? '') &&
         sessionId.value === (current.session_id ?? '') &&
-        dateFrom.value === (current.date_from ?? '') &&
-        dateTo.value === (current.date_to ?? '') &&
-        showAll.value === (current.show_all ?? '') &&
         periodId.value === (current.period_id ?? '') &&
         sortKey.value === (current.sort ?? '') &&
         activeTab.value === (current.tab ?? 'waiting')
@@ -212,9 +202,6 @@ function baseParams(pageNumber: number): Record<string, string | number> {
     if (q !== '') params.q = q
     if (divisionId.value !== '') params.division_id = divisionId.value
     if (sessionId.value !== '') params.session_id = sessionId.value
-    if (dateFrom.value !== '') params.date_from = dateFrom.value
-    if (dateTo.value !== '') params.date_to = dateTo.value
-    if (showAll.value !== '') params.show_all = showAll.value
     if (periodId.value !== '') params.period_id = periodId.value
     if (sortKey.value !== '') params.sort = sortKey.value
     if (activeTab.value !== '') params.tab = activeTab.value
@@ -240,7 +227,7 @@ function applyFilters(pageNumber: number = 1): void {
     })
 }
 
-type FilterTuple = [string, string, string, string, string, string, string, string, string]
+type FilterTuple = [string, string, string, string, string, string]
 
 function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     if (skipFilterRun && refsMatchQuery()) {
@@ -259,16 +246,13 @@ function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     applyFilters(1)
 }
 
-watch([searchInput, divisionId, sessionId, dateFrom, dateTo, showAll, periodId, sortKey, activeTab], handleFilterChange)
+watch([searchInput, divisionId, sessionId, periodId, sortKey, activeTab], handleFilterChange)
 
 function syncRefsFromQuery(next: MyInterviewsQuery): void {
     clearSearchTimer()
     searchInput.value = next.q ?? ''
     divisionId.value = next.division_id ?? ''
     sessionId.value = next.session_id ?? ''
-    dateFrom.value = next.date_from ?? ''
-    dateTo.value = next.date_to ?? ''
-    showAll.value = next.show_all ?? ''
     periodId.value = next.period_id ?? ''
     sortKey.value = next.sort ?? ''
     activeTab.value = next.tab ?? 'waiting'
@@ -335,20 +319,10 @@ const hasActiveFilters = computed<boolean>((): boolean => {
         searchInput.value.trim() !== '' ||
         divisionId.value !== '' ||
         sessionId.value !== '' ||
-        dateFrom.value !== '' ||
-        dateTo.value !== '' ||
-        showAll.value !== '' ||
         periodId.value !== '' ||
         sortKey.value !== '' ||
         (activeTab.value !== '' && activeTab.value !== 'waiting')
     )
-})
-
-const showAllChecked = computed<boolean>({
-    get: (): boolean => showAll.value === '1',
-    set: (value: boolean): void => {
-        showAll.value = value ? '1' : ''
-    },
 })
 
 function resetFilters(): void {
@@ -356,9 +330,6 @@ function resetFilters(): void {
     searchInput.value = ''
     divisionId.value = ''
     sessionId.value = ''
-    dateFrom.value = ''
-    dateTo.value = ''
-    showAll.value = ''
     periodId.value = ''
     sortKey.value = ''
     activeTab.value = ''
@@ -644,27 +615,6 @@ const emptyDescription = computed<string>((): string => {
                         :options="sortOptions"
                         aria-label="Urutkan daftar"
                     />
-                </div>
-                <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    <Input
-                        id="filter-date-from"
-                        v-model="dateFrom"
-                        type="date"
-                        aria-label="Filter dari tanggal"
-                    />
-                    <Input
-                        id="filter-date-to"
-                        v-model="dateTo"
-                        type="date"
-                        aria-label="Filter sampai tanggal"
-                    />
-                    <label
-                        for="filter-show-all"
-                        class="flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm text-muted-foreground"
-                    >
-                        <Switch id="filter-show-all" v-model="showAllChecked" />
-                        Semua tanggal
-                    </label>
                 </div>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-xs text-muted-foreground" aria-live="polite">{{ totalLabel }}</p>

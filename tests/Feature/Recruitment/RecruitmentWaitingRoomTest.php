@@ -532,7 +532,7 @@ class RecruitmentWaitingRoomTest extends TestCase
             'speaking_score' => 8,
             'technical_score' => 8,
             'attitude_score' => 8,
-            'recommendation' => EvaluationRecommendation::Recommended->value,
+            'recommendation' => EvaluationRecommendation::NotRecommended->value,
             'save_count' => 1,
             'evaluated_by' => $this->interviewer->id,
             'evaluated_at' => now(),
