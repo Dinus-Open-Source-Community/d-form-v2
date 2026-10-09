@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { Head, useForm } from '@inertiajs/vue3'
+import { toast } from 'vue-sonner'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { isHttpUrl } from '@/lib/isHttpUrl'
 import {
     Check,
     CheckCircle2,
@@ -78,6 +80,11 @@ interface DetailPayload {
         save_count?: number
         saves_remaining?: number
     }
+    primary_evaluation?: {
+        recommendation?: string
+        recommendation_label?: string
+        notes?: string | null
+    } | null
 }
 
 const props = defineProps<{
@@ -296,7 +303,8 @@ const cvAvailable = computed<boolean>(() => cvPreviewUrl.value !== null || cvDow
 const portfolioExternalUrl = computed<string | null>(() => {
     const documents = props.detail.documents
     if (documents.portfolio_is_url === false) return null
-    return isFilled(documents.portfolio_url) ? documents.portfolio_url : null
+    const url: string | null = isFilled(documents.portfolio_url) ? documents.portfolio_url : null
+    return url !== null && isHttpUrl(url) ? url : null
 })
 
 const portfolioPreviewUrl = computed<string | null>(() => {
@@ -354,7 +362,8 @@ const instagramFollowAvailable = computed<boolean>(
 
 const twibbonUrl = computed<string | null>(() => {
     const url = props.detail.documents.twibbon_url
-    return isFilled(url) ? url : null
+    const filled: string | null = isFilled(url) ? url : null
+    return filled !== null && isHttpUrl(filled) ? filled : null
 })
 
 const hasAnyDocument = computed<boolean>(
@@ -420,7 +429,12 @@ const confirmDescription = computed<string>(
 function confirmSave(): void {
     confirmOpen.value = false
     if (blockReason.value !== null || form.processing) return
-    form.post(props.evaluateUrl, { preserveScroll: true })
+    form.post(props.evaluateUrl, {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.success('Penilaian interview berhasil disimpan.')
+        },
+    })
 }
 </script>
 
@@ -451,6 +465,21 @@ function confirmSave(): void {
                                 <p class="mt-0.5 font-medium">{{ detail.attendance.checked_in_at }}</p>
                             </div>
                         </div>
+
+                        <div
+                            v-if="detail.primary_evaluation?.notes"
+                            class="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex size-2 rounded-full bg-rose-500" />
+                                <h3 class="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                                    Catatan Divisi Utama ({{ detail.application.primary_division ?? 'Divisi Pertama' }})
+                                </h3>
+                            </div>
+                            <p class="mt-2 text-sm text-foreground break-words">
+                                {{ detail.primary_evaluation.notes }}
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -458,41 +487,55 @@ function confirmSave(): void {
                     <CardContent class="p-6">
                         <h2 class="text-sm font-semibold">Profil applicant</h2>
 
-                        <div class="mt-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                            <div class="min-w-0">
-                                <p class="text-xl font-semibold tracking-tight">
-                                    {{ detail.application.full_name }}
-                                </p>
-                                <p class="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                                    {{ detail.application.registration_number }}
-                                </p>
-                            </div>
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <p class="text-lg font-semibold tracking-tight">
+                                {{ detail.application.full_name }}
+                            </p>
                             <Badge v-if="detail.interview?.status_label" variant="outline" class="shrink-0">
                                 {{ detail.interview?.status_label }}
                             </Badge>
                         </div>
+                        <p class="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                            {{ detail.application.registration_number }}
+                        </p>
 
-                        <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                        <div class="mt-4 grid gap-2 sm:grid-cols-3">
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">NIM</p>
-                                <p class="mt-0.5 font-medium">{{ detail.application.nim }}</p>
+                                <p class="mt-0.5 text-sm font-medium">{{ detail.application.nim }}</p>
                             </div>
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Semester</p>
-                                <p class="mt-0.5 font-medium tabular-nums">{{ detail.application.semester }}</p>
+                                <p class="mt-0.5 text-sm font-medium tabular-nums">{{ detail.application.semester }}</p>
                             </div>
                             <div>
                                 <p class="text-muted-foreground text-xs uppercase">Divisi</p>
-                                <p class="mt-0.5 font-medium">
-                                    {{ detail.application.primary_division }}
-                                    <span v-if="detail.application.secondary_division">
-                                        / {{ detail.application.secondary_division }}
+                                <div class="mt-1 flex flex-wrap gap-1.5">
+                                    <Badge
+                                        v-if="detail.application.primary_division"
+                                        variant="secondary"
+                                        class="text-xs font-medium"
+                                    >
+                                        {{ detail.application.primary_division }}
+                                    </Badge>
+                                    <Badge
+                                        v-if="detail.application.secondary_division"
+                                        variant="outline"
+                                        class="text-xs font-medium"
+                                    >
+                                        {{ detail.application.secondary_division }}
+                                    </Badge>
+                                    <span
+                                        v-if="!detail.application.primary_division && !detail.application.secondary_division"
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        —
                                     </span>
-                                </p>
+                                </div>
                             </div>
                         </div>
 
-                        <Separator class="my-6" />
+                        <Separator class="my-4" />
 
                         <h3 class="text-sm font-semibold">Berkas</h3>
 

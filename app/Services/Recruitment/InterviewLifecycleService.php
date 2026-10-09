@@ -4,6 +4,7 @@ namespace App\Services\Recruitment;
 
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
+use App\Enums\Recruitment\EvaluationRecommendation;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
@@ -62,6 +63,76 @@ final class InterviewLifecycleService
         return $interview->fresh();
     }
 
+    /**
+     * Klaim interview primary yang menunggu oleh interviewer divisi sesi.
+     * Cerminan createSecondaryInterview untuk arus primary (tanpa booking flow).
+     */
+    public function claimPrimaryInterview(User $actor, RecruitmentInterview $interview): RecruitmentInterview
+    {
+        if (! $actor->can('recruitment.evaluations.submit')) {
+            throw new AuthorizationException('Tidak berhak menilai interview.');
+        }
+
+        $interview->loadMissing(['application.attendance', 'session']);
+
+        if ($interview->interview_kind !== RecruitmentInterview::KIND_PRIMARY) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Interview bukan interview primary.'],
+            ]);
+        }
+
+        if ($interview->interviewer_id !== null) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Interview sudah diambil interviewer lain.'],
+            ]);
+        }
+
+        if ($interview->status !== InterviewStatus::Waiting) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Interview sudah berjalan atau selesai.'],
+            ]);
+        }
+
+        $application = $interview->application;
+
+        if ($application === null || $application->stage !== ApplicationStage::Interview) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Applicant tidak berada pada tahap interview.'],
+            ]);
+        }
+
+        if ($application->attendance === null) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Applicant belum regis ulang (scan QR).'],
+            ]);
+        }
+
+        $session = $interview->session;
+
+        if ($session === null || ! $session->is_active) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Sesi interview tidak aktif.'],
+            ]);
+        }
+
+        $inSessionDivision = RecruitmentInterviewerDivision::query()
+            ->where('user_id', $actor->id)
+            ->where('recruitment_division_id', $session->recruitment_division_id)
+            ->exists();
+
+        if (! $inSessionDivision) {
+            throw new AuthorizationException('Hanya interviewer divisi sesi ini yang boleh mengambil interview ini.');
+        }
+
+        $interview->update([
+            'interviewer_id' => $actor->id,
+            'booked_at' => now(),
+            'status' => InterviewStatus::InProgress,
+        ]);
+
+        return $interview->fresh();
+    }
+
     public function secondaryEligible(RecruitmentApplication $application): bool
     {
         if ($application->secondary_division_id === null) {
@@ -72,11 +143,20 @@ final class InterviewLifecycleService
             return false;
         }
 
-        $application->loadMissing(['primaryInterview.evaluation', 'secondaryInterview']);
+        $application->loadMissing(['primaryInterview.evaluation', 'secondaryInterview', 'attendance']);
 
         $primaryEvaluation = $application->primaryInterview?->evaluation;
 
         if ($primaryEvaluation === null || $primaryEvaluation->save_count < 1) {
+            return false;
+        }
+
+        // Yang sudah direkomendasikan di primary tidak perlu secondary.
+        if ($primaryEvaluation->recommendation !== EvaluationRecommendation::NotRecommended) {
+            return false;
+        }
+
+        if ($application->attendance === null) {
             return false;
         }
 
@@ -90,6 +170,14 @@ final class InterviewLifecycleService
     ): RecruitmentInterview {
         if (! $actor->can('recruitment.evaluations.submit')) {
             throw new AuthorizationException('Tidak berhak menilai interview.');
+        }
+
+        $application->loadMissing('attendance');
+
+        if ($application->attendance === null) {
+            throw ValidationException::withMessages([
+                'application_id' => ['Applicant belum regis ulang (scan QR).'],
+            ]);
         }
 
         if (! $this->secondaryEligible($application)) {

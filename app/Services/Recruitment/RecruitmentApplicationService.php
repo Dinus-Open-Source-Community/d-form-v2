@@ -280,7 +280,7 @@ final class RecruitmentApplicationService
             'can_decide_final' => $this->canDecideFinal($application),
             'can_resend_tracking' => $this->canResendTracking($application),
             'email_resend_status' => $this->emailResendStatus($application),
-            'prereq' => $this->emailResendPrereq($application),
+            'email_resend_prereq' => $this->emailResendPrereq($application),
         ];
     }
 
@@ -424,6 +424,7 @@ final class RecruitmentApplicationService
             'has_correction' => $application->correctionRequests->isNotEmpty(),
             'has_interview' => $hasInterview,
             'has_replayable_notification' => $this->hasReplayableNotification($application, $hasInterview),
+            'has_final_decision' => in_array($application->result, [ApplicationResult::Accepted, ApplicationResult::Rejected], true),
         ];
     }
 

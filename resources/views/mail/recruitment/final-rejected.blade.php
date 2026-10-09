@@ -1,3 +1,4 @@
-<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;"><strong style="color:#111827;">Halo {{ $applicant_name ?? '' }},</strong></p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">Terima kasih telah mengikuti seluruh rangkaian OpenRecruitment DOSCOM.</p>
-<p style="margin:0;font-size:16px;line-height:1.65;color:#374151;">Mohon maaf, kamu belum lolos seleksi tahap akhir.</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;"><strong style="color:#111827;">Halo {{ $applicant_name ?? '' }}.</strong></p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">Terima kasih telah mengikuti seluruh rangkaian Open Recruitment DOSCOM 2026. Setelah melalui proses seleksi, mohon maaf, kamu belum lolos pada tahap akhir seleksi.</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">Kami sangat mengapresiasi antusiasme dan usaha yang telah kamu berikan selama proses ini. Semoga pengalaman yang kamu dapatkan selama mengikuti seleksi dapat menjadi bagian dari perjalananmu untuk terus berkembang.</p>
+<p style="margin:0;font-size:16px;line-height:1.65;color:#374151;">Thank you for being part of our journey, and keep growing! 💙</p>

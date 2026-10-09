@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\Recruitment\InterviewStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ClaimPrimaryInterviewRequest;
 use App\Http\Requests\Recruitment\ClaimSecondaryInterviewRequest;
+use App\Http\Requests\Recruitment\ReassignInterviewRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentEvaluationRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
+use App\Models\User;
 use App\Services\Recruitment\EvaluationService;
 use App\Services\Recruitment\InterviewLifecycleService;
 use App\Services\Recruitment\MyInterviewService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,15 +40,17 @@ class RecruitmentMyInterviewController extends Controller
         $sessionId = request()->query('session_id');
         $dateFrom = request()->query('date_from');
         $dateTo = request()->query('date_to');
+        $periodId = request()->query('period_id');
         $eval = request()->query('eval');
         $sort = request()->query('sort');
+        $showAll = request()->query('show_all');
 
         $filters = [];
         if (is_string($tab) && $tab !== '') {
             $filters['tab'] = $tab;
         }
         if (is_string($q) && trim($q) !== '') {
-            $filters['q'] = trim($q);
+            $filters['q'] = mb_substr(trim($q), 0, 50);
         }
         if (is_string($divisionId) && $divisionId !== '') {
             $filters['division_id'] = $divisionId;
@@ -57,11 +64,17 @@ class RecruitmentMyInterviewController extends Controller
         if (is_string($dateTo) && trim($dateTo) !== '') {
             $filters['date_to'] = trim($dateTo);
         }
+        if (is_string($periodId) && $periodId !== '') {
+            $filters['period_id'] = $periodId;
+        }
         if (is_string($eval) && $eval !== '') {
             $filters['eval'] = $eval;
         }
         if (is_string($sort) && $sort !== '') {
             $filters['sort'] = $sort;
+        }
+        if ($showAll === true || $showAll === 1 || $showAll === '1' || (is_string($showAll) && in_array(strtolower(trim($showAll)), ['true', 'yes', 'on'], true))) {
+            $filters['show_all'] = '1';
         }
 
         $interviews = $this->myInterviewService->paginateForInterviewer(
@@ -73,24 +86,29 @@ class RecruitmentMyInterviewController extends Controller
         return Inertia::render('Dashboard/Recruitment/MyInterviews/Index', [
             'interviews' => $interviews,
             'query' => [
-                'tab' => is_string($tab) ? $tab : 'in_progress',
+                'tab' => is_string($tab) ? $tab : 'waiting',
                 'q' => is_string($q) ? $q : '',
                 'division_id' => is_string($divisionId) ? $divisionId : '',
                 'session_id' => is_string($sessionId) ? $sessionId : '',
                 'date_from' => is_string($dateFrom) ? $dateFrom : '',
                 'date_to' => is_string($dateTo) ? $dateTo : '',
+                'period_id' => is_string($periodId) ? $periodId : '',
                 'eval' => is_string($eval) ? $eval : '',
                 'sort' => is_string($sort) ? $sort : '',
+                'show_all' => isset($filters['show_all']) ? '1' : '',
                 'page' => $page,
             ],
-            'tab_counts' => $this->myInterviewService->tabCounts($user),
-            'pending_start_count' => $this->myInterviewService->countPendingStart($user),
+            'tab_counts' => $this->myInterviewService->tabCounts($user, $filters),
+            'pending_start_count' => $this->myInterviewService->countPendingStart($user, $filters),
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
+            'period_options' => $this->myInterviewService->periodsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
-            'secondary_opportunities' => $this->myInterviewService->secondaryOpportunitiesForInterviewer($user),
-            'claimed_secondary' => $this->myInterviewService->claimedSecondaryForInterviewer($user),
+            'secondary_opportunities' => $this->myInterviewService->secondaryOpportunitiesForInterviewer($user, $filters),
+            'primary_opportunities' => $this->myInterviewService->primaryOpportunitiesForInterviewer($user, $filters),
+            'claimed_secondary' => $this->myInterviewService->claimedSecondaryForInterviewer($user, $filters),
+            'can_assign_interviewer' => $user !== null && ($user->hasRole('super-admin') || ($user->can('recruitment.screening.decide') && $user->can('recruitment.applications.view'))),
         ]);
     }
 
@@ -153,5 +171,46 @@ class RecruitmentMyInterviewController extends Controller
         return redirect()
             ->route('dashboard.recruitment.my-interviews.show', $secondaryInterview)
             ->with('toast', ['message' => 'Interview secondary berhasil diambil.', 'type' => 'success']);
+    }
+
+    public function claimPrimary(ClaimPrimaryInterviewRequest $request): RedirectResponse
+    {
+        $interview = RecruitmentInterview::query()->findOrFail($request->validated('interview_id'));
+
+        $this->authorize('claimPrimaryInterview', $interview->application);
+
+        $claimedInterview = $this->interviewLifecycleService->claimPrimaryInterview(
+            $request->user(),
+            $interview,
+        );
+
+        return redirect()
+            ->route('dashboard.recruitment.my-interviews.show', $claimedInterview)
+            ->with('toast', ['message' => 'Interview berhasil diambil.', 'type' => 'success']);
+    }
+
+    public function assign(ReassignInterviewRequest $request, RecruitmentInterview $interview): RedirectResponse
+    {
+        $this->authorize('assignInterview', $interview);
+
+        if ($interview->interview_kind !== RecruitmentInterview::KIND_PRIMARY) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Hanya interview primary yang bisa ditetapkan.'],
+            ]);
+        }
+
+        if ($interview->interviewer_id !== null || $interview->status !== InterviewStatus::Waiting) {
+            throw ValidationException::withMessages([
+                'interview_id' => ['Interview sudah diambil atau berjalan.'],
+            ]);
+        }
+
+        $assignee = User::query()->findOrFail($request->validated('interviewer_id'));
+
+        $interview->update(['interviewer_id' => $assignee->id]);
+
+        return redirect()
+            ->back()
+            ->with('toast', ['message' => 'Interviewer berhasil ditetapkan.', 'type' => 'success']);
     }
 }

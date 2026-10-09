@@ -25,7 +25,10 @@ class RecruitmentInterviewSessionCreateTest extends TestCase
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
 
-        $this->period = RecruitmentPeriod::factory()->create();
+        $this->period = RecruitmentPeriod::factory()->create([
+            'interview_starts_at' => today()->subDay()->toDateString(),
+            'interview_ends_at' => today()->addMonth()->toDateString(),
+        ]);
         $this->division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
     }
 

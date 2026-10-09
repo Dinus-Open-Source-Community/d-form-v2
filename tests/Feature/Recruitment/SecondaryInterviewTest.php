@@ -231,10 +231,11 @@ class SecondaryInterviewTest extends TestCase
             'recommendation' => EvaluationRecommendation::NotRecommended->value,
         ]);
 
-        $this->assertSame(1, RecruitmentEvaluation::query()
-            ->where('recruitment_application_id', $application->id)
-            ->where('recommendation', EvaluationRecommendation::Recommended->value)
-            ->count());
+        // Evaluasi primary tidak tersentuh oleh penilaian secondary.
+        $this->assertDatabaseHas('recruitment_evaluations', [
+            'recruitment_interview_id' => $application->primaryInterview->id,
+            'notes' => 'Kurang cocok untuk divisi primary, arahkan ke secondary.',
+        ]);
     }
 
     public function test_primary_interviewer_forbidden_on_secondary_interview(): void
@@ -281,6 +282,52 @@ class SecondaryInterviewTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->has('secondary_opportunities', 1)
                 ->where('secondary_opportunities.0.application.id', $eligible->id));
+    }
+
+    public function test_recommended_primary_excluded_from_secondary_opportunities(): void
+    {
+        $application = $this->assignedApplication('C20');
+
+        $this->actingAs($this->primaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
+                'speaking_score' => 9,
+                'technical_score' => 9,
+                'attitude_score' => 9,
+                'recommendation' => EvaluationRecommendation::Recommended->value,
+                'notes' => 'Lolos primary, tidak perlu secondary.',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('secondary_opportunities', 0));
+    }
+
+    public function test_claim_rejected_for_recommended_primary(): void
+    {
+        $application = $this->assignedApplication('C21');
+
+        $this->actingAs($this->primaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.evaluate', $application->primaryInterview), [
+                'speaking_score' => 9,
+                'technical_score' => 9,
+                'attitude_score' => 9,
+                'recommendation' => EvaluationRecommendation::Recommended->value,
+                'notes' => 'Lolos primary, tidak perlu secondary.',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($this->secondaryInterviewer)
+            ->post(route('dashboard.recruitment.my-interviews.secondary-claim'), [
+                'application_id' => $application->id,
+            ])
+            ->assertSessionHasErrors('application_id');
+
+        $this->assertDatabaseMissing('recruitment_interviews', [
+            'recruitment_application_id' => $application->id,
+            'interview_kind' => 'secondary',
+        ]);
     }
 
     public function test_index_lists_claimed_secondary_outside_primary_list(): void
@@ -351,8 +398,8 @@ class SecondaryInterviewTest extends TestCase
                 'speaking_score' => 8,
                 'technical_score' => 7,
                 'attitude_score' => 9,
-                'recommendation' => EvaluationRecommendation::Recommended->value,
-                'notes' => 'Komunikatif dan menguasai dasar divisi.',
+                'recommendation' => EvaluationRecommendation::NotRecommended->value,
+                'notes' => 'Kurang cocok untuk divisi primary, arahkan ke secondary.',
             ])
             ->assertRedirect();
 

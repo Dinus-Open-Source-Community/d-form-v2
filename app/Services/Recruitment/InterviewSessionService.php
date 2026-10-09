@@ -2,7 +2,9 @@
 
 namespace App\Services\Recruitment;
 
+use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -10,6 +12,10 @@ use Illuminate\Support\Facades\DB;
 
 final class InterviewSessionService
 {
+    public function __construct(
+        private readonly InterviewLifecycleService $lifecycle,
+    ) {
+    }
     /**
      * @param  array<string, mixed>  $filters
      */
@@ -63,7 +69,33 @@ final class InterviewSessionService
      */
     public function create(array $data): RecruitmentInterviewSession
     {
-        return RecruitmentInterviewSession::query()->create($data);
+        $session = RecruitmentInterviewSession::query()->create($data);
+
+        $this->backfillWaitingInterviews($session);
+
+        return $session;
+    }
+
+    /**
+     * Daftarkan applicant tahap Interview sedivisi yang belum punya
+     * primary interview ke sesi yang baru dibuat.
+     */
+    private function backfillWaitingInterviews(RecruitmentInterviewSession $session): void
+    {
+        $targets = RecruitmentApplication::query()
+            ->where('recruitment_period_id', $session->recruitment_period_id)
+            ->where('primary_division_id', $session->recruitment_division_id)
+            ->where('stage', ApplicationStage::Interview)
+            ->whereDoesntHave('primaryInterview')
+            ->get();
+
+        if ($targets->isEmpty()) {
+            return;
+        }
+
+        foreach ($targets as $application) {
+            $this->lifecycle->createWaitingInterview($application, $session);
+        }
     }
 
     /**

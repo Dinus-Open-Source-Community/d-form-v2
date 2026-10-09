@@ -77,6 +77,7 @@ export const routes = {
                 destroy: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}`,
                 sendGroupLink: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-group-link`,
                 sendQr: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/send-qr`,
+                exportInterviews: (id: string) => `${ADMIN_BASE}/recruitment/periods/${id}/interviews/export.csv`,
             },
             divisions: {
                 update: (id: string) => `${ADMIN_BASE}/recruitment/divisions/${id}`,
@@ -118,6 +119,8 @@ export const routes = {
                 show: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}`,
                 evaluate: (id: string) => `${ADMIN_BASE}/recruitment/my-interviews/${id}/evaluate`,
                 secondaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/secondary-claim`,
+                primaryClaim: `${ADMIN_BASE}/recruitment/my-interviews/primary-claim`,
+                primaryAssign: (id: string) => `${ADMIN_BASE}/recruitment/interviews/${id}/assign`,
             },
         },
         events: {
