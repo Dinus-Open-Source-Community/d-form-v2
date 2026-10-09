@@ -29,14 +29,19 @@ import {
 } from '@/components/ui/pagination'
 import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
+import { Switch } from '@/components/ui/switch'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
     ChevronLeft,
     ChevronRight,
     RotateCcw,
     Search,
+    Ticket,
 } from 'lucide-vue-next'
 import InterviewRowCard, { type InterviewRow } from './InterviewRowCard.vue'
+import InterviewApplicantCard, {
+    type ApplicantCardMetaItem,
+} from '@/components/modules/dashboard/recruitment/InterviewApplicantCard.vue'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -68,7 +73,26 @@ interface SecondaryOpportunity {
         nim: string
         secondary_division: string | null
     }
-    sessions: { value: string; label: string }[]
+    sessions: { value: string; label: string; period: string | null }[]
+}
+
+interface PrimaryOpportunity {
+    interview: {
+        id: string
+    }
+    application: {
+        id: string
+        full_name: string
+        registration_number: string
+        nim: string
+        primary_division: string | null
+    }
+    session: {
+        id: string
+        label: string
+        period: string | null
+    }
+    interviewer_options: { value: string; label: string }[]
 }
 
 interface MyInterviewsQuery {
@@ -76,6 +100,9 @@ interface MyInterviewsQuery {
     q?: string
     division_id?: string
     session_id?: string
+    date_from?: string
+    date_to?: string
+    show_all?: string
     eval?: string
     sort?: string
 }
@@ -86,8 +113,10 @@ interface FilterOption {
 }
 
 const TABS: { key: string; label: string }[] = [
+    { key: 'waiting', label: 'Waiting Rooms' },
     { key: 'in_progress', label: 'Sedang interview' },
     { key: 'done', label: 'Selesai' },
+    { key: 'all', label: 'Semua Peserta' },
 ]
 
 const EVAL_OPTIONS: FilterOption[] = [
@@ -126,23 +155,30 @@ const props = withDefaults(
         division_options?: FilterOption[]
         session_options?: FilterOption[]
         secondary_opportunities?: SecondaryOpportunity[]
+        primary_opportunities?: PrimaryOpportunity[]
         claimed_secondary?: InterviewRow[]
+        can_assign_interviewer?: boolean
     }>(),
     {
         pending_start_count: 0,
         division_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
         secondary_opportunities: (): SecondaryOpportunity[] => [],
+        primary_opportunities: (): PrimaryOpportunity[] => [],
         claimed_secondary: (): InterviewRow[] => [],
+        can_assign_interviewer: false,
     },
 )
 
 const searchInput = ref<string>(props.query.q ?? '')
 const divisionId = ref<string>(props.query.division_id ?? '')
 const sessionId = ref<string>(props.query.session_id ?? '')
+const dateFrom = ref<string>(props.query.date_from ?? '')
+const dateTo = ref<string>(props.query.date_to ?? '')
+const showAll = ref<string>(props.query.show_all ?? '')
 const evalFilter = ref<string>(props.query.eval ?? '')
 const sortKey = ref<string>(props.query.sort ?? '')
-const activeTab = ref<string>(props.query.tab ?? 'in_progress')
+const activeTab = ref<string>(props.query.tab ?? 'waiting')
 const isNavigating = ref<boolean>(false)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -166,9 +202,12 @@ function refsMatchQuery(): boolean {
         searchInput.value === (current.q ?? '') &&
         divisionId.value === (current.division_id ?? '') &&
         sessionId.value === (current.session_id ?? '') &&
+        dateFrom.value === (current.date_from ?? '') &&
+        dateTo.value === (current.date_to ?? '') &&
+        showAll.value === (current.show_all ?? '') &&
         evalFilter.value === (current.eval ?? '') &&
         sortKey.value === (current.sort ?? '') &&
-        activeTab.value === (current.tab ?? 'in_progress')
+        activeTab.value === (current.tab ?? 'waiting')
     )
 }
 
@@ -178,6 +217,9 @@ function baseParams(pageNumber: number): Record<string, string | number> {
     if (q !== '') params.q = q
     if (divisionId.value !== '') params.division_id = divisionId.value
     if (sessionId.value !== '') params.session_id = sessionId.value
+    if (dateFrom.value !== '') params.date_from = dateFrom.value
+    if (dateTo.value !== '') params.date_to = dateTo.value
+    if (showAll.value !== '') params.show_all = showAll.value
     if (evalFilter.value !== '') params.eval = evalFilter.value
     if (sortKey.value !== '') params.sort = sortKey.value
     if (activeTab.value !== '') params.tab = activeTab.value
@@ -203,7 +245,7 @@ function applyFilters(pageNumber: number = 1): void {
     })
 }
 
-type FilterTuple = [string, string, string, string, string, string]
+type FilterTuple = [string, string, string, string, string, string, string, string, string]
 
 function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     if (skipFilterRun && refsMatchQuery()) {
@@ -222,16 +264,19 @@ function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     applyFilters(1)
 }
 
-watch([searchInput, divisionId, sessionId, evalFilter, sortKey, activeTab], handleFilterChange)
+watch([searchInput, divisionId, sessionId, dateFrom, dateTo, showAll, evalFilter, sortKey, activeTab], handleFilterChange)
 
 function syncRefsFromQuery(next: MyInterviewsQuery): void {
     clearSearchTimer()
     searchInput.value = next.q ?? ''
     divisionId.value = next.division_id ?? ''
     sessionId.value = next.session_id ?? ''
+    dateFrom.value = next.date_from ?? ''
+    dateTo.value = next.date_to ?? ''
+    showAll.value = next.show_all ?? ''
     evalFilter.value = next.eval ?? ''
     sortKey.value = next.sort ?? ''
-    activeTab.value = next.tab ?? 'in_progress'
+    activeTab.value = next.tab ?? 'waiting'
     skipFilterRun = true
     void nextTick(resetSkipFilterRun)
 }
@@ -247,18 +292,18 @@ function stopTaskPolling(): void {
 
 function refreshTaskList(): void {
     if (document.hidden) return
-    if (activeTab.value !== 'in_progress') return
+    if (activeTab.value !== 'in_progress' && activeTab.value !== 'waiting') return
     if (searchTimer !== null) return
     if (isNavigating.value) return
     router.reload({
-        only: ['interviews', 'tab_counts', 'pending_start_count', 'secondary_opportunities'],
+        only: ['interviews', 'tab_counts', 'pending_start_count', 'secondary_opportunities', 'primary_opportunities'],
         replace: true,
     })
 }
 
 function startTaskPolling(): void {
     stopTaskPolling()
-    if (activeTab.value !== 'in_progress') return
+    if (activeTab.value !== 'in_progress' && activeTab.value !== 'waiting') return
     taskPollTimer = setInterval((): void => {
         refreshTaskList()
     }, TASK_POLL_MS)
@@ -274,7 +319,7 @@ function handleVisibilityChange(): void {
 }
 
 watch(activeTab, (): void => {
-    if (activeTab.value === 'in_progress') startTaskPolling()
+    if (activeTab.value === 'in_progress' || activeTab.value === 'waiting') startTaskPolling()
     else stopTaskPolling()
 })
 
@@ -295,10 +340,20 @@ const hasActiveFilters = computed<boolean>((): boolean => {
         searchInput.value.trim() !== '' ||
         divisionId.value !== '' ||
         sessionId.value !== '' ||
+        dateFrom.value !== '' ||
+        dateTo.value !== '' ||
+        showAll.value !== '' ||
         evalFilter.value !== '' ||
         sortKey.value !== '' ||
-        activeTab.value !== ''
+        (activeTab.value !== '' && activeTab.value !== 'waiting')
     )
+})
+
+const showAllChecked = computed<boolean>({
+    get: (): boolean => showAll.value === '1',
+    set: (value: boolean): void => {
+        showAll.value = value ? '1' : ''
+    },
 })
 
 function resetFilters(): void {
@@ -306,6 +361,9 @@ function resetFilters(): void {
     searchInput.value = ''
     divisionId.value = ''
     sessionId.value = ''
+    dateFrom.value = ''
+    dateTo.value = ''
+    showAll.value = ''
     evalFilter.value = ''
     sortKey.value = ''
     activeTab.value = ''
@@ -316,6 +374,44 @@ function selectQueue(key: string): void {
 }
 
 const claimingId = ref<string | null>(null)
+
+/** Kotak meta identitas (No. Registrasi + NIM) untuk kartu applicant. */
+function identityBox(
+    registrationNumber: string,
+    nim: string,
+): [ApplicantCardMetaItem, ApplicantCardMetaItem] {
+    return [
+        { icon: 'id', label: 'No. Registrasi', value: registrationNumber },
+        { icon: 'cap', label: 'NIM', value: nim },
+    ]
+}
+
+/** Kotak meta sesi (Tanggal Interview + Ruangan + Periode) dari label sesi. */
+function sessionBox(
+    label: string,
+    periodName: string | null,
+): [ApplicantCardMetaItem, ApplicantCardMetaItem, ApplicantCardMetaItem] {
+    const parsed = parseSessionLabel(label)
+    return [
+        { icon: 'none', label: 'Tanggal Interview', value: parsed.date },
+        { icon: 'pin', label: 'Ruangan', value: parsed.place === '' ? '—' : parsed.place },
+        { icon: 'none', label: 'Periode', value: periodName ?? '—' },
+    ]
+}
+
+/**
+ * Pecah label sesi "09 Oct · Divisi · Lokasi/Ruang" untuk tampilan kartu.
+ * Divisi tidak dikembalikan (sudah tampil sekali sebagai chip divisi applicant).
+ */
+function parseSessionLabel(label: string): { date: string; place: string } {
+    const parts: string[] = label
+        .split('·')
+        .map((part) => part.trim())
+        .filter((part) => part !== '')
+    if (parts.length === 0) return { date: '—', place: '' }
+    if (parts.length === 1) return { date: parts[0] ?? '—', place: '' }
+    return { date: parts[0] ?? '—', place: parts.slice(2).join(' · ') || (parts[1] ?? '') }
+}
 
 function isClaiming(opp: SecondaryOpportunity): boolean {
     return claimingId.value === opp.application.id
@@ -333,6 +429,62 @@ function claimSecondary(opp: SecondaryOpportunity): void {
             preserveScroll: true,
             onFinish: (): void => {
                 claimingId.value = null
+            },
+        },
+    )
+}
+
+const claimingPrimaryId = ref<string | null>(null)
+
+function isClaimingPrimary(opp: PrimaryOpportunity): boolean {
+    return claimingPrimaryId.value === opp.interview.id
+}
+
+function claimPrimary(opp: PrimaryOpportunity): void {
+    if (claimingPrimaryId.value !== null) return
+    claimingPrimaryId.value = opp.interview.id
+    router.post(
+        routes.admin.recruitment.myInterviews.primaryClaim,
+        {
+            interview_id: opp.interview.id,
+        },
+        {
+            preserveScroll: true,
+            onFinish: (): void => {
+                claimingPrimaryId.value = null
+            },
+        },
+    )
+}
+
+const assigneeMap = ref<Record<string, string>>({})
+const assigningId = ref<string | null>(null)
+
+function assigneeFor(opp: PrimaryOpportunity): string {
+    return assigneeMap.value[opp.interview.id] ?? ''
+}
+
+function setAssignee(opp: PrimaryOpportunity, value: string): void {
+    assigneeMap.value[opp.interview.id] = value
+}
+
+function isAssigning(opp: PrimaryOpportunity): boolean {
+    return assigningId.value === opp.interview.id
+}
+
+function assignInterviewer(opp: PrimaryOpportunity): void {
+    const interviewerId: string = assigneeFor(opp)
+    if (assigningId.value !== null || interviewerId === '') return
+    assigningId.value = opp.interview.id
+    router.post(
+        routes.admin.recruitment.myInterviews.primaryAssign(opp.interview.id),
+        {
+            interviewer_id: interviewerId,
+        },
+        {
+            preserveScroll: true,
+            onFinish: (): void => {
+                assigningId.value = null
             },
         },
     )
@@ -425,14 +577,26 @@ const pendingStartCount = computed<number>((): number => {
     return Math.floor(raw)
 })
 
+const hasWaitingContent = computed<boolean>((): boolean => {
+    return (
+        props.primary_opportunities.length > 0 ||
+        props.secondary_opportunities.length > 0 ||
+        props.claimed_secondary.length > 0
+    )
+})
+
 const emptyTitle = computed<string>((): string => {
-    return hasActiveFilters.value ? 'Tidak ada hasil yang cocok' : 'Belum ada peserta regis ulang'
+    if (hasActiveFilters.value) return 'Tidak ada hasil yang cocok'
+    if (activeTab.value === 'waiting') return 'Belum ada antrean'
+    return 'Belum ada interview hari ini'
 })
 
 const emptyDescription = computed<string>((): string => {
-    return hasActiveFilters.value
-        ? 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
-        : 'Daftar ini memuat semua assignment kamu. Yang belum scan QR terkunci.'
+    if (hasActiveFilters.value)
+        return 'Coba ubah kata kunci atau atur ulang filter untuk melihat penugasan lain.'
+    if (activeTab.value === 'waiting')
+        return 'Applicant yang sudah regis ulang akan muncul di sini untuk diambil.'
+    return 'Interviews yang terjadwal hari ini akan muncul di sini.'
 })
 </script>
 
@@ -481,6 +645,27 @@ const emptyDescription = computed<string>((): string => {
                         aria-label="Urutkan daftar"
                     />
                 </div>
+                <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    <Input
+                        id="filter-date-from"
+                        v-model="dateFrom"
+                        type="date"
+                        aria-label="Filter dari tanggal"
+                    />
+                    <Input
+                        id="filter-date-to"
+                        v-model="dateTo"
+                        type="date"
+                        aria-label="Filter sampai tanggal"
+                    />
+                    <label
+                        for="filter-show-all"
+                        class="flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm text-muted-foreground"
+                    >
+                        <Switch id="filter-show-all" v-model="showAllChecked" />
+                        Semua tanggal
+                    </label>
+                </div>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-xs text-muted-foreground" aria-live="polite">{{ totalLabel }}</p>
                     <Button v-if="hasActiveFilters" variant="ghost" size="sm" @click="resetFilters">
@@ -494,7 +679,7 @@ const emptyDescription = computed<string>((): string => {
             </div>
         </div>
 
-        <div class="flex flex-wrap gap-2" aria-label="Pintasan antrean">
+        <div class="flex flex-wrap gap-2" aria-label="Pintasan waiting room">
             <button
                 v-for="tab in TABS"
                 :key="tab.key || 'all'"
@@ -518,6 +703,131 @@ const emptyDescription = computed<string>((): string => {
                     {{ formatInt(queueBadgeCount(tab.key)!) }}
                 </Badge>
             </button>
+        </div>
+
+        <div
+            v-if="activeTab === 'waiting'"
+            class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
+        >
+        <section
+            v-if="props.primary_opportunities.length > 0 && activeTab === 'waiting'"
+            aria-label="Waiting room interview"
+            class="flex min-w-0 flex-col gap-3"
+        >
+            <div class="flex items-baseline justify-between gap-3">
+                <h2 class="text-sm font-semibold">Waiting Rooms</h2>
+            </div>
+            <div class="grid gap-3">
+                <InterviewApplicantCard
+                    v-for="opp in props.primary_opportunities"
+                    :key="opp.interview.id"
+                    :name="opp.application.full_name"
+                    :division="opp.application.primary_division"
+                    status-label="Menunggu"
+                    status-variant="waiting"
+                    :box1="identityBox(opp.application.registration_number, opp.application.nim)"
+                    :box2="sessionBox(opp.session.label, opp.session.period)"
+                    note-label="Catatan"
+                    note-body="pengarahan ruangan manual oleh staff"
+                >
+                    <template #action>
+                        <Button
+                            class="h-[52px] w-full rounded-lg px-4 text-sm font-semibold transition-transform active:scale-[0.96]"
+                            :disabled="claimingPrimaryId !== null"
+                            @click="claimPrimary(opp)"
+                        >
+                            <Ticket class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="min-w-0 flex-1 truncate text-left">{{
+                                isClaimingPrimary(opp) ? 'Mengambil…' : 'Ambil antrean'
+                            }}</span>
+                            <ChevronRight class="size-5 shrink-0" aria-hidden="true" />
+                        </Button>
+                    </template>
+                    <template #extra>
+                        <div
+                            v-if="props.can_assign_interviewer"
+                            class="flex w-full flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
+                        >
+                            <SimpleSelect
+                                :id="`assign-${opp.interview.id}`"
+                                :model-value="assigneeFor(opp)"
+                                :options="[{ value: '', label: 'Pilih interviewer' }, ...opp.interviewer_options]"
+                                aria-label="Pilih interviewer"
+                                class="min-w-0 flex-1"
+                                @update:model-value="(value: string) => setAssignee(opp, value)"
+                            />
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                class="transition-transform active:scale-[0.96]"
+                                :disabled="assigningId !== null || assigneeFor(opp) === ''"
+                                @click="assignInterviewer(opp)"
+                            >
+                                {{ isAssigning(opp) ? 'Menetapkan…' : 'Tetapkan' }}
+                            </Button>
+                        </div>
+                    </template>
+                </InterviewApplicantCard>
+            </div>
+        </section>
+
+        <section
+            v-if="
+                activeTab === 'waiting' &&
+                (props.claimed_secondary.length > 0 || props.secondary_opportunities.length > 0)
+            "
+            aria-label="Daftar secondary division"
+            class="flex min-w-0 flex-col gap-3"
+        >
+            <div class="flex items-baseline justify-between gap-3">
+                <h2 class="text-sm font-semibold">Secondary Division</h2>
+                <p class="text-xs text-muted-foreground">Pilihan divisi kedua · opsional</p>
+            </div>
+            <div v-if="props.claimed_secondary.length > 0" class="grid gap-3">
+                <InterviewRowCard
+                    v-for="row in props.claimed_secondary"
+                    :key="row.interview_id"
+                    :row="row"
+                />
+            </div>
+            <div v-if="props.secondary_opportunities.length > 0" class="grid gap-3">
+                <InterviewApplicantCard
+                    v-for="opp in props.secondary_opportunities"
+                    :key="opp.application.id"
+                    :name="opp.application.full_name"
+                    :division="opp.application.secondary_division"
+                    status-label="Menunggu"
+                    status-variant="waiting"
+                    :box1="identityBox(opp.application.registration_number, opp.application.nim)"
+                    :box2="
+                        opp.sessions.length > 0
+                            ? sessionBox(opp.sessions[0]?.label ?? '', opp.sessions[0]?.period ?? null)
+                            : null
+                    "
+                    :note-label="opp.sessions.length > 0 ? 'Catatan' : 'Sesi'"
+                    :note-body="
+                        opp.sessions.length > 0
+                            ? 'pengarahan ruangan manual oleh staff'
+                            : 'Belum ada sesi aktif untuk divisi ini.'
+                    "
+                >
+                    <template #action>
+                        <Button
+                            v-if="opp.sessions.length > 0"
+                            class="h-[52px] w-full rounded-lg px-4 text-sm font-semibold transition-transform active:scale-[0.96]"
+                            :disabled="claimingId !== null"
+                            @click="claimSecondary(opp)"
+                        >
+                            <Ticket class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="min-w-0 flex-1 truncate text-left">{{
+                                isClaiming(opp) ? 'Mengambil…' : 'Ambil antrean'
+                            }}</span>
+                            <ChevronRight class="size-5 shrink-0" aria-hidden="true" />
+                        </Button>
+                    </template>
+                </InterviewApplicantCard>
+            </div>
+        </section>
         </div>
 
         <div v-if="isNavigating" class="grid gap-3" aria-hidden="true">
@@ -545,8 +855,19 @@ const emptyDescription = computed<string>((): string => {
             </div>
         </template>
 
-        <template v-else-if="interviews.data.length > 0">
-            <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <template v-else-if="activeTab !== 'waiting' && interviews.data.length > 0">
+            <div
+                v-if="activeTab === 'all'"
+                class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            >
+                <InterviewRowCard
+                    v-for="row in interviews.data"
+                    :key="row.interview_id"
+                    :row="row"
+                    :hide-action="true"
+                />
+            </div>
+            <div v-else class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
                 <section aria-label="Daftar primary division">
                     <div class="mb-3 flex items-baseline justify-between gap-3">
                         <h2 class="text-sm font-semibold">Primary Division</h2>
@@ -560,74 +881,11 @@ const emptyDescription = computed<string>((): string => {
                         />
                     </div>
                 </section>
-                <section aria-label="Daftar secondary division">
-                    <div class="mb-3 flex items-baseline justify-between gap-3">
-                        <h2 class="text-sm font-semibold">Secondary Division</h2>
-                        <p class="text-xs text-muted-foreground">Pilihan divisi kedua · opsional</p>
-                    </div>
-                    <div v-if="props.claimed_secondary.length > 0" class="mb-3 grid gap-3">
-                        <InterviewRowCard
-                            v-for="row in props.claimed_secondary"
-                            :key="row.interview_id"
-                            :row="row"
-                        />
-                    </div>
-                    <div v-if="props.secondary_opportunities.length > 0" class="grid gap-3">
-                        <Card
-                            v-for="opp in props.secondary_opportunities"
-                            :key="opp.application.id"
-                            class="rounded-2xl border-border/70"
-                        >
-                            <CardContent class="p-4 sm:p-5">
-                                <div>
-                                    <p class="text-sm font-semibold">{{ opp.application.full_name }}</p>
-                                    <p class="mt-1 font-mono text-xs text-muted-foreground">
-                                        {{ opp.application.registration_number }} · {{ opp.application.nim }} ·
-                                        {{ opp.application.secondary_division ?? '—' }}
-                                    </p>
-                                </div>
-                                <div
-                                    class="mt-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3"
-                                >
-                                    <div class="min-w-0">
-                                        <p v-if="opp.sessions.length > 0" class="text-sm">
-                                            Diambil ke {{ opp.sessions[0]?.label ?? 'sesi divisi ini' }} ·
-                                            pengarahan ruangan manual oleh staff
-                                        </p>
-                                        <p v-else class="text-muted-foreground text-sm">
-                                            Belum ada sesi aktif untuk divisi ini.
-                                        </p>
-                                    </div>
-                                    <div class="relative flex shrink-0 flex-wrap gap-2">
-                                        <Button
-                                            v-if="opp.sessions.length > 0"
-                                            size="sm"
-                                            :disabled="claimingId !== null"
-                                            @click="claimSecondary(opp)"
-                                        >
-                                            {{ isClaiming(opp) ? 'Mengambil…' : 'Ambil' }}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                    <Card v-else-if="props.claimed_secondary.length === 0" class="rounded-2xl border-dashed border-border/70">
-                        <CardContent
-                            class="flex flex-col items-center gap-2 p-8 text-center sm:p-10"
-                        >
-                            <h3 class="text-sm font-semibold">Belum ada peluang secondary</h3>
-                            <p class="max-w-xs text-sm text-muted-foreground">
-                                Applicant yang primary-nya sudah dinilai akan tampil di sini.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </section>
             </div>
         </template>
 
         <EmptyState
-            v-else
+            v-else-if="activeTab !== 'waiting' || !hasWaitingContent"
             :title="emptyTitle"
             :description="emptyDescription"
             animation-name="emptyData"
