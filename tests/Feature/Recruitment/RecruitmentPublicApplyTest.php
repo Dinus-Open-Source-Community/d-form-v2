@@ -108,6 +108,14 @@ class RecruitmentPublicApplyTest extends TestCase
         Storage::disk('local')->assertExists($application->document()->firstOrFail()->cv_path);
     }
 
+    public function test_submit_javascript_urls_are_rejected(): void
+    {
+        $this->post(route('recruitment.apply.store'), $this->validPayload([
+            'portfolio_url' => 'javascript:alert(1)',
+            'twibbon_url' => 'JaVaScRiPt:alert(1)',
+        ]))->assertSessionHasErrors(['portfolio_url', 'twibbon_url']);
+    }
+
     public function test_submit_duplicate_nim_same_period_is_rejected(): void
     {
         $this->post(route('recruitment.apply.store'), $this->validPayload())->assertRedirect();

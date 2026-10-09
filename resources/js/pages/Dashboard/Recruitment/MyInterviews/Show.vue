@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { isHttpUrl } from '@/lib/isHttpUrl'
 import {
     Check,
     CheckCircle2,
@@ -297,7 +298,8 @@ const cvAvailable = computed<boolean>(() => cvPreviewUrl.value !== null || cvDow
 const portfolioExternalUrl = computed<string | null>(() => {
     const documents = props.detail.documents
     if (documents.portfolio_is_url === false) return null
-    return isFilled(documents.portfolio_url) ? documents.portfolio_url : null
+    const url: string | null = isFilled(documents.portfolio_url) ? documents.portfolio_url : null
+    return url !== null && isHttpUrl(url) ? url : null
 })
 
 const portfolioPreviewUrl = computed<string | null>(() => {
@@ -355,7 +357,8 @@ const instagramFollowAvailable = computed<boolean>(
 
 const twibbonUrl = computed<string | null>(() => {
     const url = props.detail.documents.twibbon_url
-    return isFilled(url) ? url : null
+    const filled: string | null = isFilled(url) ? url : null
+    return filled !== null && isHttpUrl(filled) ? filled : null
 })
 
 const hasAnyDocument = computed<boolean>(

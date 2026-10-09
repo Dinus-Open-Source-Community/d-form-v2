@@ -19,6 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
+import { isHttpUrl } from '@/lib/isHttpUrl'
 import ApplicantEmailingSection from './ApplicantEmailingSection.vue'
 import type {
     IEmailResendPrereq,
@@ -802,6 +803,16 @@ const instagramHandle = computed<string>(() =>
 )
 const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`)
 
+const portfolioExternalUrl = computed<string | null>(() => {
+    const raw: string | null = props.application.document.portfolio_url
+    return raw !== null && isHttpUrl(raw) ? raw : null
+})
+
+const twibbonExternalUrl = computed<string | null>(() => {
+    const raw: string | null = props.application.document.twibbon_url
+    return raw !== null && isHttpUrl(raw) ? raw : null
+})
+
 const cvDownloadUrl = computed<string>(() =>
     routes.admin.recruitment.applications.document(props.application.id, 'cv'),
 )
@@ -1085,21 +1096,21 @@ const defaultTab = computed(() => {
                             <div class="space-y-3 pt-5">
                                 <p class="text-sm font-semibold">Portfolio</p>
                                 <div
-                                    v-if="application.document.portfolio_type === 'url' && application.document.portfolio_url"
+                                    v-if="application.document.portfolio_type === 'url' && portfolioExternalUrl"
                                     class="flex flex-wrap items-center justify-between gap-3"
                                 >
                                     <a
-                                        :href="application.document.portfolio_url"
+                                        :href="portfolioExternalUrl"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
                                     >
                                         <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
-                                        <span class="truncate">{{ application.document.portfolio_url }}</span>
+                                        <span class="truncate">{{ portfolioExternalUrl }}</span>
                                     </a>
                                     <Button as-child variant="outline" size="sm">
                                         <a
-                                            :href="application.document.portfolio_url"
+                                            :href="portfolioExternalUrl"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
@@ -1259,19 +1270,19 @@ const defaultTab = computed(() => {
 
                             <div class="space-y-3 pt-5">
                                 <p class="text-sm font-semibold">Link Twibbon</p>
-                                <div v-if="application.document.twibbon_url" class="flex flex-wrap items-center justify-between gap-3">
+                                <div v-if="twibbonExternalUrl" class="flex flex-wrap items-center justify-between gap-3">
                                     <a
-                                        :href="application.document.twibbon_url"
+                                        :href="twibbonExternalUrl"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
                                     >
                                         <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
-                                        <span class="truncate">{{ application.document.twibbon_url }}</span>
+                                        <span class="truncate">{{ twibbonExternalUrl }}</span>
                                     </a>
                                     <Button as-child variant="outline" size="sm">
                                         <a
-                                            :href="application.document.twibbon_url"
+                                            :href="twibbonExternalUrl"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
