@@ -315,6 +315,7 @@ final class MyInterviewService
             ],
             'has_evaluation' => $evaluation !== null,
             'evaluation_locked' => $evaluation?->isLocked() ?? false,
+            'evaluation_recommendation' => $evaluation?->recommendation?->value,
             'session' => $interview?->session ? [
                 'id' => $interview->session->id,
                 'session_date' => $interview->session->session_date?->toDateString(),
@@ -903,6 +904,7 @@ final class MyInterviewService
             'room' => $interview->room,
             'needs_evaluation' => $needsEvaluation,
             'has_attendance' => $application?->attendance !== null,
+            'evaluation_recommendation' => $evaluation?->recommendation?->value,
             'application' => $application ? [
                 'id' => $application->id,
                 'full_name' => $application->full_name,
