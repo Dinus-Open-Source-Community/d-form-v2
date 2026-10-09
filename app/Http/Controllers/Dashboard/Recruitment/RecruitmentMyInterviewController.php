@@ -40,6 +40,7 @@ class RecruitmentMyInterviewController extends Controller
         $sessionId = request()->query('session_id');
         $dateFrom = request()->query('date_from');
         $dateTo = request()->query('date_to');
+        $periodId = request()->query('period_id');
         $eval = request()->query('eval');
         $sort = request()->query('sort');
         $showAll = request()->query('show_all');
@@ -62,6 +63,9 @@ class RecruitmentMyInterviewController extends Controller
         }
         if (is_string($dateTo) && trim($dateTo) !== '') {
             $filters['date_to'] = trim($dateTo);
+        }
+        if (is_string($periodId) && $periodId !== '') {
+            $filters['period_id'] = $periodId;
         }
         if (is_string($eval) && $eval !== '') {
             $filters['eval'] = $eval;
@@ -88,6 +92,7 @@ class RecruitmentMyInterviewController extends Controller
                 'session_id' => is_string($sessionId) ? $sessionId : '',
                 'date_from' => is_string($dateFrom) ? $dateFrom : '',
                 'date_to' => is_string($dateTo) ? $dateTo : '',
+                'period_id' => is_string($periodId) ? $periodId : '',
                 'eval' => is_string($eval) ? $eval : '',
                 'sort' => is_string($sort) ? $sort : '',
                 'show_all' => isset($filters['show_all']) ? '1' : '',
@@ -98,6 +103,7 @@ class RecruitmentMyInterviewController extends Controller
             'today_sessions' => $this->myInterviewService->todaySessionsForInterviewer($user),
             'next_action' => $this->myInterviewService->nextActionForInterviewer($user),
             'division_options' => $this->myInterviewService->divisionsForInterviewer($user),
+            'period_options' => $this->myInterviewService->periodsForInterviewer($user),
             'session_options' => $this->myInterviewService->sessionsForInterviewer($user),
             'secondary_opportunities' => $this->myInterviewService->secondaryOpportunitiesForInterviewer($user, $filters),
             'primary_opportunities' => $this->myInterviewService->primaryOpportunitiesForInterviewer($user, $filters),

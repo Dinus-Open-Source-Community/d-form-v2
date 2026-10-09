@@ -9,6 +9,7 @@ use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
+use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -81,6 +82,8 @@ final class MyInterviewService
             $query->whereHas('session', fn ($sq) => $sq->where('recruitment_division_id', $divisionId));
         }
 
+        $this->applyPeriodScope($query, $filters['period_id'] ?? null);
+
         $this->applyDateSessionScope(
             $query,
             $filters['session_id'] ?? null,
@@ -102,8 +105,8 @@ final class MyInterviewService
 
     /**
      * Tab Antrean: pool klaim — menunggu + sudah regis ulang + belum
-     * bertuan + divisi saya + sesi aktif. Tanpa lingkup tanggal
-     * (ruang tunggu = siapa yang hadir) dan tanpa filter milik.
+     * bertuan + divisi saya + sesi aktif. Default lingkup sesi hari ini
+     * dan tanpa filter milik.
      *
      * @param  array<string, mixed>  $filters
      */
@@ -148,6 +151,8 @@ final class MyInterviewService
             $divisionId = $filters['division_id'];
             $query->whereHas('session', fn ($sq) => $sq->where('recruitment_division_id', $divisionId));
         }
+
+        $this->applyPeriodScope($query, $filters['period_id'] ?? null);
 
         if (! empty($filters['eval']) && is_string($filters['eval'])) {
             $this->applyEvalFilter($query, $filters['eval']);
@@ -196,6 +201,10 @@ final class MyInterviewService
 
         if (! empty($filters['division_id']) && is_string($filters['division_id'])) {
             $query->where('primary_division_id', $filters['division_id']);
+        }
+
+        if (! empty($filters['period_id']) && is_string($filters['period_id'])) {
+            $query->where('recruitment_period_id', $filters['period_id']);
         }
 
         $sessionId = $filters['session_id'] ?? null;
@@ -325,6 +334,7 @@ final class MyInterviewService
 
         $waitingQuery = RecruitmentInterview::query();
         $this->applyWaitingScope($waitingQuery, $interviewer);
+        $this->applyPeriodScope($waitingQuery, $filters['period_id'] ?? null);
         $this->applyDateSessionScope(
             $waitingQuery,
             $sessionId,
@@ -335,6 +345,9 @@ final class MyInterviewService
         $waiting = $waitingQuery->count();
 
         $allQuery = $this->allApplicationsQuery($interviewer);
+        if (! empty($filters['period_id']) && is_string($filters['period_id'])) {
+            $allQuery->where('recruitment_period_id', $filters['period_id']);
+        }
         $this->applyDateSessionScopeForApplications(
             $allQuery,
             $sessionId,
@@ -351,6 +364,7 @@ final class MyInterviewService
             ->whereHas('application', fn ($q) => $this->pendingEvaluationScope($q));
         $this->openSessionScope($inProgressQuery);
         $this->startedScope($inProgressQuery);
+        $this->applyPeriodScope($inProgressQuery, $filters['period_id'] ?? null);
         $this->applyDateSessionScope(
             $inProgressQuery,
             $filters['session_id'] ?? null,
@@ -366,6 +380,7 @@ final class MyInterviewService
             ->whereHas('application.evaluations');
         $this->openSessionScope($doneQuery);
         $this->startedScope($doneQuery);
+        $this->applyPeriodScope($doneQuery, $filters['period_id'] ?? null);
         $this->applyDateSessionScope(
             $doneQuery,
             $filters['session_id'] ?? null,
@@ -396,6 +411,7 @@ final class MyInterviewService
             ->where('interview_kind', RecruitmentInterview::KIND_PRIMARY);
 
         $this->openSessionScope($query);
+        $this->applyPeriodScope($query, $filters['period_id'] ?? null);
         $this->applyDateSessionScope(
             $query,
             $filters['session_id'] ?? null,
@@ -504,6 +520,32 @@ final class MyInterviewService
     /**
      * @return list<array{value: string, label: string}>
      */
+    public function periodsForInterviewer(User $interviewer): array
+    {
+        $divisionIds = RecruitmentInterviewerDivision::query()
+            ->where('user_id', $interviewer->id)
+            ->pluck('recruitment_division_id');
+
+        return RecruitmentPeriod::query()
+            ->whereExists(function ($q) use ($divisionIds): void {
+                $q->selectRaw('1')
+                    ->from('recruitment_interview_sessions')
+                    ->whereColumn('recruitment_interview_sessions.recruitment_period_id', 'recruitment_periods.id')
+                    ->whereIn('recruitment_interview_sessions.recruitment_division_id', $divisionIds);
+            })
+            ->orderByDesc('created_at')
+            ->get(['id', 'name'])
+            ->map(fn (RecruitmentPeriod $period): array => [
+                'value' => $period->id,
+                'label' => $period->name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
     public function divisionsForInterviewer(User $interviewer): array
     {
         return RecruitmentDivision::query()
@@ -557,11 +599,14 @@ final class MyInterviewService
         $divisionFilter = is_string($divisionFilter) && trim($divisionFilter) !== '' ? $divisionFilter : null;
         $sessionFilter = $filters['session_id'] ?? null;
         $sessionFilter = is_string($sessionFilter) && trim($sessionFilter) !== '' ? $sessionFilter : null;
+        $periodFilter = $filters['period_id'] ?? null;
+        $periodFilter = is_string($periodFilter) && trim($periodFilter) !== '' ? $periodFilter : null;
         $search = $filters['q'] ?? null;
         $search = is_string($search) && trim($search) !== '' ? trim($search) : null;
 
         $applications = RecruitmentApplication::query()
             ->when($divisionFilter !== null, fn ($query) => $query->where('secondary_division_id', $divisionFilter), fn ($query) => $query->whereIn('secondary_division_id', $divisionIds))
+            ->when($periodFilter !== null, fn ($query) => $query->where('recruitment_period_id', $periodFilter))
             ->where('stage', '!=', ApplicationStage::Completed)
             ->whereHas('attendance')
             ->when($search !== null, fn ($query) => $query->where(function ($q) use ($search): void {
@@ -710,13 +755,18 @@ final class MyInterviewService
                     });
                 }
             })
-            ->whereHas('session', function ($query) use ($divisionIds, $divisionFilter): void {
+            ->whereHas('session', function ($query) use ($divisionIds, $divisionFilter, $filters): void {
                 $query
                     ->where('is_active', true)
                     ->whereIn('recruitment_division_id', $divisionIds);
 
                 if ($divisionFilter !== null) {
                     $query->where('recruitment_division_id', $divisionFilter);
+                }
+
+                $periodFilter = $filters['period_id'] ?? null;
+                if (is_string($periodFilter) && trim($periodFilter) !== '') {
+                    $query->where('recruitment_period_id', $periodFilter);
                 }
             })
             ->with(['application.primaryDivision', 'session.division', 'session.period:id,name'])
@@ -801,6 +851,8 @@ final class MyInterviewService
         $divisionFilter = is_string($divisionFilter) && trim($divisionFilter) !== '' ? $divisionFilter : null;
         $sessionFilter = $filters['session_id'] ?? null;
         $sessionFilter = is_string($sessionFilter) && trim($sessionFilter) !== '' ? $sessionFilter : null;
+        $periodFilter = $filters['period_id'] ?? null;
+        $periodFilter = is_string($periodFilter) && trim($periodFilter) !== '' ? $periodFilter : null;
         $search = $filters['q'] ?? null;
         $search = is_string($search) && trim($search) !== '' ? trim($search) : null;
 
@@ -809,6 +861,7 @@ final class MyInterviewService
             ->where('interview_kind', RecruitmentInterview::KIND_SECONDARY)
             ->whereDoesntHave('evaluation')
             ->when($sessionFilter !== null, fn ($query) => $query->where('recruitment_interview_session_id', $sessionFilter))
+            ->when($periodFilter !== null, fn ($query) => $query->whereHas('session', fn ($sq) => $sq->where('recruitment_period_id', $periodFilter)))
             ->when($search !== null, fn ($query) => $query->whereHas('application', function ($q) use ($search): void {
                 $this->whereLike($q, 'full_name', $search);
                 $this->whereLike($q, 'nim', $search, 'or');
@@ -997,6 +1050,18 @@ final class MyInterviewService
         }
 
         return in_array(strtolower(trim($showAll)), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * Filter period untuk query interview (lewat sesi).
+     *
+     * @param  Builder<RecruitmentInterview>  $query
+     */
+    private function applyPeriodScope(Builder $query, mixed $periodId): void
+    {
+        if (is_string($periodId) && trim($periodId) !== '') {
+            $query->whereHas('session', fn ($sq) => $sq->where('recruitment_period_id', $periodId));
+        }
     }
 
     private function cleanDate(mixed $value): ?string

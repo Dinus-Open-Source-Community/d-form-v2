@@ -569,4 +569,44 @@ class RecruitmentMyInterviewScopeTest extends TestCase
             ->post(route('dashboard.recruitment.interview-sessions.store'), $payload)
             ->assertRedirect();
     }
+
+    public function test_period_filter_isolates_tab_all(): void
+    {
+        $todayApp = $this->bookedApplication('P01');
+
+        $otherPeriod = RecruitmentPeriod::factory()->create();
+        $otherSession = RecruitmentInterviewSession::query()->create([
+            'recruitment_period_id' => $otherPeriod->id,
+            'recruitment_division_id' => $this->programming->id,
+            'session_date' => now()->toDateString(),
+            'starts_at' => '09:00:00',
+            'ends_at' => '12:00:00',
+            'location' => 'Lab DOSCOM',
+            'room' => 'A101',
+            'is_active' => true,
+        ]);
+        $otherApp = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $otherPeriod->id,
+            'primary_division_id' => $this->programming->id,
+            'registration_number' => 'OPREC-2026-MIP02',
+            'stage' => ApplicationStage::Interview,
+            'result' => ApplicationResult::Pending,
+        ]);
+        $this->checkInApplicant($otherSession, $otherApp, $this->staff);
+
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'all', 'show_all' => '1', 'period_id' => $otherPeriod->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('interviews.total', 1)
+                ->where('interviews.data.0.application.id', $otherApp->id)
+                ->where('tab_counts.all', 1)
+                ->has('period_options', 2));
+
+        // Tanpa filter period: kedua periode tampil.
+        $this->actingAs($this->interviewer)
+            ->get(route('dashboard.recruitment.my-interviews.index', ['tab' => 'all', 'show_all' => '1']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('interviews.total', 2));
+    }
 }

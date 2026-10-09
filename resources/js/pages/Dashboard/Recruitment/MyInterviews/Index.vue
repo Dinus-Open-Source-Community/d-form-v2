@@ -103,7 +103,7 @@ interface MyInterviewsQuery {
     date_from?: string
     date_to?: string
     show_all?: string
-    eval?: string
+    period_id?: string
     sort?: string
 }
 
@@ -117,13 +117,6 @@ const TABS: { key: string; label: string }[] = [
     { key: 'in_progress', label: 'Sedang interview' },
     { key: 'done', label: 'Selesai' },
     { key: 'all', label: 'Semua Peserta' },
-]
-
-const EVAL_OPTIONS: FilterOption[] = [
-    { value: '', label: 'Semua status' },
-    { value: 'pending', label: 'Perlu dinilai' },
-    { value: 'done', label: 'Sudah dinilai' },
-    { value: 'locked', label: 'Terkunci' },
 ]
 
 const SORT_OPTIONS: FilterOption[] = [
@@ -153,6 +146,7 @@ const props = withDefaults(
         next_action: NextAction | null
         pending_start_count?: number
         division_options?: FilterOption[]
+        period_options?: FilterOption[]
         session_options?: FilterOption[]
         secondary_opportunities?: SecondaryOpportunity[]
         primary_opportunities?: PrimaryOpportunity[]
@@ -162,6 +156,7 @@ const props = withDefaults(
     {
         pending_start_count: 0,
         division_options: (): FilterOption[] => [],
+        period_options: (): FilterOption[] => [],
         session_options: (): FilterOption[] => [],
         secondary_opportunities: (): SecondaryOpportunity[] => [],
         primary_opportunities: (): PrimaryOpportunity[] => [],
@@ -176,7 +171,7 @@ const sessionId = ref<string>(props.query.session_id ?? '')
 const dateFrom = ref<string>(props.query.date_from ?? '')
 const dateTo = ref<string>(props.query.date_to ?? '')
 const showAll = ref<string>(props.query.show_all ?? '')
-const evalFilter = ref<string>(props.query.eval ?? '')
+const periodId = ref<string>(props.query.period_id ?? '')
 const sortKey = ref<string>(props.query.sort ?? '')
 const activeTab = ref<string>(props.query.tab ?? 'waiting')
 const isNavigating = ref<boolean>(false)
@@ -205,7 +200,7 @@ function refsMatchQuery(): boolean {
         dateFrom.value === (current.date_from ?? '') &&
         dateTo.value === (current.date_to ?? '') &&
         showAll.value === (current.show_all ?? '') &&
-        evalFilter.value === (current.eval ?? '') &&
+        periodId.value === (current.period_id ?? '') &&
         sortKey.value === (current.sort ?? '') &&
         activeTab.value === (current.tab ?? 'waiting')
     )
@@ -220,7 +215,7 @@ function baseParams(pageNumber: number): Record<string, string | number> {
     if (dateFrom.value !== '') params.date_from = dateFrom.value
     if (dateTo.value !== '') params.date_to = dateTo.value
     if (showAll.value !== '') params.show_all = showAll.value
-    if (evalFilter.value !== '') params.eval = evalFilter.value
+    if (periodId.value !== '') params.period_id = periodId.value
     if (sortKey.value !== '') params.sort = sortKey.value
     if (activeTab.value !== '') params.tab = activeTab.value
     if (pageNumber > 1) params.page = pageNumber
@@ -264,7 +259,7 @@ function handleFilterChange(next: FilterTuple, prev: FilterTuple): void {
     applyFilters(1)
 }
 
-watch([searchInput, divisionId, sessionId, dateFrom, dateTo, showAll, evalFilter, sortKey, activeTab], handleFilterChange)
+watch([searchInput, divisionId, sessionId, dateFrom, dateTo, showAll, periodId, sortKey, activeTab], handleFilterChange)
 
 function syncRefsFromQuery(next: MyInterviewsQuery): void {
     clearSearchTimer()
@@ -274,7 +269,7 @@ function syncRefsFromQuery(next: MyInterviewsQuery): void {
     dateFrom.value = next.date_from ?? ''
     dateTo.value = next.date_to ?? ''
     showAll.value = next.show_all ?? ''
-    evalFilter.value = next.eval ?? ''
+    periodId.value = next.period_id ?? ''
     sortKey.value = next.sort ?? ''
     activeTab.value = next.tab ?? 'waiting'
     skipFilterRun = true
@@ -343,7 +338,7 @@ const hasActiveFilters = computed<boolean>((): boolean => {
         dateFrom.value !== '' ||
         dateTo.value !== '' ||
         showAll.value !== '' ||
-        evalFilter.value !== '' ||
+        periodId.value !== '' ||
         sortKey.value !== '' ||
         (activeTab.value !== '' && activeTab.value !== 'waiting')
     )
@@ -364,7 +359,7 @@ function resetFilters(): void {
     dateFrom.value = ''
     dateTo.value = ''
     showAll.value = ''
-    evalFilter.value = ''
+    periodId.value = ''
     sortKey.value = ''
     activeTab.value = ''
 }
@@ -543,7 +538,12 @@ const sessionOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] =
     return [{ value: '', label: 'Semua sesi' }, ...fallback]
 })
 
-const evalOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] => EVAL_OPTIONS)
+const periodOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] => {
+    if (props.period_options.length > 0) {
+        return [{ value: '', label: 'Semua periode' }, ...props.period_options]
+    }
+    return [{ value: '', label: 'Semua periode' }]
+})
 const sortOptions = computed<SimpleSelectOption[]>((): SimpleSelectOption[] => SORT_OPTIONS)
 
 function queueBadgeCount(key: string): number | null {
@@ -633,10 +633,10 @@ const emptyDescription = computed<string>((): string => {
                         aria-label="Filter sesi"
                     />
                     <SimpleSelect
-                        id="filter-status"
-                        v-model="evalFilter"
-                        :options="evalOptions"
-                        aria-label="Filter status penilaian"
+                        id="filter-periode"
+                        v-model="periodId"
+                        :options="periodOptions"
+                        aria-label="Filter periode"
                     />
                     <SimpleSelect
                         id="filter-urut"
