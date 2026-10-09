@@ -283,8 +283,8 @@ class RecruitmentEmailResendTest extends TestCase
                 ->where('applicant_detail.email_resend_status.confirmation.last_attempt_at', fn (?string $value): bool => filled($value))
                 ->where('applicant_detail.email_resend_status.tracking.count_24h', 0)
                 ->where('applicant_detail.email_resend_status.tracking.last_attempt_at', null)
-                ->where('applicant_detail.prereq.has_correction', true)
-                ->where('applicant_detail.prereq.has_interview', false)
-                ->where('applicant_detail.prereq.has_replayable_notification', true));
+                ->where('applicant_detail.email_resend_prereq.has_correction', true)
+                ->where('applicant_detail.email_resend_prereq.has_interview', false)
+                ->where('applicant_detail.email_resend_prereq.has_replayable_notification', true));
     }
 }

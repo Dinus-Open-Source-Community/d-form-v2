@@ -280,7 +280,7 @@ final class RecruitmentApplicationService
             'can_decide_final' => $this->canDecideFinal($application),
             'can_resend_tracking' => $this->canResendTracking($application),
             'email_resend_status' => $this->emailResendStatus($application),
-            'prereq' => $this->emailResendPrereq($application),
+            'email_resend_prereq' => $this->emailResendPrereq($application),
         ];
     }
 
