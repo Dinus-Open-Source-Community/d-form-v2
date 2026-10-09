@@ -76,11 +76,11 @@ class RecruitmentInterviewSessionController extends Controller
             || $session->attendances()->exists()
         ) {
             Inertia::flash('toast', [
-                'message' => 'Sesi dengan jadwal tidak bisa dihapus.',
+                'message' => 'Sesi dengan jadwal atau presensi tidak bisa dihapus.',
                 'type' => 'error',
             ]);
 
-            abort(422, 'Sesi dengan jadwal tidak bisa dihapus.');
+            return redirect()->back();
         }
 
         $periodId = $session->recruitment_period_id;

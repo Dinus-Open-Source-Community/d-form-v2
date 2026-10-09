@@ -28,6 +28,7 @@ import InterviewSessionCreateSheet, {
 import InterviewSessionEditSheet, {
     type EditableInterviewSession,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue'
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { routes } from '@/lib/routes'
 import { toast } from 'vue-sonner'
 
@@ -134,12 +135,16 @@ function destroyPath(id: string): string {
     return routes.admin.recruitment.interviewSessions.destroy(id)
 }
 
+const sessionToDelete = ref<SessionRow | null>(null)
+
 function handleDelete(session: SessionRow): void {
-    const divisionName: string = session.division?.name ?? '-'
-    const confirmed: boolean = window.confirm(
-        `Sesi tanggal ${session.session_date} divisi ${divisionName} akan dihapus. Data jadwal tetap aman?`,
-    )
-    if (!confirmed) return
+    sessionToDelete.value = session
+}
+
+function confirmDelete(): void {
+    const session = sessionToDelete.value
+    if (!session) return
+    sessionToDelete.value = null
     router.delete(destroyPath(session.id), {
         preserveScroll: true,
         only: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
@@ -537,4 +542,20 @@ function submitExport(): void {
 
         <p v-else-if="!sessions" class="text-muted-foreground text-sm">Data sesi tidak tersedia untuk tab ini.</p>
     </div>
+
+    <ConfirmationModal
+        :open="sessionToDelete !== null"
+        title="Hapus sesi interview?"
+        :description="
+            sessionToDelete
+                ? `Sesi ${sessionToDelete.session_date} – ${sessionToDelete.division?.name ?? '-'} akan dihapus permanen. Aksi ini tidak bisa dibatalkan.`
+                : ''
+        "
+        confirm-text="Ya, hapus"
+        cancel-text="Batal"
+        variant="destructive"
+        @confirm="confirmDelete"
+        @cancel="sessionToDelete = null"
+        @update:open="(v) => { if (!v) sessionToDelete = null }"
+    />
 </template>
