@@ -465,6 +465,21 @@ function confirmSave(): void {
                                 <p class="mt-0.5 font-medium">{{ detail.attendance.checked_in_at }}</p>
                             </div>
                         </div>
+
+                        <div
+                            v-if="detail.primary_evaluation?.notes"
+                            class="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex size-2 rounded-full bg-rose-500" />
+                                <h3 class="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                                    Catatan Divisi Utama ({{ detail.application.primary_division ?? 'Divisi Pertama' }})
+                                </h3>
+                            </div>
+                            <p class="mt-2 text-sm text-foreground break-words">
+                                {{ detail.primary_evaluation.notes }}
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -818,21 +833,6 @@ function confirmSave(): void {
             <Card class="rounded-2xl border-border/70 lg:col-span-5">
                 <CardContent class="p-6">
                     <h2 class="text-sm font-semibold">Penilaian interview</h2>
-
-                    <div
-                        v-if="detail.primary_evaluation?.notes"
-                        class="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4"
-                    >
-                        <div class="flex items-center gap-2">
-                            <span class="inline-flex size-2 rounded-full bg-rose-500" />
-                            <h3 class="text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                                Catatan Divisi Utama ({{ detail.application.primary_division ?? 'Divisi Pertama' }})
-                            </h3>
-                        </div>
-                        <p class="mt-2 text-sm text-foreground break-words">
-                            {{ detail.primary_evaluation.notes }}
-                        </p>
-                    </div>
 
                     <p
                         v-if="isLockedByAttendance"
