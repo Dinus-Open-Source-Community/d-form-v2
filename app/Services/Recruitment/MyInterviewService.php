@@ -654,6 +654,7 @@ final class MyInterviewService
                     'registration_number' => $application->registration_number,
                     'nim' => $application->nim,
                     'secondary_division' => $application->secondaryDivision?->name,
+                    'primary_recommendation' => $application->primaryInterview?->evaluation?->recommendation?->value,
                 ],
                 'sessions' => $sessions,
             ];

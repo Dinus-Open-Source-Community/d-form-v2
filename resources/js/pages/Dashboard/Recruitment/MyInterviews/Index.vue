@@ -35,6 +35,7 @@ import {
     ChevronRight,
     RotateCcw,
     Search,
+    ThumbsDown,
     Ticket,
 } from 'lucide-vue-next'
 import InterviewRowCard, { type InterviewRow } from './InterviewRowCard.vue'
@@ -71,6 +72,7 @@ interface SecondaryOpportunity {
         registration_number: string
         nim: string
         secondary_division: string | null
+        primary_recommendation?: 'recommended' | 'not_recommended' | null
     }
     sessions: { value: string; label: string; period: string | null }[]
 }
@@ -761,6 +763,19 @@ const emptyDescription = computed<string>((): string => {
                             : 'Belum ada sesi aktif untuk divisi ini.'
                     "
                 >
+                    <template #name>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span>{{ opp.application.full_name }}</span>
+                            <span
+                                v-if="opp.application.primary_recommendation === 'not_recommended'"
+                                class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+                                aria-label="Tidak direkomendasikan di divisi pertama"
+                            >
+                                <ThumbsDown class="size-3 shrink-0" aria-hidden="true" />
+                                Tidak lolos divisi pertama
+                            </span>
+                        </div>
+                    </template>
                     <template #action>
                         <Button
                             v-if="opp.sessions.length > 0"
