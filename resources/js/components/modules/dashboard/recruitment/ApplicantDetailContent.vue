@@ -402,18 +402,15 @@ function divisionHint(divisionId: string): IDivisionHint {
 }
 
 const divisionSelectOptions = computed<{ value: string; label: string }[]>(() =>
-    (props.divisionOptions ?? []).map((option) => {
-        const hint = divisionHint(option.id)
-        const markers: string[] = []
-        if (hint.isPrimary) markers.push('Primary')
-        if (hint.isSecondary) markers.push('Secondary')
-        if (hint.recommendationLabel) markers.push(hint.recommendationLabel)
-        if (hint.averageLabel) markers.push(`rata-rata ${hint.averageLabel}`)
-        return {
-            value: option.id,
-            label: markers.length > 0 ? `${option.name} — ${markers.join(' · ')}` : option.name,
-        }
-    }),
+    (props.divisionOptions ?? []).map((option) => ({
+        value: option.id,
+        label: option.name,
+    })),
+)
+
+/** Penanda divisi terpilih (primary/secondary, rekomendasi, rata-rata) — ditampilkan sebagai badge di bawah select. */
+const selectedDivisionHint = computed<IDivisionHint>((): IDivisionHint =>
+    divisionHint(finalConfirmForm.final_division_id),
 )
 
 const selectedDivisionName = computed<string>((): string => {
@@ -540,6 +537,13 @@ const relevantGroupLinkLabel = computed<string>(() =>
     pendingFinalMembership.value === 'aa' ? 'AA' : 'Member',
 )
 
+/** Label keanggotaan untuk pratinjau email (cermin backend: aa → Anggota Aktif). Label grup existing tetap untuk tombol grup. */
+const membershipDisplayLabel = computed<string>((): string => {
+    if (pendingFinalMembership.value === 'aa') return 'Anggota Aktif'
+    if (pendingFinalMembership.value === 'member') return 'Member'
+    return ''
+})
+
 /** Link grup periode yang relevan (AA/Member sesuai pilihan); '' bila belum diisi. */
 const relevantGroupLink = computed<string>(() => {
     if (pendingFinalMembership.value === 'aa') {
@@ -570,6 +574,7 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
                 emit('submitted')
             },
             onError: (errors: Record<string, string | string[]>) => {
+                if (errors['final_division_id']) finalStep.value = 1
                 if (viaGroupDialog) {
                     const first =
                         errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application']
@@ -1939,7 +1944,7 @@ const defaultTab = computed(() => {
         </Dialog>
 
         <Dialog v-if="!readonly" v-model:open="finalConfirmOpen">
-            <DialogContent class="sm:max-w-md" @open-auto-focus="focusFinalCancel">
+            <DialogContent class="sm:max-w-lg *:min-w-0" @open-auto-focus="focusFinalCancel">
                 <DialogHeader>
                     <DialogTitle>Konfirmasi keputusan final</DialogTitle>
                     <DialogDescription>
@@ -1947,12 +1952,12 @@ const defaultTab = computed(() => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
-                    <p class="font-semibold">{{ application.full_name }}</p>
-                    <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                <div class="max-w-full min-w-0 rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                    <p class="font-semibold break-words">{{ application.full_name }}</p>
+                    <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
                         {{ application.registration_number }}
                     </p>
-                    <p class="mt-2">
+                    <p class="mt-2 break-words">
                         {{ finalChoiceActionLabel }}
                         <span v-if="!isFinalRejectChoice"> — {{ finalDivisionName }}</span>
                     </p>
@@ -1965,7 +1970,7 @@ const defaultTab = computed(() => {
                     Langkah {{ finalStep }} dari 2 — {{ finalStep === 1 ? 'Pilih divisi' : 'Konfirmasi' }}
                 </p>
 
-                <div v-if="!isFinalRejectChoice && finalStep === 1" class="space-y-2">
+                <div v-if="!isFinalRejectChoice && finalStep === 1" class="min-w-0 max-w-full space-y-2">
                     <Label for="final-division-select">Divisi penempatan</Label>
                     <SimpleSelect
                         id="final-division-select"
@@ -1973,36 +1978,66 @@ const defaultTab = computed(() => {
                         :options="divisionSelectOptions"
                         placeholder="Pilih divisi penempatan"
                         :invalid="!!finalConfirmForm.errors.final_division_id"
+                        class="min-w-0 max-w-full [&>span]:min-w-0"
                     />
                     <p v-if="finalConfirmForm.errors.final_division_id" class="text-destructive text-xs">
                         {{ finalConfirmForm.errors.final_division_id }}
                     </p>
                     <div
-                        v-if="suggestedDivision"
-                        class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm"
+                        v-if="finalConfirmForm.final_division_id !== ''"
+                        class="flex min-w-0 max-w-full flex-wrap gap-1.5"
                     >
-                        <p class="font-semibold">Saran: {{ suggestedDivision.name }}</p>
-                        <p class="text-muted-foreground mt-0.5 text-xs">{{ suggestedDivision.reason }}</p>
+                        <span
+                            v-if="selectedDivisionHint.isPrimary"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                        >
+                            Primary
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.isSecondary"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                        >
+                            Secondary
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.recommendationLabel"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                        >
+                            {{ selectedDivisionHint.recommendationLabel }}
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.averageLabel"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                        >
+                            rata-rata {{ selectedDivisionHint.averageLabel }}
+                        </span>
+                    </div>
+                    <div
+                        v-if="suggestedDivision"
+                        class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm"
+                    >
+                        <p class="font-semibold break-words">Saran: {{ suggestedDivision.name }}</p>
+                        <p class="text-muted-foreground mt-0.5 text-xs break-words">{{ suggestedDivision.reason }}</p>
                     </div>
                 </div>
 
-                <div v-if="!isFinalRejectChoice && finalStep === 2" class="space-y-3">
-                    <div class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
-                        <p class="font-semibold">{{ application.full_name }}</p>
-                        <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                <div v-if="!isFinalRejectChoice && finalStep === 2" class="min-w-0 max-w-full space-y-3">
+                    <div class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                        <p class="font-semibold break-words">{{ application.full_name }}</p>
+                        <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
                             {{ application.registration_number }}
                         </p>
-                        <p class="mt-2">{{ finalChoiceActionLabel }} — {{ selectedDivisionName }}</p>
+                        <p class="mt-2 break-words">{{ finalChoiceActionLabel }} — {{ selectedDivisionName }}</p>
                     </div>
 
-                    <div class="space-y-2 rounded-xl border border-border/70 px-4 py-3">
+                    <div class="min-w-0 max-w-full space-y-2 rounded-xl border border-border/70 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Pratinjau email
                         </p>
-                        <div class="rounded-lg bg-muted/40 px-4 py-3 text-sm leading-relaxed">
+                        <div class="min-w-0 max-w-full rounded-lg bg-muted/40 px-4 py-3 text-sm leading-relaxed break-words">
                             <p>Halo {{ application.full_name }},</p>
                             <p class="mt-2">
-                                Selamat! Kamu diterima sebagai {{ relevantGroupLinkLabel }} DOSCOM di
+                                Selamat! Kamu diterima sebagai {{ membershipDisplayLabel }} DOSCOM di
                                 divisi {{ selectedDivisionName }}.
                             </p>
                             <span
@@ -2015,8 +2050,8 @@ const defaultTab = computed(() => {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
-                        <div class="space-y-0.5">
+                    <div class="flex min-w-0 max-w-full items-center justify-between gap-3 rounded-xl border p-3">
+                        <div class="min-w-0 flex-1 space-y-0.5">
                             <Label for="final-include-group">Sertakan link grup di email</Label>
                             <p class="text-muted-foreground text-xs">
                                 {{
@@ -2074,7 +2109,7 @@ const defaultTab = computed(() => {
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter class="min-w-0 max-w-full flex-wrap">
                     <template v-if="!isFinalRejectChoice && finalStep === 1">
                         <Button
                             ref="finalCancelRef"
