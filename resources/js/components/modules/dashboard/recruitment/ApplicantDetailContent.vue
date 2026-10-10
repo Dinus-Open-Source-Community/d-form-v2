@@ -257,7 +257,7 @@ defineExpose({
     requestResendTracking,
     resendTrackingApplication,
     openFinalConfirm,
-    openFinalAcceptForDivision,
+    openFinalAcceptCross,
     openFinalReject,
 })
 
@@ -296,6 +296,7 @@ type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject'
 
 const finalConfirmOpen = ref(false)
 const finalChoice = ref<FinalDecisionChoice | null>(null)
+const finalStep = ref<1 | 2>(1)
 const finalCancelRef = ref<ComponentPublicInstance | null>(null)
 const finalDivisionName = ref<string>('')
 
@@ -354,6 +355,7 @@ function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divi
     finalChoice.value = choice
     finalConfirmForm.reset()
     finalConfirmForm.clearErrors()
+    finalStep.value = 1
     if (choice === 'accept_aa' || choice === 'accept_member') {
         finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
         finalConfirmForm.final_division_id = divisionId ?? ''
@@ -367,17 +369,120 @@ function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divi
     finalConfirmOpen.value = true
 }
 
-function openFinalAcceptForDivision(
-    divisionId: string,
-    divisionName: string,
-    membershipType: 'aa' | 'member',
-): void {
-    openFinalConfirm(membershipType === 'aa' ? 'accept_aa' : 'accept_member', divisionId, divisionName)
-}
-
 function openFinalReject(): void {
     openFinalConfirm('reject')
 }
+
+interface IDivisionHint {
+    isPrimary: boolean
+    isSecondary: boolean
+    recommendationLabel: string | null
+    averageLabel: string | null
+}
+
+function divisionHint(divisionId: string): IDivisionHint {
+    if (divisionId === '') {
+        return { isPrimary: false, isSecondary: false, recommendationLabel: null, averageLabel: null }
+    }
+    const isPrimary = divisionId === primaryDivisionId.value
+    const isSecondary = divisionId === secondaryDivisionId.value
+    const evaluation = isPrimary
+        ? props.application.evaluations?.primary
+        : isSecondary
+            ? props.application.evaluations?.secondary
+            : null
+    return {
+        isPrimary,
+        isSecondary,
+        recommendationLabel: evaluation?.recommendation_label ?? null,
+        averageLabel: evaluation
+            ? evaluationAverageLabel(evaluation.speaking_score, evaluation.technical_score, evaluation.attitude_score)
+            : null,
+    }
+}
+
+const divisionSelectOptions = computed<{ value: string; label: string }[]>(() =>
+    (props.divisionOptions ?? []).map((option) => ({
+        value: option.id,
+        label: option.name,
+    })),
+)
+
+/** Penanda divisi terpilih (primary/secondary, rekomendasi, rata-rata) — ditampilkan sebagai badge di bawah select. */
+const selectedDivisionHint = computed<IDivisionHint>((): IDivisionHint =>
+    divisionHint(finalConfirmForm.final_division_id),
+)
+
+const selectedDivisionName = computed<string>((): string => {
+    const id = finalConfirmForm.final_division_id
+    if (id === '') return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
+    const found = (props.divisionOptions ?? []).find((option) => option.id === id)
+    if (found) return found.name
+    return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
+})
+
+const suggestedDivision = computed<{ id: string; name: string; reason: string } | null>(() => {
+    const primaryEvaluation = props.application.evaluations?.primary
+    const secondaryEvaluation = props.application.evaluations?.secondary
+    const primaryRecommended = primaryEvaluation?.recommendation === 'recommended'
+    const secondaryRecommended = secondaryEvaluation?.recommendation === 'recommended'
+    if (primaryRecommended && primaryDivisionId.value !== '') {
+        return {
+            id: primaryDivisionId.value,
+            name: primaryDivisionName.value,
+            reason: `Direkomendasikan primary — rata-rata ${evaluationAverageLabel(primaryEvaluation.speaking_score, primaryEvaluation.technical_score, primaryEvaluation.attitude_score)}`,
+        }
+    }
+    if (secondaryRecommended && secondaryDivisionId.value !== '') {
+        return {
+            id: secondaryDivisionId.value,
+            name: secondaryDivisionName.value,
+            reason: `Direkomendasikan secondary — rata-rata ${evaluationAverageLabel(secondaryEvaluation.speaking_score, secondaryEvaluation.technical_score, secondaryEvaluation.attitude_score)}`,
+        }
+    }
+    if (primaryDivisionId.value !== '') {
+        return {
+            id: primaryDivisionId.value,
+            name: primaryDivisionName.value,
+            reason: 'Belum ada rekomendasi — default primary',
+        }
+    }
+    return null
+})
+
+function divisionNameFor(divisionId: string): string {
+    if (divisionId === '') return ''
+    const found = (props.divisionOptions ?? []).find((option) => option.id === divisionId)
+    if (found) return found.name
+    if (divisionId === primaryDivisionId.value) return primaryDivisionName.value
+    if (divisionId === secondaryDivisionId.value) return secondaryDivisionName.value
+    return ''
+}
+
+function openFinalAcceptCross(membership: 'aa' | 'member'): void {
+    finalChoice.value = membership === 'aa' ? 'accept_aa' : 'accept_member'
+    finalConfirmForm.reset()
+    finalConfirmForm.clearErrors()
+    finalConfirmForm.membership_type = membership
+    const primaryRecommended = props.application.evaluations?.primary?.recommendation === 'recommended'
+    const secondaryRecommended = props.application.evaluations?.secondary?.recommendation === 'recommended'
+    let preselectId = primaryDivisionId.value
+    if (!primaryRecommended && secondaryRecommended && secondaryDivisionId.value !== '') {
+        preselectId = secondaryDivisionId.value
+    }
+    finalConfirmForm.final_division_id = preselectId
+    finalDivisionName.value = divisionNameFor(preselectId)
+    finalWaIncludeGroup.value = true
+    finalStep.value = 1
+    finalConfirmOpen.value = true
+}
+
+watch(
+    () => finalConfirmForm.final_division_id,
+    (divisionId: string) => {
+        if (divisionId !== '') finalDivisionName.value = divisionNameFor(divisionId)
+    },
+)
 
 function focusFinalCancel(event: Event): void {
     event.preventDefault()
@@ -432,6 +537,13 @@ const relevantGroupLinkLabel = computed<string>(() =>
     pendingFinalMembership.value === 'aa' ? 'AA' : 'Member',
 )
 
+/** Label keanggotaan untuk pratinjau email (cermin backend: aa → Anggota Aktif). Label grup existing tetap untuk tombol grup. */
+const membershipDisplayLabel = computed<string>((): string => {
+    if (pendingFinalMembership.value === 'aa') return 'Anggota Aktif'
+    if (pendingFinalMembership.value === 'member') return 'Member'
+    return ''
+})
+
 /** Link grup periode yang relevan (AA/Member sesuai pilihan); '' bila belum diisi. */
 const relevantGroupLink = computed<string>(() => {
     if (pendingFinalMembership.value === 'aa') {
@@ -458,10 +570,11 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
                     finalSavedLinks.value[pendingFinalMembership.value] = savedUrl
                 }
                 finalConfirmOpen.value = false
-                toast.success(successMessage)
                 emit('submitted')
+                toast.success(successMessage, { duration: 5000, id: 'final-decision-result' })
             },
             onError: (errors: Record<string, string | string[]>) => {
+                if (errors['final_division_id']) finalStep.value = 1
                 if (viaGroupDialog) {
                     const first =
                         errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application']
@@ -1483,46 +1596,11 @@ const defaultTab = computed(() => {
                             </figure>
                         </div>
 
-                        <div
-                            class="px-6 pt-4"
-                            :class="{ 'pb-6': !(showFinalDecision && primaryDivisionId) }"
-                        >
+                        <div class="px-6 pb-6 pt-4">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
-                        </div>
-
-                        <div
-                            v-if="showFinalDecision && primaryDivisionId"
-                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
-                        >
-                            <p class="text-muted-foreground text-xs">
-                                Keputusan final — tempatkan applicant di {{ primaryDivisionName }}
-                            </p>
-                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
-                                >
-                                    <Star class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai AA — {{ primaryDivisionName }}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
-                                >
-                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai Member — {{ primaryDivisionName }}
-                                </Button>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1647,46 +1725,11 @@ const defaultTab = computed(() => {
                             </figure>
                         </div>
 
-                        <div
-                            class="px-6 pt-4"
-                            :class="{ 'pb-6': !(showFinalDecision && secondaryDivisionId) }"
-                        >
+                        <div class="px-6 pb-6 pt-4">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
-                        </div>
-
-                        <div
-                            v-if="showFinalDecision && secondaryDivisionId"
-                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
-                        >
-                            <p class="text-muted-foreground text-xs">
-                                Keputusan final — tempatkan applicant di {{ secondaryDivisionName }}
-                            </p>
-                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
-                                >
-                                    <Star class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai AA — {{ secondaryDivisionName }}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
-                                >
-                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai Member — {{ secondaryDivisionName }}
-                                </Button>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1901,7 +1944,7 @@ const defaultTab = computed(() => {
         </Dialog>
 
         <Dialog v-if="!readonly" v-model:open="finalConfirmOpen">
-            <DialogContent class="sm:max-w-md" @open-auto-focus="focusFinalCancel">
+            <DialogContent class="sm:max-w-lg *:min-w-0" @open-auto-focus="focusFinalCancel">
                 <DialogHeader>
                     <DialogTitle>Konfirmasi keputusan final</DialogTitle>
                     <DialogDescription>
@@ -1909,47 +1952,125 @@ const defaultTab = computed(() => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
-                    <p class="font-semibold">{{ application.full_name }}</p>
-                    <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                <div class="max-w-full min-w-0 rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                    <p class="font-semibold break-words">{{ application.full_name }}</p>
+                    <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
                         {{ application.registration_number }}
                     </p>
-                    <p class="mt-2">
+                    <p class="mt-2 break-words">
                         {{ finalChoiceActionLabel }}
                         <span v-if="!isFinalRejectChoice"> — {{ finalDivisionName }}</span>
                     </p>
                     <p v-if="!isFinalRejectChoice" class="text-muted-foreground mt-1 text-xs">
-                        Divisi penempatan final mengikuti kartu evaluasi yang dipilih.
+                        Divisi penempatan bebas — boleh berbeda dari primary/secondary.
                     </p>
                 </div>
 
-                <p
-                    v-if="!isFinalRejectChoice && finalConfirmForm.errors.final_division_id"
-                    class="text-destructive text-xs"
-                >
-                    {{ finalConfirmForm.errors.final_division_id }}
+                <p v-if="!isFinalRejectChoice" class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                    Langkah {{ finalStep }} dari 2 — {{ finalStep === 1 ? 'Pilih divisi' : 'Konfirmasi' }}
                 </p>
 
-                <div v-if="!isFinalRejectChoice" class="flex items-center justify-between gap-3 rounded-xl border p-3">
-                    <div class="space-y-0.5">
-                        <Label for="final-include-group">Sertakan link grup di email</Label>
-                        <p class="text-muted-foreground text-xs">
-                            {{
-                                finalWaIncludeGroup
-                                    ? 'Email penerimaan akan ada tombol Gabung Grup WA.'
-                                    : 'Email penerimaan dikirim tanpa blok link grup.'
-                            }}
-                        </p>
+                <div v-if="!isFinalRejectChoice && finalStep === 1" class="min-w-0 max-w-full space-y-2">
+                    <Label for="final-division-select">Divisi penempatan</Label>
+                    <SimpleSelect
+                        id="final-division-select"
+                        v-model="finalConfirmForm.final_division_id"
+                        :options="divisionSelectOptions"
+                        placeholder="Pilih divisi penempatan"
+                        :invalid="!!finalConfirmForm.errors.final_division_id"
+                        class="min-w-0 max-w-full [&>span]:min-w-0"
+                    />
+                    <p v-if="finalConfirmForm.errors.final_division_id" class="text-destructive text-xs">
+                        {{ finalConfirmForm.errors.final_division_id }}
+                    </p>
+                    <div
+                        v-if="finalConfirmForm.final_division_id !== ''"
+                        class="flex min-w-0 max-w-full flex-wrap gap-1.5"
+                    >
+                        <span
+                            v-if="selectedDivisionHint.isPrimary"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                        >
+                            Primary
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.isSecondary"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                        >
+                            Secondary
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.recommendationLabel"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                        >
+                            {{ selectedDivisionHint.recommendationLabel }}
+                        </span>
+                        <span
+                            v-if="selectedDivisionHint.averageLabel"
+                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                        >
+                            rata-rata {{ selectedDivisionHint.averageLabel }}
+                        </span>
                     </div>
-                    <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
+                    <div
+                        v-if="suggestedDivision"
+                        class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm"
+                    >
+                        <p class="font-semibold break-words">Saran: {{ suggestedDivision.name }}</p>
+                        <p class="text-muted-foreground mt-0.5 text-xs break-words">{{ suggestedDivision.reason }}</p>
+                    </div>
                 </div>
-                <p v-if="!isFinalRejectChoice && finalWaIncludeGroup" class="text-muted-foreground text-xs">
-                    {{
-                        relevantGroupLink !== ''
-                            ? `Menggunakan link grup WA ${relevantGroupLinkLabel} periode ini.`
-                            : `Link grup WA ${relevantGroupLinkLabel} belum diisi — Anda akan diminta mengisinya.`
-                    }}
-                </p>
+
+                <div v-if="!isFinalRejectChoice && finalStep === 2" class="min-w-0 max-w-full space-y-3">
+                    <div class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                        <p class="font-semibold break-words">{{ application.full_name }}</p>
+                        <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
+                            {{ application.registration_number }}
+                        </p>
+                        <p class="mt-2 break-words">{{ finalChoiceActionLabel }} — {{ selectedDivisionName }}</p>
+                    </div>
+
+                    <div class="min-w-0 max-w-full space-y-2 rounded-xl border border-border/70 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Pratinjau email
+                        </p>
+                        <div class="min-w-0 max-w-full rounded-lg bg-muted/40 px-4 py-3 text-sm leading-relaxed break-words">
+                            <p>Halo {{ application.full_name }},</p>
+                            <p class="mt-2">
+                                Selamat! Kamu diterima sebagai {{ membershipDisplayLabel }} DOSCOM di
+                                divisi {{ selectedDivisionName }}.
+                            </p>
+                            <span
+                                v-if="finalWaIncludeGroup"
+                                class="mt-3 inline-flex items-center rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background"
+                                aria-hidden="true"
+                            >
+                                Gabung Grup WA {{ relevantGroupLinkLabel }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex min-w-0 max-w-full items-center justify-between gap-3 rounded-xl border p-3">
+                        <div class="min-w-0 flex-1 space-y-0.5">
+                            <Label for="final-include-group">Sertakan link grup di email</Label>
+                            <p class="text-muted-foreground text-xs">
+                                {{
+                                    finalWaIncludeGroup
+                                        ? 'Email penerimaan akan ada tombol Gabung Grup WA.'
+                                        : 'Email penerimaan dikirim tanpa blok link grup.'
+                                }}
+                            </p>
+                        </div>
+                        <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
+                    </div>
+                    <p v-if="finalWaIncludeGroup" class="text-muted-foreground text-xs">
+                        {{
+                            relevantGroupLink !== ''
+                                ? `Menggunakan link grup WA ${relevantGroupLinkLabel} periode ini.`
+                                : `Link grup WA ${relevantGroupLinkLabel} belum diisi — Anda akan diminta mengisinya.`
+                        }}
+                    </p>
+                </div>
 
                 <div v-if="isFinalRejectChoice" class="space-y-4">
                     <div class="space-y-2">
@@ -1988,23 +2109,54 @@ const defaultTab = computed(() => {
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button
-                        ref="finalCancelRef"
-                        type="button"
-                        variant="outline"
-                        @click="finalConfirmOpen = false"
-                    >
-                        Batal
-                    </Button>
-                    <Button
-                        type="button"
-                        :variant="isFinalRejectChoice ? 'destructive' : 'default'"
-                        :disabled="finalConfirmForm.processing"
-                        @click="submitFinalConfirm"
-                    >
-                        Ya, lanjutkan
-                    </Button>
+                <DialogFooter class="min-w-0 max-w-full flex-wrap">
+                    <template v-if="!isFinalRejectChoice && finalStep === 1">
+                        <Button
+                            ref="finalCancelRef"
+                            type="button"
+                            variant="outline"
+                            @click="finalConfirmOpen = false"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            :disabled="finalConfirmForm.processing || finalConfirmForm.final_division_id === ''"
+                            @click="finalStep = 2"
+                        >
+                            Lanjut
+                        </Button>
+                    </template>
+                    <template v-else-if="!isFinalRejectChoice">
+                        <Button type="button" variant="outline" @click="finalStep = 1">
+                            Kembali
+                        </Button>
+                        <Button
+                            type="button"
+                            :disabled="finalConfirmForm.processing"
+                            @click="submitFinalConfirm"
+                        >
+                            Ya, lanjutkan
+                        </Button>
+                    </template>
+                    <template v-else>
+                        <Button
+                            ref="finalCancelRef"
+                            type="button"
+                            variant="outline"
+                            @click="finalConfirmOpen = false"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            :variant="isFinalRejectChoice ? 'destructive' : 'default'"
+                            :disabled="finalConfirmForm.processing"
+                            @click="submitFinalConfirm"
+                        >
+                            Ya, lanjutkan
+                        </Button>
+                    </template>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

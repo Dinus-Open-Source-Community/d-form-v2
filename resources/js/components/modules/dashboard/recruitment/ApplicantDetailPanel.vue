@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import ApplicantDetailContent, { type ApplicationDetail } from './ApplicantDetailContent.vue'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import useAuth from '@/utils/composables/useAuth'
-import { CheckCircle2, Mail, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, Mail, Star, UserPlus, XCircle } from 'lucide-vue-next'
 
 const props = withDefaults(
     defineProps<{
@@ -90,6 +90,10 @@ function rejectFinal() {
     contentRef.value?.openFinalReject()
 }
 
+function acceptFinalCross(membership: 'aa' | 'member'): void {
+    contentRef.value?.openFinalAcceptCross(membership)
+}
+
 function handleSubmitted() {
     emit('submitted')
     emit('close')
@@ -124,6 +128,25 @@ function handleSubmitted() {
                         >
                             <Mail class="mr-2 size-4" />
                             Kirim ulang tracking
+                        </Button>
+                        <Button
+                            v-if="canDecideFinal"
+                            size="sm"
+                            :aria-label="`Terima ${application.full_name} sebagai AA`"
+                            @click="acceptFinalCross('aa')"
+                        >
+                            <Star class="mr-2 size-4" />
+                            Terima AA
+                        </Button>
+                        <Button
+                            v-if="canDecideFinal"
+                            size="sm"
+                            variant="outline"
+                            :aria-label="`Terima ${application.full_name} sebagai Member`"
+                            @click="acceptFinalCross('member')"
+                        >
+                            <UserPlus class="mr-2 size-4" />
+                            Terima Member
                         </Button>
                         <Button
                             v-if="canDecideFinal"
