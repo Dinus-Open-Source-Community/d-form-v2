@@ -257,6 +257,7 @@ defineExpose({
     requestResendTracking,
     resendTrackingApplication,
     openFinalConfirm,
+    openFinalAcceptCross,
     openFinalReject,
 })
 
@@ -295,6 +296,7 @@ type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject'
 
 const finalConfirmOpen = ref(false)
 const finalChoice = ref<FinalDecisionChoice | null>(null)
+const finalStep = ref<1 | 2>(1)
 const finalCancelRef = ref<ComponentPublicInstance | null>(null)
 const finalDivisionName = ref<string>('')
 
@@ -353,6 +355,7 @@ function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divi
     finalChoice.value = choice
     finalConfirmForm.reset()
     finalConfirmForm.clearErrors()
+    finalStep.value = 1
     if (choice === 'accept_aa' || choice === 'accept_member') {
         finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
         finalConfirmForm.final_division_id = divisionId ?? ''
@@ -369,6 +372,120 @@ function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divi
 function openFinalReject(): void {
     openFinalConfirm('reject')
 }
+
+interface IDivisionHint {
+    isPrimary: boolean
+    isSecondary: boolean
+    recommendationLabel: string | null
+    averageLabel: string | null
+}
+
+function divisionHint(divisionId: string): IDivisionHint {
+    if (divisionId === '') {
+        return { isPrimary: false, isSecondary: false, recommendationLabel: null, averageLabel: null }
+    }
+    const isPrimary = divisionId === primaryDivisionId.value
+    const isSecondary = divisionId === secondaryDivisionId.value
+    const evaluation = isPrimary
+        ? props.application.evaluations?.primary
+        : isSecondary
+            ? props.application.evaluations?.secondary
+            : null
+    return {
+        isPrimary,
+        isSecondary,
+        recommendationLabel: evaluation?.recommendation_label ?? null,
+        averageLabel: evaluation
+            ? evaluationAverageLabel(evaluation.speaking_score, evaluation.technical_score, evaluation.attitude_score)
+            : null,
+    }
+}
+
+const divisionSelectOptions = computed<{ value: string; label: string }[]>(() =>
+    (props.divisionOptions ?? []).map((option) => {
+        const hint = divisionHint(option.id)
+        const markers: string[] = []
+        if (hint.isPrimary) markers.push('Primary')
+        if (hint.isSecondary) markers.push('Secondary')
+        if (hint.recommendationLabel) markers.push(hint.recommendationLabel)
+        if (hint.averageLabel) markers.push(`rata-rata ${hint.averageLabel}`)
+        return {
+            value: option.id,
+            label: markers.length > 0 ? `${option.name} — ${markers.join(' · ')}` : option.name,
+        }
+    }),
+)
+
+const selectedDivisionName = computed<string>((): string => {
+    const id = finalConfirmForm.final_division_id
+    if (id === '') return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
+    const found = (props.divisionOptions ?? []).find((option) => option.id === id)
+    if (found) return found.name
+    return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
+})
+
+const suggestedDivision = computed<{ id: string; name: string; reason: string } | null>(() => {
+    const primaryEvaluation = props.application.evaluations?.primary
+    const secondaryEvaluation = props.application.evaluations?.secondary
+    const primaryRecommended = primaryEvaluation?.recommendation === 'recommended'
+    const secondaryRecommended = secondaryEvaluation?.recommendation === 'recommended'
+    if (primaryRecommended && primaryDivisionId.value !== '') {
+        return {
+            id: primaryDivisionId.value,
+            name: primaryDivisionName.value,
+            reason: `Direkomendasikan primary — rata-rata ${evaluationAverageLabel(primaryEvaluation.speaking_score, primaryEvaluation.technical_score, primaryEvaluation.attitude_score)}`,
+        }
+    }
+    if (secondaryRecommended && secondaryDivisionId.value !== '') {
+        return {
+            id: secondaryDivisionId.value,
+            name: secondaryDivisionName.value,
+            reason: `Direkomendasikan secondary — rata-rata ${evaluationAverageLabel(secondaryEvaluation.speaking_score, secondaryEvaluation.technical_score, secondaryEvaluation.attitude_score)}`,
+        }
+    }
+    if (primaryDivisionId.value !== '') {
+        return {
+            id: primaryDivisionId.value,
+            name: primaryDivisionName.value,
+            reason: 'Belum ada rekomendasi — default primary',
+        }
+    }
+    return null
+})
+
+function divisionNameFor(divisionId: string): string {
+    if (divisionId === '') return ''
+    const found = (props.divisionOptions ?? []).find((option) => option.id === divisionId)
+    if (found) return found.name
+    if (divisionId === primaryDivisionId.value) return primaryDivisionName.value
+    if (divisionId === secondaryDivisionId.value) return secondaryDivisionName.value
+    return ''
+}
+
+function openFinalAcceptCross(membership: 'aa' | 'member'): void {
+    finalChoice.value = membership === 'aa' ? 'accept_aa' : 'accept_member'
+    finalConfirmForm.reset()
+    finalConfirmForm.clearErrors()
+    finalConfirmForm.membership_type = membership
+    const primaryRecommended = props.application.evaluations?.primary?.recommendation === 'recommended'
+    const secondaryRecommended = props.application.evaluations?.secondary?.recommendation === 'recommended'
+    let preselectId = primaryDivisionId.value
+    if (!primaryRecommended && secondaryRecommended && secondaryDivisionId.value !== '') {
+        preselectId = secondaryDivisionId.value
+    }
+    finalConfirmForm.final_division_id = preselectId
+    finalDivisionName.value = divisionNameFor(preselectId)
+    finalWaIncludeGroup.value = true
+    finalStep.value = 1
+    finalConfirmOpen.value = true
+}
+
+watch(
+    () => finalConfirmForm.final_division_id,
+    (divisionId: string) => {
+        if (divisionId !== '') finalDivisionName.value = divisionNameFor(divisionId)
+    },
+)
 
 function focusFinalCancel(event: Event): void {
     event.preventDefault()
@@ -1844,12 +1961,30 @@ const defaultTab = computed(() => {
                     </p>
                 </div>
 
-                <p
-                    v-if="!isFinalRejectChoice && finalConfirmForm.errors.final_division_id"
-                    class="text-destructive text-xs"
-                >
-                    {{ finalConfirmForm.errors.final_division_id }}
+                <p v-if="!isFinalRejectChoice" class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                    Langkah {{ finalStep }} dari 2 — {{ finalStep === 1 ? 'Pilih divisi' : 'Konfirmasi' }}
                 </p>
+
+                <div v-if="!isFinalRejectChoice && finalStep === 1" class="space-y-2">
+                    <Label for="final-division-select">Divisi penempatan</Label>
+                    <SimpleSelect
+                        id="final-division-select"
+                        v-model="finalConfirmForm.final_division_id"
+                        :options="divisionSelectOptions"
+                        placeholder="Pilih divisi penempatan"
+                        :invalid="!!finalConfirmForm.errors.final_division_id"
+                    />
+                    <p v-if="finalConfirmForm.errors.final_division_id" class="text-destructive text-xs">
+                        {{ finalConfirmForm.errors.final_division_id }}
+                    </p>
+                    <div
+                        v-if="suggestedDivision"
+                        class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm"
+                    >
+                        <p class="font-semibold">Saran: {{ suggestedDivision.name }}</p>
+                        <p class="text-muted-foreground mt-0.5 text-xs">{{ suggestedDivision.reason }}</p>
+                    </div>
+                </div>
 
                 <div v-if="!isFinalRejectChoice" class="flex items-center justify-between gap-3 rounded-xl border p-3">
                     <div class="space-y-0.5">
@@ -1910,22 +2045,41 @@ const defaultTab = computed(() => {
                 </div>
 
                 <DialogFooter>
-                    <Button
-                        ref="finalCancelRef"
-                        type="button"
-                        variant="outline"
-                        @click="finalConfirmOpen = false"
-                    >
-                        Batal
-                    </Button>
-                    <Button
-                        type="button"
-                        :variant="isFinalRejectChoice ? 'destructive' : 'default'"
-                        :disabled="finalConfirmForm.processing"
-                        @click="submitFinalConfirm"
-                    >
-                        Ya, lanjutkan
-                    </Button>
+                    <template v-if="!isFinalRejectChoice && finalStep === 1">
+                        <Button
+                            ref="finalCancelRef"
+                            type="button"
+                            variant="outline"
+                            @click="finalConfirmOpen = false"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            :disabled="finalConfirmForm.processing || finalConfirmForm.final_division_id === ''"
+                            @click="finalStep = 2"
+                        >
+                            Lanjut
+                        </Button>
+                    </template>
+                    <template v-else>
+                        <Button
+                            ref="finalCancelRef"
+                            type="button"
+                            variant="outline"
+                            @click="finalConfirmOpen = false"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            :variant="isFinalRejectChoice ? 'destructive' : 'default'"
+                            :disabled="finalConfirmForm.processing"
+                            @click="submitFinalConfirm"
+                        >
+                            Ya, lanjutkan
+                        </Button>
+                    </template>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
