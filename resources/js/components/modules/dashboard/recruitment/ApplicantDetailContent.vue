@@ -257,7 +257,6 @@ defineExpose({
     requestResendTracking,
     resendTrackingApplication,
     openFinalConfirm,
-    openFinalAcceptForDivision,
     openFinalReject,
 })
 
@@ -365,14 +364,6 @@ function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divi
         finalDivisionName.value = ''
     }
     finalConfirmOpen.value = true
-}
-
-function openFinalAcceptForDivision(
-    divisionId: string,
-    divisionName: string,
-    membershipType: 'aa' | 'member',
-): void {
-    openFinalConfirm(membershipType === 'aa' ? 'accept_aa' : 'accept_member', divisionId, divisionName)
 }
 
 function openFinalReject(): void {
@@ -1483,46 +1474,11 @@ const defaultTab = computed(() => {
                             </figure>
                         </div>
 
-                        <div
-                            class="px-6 pt-4"
-                            :class="{ 'pb-6': !(showFinalDecision && primaryDivisionId) }"
-                        >
+                        <div class="px-6 pb-6 pt-4">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
-                        </div>
-
-                        <div
-                            v-if="showFinalDecision && primaryDivisionId"
-                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
-                        >
-                            <p class="text-muted-foreground text-xs">
-                                Keputusan final — tempatkan applicant di {{ primaryDivisionName }}
-                            </p>
-                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${primaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'aa')"
-                                >
-                                    <Star class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai AA — {{ primaryDivisionName }}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${primaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(primaryDivisionId, primaryDivisionName, 'member')"
-                                >
-                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai Member — {{ primaryDivisionName }}
-                                </Button>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1647,46 +1603,11 @@ const defaultTab = computed(() => {
                             </figure>
                         </div>
 
-                        <div
-                            class="px-6 pt-4"
-                            :class="{ 'pb-6': !(showFinalDecision && secondaryDivisionId) }"
-                        >
+                        <div class="px-6 pb-6 pt-4">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
                             </p>
-                        </div>
-
-                        <div
-                            v-if="showFinalDecision && secondaryDivisionId"
-                            class="mt-4 border-t border-border/60 bg-muted/40 px-6 py-4"
-                        >
-                            <p class="text-muted-foreground text-xs">
-                                Keputusan final — tempatkan applicant di {{ secondaryDivisionName }}
-                            </p>
-                            <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai AA di ${secondaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'aa')"
-                                >
-                                    <Star class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai AA — {{ secondaryDivisionName }}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    class="h-auto min-h-9 justify-start whitespace-normal py-2 text-left leading-snug"
-                                    :aria-label="`Terima ${application.full_name} sebagai Member di ${secondaryDivisionName}`"
-                                    @click="openFinalAcceptForDivision(secondaryDivisionId, secondaryDivisionName, 'member')"
-                                >
-                                    <UserPlus class="size-4 shrink-0" aria-hidden="true" />
-                                    Diterima sebagai Member — {{ secondaryDivisionName }}
-                                </Button>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1919,7 +1840,7 @@ const defaultTab = computed(() => {
                         <span v-if="!isFinalRejectChoice"> — {{ finalDivisionName }}</span>
                     </p>
                     <p v-if="!isFinalRejectChoice" class="text-muted-foreground mt-1 text-xs">
-                        Divisi penempatan final mengikuti kartu evaluasi yang dipilih.
+                        Divisi penempatan bebas — boleh berbeda dari primary/secondary.
                     </p>
                 </div>
 
