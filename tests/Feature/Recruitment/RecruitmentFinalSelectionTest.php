@@ -7,6 +7,7 @@ use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\MembershipType;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
+use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentFinalDecision;
@@ -555,5 +556,41 @@ class RecruitmentFinalSelectionTest extends TestCase
 
             return true;
         });
+    }
+
+    public function test_accept_cross_division_logs_audit_flag(): void
+    {
+        $application = $this->applicationInFinalReview('cross1');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $this->dataDivision->id,
+            ])
+            ->assertRedirect();
+
+        $log = RecruitmentActivityLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('action', 'final.accept')
+            ->firstOrFail();
+
+        $this->assertTrue($log->new_values['is_cross_division']);
+        $this->assertSame('cross_division_modal', $log->new_values['placement_source']);
+    }
+
+    public function test_accept_inactive_division_returns_validation_error(): void
+    {
+        $inactiveDivision = RecruitmentDivision::factory()->create(['is_active' => false]);
+
+        $application = $this->applicationInFinalReview('inactive1');
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.final.accept', $application), [
+                'membership_type' => MembershipType::Aa->value,
+                'final_division_id' => $inactiveDivision->id,
+            ])
+            ->assertSessionHasErrors('final_division_id');
+
+        $this->assertSame(0, RecruitmentFinalDecision::query()->where('recruitment_application_id', $application->id)->count());
     }
 }
