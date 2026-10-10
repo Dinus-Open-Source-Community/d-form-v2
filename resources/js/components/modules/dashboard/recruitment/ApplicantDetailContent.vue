@@ -570,8 +570,8 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
                     finalSavedLinks.value[pendingFinalMembership.value] = savedUrl
                 }
                 finalConfirmOpen.value = false
-                toast.success(successMessage)
                 emit('submitted')
+                toast.success(successMessage, { duration: 5000, id: 'final-decision-result' })
             },
             onError: (errors: Record<string, string | string[]>) => {
                 if (errors['final_division_id']) finalStep.value = 1
