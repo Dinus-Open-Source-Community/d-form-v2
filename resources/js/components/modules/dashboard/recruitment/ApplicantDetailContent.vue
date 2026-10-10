@@ -1986,26 +1986,56 @@ const defaultTab = computed(() => {
                     </div>
                 </div>
 
-                <div v-if="!isFinalRejectChoice" class="flex items-center justify-between gap-3 rounded-xl border p-3">
-                    <div class="space-y-0.5">
-                        <Label for="final-include-group">Sertakan link grup di email</Label>
-                        <p class="text-muted-foreground text-xs">
-                            {{
-                                finalWaIncludeGroup
-                                    ? 'Email penerimaan akan ada tombol Gabung Grup WA.'
-                                    : 'Email penerimaan dikirim tanpa blok link grup.'
-                            }}
+                <div v-if="!isFinalRejectChoice && finalStep === 2" class="space-y-3">
+                    <div class="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                        <p class="font-semibold">{{ application.full_name }}</p>
+                        <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                            {{ application.registration_number }}
                         </p>
+                        <p class="mt-2">{{ finalChoiceActionLabel }} — {{ selectedDivisionName }}</p>
                     </div>
-                    <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
+
+                    <div class="space-y-2 rounded-xl border border-border/70 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Pratinjau email
+                        </p>
+                        <div class="rounded-lg bg-muted/40 px-4 py-3 text-sm leading-relaxed">
+                            <p>Halo {{ application.full_name }},</p>
+                            <p class="mt-2">
+                                Selamat! Kamu diterima sebagai {{ relevantGroupLinkLabel }} DOSCOM di
+                                divisi {{ selectedDivisionName }}.
+                            </p>
+                            <span
+                                v-if="finalWaIncludeGroup"
+                                class="mt-3 inline-flex items-center rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background"
+                                aria-hidden="true"
+                            >
+                                Gabung Grup WA {{ relevantGroupLinkLabel }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
+                        <div class="space-y-0.5">
+                            <Label for="final-include-group">Sertakan link grup di email</Label>
+                            <p class="text-muted-foreground text-xs">
+                                {{
+                                    finalWaIncludeGroup
+                                        ? 'Email penerimaan akan ada tombol Gabung Grup WA.'
+                                        : 'Email penerimaan dikirim tanpa blok link grup.'
+                                }}
+                            </p>
+                        </div>
+                        <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
+                    </div>
+                    <p v-if="finalWaIncludeGroup" class="text-muted-foreground text-xs">
+                        {{
+                            relevantGroupLink !== ''
+                                ? `Menggunakan link grup WA ${relevantGroupLinkLabel} periode ini.`
+                                : `Link grup WA ${relevantGroupLinkLabel} belum diisi — Anda akan diminta mengisinya.`
+                        }}
+                    </p>
                 </div>
-                <p v-if="!isFinalRejectChoice && finalWaIncludeGroup" class="text-muted-foreground text-xs">
-                    {{
-                        relevantGroupLink !== ''
-                            ? `Menggunakan link grup WA ${relevantGroupLinkLabel} periode ini.`
-                            : `Link grup WA ${relevantGroupLinkLabel} belum diisi — Anda akan diminta mengisinya.`
-                    }}
-                </p>
 
                 <div v-if="isFinalRejectChoice" class="space-y-4">
                     <div class="space-y-2">
@@ -2060,6 +2090,18 @@ const defaultTab = computed(() => {
                             @click="finalStep = 2"
                         >
                             Lanjut
+                        </Button>
+                    </template>
+                    <template v-else-if="!isFinalRejectChoice">
+                        <Button type="button" variant="outline" @click="finalStep = 1">
+                            Kembali
+                        </Button>
+                        <Button
+                            type="button"
+                            :disabled="finalConfirmForm.processing"
+                            @click="submitFinalConfirm"
+                        >
+                            Ya, lanjutkan
                         </Button>
                     </template>
                     <template v-else>
