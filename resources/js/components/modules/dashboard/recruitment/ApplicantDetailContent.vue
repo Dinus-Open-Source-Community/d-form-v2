@@ -473,6 +473,8 @@ function openFinalAcceptCross(membership: 'aa' | 'member'): void {
     finalConfirmForm.final_division_id = preselectId
     finalDivisionName.value = divisionNameFor(preselectId)
     finalWaIncludeGroup.value = true
+    finalWaLinkInput.value = ''
+    finalWaLocalError.value = null
     finalStep.value = 1
     finalConfirmOpen.value = true
 }
@@ -493,15 +495,27 @@ function focusFinalCancel(event: Event): void {
 function submitFinalConfirm(): void {
     if (finalChoice.value === 'accept_aa' || finalChoice.value === 'accept_member') {
         if (!finalWaIncludeGroup.value) {
-            acceptFinal({ include_group_link: false }, false, 'Applicant diterima tanpa link grup.')
+            acceptFinal({ include_group_link: false }, 'Applicant diterima tanpa link grup.')
             return
         }
         if (relevantGroupLink.value === '') {
-            finalConfirmOpen.value = false
-            openFinalGroupLinkDialog()
+            const value = finalWaLinkInput.value.trim()
+            if (value === '') {
+                finalWaLocalError.value = 'Link grup WA wajib diisi bila opsi menyertakan link aktif.'
+                return
+            }
+            if (!value.startsWith('https://')) {
+                finalWaLocalError.value = 'Link grup WA harus diawali https://.'
+                return
+            }
+            finalWaLocalError.value = null
+            acceptFinal(
+                { include_group_link: true, whatsapp_group_url: value },
+                'Link grup tersimpan. Applicant diterima.',
+            )
             return
         }
-        acceptFinal({ include_group_link: true }, false, 'Applicant diterima. Email hasil telah dikirim.')
+        acceptFinal({ include_group_link: true }, 'Applicant diterima. Email hasil telah dikirim.')
         return
     }
 
@@ -518,12 +532,11 @@ function submitFinalConfirm(): void {
     }
 }
 
-/** Toggle + dialog link grup untuk penerimaan final (cermin pola lolos screening). */
+/** Toggle + input link grup untuk penerimaan final di langkah 2. */
 const finalWaIncludeGroup = ref<boolean>(true)
-const finalWaDialogOpen = ref(false)
 const finalWaLinkInput = ref('')
 const finalWaLocalError = ref<string | null>(null)
-/** Link grup AA/Member yang disimpan lewat dialog sesi ini. */
+/** Link grup AA/Member yang disimpan lewat modal sesi ini. */
 const finalSavedLinks = ref<{ aa: string; member: string }>({ aa: '', member: '' })
 
 /** membership_type yang dipilih di dialog final ('' bila tolak). */
@@ -557,7 +570,7 @@ const relevantGroupLink = computed<string>(() => {
     return ''
 })
 
-function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: boolean, successMessage: string): void {
+function acceptFinal(payload: Record<string, string | boolean>, successMessage: string): void {
     if (finalConfirmForm.processing) return
     finalConfirmForm.transform((data) => ({ ...data, ...payload })).post(
         routes.admin.recruitment.applications.final.accept(props.application.id),
@@ -565,7 +578,6 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
             preserveScroll: true,
             onSuccess: () => {
                 const savedUrl = payload['whatsapp_group_url']
-                if (viaGroupDialog) finalWaDialogOpen.value = false
                 if (typeof savedUrl === 'string' && pendingFinalMembership.value !== '') {
                     finalSavedLinks.value[pendingFinalMembership.value] = savedUrl
                 }
@@ -575,9 +587,9 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
             },
             onError: (errors: Record<string, string | string[]>) => {
                 if (errors['final_division_id']) finalStep.value = 1
-                if (viaGroupDialog) {
-                    const first =
-                        errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application']
+                const first =
+                    errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application']
+                if (first) {
                     finalWaLocalError.value =
                         (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan keputusan final.'
                 } else {
@@ -585,44 +597,6 @@ function acceptFinal(payload: Record<string, string | boolean>, viaGroupDialog: 
                 }
             },
         },
-    )
-}
-
-function openFinalGroupLinkDialog(): void {
-    finalWaLinkInput.value = relevantGroupLink.value
-    finalWaIncludeGroup.value = true
-    finalWaLocalError.value = null
-    finalWaDialogOpen.value = true
-}
-
-function closeFinalGroupLinkDialog(): void {
-    finalWaDialogOpen.value = false
-    finalWaLocalError.value = null
-}
-
-/** Terima tanpa menyertakan link grup di email (toggle OFF). */
-function acceptFinalWithoutLink(): void {
-    acceptFinal({ include_group_link: false }, true, 'Applicant diterima tanpa link grup.')
-}
-
-function submitFinalGroupLink(): void {
-    if (!finalWaIncludeGroup.value) {
-        acceptFinalWithoutLink()
-        return
-    }
-    const value = finalWaLinkInput.value.trim()
-    if (value === '') {
-        finalWaLocalError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.'
-        return
-    }
-    if (!value.startsWith('https://')) {
-        finalWaLocalError.value = 'Link grup WA harus diawali https://.'
-        return
-    }
-    acceptFinal(
-        { whatsapp_group_url: value, include_group_link: true },
-        true,
-        'Link grup tersimpan. Applicant diterima.',
     )
 }
 
@@ -2063,13 +2037,34 @@ const defaultTab = computed(() => {
                         </div>
                         <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
                     </div>
-                    <p v-if="finalWaIncludeGroup" class="text-muted-foreground text-xs">
-                        {{
-                            relevantGroupLink !== ''
-                                ? `Menggunakan link grup WA ${relevantGroupLinkLabel} periode ini.`
-                                : `Link grup WA ${relevantGroupLinkLabel} belum diisi — Anda akan diminta mengisinya.`
-                        }}
-                    </p>
+
+                    <div v-if="finalWaIncludeGroup && relevantGroupLink !== ''" class="rounded-xl border bg-muted/20 p-3">
+                        <p class="text-muted-foreground text-xs">
+                            Menggunakan link grup WA {{ relevantGroupLinkLabel }} periode ini:
+                        </p>
+                        <p class="text-foreground mt-0.5 truncate text-xs font-mono">
+                            {{ relevantGroupLink }}
+                        </p>
+                    </div>
+
+                    <div v-else-if="finalWaIncludeGroup" class="space-y-2 rounded-xl border border-dashed p-3">
+                        <Label for="final-step2-wa-link">Link grup WA {{ relevantGroupLinkLabel }}</Label>
+                        <p class="text-muted-foreground text-xs">
+                            Periode ini belum punya link grup WA {{ relevantGroupLinkLabel }}. Isi link sekarang agar disertakan di email dan disimpan pada periode ini.
+                        </p>
+                        <input
+                            id="final-step2-wa-link"
+                            v-model="finalWaLinkInput"
+                            type="url"
+                            inputmode="url"
+                            placeholder="https://chat.whatsapp.com/..."
+                            :disabled="finalConfirmForm.processing"
+                            class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <p v-if="finalWaLocalError" class="text-destructive text-xs">
+                            {{ finalWaLocalError }}
+                        </p>
+                    </div>
                 </div>
 
                 <div v-if="isFinalRejectChoice" class="space-y-4">
@@ -2157,67 +2152,6 @@ const defaultTab = computed(() => {
                             Ya, lanjutkan
                         </Button>
                     </template>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
-        <Dialog v-if="!readonly" v-model:open="finalWaDialogOpen">
-            <DialogContent class="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Link grup WA {{ relevantGroupLinkLabel }} belum diisi</DialogTitle>
-                    <DialogDescription>
-                        Periode ini belum punya link grup WA {{ relevantGroupLinkLabel }}. Isi sekarang
-                        agar email penerimaan menyertakan link grup, atau terima tanpa link grup.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div class="flex items-center justify-between gap-3 rounded-xl border p-3">
-                    <div class="space-y-0.5">
-                        <Label for="final-wa-include-group">Sertakan link grup di email</Label>
-                        <p class="text-muted-foreground text-xs">
-                            {{
-                                finalWaIncludeGroup
-                                    ? 'Email penerimaan akan ada tombol Gabung Grup WA.'
-                                    : 'Email penerimaan dikirim tanpa blok link grup.'
-                            }}
-                        </p>
-                    </div>
-                    <Switch id="final-wa-include-group" v-model="finalWaIncludeGroup" />
-                </div>
-
-                <div class="space-y-2">
-                    <Label for="final-wa-link">Link grup WA {{ relevantGroupLinkLabel }}</Label>
-                    <input
-                        id="final-wa-link"
-                        v-model="finalWaLinkInput"
-                        type="url"
-                        inputmode="url"
-                        placeholder="https://chat.whatsapp.com/..."
-                        :disabled="!finalWaIncludeGroup || finalConfirmForm.processing"
-                        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <p v-if="finalWaLocalError" class="text-destructive text-xs">
-                        {{ finalWaLocalError }}
-                    </p>
-                </div>
-
-                <DialogFooter>
-                    <Button type="button" variant="outline" @click="closeFinalGroupLinkDialog">
-                        Batal
-                    </Button>
-                    <Button
-                        type="button"
-                        :disabled="finalConfirmForm.processing"
-                        @click="submitFinalGroupLink"
-                    >
-                        {{
-                            finalConfirmForm.processing
-                                ? 'Menyimpan…'
-                                : finalWaIncludeGroup
-                                  ? 'Simpan & terima'
-                                  : 'Terima tanpa link grup'
-                        }}
-                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
