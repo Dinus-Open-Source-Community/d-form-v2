@@ -112,6 +112,9 @@ final class FinalSelectionService
                     'membership_type' => $membershipType->value,
                     'final_division_id' => $finalDivisionId,
                     'final_division_name' => $division->name,
+                    'is_cross_division' => $finalDivisionId !== $application->primary_division_id
+                        && $finalDivisionId !== $application->secondary_division_id,
+                    'placement_source' => 'cross_division_modal',
                 ],
                 entityType: 'recruitment_final_decision',
                 entityId: $decision->id,

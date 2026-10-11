@@ -708,7 +708,10 @@ function closePanel(): void {
 
 function refreshList(): void {
     detailCache.clear()
-    router.reload({ only: ['applications', 'queue_counts', 'screening_reason_options', 'division_options', 'membership_type_options'] })
+    router.reload({
+        only: ['applications', 'queue_counts', 'screening_reason_options', 'division_options', 'membership_type_options'],
+        preserveScroll: true,
+    })
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
