@@ -28,6 +28,8 @@ const props = withDefaults(
         siblingForms?: FormSiblingOption[];
         hideToolbarTitles?: boolean;
         hideToolbar?: boolean;
+        /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
+        imageUploadUrl?: string;
     }>(),
     {
         saveLabel: 'Save Form',
@@ -37,6 +39,7 @@ const props = withDefaults(
         siblingForms: () => [],
         hideToolbarTitles: false,
         hideToolbar: false,
+        imageUploadUrl: '',
     }
 );
 
@@ -145,6 +148,7 @@ defineExpose({
                     :selected-field-id="wb.selectedFieldId"
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
+                    :banner-upload-url="imageUploadUrl"
                     @remove="wb.hideSuccessZone"
                     @canvas-drag-over="wb.onCanvasDragOver"
                     @canvas-drag-leave="wb.onCanvasDragLeave"
@@ -207,6 +211,7 @@ defineExpose({
     <FormBuilderEditFieldSheet
         v-model:open="wb.showMobileEditor"
         :field="wb.selectedField"
+        :upload-url="imageUploadUrl"
         @update-field="wb.updateField"
         @done="wb.showMobileEditor = false"
     />

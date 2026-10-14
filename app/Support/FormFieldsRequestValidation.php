@@ -78,8 +78,17 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.optionChoices' => 'nullable|array',
             'fields.*.metadata.content' => 'nullable',
             'fields.*.metadata.maxStars' => 'nullable',
+            // Hanya path storage / URL publik (hasil endpoint upload builder).
+            // Data URL (data:...) ditolak di after-validation agar payload tetap kecil.
             'fields.*.metadata.bannerUrl' => 'nullable|string',
             'fields.*.metadata.bannerFileName' => 'nullable|string',
+            // Gambar konten builder: wajib diunggah via POST .../images, lalu
+            // simpan path/URL hasilnya di imageUrl (bukan data: URL).
+            'fields.*.metadata.imageUrl' => 'nullable|string|max:2048',
+            'fields.*.metadata.imageCaption' => 'nullable|string|max:500',
+            'fields.*.metadata.imageAlt' => 'nullable|string|max:500',
+            'fields.*.metadata.alt' => 'nullable|string|max:500',
+            'fields.*.metadata.caption' => 'nullable|string|max:500',
             'fields.*.metadata.formBanner' => 'nullable|boolean',
             'fields.*.metadata.accepts' => 'nullable|string',
 
@@ -214,6 +223,27 @@ final class FormFieldsRequestValidation
             $names = collect($fields)->pluck('name')->filter(fn ($n) => $n !== null && $n !== '')->map(fn ($n) => (string) $n);
             if ($names->count() !== $names->unique()->count()) {
                 $validator->errors()->add('fields', __('validation.distinct', ['attribute' => 'name']));
+            }
+
+            foreach ($fields as $index => $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+                $meta = $field['metadata'] ?? null;
+                if (!is_array($meta)) {
+                    continue;
+                }
+                // Gambar/banner builder harus berupa path/URL hasil upload,
+                // bukan data: URL (base64 inline membengkakkan payload JSON).
+                foreach (['imageUrl', 'bannerUrl'] as $urlKey) {
+                    $value = $meta[$urlKey] ?? null;
+                    if (is_string($value) && str_starts_with(strtolower(ltrim($value)), 'data:')) {
+                        $validator->errors()->add(
+                            "fields.{$index}.metadata.{$urlKey}",
+                            "The {$urlKey} must be an uploaded file path or URL, not a data: URL."
+                        );
+                    }
+                }
             }
 
             if ($form === null) {

@@ -4,8 +4,22 @@
  */
 
 import type { BackendField, BuilderField, FieldOptionEntry } from '@/types/form-builder'
+import { cleanStoredImageUrl } from '@/utils/composables/useBuilderImageUpload'
 
 export type { BackendField, BuilderField, FieldOptionEntry }
+
+/** Builder type display-only: tidak menerima jawaban, tidak masuk answer keys. */
+export const DISPLAY_ONLY_BUILDER_TYPES: ReadonlySet<string> = new Set([
+    'heading',
+    'paragraph',
+    'divider',
+    'banner',
+    'image',
+])
+
+export function isDisplayOnlyBuilderType(type: unknown): boolean {
+    return typeof type === 'string' && DISPLAY_ONLY_BUILDER_TYPES.has(type)
+}
 
 export function optionLabel(entry: FieldOptionEntry): string {
     return String(entry.label ?? '').trim()
@@ -22,7 +36,7 @@ function serializeOptionChoices(options: readonly FieldOptionEntry[]): Record<st
             id: o.id,
             type: o.type,
             label,
-            imageUrl: o.imageUrl ?? ''
+            imageUrl: cleanStoredImageUrl(o.imageUrl ?? '')
         }
     })
 }
@@ -107,6 +121,7 @@ export function toBackendField(f: BuilderField, order: number): BackendField {
         case 'time':       return { ...base, type: 'input', metadata: withMeta(f, { type: 'text', placeholder: 'HH:MM', rules: req, builderType: 'time' }) }
         case 'rating':     return { ...base, type: 'input', metadata: withMeta(f, { type: 'number', placeholder: '', rules: { ...req, min: 1, max: (f.metadata?.maxStars as number) ?? 5 }, builderType: 'rating', maxStars: (f.metadata?.maxStars as number) ?? 5 }) }
         case 'heading':    return { ...base, type: 'input', metadata: withMeta(f, { type: 'text', placeholder: '', rules: {}, builderType: 'heading', content: (f.metadata?.content as string) || 'Section Heading' }) }
+        case 'image':      return { ...base, type: 'input', metadata: withMeta(f, { type: 'text', placeholder: '', rules: {}, builderType: 'image', imageUrl: cleanStoredImageUrl(f.metadata?.imageUrl), caption: (f.metadata?.caption as string) || '', alt: (f.metadata?.alt as string) || '' }) }
         case 'divider':    return { ...base, type: 'input', metadata: withMeta(f, { type: 'text', placeholder: '', rules: {}, builderType: 'divider' }) }
 
         case 'long_text':
@@ -204,6 +219,7 @@ function guessType(apiType: string, m: Record<string, unknown>): string {
         if (m.type === 'email') return 'email'
         if (m.type === 'tel') return 'phone'
         if (m.type === 'number') return 'number'
+        if (typeof m.imageUrl === 'string' || typeof m.caption === 'string') return 'image'
         return 'short_text'
     }
     if (apiType === 'textarea') return 'long_text'
@@ -268,6 +284,13 @@ export function fromBackendField(bf: BackendField): BuilderField {
             accepts: ((rules.mimes as string) || '').replace(/,/g, ', '),
             formBanner: m.formBanner === true,
             ...(maxLengthForMeta != null ? { maxLength: maxLengthForMeta } : {}),
+            ...(bt === 'image'
+                ? {
+                      imageUrl: cleanStoredImageUrl(m.imageUrl),
+                      caption: typeof m.caption === 'string' ? m.caption : '',
+                      alt: typeof m.alt === 'string' ? m.alt : '',
+                  }
+                : {}),
         },
     }
 }

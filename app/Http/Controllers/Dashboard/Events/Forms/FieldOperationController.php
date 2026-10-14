@@ -8,6 +8,7 @@ use App\Models\Form;
 use App\Models\FormField;
 use App\Models\Event;
 use App\Support\FormFieldTypeMapping;
+use App\Support\LegacyFormImage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,6 +22,20 @@ class FieldOperationController extends Controller
 
         $formId = $form->id;
         $rows = $request->validated()['fields'];
+
+        // Lapis kedua: data: URL legacy yang lolos validasi (mis. optionChoices[].imageUrl)
+        // dikonversi otomatis ke storage agar autosave tidak gagal untuk data lama.
+        // URL/path normal dikembalikan apa adanya (no-op).
+        $legacy = LegacyFormImage::convertFieldRows($rows, $formId);
+        $rows = $legacy['rows'];
+        if ($legacy['converted'] > 0 || $legacy['failed'] > 0) {
+            Log::warning('[FieldOperationController, __invoke] legacy data: image auto-convert', [
+                'form_id' => $formId,
+                'converted' => $legacy['converted'],
+                'failed' => $legacy['failed'],
+                'hint' => 'php artisan forms:migrate-legacy-images --write',
+            ]);
+        }
 
         try {
             DB::transaction(function () use ($rows, $formId) {

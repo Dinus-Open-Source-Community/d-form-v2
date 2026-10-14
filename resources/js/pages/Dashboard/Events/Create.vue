@@ -17,6 +17,12 @@ import { destroy as destroyEvent } from '@/actions/App/Http/Controllers/Dashboar
 import { update as updateForm } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormController';
 import { __invoke as postFields } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FieldOperationController';
 import { useAutosaveSync } from '@/utils/composables/useAutosaveSync';
+import {
+    builderPendingUploads,
+    cleanStoredImageUrl,
+    resolveBuilderImageUploadUrl,
+    sanitizeBuilderSnapshot,
+} from '@/utils/composables/useBuilderImageUpload';
 import { fromBackendField, toBackendFields, type BackendField } from '@/components/modules/builder/fieldMapping';
 import {
     defaultFormBannerState,
@@ -125,17 +131,19 @@ watch(
 
 // ── Autosave global (optimistik + debounce 800ms): SEMUA mutasi builder ──
 function buildBuilderSnapshot(): string {
-    return JSON.stringify({
-        fields: formFields.value,
-        title: formTitle.value,
-        description: formDescription.value,
-        bannerUrl: bannerState.value.bannerUrl,
-        bannerCaption: bannerState.value.caption,
-        success: successContent.value,
-        closedAt: closedAt.value,
-        visibleFor: visibleFor.value,
-        metadata: formMetadata.value,
-    });
+    return sanitizeBuilderSnapshot(
+        JSON.stringify({
+            fields: formFields.value,
+            title: formTitle.value,
+            description: formDescription.value,
+            bannerUrl: bannerState.value.bannerUrl,
+            bannerCaption: bannerState.value.caption,
+            success: successContent.value,
+            closedAt: closedAt.value,
+            visibleFor: visibleFor.value,
+            metadata: formMetadata.value,
+        }),
+    );
 }
 
 /** Header valid → boleh PUT update; kalau belum lengkap, simpan fields saja (hindari spam 422). */
@@ -168,7 +176,7 @@ async function saveBuilderSnapshot(): Promise<void> {
             success_content: successContent.value,
             closed_at: closedAt.value,
             visible_for: visibleFor.value,
-            banner_url: bannerState.value.bannerUrl || null,
+            banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
             banner_caption: bannerState.value.caption || null,
             metadata: toFormMetadataPayload(formMetadata.value),
         },
@@ -180,7 +188,15 @@ const autosaveEnabled = computed(() => step.value === 'forms' && !!draftForm.val
 const autosave = useAutosaveSync(buildBuilderSnapshot, saveBuilderSnapshot, {
     debounceMs: 800,
     enabled: autosaveEnabled,
+    isBlocked: () => builderPendingUploads.value > 0,
     onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
+});
+/** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
+const builderImageUploadUrl = computed(() => {
+    const eventId = draftEvent.value?.id;
+    const formId = draftForm.value?.id;
+    if (!eventId || !formId) return '';
+    return resolveBuilderImageUploadUrl(eventId, formId);
 });
 const saveState = autosave.status;
 const flushPending = (): Promise<void> => autosave.flush();
@@ -351,6 +367,7 @@ const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
                 v-model:form-metadata="formMetadata"
                 :event="{ id: draftEvent.id, title: draftEvent.title }"
                 :toolbar-subtitle="`Formulir pendaftaran · ${draftEvent.title}`"
+                :image-upload-url="builderImageUploadUrl"
                 save-label="Selesai"
                 :processing="finishing"
                 :hide-toolbar-titles="true"

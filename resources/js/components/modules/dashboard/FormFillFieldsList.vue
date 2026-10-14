@@ -8,6 +8,7 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue'
 import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue'
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue'
+import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import { Send } from 'lucide-vue-next'
 import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
 import { routes } from '@/lib/routes'
@@ -68,6 +69,17 @@ function imageUploadFillReadyForField(
         !!ctx.answerForm[storageKey] &&
         !!ctx.filePreviewUrls[storageKey]
     )
+}
+
+/** Display-only image block src (storage path / URL / blob preview). */
+function fillImageSrc(field: IFormField): string {
+    const raw = props.ctx.metadata(field).imageUrl
+    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+}
+
+function fillImageText(field: IFormField, key: 'caption' | 'alt'): string {
+    const raw = props.ctx.metadata(field)[key]
+    return typeof raw === 'string' ? raw : ''
 }
 
 const uploadLightboxOpen = ref(false)
@@ -144,6 +156,24 @@ function confirmSubmit() {
                     <hr v-else-if="ctx.builderType(field) === 'divider'" class="app-divider my-2" />
 
                     <div v-else-if="ctx.builderType(field) === 'banner'" class="hidden" />
+
+                    <div
+                        v-else-if="ctx.builderType(field) === 'image'"
+                        class="overflow-hidden rounded-2xl border border-border bg-card shadow-xs"
+                    >
+                        <img
+                            v-if="fillImageSrc(field)"
+                            :src="fillImageSrc(field)"
+                            :alt="fillImageText(field, 'alt') || fillImageText(field, 'caption') || field.label"
+                            class="w-full object-cover"
+                        />
+                        <p
+                            v-if="fillImageText(field, 'caption').trim()"
+                            class="border-t border-border px-5 py-3 text-sm leading-relaxed text-muted-foreground"
+                        >
+                            {{ fillImageText(field, 'caption') }}
+                        </p>
+                    </div>
 
                     <Card v-else class="overflow-hidden">
                         <div

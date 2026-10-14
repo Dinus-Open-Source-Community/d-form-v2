@@ -51,7 +51,7 @@ export function useFormFillPage(props: {
 
     function isDisplayOnly(field: IFormField): boolean {
         const bt = builderType(field)
-        return ['heading', 'paragraph', 'divider', 'banner'].includes(bt)
+        return ['heading', 'paragraph', 'divider', 'banner', 'image'].includes(bt)
     }
 
     const formBannerField = computed(() => pickFormBannerField(props.fields ?? []))

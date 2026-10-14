@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue'
+import BroadcastContentEditor from '@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
@@ -143,6 +143,10 @@ function loadRecipients(): void {
 }
 
 // --- Email content ---
+// Endpoint upload inline image broadcast: POST {id}/inline-image (field `file`).
+// Lihat route `dashboard.broadcasts.inline-image.upload` di routes/web/admin/broadcasting.php.
+const inlineImageUploadUrl = `/admin/broadcasts/${props.broadcast.id}/inline-image`
+
 const contentForm = useForm({
     subject: props.broadcast.subject ?? '',
     content: props.broadcast.content ?? '',
@@ -330,8 +334,8 @@ const progress = computed(() => {
                 </div>
                 <div class="grid gap-2">
                     <Label>Konten</Label>
-                    <TipTapEditor v-model="contentForm.content" />
-                    <p class="text-muted-foreground text-xs">Inline image otomatis base64, maks 1.5 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
+                    <BroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
+                    <p class="text-muted-foreground text-xs">Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 2 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
                 </div>
                 <Button :disabled="contentForm.processing" @click="saveContent">Simpan email</Button>
 

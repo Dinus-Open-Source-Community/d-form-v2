@@ -8,6 +8,7 @@ use App\Http\Requests\Broadcasting\SaveBroadcastContentRequest;
 use App\Models\EmailBroadcast;
 use App\Services\Broadcasting\BroadcastAttachmentService;
 use App\Services\Broadcasting\BroadcastHtmlSanitizer;
+use App\Services\Broadcasting\BroadcastInlineImageService;
 use App\Services\Broadcasting\BroadcastPersonalization;
 use Illuminate\Http\RedirectResponse;
 
@@ -19,6 +20,7 @@ class BroadcastContentController extends Controller
         BroadcastHtmlSanitizer $sanitizer,
         BroadcastPersonalization $personalization,
         BroadcastAttachmentService $attachments,
+        BroadcastInlineImageService $inlineImages,
     ): RedirectResponse {
         $this->authorize('update', $broadcast);
 
@@ -26,7 +28,19 @@ class BroadcastContentController extends Controller
 
         $rawContent = $request->string('content')->toString();
         $rawSubject = $request->string('subject')->toString();
-        $sanitized = $sanitizer->sanitize($rawContent);
+
+        // DB tidak menyimpan base64: pindahkan data: URL ke storage dulu.
+        // Gambar valid otomatis termigrasi; sisanya ditolak dengan pesan jelas.
+        $migration = $inlineImages->migrateHtml($broadcast, $rawContent);
+
+        if ($migration['skipped'] > 0 || $inlineImages->containsDataUrl($migration['html'])) {
+            $message = $inlineImages->rejectionMessage($migration['html'])
+                ?? 'Inline image tidak valid (maks 2 MB, PNG/JPG/GIF/WebP).';
+
+            return redirect()->back()->withErrors(['content' => $message]);
+        }
+
+        $sanitized = $sanitizer->sanitize($migration['html']);
 
         $unsupported = array_unique(array_merge(
             $personalization->unsupportedVariables($rawSubject),
@@ -39,7 +53,8 @@ class BroadcastContentController extends Controller
             ]);
         }
 
-        $inline = $attachments->validateInlineImages($rawContent);
+        // Pertahanan berlapis: setelah migrasi tidak boleh ada data: URL tersisa.
+        $inline = $attachments->validateInlineImages($migration['html']);
 
         if (! ($inline['ok'] ?? true)) {
             return redirect()->back()->withErrors(['content' => $inline['message'] ?? 'Inline image tidak valid.']);

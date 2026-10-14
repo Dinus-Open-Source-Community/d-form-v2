@@ -7,9 +7,14 @@ import { computed } from 'vue'
 
 const open = defineModel<boolean>('open', { required: true })
 
-const props = defineProps<{
-    field: BuilderField | null
-}>()
+const props = withDefaults(
+    defineProps<{
+        field: BuilderField | null
+        /** Endpoint `POST {form}/images` untuk upload gambar blok/opsi. */
+        uploadUrl?: string
+    }>(),
+    { uploadUrl: '' },
+)
 
 defineEmits<{
     updateField: [field: BuilderField]
@@ -29,7 +34,7 @@ const isChoiceType = computed(() => props.field != null && ['dropdown', 'checkbo
                 <SheetDescription>Customize the selected field.</SheetDescription>
             </SheetHeader>
             <div class="bg-background flex-1 overflow-y-auto px-5 py-5">
-                <FieldEditor v-if="field" :field="field" @update:field="$emit('updateField', $event)" />
+                <FieldEditor v-if="field" :field="field" :upload-url="uploadUrl" @update:field="$emit('updateField', $event)" />
             </div>
             <div class="border-border bg-muted/30 shrink-0 border-t p-4">
                 <Button class="h-11 w-full" @click="$emit('done')">Done</Button>

@@ -214,6 +214,25 @@ function ratingStars(field: FormPreviewField): number[] {
                                     <!-- Divider -->
                                     <hr v-else-if="field.type === 'divider'" class="app-divider my-1" />
 
+                                    <!-- Image (display-only, non-input) -->
+                                    <div
+                                        v-else-if="field.type === 'image'"
+                                        class="overflow-hidden rounded-2xl border border-border bg-card shadow-xs"
+                                    >
+                                        <img
+                                            v-if="choiceThumb(metaString(field, 'imageUrl'))"
+                                            :src="choiceThumb(metaString(field, 'imageUrl'))"
+                                            :alt="metaString(field, 'alt') || metaString(field, 'caption') || field.label"
+                                            class="w-full object-cover"
+                                        />
+                                        <p
+                                            v-if="metaString(field, 'caption').trim()"
+                                            class="border-t border-border px-5 py-3 text-sm leading-relaxed text-muted-foreground"
+                                        >
+                                            {{ metaString(field, 'caption') }}
+                                        </p>
+                                    </div>
+
                                     <!-- Answer fields — Card shell like Fill.vue -->
                                     <Card v-else class="rounded-2xl border border-border shadow-xs">
                                         <CardHeader class="pb-2 pt-4">

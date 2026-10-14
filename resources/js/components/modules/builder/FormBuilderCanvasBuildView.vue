@@ -37,6 +37,8 @@ const props = defineProps<{
     dropIndicatorIndex: number;
     dragSourceId: string | null;
     showSuccessZone: boolean;
+    /** Endpoint `POST {form}/images` untuk upload banner. */
+    bannerUploadUrl?: string;
 }>();
 
 defineEmits<{
@@ -165,6 +167,7 @@ const showDropChrome = computed(
                     <FormBuilderBannerBlock
                         v-model:banner="banner"
                         :banner-preview-src="bannerPreviewSrc"
+                        :upload-url="bannerUploadUrl ?? ''"
                         variant="plain"
                     />
                 </div>

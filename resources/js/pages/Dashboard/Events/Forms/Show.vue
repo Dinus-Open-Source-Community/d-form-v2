@@ -4,6 +4,12 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
 import { useAutosaveSync } from '@/utils/composables/useAutosaveSync';
+import {
+    builderPendingUploads,
+    cleanStoredImageUrl,
+    resolveBuilderImageUploadUrl,
+    sanitizeBuilderSnapshot,
+} from '@/utils/composables/useBuilderImageUpload';
 import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
@@ -22,6 +28,7 @@ import { Check, Eye, FileText, Inbox, PenLine, X } from 'lucide-vue-next';
 import {
     fromBackendField,
     toBackendFields,
+    isDisplayOnlyBuilderType,
     type BackendField,
     type BuilderField,
 } from '@/components/modules/builder/fieldMapping';
@@ -101,18 +108,23 @@ const formMetadata = ref(emptyFormRegistrationMetadata());
 
 // ── Autosave global: semua mutasi builder (fields + header/settings) ──
 function buildShowSnapshot(): string {
-    return JSON.stringify({
-        fields: formFields.value,
-        title: settingsForm.title,
-        description: settingsForm.description,
-        bannerUrl: bannerState.value.bannerUrl,
-        bannerCaption: bannerState.value.caption,
-        success: settingsForm.success_content ?? '',
-        closedAt: settingsForm.closed_at ?? '',
-        visibleFor: settingsForm.visible_for,
-        metadata: formMetadata.value,
-    });
+    return sanitizeBuilderSnapshot(
+        JSON.stringify({
+            fields: formFields.value,
+            title: settingsForm.title,
+            description: settingsForm.description,
+            bannerUrl: bannerState.value.bannerUrl,
+            bannerCaption: bannerState.value.caption,
+            success: settingsForm.success_content ?? '',
+            closedAt: settingsForm.closed_at ?? '',
+            visibleFor: settingsForm.visible_for,
+            metadata: formMetadata.value,
+        }),
+    );
 }
+
+/** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
+const builderImageUploadUrl = computed(() => resolveBuilderImageUploadUrl(props.event.id, props.form.id));
 
 async function saveShowSnapshot(): Promise<void> {
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
@@ -130,7 +142,7 @@ async function saveShowSnapshot(): Promise<void> {
             success_content: settingsForm.success_content ?? '',
             closed_at: settingsForm.closed_at ?? '',
             visible_for: settingsForm.visible_for,
-            banner_url: bannerState.value.bannerUrl || null,
+            banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
             banner_caption: bannerState.value.caption || null,
             fields: backendFields,
             metadata: toFormMetadataPayload(formMetadata.value),
@@ -230,6 +242,7 @@ watch(
 // awal menangkap state yang sudah terisi → tidak ada job save-redundan saat mount. ──
 const showAutosave = useAutosaveSync(buildShowSnapshot, saveShowSnapshot, {
     debounceMs: 800,
+    isBlocked: () => builderPendingUploads.value > 0,
     onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
 });
 const showSaveState = showAutosave.status;
@@ -239,7 +252,11 @@ onUnmounted(() => {
 });
 
 function onSave(): void {
-    settingsForm.banner_url = bannerState.value.bannerUrl;
+    if (builderPendingUploads.value > 0) {
+        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
+        return;
+    }
+    settingsForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl);
     settingsForm.banner_caption = bannerState.value.caption;
 
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
@@ -265,10 +282,25 @@ const answerKeys = computed(() => {
     const orderMap = new Map<string, number>();
     props.fields.forEach((f) => orderMap.set(f.name, f.order));
 
+    /** Display-only (banner/heading/paragraph/divider/image) bukan jawaban. */
+    const displayOnlyNames = new Set(
+        (props.fields ?? [])
+            .filter((f) => {
+                const metadata = (f.metadata ?? {}) as Record<string, unknown>;
+                const builderType = metadata.builderType;
+                return f.name === 'form_banner' || isDisplayOnlyBuilderType(builderType);
+            })
+            .map((f) => f.name),
+    );
+
     const keys = new Set<string>();
-    props.fields.forEach((f) => keys.add(f.name));
+    props.fields.forEach((f) => {
+        if (!displayOnlyNames.has(f.name)) keys.add(f.name);
+    });
     for (const submission of props.submissions ?? []) {
-        Object.keys(submission.answers ?? {}).forEach((key) => keys.add(key));
+        Object.keys(submission.answers ?? {}).forEach((key) => {
+            if (!displayOnlyNames.has(key)) keys.add(key);
+        });
     }
 
     return [...keys].sort((a, b) => {
@@ -520,6 +552,7 @@ function rejectLabel(submission: IFormSubmission): string {
                     :event="event"
                     :sibling-forms="siblingForms ?? []"
                     :toolbar-subtitle="`Edit form · ${event.title}`"
+                    :image-upload-url="builderImageUploadUrl"
                     save-label="Save All"
                     hide-toolbar
                     :processing="settingsForm.processing"

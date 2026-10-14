@@ -131,8 +131,16 @@ class BroadcastHtmlSanitizer
 
     private function isSafeUrl(string $url, string $tag): bool
     {
+        // Hasil migrasi inline image broadcast: path relatif disk public.
+        if (str_starts_with($url, '/storage/') || str_starts_with($url, 'storage/')) {
+            return true;
+        }
+
         if ($tag === 'img' && str_starts_with($url, 'data:image/')) {
-            // Inline image PRD: base64 di dalam konten.
+            // Kompatibilitas baca konten lama yang belum termigrasi.
+            // Data: URL BARU selalu ditolak di BroadcastContentController
+            // (migrasi otomatis ke storage, sisanya error) sehingga
+            // base64 tidak lagi tersimpan di DB.
             return (bool) preg_match('#^data:image/(png|jpe?g|gif|webp);base64,[a-zA-Z0-9+/=]+$#', preg_replace('/\s+/', '', $url));
         }
 
