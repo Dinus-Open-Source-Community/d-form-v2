@@ -11,7 +11,9 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Support\FormFieldTypeMapping;
+use App\Support\LegacyFormImage;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,8 +59,32 @@ class FormController extends Controller
             'metadata' => $data['metadata'] ?? null,
         ]);
 
+        // Banner legacy (data: URL) tidak punya validasi penolakan — konversi
+        // otomatis ke form-banners/{formId} agar DB hanya simpan path.
+        $banner = LegacyFormImage::convertFormBanner($form->banner_url, $form->id);
+        if ($banner['converted']) {
+            $form->update(['banner_url' => $banner['value']]);
+        } elseif ($banner['failed']) {
+            Log::warning('[FormController, store] legacy banner auto-convert failed', [
+                'form_id' => $form->id,
+                'hint' => 'php artisan forms:migrate-legacy-images --write',
+            ]);
+        }
+
         if (!empty($data['fields'])) {
-            foreach ($data['fields'] as $fieldData) {
+            // Lapis kedua: konversi data: URL legacy (optionChoices[].imageUrl, dll.)
+            // ke storage; URL/path normal no-op.
+            $legacy = LegacyFormImage::convertFieldRows($data['fields'], $form->id);
+            if ($legacy['converted'] > 0 || $legacy['failed'] > 0) {
+                Log::warning('[FormController, store] legacy data: image auto-convert', [
+                    'form_id' => $form->id,
+                    'converted' => $legacy['converted'],
+                    'failed' => $legacy['failed'],
+                    'hint' => 'php artisan forms:migrate-legacy-images --write',
+                ]);
+            }
+
+            foreach ($legacy['rows'] as $fieldData) {
                 $form->formFields()->create([
                     'id' => $fieldData['id'] ?? \Illuminate\Support\Str::uuid()->toString(),
                     'input_type' => FormFieldTypeMapping::toInputType($fieldData['type']),
@@ -128,6 +154,29 @@ class FormController extends Controller
     {
         $this->guardFormOnEvent($event, $form);
         $data = $request->validated();
+
+        // Lapis kedua (pre-transaction): konversi data: URL legacy yang lolos
+        // validasi (forms.banner_url, optionChoices[].imageUrl) ke storage.
+        $banner = LegacyFormImage::convertFormBanner($data['banner_url'] ?? null, $form->id);
+        if ($banner['converted']) {
+            $data['banner_url'] = $banner['value'];
+        }
+        if (isset($data['fields']) && is_array($data['fields'])) {
+            $legacy = LegacyFormImage::convertFieldRows($data['fields'], $form->id);
+            $data['fields'] = $legacy['rows'];
+        } else {
+            $legacy = ['converted' => 0, 'failed' => 0];
+        }
+        if ($banner['converted'] || $banner['failed'] || $legacy['converted'] > 0 || $legacy['failed'] > 0) {
+            Log::warning('[FormController, update] legacy data: image auto-convert', [
+                'form_id' => $form->id,
+                'banner_converted' => $banner['converted'],
+                'banner_failed' => $banner['failed'],
+                'fields_converted' => $legacy['converted'],
+                'fields_failed' => $legacy['failed'],
+                'hint' => 'php artisan forms:migrate-legacy-images --write',
+            ]);
+        }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($form, $data) {
             $form->update([

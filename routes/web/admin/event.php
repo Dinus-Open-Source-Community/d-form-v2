@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\Events\EventLaporanController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\Events\Forms\FieldOperationController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormImageUploadController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
@@ -60,6 +61,9 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->
 
     Route::post('/events/{event}/forms/{form}/fields', [FieldOperationController::class, '__invoke'])
         ->name('events.forms.fields');
+
+    Route::post('/events/{event}/forms/{form}/images', FormImageUploadController::class)
+        ->name('events.forms.images');
 
     Route::get('/events/{event}/forms/{form}/submissions', FormSubmissionsController::class)
         ->name('events.forms.submissions');

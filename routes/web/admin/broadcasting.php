@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\Broadcasting\BroadcastCancelController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastContentController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastDatasetController;
+use App\Http\Controllers\Dashboard\Broadcasting\BroadcastInlineImageController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastPreviewController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastRecipientController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastRetryController;
@@ -47,6 +48,8 @@ Route::middleware(['auth', 'broadcast.access'])->prefix('/admin/broadcasts')->na
 
     Route::post('/{broadcast}/attachments', [BroadcastAttachmentController::class, 'store'])->name('attachments.store');
     Route::delete('/{broadcast}/attachments/{attachment}', [BroadcastAttachmentController::class, 'destroy'])->name('attachments.destroy');
+
+    Route::post('/{broadcast}/inline-image', BroadcastInlineImageController::class)->name('inline-image.upload');
 
     Route::get('/{broadcast}/preview', BroadcastPreviewController::class)->name('preview');
     Route::post('/{broadcast}/test', BroadcastTestController::class)->name('test');

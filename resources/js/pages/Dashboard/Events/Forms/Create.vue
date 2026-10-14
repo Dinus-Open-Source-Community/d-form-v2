@@ -7,6 +7,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue'
 import { defaultFormBannerState, prependFormBannerToBackendPayload } from '@/components/modules/builder/formBanner'
 import { toBackendFields } from '@/components/modules/builder/fieldMapping'
+import { builderPendingUploads, cleanStoredImageUrl } from '@/utils/composables/useBuilderImageUpload'
 import type { BuilderField } from '@/types/form-builder'
 import type { CreateDashboardFormPayload, FormSiblingOption } from '@/types/form'
 import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form'
@@ -47,12 +48,16 @@ const createForm = useForm<CreateFormClientPayload>({
 })
 
 function onSave(): void {
+    if (builderPendingUploads.value > 0) {
+        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.')
+        return
+    }
     createForm.title = formTitle.value
     createForm.description = formDescription.value
     createForm.success_content = successContent.value
     createForm.closed_at = closedAt.value
     createForm.visible_for = visibleFor.value
-    createForm.banner_url = bannerState.value.bannerUrl
+    createForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl)
     createForm.banner_caption = bannerState.value.caption
     createForm.metadata = toFormMetadataPayload(formMetadata.value)
 

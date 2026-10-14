@@ -12,6 +12,11 @@ final class FormFieldTypeMapping
 {
     public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox', 'banner'];
 
+    /**
+     * Konten gambar builder TIDAK menambah API type / enum DB baru:
+     * simpan sebagai `input` + `metadata.builderType = image`
+     * (kolom `form_fields.input_type` tetap tanpa migrasi).
+     */
     public static function toInputType(string $apiType): string
     {
         return match ($apiType) {

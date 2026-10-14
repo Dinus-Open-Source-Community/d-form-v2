@@ -10,6 +10,7 @@ export function createFormBuilderField(type: FormBuilderType, label: string): Bu
         radio: { options: [{ id: crypto.randomUUID(), type: 'text', label: 'Radio 1' }] },
         rating: { metadata: { maxStars: 5 } },
         heading: { metadata: { content: 'Section Heading' } },
+        image: { metadata: { imageUrl: '', caption: '', alt: '' } },
         paragraph: { metadata: { content: 'Description text goes here...' } },
     }
     const base: BuilderField = {

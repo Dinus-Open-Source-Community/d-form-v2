@@ -80,6 +80,7 @@ const SOURCE: FormBuilderPaletteCategory[] = [
         isOpen: false,
         fields: [
             { type: 'heading', label: 'Heading', icon: HeadingIcon, description: 'Section title' },
+            { type: 'image', label: 'Image', icon: ImagePlus, description: 'Display-only image block' },
             { type: 'paragraph', label: 'Paragraph', icon: TextCursorInput, description: 'Descriptive text block' },
             { type: 'divider', label: 'Divider', icon: Minus, description: 'Visual separator line' },
             { type: 'rating', label: 'Star Rating', icon: Star, description: 'Rate with stars' },

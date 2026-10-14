@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
+import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import {
+    createLocalImagePreviewUrl,
+    revokeLocalImagePreviewUrl,
+    useBuilderImageUpload,
+} from '@/utils/composables/useBuilderImageUpload'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,16 +15,42 @@ import { Button } from '@/components/ui/button'
 import {
     Type, AlignLeft, Mail, Phone, Hash, ChevronDown, SquareCheck, CircleDot,
     ImagePlus, Upload, Calendar, Clock, Star,
-    Heading as HeadingIcon, TextCursorInput, Minus, Plus, X,
+    Heading as HeadingIcon, TextCursorInput, Minus, Plus, X, Loader2, Image as ImageIcon,
 } from 'lucide-vue-next'
 
-const props = defineProps<{
-    field: BuilderField
-}>()
+const props = withDefaults(
+    defineProps<{
+        field: BuilderField
+        /** Endpoint `POST {form}/images`. Kosong = preview lokal saja (tidak dipersist). */
+        uploadUrl?: string
+    }>(),
+    { uploadUrl: '' },
+)
 
 const emit = defineEmits<{
     (event: 'update:field', field: BuilderField): void
 }>()
+
+const optionUploadError = ref('')
+const imageBlockUploadError = ref('')
+const imageBlockUploading = ref(false)
+/** Id opsi yang sedang mengunggah (badge per opsi). */
+const uploadingOptionIds = ref<Set<string>>(new Set())
+
+const { uploadImage } = useBuilderImageUpload({
+    uploadUrl: () => props.uploadUrl,
+})
+
+function trackOptionUpload(id: string, active: boolean): void {
+    const next = new Set(uploadingOptionIds.value)
+    if (active) next.add(id)
+    else next.delete(id)
+    uploadingOptionIds.value = next
+}
+
+function isOptionUploading(id: string): boolean {
+    return uploadingOptionIds.value.has(id)
+}
 
 const TYPE_CONFIG = {
     short_text: { icon: Type, label: 'Teks pendek', accent: '#2563eb' },
@@ -35,6 +67,7 @@ const TYPE_CONFIG = {
     time: { icon: Clock, label: 'Waktu', accent: '#059669' },
     rating: { icon: Star, label: 'Rating', accent: '#f59e0b' },
     heading: { icon: HeadingIcon, label: 'Judul', accent: '#1a1a2e' },
+    image: { icon: ImageIcon, label: 'Gambar (tampilan)', accent: '#0ea5e9' },
     paragraph: { icon: TextCursorInput, label: 'Paragraf', accent: '#6b7280' },
     divider: { icon: Minus, label: 'Garis pemisah', accent: '#9ca3af' },
 }
@@ -106,18 +139,92 @@ function setOptionImageUrl(index: number, url: string) {
     emitOptions(opts)
 }
 
-function onOptionImageFile(index: number, event: Event) {
+function onOptionImageFile(optionId: string, event: Event) {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     input.value = ''
     if (!file || !file.type.startsWith('image/')) return
-    const reader = new FileReader()
-    reader.onload = () => {
-        if (typeof reader.result !== 'string') return
-        setOptionImageUrl(index, reader.result)
-    }
-    reader.readAsDataURL(file)
+    optionUploadError.value = ''
+    void (async () => {
+        // Preview instan (object URL) — tidak pernah base64.
+        const localUrl = createLocalImagePreviewUrl(file)
+        setOptionImageUrlById(optionId, localUrl)
+        trackOptionUpload(optionId, true)
+        try {
+            const result = await uploadImage(file)
+            if (result) {
+                revokeLocalImagePreviewUrl(localUrl)
+                setOptionImageUrlById(optionId, result.url)
+            } else if (props.uploadUrl.trim() !== '') {
+                setOptionImageUrlById(optionId, '')
+                optionUploadError.value = 'Gagal mengunggah gambar opsi. Coba lagi.'
+            }
+            // Tanpa uploadUrl: pertahankan preview lokal (sanitizer membuangnya sebelum save).
+        } finally {
+            trackOptionUpload(optionId, false)
+        }
+    })()
 }
+
+function setOptionImageUrlById(optionId: string, url: string) {
+    const opts = [...optionRows()]
+    const index = opts.findIndex((row) => row.id === optionId)
+    if (index === -1) return
+    opts[index] = { ...opts[index], imageUrl: url.trim() }
+    emitOptions(opts)
+}
+
+function optionPreviewSrc(opt: FieldOptionEntry): string {
+    return opt.imageUrl ? normalizeBannerSrc(opt.imageUrl) : ''
+}
+
+function imageBlockSrc(): string {
+    const raw = props.field.metadata?.imageUrl
+    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+}
+
+async function onImageBlockFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file || !file.type.startsWith('image/')) return
+    imageBlockUploadError.value = ''
+    const previous = typeof props.field.metadata?.imageUrl === 'string' ? props.field.metadata.imageUrl : ''
+    // Preview instan (object URL) — tidak pernah base64.
+    const localUrl = createLocalImagePreviewUrl(file)
+    updateMeta('imageUrl', localUrl)
+    imageBlockUploading.value = true
+    try {
+        const result = await uploadImage(file)
+        if (result) {
+            revokeLocalImagePreviewUrl(localUrl)
+            updateMeta('imageUrl', result.url)
+        } else if (props.uploadUrl.trim() !== '') {
+            revokeLocalImagePreviewUrl(localUrl)
+            updateMeta('imageUrl', previous)
+            imageBlockUploadError.value = 'Gagal mengunggah gambar. Coba lagi.'
+        }
+        // Tanpa uploadUrl: pertahankan preview lokal (sanitizer membuangnya sebelum save).
+    } finally {
+        imageBlockUploading.value = false
+    }
+}
+
+function clearImageBlock(): void {
+    const raw = props.field.metadata?.imageUrl
+    if (typeof raw === 'string') revokeLocalImagePreviewUrl(raw)
+    updateMeta('imageUrl', '')
+}
+
+onUnmounted(() => {
+    const raw = props.field.metadata?.imageUrl
+    if (typeof raw === 'string' && raw.startsWith('blob:')) revokeLocalImagePreviewUrl(raw)
+    for (const opt of optionRows()) {
+        if (typeof opt.imageUrl === 'string' && opt.imageUrl.startsWith('blob:')) {
+            revokeLocalImagePreviewUrl(opt.imageUrl)
+        }
+    }
+})
 
 const hasPlaceholder = computed(() =>
     ['short_text', 'long_text', 'email', 'phone', 'number'].includes(props.field.type),
@@ -126,7 +233,7 @@ const hasOptions = computed(() =>
     ['dropdown', 'checkbox', 'radio'].includes(props.field.type),
 )
 const isContent = computed(() =>
-    ['heading', 'paragraph', 'divider'].includes(props.field.type),
+    ['heading', 'paragraph', 'divider', 'image'].includes(props.field.type),
 )
 function onMaxLengthInput(v: string) {
     const t = String(v ?? '').trim()
@@ -148,7 +255,7 @@ function maxLengthInputDisplay(): string {
     return Number.isFinite(n) && n > 0 ? String(Math.floor(n)) : ''
 }
 const hasAdvancedFlags = computed(
-    () => !['heading', 'paragraph', 'divider', 'banner'].includes(props.field.type),
+    () => !['heading', 'paragraph', 'divider', 'banner', 'image'].includes(props.field.type),
 )
 </script>
 
@@ -245,6 +352,70 @@ const hasAdvancedFlags = computed(
             />
         </div>
 
+        <!-- Image block (display-only): gambar + caption + alt -->
+        <div v-if="field.type === 'image'" class="flex flex-col gap-2">
+            <Label class="text-xs font-semibold">Gambar tampilan</Label>
+            <div
+                v-if="imageBlockSrc()"
+                class="relative overflow-hidden rounded-xl border border-border bg-card"
+            >
+                <img :src="imageBlockSrc()" :alt="String(field.metadata?.alt ?? '')" class="w-full object-cover" />
+                <span
+                    v-if="imageBlockUploading"
+                    class="bg-foreground/55 text-background absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold"
+                >
+                    <Loader2 class="size-3 animate-spin" aria-hidden="true" />
+                    Mengunggah…
+                </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+                <label
+                    class="flex cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                >
+                    <ImagePlus class="mr-1.5 size-4" />
+                    {{ imageBlockSrc() ? 'Ganti gambar' : 'Unggah gambar' }}
+                    <input type="file" accept="image/*" class="sr-only" @change="onImageBlockFile" />
+                </label>
+                <Button
+                    v-if="imageBlockSrc()"
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    class="text-xs"
+                    @click="clearImageBlock"
+                >
+                    Hapus
+                </Button>
+            </div>
+            <Input
+                :model-value="String(field.metadata?.imageUrl ?? '')"
+                placeholder="atau tempel URL gambar…"
+                class="text-[11px]"
+                @update:model-value="(v) => updateMeta('imageUrl', String(v ?? '').trim())"
+            />
+            <p v-if="imageBlockUploadError" class="text-[10px] font-semibold text-destructive">
+                {{ imageBlockUploadError }}
+            </p>
+            <div class="flex flex-col gap-1.5">
+                <Label class="text-xs font-semibold">Caption (opsional)</Label>
+                <Input
+                    :model-value="String(field.metadata?.caption ?? '')"
+                    placeholder="Keterangan di bawah gambar…"
+                    class="text-xs"
+                    @update:model-value="(v) => updateMeta('caption', String(v ?? ''))"
+                />
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <Label class="text-xs font-semibold">Alt text (aksesibilitas)</Label>
+                <Input
+                    :model-value="String(field.metadata?.alt ?? '')"
+                    placeholder="Deskripsi singkat gambar…"
+                    class="text-xs"
+                    @update:model-value="(v) => updateMeta('alt', String(v ?? ''))"
+                />
+            </div>
+        </div>
+
         <!-- Rating max stars -->
         <div v-if="field.type === 'rating'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Jumlah bintang maksimal</Label>
@@ -323,14 +494,21 @@ const hasAdvancedFlags = computed(
                             </div>
                             <div v-else class="flex flex-col gap-1.5">
                                 <div
-                                    v-if="opt.imageUrl"
-                                    class="h-20 w-full overflow-hidden rounded-lg border border-border bg-card"
+                                    v-if="optionPreviewSrc(opt)"
+                                    class="relative h-20 w-full overflow-hidden rounded-lg border border-border bg-card"
                                 >
                                     <img
-                                        :src="opt.imageUrl"
+                                        :src="optionPreviewSrc(opt)"
                                         alt=""
                                         class="size-full object-cover"
                                     />
+                                    <span
+                                        v-if="isOptionUploading(opt.id)"
+                                        class="bg-foreground/55 text-background absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 py-0.5 text-[10px] font-semibold"
+                                    >
+                                        <Loader2 class="size-3 animate-spin" aria-hidden="true" />
+                                        Mengunggah…
+                                    </span>
                                 </div>
                                 <Input
                                     :model-value="opt.imageUrl"
@@ -363,11 +541,12 @@ const hasAdvancedFlags = computed(
                                 class="flex cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
                             >
                                 <ImagePlus class="mr-1 size-3.5" />
+                                Unggah
                                 <input
                                     type="file"
                                     accept="image/*"
                                     class="sr-only"
-                                    @change="onOptionImageFile(i, $event)"
+                                    @change="onOptionImageFile(opt.id, $event)"
                                 />
                             </label>
                             <button
@@ -387,6 +566,9 @@ const hasAdvancedFlags = computed(
                     <Plus class="mr-1 size-3.5" />Tambah opsi
                 </Button>
             </div>
+            <p v-if="optionUploadError" class="text-[10px] font-semibold text-destructive">
+                {{ optionUploadError }}
+            </p>
         </div>
 
         <!-- Advanced (team / bundle) -->

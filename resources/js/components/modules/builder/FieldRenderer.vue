@@ -65,6 +65,7 @@ const TYPE_CONFIG = {
     time: { icon: Clock, label: 'Waktu', tone: 'info' },
     rating: { icon: Star, label: 'Rating', tone: 'warning' },
     heading: { icon: HeadingIcon, label: 'Judul', tone: 'neutral' },
+    image: { icon: ImagePlus, label: 'Gambar', tone: 'neutral' },
     paragraph: { icon: TextCursorInput, label: 'Paragraf', tone: 'neutral' },
     divider: { icon: Minus, label: 'Pemisah', tone: 'neutral' },
 }
@@ -109,6 +110,22 @@ const choiceOptions = computed((): FieldOptionEntry[] => {
 function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
     const u = optionImageUrl(entry)
     return u ? normalizeBannerSrc(u) : undefined
+}
+
+/** Display-only image block: storage path / URL / blob preview → <img> src. */
+function builderImageSrc(f: BuilderField): string {
+    const raw = f.metadata?.imageUrl
+    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+}
+
+function builderImageCaption(f: BuilderField): string {
+    const raw = f.metadata?.caption
+    return typeof raw === 'string' ? raw.trim() : ''
+}
+
+function builderImageAlt(f: BuilderField): string {
+    const raw = f.metadata?.alt
+    return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : builderImageCaption(f) || f.label
 }
 </script>
 
@@ -401,6 +418,35 @@ function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
                     <h3 class="font-display text-lg font-bold text-foreground">
                         {{ field.metadata?.content || 'Judul bagian' }}
                     </h3>
+                </div>
+
+                <!-- Image (display-only) -->
+                <div v-else-if="field.type === 'image'">
+                    <div v-if="builderImageSrc(field)" class="overflow-hidden rounded-xl border border-border/70">
+                        <img
+                            :src="builderImageSrc(field)"
+                            :alt="builderImageAlt(field)"
+                            class="w-full object-cover"
+                        />
+                        <p
+                            v-if="builderImageCaption(field)"
+                            class="border-t border-border/70 bg-card px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+                        >
+                            {{ builderImageCaption(field) }}
+                        </p>
+                    </div>
+                    <div
+                        v-else
+                        class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 py-6"
+                    >
+                        <div
+                            class="mb-2 flex size-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground"
+                        >
+                            <ImagePlus class="size-5" />
+                        </div>
+                        <p class="text-xs font-semibold text-muted-foreground">Belum ada gambar</p>
+                        <p class="mt-0.5 text-[10px] text-muted-foreground/60">Atur gambar lewat properti field</p>
+                    </div>
                 </div>
 
                 <!-- Paragraph -->
