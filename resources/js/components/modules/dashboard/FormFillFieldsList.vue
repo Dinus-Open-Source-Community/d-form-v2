@@ -161,11 +161,30 @@ function confirmSubmit() {
                         v-else-if="ctx.builderType(field) === 'image'"
                         class="overflow-hidden rounded-2xl border border-border bg-card shadow-xs"
                     >
+                        <div
+                            v-if="field.label || field.description"
+                            class="space-y-1 px-5 pt-4"
+                            :class="fillImageSrc(field) || fillImageText(field, 'caption').trim() ? 'pb-3' : 'pb-4'"
+                        >
+                            <h3
+                                v-if="field.label"
+                                class="text-sm font-semibold text-foreground"
+                            >
+                                {{ field.label }}
+                            </h3>
+                            <p
+                                v-if="field.description"
+                                class="text-xs leading-relaxed text-muted-foreground"
+                            >
+                                {{ field.description }}
+                            </p>
+                        </div>
                         <img
                             v-if="fillImageSrc(field)"
                             :src="fillImageSrc(field)"
                             :alt="fillImageText(field, 'alt') || fillImageText(field, 'caption') || field.label"
                             class="w-full object-cover"
+                            :class="(field.label || field.description) ? 'border-t border-border' : ''"
                         />
                         <p
                             v-if="fillImageText(field, 'caption').trim()"
