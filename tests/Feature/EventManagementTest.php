@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Models\Form;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,6 +78,74 @@ class EventManagementTest extends TestCase
                     'event_segment' => $event->slug,
                 ], false))
             );
+    }
+
+    public function test_public_event_detail_lists_only_publicly_visible_forms(): void
+    {
+        $event = Event::factory()->create([
+            'status' => EventStatus::Published,
+            'slug' => 'public-forms-event',
+        ]);
+
+        $publicForm = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Public Registration Form',
+            'visible_for' => [EventFormVisibility::Public->value],
+        ]);
+
+        Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Admin Only Form',
+            'visible_for' => [EventFormVisibility::Admin->value],
+        ]);
+
+        $this->get(route('events.show', $event->slug))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                ->component('EventDetail')
+                ->has('forms', 1)
+                ->where('forms.0.id', $publicForm->id)
+                ->where('forms.0.title', 'Public Registration Form')
+                ->where('forms.0.fill_url', route('dashboard.events.forms.fill', [
+                    'event' => $event,
+                    'form' => $publicForm,
+                ], false))
+            );
+    }
+
+    public function test_login_honors_local_intended_query(): void
+    {
+        $user = User::factory()->create();
+
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $path = route('dashboard.events.forms.fill', [
+            'event' => $event,
+            'form' => $form,
+        ], false);
+
+        $this->get(route('auth.login', ['intended' => $path]))->assertOk();
+
+        $this->post(route('auth.login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect($path);
+    }
+
+    public function test_login_ignores_external_intended(): void
+    {
+        $user = User::factory()->create();
+
+        foreach (['https://evil.com', '//evil.com', '/\\evil.com'] as $intended) {
+            $this->get(route('auth.login', ['intended' => $intended]))->assertOk();
+        }
+
+        $this->post(route('auth.login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
     }
 
     public function test_admin_can_view_events_index(): void

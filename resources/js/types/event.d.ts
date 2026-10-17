@@ -25,6 +25,14 @@ declare global {
         pending_team_invitation_url?: string | null
     }
 
+    /** Form publik yang tampil di halaman detail event (visibilitas `public`). */
+    interface IPublicEventForm {
+        id: string
+        title: string
+        description: string | null
+        fill_url: string
+    }
+
     interface IForm {
         id: string
         title: string
