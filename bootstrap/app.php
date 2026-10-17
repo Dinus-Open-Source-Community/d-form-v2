@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
-        $middleware->redirectUsersTo(fn () => route('dashboard', absolute: false));
+        $middleware->redirectUsersTo(fn () => route('home', absolute: false));
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

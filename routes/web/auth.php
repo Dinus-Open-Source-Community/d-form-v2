@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Middleware\PreventAuthPageCaching;
 use Illuminate\Support\Facades\Route;
 
 // use App\Http\Controllers\Auth\PageController as AuthPageController;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/auth', '/auth/login');
 
 // Routes for login and register
-Route::middleware('guest')->group(function () {
+Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
     // Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.login');
 
     /**
