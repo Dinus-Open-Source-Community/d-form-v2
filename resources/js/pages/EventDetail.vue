@@ -3,7 +3,7 @@ import LandingLayout from '@/layouts/LandingLayout.vue';
 import SeoHead from '@/components/seo/SeoHead.vue';
 import { computed, ref, onMounted } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
-import { MapPin, CalendarDays, ArrowRight, Check, Shield } from 'lucide-vue-next';
+import { MapPin, CalendarDays, ArrowRight, Check, Shield, FileText, ChevronRight, LogIn } from 'lucide-vue-next';
 import { formatDate, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
 import { toCategoryList } from '@/lib/eventCategories';
 import { stripHtmlToText } from '@/utils/stripHtml';
@@ -14,12 +14,20 @@ import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect';
 const props = defineProps<{
     event: IEvent;
     memberPortalEventUrl: string;
+    forms?: IPublicEventForm[];
 }>();
 
 const page = usePage();
 const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
 
 const event = computed(() => props.event);
+
+const isGuest = computed<boolean>(() => !page.props.auth?.user);
+
+const eventForms = computed<IPublicEventForm[]>(() => props.forms ?? []);
+
+const formHref = (fillUrl: string): string =>
+    page.props.auth?.user ? fillUrl : routes.auth.registerWithIntended(fillUrl);
 
 const metaDescription = computed(() => {
     const plain = stripHtmlToText(event.value.description, 170);
@@ -226,15 +234,30 @@ const highlights: string[] = [
                                 </div>
                             </div>
 
-                            <Link
-                                :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
-                                class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary/92"
-                            >
-                                {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
-                                <span class="grid size-7 place-items-center rounded-full bg-white/15">
-                                    <ArrowRight class="size-4" />
-                                </span>
-                            </Link>
+                            <div class="flex flex-col gap-3">
+                                <div
+                                    v-if="isGuest"
+                                    class="border-primary/20 bg-primary/[0.05] flex items-start gap-3 rounded-2xl border p-3.5 lg:hidden"
+                                >
+                                    <span class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full">
+                                        <LogIn class="size-4" />
+                                    </span>
+                                    <p class="text-muted-foreground text-xs leading-relaxed">
+                                        <span class="text-foreground font-semibold">Sign in required.</span>
+                                        You'll be taken to sign in, then brought back here to finish registering.
+                                    </p>
+                                </div>
+
+                                <Link
+                                    :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
+                                    class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary/92"
+                                >
+                                    {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
+                                    <span class="grid size-7 place-items-center rounded-full bg-white/15">
+                                        <ArrowRight class="size-4" />
+                                    </span>
+                                </Link>
+                            </div>
                         </div>
                     </article>
                 </div>
@@ -275,7 +298,8 @@ const highlights: string[] = [
 
                     <div
                         :class="[
- 'hidden transition-all duration-700 lg:order-2 lg:block',
+ 'transition-all duration-700 lg:order-2',
+ eventForms.length === 0 ? 'hidden lg:block' : 'order-3',
  visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
  ]"
                         style="transition-delay: 300ms"
@@ -300,6 +324,17 @@ const highlights: string[] = [
                                         :style="{ width: capacityPercent + '%' }"
                                     />
                                 </div>
+                                <div
+                                    v-if="isGuest"
+                                    class="border-primary/20 bg-primary/[0.05] mt-6 flex items-start gap-2.5 rounded-xl border p-3"
+                                >
+                                    <LogIn class="text-primary mt-0.5 size-3.5 shrink-0" />
+                                    <p class="text-muted-foreground text-xs leading-relaxed">
+                                        <span class="text-foreground font-semibold">Sign in required.</span>
+                                        You'll be taken to sign in, then brought back here to finish registering.
+                                    </p>
+                                </div>
+
                                 <Link
                                     :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
                                     class="border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 mt-6 flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -309,7 +344,53 @@ const highlights: string[] = [
                                 </Link>
                             </div>
 
-                            <div class="app-surface rounded-2xl p-6">
+                            <div v-if="eventForms.length > 0" class="app-surface rounded-2xl p-6">
+                                <div class="mb-4 flex items-center justify-between gap-3">
+                                    <h3 class="font-display text-foreground text-[1.2rem] font-bold leading-tight tracking-tight">
+                                        Forms
+                                    </h3>
+                                    <span
+                                        class="border-border/70 bg-muted/40 text-muted-foreground rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tabular-nums"
+                                    >
+                                        {{ eventForms.length }}
+                                    </span>
+                                </div>
+                                <ul class="flex flex-col gap-3">
+                                    <li v-for="form in eventForms" :key="form.id">
+                                        <Link
+                                            :href="formHref(form.fill_url)"
+                                            class="app-focus-ring group border-border bg-muted/15 hover:border-primary/30 hover:bg-muted/30 flex min-h-14 items-start gap-3 rounded-xl border p-3.5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                                        >
+                                            <span class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full">
+                                                <FileText class="size-4" />
+                                            </span>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-foreground line-clamp-2 text-sm font-semibold leading-snug">
+                                                    {{ form.title }}
+                                                </p>
+                                                <p
+                                                    v-if="form.description"
+                                                    class="text-muted-foreground mt-0.5 line-clamp-2 text-xs leading-relaxed"
+                                                >
+                                                    {{ form.description }}
+                                                </p>
+                                            </div>
+                                            <ChevronRight
+                                                class="text-muted-foreground group-hover:text-primary mt-0.5 size-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0.5"
+                                            />
+                                        </Link>
+                                    </li>
+                                </ul>
+                                <p
+                                    v-if="isGuest"
+                                    class="text-muted-foreground mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed"
+                                >
+                                    <LogIn class="text-primary mt-0.5 size-3.5 shrink-0" />
+                                    Sign in required to open a form.
+                                </p>
+                            </div>
+
+                            <div class="app-surface hidden rounded-2xl p-6 lg:block">
                                 <h3 class="font-display text-foreground mb-5 text-[1.2rem] font-bold leading-tight tracking-tight">
                                     Event Details
                                 </h3>
