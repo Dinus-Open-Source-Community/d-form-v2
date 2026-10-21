@@ -4,15 +4,16 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 ## Isi folder
 
-| File | Deskripsi |
-|------|-----------|
-| [saptoChanges10-06-2026.md](./saptoChanges10-06-2026.md) | Bundle submissions, member dashboard, reusable routes, re-registrasi, password reset |
-| [saptoChanges04-05-2026.md](./saptoChanges04-05-2026.md) | Konsolidasi M1–M4, hapus Livewire/Filament, publik event dari DB |
-| [saptoChanges19-04-2026.md](./saptoChanges19-04-2026.md) | Dashboard admin, halaman event, landing navbar, data seed, Docker dev |
+| File                                                     | Deskripsi                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges21-10-2026.md](./saptoChanges21-10-2026.md) | Aturan proyek (14 aturan baru), `CONTEXT.md`, stress harness k6, dataset 1 juta baris, benchmark query |
+| [saptoChanges10-06-2026.md](./saptoChanges10-06-2026.md) | Bundle submissions, member dashboard, reusable routes, re-registrasi, password reset                   |
+| [saptoChanges04-05-2026.md](./saptoChanges04-05-2026.md) | Konsolidasi M1–M4, hapus Livewire/Filament, publik event dari DB                                       |
+| [saptoChanges19-04-2026.md](./saptoChanges19-04-2026.md) | Dashboard admin, halaman event, landing navbar, data seed, Docker dev                                  |
 
 ## Cara membaca (untuk tim)
 
-1. Buka changelog **terbaru** (`saptoChanges10-06-2026.md`) untuk perubahan terakhir.
+1. Buka changelog **terbaru** (`saptoChanges21-10-2026.md`) untuk perubahan terakhir.
 2. Bagian **Ringkasan (TL;DR)** di setiap dokumen cocok untuk sync singkat.
 3. Bagian **Checklist** di akhir dokumen bisa dipakai sebelum merge atau saat onboarding anggota baru.
 

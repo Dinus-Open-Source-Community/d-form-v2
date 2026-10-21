@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -11,6 +12,8 @@ use Illuminate\Validation\Validator;
 
 class FieldModifyRequest extends FormRequest
 {
+    use ConvertsLegacyDataUrls;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -69,5 +72,10 @@ class FieldModifyRequest extends FormRequest
             ? $formParam
             : ($formParam !== null ? Form::query()->find($formParam) : null);
         FormFieldsRequestValidation::afterForFields($validator, $this, $form);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->convertLegacyDataUrlsInRequest();
     }
 }

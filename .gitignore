@@ -58,3 +58,9 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 .superpowers/
 .playwright-cli/
+.opencode
+scripts/stress
+AGENTS.md
+CONTEXT.md
+/database/seeders/Stress/*
+/app/Console/Commands/Stress

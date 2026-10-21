@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\EventFormVisibility;
+use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -13,6 +14,8 @@ use Illuminate\Validation\Validator;
 
 class UpdateEventFormRequest extends FormRequest
 {
+    use ConvertsLegacyDataUrls;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -100,5 +103,10 @@ class UpdateEventFormRequest extends FormRequest
             $form,
             $event?->id ?? $form?->event_id,
         );
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->convertLegacyDataUrlsInRequest();
     }
 }
