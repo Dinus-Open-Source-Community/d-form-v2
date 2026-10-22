@@ -60,6 +60,8 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 'ssl_ca' => env('MYSQL_ATTR_SSL_CA'),
+                // Hanya untuk profil stress: performance_schema tidak mencatat digest native prepares.
+                PDO::ATTR_EMULATE_PREPARES => (bool) env('DB_EMULATE_PREPARES', false),
             ]) : [],
         ],
 
