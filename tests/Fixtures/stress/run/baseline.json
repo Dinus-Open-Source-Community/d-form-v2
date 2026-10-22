@@ -1,0 +1,10 @@
+{
+    "home": {
+        "status": 200,
+        "captured_at": "2026-10-22T15:59:00+00:00"
+    },
+    "dashboard.home": {
+        "status": 200,
+        "captured_at": "2026-10-22T15:59:00+00:00"
+    }
+}

@@ -1,0 +1,38 @@
+{
+    "generated_at": "2026-10-22T16:00:31+00:00",
+    "before": "digests-before.json",
+    "totals": {
+        "calls": 300,
+        "total_ms": 1234.5
+    },
+    "deltas": [
+        {
+            "digest": "aaa111",
+            "digest_text": "SELECT * FROM `forms` WHERE `status` = ?",
+            "calls": 200,
+            "total_ms": 1000.0,
+            "avg_ms": 5.0,
+            "rows_examined": 1000000,
+            "rows_sent": 200,
+            "no_index_used": 1,
+            "explain": null,
+            "explain_error": "EXPLAIN gagal: placeholder"
+        },
+        {
+            "digest": "bbb222",
+            "digest_text": "SELECT * FROM `users` WHERE `id` = ?",
+            "calls": 100,
+            "total_ms": 234.5,
+            "avg_ms": 2.345,
+            "rows_examined": 100,
+            "rows_sent": 100,
+            "no_index_used": 0,
+            "explain": {
+                "query_block": {
+                    "select_id": 1
+                }
+            },
+            "explain_error": null
+        }
+    ]
+}

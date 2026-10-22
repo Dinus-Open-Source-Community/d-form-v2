@@ -1,0 +1,83 @@
+{
+    "metrics": {
+        "http_reqs": {
+            "values": {
+                "count": 2000,
+                "rate": 66.67
+            }
+        },
+        "http_req_duration": {
+            "values": {
+                "avg": 12.5,
+                "min": 1.2,
+                "med": 10.0,
+                "max": 250.4,
+                "p(90)": 20.0,
+                "p(95)": 25.5
+            }
+        },
+        "http_429_rate": {
+            "values": {
+                "rate": 0.02
+            }
+        },
+        "http_5xx_rate": {
+            "values": {
+                "rate": 0.0
+            }
+        },
+        "ep_dur_home": {
+            "values": {
+                "avg": 5.0,
+                "min": 1.2,
+                "med": 4.0,
+                "max": 12.0,
+                "p(90)": 8.0,
+                "p(95)": 9.5
+            }
+        },
+        "ep_reqs_home": {
+            "values": {
+                "count": 1200
+            }
+        },
+        "ep_err_home": {
+            "values": {
+                "rate": 0.0
+            }
+        },
+        "ep_429_home": {
+            "values": {
+                "rate": 0.01
+            }
+        },
+        "ep_dur_dashboard_home": {
+            "values": {
+                "avg": 24.0,
+                "min": 3.0,
+                "med": 20.0,
+                "max": 250.4,
+                "p(90)": 40.0,
+                "p(95)": 62.5
+            }
+        },
+        "ep_reqs_dashboard_home": {
+            "values": {
+                "count": 800
+            }
+        },
+        "ep_err_dashboard_home": {
+            "values": {
+                "rate": 0.004
+            }
+        },
+        "ep_429_dashboard_home": {
+            "values": {
+                "rate": 0.03
+            }
+        }
+    },
+    "root_group": {
+        "name": ""
+    }
+}
