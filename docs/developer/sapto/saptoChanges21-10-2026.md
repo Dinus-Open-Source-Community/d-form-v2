@@ -102,6 +102,86 @@ Verifikasi nyata di mesin dev: `--generate` → 50 GET / 28 write / 79 dilewati;
 
 ---
 
+### 4.1 Perbaikan pasca-uji pertama
+
+Uji pertama `run.sh --seed` gagal dengan `TypeError: Command::call(): Argument #2 must be of type array, false given`. Penyebab: `SeedStressDatasetCommand` memakai signature `Seeder::call($class, $silent, $params)`, padahal di dalam Command signature-nya `call(string $command, array $arguments)`. Perbaikan: helper `runSeeder()` yang me-resolve seeder dari container lalu `setContainer()/setCommand()/run($scale)`.
+
+Bukti setelah perbaikan (`--scale 2000`, 6,4 detik):
+
+| Tabel                                                                                                                      | Baris                     |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| users, events, forms, form_fields, form_answers, event_attendances, email_logs, email_datasets, email_broadcast_recipients | 2.000 masing-masing       |
+| recruitment_applications, documents, screenings, interviews, activity_logs                                                 | 2.000 masing-masing       |
+| recruitment_attendances / evaluations / final_decisions / feedbacks                                                        | 1.400 / 1.000 / 800 / 600 |
+
+Integritas: 9 pemeriksaan relasi (forms→events, fields→forms, answers→forms, answers→users, attendance→event/answer, interviews→applications, evaluations→interviews, attendance→applications, final_decisions→applications, feedbacks→applications, screenings→applications) semuanya **0 baris yatim**; `registration_code` dan `registration_number` tanpa duplikat. HTTP: `/`, `/events`, `/auth/login` → 200, `/admin/scan` → 302 (auth).
+
+### 4.2 Akar masalah seed skala 1 juta "hang" (bukan hang)
+
+Saat menjalankan skala 1.000.000, progres tampak berhenti. Investigasi (bukan tebakan):
+
+| Gejala terukur                                | Nilai                                                                                                                 |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Laju `recruitment_applications`               | 348.000 → 352.000 baris / 20 detik = **200 baris/detik**                                                              |
+| Proyeksi sisa ±7,6 juta baris                 | **±10 jam**                                                                                                           |
+| `innodb_buffer_pool_size`                     | **128 MB** (default MySQL), sementara `recruitment_applications` saja 611 MB (239 MB data + 372 MB indeks, 11 indeks) |
+| `Innodb_buffer_pool_reads` (fisik)            | +21.712 per 15 detik (12,3% miss)                                                                                     |
+| `Innodb_data_fsyncs` + `Innodb_os_log_fsyncs` | +7.278 + 6.696 per 15 detik (`flush_log_at_trx_commit=1`, `sync_binlog=1`)                                            |
+| Lock wait / CPU PHP                           | 0 / ±2% → **I/O bound**, bukan deadlock atau CPU                                                                      |
+
+Penyebab: setiap insert 2.000–3.000 baris menyentuh ±22.000 entri indeks; dengan buffer pool 128 MB
+halaman indeks selalu di luar cache sehingga tiap baris memicu physical read, ditambah fsync per commit.
+
+Perbaikan (di `stress:seed`, dipulihkan otomatis setelah selesai):
+
+- `innodb_flush_log_at_trx_commit=2`, `sync_binlog=0` (durability diturunkan selama seed saja).
+- `foreign_key_checks=0`, `unique_checks=0` untuk sesi seed (urutan insert sudah induk→anak; sudah diverifikasi 0 baris yatim).
+- `innodb_buffer_pool_size=2G` selama seed.
+- Flag `--no-tune` untuk melewatinya; kegagalan menaikkan buffer pool hanya memunculkan warning, seed tetap jalan.
+- Progres dicetak maksimal tiap 2 detik dengan **baris/detik + ETA** (sebelumnya tiap 10% → terlihat hang).
+
+Hasil sementara (skala 50.000, 12 tabel domain + recruitment, 90,2 detik ≈ 11.000 baris/detik) — 9× lebih cepat dari laju 1.220 baris/detik pada run yang dihentikan.
+
+### 4.3 Dua seed serentak = `Duplicate entry ... PRIMARY`
+
+Uji 1 juta baris kedua gagal di chunk `516001` dengan
+`SQLSTATE[23000]: Duplicate entry 'c3434c4f-b0a4-50f0-ba54-ea7f0a5677ed' for key 'users.PRIMARY'`.
+
+Bukti: id yang bentrok identik dengan `StressDatasetSeeder::uuidFor('user', 516001)` — tepat baris pertama
+sebuah chunk (516001 = 1 + 172×3000) — dan saat itu ada proses kedua `stress:seed --scale=1000000 --force`
+berjalan bersamaan. Dua penulis memakai UUID5 deterministik yang sama, jadi chunk yang sama ditulis dua kali;
+`--force` masing-masing juga saling menghapus data. Bukan bug generator id.
+
+Perbaikan: `stress:seed` memegang lock Redis `stress:seed` (TTL 6 jam) sebelum validasi `--scale` dan sebelum
+truncate; seed kedua berhenti dengan pesan jelas. Kalau proses mati tanpa melepas lock, TTL atau
+`Cache::lock('stress:seed')->forceRelease()` mengatasinya.
+
+Verifikasi guard order (tanpa menyentuh data): dengan lock dipegang → `stress:seed --scale=0` keluar dengan
+pesan "Seed stress lain masih berjalan" (exit 1); setelah lock dilepas → jatuh ke validasi scale. Artinya
+lock menahan sebelum jalur destruktif.
+
+Bukti tuning pada skala 1 juta (fase users sebelum insiden): **14.778–18.358 baris/detik** dibanding
+±1.220 baris/detik pada run default — 12–15× lebih cepat.
+
+### 4.4 Cleanup tuning bisa menimpa seed lain (race `SET GLOBAL`)
+
+Setelah seed pertama gagal di fase users, seed lain yang sudah berjalan turun lagi ke ±266 baris/detik:
+proses yang mati menjalankan `finally` dan memulihkan `innodb_flush_log_at_trx_commit=1`, `sync_binlog=1`,
+`innodb_buffer_pool_size=128M` — padahal proses kedua masih menulis dengan setelan tersebut.
+
+Perbaikan: closure restore kini membandingkan nilai saat ini dengan nilai yang dia pasang; kalau pihak lain
+sudah mengubahnya, nilai itu **tidak** ditimpa. Ditambah lock `stress:seed`, dua seed tidak bisa lagi
+berbagi setelan global secara bersamaan.
+
+Bukti live pada seed yang sedang berjalan (skala 1 juta, tabel `recruitment_applications`):
+
+| Kondisi                                                        | Laju              |
+| -------------------------------------------------------------- | ----------------- |
+| Sebelum boost (`flush=1`, `sync_binlog=1`, buffer pool 128 MB) | 266 baris/detik   |
+| Sesudah `SET GLOBAL` flush=2, sync_binlog=0, buffer pool 2 GB  | 2.700 baris/detik |
+
+---
+
 ## 5. Benchmark query — `stress:queries`
 
 `stress:queries {--limit=50} {--json} {--only=}` menjalankan 20 query yang mencerminkan service aktif: daftar event, roster registran (+count), paginasi submission, cek duplikat `FormAccessGuard`, `ScanStreamFeed::since` (event & recruitment), empat query `EventReportingQuery`, daftar applicant, funnel + per-divisi recruitment, interview hari ini per interviewer, waiting pool, dataset broadcast (otomatis masuk `skipped` bila `FEATURE_BROADCAST=false`).
@@ -143,6 +223,8 @@ Catatan: host pengembangan tidak punya `php`/`docker`/`k6`, sehingga lint dijala
 | Aturan proyek `AGENTS.md` (14 aturan baru, dedupe, hapus 2) | tanpa nomor tiket (konvensi folder) | belum di-commit |
 | `CONTEXT.md` baru                                           | tanpa nomor tiket                   | belum di-commit |
 | Stress harness + dataset + benchmark query                  | tanpa nomor tiket                   | belum di-commit |
+
+Catatan: `.gitignore` (21 Okt 2026) sengaja mengabaikan `.opencode`, `scripts/`, `AGENTS.md`, `CONTEXT.md`, `database/seeders/Stress/*`, dan `app/Console/Commands/Stress` atas keputusan pemilik repo. Artefak tersebut tetap ada di mesin lokal tetapi tidak ikut commit; untuk memasukkannya sementara, pakai `git add -f <path>`.
 
 ---
 

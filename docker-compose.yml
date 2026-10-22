@@ -65,6 +65,7 @@ services:
             - PMA_HOST=db
             - PMA_PORT=3306
             - PMA_ARBITRARY=1
+        restart: unless-stopped
 
     redis:
         container_name: d_form_redis
