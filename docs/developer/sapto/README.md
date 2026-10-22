@@ -11,6 +11,9 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 | [saptoChanges04-05-2026.md](./saptoChanges04-05-2026.md) | Konsolidasi M1–M4, hapus Livewire/Filament, publik event dari DB                                       |
 | [saptoChanges19-04-2026.md](./saptoChanges19-04-2026.md) | Dashboard admin, halaman event, landing navbar, data seed, Docker dev                                  |
 
+- Bagian **Stress harness: load test, query capture, report** (§10) di `saptoChanges21-10-2026.md`
+  merinci `make stress-load`, artefak per run, dan cara baca `report.html`.
+
 ## Cara membaca (untuk tim)
 
 1. Buka changelog **terbaru** (`saptoChanges21-10-2026.md`) untuk perubahan terakhir.

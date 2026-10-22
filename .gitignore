@@ -63,4 +63,3 @@ scripts/stress
 AGENTS.md
 CONTEXT.md
 /database/seeders/Stress/*
-/app/Console/Commands/Stress
