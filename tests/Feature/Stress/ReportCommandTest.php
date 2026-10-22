@@ -59,6 +59,59 @@ class ReportCommandTest extends TestCase
         $this->assertStringContainsString('bypass', $html);
         $this->assertStringContainsString('generator_bound', $html);
         $this->assertStringContainsString('emulated_prepares', $html);
+        $this->assertStringContainsString('Urut p95 tertinggi', $html);
+        $this->assertStringContainsString('Urut total waktu terbesar', $html);
+    }
+
+    public function test_capacity_chart_uses_stream_ndjson_and_marks_break_point(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('titik patah: t=2s', $html);
+        $this->assertStringContainsString('rps=20', $html);
+        $this->assertStringContainsString('p95=2,500.00', $html);
+        $this->assertStringContainsString('stroke-dasharray', $html);
+        $this->assertStringContainsString('Kurva kapasitas per detik', $html);
+    }
+
+    public function test_report_without_stream_ndjson_falls_back_to_cpu_proxy(): void
+    {
+        File::delete($this->runDir.'/stream.ndjson');
+
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('tidak tersedia', $html);
+        $this->assertStringContainsString('Proksi beban', $html);
+        $this->assertStringNotContainsString('titik patah: t=', $html);
+    }
+
+    public function test_explain_plan_is_rendered_readably(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('table=users', $html);
+        $this->assertStringContainsString('access_type=eq_ref', $html);
+        $this->assertStringContainsString('key=PRIMARY', $html);
+        $this->assertStringContainsString('plan JSON', $html);
+        $this->assertStringContainsString('<details', $html);
+        $this->assertStringContainsString('EXPLAIN gagal: placeholder', $html);
+    }
+
+    public function test_resource_statistics_ignore_forward_filled_samples(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertSame(1, preg_match('/<th>app<\/th>\s*<td class="num">([0-9.]+)<\/td>/', $html, $matches));
+        // Dua delta valid: 2.052.219 usec / 3 s dan 879.901 usec / 2 s → rata-rata 0,562 core.
+        $this->assertSame('0.562', $matches[1]);
     }
 
     public function test_report_maps_sanitised_endpoint_back_to_original_target(): void

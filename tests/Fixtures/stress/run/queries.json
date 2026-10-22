@@ -29,7 +29,14 @@
             "no_index_used": 0,
             "explain": {
                 "query_block": {
-                    "select_id": 1
+                    "select_id": 1,
+                    "table": {
+                        "table_name": "users",
+                        "access_type": "eq_ref",
+                        "key": "PRIMARY",
+                        "rows_examined_per_scan": 1,
+                        "filtered": "100.00"
+                    }
                 }
             },
             "explain_error": null

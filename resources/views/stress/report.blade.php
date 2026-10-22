@@ -19,6 +19,8 @@
     thead th { background: #f8fafc; font-weight: 600; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.8rem; word-break: break-all; }
+    pre { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.72rem; white-space: pre-wrap; word-break: break-word; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px; margin: 6px 0 0; max-height: 320px; overflow: auto; }
+    details summary { cursor: pointer; font-size: 0.78rem; color: #1d4ed8; }
     figure { margin: 12px 0 0; }
     figcaption { font-size: 0.85rem; color: #334155; margin-bottom: 6px; }
     svg { width: 100%; height: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
@@ -64,61 +66,83 @@
             <tr><th>Latency avg / p95 / max (ms)</th><td class="num">{{ number_format($capacity['avg_ms'], 2) }} / {{ number_format($capacity['p95_ms'], 2) }} / {{ number_format($capacity['max_ms'], 2) }}</td></tr>
             <tr><th>Error 5xx</th><td class="num">{{ number_format($capacity['error_rate'] * 100, 2) }}%</td></tr>
             <tr><th>429 (rate limiter)</th><td class="num">{{ number_format($capacity['throttled_rate'] * 100, 2) }}%</td></tr>
-            <tr><th>Gap ke {{ number_format(10000) }} rps</th><td class="num">{{ number_format($capacity['gap_to_target'], 2) }} rps</td></tr>
+            <tr><th>Gap ke {{ number_format($thresholds['capacity_target_rps']) }} rps</th><td class="num">{{ number_format($capacity['gap_to_target'], 2) }} rps</td></tr>
             <tr>
-                <th>Titik patah</th>
+                <th>Titik patah (agregat)</th>
                 <td class="num">
                     @if ($capacity['break_point'])
-                        <strong class="critical">tercapai</strong> (p95 &gt; 2,000 ms atau 5xx &gt; 5%)
+                        <strong class="critical">tercapai</strong> (p95 &gt; {{ number_format($thresholds['break_p95_ms']) }} ms atau 5xx &gt; {{ number_format($thresholds['break_error_pct'], 0) }}%)
                     @else
-                        belum tercapai (p95 ≤ 2,000 ms dan 5xx ≤ 5%)
+                        belum tercapai (p95 ≤ {{ number_format($thresholds['break_p95_ms']) }} ms dan 5xx ≤ {{ number_format($thresholds['break_error_pct'], 0) }}%)
                     @endif
                 </td>
             </tr>
         </tbody>
     </table>
 
+    <p class="caption">
+        Sumber kurva:
+        @if ($capacitySource === 'stream')
+            <code>stream.ndjson</code> — rps, p95, dan 5xx dihitung per detik dari Point <code>http_req_duration</code>.
+        @else
+            <code>stream.ndjson</code> tidak ada — kurva kapasitas (rps/p95/error per detik) tidak tersedia; grafik di bawah hanya proksi CPU per sample.
+        @endif
+    </p>
+
+    @if ($streamBreak !== null && $streamBreak['found'])
+        <p class="critical">
+            <strong>titik patah: t={{ $streamBreak['elapsed_s'] }}s (rps={{ number_format($streamBreak['rps']) }}, p95={{ number_format($streamBreak['p95_ms'], 2) }} ms, 5xx={{ number_format($streamBreak['err5xx_pct'], 2) }}%)</strong>
+        </p>
+    @elseif ($streamBreak !== null)
+        <p class="caption">
+            tidak ada bucket melewati ambang (p95 &gt; {{ number_format($thresholds['break_p95_ms']) }} ms atau 5xx &gt; {{ number_format($thresholds['break_error_pct'], 0) }}%).
+        </p>
+    @endif
+
     @include('stress.partials.line-chart', ['chart' => $capacityChart])
 </section>
 
 <section id="endpoints">
     <h2>2. Top endpoint</h2>
-    <p class="caption">Urut p95 tertinggi. Total waktu = avg × jumlah request. Nama asli dan URL dipetakan dari <code>targets.json</code>; tanpa berkas itu nama tersanitasi ditampilkan apa adanya.</p>
-    @if ($endpoints === [])
+    <p class="caption">Total waktu = avg × jumlah request. Nama asli dan URL dipetakan dari <code>targets.json</code>; tanpa berkas itu nama tersanitasi ditampilkan apa adanya.</p>
+    @if ($endpointTables === [] || $endpointTables[0]['rows'] === [])
         <p class="empty">Tidak ada metrik <code>ep_dur_*</code> di summary.json.</p>
     @else
-        <table>
-            <thead>
-                <tr>
-                    <th>Endpoint</th>
-                    <th>URL</th>
-                    <th class="num">Status</th>
-                    <th class="num">Request</th>
-                    <th class="num">avg ms</th>
-                    <th class="num">p95 ms</th>
-                    <th class="num">max ms</th>
-                    <th class="num">Total ms</th>
-                    <th class="num">5xx</th>
-                    <th class="num">429</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($endpoints as $endpoint)
+        @foreach ($endpointTables as $table)
+            <h3>{{ $table['title'] }}</h3>
+            <table>
+                <thead>
                     <tr>
-                        <td><code>{{ $endpoint['name'] }}</code></td>
-                        <td><code>{{ $endpoint['url'] ?? '—' }}</code></td>
-                        <td class="num">{{ $endpoint['status'] === null ? '—' : $endpoint['status'] }}</td>
-                        <td class="num">{{ number_format($endpoint['requests']) }}</td>
-                        <td class="num">{{ number_format($endpoint['avg_ms'], 2) }}</td>
-                        <td class="num">{{ number_format($endpoint['p95_ms'], 2) }}</td>
-                        <td class="num">{{ number_format($endpoint['max_ms'], 2) }}</td>
-                        <td class="num">{{ number_format($endpoint['total_ms'], 2) }}</td>
-                        <td class="num">{{ number_format($endpoint['error_rate'] * 100, 2) }}%</td>
-                        <td class="num">{{ number_format($endpoint['throttled_rate'] * 100, 2) }}%</td>
+                        <th>Endpoint</th>
+                        <th>URL</th>
+                        <th class="num">Status</th>
+                        <th class="num">Request</th>
+                        <th class="num">avg ms</th>
+                        <th class="num">p95 ms</th>
+                        <th class="num">max ms</th>
+                        <th class="num">Total ms</th>
+                        <th class="num">5xx</th>
+                        <th class="num">429</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach ($table['rows'] as $endpoint)
+                        <tr>
+                            <td><code>{{ $endpoint['name'] }}</code></td>
+                            <td><code>{{ $endpoint['url'] ?? '—' }}</code></td>
+                            <td class="num">{{ $endpoint['status'] === null ? '—' : $endpoint['status'] }}</td>
+                            <td class="num">{{ number_format($endpoint['requests']) }}</td>
+                            <td class="num">{{ number_format($endpoint['avg_ms'], 2) }}</td>
+                            <td class="num">{{ number_format($endpoint['p95_ms'], 2) }}</td>
+                            <td class="num">{{ number_format($endpoint['max_ms'], 2) }}</td>
+                            <td class="num">{{ number_format($endpoint['total_ms'], 2) }}</td>
+                            <td class="num">{{ number_format($endpoint['error_rate'] * 100, 2) }}%</td>
+                            <td class="num">{{ number_format($endpoint['throttled_rate'] * 100, 2) }}%</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endforeach
     @endif
 </section>
 
@@ -166,9 +190,20 @@
                             @endif
                         </td>
                         <td>
-                            {{ $digest['explain_status'] }}
-                            @if ($digest['explain_error'] !== null)
-                                <br><code>{{ $digest['explain_error'] }}</code>
+                            @if ($digest['explain'] !== null)
+                                @if ($digest['explain_summary'] !== null)
+                                    <code>{{ $digest['explain_summary'] }}</code>
+                                @else
+                                    <code>plan tanpa node table</code>
+                                @endif
+                                <details>
+                                    <summary>plan JSON</summary>
+                                    <pre>{{ $digest['explain_json'] }}</pre>
+                                </details>
+                            @elseif ($digest['explain_error'] !== null)
+                                <code>{{ $digest['explain_error'] }}</code>
+                            @else
+                                {{ $digest['explain_status'] }}
                             @endif
                         </td>
                     </tr>
@@ -182,7 +217,7 @@
     <h2>4. Resource (app vs db)</h2>
     <p class="caption">
         CPU core = delta <code>usage_usec</code> ÷ detik. {{ number_format($resources['samples']) }} sample.
-        Sel CSV kosong dihitung null, bukan 0.
+        Sel CSV kosong dihitung null, bukan 0; statistik hanya memakai delta valid (tanpa forward-fill).
     </p>
     <table>
         <thead>
@@ -283,7 +318,11 @@
         <li>Generator dan aplikasi berbagi satu host: saat CPU host jenuh, hasil ditandai <code>generator_bound</code> dan tidak boleh disimpulkan sebagai batas aplikasi.</li>
         <li>Dataset stress deterministik, bukan pola akses pengguna nyata; tidak ada hot-key sesi.</li>
         <li>Rate limiter hanya dilewati di non-production lewat flag bypass; tanpa flag itu perilaku produksi tidak berubah.</li>
-        <li>Deret request per interval tidak tersedia di artefak run (summary.json agregat), sehingga grafik kapasitas memakai CPU per sample sebagai proksi beban.</li>
+        @if ($capacitySource === 'stream')
+            <li>Kurva kapasitas dihitung dari <code>stream.ndjson</code> k6 secara streaming: rps = jumlah Point <code>http_req_duration</code> per detik, p95 = nearest-rank nilai pada detik itu, 5xx = persentase <code>tags.status ≥ 500</code>, 429 dipisah. CPU app di-join ke bucket detik terdekat dari <code>resources.csv</code>.</li>
+        @else
+            <li>Kurva kapasitas (rps/p95/error per detik) tidak tersedia karena <code>stream.ndjson</code> tidak ada; grafik kapasitas hanya proksi CPU per sample dan tidak boleh dibaca sebagai kurva kapasitas.</li>
+        @endif
     </ul>
 </section>
 
