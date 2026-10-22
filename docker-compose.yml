@@ -20,6 +20,7 @@ services:
             - PHP_OPCACHE_REVALIDATE_FREQ=0
             - DB_HOST=db
             - REDIS_HOST=redis
+            - OCTANE_ARGS=${OCTANE_ARGS:-}
 
         networks:
             - d-form-network
@@ -32,7 +33,12 @@ services:
         ports:
             - '${APP_PORT:-3000}:8000'
             - '5173:5173'
-        command: --watch --workers=1
+        # podman-compose 1.6 memecah `command` (shlex) SEBELUM interpolasi, jadi default
+        # ber-spasi seperti ${OCTANE_ARGS:---watch --workers=1} gagal diparse. Flag tetap
+        # satu variabel (OCTANE_ARGS); shell container yang memecahnya jadi argumen.
+        # Entrypoint disalin dari docker/Dockerfile.dev karena `command` tidak bisa dibungkus shell.
+        entrypoint: ["/bin/sh", "-c", "exec /usr/local/bin/entrypoint.sh $${OCTANE_ARGS:---watch --workers=1}"]
+        command: []
 
     db:
         container_name: d_form_db
