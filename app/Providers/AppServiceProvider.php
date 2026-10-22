@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\StressBypassThrottle;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -28,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Carbon::setLocale(App::getLocale());
+
+        // Uji beban non-production boleh melewati rate limiter lewat STRESS_BYPASS_THROTTLE.
+        if (! App::isProduction() && (bool) config('stress.bypass_throttle')) {
+            app('router')->aliasMiddleware('throttle', StressBypassThrottle::class);
+        }
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
             return url(route('password.reset', [
