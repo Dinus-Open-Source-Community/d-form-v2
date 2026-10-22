@@ -10,12 +10,14 @@
                   text-anchor="{{ $chart['marker']['anchor'] }}">{{ $chart['marker']['label'] }}</text>
         @endif
         @foreach ($chart['series'] as $series)
-            <polyline points="{{ $series['points'] }}" fill="none" stroke="{{ $series['color'] }}" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
+            @foreach ($series['segments'] as $points)
+                <polyline points="{{ $points }}" fill="none" stroke="{{ $series['color'] }}" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
+            @endforeach
         @endforeach
     </svg>
     <p class="legend">
         @foreach ($chart['series'] as $series)
-            <span style="color: {{ $series['color'] }}">■ {{ $series['label'] }} (akhir {{ number_format($series['last'], 3) }}, skala {{ number_format($series['max'], 3) }})</span>
+            <span style="color: {{ $series['color'] }}">■ {{ $series['label'] }} (akhir {{ number_format($series['last'], 3) }}, skala {{ number_format($series['max'], 3) }}{{ $series['segments_label'] }})</span>
         @endforeach
     </p>
     <p class="caption">{{ $chart['caption'] }}</p>

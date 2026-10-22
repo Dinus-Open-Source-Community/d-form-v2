@@ -81,9 +81,11 @@
     </table>
 
     <p class="caption">
-        Sumber kurva:
+        Sumber kurva: <code>{{ $capacitySource }}</code> —
         @if ($capacitySource === 'stream')
-            <code>stream.ndjson</code> — rps, p95, dan 5xx dihitung per detik dari Point <code>http_req_duration</code>.
+            rps, p95, gagal, dan 429 dihitung per detik dari Point <code>http_req_duration</code> bertag endpoint (trafik login tanpa tag tidak dihitung).
+        @elseif ($capacitySource === 'empty_or_invalid')
+            <code>stream.ndjson</code> ada tetapi tidak berisi Point <code>http_req_duration</code> yang valid — kurva kapasitas tidak tersedia; grafik di bawah hanya proksi CPU per sample.
         @else
             <code>stream.ndjson</code> tidak ada — kurva kapasitas (rps/p95/error per detik) tidak tersedia; grafik di bawah hanya proksi CPU per sample.
         @endif
@@ -91,11 +93,11 @@
 
     @if ($streamBreak !== null && $streamBreak['found'])
         <p class="critical">
-            <strong>titik patah: t={{ $streamBreak['elapsed_s'] }}s (rps={{ number_format($streamBreak['rps']) }}, p95={{ number_format($streamBreak['p95_ms'], 2) }} ms, 5xx={{ number_format($streamBreak['err5xx_pct'], 2) }}%)</strong>
+            <strong>titik patah: t={{ $streamBreak['elapsed_s'] }}s (rps={{ number_format($streamBreak['rps']) }}, p95={{ $streamBreak['p95_ms'] === null ? '—' : number_format($streamBreak['p95_ms'], 2) }} ms, gagal={{ $streamBreak['error_pct'] === null ? '—' : number_format($streamBreak['error_pct'], 2) }}%)</strong>
         </p>
     @elseif ($streamBreak !== null)
         <p class="caption">
-            tidak ada bucket melewati ambang (p95 &gt; {{ number_format($thresholds['break_p95_ms']) }} ms atau 5xx &gt; {{ number_format($thresholds['break_error_pct'], 0) }}%).
+            tidak ada bucket melewati ambang (p95 &gt; {{ number_format($thresholds['break_p95_ms']) }} ms atau gagal &gt; {{ number_format($thresholds['break_error_pct'], 0) }}%).
         </p>
     @endif
 
@@ -318,10 +320,13 @@
         <li>Generator dan aplikasi berbagi satu host: saat CPU host jenuh, hasil ditandai <code>generator_bound</code> dan tidak boleh disimpulkan sebagai batas aplikasi.</li>
         <li>Dataset stress deterministik, bukan pola akses pengguna nyata; tidak ada hot-key sesi.</li>
         <li>Rate limiter hanya dilewati di non-production lewat flag bypass; tanpa flag itu perilaku produksi tidak berubah.</li>
+        <li><strong>Kurva kapasitas hanya tersedia bila run menulis <code>stream.ndjson</code></strong> (k6 dijalankan dengan <code>--out json=&lt;run&gt;/stream.ndjson</code>). Tanpa berkas itu report hanya menampilkan proksi CPU.</li>
         @if ($capacitySource === 'stream')
-            <li>Kurva kapasitas dihitung dari <code>stream.ndjson</code> k6 secara streaming: rps = jumlah Point <code>http_req_duration</code> per detik, p95 = nearest-rank nilai pada detik itu, 5xx = persentase <code>tags.status ≥ 500</code>, 429 dipisah. CPU app di-join ke bucket detik terdekat dari <code>resources.csv</code>.</li>
+            <li>Kurva kapasitas dihitung dari <code>stream.ndjson</code> k6 secara streaming: rps = jumlah Point <code>http_req_duration</code> bertag endpoint per detik (login tanpa tag tidak dihitung), p95 = nearest-rank nilai pada detik itu, gagal = persentase status kosong/0/≥500, 429 dipisah. Bucket difinalisasi saat detik berganti sehingga memori tidak menumpuk. Detik tanpa request diisi bucket rps 0 (gap &gt; {{ number_format($thresholds['max_filled_gap_seconds']) }} detik hanya ditandai satu bucket jeda). CPU app di-join ke sample terdekat maksimum 2× interval sampler; di luar itu garis diputus.</li>
+        @elseif ($capacitySource === 'empty_or_invalid')
+            <li><code>stream.ndjson</code> ada tetapi tidak berisi Point <code>http_req_duration</code> yang valid, sehingga kurva kapasitas tidak dapat dihitung; grafik kapasitas hanya proksi CPU per sample.</li>
         @else
-            <li>Kurva kapasitas (rps/p95/error per detik) tidak tersedia karena <code>stream.ndjson</code> tidak ada; grafik kapasitas hanya proksi CPU per sample dan tidak boleh dibaca sebagai kurva kapasitas.</li>
+            <li><code>stream.ndjson</code> tidak ada, sehingga kurva kapasitas (rps/p95/error per detik) tidak tersedia; grafik kapasitas hanya proksi CPU per sample dan tidak boleh dibaca sebagai kurva kapasitas.</li>
         @endif
     </ul>
 </section>

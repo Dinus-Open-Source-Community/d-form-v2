@@ -84,9 +84,81 @@ class ReportCommandTest extends TestCase
 
         $html = $this->readReport();
 
+        $this->assertStringContainsString('absent', $html);
         $this->assertStringContainsString('tidak tersedia', $html);
         $this->assertStringContainsString('Proksi beban', $html);
         $this->assertStringNotContainsString('titik patah: t=', $html);
+    }
+
+    public function test_empty_stream_file_reports_empty_or_invalid(): void
+    {
+        File::put($this->runDir.'/stream.ndjson', '');
+
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('empty_or_invalid', $html);
+        $this->assertStringContainsString('tidak berisi Point', $html);
+        $this->assertStringContainsString('Proksi beban', $html);
+    }
+
+    public function test_429_series_is_rendered(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('429 %', $html);
+        $this->assertStringContainsString('429=2.86%', $html);
+        $this->assertStringContainsString('skala 10.000', $html);
+    }
+
+    public function test_status_zero_counts_as_failed_and_without_status(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('tanpa status=1 request', $html);
+        $this->assertStringContainsString('gagal=1.43%', $html);
+    }
+
+    public function test_missed_second_is_emitted_as_zero_rps_bucket(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertStringContainsString('detik kosong (rps 0)=1', $html);
+    }
+
+    public function test_point_without_endpoint_tag_does_not_add_rps(): void
+    {
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        // Fixture: 70 Point bertag endpoint + 1 Point login tanpa tag (tidak dihitung).
+        $this->assertStringContainsString('total=70 request', $html);
+    }
+
+    public function test_cpu_line_breaks_when_sampler_gap_exceeds_tolerance(): void
+    {
+        File::put($this->runDir.'/resources.csv', implode("\n", [
+            'ts,app_usage_usec,app_throttled_usec,app_mem_current,app_mem_peak,db_usage_usec,db_mem_current,db_mem_peak',
+            '1792686553,576000000,0,726593536,792858624,134499119,688672768,833331200',
+            '1792686554,577004279,0,725725184,792858624,134862873,688701440,833331200',
+            // Gap 6 detik: bucket t=3 tidak punya sample dalam toleransi 2 detik.
+            '1792686560,580291591,0,725323776,792858624,135320197,688173056,833331200',
+            '1792686561,581171492,0,726052864,792858624,135556117,688705536,833331200',
+        ])."\n");
+
+        $this->artisan('stress:report', ['run' => $this->runDir])->assertSuccessful();
+
+        $html = $this->readReport();
+
+        $this->assertMatchesRegularExpression('/app CPU core[^)]*2 segmen/', $html);
     }
 
     public function test_explain_plan_is_rendered_readably(): void
