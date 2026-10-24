@@ -223,7 +223,20 @@ class RegistrationOtpService
                 : null,
         ])->save();
 
-        SendRegistrationOtpJob::dispatch($pending->id, $now->toIso8601String())->afterCommit();
+        if ($this->shouldQueueOtpEmail($pending->email)) {
+            SendRegistrationOtpJob::dispatch($pending->id, $now->toIso8601String())->afterCommit();
+        }
+    }
+
+    /**
+     * Lewati antrean email untuk alamat uji `.test` di local/testing supaya E2E tidak membanjiri queue.
+     * Unit test tetap mengantrekan karena memakai `runningUnitTests()` + Queue::fake.
+     */
+    private function shouldQueueOtpEmail(string $email): bool
+    {
+        return app()->runningUnitTests()
+            || ! app()->environment(['local', 'testing'])
+            || ! str_ends_with(strtolower($email), '.test');
     }
 
     /** Kode angka acak sepanjang `otp.length`, di-zero-pad. */
