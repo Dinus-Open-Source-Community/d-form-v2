@@ -1,5 +1,5 @@
-import { computed } from 'vue';
-import type { ComputedRef } from 'vue';
+import { computed, ref, watch } from 'vue';
+import type { ComputedRef, Ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import type { InertiaForm } from '@inertiajs/vue3';
 import { resend as resendOtp, verify as verifyOtp } from '@/actions/App/Http/Controllers/Auth/VerifyOtpController';
@@ -24,10 +24,14 @@ export interface IUseOtpVerificationState {
     codeError: ComputedRef<string | undefined>;
     /** Pesan gagal kirim ulang dari server (`errors.resend`). */
     resendError: ComputedRef<string | undefined>;
-    /** True bila kirim ulang masih terkunci cooldown/lock. */
+    /** True bila kirim ulang masih terkunci cooldown/lock atau sedang dikirim. */
     isResendBlocked: ComputedRef<boolean>;
     /** True bila kode lengkap, belum kedaluwarsa, dan tidak sedang dikirim. */
     canSubmit: ComputedRef<boolean>;
+    /** Callback `ref` tombol kirim ulang; dipakai memindahkan fokus saat kode kedaluwarsa. */
+    setResendButton: (element: Element | null) => void;
+    /** Callback `ref` tombol "Gunakan email lain"; fokus cadangan bila kirim ulang masih terkunci. */
+    setAlternateEmailButton: (element: Element | null) => void;
     submit: () => void;
     resend: () => void;
     useAnotherEmail: () => void;
@@ -40,6 +44,10 @@ export interface IUseOtpVerificationState {
 export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtpVerificationState {
     const page = usePage();
     const form = useForm({ code: '' });
+    const isResending: Ref<boolean> = ref(false);
+
+    let resendButton: HTMLButtonElement | null = null;
+    let alternateEmailButton: HTMLButtonElement | null = null;
 
     const pageErrors = computed<ValidationErrors>(() => page.props.errors);
 
@@ -47,11 +55,21 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
 
     const resendError = computed<string | undefined>(() => getFieldError(pageErrors.value, 'resend'));
 
-    const isResendBlocked = computed<boolean>(() => options.resendIn.value > 0);
+    const isResendBlocked = computed<boolean>(() => options.resendIn.value > 0 || isResending.value);
 
     const canSubmit = computed<boolean>(
         () => form.code.length === OTP_CODE_LENGTH && !form.processing && !options.isExpired.value,
     );
+
+    /** Daftarkan tombol kirim ulang sebagai target fokus saat kode kedaluwarsa. */
+    function setResendButton(element: Element | null): void {
+        resendButton = element instanceof HTMLButtonElement ? element : null;
+    }
+
+    /** Daftarkan tombol "Gunakan email lain" sebagai fokus cadangan saat kirim ulang terkunci. */
+    function setAlternateEmailButton(element: Element | null): void {
+        alternateEmailButton = element instanceof HTMLButtonElement ? element : null;
+    }
 
     function submit(): void {
         if (!canSubmit.value) return;
@@ -66,12 +84,49 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     function resend(): void {
         if (isResendBlocked.value) return;
 
-        router.post(resendOtp.url(), {}, { preserveScroll: true });
+        router.post(
+            resendOtp.url(),
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => {
+                    isResending.value = true;
+                },
+                onFinish: () => {
+                    isResending.value = false;
+                },
+            },
+        );
     }
 
     function useAnotherEmail(): void {
         router.post(CancelPendingRegistrationController.url(), {}, { preserveScroll: true });
     }
 
-    return { form, codeError, resendError, isResendBlocked, canSubmit, submit, resend, useAnotherEmail };
+    // Kotak kode ikut nonaktif saat kedaluwarsa; fokus dipindah agar tidak jatuh ke body.
+    // `flush: 'post'` supaya atribut disabled tombol sudah diperbarui DOM sebelum difokuskan.
+    watch(
+        options.isExpired,
+        (expired, wasExpired) => {
+            if (!expired || wasExpired) return;
+
+            const target = resendButton?.disabled === false ? resendButton : alternateEmailButton;
+
+            target?.focus();
+        },
+        { flush: 'post' },
+    );
+
+    return {
+        form,
+        codeError,
+        resendError,
+        isResendBlocked,
+        canSubmit,
+        setResendButton,
+        setAlternateEmailButton,
+        submit,
+        resend,
+        useAnotherEmail,
+    };
 }

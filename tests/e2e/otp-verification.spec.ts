@@ -20,9 +20,23 @@ async function registerUntilOtpPage(page: Page, email: string): Promise<void> {
     await expect(page).toHaveURL(/\/auth\/verify-otp/)
 }
 
-/** Enam kotak kode OTP pada halaman verifikasi. */
+/** Enam kotak kode OTP, dicari lewat grup berlabel agar tidak ikut menangkap input lain. */
 function otpBoxes(page: Page): Locator {
-    return page.locator('input[inputmode="numeric"]')
+    return page.getByRole('group', { name: /kode verifikasi/i }).getByRole('textbox')
+}
+
+/** Angka pada baris "Sisa kirim N". */
+async function readSendsRemaining(page: Page): Promise<number> {
+    const text = await page.getByTestId('otp-sends-remaining').innerText()
+
+    return Number(text.replace(/\D/g, ''))
+}
+
+/** Ubah label hitung mundur `mm:ss` menjadi detik. */
+function toSeconds(label: string): number {
+    const [minutes = '0', seconds = '0'] = label.trim().split(':')
+
+    return Number(minutes) * 60 + Number(seconds)
 }
 
 /** Baca kode OTP aktif milik email lewat command artisan `otp:current`. */
@@ -71,7 +85,7 @@ test.describe('verifikasi OTP', () => {
 
         // Dispatch event paste manual: clipboard OS tidak tersedia di headless tanpa izin.
         await page.evaluate(() => {
-            const input = document.querySelector('input[inputmode="numeric"]')
+            const input = document.querySelector('input[aria-label="Digit 1 dari 6"]')
 
             if (input === null) throw new Error('Kotak OTP tidak ditemukan')
 
@@ -100,23 +114,67 @@ test.describe('verifikasi OTP', () => {
         await expect(page).toHaveURL(/\/auth\/verify-otp/)
     })
 
+    test('menolak karakter non-digit dan backspace mundur satu kotak', async ({ page }) => {
+        await registerUntilOtpPage(page, createTestEmail('ketik'))
+
+        const boxes = otpBoxes(page)
+
+        await boxes.first().click()
+        // "a" harus dibuang tanpa menggeser fokus, lalu "3" tetap masuk ke kotak ketiga.
+        await page.keyboard.type('12a3')
+
+        await expect(boxes.nth(0)).toHaveValue('1')
+        await expect(boxes.nth(1)).toHaveValue('2')
+        await expect(boxes.nth(2)).toHaveValue('3')
+
+        // Fokus ada di kotak kosong keempat: backspace harus menghapus kotak ketiga dan memundurkannya.
+        await page.keyboard.press('Backspace')
+
+        await expect(boxes.nth(2)).toHaveValue('')
+        await expect(boxes.nth(2)).toBeFocused()
+        await expect(boxes.nth(1)).toHaveValue('2')
+    })
+
+    test('kode kedaluwarsa mengumumkan status dan memindahkan fokus ke kirim ulang', async ({ page }) => {
+        // Jam palsu memajukan 10 menit supaya TTL OTP habis tanpa menunggu waktu nyata.
+        await page.clock.install()
+
+        await registerUntilOtpPage(page, createTestEmail('kedaluwarsa'))
+
+        await expect(page.getByTestId('otp-countdown')).toBeVisible()
+
+        await page.clock.fastForward(600_000)
+
+        const expiredBadge = page.getByTestId('otp-expired')
+        await expect(expiredBadge).toHaveText(/kode kedaluwarsa/i)
+        await expect(expiredBadge).toHaveAttribute('role', 'status')
+        await expect(expiredBadge).toHaveAttribute('aria-live', 'polite')
+        await expect(page.getByRole('button', { name: /^kirim ulang$/i })).toBeFocused()
+        await expect(page.getByRole('button', { name: /^verifikasi$/i })).toBeDisabled()
+    })
+
     test('kirim ulang menampilkan cooldown dan mengurangi sisa kirim', async ({ page }) => {
-        // Cooldown kirim ulang 60 detik menurut server, jadi test ini sengaja menunggu.
-        test.setTimeout(150_000)
+        // Cooldown kirim ulang mengikuti config server (60 detik); waktu tunggu dibaca dari UI, bukan hardcode.
+        test.setTimeout(120_000)
 
         await registerUntilOtpPage(page, createTestEmail('resend'))
 
-        await expect(page.getByTestId('otp-sends-remaining')).toHaveText(/sisa kirim\s*2/i)
-
         const resendButton = page.getByRole('button', { name: /^kirim ulang$/i })
-        await expect(resendButton).toBeDisabled()
-        await expect(page.getByTestId('otp-resend-countdown')).toHaveText(/^\d{2}:\d{2}$/)
+        const resendCountdown = page.getByTestId('otp-resend-countdown')
 
-        await expect(resendButton).toBeEnabled({ timeout: 75_000 })
+        const sendsBefore = await readSendsRemaining(page)
+
+        await expect(resendButton).toBeDisabled()
+        await expect(resendCountdown).toHaveText(/^\d{2}:\d{2}$/)
+
+        // Baca sisa cooldown dari UI lalu tunggu sesuai nilainya (+3 detik margin tick server).
+        const cooldownSeconds = toSeconds((await resendCountdown.innerText()).trim())
+
+        await expect(resendButton).toBeEnabled({ timeout: (cooldownSeconds + 3) * 1000 })
         await resendButton.click()
 
-        await expect(page.getByTestId('otp-sends-remaining')).toHaveText(/sisa kirim\s*1/i)
-        await expect(page.getByTestId('otp-resend-countdown')).toHaveText(/^\d{2}:\d{2}$/)
+        await expect.poll(() => readSendsRemaining(page)).toBe(sendsBefore - 1)
+        await expect(resendCountdown).toHaveText(/^\d{2}:\d{2}$/)
         await expect(resendButton).toBeDisabled()
     })
 

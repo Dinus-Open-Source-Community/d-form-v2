@@ -85,21 +85,25 @@ export function useOtpCodeInput(options: IUseOtpCodeInputOptions): IUseOtpCodeIn
     function handleInput(index: number, event: Event): void {
         if (!(event.target instanceof HTMLInputElement)) return;
 
-        const typed = event.target.value.replace(/\D/g, '');
+        const element = event.target;
+        const typed = element.value.replace(/\D/g, '');
 
         // Tempel/ketik cepat bisa menghasilkan lebih dari satu digit di satu kotak.
         if (typed.length > 1) {
             fillFrom(index, typed);
+        } else {
+            const next = [...digits.value];
+            next[index] = typed;
 
-            return;
+            commit(next);
+
+            if (typed !== '' && index < options.length - 1) focusAt(index + 1);
         }
 
-        const next = [...digits.value];
-        next[index] = typed;
+        // Samakan isi kotak dengan state: karakter non-digit dibuang, tempelan panjang dipotong.
+        const expected = digits.value[index] ?? '';
 
-        commit(next);
-
-        if (typed !== '' && index < options.length - 1) focusAt(index + 1);
+        if (element.value !== expected) element.value = expected;
     }
 
     function handleKeydown(index: number, event: KeyboardEvent): void {
