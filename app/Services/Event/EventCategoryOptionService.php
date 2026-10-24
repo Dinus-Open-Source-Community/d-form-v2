@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 
 class EventCategoryOptionService
 {
+    /** Daftar CSV kategori yang sudah dikenal (diisi observer + command rebuild). */
+    public const RAW_CACHE_KEY = 'event-options:categories:raw';
+
     /**
      * Category options for dashboard forms, built from distinct values in `events.category`
      * (comma-separated tokens are split and deduplicated). Includes all enum options plus any
@@ -18,20 +21,10 @@ class EventCategoryOptionService
      */
     public function forForm(): array
     {
-        $rows = EventCache::remember(
-            'event-options:categories',
-            3600,
-            fn (): array => Event::query()
-                ->toBase()
-                ->whereNotNull('category')
-                ->where('category', '!=', '')
-                ->distinct()
-                ->pluck('category')
-                ->all(),
-            EventCache::BUSTER_CATEGORY,
-        );
+        // Tidak memindai tabel events: daftar diisi EventObserver + analytics:rebuild-event-options.
+        $rows = \Illuminate\Support\Facades\Cache::get(self::RAW_CACHE_KEY, []);
 
-        return $this->optionsForRawCategoryRows($rows);
+        return $this->optionsForRawCategoryRows(is_array($rows) ? $rows : []);
     }
 
     /**

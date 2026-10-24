@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 
 class EventSessionOptionService
 {
+    /** Daftar CSV sesi yang sudah dikenal (diisi observer + command rebuild). */
+    public const RAW_CACHE_KEY = 'event-options:sessions:raw';
+
     /**
      * Session options for dashboard forms, built from distinct values in `events.session`.
      * Includes all enum options plus any valid custom tokens found in the database.
@@ -17,20 +20,10 @@ class EventSessionOptionService
      */
     public function forForm(): array
     {
-        $rows = EventCache::remember(
-            'event-options:sessions',
-            3600,
-            fn (): array => Event::query()
-                ->toBase()
-                ->whereNotNull('session')
-                ->where('session', '!=', '')
-                ->distinct()
-                ->pluck('session')
-                ->all(),
-            EventCache::BUSTER_CATEGORY,
-        );
+        // Tidak memindai tabel events: daftar diisi EventObserver + analytics:rebuild-event-options.
+        $rows = \Illuminate\Support\Facades\Cache::get(self::RAW_CACHE_KEY, []);
 
-        return $this->optionsForRawSessionRows($rows);
+        return $this->optionsForRawSessionRows(is_array($rows) ? $rows : []);
     }
 
     /**

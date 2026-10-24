@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\Event;
+use App\Services\Event\EventCategoryOptionService;
+use App\Services\Event\EventSessionOptionService;
 use App\Models\Form;
 use App\Services\Event\EventCache;
 
@@ -13,6 +15,7 @@ class EventObserver
      */
     public function created(Event $event): void
     {
+        $this->rememberOptionTokens($event);
         $this->invalidateEventCache(true);
     }
 
@@ -29,7 +32,13 @@ class EventObserver
                 'banner', 'price', 'session', 'status', 'category',
             ]);
 
-        $this->invalidateEventCache($event->wasChanged(['category', 'session']), $onlyRegistrations);
+        $categoryOrSessionChanged = $event->wasChanged(['category', 'session']);
+
+        if ($categoryOrSessionChanged) {
+            $this->rememberOptionTokens($event);
+        }
+
+        $this->invalidateEventCache($categoryOrSessionChanged, $onlyRegistrations);
     }
 
     /**
@@ -75,6 +84,15 @@ class EventObserver
     public function forceDeleted(Event $event): void
     {
         $this->invalidateEventCache(true);
+    }
+
+    /**
+     * Simpan token kategori/sesi event ini agar opsi filter tidak perlu DISTINCT 1 juta baris.
+     */
+    private function rememberOptionTokens(Event $event): void
+    {
+        EventCache::mergeOptionTokens(EventCategoryOptionService::RAW_CACHE_KEY, $event->category);
+        EventCache::mergeOptionTokens(EventSessionOptionService::RAW_CACHE_KEY, $event->session);
     }
 
     /**
