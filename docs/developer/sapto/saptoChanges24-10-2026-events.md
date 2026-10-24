@@ -195,3 +195,20 @@ Catatan operasional:
 - Jalankan `php artisan analytics:rebuild-event-options` setelah deploy/seed (satu-satunya jalur yang memindai `events` untuk opsi filter).
 - Jalankan `php artisan security:sanitize-stored-html` (opsional `--dry-run`) sekali untuk membersihkan HTML lama.
 - Flaky: `RecruitmentEmailResendTest` gagal bila seluruh suite berjalan (lulus saat dijalankan sendiri) — test isolation, bukan regresi.
+
+---
+
+## Sesi lanjutan — code splitting frontend & dashboard cepat
+
+| Commit | Isi | Bukti |
+|---|---|---|
+| `7612d6c` | Vendor berat hanya di chunk pemakainya: chart dashboard & editor Tiptap/Broadcast lewat `defineAsyncComponent` + `DeferredRender` (IntersectionObserver); `vendor-ui` (reka-ui) tidak lagi dipaksa di first load | `/admin/events` 211,9 → 190,5 kB gzip; `/admin/dashboard` 260,6 → 187,6; `/admin/events/create` 393,8 → 270,8; entry 100,6 kB |
+| `c491510` | Deret pagination per blok kelipatan 10 dengan elipsis di ujung; nomor halaman terakhir tidak pernah dirender | halaman 1 `1..10 …`, 14 `… 11..20 …`, 200 `… 191..200 …` |
+| `1296d33` | Agregat dashboard dipindah ke cache + `dashboard:warm` (skip bila terisi, `--force` untuk paksa) | cold 9,12 s → 0,085 s; warm 0,28 → 0,062 s |
+| `814d78b` | Tabel `event_category_counts` dijaga `EventObserver` (delta) + `analytics:rebuild-category-counts`; jalur baca kembali compute-on-miss (tanpa cron) | `/dashboard` dingin 9,12 s → 1,87 s; hangat 0,28 s → 0,025 s; `report:category-tokens` 6,3 s → 1–2 ms |
+
+Catatan operasional:
+- `php artisan migrate` (tabel `event_category_counts`) lalu `php artisan analytics:rebuild-category-counts` — wajib setelah `stress:seed`/bulk insert yang melewati observer. Rebuild memindai 1 juta baris ±7 s (sekali, offline).
+- `php artisan dashboard:warm` opsional setelah deploy/seed; tanpa itu pengunjung pertama menghitung sendiri (±1,9 s) lalu hangat.
+- Tidak ada cron/scheduler untuk cache dashboard (keputusan pemilik proyek): cache kosong dihitung saat request, bukan menampilkan nol.
+- `vite.config.js` (hapus `manualChunks['vendor-ui']`, `VITE_DEV_HOST`, pekerjaan SSR) sengaja belum di-commit karena mencampur pekerjaan pengguna.
