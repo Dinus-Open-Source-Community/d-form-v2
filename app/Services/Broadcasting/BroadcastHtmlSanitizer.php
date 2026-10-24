@@ -62,9 +62,15 @@ class BroadcastHtmlSanitizer
         }
 
         $doc = new \DOMDocument('1.0', 'UTF-8');
-        libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="utf-8" ?><div>'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
+        // Simpan state global libxml agar proses lain di request yang sama tidak terpengaruh.
+        $previousUseErrors = libxml_use_internal_errors(true);
+
+        try {
+            $doc->loadHTML('<?xml encoding="utf-8" ?><div>'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousUseErrors);
+        }
 
         $wrapper = $doc->getElementsByTagName('div')->item(0);
 
