@@ -324,3 +324,28 @@ Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-
 ## 21. Catatan memory di perangkat mobile
 
 Diukur 10× refresh berturut (viewport 390×844): heap stabil, tanpa pertumbuhan — dev (Vite + Debugbar) 17 MB, build produksi **10 MB**, landing dev 69 MB; `localStorage` 0 kB. Jadi kenaikan 10→100 MB yang terlihat di HP berasal dari cache proses browser saat menguji **dev server** (≈250 modul belum diminify + Debugbar), bukan kebocoran JS. Rekomendasi: uji performa HP memakai build produksi (`APP_DEBUG=false`, tanpa `public/hot`).
+
+## 22. Registrasi dengan verifikasi email (OTP)
+
+Akun baru tidak lagi dibuat saat submit register; user diarahkan ke halaman OTP dan akun baru dibuat setelah kode benar.
+
+**Alur:** submit → `pending_registrations` (email unik, password hashed, OTP terenkripsi) → job `SendRegistrationOtpJob` masuk queue → halaman `/auth/verify-otp` → kode benar → user dibuat (`email_verified_at`) + role `member` + login → dashboard.
+
+| Aturan | Nilai |
+| :--- | :--- |
+| Kode | 6 digit, disimpan terenkripsi (`APP_KEY`), tidak pernah di log/payload queue |
+| Masa berlaku | 10 menit (hitung mundur dari `expiresAt` server; offset `serverNow` dihitung sekali) |
+| Percobaan salah | maks 3 per kode; ke-3 menghanguskan kode |
+| Kuota kirim | maks 3 total **termasuk kiriman pertama**; setelahnya lock 15 menit, lalu jatah pulih |
+| Cooldown | 60 detik antar-kirim |
+| Lock | hanya memblokir kirim ulang, bukan verifikasi |
+| Resume | submit ulang email pending hanya mengirim OTP baru bila password cocok; nama/password pending tidak ditimpa |
+| Endpoint | `GET/POST /auth/verify-otp`, `POST /auth/verify-otp/resend`, `POST /auth/verify-otp/cancel` |
+| Sesi | verify/resend/cancel memakai email dari sesi (`otp.pending_email`), cancel wajib `otp.cancel_token` |
+| Limiter | verify 10/menit (IP+email sesi), resend 5/menit (IP), register cap 5/jam per email |
+| Worker | supervisor `queue:work` di entrypoint dev/prod (`QUEUE_WORKER=0` untuk mematikan) |
+| Prune | `otp:prune` hourly, hapus pending > 24 jam |
+
+**Bukti uji:** suite `tests/Feature/Auth` **90 lulus (494 assertion)**; E2E `auth` + `email-availability` + `otp-verification` **20 lulus**; uji manual HTTP: register → 302 `/auth/verify-otp`, halaman 200, `otp:current` mengeluarkan kode, submit → 302 `/dashboard`, baris user `email_verified_at` terisi dan pending terhapus. Build: entry 7.126 B gzip, chunk `Auth/VerifyOtp` 4.689 B gzip.
+
+**Catatan operasional:** worker memproses queue `default` yang juga dipakai job lama (dev sempat berisi ±106 job); pastikan worker produksi hanya berjalan setelah antrean bersih. Worker berjalan sebagai root (mengikuti pola SSR).
