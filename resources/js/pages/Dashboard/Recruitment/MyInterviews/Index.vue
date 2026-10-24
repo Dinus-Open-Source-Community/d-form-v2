@@ -19,19 +19,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
+import AppPagination from '@/components/core/AppPagination.vue'
 import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
-    ChevronLeft,
     ChevronRight,
     RotateCcw,
     Search,
@@ -524,25 +516,7 @@ function queueBadgeCount(key: string): number | null {
     return count !== undefined ? count : null
 }
 
-const perPage = computed<number>((): number => props.interviews.per_page ?? FALLBACK_PER_PAGE)
-
-const rangeStart = computed<number>((): number => {
-    if (props.interviews.from !== undefined && props.interviews.from !== null) return props.interviews.from
-    if (props.interviews.total === 0) return 0
-    return (props.interviews.current_page - 1) * perPage.value + 1
-})
-
-const rangeEnd = computed<number>((): number => {
-    if (props.interviews.to !== undefined && props.interviews.to !== null) return props.interviews.to
-    return Math.min(props.interviews.total, props.interviews.current_page * perPage.value)
-})
-
 const totalLabel = computed<string>((): string => `${formatInt(props.interviews.total)} hasil`)
-
-const rangeLabel = computed<string>(
-    (): string =>
-        `Menampilkan ${formatInt(rangeStart.value)}–${formatInt(rangeEnd.value)} dari ${formatInt(props.interviews.total)}`,
-)
 
 const pendingStartCount = computed<number>((): number => {
     const raw: number | undefined = props.pending_start_count
@@ -861,43 +835,14 @@ const emptyDescription = computed<string>((): string => {
             </Button>
         </EmptyState>
 
-        <div v-if="interviews.last_page > 1" class="flex flex-col items-center gap-3">
-            <Pagination
-                :page="interviews.current_page"
-                :total="interviews.total"
-                :items-per-page="perPage"
-                :sibling-count="1"
-                @update:page="applyFilters"
-            >
-                <PaginationContent v-slot="{ items }">
-                    <PaginationPrevious>
-                        <ChevronLeft class="size-4" aria-hidden="true" />
-                        <span class="hidden sm:block">Sebelumnya</span>
-                    </PaginationPrevious>
-                    <template v-for="(item, index) in items" :key="index">
-                        <PaginationItem
-                            v-if="item.type === 'page'"
-                            :value="item.value"
-                            :is-active="item.value === interviews.current_page"
-                            :aria-label="`Ke halaman ${item.value}`"
-                        >
-                            {{ item.value }}
-                        </PaginationItem>
-                        <PaginationEllipsis v-else :index="index" />
-                    </template>
-                    <PaginationNext>
-                        <span class="hidden sm:block">Berikutnya</span>
-                        <ChevronRight class="size-4" aria-hidden="true" />
-                    </PaginationNext>
-                </PaginationContent>
-            </Pagination>
-            <p class="text-sm text-muted-foreground">{{ rangeLabel }}</p>
-        </div>
-        <p
-            v-else-if="interviews.data.length > 0"
-            class="text-center text-sm text-muted-foreground"
-        >
-            {{ rangeLabel }}
-        </p>
+        <AppPagination
+            v-if="interviews.data.length > 0"
+            :current-page="interviews.current_page"
+            :last-page="interviews.last_page"
+            :total="interviews.total"
+            :per-page="interviews.per_page ?? FALLBACK_PER_PAGE"
+            :per-page-options="[]"
+            unit-label="hasil interview"
+        />
     </div>
 </template>

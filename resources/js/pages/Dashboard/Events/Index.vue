@@ -6,9 +6,9 @@ import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
-import { Card } from '@/components/ui/card';
+import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronsLeft, ChevronsRight } from 'lucide-vue-next';
+import { Plus } from 'lucide-vue-next';
 import {
     index as eventsIndex,
     destroy as destroyEvent,
@@ -90,10 +90,11 @@ watch(
     { deep: true }
 );
 
-function buildQueryParams(page?: number) {
+function buildQueryParams() {
     const params: Record<string, unknown> = {};
     if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
-    if (page && page > 1) params.page = page;
+    // Filter yang berubah tidak boleh mereset pilihan jumlah baris per halaman.
+    params.per_page = props.events.per_page;
 
     const filter: Record<string, unknown> = {};
     if (filterCategory.value !== 'all') filter.categories = [filterCategory.value];
@@ -115,19 +116,7 @@ function applyFilters() {
 
 watch([filterCategory, filterSession], applyFilters);
 
-function goToPage(page: number) {
-    router.get(eventsIndex().url, buildQueryParams(page) as never, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['events', 'query'],
-    });
-}
-
 const eventsList = computed(() => props.events.data);
-
-const currentPage = computed(() => props.events.current_page);
-const lastPage = computed(() => props.events.last_page);
-const totalEvents = computed(() => props.events.total);
 
 function confirmDelete(event: IEvent): void {
     deleteTarget.value = event;
@@ -202,59 +191,13 @@ function handleDeleteConfirm(): void {
             animation-name="errorState"
         />
 
-        <Card
-            v-if="lastPage > 1"
-            class="border-border/70 flex flex-col gap-3 rounded-2xl border px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
-        >
-            <p class="text-muted-foreground text-center text-sm sm:text-left">
-                Halaman
-                <span class="text-foreground font-medium tabular-nums">{{ currentPage }}</span>
-                /
-                <span class="tabular-nums">{{ lastPage }}</span>
-                — total
-                <span class="text-foreground font-medium tabular-nums">{{ totalEvents }}</span>
-                acara
-            </p>
-            <div class="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                    radius="icon"
-                    variant="outline"
-                    size="icon"
-                    class="size-9"
-                    :disabled="currentPage <= 1"
-                    @click="goToPage(1)"
-                >
-                    <ChevronsLeft class="size-4" />
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="h-9 px-4"
-                    :disabled="currentPage <= 1"
-                    @click="goToPage(currentPage - 1)"
-                >
-                    Sebelumnya
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="h-9 px-4"
-                    :disabled="currentPage >= lastPage"
-                    @click="goToPage(currentPage + 1)"
-                >
-                    Berikutnya
-                </Button>
-                <Button
-                    radius="icon"
-                    variant="outline"
-                    size="icon"
-                    class="size-9"
-                    :disabled="currentPage >= lastPage"
-                    @click="goToPage(lastPage)"
-                >
-                    <ChevronsRight class="size-4" />
-                </Button>
-            </div>
-        </Card>
+        <AppPagination
+            v-if="eventsList.length > 0"
+            :current-page="events.current_page"
+            :last-page="events.last_page"
+            :total="events.total"
+            :per-page="events.per_page"
+            unit-label="acara"
+        />
     </div>
 </template>

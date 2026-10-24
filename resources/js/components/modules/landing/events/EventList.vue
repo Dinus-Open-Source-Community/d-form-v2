@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import AppPagination from '@/components/core/AppPagination.vue'
 import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next'
+import { findCursorUrls } from '@/lib/pagination'
 import { routes } from '@/lib/routes'
 import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
@@ -39,6 +40,11 @@ const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSear
 )
 
 const activeQuery = computed((): string => props.filters?.q?.trim() ?? '')
+
+/** Cursor pagination: navigasi hanya lewat URL prev/next dari server. */
+const cursorUrls = computed<{ previous: string | null; next: string | null }>(() =>
+    findCursorUrls(props.pagination?.links ?? []),
+)
 
 onMounted(() => {
     const obs = new IntersectionObserver(
@@ -185,9 +191,11 @@ const formatDate = (d: string) => {
 
             <AppPagination
                 v-if="pagination && pagination.links.length > 0"
-                :links="pagination.links"
-                :current-page="pagination.currentPage"
-                total-label="acara"
+                :current-page="pagination.currentPage ?? 1"
+                :prev-url="cursorUrls.previous"
+                :next-url="cursorUrls.next"
+                :per-page-options="[]"
+                unit-label="acara"
             />
         </div>
     </section>

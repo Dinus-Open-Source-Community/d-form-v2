@@ -6,6 +6,7 @@ import DivisionListSheet, {
     type DashboardDivision,
 } from '@/components/modules/dashboard/recruitment/DivisionListSheet.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
+import AppPagination from '@/components/core/AppPagination.vue'
 import { showErrorToast } from '@/lib/error-message'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -109,9 +110,6 @@ const actionQueues = computed(() => props.summary.action_queues ?? [])
 const todaySessions = computed(() => props.summary.today_sessions ?? [])
 
 const periodRows = computed<PeriodRow[]>(() => props.periods?.data ?? [])
-const periodCurrentPage = computed<number>(() => props.periods?.current_page ?? 1)
-const periodLastPage = computed<number>(() => props.periods?.last_page ?? 1)
-const periodTotal = computed<number>(() => props.periods?.total ?? 0)
 
 const divisionRows = computed<DashboardDivision[]>(() => props.divisions ?? [])
 const divisionDrawerOpen = ref<boolean>(false)
@@ -392,27 +390,15 @@ onMounted(() => {
                 </CardContent>
             </Card>
 
-            <div v-if="periodLastPage > 1" class="mt-4 flex justify-center gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="periodCurrentPage <= 1"
-                    @click="applyPeriodFilters(periodCurrentPage - 1)"
-                >
-                    Sebelumnya
-                </Button>
-                <span class="text-muted-foreground self-center text-xs tabular-nums">
-                    {{ periodCurrentPage }} / {{ periodLastPage }} · {{ periodTotal }} periode
-                </span>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="periodCurrentPage >= periodLastPage"
-                    @click="applyPeriodFilters(periodCurrentPage + 1)"
-                >
-                    Berikutnya
-                </Button>
-            </div>
+            <AppPagination
+                v-if="periodRows.length > 0"
+                :current-page="periods?.current_page ?? 1"
+                :last-page="periods?.last_page ?? null"
+                :total="periods?.total ?? null"
+                :per-page="periods?.per_page ?? 20"
+                :per-page-options="[]"
+                unit-label="periode"
+            />
         </section>
 
         <!-- Today's interview sessions -->

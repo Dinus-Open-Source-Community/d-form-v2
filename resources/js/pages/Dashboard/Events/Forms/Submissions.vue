@@ -112,11 +112,12 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
 
                         <AppPagination
                             v-if="bundleGroups"
-                            :links="bundleGroups.links"
                             :current-page="bundleGroups.current_page"
                             :last-page="bundleGroups.last_page"
                             :total="bundleGroups.total"
-                            total-label="group"
+                            :per-page="bundleGroups.per_page"
+                            :per-page-options="[]"
+                            unit-label="grup"
                         />
                     </div>
                 </template>
@@ -147,10 +148,12 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                         />
 
                         <AppPagination
-                            :links="submissions.links"
                             :current-page="submissions.current_page"
                             :last-page="submissions.last_page"
                             :total="submissions.total"
+                            :per-page="submissions.per_page"
+                            :per-page-options="[]"
+                            unit-label="pengiriman"
                         />
                     </div>
                 </template>

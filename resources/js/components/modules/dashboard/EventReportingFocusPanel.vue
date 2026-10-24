@@ -129,11 +129,12 @@ function formatDt(iso: string) {
                     </TableBody>
                 </Table>
                 <AppPagination
-                    :links="attendanceLog.links"
                     :current-page="attendanceLog.current_page"
                     :last-page="attendanceLog.last_page"
                     :total="attendanceLog.total"
-                    total-label="rekaman"
+                    :per-page="attendanceLog.per_page"
+                    :per-page-options="[]"
+                    unit-label="rekaman"
                 />
             </CardContent>
         </Card>

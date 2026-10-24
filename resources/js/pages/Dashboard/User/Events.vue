@@ -5,9 +5,10 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
-import AppPagination from '@/components/core/AppPagination.vue';
+import AppPagination from '@/components/core/AppPagination.vue'
 import { Button } from '@/components/ui/button';
 import { FilterX } from 'lucide-vue-next';
+import { findCursorUrls, formatCompactNumber } from '@/lib/pagination';
 import { categoryLabelMap, sessionLabelMap } from '@/lib/dummyData';
 import { toCategoryList } from '@/lib/eventCategories';
 import { routes } from '@/lib/routes';
@@ -40,8 +41,12 @@ const props = withDefaults(
         listMode?: 'mine' | 'browse';
         pagination?: IEventPagination;
         filters?: IEventFilters;
+        /** Total acara diikuti sebelum dipotong server (mode `mine`). */
+        totalJoined?: number;
+        /** True bila daftar `mine` dipotong server dan hanya memuat sebagian terbaru. */
+        truncated?: boolean;
     }>(),
-    { listMode: 'browse' }
+    { listMode: 'browse', totalJoined: 0, truncated: false }
 );
 
 const filterCategory = ref(props.filters?.category ?? ALL_FILTER_VALUE);
@@ -151,6 +156,17 @@ const shownPagination = computed((): IEventPagination | null =>
     props.pagination !== undefined && props.pagination.links.length > 0 ? props.pagination : null
 );
 
+/** Cursor pagination: navigasi hanya lewat URL prev/next dari server. */
+const cursorUrls = computed((): { previous: string | null; next: string | null } =>
+    findCursorUrls(shownPagination.value?.links ?? [])
+);
+
+/** Keterangan potongan daftar "diikuti"; hanya relevan saat server memotong. */
+const truncatedNotice = computed((): string | null => {
+    if (isBrowse.value || !props.truncated || props.totalJoined <= 0) return null;
+    return `Menampilkan ${props.events.length} dari ${formatCompactNumber(props.totalJoined)} acara terbaru.`;
+});
+
 const emptyTitle = computed(() => (isBrowse.value ? 'Tidak ada acara ditemukan' : 'Belum ada acara yang diikuti'));
 const emptyDescription = computed(() =>
     isBrowse.value
@@ -214,11 +230,15 @@ onMounted(() => {
             </Link>
         </EmptyState>
 
+        <p v-if="truncatedNotice" class="text-xs text-muted-foreground">{{ truncatedNotice }}</p>
+
         <template v-if="shownPagination">
             <AppPagination
-                :links="shownPagination.links"
-                :current-page="shownPagination.currentPage"
-                total-label="acara"
+                :current-page="shownPagination.currentPage ?? 1"
+                :prev-url="cursorUrls.previous"
+                :next-url="cursorUrls.next"
+                :per-page-options="[]"
+                unit-label="acara"
             />
         </template>
     </div>

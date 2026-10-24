@@ -2,17 +2,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
+import AppPagination from '@/components/core/AppPagination.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { type IPaginatorLink, type IPaginatorMeta } from '@/lib/paginatorLinks'
-import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
 import {
     Dialog,
     DialogContent,
@@ -23,7 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { ArrowRight, Check, ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
+import { ArrowRight, Check, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -143,8 +136,6 @@ const divisionId = ref<string>(String(props.query?.division_id ?? ''))
 const stage = ref<string>(String(props.query?.stage ?? ''))
 const queue = ref<string>(String(props.query?.queue ?? ''))
 const semester = ref<string>(String(props.query?.semester ?? ''))
-/** Navigasi halaman server (?tab=peserta&page=N, replace agar tak menumpuk riwayat). */
-const isNavigating = ref<boolean>(false)
 
 const divisionSelectOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua divisi' },
@@ -209,7 +200,6 @@ function serverFilterParams(): Record<string, string> {
 }
 
 function applyServerFilters(): void {
-    if (isNavigating.value) return
     router.get(routes.admin.recruitment.periods.show(props.periodId), serverFilterParams(), {
         preserveState: true,
         preserveScroll: true,
@@ -285,64 +275,6 @@ const hasActiveFilter = computed<boolean>(() => {
         semester.value !== ''
     )
 })
-
-const rangeLabel = computed<string>(() => {
-    const meta = serverMeta.value
-    const total: string = meta.total.toLocaleString('id-ID')
-    const from: string = (meta.from ?? (meta.total > 0 ? 1 : 0)).toLocaleString('id-ID')
-    const to: string = (meta.to ?? meta.total).toLocaleString('id-ID')
-    return `Menampilkan ${from}–${to} dari ${total} applicant`
-})
-
-/** Baris per halaman paginator server (kontrak: paginate 15). */
-const perPage = computed<number>(() => props.applications?.per_page ?? 15)
-
-/**
- * Pindah halaman via links[] paginator (url sudah membawa ?tab=peserta&page=N).
- * Partial reload + replace agar riwayat tak menumpuk.
- */
-function goToUrl(url: string | null): void {
-    if (url === null || props.applications == null || isNavigating.value) return
-    router.get(
-        url,
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-            only: [
-                'period',
-                'tab',
-                'query',
-                'applications',
-                'queue_counts',
-                'screening_reason_options',
-                'division_options',
-                'membership_type_options',
-                'divisionOptions',
-                'semesterOptions',
-                'stageOptions',
-            ],
-            onStart: () => {
-                isNavigating.value = true
-            },
-            onFinish: () => {
-                isNavigating.value = false
-            },
-        },
-    )
-}
-
-/**
- * Dipakai shadcn Pagination (@update:page): nomor halaman dipetakan ke URL
- * links[] paginator lalu didelegasikan ke goToUrl agar opsi navigasi sama.
- */
-function goToPage(pageNumber: number): void {
-    if (pageNumber === serverMeta.value.currentPage || isNavigating.value) return
-    const target: string | null =
-        serverMeta.value.links.find((link) => link.label === String(pageNumber))?.url ?? null
-    goToUrl(target)
-}
 
 interface RejectReasonOption {
     value: string
@@ -603,12 +535,8 @@ function submitReject(): void {
             data-applicant-list
             tabindex="-1"
             class="rounded-2xl border-border/70 overflow-hidden focus-visible:outline-none"
-            :aria-busy="isNavigating"
         >
-            <CardContent class="p-0" :class="isNavigating && 'opacity-60 transition-opacity'">
-                <p v-if="isNavigating" role="status" class="border-b px-4 py-2 text-xs text-muted-foreground">
-                    Memuat halaman {{ serverMeta.currentPage }}…
-                </p>
+            <CardContent class="p-0">
                 <div class="overflow-x-auto overflow-y-hidden">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/40 border-b text-left">
@@ -743,42 +671,15 @@ function submitReject(): void {
             </CardContent>
         </Card>
 
-        <div
-            v-if="applications"
-            class="flex flex-col items-center gap-3 text-sm"
-        >
-            <Pagination
-                v-if="serverMeta.lastPage > 1"
-                :page="serverMeta.currentPage"
-                :total="serverMeta.total"
-                :items-per-page="perPage"
-                :sibling-count="1"
-                @update:page="goToPage"
-            >
-                <PaginationContent v-slot="{ items }">
-                    <PaginationPrevious>
-                        <ChevronLeft class="size-4" aria-hidden="true" />
-                        <span class="hidden sm:block">Sebelumnya</span>
-                    </PaginationPrevious>
-                    <template v-for="(item, index) in items" :key="index">
-                        <PaginationItem
-                            v-if="item.type === 'page'"
-                            :value="item.value"
-                            :is-active="item.value === serverMeta.currentPage"
-                            :aria-label="`Ke halaman ${item.value}`"
-                        >
-                            {{ item.value }}
-                        </PaginationItem>
-                        <PaginationEllipsis v-else :index="index" />
-                    </template>
-                    <PaginationNext>
-                        <span class="hidden sm:block">Berikutnya</span>
-                        <ChevronRight class="size-4" aria-hidden="true" />
-                    </PaginationNext>
-                </PaginationContent>
-            </Pagination>
-            <p class="text-muted-foreground">{{ rangeLabel }}</p>
-        </div>
+        <AppPagination
+            v-if="applications && serverMeta.total > 0"
+            :current-page="serverMeta.currentPage"
+            :last-page="serverMeta.lastPage"
+            :total="serverMeta.total"
+            :per-page="applications.per_page ?? 20"
+            :per-page-options="[]"
+            unit-label="applicant"
+        />
 
         <ConfirmationModal
             :open="passDialogOpen"

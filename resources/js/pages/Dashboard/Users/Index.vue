@@ -2,19 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
+import AppPagination from '@/components/core/AppPagination.vue'
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import {
     Table,
@@ -29,7 +22,7 @@ import { routes } from '@/lib/routes'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import useAuth from '@/utils/composables/useAuth'
-import { ChevronLeft, ChevronRight, Eye, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-vue-next'
+import { Eye, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-vue-next'
 
 defineOptions({ layout: DashboardLayout })
 
@@ -83,15 +76,6 @@ const roleLabelMap = computed(() =>
 )
 
 const hasActiveFilters = computed(() => Boolean(search.value || role.value))
-
-const perPage = computed(() => props.users.per_page || props.query.per_page || 10)
-
-const rangeLabel = computed(() => {
-    if (props.users.total === 0) return 'Tidak ada data'
-    const from = (props.users.current_page - 1) * perPage.value + 1
-    const to = Math.min(props.users.total, props.users.current_page * perPage.value)
-    return `Menampilkan ${from}–${to} dari ${props.users.total}`
-})
 
 onMounted(() => {
     setTopbar({ title: 'Pengguna', subtitle: 'Kelola akun admin dan member' })
@@ -296,39 +280,15 @@ function confirmDelete(): void {
                 </div>
             </Card>
 
-            <div v-if="users.last_page > 1" class="flex flex-col items-center gap-3">
-                <Pagination
-                    :page="users.current_page"
-                    :total="users.total"
-                    :items-per-page="perPage"
-                    :sibling-count="1"
-                    @update:page="applyFilters"
-                >
-                    <PaginationContent v-slot="{ items }">
-                        <PaginationPrevious>
-                            <ChevronLeft class="size-4" aria-hidden="true" />
-                            <span class="hidden sm:block">Sebelumnya</span>
-                        </PaginationPrevious>
-                        <template v-for="(item, index) in items" :key="index">
-                            <PaginationItem
-                                v-if="item.type === 'page'"
-                                :value="item.value"
-                                :is-active="item.value === users.current_page"
-                                :aria-label="`Ke halaman ${item.value}`"
-                            >
-                                {{ item.value }}
-                            </PaginationItem>
-                            <PaginationEllipsis v-else :index="index" />
-                        </template>
-                        <PaginationNext>
-                            <span class="hidden sm:block">Berikutnya</span>
-                            <ChevronRight class="size-4" aria-hidden="true" />
-                        </PaginationNext>
-                    </PaginationContent>
-                </Pagination>
-                <p class="text-muted-foreground text-sm">{{ rangeLabel }}</p>
-            </div>
-            <p v-else class="text-muted-foreground text-center text-sm">{{ rangeLabel }}</p>
+            <AppPagination
+                v-if="users.total > 0"
+                :current-page="users.current_page"
+                :last-page="users.last_page"
+                :total="users.total"
+                :per-page="users.per_page"
+                :per-page-options="[]"
+                unit-label="pengguna"
+            />
         </template>
 
         <EmptyState
