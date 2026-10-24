@@ -334,7 +334,7 @@ Akun baru tidak lagi dibuat saat submit register; user diarahkan ke halaman OTP 
 | Aturan | Nilai |
 | :--- | :--- |
 | Kode | 6 digit, disimpan terenkripsi (`APP_KEY`), tidak pernah di log/payload queue |
-| Masa berlaku | 10 menit (hitung mundur dari `expiresAt` server; offset `serverNow` dihitung sekali) |
+| Masa berlaku | 5 menit (hitung mundur dari `expiresAt` server; offset `serverNow` dihitung sekali) |
 | Percobaan salah | maks 3 per kode; ke-3 menghanguskan kode |
 | Kuota kirim | maks 3 total **termasuk kiriman pertama**; setelahnya lock 15 menit, lalu jatah pulih |
 | Cooldown | 60 detik antar-kirim |
@@ -349,3 +349,21 @@ Akun baru tidak lagi dibuat saat submit register; user diarahkan ke halaman OTP 
 **Bukti uji:** suite `tests/Feature/Auth` **90 lulus (494 assertion)**; E2E `auth` + `email-availability` + `otp-verification` **20 lulus**; uji manual HTTP: register → 302 `/auth/verify-otp`, halaman 200, `otp:current` mengeluarkan kode, submit → 302 `/dashboard`, baris user `email_verified_at` terisi dan pending terhapus. Build: entry 7.126 B gzip, chunk `Auth/VerifyOtp` 4.689 B gzip.
 
 **Catatan operasional:** worker memproses queue `default` yang juga dipakai job lama (dev sempat berisi ±106 job); pastikan worker produksi hanya berjalan setelah antrean bersih. Worker berjalan sebagai root (mengikuti pola SSR).
+
+## 23. Penyempurnaan halaman OTP
+
+| Perilaku | Detail |
+| :--- | :--- |
+| Layout | Mengikuti referensi: judul "Check your messages" center, email di bawahnya, hitung mundur halus, 6 kotak, "Tidak mendapatkan OTP? Kirim ulang OTP", "Ganti akun" |
+| Auto-submit | Begitu 6 digit terisi (ketik/paste) langsung verifikasi tanpa klik; tombol tetap ada sebagai fallback |
+| Sukses | 6 kotak hijau (`success`) dipertahankan ±600 ms, lalu pindah ke dashboard |
+| Gagal | Kotak merah + pesan server, kode dikosongkan dan fokus kembali ke kotak pertama |
+| 3× salah | Kode hangus, hitung mundur 00:00, pesan "Kode sudah kedaluwarsa. Kirim ulang OTP." |
+| Kirim ulang | Hitung mundur kembali 5 menit; tombol terkunci 60 detik (kuota total tetap 3 termasuk kiriman pertama) |
+| 429 | Pesan sisa waktu dari `Retry-After`, kotak tidak diberi state merah |
+
+**Jalur JSON:** `POST /auth/verify-otp` dengan `Accept: application/json` → `200 {verified, redirect}` / `422 {message}`; dipakai auto-submit agar state hijau sempat tampil sebelum navigasi. Pemanggil non-JSON tetap mendapat redirect.
+
+**Anti-spam test:** alamat `.test` di `local`/`testing` tidak lagi mengantrekan job OTP (guard di service + job), sehingga E2E tidak membanjiri queue/worker. Queue dev sempat berisi ±106 job sisa test; sudah habis diproses dan tidak terulang.
+
+**Verifikasi:** `tests/Feature/Auth` **91 lulus (497 assertion)**; E2E `auth`+`email`+`otp` **21 lulus, 1 gagal sementara** karena PHP `memory_limit` habis di Debugbar (bukan kode) — `auth` dijalankan ulang **8/8 lulus**. Chunk `Auth/VerifyOtp` **4.983 B gzip**.
