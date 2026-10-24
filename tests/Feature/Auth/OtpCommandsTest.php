@@ -40,7 +40,7 @@ class OtpCommandsTest extends TestCase
     /** Buat baris pending langsung; kode null meniru OTP yang sudah hangus. */
     private function createPending(string $email, ?string $code): void
     {
-        PendingRegistration::create([
+        PendingRegistration::forceCreate([
             'name' => 'Uji',
             'email' => $email,
             'password' => 'rahasia123',

@@ -57,32 +57,37 @@ class RegistrationOtpService
 
     /**
      * Verifikasi kode OTP; pada sukses akun dibuat terverifikasi tanpa login (controller yang login).
+     *
+     * Kunci kirim (`otp_locked_until`) sengaja tidak memblokir verifikasi: kode dari kiriman
+     * ketiga tetap sah sampai masa berlakunya habis. Baris pending dikunci agar counter
+     * percobaan tidak balapan antar-request.
      */
     public function verify(string $email, string $code): OtpOutcome
     {
-        $pending = $this->find($email);
+        return DB::transaction(function () use ($email, $code): OtpOutcome {
+            $pending = PendingRegistration::query()
+                ->where('email', $email)
+                ->lockForUpdate()
+                ->first();
 
-        if ($pending === null) {
-            return OtpOutcome::Missing;
-        }
+            if ($pending === null) {
+                return OtpOutcome::Missing;
+            }
 
-        if ($this->activeLock($pending) !== null) {
-            return OtpOutcome::Locked;
-        }
+            if ($this->isCodeExhausted($pending)) {
+                return OtpOutcome::Expired;
+            }
 
-        if ($this->isCodeExhausted($pending)) {
-            return OtpOutcome::Expired;
-        }
+            if (! hash_equals((string) $pending->otp_code, $code)) {
+                $this->registerFailedAttempt($pending);
 
-        if (! hash_equals((string) $pending->otp_code, $code)) {
-            $this->registerFailedAttempt($pending);
+                return OtpOutcome::InvalidCode;
+            }
 
-            return OtpOutcome::InvalidCode;
-        }
+            $this->createVerifiedUser($pending);
 
-        $this->createVerifiedUser($pending);
-
-        return OtpOutcome::Verified;
+            return OtpOutcome::Verified;
+        });
     }
 
     /**
@@ -135,9 +140,15 @@ class RegistrationOtpService
         PendingRegistration::query()->where('email', $email)->delete();
     }
 
-    /** Kode aktif milik email untuk command lokal/E2E; null bila tidak ada. */
+    /**
+     * Kode aktif milik email untuk command lokal/E2E; null di luar local/testing atau tanpa kode.
+     */
     public function currentCode(string $email): ?string
     {
+        if (! app()->environment(['local', 'testing'])) {
+            return null;
+        }
+
         return $this->find($email)?->otp_code;
     }
 
@@ -191,7 +202,7 @@ class RegistrationOtpService
                 : null,
         ])->save();
 
-        SendRegistrationOtpJob::dispatch($pending->id, $code);
+        SendRegistrationOtpJob::dispatch($pending->id);
     }
 
     /** Kode angka acak sepanjang `otp.length`, di-zero-pad. */
@@ -202,7 +213,11 @@ class RegistrationOtpService
         return str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
     }
 
-    /** Catat percobaan salah; percobaan terakhir menghanguskan kode. */
+    /**
+     * Catat percobaan salah; percobaan terakhir menghanguskan kode.
+     *
+     * Hanya dipanggil di dalam transaksi `verify()` yang sudah mengunci baris pending.
+     */
     private function registerFailedAttempt(PendingRegistration $pending): void
     {
         $attempts = $pending->otp_attempts + 1;
@@ -215,21 +230,23 @@ class RegistrationOtpService
         ])->save();
     }
 
-    /** Buat akun terverifikasi dari pending lalu hapus pending dalam satu transaksi. */
+    /**
+     * Buat akun terverifikasi dari pending lalu hapus pending.
+     *
+     * Dipanggil di dalam transaksi `verify()` agar akun dan pending berubah bersama.
+     */
     private function createVerifiedUser(PendingRegistration $pending): void
     {
-        DB::transaction(function () use ($pending): void {
-            $user = User::create([
-                'name' => $pending->name,
-                'email' => $pending->email,
-                'password' => $pending->password,
-                'email_verified_at' => now(),
-            ]);
+        $user = User::create([
+            'name' => $pending->name,
+            'email' => $pending->email,
+            'password' => $pending->password,
+            'email_verified_at' => now(),
+        ]);
 
-            $user->assignRole('member');
+        $user->assignRole('member');
 
-            $pending->delete();
-        });
+        $pending->delete();
     }
 
     /** Kode dianggap hangus bila tidak ada atau sudah lewat masa berlaku. */

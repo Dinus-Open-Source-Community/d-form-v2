@@ -32,11 +32,61 @@ class RegistrationOtpServiceTest extends TestCase
     {
         $this->service->start($this->registrationData('otp@example.test'));
         $code = $this->activeCode('otp@example.test');
+        $wrong = $this->wrongCode($code);
 
-        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', '000000'));
-        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', '000001'));
-        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', '000002'));
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', $wrong));
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', $wrong));
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('otp@example.test', $wrong));
         $this->assertSame(OtpOutcome::Expired, $this->service->verify('otp@example.test', $code));
+    }
+
+    public function test_wrong_attempts_increment_one_per_call_and_third_burns_code(): void
+    {
+        $this->service->start($this->registrationData('hitung@example.test'));
+        $wrong = $this->wrongCode($this->activeCode('hitung@example.test'));
+
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('hitung@example.test', $wrong));
+        $this->assertSame(1, $this->pending('hitung@example.test')->otp_attempts);
+
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('hitung@example.test', $wrong));
+        $this->assertSame(2, $this->pending('hitung@example.test')->otp_attempts);
+
+        $this->assertSame(OtpOutcome::InvalidCode, $this->service->verify('hitung@example.test', $wrong));
+
+        $pending = $this->pending('hitung@example.test');
+        $this->assertSame(3, $pending->otp_attempts);
+        $this->assertNull($pending->otp_code);
+        $this->assertNull($pending->otp_expires_at);
+    }
+
+    public function test_code_from_third_send_is_verified_while_lock_is_active(): void
+    {
+        $this->service->start($this->registrationData('kirim3@example.test'));
+
+        $this->travel(61)->seconds();
+        $this->assertSame(OtpOutcome::Issued, $this->service->resend('kirim3@example.test'));
+
+        $this->travel(61)->seconds();
+        $this->assertSame(OtpOutcome::Issued, $this->service->resend('kirim3@example.test'));
+
+        $pending = $this->pending('kirim3@example.test');
+        $this->assertNotNull($pending->otp_locked_until);
+
+        $outcome = $this->service->verify('kirim3@example.test', $this->activeCode('kirim3@example.test'));
+
+        $this->assertSame(OtpOutcome::Verified, $outcome);
+        $this->assertDatabaseHas('users', ['email' => 'kirim3@example.test']);
+    }
+
+    public function test_job_payload_never_contains_the_otp_code(): void
+    {
+        $this->service->start($this->registrationData('payload@example.test'));
+        $pending = $this->pending('payload@example.test');
+
+        Queue::assertPushed(SendRegistrationOtpJob::class, function (SendRegistrationOtpJob $job) use ($pending): bool {
+            return $job->pendingId === $pending->id
+                && ! property_exists($job, 'code');
+        });
     }
 
     public function test_verify_success_creates_verified_member_and_deletes_pending(): void
@@ -153,8 +203,10 @@ class RegistrationOtpServiceTest extends TestCase
     {
         $this->service->start($this->registrationData('hangus@example.test'));
 
+        $wrong = $this->wrongCode($this->activeCode('hangus@example.test'));
+
         for ($attempt = 0; $attempt < 3; $attempt++) {
-            $this->service->verify('hangus@example.test', '000000');
+            $this->service->verify('hangus@example.test', $wrong);
         }
 
         $status = $this->service->status($this->pending('hangus@example.test'));
@@ -186,6 +238,12 @@ class RegistrationOtpServiceTest extends TestCase
         $this->assertNotNull($code);
 
         return $code;
+    }
+
+    /** Tebakan yang dijamin berbeda dari kode aktif agar test tidak flaky. */
+    private function wrongCode(string $actual): string
+    {
+        return $actual === '000000' ? '111111' : '000000';
     }
 
     /** Baris pending untuk email tertentu; gagal bila tidak ada. */

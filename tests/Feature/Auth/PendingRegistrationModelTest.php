@@ -17,7 +17,7 @@ class PendingRegistrationModelTest extends TestCase
 
     public function test_pending_registration_encrypts_otp_and_hashes_password(): void
     {
-        $pending = PendingRegistration::create([
+        $pending = PendingRegistration::forceCreate([
             'name' => 'Uji', 'email' => 'pending@example.test',
             'password' => 'rahasia123', 'otp_code' => '123456',
             'otp_expires_at' => now()->addMinutes(10),
@@ -27,6 +27,8 @@ class PendingRegistrationModelTest extends TestCase
         $this->assertNotSame('123456', $raw->otp_code);
         $this->assertSame('123456', $pending->fresh()->otp_code);
         $this->assertTrue(Hash::check('rahasia123', $raw->password));
+        $this->assertArrayNotHasKey('otp_code', $pending->toArray());
+        $this->assertArrayNotHasKey('password', $pending->toArray());
     }
 
     public function test_config_otp_memakai_nilai_bawaan(): void

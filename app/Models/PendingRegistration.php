@@ -20,12 +20,12 @@ class PendingRegistration extends Model
         'name',
         'email',
         'password',
+    ];
+
+    /** Rahasia tidak boleh ikut terserialisasi (Inertia/JSON/log). */
+    protected $hidden = [
+        'password',
         'otp_code',
-        'otp_expires_at',
-        'otp_attempts',
-        'otp_sends',
-        'otp_last_sent_at',
-        'otp_locked_until',
     ];
 
     /** OTP disimpan terenkripsi; password pending tetap di-hash. */
