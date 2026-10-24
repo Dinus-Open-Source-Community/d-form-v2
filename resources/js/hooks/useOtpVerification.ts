@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import type { InertiaForm } from '@inertiajs/vue3';
@@ -94,9 +94,28 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
                 },
                 onFinish: () => {
                     isResending.value = false;
+                    restoreFocusAfterResend();
                 },
             },
         );
+    }
+
+    /** Fokuskan aksi yang masih bisa dipakai: kirim ulang, atau "Gunakan email lain" saat terkunci. */
+    function focusActionableControl(): void {
+        const target = resendButton?.disabled === false ? resendButton : alternateEmailButton;
+
+        target?.focus();
+    }
+
+    /** Tombol kirim ulang didisable selama request; kembalikan fokus bila jatuh ke body. */
+    function restoreFocusAfterResend(): void {
+        void nextTick(() => {
+            const active = document.activeElement;
+
+            if (active !== null && active !== document.body) return;
+
+            focusActionableControl();
+        });
     }
 
     function useAnotherEmail(): void {
@@ -110,9 +129,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         (expired, wasExpired) => {
             if (!expired || wasExpired) return;
 
-            const target = resendButton?.disabled === false ? resendButton : alternateEmailButton;
-
-            target?.focus();
+            focusActionableControl();
         },
         { flush: 'post' },
     );

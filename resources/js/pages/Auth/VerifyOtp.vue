@@ -47,6 +47,11 @@ const resendLabel: ComputedRef<string> = computed<string>(() => formatCountdownC
 /** Banner lock hanya relevan selama hitung mundur kirim ulang masih berjalan. */
 const showLockNotice: ComputedRef<boolean> = computed<boolean>(() => isLocked.value && resendIn.value > 0);
 
+/** Teks live region: diumumkan saat kode berubah menjadi kedaluwarsa. */
+const expiryAnnouncement: ComputedRef<string> = computed<string>(() =>
+    isExpired.value ? 'Kode verifikasi sudah kedaluwarsa. Kirim ulang kode baru.' : '',
+);
+
 /** Id bantuan yang dibaca screen reader: hint kuota, ditambah pesan error saat ada. */
 const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
     codeError.value === undefined ? 'otp-code-hint' : 'otp-code-hint otp-code-error',
@@ -75,13 +80,16 @@ const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
             <p class="mt-2.5 text-sm text-muted-foreground">Enter the code sent to</p>
             <p data-testid="otp-email" class="mt-0.5 font-semibold break-words text-foreground">{{ email }}</p>
 
+            <!-- Live region selalu ter-mount (pola sama dengan form register): hanya teksnya yang berubah. -->
+            <div class="sr-only" data-testid="otp-expiry-live" aria-live="polite" aria-atomic="true">
+                <span>{{ expiryAnnouncement }}</span>
+            </div>
+
             <!-- Hitung mundur tepat di bawah subjudul; angkanya memakai jam server. -->
             <div class="mt-4 flex min-h-6 items-center gap-2 text-sm">
                 <span
                     v-if="isExpired"
                     data-testid="otp-expired"
-                    role="status"
-                    aria-live="polite"
                     class="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
                 >
                     <CircleAlert class="size-3.5" aria-hidden="true" />

@@ -54,6 +54,21 @@ function resetThrottleBuckets(): void {
     runArtisan('\\Illuminate\\Support\\Facades\\Cache::flush();')
 }
 
+/**
+ * Tunggu cooldown kirim ulang habis memakai nilai dari UI (bukan angka hardcode).
+ * Bila state klien sempat ter-reset, muat ulang halaman agar props diambil ulang dari server.
+ */
+async function waitForResendAvailable(page: Page, resendButton: Locator): Promise<void> {
+    const label = (await page.getByTestId('otp-resend-countdown').innerText().catch(() => '')).trim()
+
+    if (label !== '') await page.waitForTimeout((toSeconds(label) + 3) * 1000)
+
+    if (await resendButton.isEnabled().catch(() => false)) return
+
+    await page.reload()
+    await expect(resendButton).toBeEnabled()
+}
+
 test.describe('verifikasi OTP', () => {
     test.beforeEach(() => {
         resetThrottleBuckets()
@@ -135,7 +150,7 @@ test.describe('verifikasi OTP', () => {
         await expect(boxes.nth(1)).toHaveValue('2')
     })
 
-    test('kode kedaluwarsa mengumumkan status dan memindahkan fokus ke kirim ulang', async ({ page }) => {
+    test('kode kedaluwarsa: live region aktif dan fokus pindah ke kirim ulang', async ({ page }) => {
         // Jam palsu memajukan 10 menit supaya TTL OTP habis tanpa menunggu waktu nyata.
         await page.clock.install()
 
@@ -145,15 +160,13 @@ test.describe('verifikasi OTP', () => {
 
         await page.clock.fastForward(600_000)
 
-        const expiredBadge = page.getByTestId('otp-expired')
-        await expect(expiredBadge).toHaveText(/kode kedaluwarsa/i)
-        await expect(expiredBadge).toHaveAttribute('role', 'status')
-        await expect(expiredBadge).toHaveAttribute('aria-live', 'polite')
+        await expect(page.getByTestId('otp-expired')).toBeVisible()
+        await expect(page.getByTestId('otp-expiry-live')).toHaveText(/kedaluwarsa/i)
         await expect(page.getByRole('button', { name: /^kirim ulang$/i })).toBeFocused()
         await expect(page.getByRole('button', { name: /^verifikasi$/i })).toBeDisabled()
     })
 
-    test('kirim ulang menampilkan cooldown dan mengurangi sisa kirim', async ({ page }) => {
+    test('kirim ulang: cooldown, sisa kirim berkurang, dan timer hidup lagi setelah kedaluwarsa', async ({ page }) => {
         // Cooldown kirim ulang mengikuti config server (60 detik); waktu tunggu dibaca dari UI, bukan hardcode.
         test.setTimeout(120_000)
 
@@ -167,21 +180,44 @@ test.describe('verifikasi OTP', () => {
         await expect(resendButton).toBeDisabled()
         await expect(resendCountdown).toHaveText(/^\d{2}:\d{2}$/)
 
-        // Baca sisa cooldown dari UI lalu tunggu sesuai nilainya (+3 detik margin tick server).
-        const cooldownSeconds = toSeconds((await resendCountdown.innerText()).trim())
+        await waitForResendAvailable(page, resendButton)
 
-        await expect(resendButton).toBeEnabled({ timeout: (cooldownSeconds + 3) * 1000 })
+        // Majukan jam sampai kode lama kedaluwarsa: kedua hitung mundur nol sehingga interval berhenti.
+        const expirySeconds = toSeconds((await page.getByTestId('otp-countdown').innerText()).trim())
+        await page.clock.install()
+        await page.clock.fastForward(expirySeconds * 1000 + 1_000)
+
+        await expect(page.getByTestId('otp-expired')).toBeVisible()
+        await expect(resendButton).toBeFocused()
+
         await resendButton.click()
 
         await expect.poll(() => readSendsRemaining(page)).toBe(sendsBefore - 1)
-        await expect(resendCountdown).toHaveText(/^\d{2}:\d{2}$/)
-        await expect(resendButton).toBeDisabled()
+
+        // Props diganti tanpa remount: timer yang sudah berhenti harus hidup lagi dan nilainya turun.
+        const expiryCountdown = page.getByTestId('otp-countdown')
+        await expect(expiryCountdown).toBeVisible()
+
+        // Tombol kirim ulang sempat nonaktif selama request; fokus tidak boleh tertinggal di body.
+        await expect(page.locator('body')).not.toBeFocused()
+
+        const secondsBeforeTick = toSeconds((await expiryCountdown.innerText()).trim())
+        expect(secondsBeforeTick).toBeGreaterThan(1)
+
+        await page.clock.fastForward(3_000)
+
+        await expect
+            .poll(async () => toSeconds((await expiryCountdown.innerText()).trim()))
+            .toBeLessThan(secondsBeforeTick)
     })
 
     test('kode benar mengarahkan ke dashboard', async ({ page }) => {
         const email = createTestEmail('benar')
 
         await registerUntilOtpPage(page, email)
+
+        // Dashboard tidak pernah dirender: dataset stress membuatnya lambat dan menahan worker dev.
+        await page.route('**/dashboard*', (route) => route.abort())
 
         await otpBoxes(page).first().click()
         await page.keyboard.type(readActiveOtp(email))

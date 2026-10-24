@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 
 /** Jeda tick hitung mundur; satu detik cukup karena tampilan hanya menampilkan mm:ss. */
@@ -68,8 +68,16 @@ export function useOtpCountdown(options: IUseOtpCountdownOptions): IUseOtpCountd
         timer = null;
     }
 
-    // Interval baru dibuat setelah mount agar tidak ada timer menggantung saat render SSR.
-    onMounted(() => {
+    /**
+     * Nyalakan interval bila ada deadline yang belum lewat.
+     * Dipanggil saat mount dan setiap props deadline berubah (mis. setelah kirim ulang kode).
+     */
+    function startTimer(): void {
+        if (timer !== null) return;
+
+        // Baca ulang jam server: props bisa berubah setelah timer sempat berhenti.
+        nowMs.value = Date.now() + offsetMs;
+
         if (expiresIn.value === 0 && resendIn.value === 0) return;
 
         timer = setInterval(() => {
@@ -77,7 +85,13 @@ export function useOtpCountdown(options: IUseOtpCountdownOptions): IUseOtpCountd
 
             if (expiresIn.value === 0 && resendIn.value === 0) stopTimer();
         }, TICK_MS);
-    });
+    }
+
+    // Interval baru dibuat setelah mount agar tidak ada timer menggantung saat render SSR.
+    onMounted(startTimer);
+
+    // Inertia mem-patch props tanpa remount; timer yang sudah berhenti harus bisa hidup lagi.
+    watch(() => [options.expiresAt, options.resendAvailableAt], startTimer);
 
     onBeforeUnmount(stopTimer);
 
