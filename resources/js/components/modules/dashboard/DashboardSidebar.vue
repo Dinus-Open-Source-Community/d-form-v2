@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { usePage, Link } from '@inertiajs/vue3';
 import {
     Sidebar,
@@ -162,8 +163,8 @@ function closeMobileIfNeeded() {
     if (isMobile.value) setOpenMobile(false);
 }
 
-/** URL logo publik — dibentuk saat runtime agar Vite tidak mem-bundel path file PNG. */
-const sidebarLogoSrc = `/${encodeURIComponent('DForm 1.png')}`;
+/** URL wordmark publik (WebP) — satu sumber di `lib/brand`. */
+const sidebarLogoSrc = DFORM_WORDMARK_SRC;
 </script>
 
 <template>

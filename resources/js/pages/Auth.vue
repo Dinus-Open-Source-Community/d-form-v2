@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { DFORM_WORDMARK_SRC } from '@/lib/brand'
 import { usePage } from '@inertiajs/vue3'
 import { routes } from '@/lib/routes'
 import AuthToast from '@/components/modules/auth/AuthToast.vue'
@@ -51,7 +52,7 @@ watch(
             <div class="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-8">
                 <a :href="routes.home" class="group mb-10 inline-block">
                     <img
-                        :src="`/${encodeURIComponent('DForm 1.png')}`"
+                        :src="DFORM_WORDMARK_SRC"
                         alt="DForm"
                         class="h-10 w-auto select-none"
                         width="160"

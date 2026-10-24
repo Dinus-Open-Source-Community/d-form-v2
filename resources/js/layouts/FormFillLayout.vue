@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import 'vue-sonner/style.css'
+import { DFORM_WORDMARK_SRC } from '@/lib/brand'
 import { computed } from 'vue'
 import { usePage, Link, router } from '@inertiajs/vue3'
 import { Toaster } from '@/components/ui/sonner'
@@ -17,8 +18,8 @@ const fallbackBackHref = computed((): string => {
     return routes.member.joined
 })
 
-/** URL logo publik — dibentuk saat runtime agar Vite tidak mem-bundel path file PNG. */
-const formFillLogoSrc = `/${encodeURIComponent('DForm 1.png')}`
+/** URL wordmark publik (WebP) — satu sumber di `lib/brand`. */
+const formFillLogoSrc = DFORM_WORDMARK_SRC
 
 function goBack(): void {
     if (typeof window !== 'undefined' && window.history.length > 1) {

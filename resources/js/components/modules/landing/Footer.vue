@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Separator } from '@/components/ui/separator';
+import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { routes } from '@/lib/routes';
 import { MapPin, Mail, Globe } from 'lucide-vue-next';
 
@@ -41,7 +42,7 @@ const mapEmbedUrl =
                     <div class="min-w-0">
                         <a :href="routes.home" class="inline-flex items-center gap-2.5">
                             <img
-                                :src="`/${encodeURIComponent('DForm 1.png')}`"
+                                :src="DFORM_WORDMARK_SRC"
                                 alt="DOSCOM"
                                 width="113"
                                 height="49"

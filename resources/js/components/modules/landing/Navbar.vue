@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, useTemplateRef } from 'vue';
+import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -146,7 +147,7 @@ function isLinkActive(href: string): boolean {
         <div class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-10">
             <a :href="routes.home" class="group flex items-center gap-2.5">
                 <img
-                    :src="`/${encodeURIComponent('DForm 1.png')}`"
+                    :src="DFORM_WORDMARK_SRC"
                     alt="DOSCOM"
                     width="113"
                     height="49"
