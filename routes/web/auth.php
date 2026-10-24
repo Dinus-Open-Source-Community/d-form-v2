@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\EmailAvailabilityController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -43,6 +44,11 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         'index' => 'auth.register',
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
+
+    // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
+    Route::post('/auth/email-availability', EmailAvailabilityController::class)
+        ->middleware('throttle:auth-email-check')
+        ->name('auth.email.availability');
 
     Route::get('/auth/google', [OAuthController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('/auth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');

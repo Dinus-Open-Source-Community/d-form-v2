@@ -109,6 +109,10 @@ class AppServiceProvider extends ServiceProvider
             return $this->authThrottleLimit('password_reset', $request->ip());
         });
 
+        RateLimiter::for('auth-email-check', function (Request $request): Limit {
+            return $this->authThrottleLimit('email_check', $request->ip());
+        });
+
         // Temporary scan-test helper: redirect ALL outgoing mail to one inbox.
         // Active only on local + MAIL_TEST_REDIRECT set. Production untouched.
         $testRedirect = config('mail.test_redirect');

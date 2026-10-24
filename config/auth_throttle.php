@@ -22,4 +22,8 @@ return [
         'max_attempts' => (int) env('AUTH_PASSWORD_RESET_MAX_ATTEMPTS', 5),
         'decay_minutes' => (int) env('AUTH_PASSWORD_RESET_DECAY_MINUTES', 1),
     ],
+    'email_check' => [
+        'max_attempts' => (int) env('AUTH_EMAIL_CHECK_MAX_ATTEMPTS', 20),
+        'decay_minutes' => (int) env('AUTH_EMAIL_CHECK_DECAY_MINUTES', 1),
+    ],
 ];
