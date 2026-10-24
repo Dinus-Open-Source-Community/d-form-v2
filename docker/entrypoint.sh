@@ -82,6 +82,25 @@ else
     npm run build
 fi
 
+# Inertia SSR lokal: build sekali bila belum ada, lalu jalankan dengan loop restart
+# supaya error render langsung terlihat di log container. Tanpa proses ini Laravel
+# otomatis fallback ke render client-side.
+if [ "$APP_ENV" = "local" ]; then
+    if [ ! -f /app/bootstrap/ssr/ssr.js ]; then
+        echo "Building SSR bundle (sekali)..."
+        npm run build:ssr
+    fi
+
+    echo "Starting Inertia SSR..."
+    (
+        while true; do
+            node /app/bootstrap/ssr/ssr.js || true
+            echo "SSR process exited; restarting in 2s..." >&2
+            sleep 2
+        done
+    ) &
+fi
+
 echo "Starting Octane with FrankenPHP..."
 # Execute as www-data if possible, or frankenphp will handle it
 exec php artisan octane:frankenphp "$@" --host=0.0.0.0 --port=8000

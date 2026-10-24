@@ -245,8 +245,10 @@ Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0
 - Fallback: proses node dimatikan → semua halaman tetap **200**, `title=0` di HTML mentah, client merender normal (`HttpGateway` mengembalikan null saat koneksi gagal).
 - Supervisor: `kill` pada proses node → SSR hidup lagi ≤6 dtk (`title` kembali 1); setelah semua proses dimatikan, halaman tetap 200 dengan fallback CSR. RSS node terukur **79 MB** di container app.
 - **Tanpa container baru:** SSR berjalan di dalam container `app` yang sama (localhost:13714), `docker-compose.prod.yml` tetap 3 service (`db`, `redis`, `app`).
-- Dev: SSR tidak dipakai saat HMR (bundle statis vs chunk client baru = risiko mismatch). Perintah cek:
-  `podman exec -d -w /app d_form_app sh -lc 'cd /app && npm run build:ssr && node bootstrap/ssr/ssr.js'`
+- **Dev/local:** SSR ikut jalan di container `app` (`docker/entrypoint.sh`): build sekali bila `bootstrap/ssr/ssr.js` belum ada, lalu supervisor loop seperti prod. Tujuannya agar error render terlihat langsung di `podman logs d_form_app`.
+  - Bundle SSR statis, jadi setelah mengubah komponen: `podman exec -i -w /app d_form_app npm run build:ssr` lalu `podman restart d_form_app`. Tanpa rebuild, HTML mentah bisa tertinggal satu versi; tampilan tetap benar karena client merender ulang (tanpa hydration).
+  - Bukti error terlihat: `POST /render` dengan komponen tidak ada → `Error: Halaman Inertia tidak ditemukan: Does/NotExist` muncul di log container, response 200 body kosong, Laravel fallback CSR.
+  - Bukti tidak mengganggu: E2E auth 8/8 hijau dengan SSR aktif, console browser bersih, CLS 0 (FCP dev 208–340 ms).
 
 **Keputusan: hydration TIDAK diaktifkan.** Percobaan mengganti `createApp` → `createSSRApp` di `app.js` menghasilkan hydration mismatch sistematis (class/node/style) di 4/4 halaman yang diuji (`/`, `/features`, `/auth/login`, `/docs`) karena komponen memakai state client-only (IntersectionObserver lottie, path aktif navbar). Dikembalikan ke `createApp`: SSR dipakai untuk HTML crawler, client merender ulang. CLS terukur **0** dengan SSR aktif, jadi tidak ada flash terukur. Hydration dicatat sebagai follow-up yang butuh audit per komponen.
 
