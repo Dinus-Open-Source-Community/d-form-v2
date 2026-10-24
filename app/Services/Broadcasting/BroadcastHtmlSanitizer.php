@@ -3,8 +3,8 @@
 namespace App\Services\Broadcasting;
 
 /**
- * Sanitasi HTML output Tiptap dengan allowlist.
- * Mencegah XSS tanpa menambah dependensi baru.
+ * Sanitasi HTML rich text organizer (broadcast, deskripsi event, success content)
+ * memakai allowlist; mencegah stored XSS tanpa dependensi tambahan.
  */
 class BroadcastHtmlSanitizer
 {
@@ -30,6 +30,28 @@ class BroadcastHtmlSanitizer
         'h2' => ['style'],
         'h3' => ['style'],
     ];
+
+    /**
+     * Tag yang isinya dibuang total, bukan di-unwrap — mencegah teks
+     * `<script>alert(1)</script>` berubah menjadi teks "alert(1)".
+     *
+     * @var array<int, string>
+     */
+    private const DROP_CONTENT_TAGS = [
+        'script', 'style', 'iframe', 'object', 'embed', 'noscript',
+        'template', 'svg', 'math', 'link', 'meta', 'base',
+    ];
+
+    /**
+     * Sanitasi hanya bila string mengandung tag HTML; teks biasa dikembalikan
+     * apa adanya agar entity seperti `&` tidak berubah menjadi `&amp;`.
+     */
+    public function sanitizeIfMarkup(?string $html): string
+    {
+        $html = (string) $html;
+
+        return preg_match('/<[a-z\/!][^>]*>/i', $html) === 1 ? $this->sanitize($html) : $html;
+    }
 
     public function sanitize(?string $html): string
     {
@@ -72,6 +94,12 @@ class BroadcastHtmlSanitizer
         foreach ($children as $child) {
             if ($child instanceof \DOMElement) {
                 $tag = strtolower($child->tagName);
+
+                if (in_array($tag, self::DROP_CONTENT_TAGS, true)) {
+                    $node->removeChild($child);
+
+                    continue;
+                }
 
                 if (! in_array($tag, self::ALLOWED_TAGS, true)) {
                     // Unwrap: pindahkan children ke parent lalu hapus elemen.

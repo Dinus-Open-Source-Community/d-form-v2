@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -13,6 +14,7 @@ use Illuminate\Validation\Validator;
 class FieldModifyRequest extends FormRequest
 {
     use ConvertsLegacyDataUrls;
+    use SanitizesRichHtmlInput;
 
     public function authorize(): bool
     {
@@ -77,5 +79,6 @@ class FieldModifyRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->convertLegacyDataUrlsInRequest();
+        $this->mergeSanitizedFormFieldHtml();
     }
 }

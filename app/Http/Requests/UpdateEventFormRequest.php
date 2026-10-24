@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\EventFormVisibility;
 use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -15,6 +16,7 @@ use Illuminate\Validation\Validator;
 class UpdateEventFormRequest extends FormRequest
 {
     use ConvertsLegacyDataUrls;
+    use SanitizesRichHtmlInput;
 
     public function authorize(): bool
     {
@@ -108,5 +110,7 @@ class UpdateEventFormRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->convertLegacyDataUrlsInRequest();
+        $this->mergeSanitizedHtml(['success_content']);
+        $this->mergeSanitizedFormFieldHtml();
     }
 }

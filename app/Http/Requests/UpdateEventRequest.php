@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesEventCategoryRequest;
 use App\Http\Requests\Concerns\NormalizesEventSessionRequest;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Rules\CommaSeparatedEventCategories;
 use App\Rules\CommaSeparatedEventSessions;
 use App\Services\Event\EventService;
@@ -14,6 +15,7 @@ class UpdateEventRequest extends FormRequest
 {
     use NormalizesEventCategoryRequest;
     use NormalizesEventSessionRequest;
+    use SanitizesRichHtmlInput;
 
     public function authorize(): bool
     {
@@ -94,6 +96,7 @@ class UpdateEventRequest extends FormRequest
     {
         $this->mergeNormalizedCategoryFromRequest();
         $this->mergeNormalizedSessionFromRequest();
+        $this->mergeSanitizedHtml(['description']);
 
         if ($this->has('price') && is_string($this->input('price'))) {
             $this->merge([
