@@ -31,6 +31,10 @@ RUN npm ci
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Muat konfigurasi PHP dev: tanpa ini image memakai default 128M / tanpa batas waktu.
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
+
 # Ensure storage and bootstrap/cache exist and have correct permissions
 RUN mkdir -p storage bootstrap/cache && \
     chown -R www-data:www-data /app && \

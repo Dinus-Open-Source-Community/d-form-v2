@@ -42,6 +42,9 @@ export default defineConfig({
         },
         watch: {
             usePolling: true,
+            // Artefak stress test (stream.ndjson puluhan MB) tidak boleh memicu HMR:
+            // polling file itu menghabiskan CPU dan mencemari hasil benchmark.
+            ignored: ['**/scripts/stress/**', '**/storage/**', '**/vendor/**', '**/node_modules/**'],
         },
     },
 });
