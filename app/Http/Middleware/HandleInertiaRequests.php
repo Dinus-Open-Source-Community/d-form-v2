@@ -56,33 +56,37 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'auth.user' => $user ? array_merge(
-                $user->toArray(),
-                [
-                    'roles' => $user->getRoleNames()->toArray(),
-                    'has_local_password' => filled($user->getRawOriginal('password')),
-                    'can_manage_events' => $user->can('events.list'),
-                    'can_manage_users' => $user->can('users.list'),
-                    // Fitur broadcast dinonaktifkan: paksa false agar menu
-                    // Email Broadcasting hilang dari sidebar.
-                    'can_access_broadcast' => config('features.broadcast', false) && $user->can('email-broadcast.view'),
-                    'can_access_recruitment' => $user->can('recruitment.dashboard.view'),
-                    'is_recruitment_interviewer_only' => app(\App\Services\Recruitment\RecruitmentDashboardService::class)
-                        ->isInterviewerOnly($user),
-                    'can_manage_recruitment_periods' => $user->can('recruitment.periods.list'),
-                    'can_list_recruitment_applications' => $user->can('recruitment.applications.list'),
-                    'can_screen_recruitment_applications' => $user->can('recruitment.screening.decide'),
-                    'can_review_recruitment_corrections' => $user->can('recruitment.corrections.review'),
-                    'can_schedule_recruitment_interviews' => $user->can('recruitment.interviews.schedule'),
-                    'can_scan_recruitment_attendance' => $user->can('recruitment.attendance.scan'),
-                    'can_evaluate_recruitment_interviews' => $user->can('recruitment.evaluations.submit'),
-                    'can_view_my_recruitment_interviews' => $user->can('recruitment.evaluations.view'),
-                    'can_decide_recruitment_final' => $user->can('recruitment.final.decide'),
-                    'can_view_recruitment_reports' => $user->can('recruitment.reports.view'),
-                    'can_view_recruitment_activity' => $user->can('recruitment.activity.view'),
-                    'avatar' => UserAvatarService::resolvePublicUrl($user->avatar, $request),
-                ],
-            ) : null,
+            'auth.user' => $user ? [
+                // Field eksplisit: `toArray()` mengirim password/remember_token ke setiap halaman.
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                'created_at' => $user->created_at?->toIso8601String(),
+                'updated_at' => $user->updated_at?->toIso8601String(),
+                'roles' => $user->getRoleNames()->toArray(),
+                'has_local_password' => filled($user->getRawOriginal('password')),
+                'can_manage_events' => $user->can('events.list'),
+                'can_manage_users' => $user->can('users.list'),
+                // Fitur broadcast dinonaktifkan: paksa false agar menu
+                // Email Broadcasting hilang dari sidebar.
+                'can_access_broadcast' => config('features.broadcast', false) && $user->can('email-broadcast.view'),
+                'can_access_recruitment' => $user->can('recruitment.dashboard.view'),
+                'is_recruitment_interviewer_only' => app(\App\Services\Recruitment\RecruitmentDashboardService::class)
+                    ->isInterviewerOnly($user),
+                'can_manage_recruitment_periods' => $user->can('recruitment.periods.list'),
+                'can_list_recruitment_applications' => $user->can('recruitment.applications.list'),
+                'can_screen_recruitment_applications' => $user->can('recruitment.screening.decide'),
+                'can_review_recruitment_corrections' => $user->can('recruitment.corrections.review'),
+                'can_schedule_recruitment_interviews' => $user->can('recruitment.interviews.schedule'),
+                'can_scan_recruitment_attendance' => $user->can('recruitment.attendance.scan'),
+                'can_evaluate_recruitment_interviews' => $user->can('recruitment.evaluations.submit'),
+                'can_view_my_recruitment_interviews' => $user->can('recruitment.evaluations.view'),
+                'can_decide_recruitment_final' => $user->can('recruitment.final.decide'),
+                'can_view_recruitment_reports' => $user->can('recruitment.reports.view'),
+                'can_view_recruitment_activity' => $user->can('recruitment.activity.view'),
+                'avatar' => UserAvatarService::resolvePublicUrl($user->avatar, $request),
+            ] : null,
             'seo' => [
                 'siteName' => (string) config('seo.site_name'),
                 'siteUrl' => rtrim((string) config('app.url'), '/'),

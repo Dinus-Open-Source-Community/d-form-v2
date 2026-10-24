@@ -4,7 +4,7 @@ namespace App\Observers;
 
 use App\Models\Event;
 use App\Models\Form;
-use Illuminate\Support\Facades\Cache;
+use App\Services\Event\EventCache;
 
 class EventObserver
 {
@@ -13,7 +13,7 @@ class EventObserver
      */
     public function created(Event $event): void
     {
-        $this->invalidateEventListCache();
+        $this->invalidateEventCache(true);
     }
 
     /**
@@ -21,7 +21,7 @@ class EventObserver
      */
     public function updated(Event $event): void
     {
-        $this->invalidateEventListCache();
+        $this->invalidateEventCache($event->wasChanged(['category', 'session']));
     }
 
     /**
@@ -29,7 +29,7 @@ class EventObserver
      */
     public function deleted(Event $event): void
     {
-        $this->invalidateEventListCache();
+        $this->invalidateEventCache(true);
     }
 
     /**
@@ -58,7 +58,7 @@ class EventObserver
             $form->restore();
         });
 
-        $this->invalidateEventListCache();
+        $this->invalidateEventCache(true);
     }
 
     /**
@@ -66,19 +66,19 @@ class EventObserver
      */
     public function forceDeleted(Event $event): void
     {
-        //
+        $this->invalidateEventCache(true);
     }
 
-    private function invalidateEventListCache(): void
+    /**
+     * Invalidasi per kebutuhan: daftar & statistik selalu, kategori hanya bila berubah.
+     */
+    private function invalidateEventCache(bool $categoryChanged): void
     {
-        try {
-            Cache::tags(['events'])->flush();
+        EventCache::bump(EventCache::BUSTER_LIST);
+        EventCache::bump(EventCache::BUSTER_STATS);
 
-            return;
-        } catch (\BadMethodCallException|\RuntimeException) {
-            //
+        if ($categoryChanged) {
+            EventCache::bump(EventCache::BUSTER_CATEGORY);
         }
-
-        Cache::forever('events:list:cache:buster', (int) Cache::get('events:list:cache:buster', 0) + 1);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services\Reporting;
 use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\FormAnswer;
+use App\Services\Event\EventCache;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,23 @@ final class EventReportingQuery
     public function registrationTrendOverMonths(int $months = 6): array
     {
         $months = max(1, min(36, $months));
+
+        // Kunci memuat bulan berjalan agar label/rentang tidak basi.
+        return EventCache::remember(
+            'report:registration-trend:'.$months.':'.now()->format('Y-m'),
+            600,
+            fn (): array => $this->computeRegistrationTrend($months),
+            EventCache::BUSTER_STATS,
+        );
+    }
+
+    /**
+     * Query tren registrasi aktual; dipisah agar bisa di-cache utuh.
+     *
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    private function computeRegistrationTrend(int $months): array
+    {
         $start = now()->startOfMonth()->subMonths($months - 1);
 
         $driver = DB::connection()->getDriverName();
@@ -63,11 +81,34 @@ final class EventReportingQuery
      */
     public function eventsCountByCategoryToken(): array
     {
+        // Agregasi di SQL: cursor() membuffer seluruh result set PDO dan OOM pada data besar.
+        return EventCache::remember(
+            'report:category-tokens',
+            3600,
+            fn (): array => $this->computeCategoryTokens(),
+            EventCache::BUSTER_CATEGORY,
+        );
+    }
+
+    /**
+     * Hitung token kategori aktual; dipisah agar bisa di-cache utuh.
+     *
+     * @return list<array{token: string, count: int}>
+     */
+    private function computeCategoryTokens(): array
+    {
         $tallies = [];
 
-        foreach (Event::query()->whereNull('deleted_at')->cursor(['category']) as $event) {
-            foreach (Event::tokensFromCsv((string) $event->category) as $token) {
-                $tallies[$token] = ($tallies[$token] ?? 0) + 1;
+        $countsByCategory = Event::query()
+            ->whereNull('deleted_at')
+            ->toBase()
+            ->selectRaw('category, COUNT(*) as aggregate')
+            ->groupBy('category')
+            ->pluck('aggregate', 'category');
+
+        foreach ($countsByCategory as $category => $count) {
+            foreach (Event::tokensFromCsv((string) $category) as $token) {
+                $tallies[$token] = ($tallies[$token] ?? 0) + (int) $count;
             }
         }
 

@@ -17,11 +17,18 @@ class EventSessionOptionService
      */
     public function forForm(): array
     {
-        $rows = Event::query()
-            ->toBase()
-            ->whereNotNull('session')
-            ->where('session', '!=', '')
-            ->pluck('session');
+        $rows = EventCache::remember(
+            'event-options:sessions',
+            3600,
+            fn (): array => Event::query()
+                ->toBase()
+                ->whereNotNull('session')
+                ->where('session', '!=', '')
+                ->distinct()
+                ->pluck('session')
+                ->all(),
+            EventCache::BUSTER_CATEGORY,
+        );
 
         return $this->optionsForRawSessionRows($rows);
     }

@@ -18,11 +18,18 @@ class EventCategoryOptionService
      */
     public function forForm(): array
     {
-        $rows = Event::query()
-            ->toBase()
-            ->whereNotNull('category')
-            ->where('category', '!=', '')
-            ->pluck('category');
+        $rows = EventCache::remember(
+            'event-options:categories',
+            3600,
+            fn (): array => Event::query()
+                ->toBase()
+                ->whereNotNull('category')
+                ->where('category', '!=', '')
+                ->distinct()
+                ->pluck('category')
+                ->all(),
+            EventCache::BUSTER_CATEGORY,
+        );
 
         return $this->optionsForRawCategoryRows($rows);
     }
