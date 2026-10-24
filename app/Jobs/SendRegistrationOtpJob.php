@@ -63,6 +63,12 @@ class SendRegistrationOtpJob implements ShouldQueue
             return;
         }
 
+        if ($this->isDisposableTestAddress($pending->email)) {
+            Log::info('Pengiriman OTP dilewati untuk alamat uji.', ['pending_id' => $pending->id]);
+
+            return;
+        }
+
         try {
             Mail::to($pending->email)->send(
                 new RegistrationOtpMail($pending->name, $pending->otp_code, (int) config('otp.ttl_minutes')),
@@ -75,5 +81,16 @@ class SendRegistrationOtpJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    /**
+     * Alamat `.test` dicadangkan untuk pengujian; jangan kirim email nyata saat dev/E2E.
+     * Unit test tetap berjalan karena memakai Mail::fake (`runningUnitTests`).
+     */
+    private function isDisposableTestAddress(string $email): bool
+    {
+        return ! app()->runningUnitTests()
+            && app()->environment(['local', 'testing'])
+            && str_ends_with(strtolower($email), '.test');
     }
 }
