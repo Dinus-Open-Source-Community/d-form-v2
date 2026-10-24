@@ -3,17 +3,42 @@ import { ref, onMounted, computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import AppPagination from '@/components/core/AppPagination.vue'
 import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
+import { useEventSearch } from '@/hooks/useEventSearch'
+
+interface IEventPaginationLink {
+    url: string | null
+    label: string
+    active: boolean
+}
+
+interface IEventPagination {
+    links: IEventPaginationLink[]
+    currentPage?: number | null
+    hasMore: boolean
+}
+
+interface IEventFilters {
+    q: string | null
+}
 
 const props = defineProps<{
     events: IEvent[]
+    pagination?: IEventPagination
+    filters?: IEventFilters
+    searchError?: string | null
 }>()
 
 const visible = ref(false)
-const query = ref('')
+const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSearch } = useEventSearch(
+    props.filters,
+)
+
+const activeQuery = computed((): string => props.filters?.q?.trim() ?? '')
 
 onMounted(() => {
     const obs = new IntersectionObserver(
@@ -22,16 +47,6 @@ onMounted(() => {
     )
     const el = document.getElementById('event-list')
     if (el) obs.observe(el)
-})
-
-const filtered = computed(() => {
-    const q = query.value.toLowerCase().trim()
-    if (!q) return props.events
-    return props.events.filter(
-        (ev) =>
-            ev.title.toLowerCase().includes(q) ||
-            ev.location?.toLowerCase().includes(q),
-    )
 })
 
 const statusLabel = (s: string) => {
@@ -73,19 +88,36 @@ const formatDate = (d: string) => {
                     </h2>
                 </div>
 
-                <div class="relative w-full max-w-xs">
-                    <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        v-model="query"
-                        placeholder="Cari acara..."
-                        class="h-10 pl-9 text-sm"
-                    />
+                <div class="w-full max-w-xs">
+                    <div class="relative">
+                        <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            v-model="query"
+                            placeholder="Cari acara..."
+                            aria-label="Cari acara"
+                            class="h-10 pl-9 text-sm"
+                            @input="requestDebouncedSearch"
+                        />
+                    </div>
+                    <p
+                        v-if="isCoolingDown"
+                        class="mt-2 text-balance text-xs text-amber-600 sm:text-right"
+                    >
+                        Terlalu banyak pencarian. Coba lagi dalam {{ cooldownSeconds }} detik.
+                    </p>
                 </div>
             </div>
 
-            <div v-if="filtered.length" class="flex flex-col gap-3">
+            <div v-if="searchError" class="rounded-2xl border border-border/40 bg-card p-10 text-center">
+                <p class="text-sm text-muted-foreground">{{ searchError }}</p>
+                <Button variant="outline" size="sm" class="mt-4 h-9 text-xs" @click="resetSearch">
+                    Reset Pencarian
+                </Button>
+            </div>
+
+            <div v-else-if="events.length" class="flex flex-col gap-3">
                 <a
-                    v-for="(ev, i) in filtered"
+                    v-for="(ev, i) in events"
                     :key="ev.id"
                     :href="routes.landing.events.show(ev.slug)"
                     :class="[
@@ -135,11 +167,11 @@ const formatDate = (d: string) => {
                 </a>
             </div>
 
-            <div v-else-if="query" class="rounded-2xl border border-border/40 bg-card p-10 text-center">
+            <div v-else-if="activeQuery" class="rounded-2xl border border-border/40 bg-card p-10 text-center">
                 <p class="text-sm text-muted-foreground">
-                    Tidak ada acara yang cocok dengan "<span class="font-medium text-foreground">{{ query }}</span>".
+                    Tidak ada acara yang cocok dengan "<span class="font-medium text-foreground">{{ activeQuery }}</span>".
                 </p>
-                <Button variant="outline" size="sm" class="mt-4 h-9 text-xs" @click="query = ''">
+                <Button variant="outline" size="sm" class="mt-4 h-9 text-xs" @click="resetSearch">
                     Reset Pencarian
                 </Button>
             </div>
@@ -150,6 +182,13 @@ const formatDate = (d: string) => {
                     <a :href="routes.home">Kembali ke beranda</a>
                 </Button>
             </div>
+
+            <AppPagination
+                v-if="pagination && pagination.links.length > 0"
+                :links="pagination.links"
+                :current-page="pagination.currentPage"
+                total-label="acara"
+            />
         </div>
     </section>
 </template>

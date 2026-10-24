@@ -7,7 +7,7 @@ import FormSubmissionsEmptyState from '@/components/modules/dashboard/FormSubmis
 import FormSubmissionsCardGridView from '@/components/modules/dashboard/FormSubmissionsCardGridView.vue';
 import FormBundleGroupsCardGridView from '@/components/modules/dashboard/FormBundleGroupsCardGridView.vue';
 import FormBundleGroupDetailSheet from '@/components/modules/dashboard/FormBundleGroupDetailSheet.vue';
-import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmissionsPagination.vue';
+import AppPagination from '@/components/core/AppPagination.vue';
 import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue';
 import { Download, ListFilter } from 'lucide-vue-next';
 import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
@@ -110,7 +110,7 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                             @open-member-detail="openDetail"
                         />
 
-                        <FormSubmissionsPagination
+                        <AppPagination
                             v-if="bundleGroups"
                             :links="bundleGroups.links"
                             :current-page="bundleGroups.current_page"
@@ -146,7 +146,7 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                             @open-detail="openDetail"
                         />
 
-                        <FormSubmissionsPagination
+                        <AppPagination
                             :links="submissions.links"
                             :current-page="submissions.current_page"
                             :last-page="submissions.last_page"

@@ -9,12 +9,17 @@ use App\Models\Event;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\CursorPaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class EventService
 {
+    /** Jumlah event per halaman di halaman jelajah (/browse). */
+    public const PUBLIC_BROWSE_PER_PAGE = 5;
+
     private const LIST_CACHE_TTL_SECONDS = 3600;
 
     public static function normalizePriceInput(mixed $value): float
@@ -50,6 +55,94 @@ class EventService
         return EventRegistrationStatus::Open;
     }
 
+    /**
+     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut tanggal mulai
+     * terbaru, filter kategori/sesi di server, 5 acara per halaman.
+     *
+     * Memakai cursor (keyset): tanpa COUNT 1 juta baris (~185 ms) dan tanpa
+     * OFFSET (121 ms di halaman dalam).
+     *
+     * @param  array{category: string|null, session: string|null}  $filters
+     */
+    public function paginateForPublicBrowse(array $filters): CursorPaginator
+    {
+        $query = Event::query()
+            ->where('status', EventStatus::Published)
+            ->forListPage();
+
+        if ($filters['category'] !== null) {
+            $query->forCategoryTokens([$filters['category']]);
+        }
+
+        if ($filters['session'] !== null) {
+            $query->forSessionTokens([$filters['session']]);
+        }
+
+        return $query->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->cursorPaginate(self::PUBLIC_BROWSE_PER_PAGE)
+            ->withQueryString();
+    }
+
+    /**
+     * Tiga acara terbaru untuk blok highlight di halaman `/events`.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function publicListHighlight(int $limit = 3): array
+    {
+        return Event::query()
+            ->where('status', EventStatus::Published)
+            ->forListPage()
+            ->orderByDesc('start_date')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Event $event): array => $this->eventToInertiaArray($event))
+            ->all();
+    }
+
+    /**
+     * Link navigasi ringkas (sebelumnya / halaman ini / berikutnya) untuk
+     * paginasi simple maupun cursor. Nomor halaman hanya disertakan bila
+     * paginator punya nomor; cursor tidak punya.
+     *
+     * @return list<array{url: string|null, label: string, active: bool}>
+     */
+    public function paginationLinks(Paginator|CursorPaginator $paginator): array
+    {
+        $links = [];
+
+        if (! $paginator->onFirstPage()) {
+            $links[] = [
+                'url' => $paginator->previousPageUrl(),
+                'label' => 'Sebelumnya',
+                'active' => false,
+            ];
+        }
+
+        // Cursor tidak punya nomor halaman, jadi chip angka hanya untuk simple pagination.
+        if ($paginator instanceof Paginator) {
+            $links[] = [
+                'url' => null,
+                'label' => (string) $paginator->currentPage(),
+                'active' => true,
+            ];
+        }
+
+        if ($paginator->hasMorePages()) {
+            $links[] = [
+                'url' => $paginator->nextPageUrl(),
+                'label' => 'Berikutnya',
+                'active' => false,
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Registered count yang sudah dibatasi kuota; dipakai saat render kartu acara.
+     */
     public function resolveRegisteredCount(Event $event): int
     {
         return min(max(0, (int) $event->registered_count), (int) $event->quota);

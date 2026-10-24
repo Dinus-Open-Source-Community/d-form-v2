@@ -3,27 +3,61 @@
 namespace App\Http\Controllers;
 
 use App\Enums\EventFormVisibility;
-use App\Enums\EventStatus;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
+use App\Services\Event\PublicEventSearch;
 use App\Services\Event\UserPortalEventResolver;
+use Illuminate\Http\Request;
 
 class EventsController extends Controller
 {
-    public function index(EventService $eventService)
+    /**
+     * Daftar acara publik: 10 per halaman, kata kunci `q` dicari di server.
+     */
+    public function index(Request $request, EventService $eventService, PublicEventSearch $eventSearch)
     {
-        $events = Event::query()
-            ->where('status', EventStatus::Published)
-            ->whereNull('deleted_at')
-            ->orderByDesc('start_date')
-            ->get()
-            ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
-            ->values()
-            ->all();
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $search = trim((string) ($validated['q'] ?? ''));
+
+        // Halaman dalam pada hasil pencarian tidak berguna (dan mahal): kembali ke halaman 1.
+        $maxPage = (int) config('events.search.max_page', PublicEventSearch::MAX_PAGE);
+
+        if ($search !== '' && (int) ($validated['page'] ?? 1) > $maxPage) {
+            return redirect()->route('events.index', ['q' => $search]);
+        }
+
+        $paginator = $eventSearch->page($search === '' ? null : $search);
+
+        if ($paginator === null) {
+            return inertia('Event', [
+                'events' => [],
+                'highlight' => $eventService->publicListHighlight(),
+                'pagination' => ['links' => [], 'currentPage' => null, 'hasMore' => false],
+                'filters' => ['q' => $search],
+                'searchError' => 'Kata kunci terlalu umum, coba lebih spesifik.',
+            ]);
+        }
 
         return inertia('Event', [
-            'events' => $events,
+            'events' => array_map(
+                fn (Event $event): array => $eventService->eventToInertiaArray($event),
+                $paginator->items(),
+            ),
+            'highlight' => $eventService->publicListHighlight(),
+            'pagination' => [
+                'links' => $eventService->paginationLinks($paginator),
+                'currentPage' => $paginator instanceof \Illuminate\Pagination\Paginator
+                    ? $paginator->currentPage()
+                    : null,
+                'hasMore' => $paginator->hasMorePages(),
+            ],
+            'filters' => ['q' => $search === '' ? null : $search],
+            'searchError' => null,
         ]);
     }
 

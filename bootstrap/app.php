@@ -101,6 +101,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
+            // Permintaan Inertia butuh respons non-Inertia agar event `invalid` terpicu:
+            // klien menahan navigasi (preventDefault), menampilkan pesan ramah, dan
+            // memulai cooldown dari header Retry-After alih-alih swap ke halaman Error.
+            if ($status === 429 && $request->header('X-Inertia')) {
+                return $copyThrottleHeaders(
+                    $response,
+                    response()->json(['message' => 'Terlalu banyak pencarian. Tunggu sebentar lalu coba lagi.'], 429),
+                );
+            }
+
             $rendered = Inertia::render('Error', ['status' => $status])
                 ->toResponse($request)
                 ->setStatusCode($status);

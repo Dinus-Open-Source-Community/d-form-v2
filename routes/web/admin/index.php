@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\EventCategory;
+use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
@@ -20,7 +22,9 @@ use App\Services\Event\EventService;
 use App\Services\Event\UserPortalEventResolver;
 use App\Services\Form\FormAccessGuard;
 use App\Services\Registration\RegistrationQrPngGenerator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
@@ -236,17 +240,31 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
     })->name('events.show');
 });
 
-Route::middleware(['auth', 'member_portal'])->get('/browse', function (EventService $eventService) {
-    $events = Event::query()
-        ->where('status', EventStatus::Published)
-        ->orderByDesc('start_date')
-        ->get()
-        ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
-        ->values()
-        ->all();
+Route::middleware(['auth', 'member_portal'])->get('/browse', function (Request $request, EventService $eventService) {
+    $validated = $request->validate([
+        'category' => ['nullable', 'string', Rule::in(array_column(EventCategory::cases(), 'value'))],
+        'session' => ['nullable', 'string', Rule::in(array_column(EventSession::cases(), 'value'))],
+        'page' => ['nullable', 'integer', 'min:1'],
+    ]);
+
+    $filters = [
+        'category' => $validated['category'] ?? null,
+        'session' => $validated['session'] ?? null,
+    ];
+
+    $paginator = $eventService->paginateForPublicBrowse($filters);
 
     return inertia('Dashboard/User/Events', [
-        'events' => $events,
+        'events' => array_map(
+            fn (Event $event): array => $eventService->eventToInertiaArray($event),
+            $paginator->items(),
+        ),
+        'pagination' => [
+            'links' => $eventService->paginationLinks($paginator),
+            'currentPage' => null,
+            'hasMore' => $paginator->hasMorePages(),
+        ],
+        'filters' => $filters,
         'listMode' => 'browse',
     ]);
 })->name('dashboard.user.events.browse');

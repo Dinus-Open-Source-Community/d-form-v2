@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue'
-import FormSubmissionsPagination from '@/components/modules/dashboard/FormSubmissionsPagination.vue'
+import AppPagination from '@/components/core/AppPagination.vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -128,7 +128,7 @@ function formatDt(iso: string) {
                         </TableRow>
                     </TableBody>
                 </Table>
-                <FormSubmissionsPagination
+                <AppPagination
                     :links="attendanceLog.links"
                     :current-page="attendanceLog.current_page"
                     :last-page="attendanceLog.last_page"

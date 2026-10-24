@@ -27,14 +27,6 @@ export function submissionFileUrl(value: unknown): string | null {
     return normalizeBannerSrc(t);
 }
 
-export function submissionPaginationLabel(value: string): string {
-    return value
-        .replace('&laquo;', 'Sebelumnya')
-        .replace('&raquo;', 'Berikutnya')
-        .replace('Previous', 'Sebelumnya')
-        .replace('Next', 'Berikutnya');
-}
-
 /** True when admin must not accept until the member confirms (team / bundle). */
 export function submissionAdminAcceptBlocked(sub: {
     registration_role?: string | null;

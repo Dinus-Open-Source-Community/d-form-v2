@@ -11,6 +11,14 @@ import { routes } from '@/lib/routes';
 
 const props = defineProps<{
     events: IEvent[];
+    highlight: IEvent[];
+    pagination?: {
+        links: { url: string | null; label: string; active: boolean }[];
+        currentPage: number;
+        hasMore: boolean;
+    };
+    filters?: { q: string | null };
+    searchError?: string | null;
 }>();
 
 const page = usePage();
@@ -70,7 +78,12 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
             :json-ld="jsonLd"
         />
         <EventHero />
-        <EventHighlight :events="events" />
-        <EventList :events="events" />
+        <EventHighlight :events="highlight" />
+        <EventList
+            :events="events"
+            :pagination="pagination"
+            :filters="filters"
+            :search-error="searchError ?? null"
+        />
     </LandingLayout>
 </template>

@@ -63,3 +63,8 @@ scripts/stress
 AGENTS.md
 CONTEXT.md
 /database/seeders/Stress/*
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report
