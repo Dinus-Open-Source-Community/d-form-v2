@@ -1,9 +1,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 import { router } from '@inertiajs/vue3';
+import type { HttpExceptionResponse } from '@inertiajs/core';
 import { useDebounceFn } from '@vueuse/core';
-import { AxiosHeaders } from 'axios';
-import type { AxiosResponse } from 'axios';
 import { routes } from '@/lib/routes';
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after';
 
@@ -16,7 +15,7 @@ const COOLDOWN_FALLBACK_SECONDS = 60;
 /** Resolusi hitung mundur yang ditampilkan ke pengguna. */
 const COOLDOWN_TICK_MS = 1000;
 
-type TInvalidResponseEvent = CustomEvent<{ response: AxiosResponse<unknown> }>;
+type THttpExceptionEvent = CustomEvent<{ response: HttpExceptionResponse }>;
 
 export interface IEventSearchFilters {
     q: string | null;
@@ -31,10 +30,9 @@ export interface IEventSearchState {
 }
 
 /** Baca durasi cooldown dari header `Retry-After`; pakai fallback bila kosong atau tidak valid. */
-function readCooldownSeconds(response: AxiosResponse<unknown>): number {
-    const headers = response.headers;
-    const header = headers instanceof AxiosHeaders ? headers.get('Retry-After') : null;
-    const raw = typeof header === 'string' ? header : typeof header === 'number' ? String(header) : null;
+function readCooldownSeconds(response: HttpExceptionResponse): number {
+    const header = response.headers['retry-after'];
+    const raw = typeof header === 'string' ? header : null;
     const seconds = parseRetryAfterSeconds(raw);
 
     return seconds !== null && seconds > 0 ? seconds : COOLDOWN_FALLBACK_SECONDS;
@@ -95,7 +93,7 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
     }
 
     /** Tangkap respons 429 dari limiter lalu kunci pencarian sampai cooldown selesai. */
-    function handleInvalidResponse(event: TInvalidResponseEvent): void {
+    function handleHttpException(event: THttpExceptionEvent): void {
         const response = event.detail.response;
         if (response.status !== 429) return;
 
@@ -115,7 +113,7 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
     }
 
     onMounted(() => {
-        stopInvalidListener = router.on('invalid', handleInvalidResponse);
+        stopInvalidListener = router.on('httpException', handleHttpException);
     });
 
     onBeforeUnmount(() => {

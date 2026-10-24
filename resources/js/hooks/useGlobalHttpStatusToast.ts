@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/vue3';
-import { AxiosHeaders } from 'axios';
-import type { AxiosResponse } from 'axios';
+import type { HttpExceptionResponse } from '@inertiajs/core';
 import { formatRetryAfterMessage, parseRetryAfterSeconds } from '@/lib/http-retry-after';
 
 const SERVER_ERROR_MESSAGE =
@@ -9,14 +8,12 @@ const SESSION_EXPIRED_MESSAGE = 'Sesi tidak valid atau sudah habis. Muat ulang h
 
 let registered = false;
 
-type TInvalidEvent = CustomEvent<{ response: AxiosResponse<unknown> }>;
+type THttpExceptionEvent = CustomEvent<{ response: HttpExceptionResponse }>;
 
-/** Ambil header `Retry-After` dari respons Axios; null bila header tidak ada. */
-function readRetryAfterHeader(response: AxiosResponse<unknown>): string | null {
-    const headers: unknown = response.headers;
-    if (!(headers instanceof AxiosHeaders)) return null;
+/** Ambil header `Retry-After` (kunci lowercase dari klien XHR Inertia); null bila tidak ada. */
+function readRetryAfterHeader(response: HttpExceptionResponse): string | null {
+    const value = response.headers['retry-after'];
 
-    const value: unknown = headers.get('Retry-After');
     return typeof value === 'string' ? value : null;
 }
 
@@ -51,15 +48,15 @@ function resolveStatusMessage(status: number, retryAfter: string | null): string
 }
 
 /**
- * Daftarkan toast global sekali untuk respons Inertia `invalid` (419/429/5xx),
+ * Daftarkan toast global sekali untuk respons Inertia `httpException` (419/429/5xx),
  * supaya modal error mentah Inertia tidak muncul saat halaman gagal dimuat.
  */
 export function useGlobalHttpStatusToast(): void {
     if (registered) return;
     registered = true;
 
-    router.on('invalid', (event: TInvalidEvent) => {
-        const response: AxiosResponse<unknown> = event.detail.response;
+    router.on('httpException', (event: THttpExceptionEvent) => {
+        const response: HttpExceptionResponse = event.detail.response;
         const status: number | undefined = response?.status;
 
         if (typeof status !== 'number' || !isHandledStatus(status)) return;

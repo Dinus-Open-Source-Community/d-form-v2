@@ -38,7 +38,9 @@ return [
         'vue',
     ],
 
-    'use_script_element_for_initial_page' => (bool) env('INERTIA_USE_SCRIPT_ELEMENT_FOR_INITIAL_PAGE', false),
+    // Inertia v3 hanya membaca page awal dari elemen <script type="application/json">;
+    // atribut data-page pada div root sudah tidak didukung klien.
+    'use_script_element_for_initial_page' => true,
 
     'testing' => [
 

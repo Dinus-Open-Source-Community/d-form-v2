@@ -336,7 +336,7 @@ class GlobalScanExportTest extends TestCase
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $row) {
                     if (++$seenRows === 2) {
-                        $cells = $row->getCells();
+                        $cells = $row->cells;
                         break;
                     }
                 }
@@ -367,7 +367,7 @@ class GlobalScanExportTest extends TestCase
             $header = [];
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $row) {
-                    $header = array_map(static fn ($cell): mixed => $cell->getValue(), $row->getCells());
+                    $header = array_map(static fn ($cell): mixed => $cell->getValue(), $row->cells);
                     break;
                 }
                 break;
