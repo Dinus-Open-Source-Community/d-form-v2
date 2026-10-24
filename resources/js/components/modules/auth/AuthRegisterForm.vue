@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import { useForm } from '@inertiajs/vue3'
-import { Check, X } from 'lucide-vue-next'
+import { Check, Loader2, X } from 'lucide-vue-next'
 import { AuthField } from '@/components/core/field'
 import { AuthSubmitButton } from '@/components/core/button'
 import { store as register } from '@/actions/App/Http/Controllers/Auth/RegisterController'
 import { getFieldError, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
+import { useEmailAvailability } from '@/hooks/useEmailAvailability'
 import type { PasswordRule } from '@/types/auth'
 
 /** Jumlah segmen indikator kekuatan; level 0–4 dipetakan ke segmen terisi. */
@@ -17,6 +18,11 @@ const form = useForm({
     password: '',
     password_confirmation: '',
 }).dontRemember('password', 'password_confirmation')
+
+/** Status ketersediaan email: dicek otomatis saat mengetik, tanpa submit. */
+const { status: emailStatus, message: emailMessage } = useEmailAvailability({
+    email: toRef(form, 'email'),
+})
 
 const rules = computed<PasswordRule[]>(() => [
     { label: 'Minimal 8 karakter', met: form.password.length >= 8 },
@@ -87,7 +93,33 @@ function submit(): void {
                 autocomplete="email"
                 placeholder="you@example.com"
                 :focus="false"
-            />
+            >
+                <template #trailing>
+                    <span
+                        v-if="emailStatus === 'checking' || emailStatus === 'available' || emailStatus === 'taken'"
+                        :data-email-availability="emailStatus"
+                        class="flex size-4 items-center justify-center"
+                    >
+                        <Loader2
+                            v-if="emailStatus === 'checking'"
+                            class="size-4 animate-spin text-muted-foreground"
+                            aria-hidden="true"
+                        />
+                        <Check
+                            v-else-if="emailStatus === 'available'"
+                            class="size-4 text-success"
+                            :stroke-width="3"
+                            aria-hidden="true"
+                        />
+                        <X v-else class="size-4 text-destructive" :stroke-width="3" aria-hidden="true" />
+                    </span>
+                </template>
+            </AuthField>
+
+            <!-- Live region sr-only: pengumuman status tanpa menambah tinggi layout. -->
+            <div class="sr-only" aria-live="polite" aria-atomic="true">
+                <span>{{ emailMessage }}</span>
+            </div>
             <AuthField
                 label="Password"
                 type="password"

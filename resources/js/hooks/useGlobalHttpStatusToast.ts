@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/vue3';
 import { AxiosHeaders } from 'axios';
 import type { AxiosResponse } from 'axios';
-import { showErrorToast, showHttpErrorToast } from '@/lib/error-message';
 import { formatRetryAfterMessage, parseRetryAfterSeconds } from '@/lib/http-retry-after';
 
 const SERVER_ERROR_MESSAGE =
@@ -19,6 +18,18 @@ function readRetryAfterHeader(response: AxiosResponse<unknown>): string | null {
 
     const value: unknown = headers.get('Retry-After');
     return typeof value === 'string' ? value : null;
+}
+
+/** Muat modul pesan saat error terjadi saja, supaya tabel pesan tidak ikut entry bundle. */
+async function showStatusToast(status: number, message: string | null): Promise<void> {
+    const { showErrorToast, showHttpErrorToast } = await import('@/lib/error-message');
+
+    if (message === null) {
+        showHttpErrorToast(status);
+        return;
+    }
+
+    showErrorToast(message);
 }
 
 /** Status yang punya toast khusus; status lain dibiarkan ke perilaku bawaan Inertia. */
@@ -57,11 +68,6 @@ export function useGlobalHttpStatusToast(): void {
 
         const message: string | null = resolveStatusMessage(status, readRetryAfterHeader(response));
 
-        if (message === null) {
-            showHttpErrorToast(status);
-            return;
-        }
-
-        showErrorToast(message);
+        void showStatusToast(status, message);
     });
 }

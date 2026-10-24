@@ -304,3 +304,23 @@ Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-
 **A11y:** track `role="progressbar"` + `aria-valuemin/max/now` + `aria-describedby` ke hint; indikator kecocokan live region; panel non-aktif `inert` sehingga tidak masuk tab order.
 
 **Verifikasi:** E2E auth **8/8 lulus**; ESLint 0 error; build entry **57.657 B / 18.164 B gzip**, `Auth/Login` 1.401 B (687 gzip), `Auth/Register` 1.404 B (690 gzip). `scrollHeight` desktop 932 vs viewport 900 — selisih 32px berasal dari `body { margin-bottom: 32px }` milik Debugbar (dev-only), bukan layout auth.
+
+## 19. Cek ketersediaan email saat mengetik (register)
+
+| Bagian | Detail |
+| :--- | :--- |
+| Endpoint | `POST /auth/email-availability` (name `auth.email.availability`), guest, throttle `auth-email-check` 20/menit/IP, `{ email }` → `{ available: bool }` |
+| Query | `select exists(select 1 from users where email = ?)` via `DB::table('users')->selectRaw('1')->exists()`; tanpa scope soft-delete agar konsisten dengan `unique:users,email`; EXPLAIN: const lookup lewat `users_email_unique` |
+| Hook | `resources/js/hooks/useEmailAvailability.ts` — debounce **500 ms**, abort request lama, abaikan respons usang, 422→idle, 429/network→error, cleanup saat unmount |
+| UI | Slot `trailing` baru di `EmailInput`/`AuthField`: spinner saat cek, centang (`success`) bila tersedia, X (`destructive`) bila terpakai; live region `sr-only` (tanpa tambah tinggi) |
+| Spacing | gap Name→Email = 16 px, Email→Password = 16 px (selisih 0); tinggi ketiga field 40 px |
+| Test | `tests/e2e/email-availability.spec.ts` 4 test (X, centang, debounce ≤2 request untuk 5 ketikan, regresi spacing); backend `EmailAvailabilityTest` 7 test |
+
+## 20. Optimasi entry bundle lanjutan
+
+- Tabel pesan `resources/js/lib/error-message.ts` (419 baris) tidak lagi masuk entry: `useGlobalHttpStatusToast` memuatnya lewat `import()` hanya saat ada respons 4xx/5xx.
+- Entry **18.164 B → 6.696 B gzip** (23.332 B raw); chunk `Auth/Login` 697 B, `Auth/Register` 700 B gzip.
+
+## 21. Catatan memory di perangkat mobile
+
+Diukur 10× refresh berturut (viewport 390×844): heap stabil, tanpa pertumbuhan — dev (Vite + Debugbar) 17 MB, build produksi **10 MB**, landing dev 69 MB; `localStorage` 0 kB. Jadi kenaikan 10→100 MB yang terlihat di HP berasal dari cache proses browser saat menguji **dev server** (≈250 modul belum diminify + Debugbar), bukan kebocoran JS. Rekomendasi: uji performa HP memakai build produksi (`APP_DEBUG=false`, tanpa `public/hot`).
