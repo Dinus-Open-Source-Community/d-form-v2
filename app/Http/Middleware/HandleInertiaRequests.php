@@ -65,7 +65,7 @@ class HandleInertiaRequests extends Middleware
                 'created_at' => $user->created_at?->toIso8601String(),
                 'updated_at' => $user->updated_at?->toIso8601String(),
                 'roles' => $user->getRoleNames()->toArray(),
-                'has_local_password' => filled($user->getRawOriginal('password')),
+                'has_local_password' => (bool) ($user->has_local_password ?? filled($user->getRawOriginal('password'))),
                 'can_manage_events' => $user->can('events.list'),
                 'can_manage_users' => $user->can('users.list'),
                 // Fitur broadcast dinonaktifkan: paksa false agar menu

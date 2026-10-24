@@ -24,7 +24,7 @@ class UpdateDashboardProfilePasswordRequest extends FormRequest
     {
         /** @var \App\Models\User $user */
         $user = $this->user();
-        $hasLocalPassword = filled($user->getRawOriginal('password'));
+        $hasLocalPassword = (bool) ($user->has_local_password ?? filled($user->getRawOriginal('password')));
 
         $passwordRule = ['required', 'string', 'confirmed', Password::min(8)];
 
@@ -40,7 +40,8 @@ class UpdateDashboardProfilePasswordRequest extends FormRequest
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     /** @var \App\Models\User $user */
                     $user = $this->user();
-                    $hash = $user->getRawOriginal('password');
+                    // Password tidak lagi ikut di query sesi; ambil hash khusus untuk aksi ubah password.
+                    $hash = $user->newQuery()->whereKey($user->getKey())->value('password');
                     if (! is_string($hash) || ! is_string($value) || ! Hash::check($value, $hash)) {
                         $fail(__('validation.current_password'));
                     }

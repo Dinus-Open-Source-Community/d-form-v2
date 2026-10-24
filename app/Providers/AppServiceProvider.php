@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -75,6 +76,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Daftar + pencarian acara publik: satu limiter untuk seluruh route index /events.
+        // Guard `web` memakai provider kolom eksplisit (tanpa `select *` pada setiap request).
+        Auth::provider('explicit-columns', function ($app, array $config): \App\Auth\ExplicitColumnUserProvider {
+            return new \App\Auth\ExplicitColumnUserProvider($app['hash'], $config['model']);
+        });
+
         RateLimiter::for('event-search', function (Request $request) {
             return Limit::perMinute((int) config('events.search.rate_limit_per_minute', 60))
                 ->by($request->ip());

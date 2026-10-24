@@ -61,7 +61,8 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            // Driver kustom: memuat user dengan kolom eksplisit (tanpa `select *`).
+            'driver' => 'explicit-columns',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
 

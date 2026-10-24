@@ -24,6 +24,32 @@ class User extends Authenticatable implements CanResetPasswordContract
     use Notifiable;
     use SoftDeletes;
 
+    /**
+     * Kolom yang dibaca pada setiap request terautentikasi (guard sesi).
+     * Password TIDAK ikut: hanya boolean `has_local_password` yang dihitung di SQL.
+     */
+    public const AUTH_SESSION_COLUMNS = [
+        'id',
+        'name',
+        'email',
+        'email_verified_at',
+        'avatar',
+        'created_at',
+        'updated_at',
+    ];
+
+    /** Kolom sesi + remember_token untuk pemulihan lewat cookie "remember me". */
+    public const AUTH_REMEMBER_COLUMNS = [
+        ...self::AUTH_SESSION_COLUMNS,
+        'remember_token',
+    ];
+
+    /** Kolom login (validasi hash butuh password) — hanya dipakai saat kredensial dicek. */
+    public const AUTH_CREDENTIAL_COLUMNS = [
+        ...self::AUTH_SESSION_COLUMNS,
+        'password',
+    ];
+
     protected $primaryKey = 'id';
 
     public $keyType = 'string';
@@ -62,6 +88,7 @@ class User extends Authenticatable implements CanResetPasswordContract
     protected function casts(): array
     {
         return [
+            'has_local_password' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
