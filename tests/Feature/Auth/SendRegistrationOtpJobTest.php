@@ -67,6 +67,36 @@ class SendRegistrationOtpJobTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_job_skips_when_code_is_null(): void
+    {
+        Mail::fake();
+        $pending = $this->makePending(['otp_code' => null]);
+
+        (new SendRegistrationOtpJob($pending->id, $this->sentAtOf($pending)))->handle();
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_job_skips_when_code_is_empty_string(): void
+    {
+        Mail::fake();
+        $pending = $this->makePending(['otp_code' => '']);
+
+        (new SendRegistrationOtpJob($pending->id, $this->sentAtOf($pending)))->handle();
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_job_skips_when_expiry_is_missing(): void
+    {
+        Mail::fake();
+        $pending = $this->makePending(['otp_expires_at' => null]);
+
+        (new SendRegistrationOtpJob($pending->id, $this->sentAtOf($pending)))->handle();
+
+        Mail::assertNothingSent();
+    }
+
     public function test_job_skips_when_user_already_registered(): void
     {
         Mail::fake();
@@ -84,22 +114,35 @@ class SendRegistrationOtpJobTest extends TestCase
 
     public function test_mailable_copy_mentions_code_ttl_and_ignore_instruction(): void
     {
-        $mail = new RegistrationOtpMail('Uji', self::CODE, (int) config('otp.ttl_minutes'));
+        $ttlMinutes = (int) config('otp.ttl_minutes');
+        $mail = new RegistrationOtpMail('Uji', self::CODE, $ttlMinutes);
 
         $html = $mail->render();
 
         $this->assertStringContainsString(self::CODE, $html);
-        $this->assertStringContainsString('10 menit', $html);
+        $this->assertStringContainsString($ttlMinutes.' menit', $html);
         $this->assertStringContainsString('abaikan', $html);
+        $this->assertStringNotContainsString('{{', $html);
+        $this->assertStringNotContainsString('<?php', $html);
 
         $text = view('mail.registration-otp-text', [
             'recipientName' => 'Uji',
             'code' => self::CODE,
-            'ttlMinutes' => (int) config('otp.ttl_minutes'),
+            'ttlMinutes' => $ttlMinutes,
         ])->render();
 
         $this->assertStringContainsString(self::CODE, $text);
+        $this->assertStringContainsString($ttlMinutes.' menit', $text);
         $this->assertStringContainsString('abaikan', $text);
+    }
+
+    public function test_job_payload_never_contains_the_otp_code(): void
+    {
+        $pending = $this->makePending();
+        $payload = json_encode(new SendRegistrationOtpJob($pending->id, $this->sentAtOf($pending)));
+
+        $this->assertIsString($payload);
+        $this->assertStringNotContainsString(self::CODE, $payload);
     }
 
     public function test_send_failure_is_logged_without_the_code(): void

@@ -2,7 +2,9 @@
 
 @section('mail_title', 'Kode verifikasi DForm')
 
-@section('mail_preheader', 'Kode verifikasi DForm kamu berlaku {{ $ttlMinutes }} menit.')
+@section('mail_preheader')
+    Kode verifikasi DForm kamu berlaku {{ $ttlMinutes }} menit.
+@endsection
 
 @section('mail_card')
     @include('mail.partials.card-header', [
