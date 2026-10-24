@@ -7,7 +7,7 @@ Optimasi halaman auth berdasarkan audit `docs/big-changes/auth/report.md`: bundl
 | Kolom   | Isi                                                                 |
 | ------- | ------------------------------------------------------------------- |
 | Issue   | DFORM-TBD (belum dibuat)                                            |
-| Commit  | `-` (diisi pada commit berikutnya, lihat riwayat `docs:` setelahnya) |
+| Commit  | `258c421` — `perf(auth): pecah bundle per halaman dan batasi laju login/register` |
 | Branch  | `dev-zapp`                                                          |
 | Dasar   | `docs/big-changes/auth/report.md` + `plan-optimasi-auth.md` (ignored) |
 
@@ -134,7 +134,7 @@ Catatan jujur: FCP hampir tidak berubah karena ditentukan HTML+CSS (44 kB), buka
 
 ## 10. Stress test k6
 
-Skrip baru `scripts/stress/k6/auth-throttle.js` (login flood + register flood, CSRF per iterasi, `redirects: 0`). k6 v2.3.0 (dipasang di `~/.local/bin`, bukan paket sistem).
+Skrip baru `scripts/stress/k6/auth-throttle.js` (login flood + register flood, CSRF per iterasi, `redirects: 0`) — **tidak ikut commit** karena `scripts/stress` ada di `.gitignore`; ini artefak harness lokal seperti skrip k6 lain di folder yang sama. k6 v2.3.0 (dipasang di `~/.local/bin`, bukan paket sistem).
 
 | Run                          | Hasil                                                                                                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -181,4 +181,4 @@ Perbaikan state test: bucket limiter di-reset deterministik lewat `RateLimiter::
 
 **Build & aset:** `vite.config.js` (blok `build`), `resources/css/app.css`, `resources/views/app.blade.php`, `public/favicon.ico`, `public/favicon-192.png` (baru), `public/apple-touch-icon.png` (baru), `public/favicon.ico.bak` (dihapus, 0 byte).
 
-**Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `scripts/stress/k6/auth-throttle.js` (baru).
+**Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `package.json`/`package-lock.json` (devDependency `@playwright/test` + script `test:e2e` yang sudah ada di working tree sebelum tiket ini), `scripts/stress/k6/auth-throttle.js` (baru, ignored).
