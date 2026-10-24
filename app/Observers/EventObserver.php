@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Event;
+use App\Services\Event\EventCategoryCounter;
 use App\Services\Event\EventCategoryOptionService;
 use App\Services\Event\EventSessionOptionService;
 use App\Models\Form;
@@ -10,12 +11,17 @@ use App\Services\Event\EventCache;
 
 class EventObserver
 {
+    public function __construct(private readonly EventCategoryCounter $categoryCounter)
+    {
+    }
+
     /**
      * Handle the Event "created" event.
      */
     public function created(Event $event): void
     {
         $this->rememberOptionTokens($event);
+        $this->categoryCounter->applyDelta([], $this->liveCategoryTokens($event));
         $this->invalidateEventCache(true);
     }
 
@@ -34,6 +40,13 @@ class EventObserver
 
         $categoryOrSessionChanged = $event->wasChanged(['category', 'session']);
 
+        if ($event->wasChanged(['category', 'deleted_at'])) {
+            $this->categoryCounter->applyDelta(
+                $this->previousCategoryTokens($event),
+                $this->liveCategoryTokens($event),
+            );
+        }
+
         if ($categoryOrSessionChanged) {
             $this->rememberOptionTokens($event);
         }
@@ -46,6 +59,13 @@ class EventObserver
      */
     public function deleted(Event $event): void
     {
+        // Soft delete mengubah deleted_at lewat query builder (tanpa event `updated`), jadi
+        // hitungan dilepas di sini. Force delete event yang sudah ter-soft-delete tidak
+        // mengurangi lagi karena kontribusinya sudah lepas saat soft delete.
+        if (! $event->isForceDeleting() || $event->getOriginal('deleted_at') === null) {
+            $this->categoryCounter->applyDelta(Event::tokensFromCsv((string) $event->category), []);
+        }
+
         $this->invalidateEventCache(true);
     }
 
@@ -65,6 +85,9 @@ class EventObserver
 
     /**
      * Handle the Event "restored" event.
+     *
+     * Hitungan kategori tidak disentuh di sini: `restore()` memicu `updated` dengan
+     * deleted_at berubah, dan delta di `updated` sudah menambahkannya kembali.
      */
     public function restored(Event $event): void
     {
@@ -84,6 +107,34 @@ class EventObserver
     public function forceDeleted(Event $event): void
     {
         $this->invalidateEventCache(true);
+    }
+
+    /**
+     * Token kategori event saat ini; kosong bila event soft-deleted (tidak ikut chart).
+     *
+     * @return list<string>
+     */
+    private function liveCategoryTokens(Event $event): array
+    {
+        if ($event->trashed()) {
+            return [];
+        }
+
+        return Event::tokensFromCsv((string) $event->category);
+    }
+
+    /**
+     * Token kategori sebelum update; kosong bila sebelumnya sudah soft-deleted.
+     *
+     * @return list<string>
+     */
+    private function previousCategoryTokens(Event $event): array
+    {
+        if ($event->getOriginal('deleted_at') !== null) {
+            return [];
+        }
+
+        return Event::tokensFromCsv((string) $event->getOriginal('category'));
     }
 
     /**

@@ -7,12 +7,16 @@ use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\FormAnswer;
 use App\Services\Event\EventCache;
+use App\Services\Event\EventCategoryCounter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 final class EventReportingQuery
 {
+    public function __construct(private readonly EventCategoryCounter $categoryCounter)
+    {
+    }
+
     /** Ringkasan admin di-cache singkat; angka global jarang berubah di antara dua buka halaman. */
     private const GLOBAL_SUMMARY_TTL_SECONDS = 300;
 
@@ -117,8 +121,8 @@ final class EventReportingQuery
 
     /**
      * Count non-deleted events that include each category token at least once.
-     * Menghitung saat cache kosong — hanya untuk jalur offline (report/command).
-     * Request path wajib memakai {@see dashboardCategoryTokens()}.
+     * Sumbernya tabel agregat `event_category_counts`, jadi hitung ulang saat cache
+     * kosong hanya menyentuh <=100 baris (bukan `GROUP BY` 1 juta baris `events`).
      *
      * @return list<array{token: string, count: int}>
      */
@@ -134,81 +138,39 @@ final class EventReportingQuery
     }
 
     /**
-     * Statistik event untuk `/dashboard` — baca cache saja, tanpa agregat 1 juta baris
-     * di request path. Kosong → nol + log; isi dengan `php artisan dashboard:warm`.
+     * Statistik event untuk `/dashboard`. Cache kosong → dihitung saat request
+     * (sekali per TTL); `php artisan dashboard:warm` hanya alat opsional agar
+     * pengunjung pertama setelah deploy tidak menunggu.
      *
      * @return array{totalEvents: int, activeEvents: int, completionRate: int}
      */
     public function dashboardEventStats(): array
     {
-        $cached = EventCache::peek(self::DASHBOARD_EVENT_STATS_KEY, EventCache::BUSTER_STATS);
-
-        if ($cached === null) {
-            $this->logMissingDashboardCache(self::DASHBOARD_EVENT_STATS_KEY);
-
-            return ['totalEvents' => 0, 'activeEvents' => 0, 'completionRate' => 0];
-        }
-
-        return [
-            'totalEvents' => (int) ($cached['totalEvents'] ?? 0),
-            'activeEvents' => (int) ($cached['activeEvents'] ?? 0),
-            'completionRate' => (int) ($cached['completionRate'] ?? 0),
-        ];
+        return EventCache::remember(
+            self::DASHBOARD_EVENT_STATS_KEY,
+            self::DASHBOARD_EVENT_STATS_TTL_SECONDS,
+            fn (): array => $this->computeDashboardEventStats(),
+            EventCache::BUSTER_STATS,
+        );
     }
 
-    /**
-     * Total pendaftar untuk `/dashboard` — baca cache saja. Kosong → 0 + log;
-     * isi dengan `php artisan dashboard:warm`.
-     */
+    /** Total pendaftar untuk `/dashboard`; cache kosong → dihitung saat request, sekali per TTL. */
     public function dashboardRegistrantTotal(): int
     {
-        $cached = EventCache::peek(self::DASHBOARD_REGISTRANTS_KEY, EventCache::BUSTER_REGISTRANTS);
-
-        if ($cached === null) {
-            $this->logMissingDashboardCache(self::DASHBOARD_REGISTRANTS_KEY);
-
-            return 0;
-        }
+        $cached = EventCache::remember(
+            self::DASHBOARD_REGISTRANTS_KEY,
+            self::DASHBOARD_REGISTRANTS_TTL_SECONDS,
+            fn (): array => $this->computeDashboardRegistrants(),
+            EventCache::BUSTER_REGISTRANTS,
+        );
 
         return (int) ($cached['total'] ?? 0);
     }
 
     /**
-     * Breakdown kategori untuk chart `/dashboard` — baca cache saja. Kosong → chart
-     * kosong + log; isi dengan `php artisan dashboard:warm`.
-     *
-     * @return list<array{token: string, count: int}>
-     */
-    public function dashboardCategoryTokens(): array
-    {
-        $cached = EventCache::peek(self::DASHBOARD_CATEGORY_TOKENS_KEY, EventCache::BUSTER_CATEGORY);
-
-        if ($cached === null) {
-            $this->logMissingDashboardCache(self::DASHBOARD_CATEGORY_TOKENS_KEY);
-
-            return [];
-        }
-
-        $tokens = [];
-
-        foreach ($cached as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-
-            $tokens[] = [
-                'token' => (string) ($row['token'] ?? ''),
-                'count' => (int) ($row['count'] ?? 0),
-            ];
-        }
-
-        return $tokens;
-    }
-
-    /**
-     * Hitung ulang cache `/dashboard` di luar request path (offline). Kunci yang masih
-     * terisi dilewati kecuali `$force`, agar scheduler tiap 5 menit tidak memindai
-     * 1 juta baris tanpa perlu. Tren registrasi tidak ikut: sumbernya agregat harian, 4 ms.
+     * Isi cache `/dashboard` di luar request path: alat opsional setelah deploy/seed agar
+     * pengunjung pertama tidak menunggu. Kunci yang masih terisi dilewati kecuali `$force`.
+     * Tren registrasi tidak ikut: sumbernya agregat harian, hanya 4 ms.
      *
      * @return list<array{key: string, milliseconds: int, rows: int, skipped: bool}>
      */
@@ -305,40 +267,20 @@ final class EventReportingQuery
         return ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')];
     }
 
-    /** Cache dashboard belum di-warm: catat sekali per kunci agar operator tahu harus menjalankan command. */
-    private function logMissingDashboardCache(string $key): void
-    {
-        Log::warning('dashboard cache kosong', ['key' => $key, 'fill_with' => 'php artisan dashboard:warm']);
-    }
-
     /**
-     * Hitung token kategori aktual; dipisah agar bisa di-cache utuh.
+     * Token kategori dari tabel agregat (dijaga EventObserver + command rebuild),
+     * sehingga tidak ada `GROUP BY` pada 1 juta baris walau cache sedang dingin.
      *
      * @return list<array{token: string, count: int}>
      */
     private function computeCategoryTokens(): array
     {
-        $tallies = [];
+        $tokens = $this->categoryCounter->counts();
 
-        $countsByCategory = Event::query()
-            ->whereNull('deleted_at')
-            ->toBase()
-            ->selectRaw('category, COUNT(*) as aggregate')
-            ->groupBy('category')
-            ->pluck('aggregate', 'category');
+        // Urutan token dipertahankan A→Z seperti agregasi lama, walau tabel urut total desc.
+        usort($tokens, static fn (array $a, array $b): int => strcmp($a['token'], $b['token']));
 
-        foreach ($countsByCategory as $category => $count) {
-            foreach (Event::tokensFromCsv((string) $category) as $token) {
-                $tallies[$token] = ($tallies[$token] ?? 0) + (int) $count;
-            }
-        }
-
-        uksort($tallies, static fn (string $a, string $b): int => strcmp($a, $b));
-
-        return collect($tallies)->map(static fn (int $count, string $token): array => [
-            'token' => $token,
-            'count' => $count,
-        ])->values()->all();
+        return $tokens;
     }
 
     /**

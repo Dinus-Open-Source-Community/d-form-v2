@@ -51,7 +51,7 @@ class HomeController extends Controller
 
         $adminCharts = [
             'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
-            'categoryBreakdown' => $this->reportingQuery->dashboardCategoryTokens(),
+            'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
         ];
 
         return inertia('Dashboard/Index', [

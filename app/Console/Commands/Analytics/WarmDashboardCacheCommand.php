@@ -6,10 +6,10 @@ use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Console\Command;
 
 /**
- * Menghitung ulang cache agregat `/dashboard` di luar request path: statistik event,
- * jumlah pendaftar, dan breakdown kategori. Dijadwalkan tiap 5 menit (routes/console.php)
- * dan hanya menghitung kunci yang kosong, kecuali `--force`. Jalankan `--force` setelah
- * deploy/seed agar dashboard tidak menampilkan nol.
+ * Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik
+ * event, jumlah pendaftar, breakdown kategori). Request tetap bisa menghitung sendiri saat
+ * cache kosong; command ini dipakai setelah deploy/seed agar pengunjung pertama tidak menunggu.
+ * Kunci yang masih terisi dilewati kecuali `--force`.
  */
 class WarmDashboardCacheCommand extends Command
 {

@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Cache dashboard hanya diisi command `dashboard:warm`; request `/dashboard` cuma
- * membaca cache sehingga tidak ada agregat 1 juta baris di request path.
+ * Cache dashboard diisi saat request pertama atau lewat `dashboard:warm` (alat opsional);
+ * begitu terisi, request tidak lagi menjalankan agregat 1 juta baris.
  */
 class DashboardCacheWarmTest extends TestCase
 {
@@ -138,7 +138,7 @@ class DashboardCacheWarmTest extends TestCase
         $this->assertSame([], $heavy);
     }
 
-    public function test_request_dengan_cache_kosong_tetap_200_tanpa_query_berat(): void
+    public function test_request_dengan_cache_kosong_menghitung_saat_itu_juga(): void
     {
         Event::factory()->create([
             'category' => 'seminar',
@@ -153,16 +153,25 @@ class DashboardCacheWarmTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('stats.totalEvents', 0)
-                ->where('stats.activeEvents', 0)
-                ->where('stats.completionRate', 0)
-                ->where('stats.totalRegistrants', 0)
-                ->has('adminCharts.categoryBreakdown', 0));
+                ->where('stats.totalEvents', 1)
+                ->where('stats.activeEvents', 1)
+                ->where('stats.totalRegistrants', 9)
+                ->where('adminCharts.categoryBreakdown.0.token', 'seminar'));
 
-        $heavy = $this->heavyQueries();
         DB::disableQueryLog();
 
-        $this->assertSame([], $heavy);
+        // Cache terisi oleh request itu sendiri: panggilan berikutnya tidak menghitung ulang.
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->reportingQuery()->dashboardEventStats();
+        DB::disableQueryLog();
+
+        $this->assertSame([], $this->heavyQueries());
+    }
+
+    private function reportingQuery(): EventReportingQuery
+    {
+        return app(EventReportingQuery::class);
     }
 
     public function test_buster_event_membuang_cache_sampai_warm_ulang(): void
@@ -178,14 +187,11 @@ class DashboardCacheWarmTest extends TestCase
         $this->assertSame(1, $query->dashboardEventStats()['totalEvents']);
 
         // Event baru menaikkan BUSTER_STATS: kunci lama tidak dipakai lagi, jadi angka
-        // basi tidak muncul walau warm belum jalan (sementara tampil nol).
+        // basi tidak muncul — request berikutnya menghitung ulang ke kunci baru.
         Event::factory()->create([
             'status' => EventStatus::Published,
             'registration_end' => now()->addDays(5),
         ]);
-        $this->assertSame(0, $query->dashboardEventStats()['totalEvents']);
-
-        Artisan::call('dashboard:warm');
         $this->assertSame(2, $query->dashboardEventStats()['totalEvents']);
     }
 
