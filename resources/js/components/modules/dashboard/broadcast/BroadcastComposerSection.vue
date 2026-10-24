@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue'
+import DeferredRender from '@/components/core/DeferredRender.vue'
+import { LazyTipTapEditor } from '@/lib/lazyRichTextEditors'
 
 const props = defineProps<{
     subject: string
@@ -40,7 +41,9 @@ function onSubjectInput(value: string | number): void {
             <span class="text-foreground text-sm font-medium">
                 Isi email <span aria-hidden="true" class="text-destructive">*</span>
             </span>
-            <TipTapEditor :model-value="props.bodyHtml" @update:model-value="emit('update:bodyHtml', $event)" />
+            <DeferredRender min-height="14rem">
+                <LazyTipTapEditor :model-value="props.bodyHtml" @update:model-value="emit('update:bodyHtml', $event)" />
+            </DeferredRender>
             <p class="text-xs text-muted-foreground">Gunakan &#123;&#123;nama&#125;&#125; untuk personalisasi nama penerima.</p>
             <p v-if="props.bodyError" class="text-destructive text-xs">{{ props.bodyError }}</p>
         </div>

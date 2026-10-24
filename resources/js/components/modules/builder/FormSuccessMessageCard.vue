@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import { MessageSquareCheck } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
-import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue'
+import DeferredRender from '@/components/core/DeferredRender.vue'
+import { LazyTipTapEditor } from '@/lib/lazyRichTextEditors'
 
 /**
  * Zona konfirmasi "Pesan setelah submit" ala Google Forms — segmen terakhir dari
@@ -40,7 +41,9 @@ const visible = computed(() => props.show || hasMeaningfulContent(successContent
             </div>
         </div>
         <div class="px-4 py-4 sm:px-5 sm:py-5">
-            <TipTapEditor v-model="successContent" />
+            <DeferredRender min-height="14rem">
+                <LazyTipTapEditor v-model="successContent" />
+            </DeferredRender>
         </div>
     </div>
 </template>

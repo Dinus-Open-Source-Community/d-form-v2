@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
-import TipTapEditor from '@/components/modules/dashboard/events/TipTapEditor.vue';
+import DeferredRender from '@/components/core/DeferredRender.vue';
+import { LazyTipTapEditor } from '@/lib/lazyRichTextEditors';
 import EventMultiValuePicker from '@/components/modules/dashboard/events/EventMultiValuePicker.vue';
 import {
     FileText,
@@ -525,7 +526,9 @@ defineExpose({ submitForm, validateRequired, form })
                                     isFieldShaking('description') ? 'animate-shake' : '',
                                 ]"
                             >
-                                <TipTapEditor v-model="form.description" />
+                                <DeferredRender min-height="14rem">
+                                    <LazyTipTapEditor v-model="form.description" />
+                                </DeferredRender>
                             </div>
                             <div class="flex items-center justify-between gap-3">
                                 <p v-if="fieldError('description')" class="text-destructive text-xs">

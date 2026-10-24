@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import BroadcastContentEditor from '@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue'
+import DeferredRender from '@/components/core/DeferredRender.vue'
+import { LazyBroadcastContentEditor } from '@/lib/lazyRichTextEditors'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
@@ -334,7 +335,9 @@ const progress = computed(() => {
                 </div>
                 <div class="grid gap-2">
                     <Label>Konten</Label>
-                    <BroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
+                    <DeferredRender min-height="14rem">
+                        <LazyBroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
+                    </DeferredRender>
                     <p class="text-muted-foreground text-xs">Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 2 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
                 </div>
                 <Button :disabled="contentForm.processing" @click="saveContent">Simpan email</Button>

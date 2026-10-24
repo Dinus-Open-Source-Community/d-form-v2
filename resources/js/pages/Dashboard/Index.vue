@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, defineAsyncComponent, onMounted } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import DeferredRender from '@/components/core/DeferredRender.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vue';
 import MiniCalendar from '@/components/modules/dashboard/MiniCalendar.vue';
-import RegistrationChart from '@/components/modules/dashboard/RegistrationChart.vue';
-import CategoryChart from '@/components/modules/dashboard/CategoryChart.vue';
 import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue';
 import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
 import { setTopbar } from '@/utils/composables/useDashboardTopbar';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });
+
+// Chart.js + vue-chartjs hanya diunduh saat bagian analitik mendekati viewport.
+const RegistrationChart = defineAsyncComponent(
+    () => import('@/components/modules/dashboard/RegistrationChart.vue'),
+);
+const CategoryChart = defineAsyncComponent(() => import('@/components/modules/dashboard/CategoryChart.vue'));
 
 const props = defineProps<{
     recentEvents: IEvent[];
@@ -29,6 +34,10 @@ const props = defineProps<{
 }>();
 
 const events = computed(() => props.recentEvents);
+const registrationPoints = computed(
+    () => props.adminCharts?.registrationTrend.map(({ label, count }) => ({ label, count })) ?? [],
+);
+const categoryBreakdown = computed(() => props.adminCharts?.categoryBreakdown ?? []);
 
 const totalEvents = computed(() => props.stats.totalEvents);
 const activeEvents = computed(() => props.stats.activeEvents);
@@ -80,12 +89,12 @@ onMounted(() => {
 
         <section v-if="adminCharts" class="space-y-4">
             <h2 class="font-display text-base font-bold tracking-tight text-foreground">Analitik singkat</h2>
-            <div class="grid gap-5 lg:grid-cols-2">
-                <RegistrationChart
-                    :points="adminCharts.registrationTrend.map(({ label, count }) => ({ label, count }))"
-                />
-                <CategoryChart :breakdown="adminCharts.categoryBreakdown" />
-            </div>
+            <DeferredRender min-height="20rem">
+                <div class="grid gap-5 lg:grid-cols-2">
+                    <RegistrationChart :points="registrationPoints" />
+                    <CategoryChart :breakdown="categoryBreakdown" />
+                </div>
+            </DeferredRender>
         </section>
 
         <section class="space-y-4">
