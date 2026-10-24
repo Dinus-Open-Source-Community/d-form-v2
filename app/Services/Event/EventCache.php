@@ -16,6 +16,9 @@ final class EventCache
 
     public const BUSTER_STATS = 'events:stats:cache:buster';
 
+    /** Khusus agregat jumlah pendaftar; registrasi tidak boleh membuang statistik event. */
+    public const BUSTER_REGISTRANTS = 'events:registrants:cache:buster';
+
     /**
      * Ambil array dari cache; resolver hanya berjalan saat cache kosong atau buster berubah.
      *

@@ -21,7 +21,15 @@ class EventObserver
      */
     public function updated(Event $event): void
     {
-        $this->invalidateEventCache($event->wasChanged(['category', 'session']));
+        // Registrasi hanya mengubah jumlah pendaftar: jangan buang statistik event (mahal).
+        $onlyRegistrations = $event->wasChanged('registered_count')
+            && ! $event->wasChanged([
+                'title', 'slug', 'description', 'start_date', 'end_date',
+                'registration_start', 'registration_end', 'location', 'quota',
+                'banner', 'price', 'session', 'status', 'category',
+            ]);
+
+        $this->invalidateEventCache($event->wasChanged(['category', 'session']), $onlyRegistrations);
     }
 
     /**
@@ -72,10 +80,18 @@ class EventObserver
     /**
      * Invalidasi per kebutuhan: daftar & statistik selalu, kategori hanya bila berubah.
      */
-    private function invalidateEventCache(bool $categoryChanged): void
+    private function invalidateEventCache(bool $categoryChanged, bool $registrationsOnly = false): void
     {
         EventCache::bump(EventCache::BUSTER_LIST);
+
+        if ($registrationsOnly) {
+            EventCache::bump(EventCache::BUSTER_REGISTRANTS);
+
+            return;
+        }
+
         EventCache::bump(EventCache::BUSTER_STATS);
+        EventCache::bump(EventCache::BUSTER_REGISTRANTS);
 
         if ($categoryChanged) {
             EventCache::bump(EventCache::BUSTER_CATEGORY);

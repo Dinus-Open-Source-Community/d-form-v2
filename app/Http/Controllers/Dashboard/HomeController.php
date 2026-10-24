@@ -24,12 +24,26 @@ class HomeController extends Controller
 
     public function __invoke(Request $request): InertiaResponse
     {
-        $stats = EventCache::remember(
-            'dashboard:stats',
+        // Statistik event (mahal: 3 agregat 1 juta baris) hanya berubah saat event berubah.
+        $eventStats = EventCache::remember(
+            'dashboard:stats:events',
             300,
-            fn (): array => $this->computeStats(),
+            fn (): array => $this->computeEventStats(),
             EventCache::BUSTER_STATS,
         );
+
+        // Jumlah pendaftar berubah setiap registrasi; cache dipisah agar tidak ikut mahal.
+        $registrants = EventCache::remember(
+            'dashboard:stats:registrants',
+            60,
+            fn (): array => ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')],
+            EventCache::BUSTER_REGISTRANTS,
+        );
+
+        $stats = [
+            ...$eventStats,
+            'totalRegistrants' => $registrants['total'],
+        ];
 
         // Kolom `description` tidak dipakai kartu dashboard; hanya 5 baris, tapi tetap dipangkas.
         $recentEvents = Event::query()
@@ -63,19 +77,22 @@ class HomeController extends Controller
      *
      * @return array{totalEvents: int, activeEvents: int, totalRegistrants: int, completionRate: int}
      */
-    private function computeStats(): array
+    private function computeEventStats(): array
     {
         $base = Event::query()->whereNull('deleted_at');
 
         $total = (clone $base)->count();
 
         // registrationStatus() berstatus Closed tepat saat registration_end sudah lewat.
-        $closed = (clone $base)->where('registration_end', '<', now())->count();
+        // Index dipin: tanpa hint, statistik tabel yang basi membuat MySQL memilih index lain (5,7 s vs 0,14 s).
+        $closed = (clone $base)
+            ->useIndex('events_deleted_registration_end_index')
+            ->where('registration_end', '<', now())
+            ->count();
 
         return [
             'totalEvents' => $total,
             'activeEvents' => (clone $base)->where('status', EventStatus::Published)->count(),
-            'totalRegistrants' => (int) (clone $base)->sum('registered_count'),
             'completionRate' => $total > 0 ? (int) round(($closed / $total) * 100) : 0,
         ];
     }

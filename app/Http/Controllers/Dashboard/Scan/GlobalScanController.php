@@ -46,9 +46,15 @@ class GlobalScanController extends Controller
         $sessions = [];
         if ($user->can('recruitment.attendance.scan')) {
             $sessions = \App\Models\Recruitment\RecruitmentInterviewSession::query()
+                ->select([
+                    'id', 'recruitment_period_id', 'recruitment_division_id', 'session_date',
+                    'starts_at', 'ends_at', 'location', 'room', 'is_active',
+                ])
                 ->where('is_active', true)
-                ->whereDate('session_date', '>=', today())
-                ->with(['division:id,name', 'period:id,name'])
+                // Kolom DATE: tanpa DATE() agar index (recruitment_division_id, session_date) tetap terpakai.
+                ->where('session_date', '>=', today())
+                ->with(['division:id,name,code', 'period:id,name'])
+                ->withCount('interviews')
                 ->orderBy('session_date')
                 ->orderBy('starts_at')
                 ->get()
@@ -63,7 +69,7 @@ class GlobalScanController extends Controller
                 ->where('status', EventStatus::Published)
                 ->orderByDesc('id')
                 ->limit(50)
-                ->get()
+                ->get(Event::ROUTE_BINDING_COLUMNS)
                 ->map(fn (Event $event): array => $this->eventService->eventToInertiaArray($event))
                 ->values()
                 ->all();
