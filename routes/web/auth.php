@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\CancelPendingRegistrationController;
 use App\Http\Controllers\Auth\EmailAvailabilityController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\VerifyOtpController;
 use App\Http\Middleware\PreventAuthPageCaching;
 use Illuminate\Support\Facades\Route;
 
@@ -39,15 +41,30 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
      */
     Route::resource('/auth/register', RegisterController::class)
     ->middleware('guest')
-    ->middlewareFor('store', 'throttle:auth-register')
+    ->middlewareFor('store', ['throttle:auth-register', 'throttle:auth-otp-address'])
     ->names([
         'index' => 'auth.register',
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
 
-    // Placeholder Task 4: nama route memakai definisi pertama; karena itu Task 5 harus MENGGANTI baris ini
-    // secara utuh (URI + closure) dengan VerifyOtpController@index dan tidak boleh menambah route dengan nama `auth.otp.show` lagi.
-    Route::get('/auth/verify-otp', fn () => redirect()->route('auth.register'))->name('auth.otp.show');
+    /**
+     * Verifikasi OTP registrasi
+     * GET: index [auth/verify-otp]
+     * POST: verify [auth/otp/verify]
+     * POST: resend [auth/otp/resend]
+     * POST: cancel [auth/otp/cancel]
+     */
+    Route::get('/auth/verify-otp', [VerifyOtpController::class, 'index'])->name('auth.otp.show');
+
+    Route::post('/auth/otp/verify', [VerifyOtpController::class, 'verify'])
+        ->middleware('throttle:auth-otp-verify')
+        ->name('auth.otp.verify');
+
+    Route::post('/auth/otp/resend', [VerifyOtpController::class, 'resend'])
+        ->middleware('throttle:auth-otp-resend')
+        ->name('auth.otp.resend');
+
+    Route::post('/auth/otp/cancel', CancelPendingRegistrationController::class)->name('auth.otp.cancel');
 
     // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
     Route::post('/auth/email-availability', EmailAvailabilityController::class)

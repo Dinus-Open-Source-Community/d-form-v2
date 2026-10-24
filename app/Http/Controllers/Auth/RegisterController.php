@@ -6,9 +6,9 @@ use App\Enums\OtpOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterStoreRequest;
 use App\Services\Auth\RegistrationOtpService;
+use App\Support\PendingRegistrationSession;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,10 +39,7 @@ class RegisterController extends Controller
         }
 
         $request->session()->regenerate();
-        $request->session()->put([
-            'otp.pending_email' => $data['email'],
-            'otp.cancel_token' => Str::random(32),
-        ]);
+        PendingRegistrationSession::remember($request, $data['email']);
 
         $locked = $outcome === OtpOutcome::Locked;
 

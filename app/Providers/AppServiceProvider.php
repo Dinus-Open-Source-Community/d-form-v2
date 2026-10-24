@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Middleware\StressBypassThrottle;
+use App\Support\PendingRegistrationSession;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -111,6 +112,25 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('auth-email-check', function (Request $request): Limit {
             return $this->authThrottleLimit('email_check', $request->ip());
+        });
+
+        // Email OTP diambil dari sesi; limiter berjalan setelah StartSession.
+        RateLimiter::for('auth-otp-verify', function (Request $request): Limit {
+            $email = PendingRegistrationSession::email($request) ?? '';
+
+            return $this->authThrottleLimit('otp_verify', $email.'|'.$request->ip());
+        });
+
+        RateLimiter::for('auth-otp-resend', function (Request $request): Limit {
+            return $this->authThrottleLimit('otp_resend', $request->ip());
+        });
+
+        // Cap lintas window per alamat email agar satu email tidak bisa dispam dari banyak IP.
+        RateLimiter::for('auth-otp-address', function (Request $request): Limit {
+            $input = $request->input('email');
+            $email = is_string($input) ? strtolower($input) : '';
+
+            return $this->authThrottleLimit('otp_address', $email !== '' ? $email : $request->ip());
         });
 
         // Temporary scan-test helper: redirect ALL outgoing mail to one inbox.
