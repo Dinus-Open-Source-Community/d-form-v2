@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\FormAnswer;
 use App\Services\Registration\RegistrationAnswersSummarizer;
+use App\Support\CsvCellSanitizer;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventRegistrationsCsvExportController extends Controller
@@ -60,7 +61,7 @@ class EventRegistrationsCsvExportController extends Controller
                             $summaryParts[] = $label.': '.$value;
                         }
 
-                        fputcsv($out, [
+                        fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [
                             $answer->id,
                             $answer->form_id,
                             $form?->title ?? '',
@@ -74,7 +75,7 @@ class EventRegistrationsCsvExportController extends Controller
                             $leaderEmail,
                             $answer->created_at->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
                             implode(' | ', $summaryParts),
-                        ]);
+                        ]));
                     }
                 });
 

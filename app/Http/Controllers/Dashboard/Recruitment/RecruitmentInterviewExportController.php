@@ -6,6 +6,7 @@ use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Support\CsvCellSanitizer;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -110,7 +111,7 @@ class RecruitmentInterviewExportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_map(self::sanitizeCsvCell(...), array_map(
+            fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), array_map(
                 fn (string $key): string => self::COLUMN_LABELS[$key],
                 $columns
             )));
@@ -215,24 +216,8 @@ class RecruitmentInterviewExportController extends Controller
         ];
 
         return array_map(
-            fn (string $key): string => self::sanitizeCsvCell($values[$key] ?? ''),
+            fn (string $key): string => CsvCellSanitizer::sanitize($values[$key] ?? ''),
             $columns
         );
-    }
-
-    private static function sanitizeCsvCell(mixed $value): string
-    {
-        $cell = (string) $value;
-        $trimmed = ltrim($cell, " \t");
-
-        return match (true) {
-            str_starts_with($trimmed, '='),
-            str_starts_with($trimmed, '+'),
-            str_starts_with($trimmed, '-'),
-            str_starts_with($trimmed, '@'),
-            str_starts_with($trimmed, "\t"),
-            str_starts_with($trimmed, "\r") => "'".$cell,
-            default => $cell,
-        };
     }
 }

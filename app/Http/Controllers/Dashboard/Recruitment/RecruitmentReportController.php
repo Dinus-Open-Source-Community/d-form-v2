@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ShowRecruitmentReportRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentReportService;
+use App\Support\CsvCellSanitizer;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentReportController extends Controller
@@ -30,10 +31,10 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_map(self::sanitizeCsvCell(...), ['stage', 'label', 'count']));
+            fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), ['stage', 'label', 'count']));
 
             foreach ($funnel as $row) {
-                fputcsv($out, array_map(self::sanitizeCsvCell(...), [$row['stage'], $row['label'], $row['count']]));
+                fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [$row['stage'], $row['label'], $row['count']]));
             }
 
             fclose($out);
@@ -56,7 +57,7 @@ class RecruitmentReportController extends Controller
             }
 
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_map(self::sanitizeCsvCell(...), [
+            fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [
                 'registration_number',
                 'full_name',
                 'nim',
@@ -80,7 +81,7 @@ class RecruitmentReportController extends Controller
                 ->orderBy('registration_number')
                 ->chunk(200, function ($applications) use ($out): void {
                     foreach ($applications as $application) {
-                        fputcsv($out, array_map(self::sanitizeCsvCell(...), [
+                        fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [
                             $application->registration_number,
                             $application->full_name,
                             $application->nim,
@@ -96,21 +97,5 @@ class RecruitmentReportController extends Controller
 
             fclose($out);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    private static function sanitizeCsvCell(mixed $value): string
-    {
-        $cell = (string) $value;
-        $trimmed = ltrim($cell, " \t");
-
-        return match (true) {
-            str_starts_with($trimmed, '='),
-            str_starts_with($trimmed, '+'),
-            str_starts_with($trimmed, '-'),
-            str_starts_with($trimmed, '@'),
-            str_starts_with($trimmed, "\t"),
-            str_starts_with($trimmed, "\r") => "'".$cell,
-            default => $cell,
-        };
     }
 }

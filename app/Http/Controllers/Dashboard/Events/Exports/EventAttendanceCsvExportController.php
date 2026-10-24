@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Services\Registration\BundleGuestDisplayNameResolver;
 use App\Services\Registration\FormAnswerRecipientResolver;
+use App\Support\CsvCellSanitizer;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventAttendanceCsvExportController extends Controller
@@ -42,14 +43,14 @@ class EventAttendanceCsvExportController extends Controller
                     foreach ($rows as $row) {
                         $submission = $row->formAnswer;
                         $scanner = $row->scannedBy;
-                        fputcsv($out, [
+                        fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [
                             $row->scanned_at->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
                             $submission !== null ? $displayNameResolver->resolve($submission) : '',
                             $submission !== null ? ($recipientResolver->email($submission) ?? '') : '',
                             $row->form_answer_id,
                             $scanner?->name ?? '',
                             $scanner?->email ?? '',
-                        ]);
+                        ]));
                     }
                 });
 
