@@ -158,6 +158,8 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event): RedirectResponse
     {
+        $this->authorize('update', $event);
+
         $data = $request->validated();
         $banner = $request->file('banner');
 
