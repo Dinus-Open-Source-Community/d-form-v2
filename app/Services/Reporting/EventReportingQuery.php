@@ -2,17 +2,36 @@
 
 namespace App\Services\Reporting;
 
+use App\Enums\EventStatus;
 use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\FormAnswer;
 use App\Services\Event\EventCache;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class EventReportingQuery
 {
     /** Ringkasan admin di-cache singkat; angka global jarang berubah di antara dua buka halaman. */
     private const GLOBAL_SUMMARY_TTL_SECONDS = 300;
+
+    /*
+     * Kunci & TTL agregat dashboard: satu sumber untuk request path (`HomeController`)
+     * dan command `dashboard:warm`. TTL panjang aman karena perubahan event menaikkan
+     * buster masing-masing; request dilarang menghitung ulang saat cache kosong.
+     */
+    public const DASHBOARD_EVENT_STATS_KEY = 'dashboard:stats:events';
+
+    public const DASHBOARD_REGISTRANTS_KEY = 'dashboard:stats:registrants';
+
+    public const DASHBOARD_CATEGORY_TOKENS_KEY = 'report:category-tokens';
+
+    private const DASHBOARD_EVENT_STATS_TTL_SECONDS = 900;
+
+    private const DASHBOARD_REGISTRANTS_TTL_SECONDS = 60;
+
+    private const DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS = 21600;
 
     /**
      * Registration submissions per calendar month over the last N months.
@@ -98,6 +117,8 @@ final class EventReportingQuery
 
     /**
      * Count non-deleted events that include each category token at least once.
+     * Menghitung saat cache kosong — hanya untuk jalur offline (report/command).
+     * Request path wajib memakai {@see dashboardCategoryTokens()}.
      *
      * @return list<array{token: string, count: int}>
      */
@@ -105,11 +126,189 @@ final class EventReportingQuery
     {
         // Agregasi di SQL: cursor() membuffer seluruh result set PDO dan OOM pada data besar.
         return EventCache::remember(
-            'report:category-tokens',
-            3600,
+            self::DASHBOARD_CATEGORY_TOKENS_KEY,
+            self::DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS,
             fn (): array => $this->computeCategoryTokens(),
             EventCache::BUSTER_CATEGORY,
         );
+    }
+
+    /**
+     * Statistik event untuk `/dashboard` — baca cache saja, tanpa agregat 1 juta baris
+     * di request path. Kosong → nol + log; isi dengan `php artisan dashboard:warm`.
+     *
+     * @return array{totalEvents: int, activeEvents: int, completionRate: int}
+     */
+    public function dashboardEventStats(): array
+    {
+        $cached = EventCache::peek(self::DASHBOARD_EVENT_STATS_KEY, EventCache::BUSTER_STATS);
+
+        if ($cached === null) {
+            $this->logMissingDashboardCache(self::DASHBOARD_EVENT_STATS_KEY);
+
+            return ['totalEvents' => 0, 'activeEvents' => 0, 'completionRate' => 0];
+        }
+
+        return [
+            'totalEvents' => (int) ($cached['totalEvents'] ?? 0),
+            'activeEvents' => (int) ($cached['activeEvents'] ?? 0),
+            'completionRate' => (int) ($cached['completionRate'] ?? 0),
+        ];
+    }
+
+    /**
+     * Total pendaftar untuk `/dashboard` — baca cache saja. Kosong → 0 + log;
+     * isi dengan `php artisan dashboard:warm`.
+     */
+    public function dashboardRegistrantTotal(): int
+    {
+        $cached = EventCache::peek(self::DASHBOARD_REGISTRANTS_KEY, EventCache::BUSTER_REGISTRANTS);
+
+        if ($cached === null) {
+            $this->logMissingDashboardCache(self::DASHBOARD_REGISTRANTS_KEY);
+
+            return 0;
+        }
+
+        return (int) ($cached['total'] ?? 0);
+    }
+
+    /**
+     * Breakdown kategori untuk chart `/dashboard` — baca cache saja. Kosong → chart
+     * kosong + log; isi dengan `php artisan dashboard:warm`.
+     *
+     * @return list<array{token: string, count: int}>
+     */
+    public function dashboardCategoryTokens(): array
+    {
+        $cached = EventCache::peek(self::DASHBOARD_CATEGORY_TOKENS_KEY, EventCache::BUSTER_CATEGORY);
+
+        if ($cached === null) {
+            $this->logMissingDashboardCache(self::DASHBOARD_CATEGORY_TOKENS_KEY);
+
+            return [];
+        }
+
+        $tokens = [];
+
+        foreach ($cached as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $tokens[] = [
+                'token' => (string) ($row['token'] ?? ''),
+                'count' => (int) ($row['count'] ?? 0),
+            ];
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * Hitung ulang cache `/dashboard` di luar request path (offline). Kunci yang masih
+     * terisi dilewati kecuali `$force`, agar scheduler tiap 5 menit tidak memindai
+     * 1 juta baris tanpa perlu. Tren registrasi tidak ikut: sumbernya agregat harian, 4 ms.
+     *
+     * @return list<array{key: string, milliseconds: int, rows: int, skipped: bool}>
+     */
+    public function warmDashboardCache(bool $force = false): array
+    {
+        $steps = [
+            [
+                'key' => self::DASHBOARD_EVENT_STATS_KEY,
+                'ttl' => self::DASHBOARD_EVENT_STATS_TTL_SECONDS,
+                'resolver' => fn (): array => $this->computeDashboardEventStats(),
+                'buster' => EventCache::BUSTER_STATS,
+            ],
+            [
+                'key' => self::DASHBOARD_REGISTRANTS_KEY,
+                'ttl' => self::DASHBOARD_REGISTRANTS_TTL_SECONDS,
+                'resolver' => fn (): array => $this->computeDashboardRegistrants(),
+                'buster' => EventCache::BUSTER_REGISTRANTS,
+            ],
+            [
+                'key' => self::DASHBOARD_CATEGORY_TOKENS_KEY,
+                'ttl' => self::DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS,
+                'resolver' => fn (): array => $this->computeCategoryTokens(),
+                'buster' => EventCache::BUSTER_CATEGORY,
+            ],
+        ];
+
+        return array_map(fn (array $step): array => $this->warmStep($step, $force), $steps);
+    }
+
+    /**
+     * Jalankan satu langkah warm (hitung ulang + timpa cache) dan ukur durasinya;
+     * nilai `skipped` menandakan kunci sudah terisi sehingga tidak dihitung ulang.
+     *
+     * @param  array{key: string, ttl: int, resolver: \Closure(): array<mixed>, buster: string}  $step
+     * @return array{key: string, milliseconds: int, rows: int, skipped: bool}
+     */
+    private function warmStep(array $step, bool $force): array
+    {
+        if (! $force) {
+            $existing = EventCache::peek($step['key'], $step['buster']);
+
+            if ($existing !== null) {
+                return [
+                    'key' => $step['key'],
+                    'milliseconds' => 0,
+                    'rows' => count($existing),
+                    'skipped' => true,
+                ];
+            }
+        }
+
+        $startedAt = hrtime(true);
+
+        $rows = EventCache::refresh($step['key'], $step['ttl'], $step['resolver'], $step['buster']);
+
+        return [
+            'key' => $step['key'],
+            'milliseconds' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
+            'rows' => count($rows),
+            'skipped' => false,
+        ];
+    }
+
+    /**
+     * Tiga agregat statistik event dashboard (mahal: tabel events 1 juta baris).
+     *
+     * @return array{totalEvents: int, activeEvents: int, completionRate: int}
+     */
+    private function computeDashboardEventStats(): array
+    {
+        $base = Event::query()->whereNull('deleted_at');
+
+        $total = (clone $base)->count();
+
+        // registrationStatus() berstatus Closed tepat saat registration_end sudah lewat.
+        // Index dipin: tanpa hint, statistik tabel yang basi membuat MySQL memilih index lain (5,7 s vs 0,14 s).
+        $closed = (clone $base)
+            ->useIndex('events_deleted_registration_end_index')
+            ->where('registration_end', '<', now())
+            ->count();
+
+        return [
+            'totalEvents' => $total,
+            'activeEvents' => (clone $base)->where('status', EventStatus::Published)->count(),
+            'completionRate' => $total > 0 ? (int) round(($closed / $total) * 100) : 0,
+        ];
+    }
+
+    /**
+     * @return array{total: int}
+     */
+    private function computeDashboardRegistrants(): array
+    {
+        return ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')];
+    }
+
+    /** Cache dashboard belum di-warm: catat sekali per kunci agar operator tahu harus menjalankan command. */
+    private function logMissingDashboardCache(string $key): void
+    {
+        Log::warning('dashboard cache kosong', ['key' => $key, 'fill_with' => 'php artisan dashboard:warm']);
     }
 
     /**

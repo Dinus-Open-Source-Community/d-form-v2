@@ -61,6 +61,7 @@ class DashboardStatsCacheTest extends TestCase
         $admin->assignRole('admin');
 
         Event::factory()->count(2)->create(['registered_count' => 5, 'deleted_at' => null]);
+        $this->artisan('dashboard:warm');
 
         $this->actingAs($admin)
             ->get('/dashboard')

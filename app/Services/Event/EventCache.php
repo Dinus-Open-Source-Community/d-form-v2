@@ -32,12 +32,50 @@ final class EventCache
         \Closure $resolver,
         ?string $buster = self::BUSTER_LIST,
     ): array {
-        $key = $buster === null ? $name : $name.':'.(int) Cache::get($buster, 0);
+        $key = self::keyFor($name, $buster);
 
         /** @var array<TValue> $cached */
         $cached = Cache::remember($key, $ttlSeconds, $resolver);
 
         return $cached;
+    }
+
+    /**
+     * Baca nilai cache tanpa resolver; `null` berarti kunci belum terisi (request path
+     * dilarang menghitung sendiri — isi lewat command `dashboard:warm`).
+     *
+     * @return array<mixed>|null
+     */
+    public static function peek(string $name, ?string $buster = self::BUSTER_LIST): ?array
+    {
+        $cached = Cache::get(self::keyFor($name, $buster));
+
+        return is_array($cached) ? $cached : null;
+    }
+
+    /**
+     * Hitung ulang lalu timpa nilai cache tanpa jendela kosong (dipakai scheduler, bukan request).
+     *
+     * @template TValue
+     * @param  \Closure(): array<TValue>  $resolver
+     * @return array<TValue>
+     */
+    public static function refresh(
+        string $name,
+        int $ttlSeconds,
+        \Closure $resolver,
+        ?string $buster = self::BUSTER_LIST,
+    ): array {
+        $value = $resolver();
+        Cache::put(self::keyFor($name, $buster), $value, $ttlSeconds);
+
+        return $value;
+    }
+
+    /** Satu-satunya tempat format kunci cache, agar `remember`, `peek`, dan `refresh` tidak menyimpang. */
+    private static function keyFor(string $name, ?string $buster): string
+    {
+        return $buster === null ? $name : $name.':'.(int) Cache::get($buster, 0);
     }
 
     /**

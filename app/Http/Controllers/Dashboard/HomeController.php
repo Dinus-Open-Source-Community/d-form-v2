@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use App\Services\Event\EventCache;
 use App\Services\Event\EventService;
 use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Http\Request;
@@ -13,6 +11,11 @@ use Inertia\Response as InertiaResponse;
 
 /**
  * Beranda penyelenggara — hanya diakses lewat rute dengan middleware organizer.
+ *
+ * Semua agregat mahal (statistik event, jumlah pendaftar, breakdown kategori) dibaca
+ * dari cache; request tidak pernah menghitung sendiri agar cold start tidak 9 s.
+ * Isi cache lewat `php artisan dashboard:warm` (dijadwalkan tiap 5 menit di routes/console.php).
+ * Bila cache kosong, dashboard menampilkan angka nol dan mencatat `dashboard cache kosong`.
  */
 class HomeController extends Controller
 {
@@ -24,25 +27,11 @@ class HomeController extends Controller
 
     public function __invoke(Request $request): InertiaResponse
     {
-        // Statistik event (mahal: 3 agregat 1 juta baris) hanya berubah saat event berubah.
-        $eventStats = EventCache::remember(
-            'dashboard:stats:events',
-            300,
-            fn (): array => $this->computeEventStats(),
-            EventCache::BUSTER_STATS,
-        );
-
-        // Jumlah pendaftar berubah setiap registrasi; cache dipisah agar tidak ikut mahal.
-        $registrants = EventCache::remember(
-            'dashboard:stats:registrants',
-            60,
-            fn (): array => ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')],
-            EventCache::BUSTER_REGISTRANTS,
-        );
+        $eventStats = $this->reportingQuery->dashboardEventStats();
 
         $stats = [
             ...$eventStats,
-            'totalRegistrants' => $registrants['total'],
+            'totalRegistrants' => $this->reportingQuery->dashboardRegistrantTotal(),
         ];
 
         // Kolom `description` tidak dipakai kartu dashboard; hanya 5 baris, tapi tetap dipangkas.
@@ -62,7 +51,7 @@ class HomeController extends Controller
 
         $adminCharts = [
             'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
-            'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
+            'categoryBreakdown' => $this->reportingQuery->dashboardCategoryTokens(),
         ];
 
         return inertia('Dashboard/Index', [
@@ -70,30 +59,5 @@ class HomeController extends Controller
             'stats' => $stats,
             'adminCharts' => $adminCharts,
         ]);
-    }
-
-    /**
-     * Empat agregat dashboard; dihitung sekali per TTL, bukan tiap request.
-     *
-     * @return array{totalEvents: int, activeEvents: int, totalRegistrants: int, completionRate: int}
-     */
-    private function computeEventStats(): array
-    {
-        $base = Event::query()->whereNull('deleted_at');
-
-        $total = (clone $base)->count();
-
-        // registrationStatus() berstatus Closed tepat saat registration_end sudah lewat.
-        // Index dipin: tanpa hint, statistik tabel yang basi membuat MySQL memilih index lain (5,7 s vs 0,14 s).
-        $closed = (clone $base)
-            ->useIndex('events_deleted_registration_end_index')
-            ->where('registration_end', '<', now())
-            ->count();
-
-        return [
-            'totalEvents' => $total,
-            'activeEvents' => (clone $base)->where('status', EventStatus::Published)->count(),
-            'completionRate' => $total > 0 ? (int) round(($closed / $total) * 100) : 0,
-        ];
     }
 }

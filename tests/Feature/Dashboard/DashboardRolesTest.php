@@ -35,6 +35,7 @@ class DashboardRolesTest extends TestCase
     public function test_admin_dashboard_returns_stats_charts_and_recent_events(): void
     {
         Event::factory()->count(2)->create(['status' => EventStatus::Published]);
+        $this->artisan('dashboard:warm');
 
         $this->actingAs($this->userWithRole('admin'))
             ->get(route('dashboard'))
@@ -52,11 +53,13 @@ class DashboardRolesTest extends TestCase
     {
         $user = $this->userWithRole('admin');
         Event::factory()->create(['status' => EventStatus::Published]);
+        $this->artisan('dashboard:warm');
 
         $this->actingAs($user)->get(route('dashboard'))
             ->assertInertia(fn ($page) => $page->where('stats.totalEvents', 1));
 
         Event::factory()->create(['status' => EventStatus::Published]);
+        $this->artisan('dashboard:warm');
 
         $this->actingAs($user)->get(route('dashboard'))
             ->assertInertia(fn ($page) => $page->where('stats.totalEvents', 2));
