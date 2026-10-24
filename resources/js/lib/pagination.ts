@@ -1,3 +1,6 @@
+/** Item deret nomor: angka halaman atau celah elipsis. */
+export type TPaginationItem = number | 'ellipsis'
+
 /** Ambang ringkas total: 1000 jadi 1k, 4.6 juta jadi 4.6m. */
 const COMPACT_STEPS: readonly { limit: number; suffix: string }[] = [
     { limit: 1_000_000_000, suffix: 'b' },
@@ -5,8 +8,8 @@ const COMPACT_STEPS: readonly { limit: number; suffix: string }[] = [
     { limit: 1_000, suffix: 'k' },
 ]
 
-/** Jumlah tombol nomor per blok; deret bergeser per 10 halaman tanpa elipsis. */
-const PAGE_WINDOW = 10
+/** Jumlah nomor per blok; blok bergeser mengikuti halaman aktif. */
+const PAGE_BLOCK = 10
 
 /**
  * Ringkas angka besar untuk teks rentang: 4_600 jadi 4.6k, 1_200_000 jadi 1.2m.
@@ -21,17 +24,28 @@ export function formatCompactNumber(value: number): string {
 }
 
 /**
- * Deret nomor halaman yang tampil: blok 10 halaman yang memuat halaman aktif.
- * Contoh: halaman 12 jadi 11..20, halaman 125000 jadi 124991..125000.
+ * Deret nomor satu blok (default 10) yang memuat halaman aktif, tanpa nomor
+ * halaman terakhir. Elipsis hanya penanda blok lain, bukan tombol lompat.
+ * Contoh: halaman 14 dari 125000 jadi `… 11 12 … 20 …`.
  */
-export function buildPageItems(currentPage: number, lastPage: number): number[] {
+export function pageWindow(
+    currentPage: number,
+    lastPage: number,
+    block: number = PAGE_BLOCK,
+): TPaginationItem[] {
     if (lastPage <= 0) return []
+    if (lastPage <= block) return pageRange(1, lastPage)
 
     const current = Math.min(Math.max(currentPage, 1), lastPage)
-    const start = Math.floor((current - 1) / PAGE_WINDOW) * PAGE_WINDOW + 1
-    const end = Math.min(start + PAGE_WINDOW - 1, lastPage)
+    const start = Math.floor((current - 1) / block) * block + 1
+    const end = Math.min(start + block - 1, lastPage)
 
-    return pageRange(start, end)
+    const items: TPaginationItem[] = []
+    if (start > 1) items.push('ellipsis')
+    items.push(...pageRange(start, end))
+    if (end < lastPage) items.push('ellipsis')
+
+    return items
 }
 
 /** Deret angka inklusif dari `start` sampai `end`. */

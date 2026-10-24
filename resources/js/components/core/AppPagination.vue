@@ -4,7 +4,7 @@ import { router } from '@inertiajs/vue3'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { buildPageItems, formatCompactNumber } from '@/lib/pagination'
+import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination'
 
 interface IAppPaginationProps {
     currentPage: number
@@ -68,8 +68,8 @@ const rangeLabel = computed<string>(() => {
     return `${COUNT_FORMATTER.format(rangeStart.value)}–${COUNT_FORMATTER.format(rangeEnd)} dari ${formatCompactNumber(props.total)}`
 })
 
-const pageItems = computed<number[]>(() =>
-    props.lastPage === null || props.lastPage <= 1 ? [] : buildPageItems(props.currentPage, props.lastPage),
+const pageItems = computed<TPaginationItem[]>(() =>
+    props.lastPage === null || props.lastPage <= 1 ? [] : pageWindow(props.currentPage, props.lastPage),
 )
 
 const isPreviousDisabled = computed<boolean>(() =>
@@ -161,24 +161,32 @@ function goToNext(): void {
             </Button>
 
             <div class="hidden items-center gap-1 sm:flex">
-                <Button
-                    v-for="item in pageItems"
-                    :key="item"
-                    variant="ghost"
-                    size="icon-sm"
-                    radius="md"
-                    class="size-7 min-w-7 px-0 text-xs font-medium tabular-nums"
-                    :class="
-                        item === currentPage
-                            ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
-                            : 'hover:bg-muted'
-                    "
-                    :aria-current="item === currentPage ? 'page' : undefined"
-                    :aria-label="`Halaman ${item}`"
-                    @click="goToPage(item)"
-                >
-                    {{ item }}
-                </Button>
+                <template v-for="(item, index) in pageItems" :key="index">
+                    <span
+                        v-if="item === 'ellipsis'"
+                        class="text-muted-foreground w-7 text-center"
+                        aria-hidden="true"
+                    >
+                        …
+                    </span>
+                    <Button
+                        v-else
+                        variant="ghost"
+                        size="icon-sm"
+                        radius="md"
+                        class="h-7 min-w-7 px-1.5 text-xs font-medium tabular-nums"
+                        :class="
+                            item === currentPage
+                                ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
+                                : 'hover:bg-muted'
+                        "
+                        :aria-current="item === currentPage ? 'page' : undefined"
+                        :aria-label="`Halaman ${item}`"
+                        @click="goToPage(item)"
+                    >
+                        {{ item }}
+                    </Button>
+                </template>
             </div>
 
             <Button
