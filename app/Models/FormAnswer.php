@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use App\Observers\FormAnswerObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy(FormAnswerObserver::class)]
 class FormAnswer extends Model
 {
     /** @use HasFactory<\Database\Factories\FormAnswerFactory> */

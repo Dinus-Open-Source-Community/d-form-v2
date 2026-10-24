@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\DB;
 final class EventReportingQuery
 {
     /**
-     * Registration submissions per calendar month over the last N months (UTC boundaries).
+     * Registration submissions per calendar month over the last N months.
+     * Dibaca dari agregat harian `event_daily_registrations` (SUM(count)); sumber
+     * 1 juta baris hanya dipakai bila tabel agregat belum pernah diisi.
      *
      * @return list<array{key: string, label: string, count: int}>
      */
@@ -20,45 +22,12 @@ final class EventReportingQuery
     {
         $months = max(1, min(36, $months));
 
-        // Kunci memuat bulan berjalan agar label/rentang tidak basi.
-        return EventCache::remember(
-            'report:registration-trend:'.$months.':'.now()->format('Y-m'),
-            600,
-            fn (): array => $this->computeRegistrationTrend($months),
-            EventCache::BUSTER_STATS,
-        );
-    }
-
-    /**
-     * Query tren registrasi aktual; dipisah agar bisa di-cache utuh.
-     *
-     * @return list<array{key: string, label: string, count: int}>
-     */
-    private function computeRegistrationTrend(int $months): array
-    {
-        $start = now()->startOfMonth()->subMonths($months - 1);
-
-        $driver = DB::connection()->getDriverName();
-        $monthExpr = match ($driver) {
-            'sqlite' => "strftime('%Y-%m', form_answers.created_at)",
-            default => "DATE_FORMAT(form_answers.created_at, '%Y-%m')",
-        };
-
-        /** @var \Illuminate\Support\Collection<string, int> $counts */
-        $counts = FormAnswer::query()
-            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
-            ->join('events', 'forms.event_id', '=', 'events.id')
-            ->whereNull('events.deleted_at')
-            ->whereNull('forms.deleted_at')
-            ->where('form_answers.created_at', '>=', $start)
-            ->selectRaw("{$monthExpr} as ym")
-            ->selectRaw('COUNT(*) as c')
-            ->groupBy('ym')
-            ->orderBy('ym')
-            ->pluck('c', 'ym');
+        $counts = DB::table('event_daily_registrations')->exists()
+            ? $this->registrationCountsFromAggregate($months)
+            : $this->registrationCountsFromSource($months);
 
         $out = [];
-        $cursor = $start->copy();
+        $cursor = now()->startOfMonth()->subMonths($months - 1);
         $endMonth = now()->startOfMonth();
 
         while ($cursor->lte($endMonth)) {
@@ -72,6 +41,56 @@ final class EventReportingQuery
         }
 
         return $out;
+    }
+
+    /**
+     * Jumlah registrasi per bulan dari tabel agregat (satu baris per tanggal).
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    private function registrationCountsFromAggregate(int $months)
+    {
+        $start = now()->startOfMonth()->subMonths($months - 1);
+
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', registration_date)"
+            : "DATE_FORMAT(registration_date, '%Y-%m')";
+
+        return DB::table('event_daily_registrations')
+            ->where('registration_date', '>=', $start->toDateString())
+            ->selectRaw("{$monthExpr} as ym")
+            ->selectRaw('SUM(count) as c')
+            ->groupBy('ym')
+            ->orderBy('ym')
+            ->pluck('c', 'ym');
+    }
+
+    /**
+     * Fallback: hitung langsung dari form_answers (hanya bila agregat kosong).
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    private function registrationCountsFromSource(int $months)
+    {
+        $start = now()->startOfMonth()->subMonths($months - 1);
+
+        $driver = DB::connection()->getDriverName();
+        $monthExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', form_answers.created_at)",
+            default => "DATE_FORMAT(form_answers.created_at, '%Y-%m')",
+        };
+
+        return FormAnswer::query()
+            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
+            ->join('events', 'forms.event_id', '=', 'events.id')
+            ->whereNull('events.deleted_at')
+            ->whereNull('forms.deleted_at')
+            ->where('form_answers.created_at', '>=', $start)
+            ->selectRaw("{$monthExpr} as ym")
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('ym')
+            ->orderBy('ym')
+            ->pluck('c', 'ym');
     }
 
     /**
