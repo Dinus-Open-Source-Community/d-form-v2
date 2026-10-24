@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             \App\Http\Middleware\AddRobotsTagForPrivateAreas::class,
+            \App\Http\Middleware\DisableSsrForPrivatePages::class,
         ]);
 
         $middleware->alias([

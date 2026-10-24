@@ -15,7 +15,7 @@ function goToGithub() {
     <div>
         <div class="my-6 flex items-center gap-3">
             <span class="h-px flex-1 bg-border"></span>
-            <span class="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">or continue with</span>
+            <span class="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">atau lanjutkan dengan</span>
             <span class="h-px flex-1 bg-border"></span>
         </div>
 

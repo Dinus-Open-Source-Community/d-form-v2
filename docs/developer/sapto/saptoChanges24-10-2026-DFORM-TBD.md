@@ -188,6 +188,8 @@ Perbaikan state test: bucket limiter di-reset deterministik lewat `RateLimiter::
 
 **SSR:** `resources/js/ssr.js` (baru), `vite.config.js`, `package.json`, `docker/Dockerfile.prod`, `docker-compose.prod.yml`, `.gitignore`.
 
+**Redesign auth:** `resources/js/layouts/AuthLayout.vue`, `resources/js/components/modules/auth/{AuthTabs(baru),AuthLoginForm,AuthRegisterForm,AuthForgotPasswordForm,AuthResetPasswordForm,AuthOAuthButtons}.vue`, `resources/js/pages/Auth/{Login,Register}.vue`, `resources/js/pages/Auth.vue`, `resources/js/hooks/useAuthTabs.ts` (baru), `resources/js/lib/authTabs.ts` (baru), `app/Http/Middleware/DisableSsrForPrivatePages.php` (baru), `bootstrap/app.php`.
+
 **Semantik:** `resources/js/layouts/{LandingLayout,AuthLayout}.vue`, `resources/js/pages/Docs.vue`, `resources/js/components/modules/landing/{Navbar,Footer}.vue`, `resources/js/components/modules/landing/home/HomeShowcase.vue`, `resources/js/components/modules/landing/features/FeaturesIntegrations.vue`, `resources/js/components/modules/landing/events/EventList.vue`.
 
 **Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `package.json`/`package-lock.json` (devDependency `@playwright/test` + script `test:e2e` yang sudah ada di working tree sebelum tiket ini), `scripts/stress/k6/auth-throttle.js` (baru, ignored).
@@ -267,3 +269,23 @@ Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0
 | Dimensi intrinsik logo auth                                | 160×40 (salah)       | 113×49                                   |
 
 Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-[4/3]` / `aspect-[16/10]` (`lib/eventBannerAspect.ts`), jadi CLS sudah dicegah tanpa menebak dimensi gambar upload.
+
+## 17. Redesign halaman auth (tab Masuk/Daftar)
+
+| Aspek | Sebelum | Sesudah |
+| :--- | :--- | :--- |
+| Layout | dua kolom, ilustrasi lottie kiri, kartu `app-surface` | satu kolom, tanpa ilustrasi/kartu/background, tanpa footer |
+| Posisi | vertikal center (`items-center`) | horizontal center + anchor atas (`items-start` + `pt-28/36`); tablist `top` tetap saat pindah tab |
+| Navigasi | link "Sign up" di bawah judul | 2 tab `flex-1`, underline biru 3px, switch in-place |
+| Copy | campuran Inggris/Indonesia | Indonesia konsisten (Masuk/Daftar, "Selamat datang kembali", "atau lanjutkan dengan") |
+| Lottie auth | `AuthIllustration` + `authSecure` | dihapus; `LocalLottie` tetap untuk halaman lain |
+
+**Perilaku tab (terukur):** `pushState` `/auth/login` ↔ `/auth/register`, `popstate`/back benar; kedua panel `force-mount` sehingga nilai form tidak hilang (email login tetap setelah pindah tab dan kembali); `role=tablist/tab/tabpanel`, `aria-selected`, panah kiri/kanan, Home/End, fokus terlihat.
+
+**Bukti tidak ada pergeseran (Playwright):** desktop 1280×900 → tablist `top` 144 pada login & register (Δ0), panel `height` 399 → 515 (tumbuh ke bawah); mobile 390×844 → tablist `top` 105 (Δ0). Footer `0` node; semua leluhur judul `background-color: rgba(0,0,0,0)`.
+
+**SSR dimatikan untuk area privat** — `app/Http/Middleware/DisableSsrForPrivatePages.php` (auth, admin, dashboard, joined, recruitment). Alasan: halaman privat `noindex` (tanpa manfaat SEO) dan form dari HTML SSR bisa ter-submit native sebelum Vue mount (klik/Enter sebelum JS siap → 419). Halaman publik tetap SSR. Bukti: `/auth/login` `title=0` di HTML mentah, `/features` dan `/` `title=1`.
+
+**E2E disesuaikan:** locator di-scope ke `#login-email`/`#login-password` karena panel Daftar ikut ter-mount (`getByLabel(/email/i)` menjadi ambigu). Suite auth **8/8 lulus**, Pint PASS, ESLint 0 error.
+
+**Build:** entry **57.668 B / 18.142 B gzip**; chunk `Auth/Login` 1.430 B (691 gzip), `Auth/Register` 1.433 B (692 gzip), chunk bersama `useAuthTabs` 11,5 kB.

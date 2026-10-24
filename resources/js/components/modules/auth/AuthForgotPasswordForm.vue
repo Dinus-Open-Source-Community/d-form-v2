@@ -54,9 +54,11 @@ async function submit(): Promise<void> {
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Reset password</h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-                Enter your email and we will send you a link if an account exists.
+            <h1 class="font-display text-[2rem] leading-tight font-bold tracking-[-0.035em] text-foreground sm:text-4xl">
+                Lupa kata sandi?
+            </h1>
+            <p class="mt-2.5 text-sm text-muted-foreground">
+                Masukkan email Anda. Kami kirim tautan pengaturan ulang bila akun terdaftar.
             </p>
         </div>
 
@@ -76,18 +78,18 @@ async function submit(): Promise<void> {
             <Button size="lg" class="w-full disabled:cursor-not-allowed" :disabled="processing">
                 <span v-if="processing" class="flex items-center gap-2">
                     <Spinner />
-                    Sending link
+                    Mengirim tautan
                 </span>
-                <span v-else>Send reset link</span>
+                <span v-else>Kirim tautan reset</span>
             </Button>
 
             <p class="mt-2 text-center text-sm text-muted-foreground">
-                Remember your password?
+                Ingat kata sandi Anda?
                 <Link
                     :href="loginPage()"
                     class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
                 >
-                    Sign in
+                    Masuk
                 </Link>
             </p>
         </form>

@@ -73,9 +73,13 @@ test.describe('auth login', () => {
 
     test('login gagal menampilkan pesan netral', async ({ page }) => {
         await page.goto('/auth/login')
-        await page.getByLabel(/email/i).fill(`e2e-login-fail-${Date.now()}@example.test`)
-        await page.getByLabel(/password/i).fill('password-salah')
-        await page.getByRole('button', { name: /masuk|login|sign in/i }).click()
+
+        // Tab Sign up ikut ter-mount (force-mount), jadi selector harus di-scope ke form login.
+        const loginForm = page.locator('form').filter({ has: page.locator('#login-email') })
+
+        await page.locator('#login-email').fill(`e2e-login-fail-${Date.now()}@example.test`)
+        await page.locator('#login-password').fill('password-salah')
+        await loginForm.getByRole('button', { name: /masuk/i }).click()
 
         await expect(
             page.locator('[data-sonner-toast]').filter({ hasText: /gagal masuk/i }),
@@ -101,8 +105,8 @@ test.describe('auth login', () => {
 
         const form = page.locator('form').filter({ has: page.locator('#login-email') })
 
-        await page.getByLabel(/email/i).fill('bukan-email')
-        await page.getByRole('button', { name: /masuk|login|sign in/i }).click()
+        await page.locator('#login-email').fill('bukan-email')
+        await form.getByRole('button', { name: /masuk/i }).click()
 
         await expect(form.locator('.text-destructive').filter({ hasText: /valid email address/i })).toBeVisible()
         await expect(page).toHaveURL(/\/auth\/login/)
@@ -161,8 +165,8 @@ test.describe('throttle', () => {
         expect(limited.status()).toBe(429)
         expect(Number(limited.headers()['retry-after'])).toBeGreaterThan(0)
 
-        await page.getByLabel(/email/i).fill(email)
-        await page.getByLabel(/password/i).fill('salah')
+        await page.locator('#login-email').fill(email)
+        await page.locator('#login-password').fill('salah')
 
         const submission = page.waitForResponse(
             (response) => response.url().includes('/auth/login') && response.request().method() === 'POST',

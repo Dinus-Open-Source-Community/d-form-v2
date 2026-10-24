@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Link, useForm } from '@inertiajs/vue3'
+import { useForm } from '@inertiajs/vue3'
 import { Check, Circle } from 'lucide-vue-next'
 import { AuthField } from '@/components/core/field'
 import { AuthSubmitButton } from '@/components/core/button'
-import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController'
 import { store as register } from '@/actions/App/Http/Controllers/Auth/RegisterController'
 import { getFieldError, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
 import type { PasswordRule, PasswordStrength } from '@/types/auth'
@@ -89,10 +88,10 @@ function submit(): void {
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Create account</h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-                Start building forms in under a minute.
-            </p>
+            <h1 class="font-display text-[2rem] leading-tight font-bold tracking-[-0.035em] text-foreground sm:text-4xl">
+                Buat akun
+            </h1>
+            <p class="mt-2.5 text-sm text-muted-foreground">Siapkan akun untuk mulai membuat formulir.</p>
         </div>
 
         <form @submit.prevent="submit" class="space-y-4">
@@ -182,19 +181,9 @@ function submit(): void {
             />
 
             <AuthSubmitButton :form="form">
-                <template #processing>Creating account</template>
-                Create account
+                <template #processing>Membuat akun</template>
+                Buat akun
             </AuthSubmitButton>
-
-            <p class="mt-2 text-center text-sm text-muted-foreground">
-                Already have an account?
-                <Link
-                    :href="loginPage()"
-                    class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
-                >
-                    Sign in
-                </Link>
-            </p>
         </form>
     </div>
 </template>

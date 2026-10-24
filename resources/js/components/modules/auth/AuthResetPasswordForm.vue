@@ -38,8 +38,10 @@ function submit(): void {
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Choose a new password</h1>
-            <p class="mt-2 text-sm text-muted-foreground">Enter and confirm your new password below.</p>
+            <h1 class="font-display text-[2rem] leading-tight font-bold tracking-[-0.035em] text-foreground sm:text-4xl">
+                Pilih kata sandi baru
+            </h1>
+            <p class="mt-2.5 text-sm text-muted-foreground">Masukkan dan konfirmasi kata sandi baru Anda.</p>
         </div>
 
         <form @submit.prevent="submit" class="space-y-5">
@@ -78,8 +80,8 @@ function submit(): void {
             />
 
             <AuthSubmitButton :form="form">
-                <template #processing>Updating password</template>
-                Update password
+                <template #processing>Memperbarui kata sandi</template>
+                Perbarui kata sandi
             </AuthSubmitButton>
 
             <p class="mt-2 text-center text-sm text-muted-foreground">
@@ -87,7 +89,7 @@ function submit(): void {
                     :href="loginPage()"
                     class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
                 >
-                    Back to sign in
+                    Kembali ke halaman masuk
                 </Link>
             </p>
         </form>
