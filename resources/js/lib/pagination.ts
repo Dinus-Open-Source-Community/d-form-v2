@@ -11,9 +11,12 @@ const COMPACT_STEPS: readonly { limit: number; suffix: string }[] = [
 /** Jumlah nomor per blok; blok bergeser mengikuti halaman aktif. */
 const PAGE_BLOCK = 10
 
-/** Nomor yang tetap tampil di awal dan akhir blok; sisanya diringkas jadi `…`. */
-const BLOCK_HEAD = 4
-const BLOCK_TAIL = 3
+/** Pagination standar MUI: satu nomor di tepi blok, satu sibling di tiap sisi aktif. */
+const BOUNDARY_COUNT = 1
+const SIBLING_COUNT = 1
+
+/** Blok maksimal yang tampil utuh tanpa elipsis. */
+const FULL_BLOCK_MAX = 7
 
 /**
  * Ringkas angka besar untuk teks rentang: 4_600 jadi 4.6k, 1_200_000 jadi 1.2m.
@@ -28,10 +31,10 @@ export function formatCompactNumber(value: number): string {
 }
 
 /**
- * Deret nomor satu blok (default 10) yang memuat halaman aktif, tanpa nomor
- * halaman terakhir. Deret = 4 nomor awal blok, `…`, lalu 3 nomor akhir blok
- * (ujungnya selalu kelipatan 10); elipsis di depan menandai blok sebelumnya.
- * Contoh: halaman 14 dari 125000 jadi `… 11 12 13 14 … 18 19 20`.
+ * Deret nomor satu blok (default 10) yang memuat halaman aktif. Batas deret
+ * adalah ujung blok kelipatan 10, bukan halaman terakhir, lalu dipotong dengan
+ * algoritma pagination standar MUI (boundary 1, sibling 1).
+ * Contoh: halaman 14 dari 125000 jadi `1 … 13 14 15 … 20`.
  */
 export function pageWindow(
     currentPage: number,
@@ -39,23 +42,47 @@ export function pageWindow(
     block: number = PAGE_BLOCK,
 ): TPaginationItem[] {
     if (lastPage <= 0) return []
-    if (lastPage <= block) return pageRange(1, lastPage)
 
     const current = Math.min(Math.max(currentPage, 1), lastPage)
-    const start = Math.floor((current - 1) / block) * block + 1
-    const end = Math.min(start + block - 1, lastPage)
-    const size = end - start + 1
+    const blockStart = Math.floor((current - 1) / block) * block + 1
+    const blockEnd = Math.min(blockStart + block - 1, lastPage)
 
-    const items: TPaginationItem[] = []
-    if (start > 1) items.push('ellipsis')
+    if (blockEnd <= FULL_BLOCK_MAX) return pageRange(1, blockEnd)
 
-    if (size <= BLOCK_HEAD + BLOCK_TAIL) {
-        items.push(...pageRange(start, end))
-        return items
+    return blockItems(current, blockEnd)
+}
+
+/** Potong satu blok nomor memakai aturan MUI: boundary, sibling, lalu elipsis pada celah. */
+function blockItems(current: number, count: number): TPaginationItem[] {
+    const startPages = pageRange(1, Math.min(BOUNDARY_COUNT, count))
+    const endPages = pageRange(Math.max(count - BOUNDARY_COUNT + 1, BOUNDARY_COUNT + 1), count)
+
+    const siblingsStart = Math.max(
+        Math.min(current - SIBLING_COUNT, count - BOUNDARY_COUNT - SIBLING_COUNT * 2 - 1),
+        BOUNDARY_COUNT + 2,
+    )
+    const siblingsEnd = Math.min(
+        Math.max(current + SIBLING_COUNT, BOUNDARY_COUNT + SIBLING_COUNT * 2 + 2),
+        endPages.length > 0 ? endPages[0] - 2 : count - 1,
+    )
+
+    const items: TPaginationItem[] = [...startPages]
+
+    if (siblingsStart > BOUNDARY_COUNT + 2) {
+        items.push('ellipsis')
+    } else if (BOUNDARY_COUNT + 1 < count - BOUNDARY_COUNT) {
+        items.push(BOUNDARY_COUNT + 1)
     }
 
-    items.push(...pageRange(start, start + BLOCK_HEAD - 1), 'ellipsis')
-    items.push(...pageRange(end - BLOCK_TAIL + 1, end))
+    items.push(...pageRange(siblingsStart, siblingsEnd))
+
+    if (siblingsEnd < count - BOUNDARY_COUNT - 1) {
+        items.push('ellipsis')
+    } else if (count - BOUNDARY_COUNT > BOUNDARY_COUNT) {
+        items.push(count - BOUNDARY_COUNT)
+    }
+
+    items.push(...endPages)
 
     return items
 }

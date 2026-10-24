@@ -134,7 +134,6 @@ function formatDt(iso: string) {
                     :total="attendanceLog.total"
                     :per-page="attendanceLog.per_page"
                     :per-page-options="[]"
-                    unit-label="rekaman"
                 />
             </CardContent>
         </Card>

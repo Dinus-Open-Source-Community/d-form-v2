@@ -842,7 +842,6 @@ const emptyDescription = computed<string>((): string => {
             :total="interviews.total"
             :per-page="interviews.per_page ?? FALLBACK_PER_PAGE"
             :per-page-options="[]"
-            unit-label="hasil interview"
         />
     </div>
 </template>

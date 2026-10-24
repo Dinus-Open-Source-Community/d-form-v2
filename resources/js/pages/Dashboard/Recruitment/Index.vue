@@ -397,7 +397,6 @@ onMounted(() => {
                 :total="periods?.total ?? null"
                 :per-page="periods?.per_page ?? 20"
                 :per-page-options="[]"
-                unit-label="periode"
             />
         </section>
 

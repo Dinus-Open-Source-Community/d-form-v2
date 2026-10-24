@@ -238,7 +238,6 @@ onMounted(() => {
                 :prev-url="cursorUrls.previous"
                 :next-url="cursorUrls.next"
                 :per-page-options="[]"
-                unit-label="acara"
             />
         </template>
     </div>

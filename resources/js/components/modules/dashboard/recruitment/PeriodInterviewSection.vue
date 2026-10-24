@@ -440,7 +440,6 @@ function submitExport(): void {
             :total="sessions.total"
             :per-page="sessions.per_page ?? 20"
             :per-page-options="[]"
-            unit-label="sesi"
         />
 
         <p v-else-if="!sessions" class="text-muted-foreground text-sm">Data sesi tidak tersedia untuk tab ini.</p>

@@ -117,7 +117,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                             :total="bundleGroups.total"
                             :per-page="bundleGroups.per_page"
                             :per-page-options="[]"
-                            unit-label="grup"
                         />
                     </div>
                 </template>
@@ -153,7 +152,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                             :total="submissions.total"
                             :per-page="submissions.per_page"
                             :per-page-options="[]"
-                            unit-label="pengiriman"
                         />
                     </div>
                 </template>

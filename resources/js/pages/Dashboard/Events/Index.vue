@@ -197,7 +197,6 @@ function handleDeleteConfirm(): void {
             :last-page="events.last_page"
             :total="events.total"
             :per-page="events.per_page"
-            unit-label="acara"
         />
     </div>
 </template>

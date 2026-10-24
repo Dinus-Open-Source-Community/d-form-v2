@@ -287,7 +287,6 @@ function confirmDelete(): void {
                 :total="users.total"
                 :per-page="users.per_page"
                 :per-page-options="[]"
-                unit-label="pengguna"
             />
         </template>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { router } from '@inertiajs/vue3'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination'
@@ -16,8 +16,6 @@ interface IAppPaginationProps {
     perPageOptions?: number[] | null
     pageParam?: string
     perPageParam?: string
-    /** Kata benda untuk label aksesibel, mis. `acara` atau `pengguna`. */
-    unitLabel?: string
     /** URL prev/next dari server; wajib pada mode cursor agar navigasi benar. */
     prevUrl?: string | null
     nextUrl?: string | null
@@ -30,7 +28,6 @@ const props = withDefaults(defineProps<IAppPaginationProps>(), {
     perPageOptions: (): number[] => [8, 25, 50, 100],
     pageParam: 'page',
     perPageParam: 'per_page',
-    unitLabel: 'data',
     prevUrl: null,
     nextUrl: null,
 })
@@ -147,59 +144,62 @@ function goToNext(): void {
             <p v-if="rangeLabel" class="tabular-nums">{{ rangeLabel }}</p>
         </div>
 
-        <nav :aria-label="`Navigasi halaman ${unitLabel}`" class="flex items-center gap-1">
-            <Button
-                variant="outline"
-                size="icon-sm"
-                radius="md"
-                class="size-7"
-                :disabled="isPreviousDisabled"
-                aria-label="Halaman sebelumnya"
-                @click="goToPrevious"
-            >
-                <ChevronLeft class="size-3.5" aria-hidden="true" />
-            </Button>
-
-            <div class="hidden items-center gap-1 sm:flex">
-                <template v-for="(item, index) in pageItems" :key="index">
-                    <span
-                        v-if="item === 'ellipsis'"
-                        class="text-muted-foreground w-7 text-center"
-                        aria-hidden="true"
-                    >
-                        …
-                    </span>
+        <nav role="navigation" aria-label="pagination" class="flex items-center">
+            <ul class="flex flex-row items-center gap-1">
+                <li>
                     <Button
-                        v-else
-                        variant="ghost"
+                        variant="outline"
                         size="icon-sm"
                         radius="md"
-                        class="h-7 min-w-7 px-1.5 text-xs font-medium tabular-nums"
-                        :class="
-                            item === currentPage
-                                ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
-                                : 'hover:bg-muted'
-                        "
-                        :aria-current="item === currentPage ? 'page' : undefined"
-                        :aria-label="`Halaman ${item}`"
-                        @click="goToPage(item)"
+                        class="h-7 gap-1 px-2.5"
+                        :disabled="isPreviousDisabled"
+                        aria-label="Halaman sebelumnya"
+                        @click="goToPrevious"
                     >
-                        {{ item }}
+                        <ChevronLeft class="size-3.5" aria-hidden="true" />
                     </Button>
-                </template>
-            </div>
+                </li>
 
-            <Button
-                variant="outline"
-                size="icon-sm"
-                radius="md"
-                class="size-7"
-                :disabled="isNextDisabled"
-                aria-label="Halaman berikutnya"
-                @click="goToNext"
-            >
-                <ChevronRight class="size-3.5" aria-hidden="true" />
-            </Button>
+                <template v-for="(item, index) in pageItems" :key="index">
+                    <li class="hidden sm:block">
+                        <span
+                            v-if="item === 'ellipsis'"
+                            aria-hidden="true"
+                            class="text-muted-foreground flex h-7 w-7 items-center justify-center"
+                        >
+                            <MoreHorizontal class="size-4" />
+                            <span class="sr-only">More pages</span>
+                        </span>
+                        <Button
+                            v-else
+                            :variant="item === currentPage ? 'outline' : 'ghost'"
+                            size="icon-sm"
+                            radius="md"
+                            class="h-7 min-w-7 px-1.5 text-xs font-medium tabular-nums"
+                            :data-active="item === currentPage"
+                            :aria-current="item === currentPage ? 'page' : undefined"
+                            :aria-label="`Halaman ${item}`"
+                            @click="goToPage(item)"
+                        >
+                            {{ item }}
+                        </Button>
+                    </li>
+                </template>
+
+                <li>
+                    <Button
+                        variant="outline"
+                        size="icon-sm"
+                        radius="md"
+                        class="h-7 gap-1 px-2.5"
+                        :disabled="isNextDisabled"
+                        aria-label="Halaman berikutnya"
+                        @click="goToNext"
+                    >
+                        <ChevronRight class="size-3.5" aria-hidden="true" />
+                    </Button>
+                </li>
+            </ul>
         </nav>
     </div>
 </template>

@@ -678,7 +678,6 @@ function submitReject(): void {
             :total="serverMeta.total"
             :per-page="applications.per_page ?? 20"
             :per-page-options="[]"
-            unit-label="applicant"
         />
 
         <ConfirmationModal
