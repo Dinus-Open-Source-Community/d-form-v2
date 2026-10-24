@@ -26,11 +26,11 @@ class FieldModifyRequest extends FormRequest
 
         $event = $eventParam instanceof Event
             ? $eventParam
-            : Event::query()->find($eventParam);
+            : Event::query()->select(['id', 'created_by'])->find($eventParam);
 
         $form = $formParam instanceof Form
             ? $formParam
-            : Form::query()->find($formParam);
+            : Form::query()->select(['id', 'event_id'])->find($formParam);
 
         if (!$event || !$form || $form->event_id !== $event->id) {
             return false;
@@ -70,7 +70,7 @@ class FieldModifyRequest extends FormRequest
         $formParam = $this->route('form');
         $form = $formParam instanceof Form
             ? $formParam
-            : ($formParam !== null ? Form::query()->find($formParam) : null);
+            : ($formParam !== null ? Form::query()->select(['id', 'event_id'])->find($formParam) : null);
         FormFieldsRequestValidation::afterForFields($validator, $this, $form);
     }
 

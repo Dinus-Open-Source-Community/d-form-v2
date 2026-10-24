@@ -19,6 +19,21 @@ class Form extends Model
     use HasFactory;
     use SoftDeletes;
     use HasUuids;
+    /**
+     * Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`.
+     */
+    public const ROUTE_BINDING_COLUMNS = [
+        'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
+        'banner_url', 'banner_caption', 'metadata', 'event_id', 'created_at',
+        'updated_at', 'deleted_at', 'created_by',
+    ];
+
+    /** Resolve route binding `{form}` dengan daftar kolom eksplisit. */
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        return parent::resolveRouteBindingQuery($query, $value, $field)
+            ->select(self::ROUTE_BINDING_COLUMNS);
+    }
 
     protected $keyType = 'string';
 

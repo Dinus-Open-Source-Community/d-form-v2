@@ -34,10 +34,10 @@ trait ConvertsLegacyDataUrls
 
         $event = $eventParam instanceof Event
             ? $eventParam
-            : ($eventParam !== null ? Event::query()->find($eventParam) : null);
+            : ($eventParam !== null ? Event::query()->select(['id', 'created_by'])->find($eventParam) : null);
         $form = $formParam instanceof Form
             ? $formParam
-            : ($formParam !== null ? Form::query()->find($formParam) : null);
+            : ($formParam !== null ? Form::query()->select(['id', 'event_id'])->find($formParam) : null);
 
         if (! $event || ! $form || $form->event_id !== $event->id) {
             return;

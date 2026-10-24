@@ -25,12 +25,12 @@ class UpdateEventFormRequest extends FormRequest
         $eventParam = $this->route('event');
         $event = $eventParam instanceof Event
             ? $eventParam
-            : Event::query()->find($eventParam);
+            : Event::query()->select(['id', 'created_by'])->find($eventParam);
 
         $formParam = $this->route('form');
         $form = $formParam instanceof Form
             ? $formParam
-            : Form::query()->find($formParam);
+            : Form::query()->select(['id', 'event_id'])->find($formParam);
         if (!$event || !$form || $form->event_id !== $event->id) {
             return false;
         }
@@ -90,12 +90,12 @@ class UpdateEventFormRequest extends FormRequest
         $eventParam = $this->route('event');
         $event = $eventParam instanceof Event
             ? $eventParam
-            : Event::query()->find($eventParam);
+            : Event::query()->select(['id', 'created_by'])->find($eventParam);
 
         $formParam = $this->route('form');
         $form = $formParam instanceof Form
             ? $formParam
-            : Form::query()->find($formParam);
+            : Form::query()->select(['id', 'event_id'])->find($formParam);
 
         FormFieldsRequestValidation::afterForFields(
             $validator,
