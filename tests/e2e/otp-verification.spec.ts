@@ -8,6 +8,28 @@ function createTestEmail(prefix: string): string {
     return `e2e-otp-${prefix}-${Date.now()}@example.test`
 }
 
+/**
+ * Klik "Buat akun" lalu tunggu halaman OTP. Dev server sesekali "menelan" klik pertama
+ * (halaman masih sibuk) tanpa mengirim POST, jadi klik diulang hanya saat tombol idle.
+ */
+async function submitRegisterForm(page: Page): Promise<void> {
+    const button = page.getByRole('button', { name: /buat akun/i })
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        await button.click()
+
+        try {
+            await page.waitForURL(/\/auth\/verify-otp/, { timeout: 5_000 })
+            return
+        } catch {
+            // Tombol berlabel "Membuat akun" berarti POST sedang jalan: cukup tunggu lebih lama.
+            if (/membuat akun/i.test(await button.innerText())) break
+        }
+    }
+
+    await expect(page).toHaveURL(/\/auth\/verify-otp/, { timeout: 25_000 })
+}
+
 /** Daftar akun baru lewat form register lalu tunggu halaman verifikasi OTP tampil. */
 async function registerUntilOtpPage(page: Page, email: string): Promise<void> {
     await page.goto('/auth/register')
@@ -19,9 +41,7 @@ async function registerUntilOtpPage(page: Page, email: string): Promise<void> {
     // Cek ketersediaan email hanya jalan setelah Vue ter-hydrate: penanda form siap diklik.
     await expect(page.locator('[data-email-availability="available"]')).toBeVisible()
 
-    await page.getByRole('button', { name: /buat akun/i }).click()
-
-    await expect(page).toHaveURL(/\/auth\/verify-otp/)
+    await submitRegisterForm(page)
 }
 
 /** Enam kotak kode OTP, dicari lewat grup berlabel agar tidak ikut menangkap input lain. */
@@ -65,6 +85,20 @@ async function readSendsRemaining(response: Response): Promise<number> {
     return payload.props.sendsRemaining
 }
 
+/** Pastikan respons verifikasi berupa JSON sukses (`200 { verified, redirect }`). */
+async function expectVerifiedJson(response: Response): Promise<void> {
+    const body: unknown = await response.json()
+
+    if (typeof body !== 'object' || body === null || !('verified' in body) || !('redirect' in body)) {
+        throw new Error('Respons verifikasi bukan JSON sukses')
+    }
+
+    if (typeof body.redirect !== 'string') throw new Error('Respons verifikasi tanpa tujuan redirect')
+
+    expect(body.verified).toBe(true)
+    expect(body.redirect).toContain('/dashboard')
+}
+
 /** Ubah label hitung mundur `mm:ss` menjadi detik. */
 function toSeconds(label: string): number {
     const [minutes = '0', seconds = '0'] = label.trim().split(':')
@@ -105,13 +139,18 @@ async function pasteOtp(page: Page, code: string): Promise<void> {
     }, code)
 }
 
-/** Ketik kode pada kotak pertama, tunggu server menolaknya, lalu pastikan kotak dikosongkan. */
+/**
+ * Ketik kode pada kotak pertama lalu tunggu server menolaknya (422) beserta props yang disegarkan.
+ * Kotak harus dikosongkan sendiri oleh halaman setelah penolakan.
+ */
 async function submitWrongCode(page: Page, code: string): Promise<void> {
     const rejected = page.waitForResponse(isVerifyPostResponse)
+    const refreshed = page.waitForResponse(isOtpPageJsonResponse)
 
     await otpBoxes(page).first().click()
     await page.keyboard.type(code)
     await rejected
+    await refreshed
 
     // Server lambat di lingkungan dev; beri ruang lebih dari timeout assertion bawaan.
     await expect(otpBoxes(page).first()).toHaveValue('', { timeout: 20_000 })
@@ -133,6 +172,9 @@ async function waitForResendAvailable(page: Page, resendButton: Locator): Promis
 }
 
 test.describe('verifikasi OTP', () => {
+    // Dev server kadang lambat; test yang menunggu cooldown/dashboard menaikkan timeout sendiri.
+    test.describe.configure({ timeout: 60_000 })
+
     test.beforeEach(() => {
         resetThrottleBuckets()
     })
@@ -171,40 +213,59 @@ test.describe('verifikasi OTP', () => {
         await expect(page).toHaveURL(/\/auth\/verify-otp/)
     })
 
-    test('mengetik 6 digit langsung submit tanpa klik Verifikasi', async ({ page }) => {
+    test('mengetik 6 digit: auto-submit, kotak hijau, lalu ke dashboard', async ({ page }) => {
+        // Dashboard nyata dimuat setelah jeda hijau; beri ruang lebih dari timeout bawaan.
+        test.setTimeout(60_000)
+
         const email = createTestEmail('auto-ketik')
 
         await registerUntilOtpPage(page, email)
 
-        // Dashboard tidak pernah dirender: dataset stress membuatnya lambat dan menahan worker dev.
-        await page.route('**/dashboard*', (route) => route.abort())
-
-        const responsePromise = page.waitForResponse(isVerifyPostResponse)
+        const code = readActiveOtp(email)
+        const successBoxes = page.locator('[data-state="success"]')
 
         await otpBoxes(page).first().click()
-        await page.keyboard.type(readActiveOtp(email))
+        await page.keyboard.type(code.slice(0, 5))
 
-        // Tanpa klik tombol: server tetap menerima POST dan mengalihkan ke dashboard.
-        const response = await responsePromise
-        expect(response.status()).toBe(302)
-        expect(response.headers()['location']).toContain('/dashboard')
+        // Lima digit belum dikirim: belum ada kotak yang hijau.
+        await expect(successBoxes).toHaveCount(0)
+
+        const verified = page.waitForResponse(isVerifyPostResponse)
+        await page.keyboard.type(code.slice(5))
+
+        // Tanpa klik tombol: jalur JSON menerima kode, bukan redirect server-side.
+        const response = await verified
+        expect(response.status()).toBe(200)
+        await expectVerifiedJson(response)
+
+        // Hijau tampil lebih dulu (jeda ±600 ms), baru halaman pindah sendiri.
+        await page.waitForFunction(() => document.querySelectorAll('[data-state="success"]').length === 6)
+        await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 })
     })
 
     test('paste 6 digit langsung submit tanpa klik Verifikasi', async ({ page }) => {
+        test.setTimeout(60_000)
+
         const email = createTestEmail('auto-paste')
 
         await registerUntilOtpPage(page, email)
 
+        // Navigasi tujuan diamati dari request-nya; render dashboard tidak ditunggu di test ini
+        // (test "mengetik 6 digit" sudah membuktikan URL akhirnya).
         await page.route('**/dashboard*', (route) => route.abort())
+        const navigated = page.waitForRequest((request) => request.url().includes('/dashboard'))
 
-        const responsePromise = page.waitForResponse(isVerifyPostResponse)
+        const verified = page.waitForResponse(isVerifyPostResponse)
 
         await otpBoxes(page).first().click()
         await pasteOtp(page, readActiveOtp(email))
 
-        const response = await responsePromise
-        expect(response.status()).toBe(302)
-        expect(response.headers()['location']).toContain('/dashboard')
+        const response = await verified
+        expect(response.status()).toBe(200)
+        await expectVerifiedJson(response)
+
+        await page.waitForFunction(() => document.querySelectorAll('[data-state="success"]').length === 6)
+        await navigated
     })
 
     test('kode salah: kotak merah, pesan error, dan kode dikosongkan', async ({ page }) => {
@@ -322,50 +383,6 @@ test.describe('verifikasi OTP', () => {
         await expect
             .poll(async () => readCountdownSeconds(codeCountdown), { timeout: 5_000 })
             .toBeLessThan(secondsBeforeTick)
-    })
-
-    test('kotak hijau hanya setelah server menerima kode', async ({ page }) => {
-        const email = createTestEmail('hijau')
-
-        const initialOtpPage = page.waitForResponse(isOtpPageJsonResponse)
-        await registerUntilOtpPage(page, email)
-        const otpPageBody: unknown = await (await initialOtpPage).json()
-
-        // Server tetap memverifikasi kode; respons 200 halaman OTP yang sama dipakai agar state
-        // sukses bisa diamati (pada alur asli halaman langsung berganti ke dashboard).
-        let verifyStatus = 0
-        let verifyLocation = ''
-
-        await page.route('**/auth/verify-otp', async (route) => {
-            if (route.request().method() !== 'POST') return route.fallback()
-
-            const verified = await route.fetch({ maxRedirects: 0 })
-            verifyStatus = verified.status()
-            verifyLocation = verified.headers()['location'] ?? ''
-
-            await route.fulfill({
-                status: 200,
-                headers: { 'content-type': 'application/json', 'x-inertia': 'true' },
-                body: JSON.stringify(otpPageBody),
-            })
-        })
-
-        const code = readActiveOtp(email)
-        const successBoxes = page.locator('[data-state="success"]')
-
-        await otpBoxes(page).first().click()
-        await page.keyboard.type(code.slice(0, 5))
-
-        // Lima digit belum dikirim: tidak ada kotak yang berubah hijau.
-        await expect(successBoxes).toHaveCount(0)
-
-        await page.keyboard.type(code.slice(5))
-
-        // Respons server di lingkungan dev bisa lambat; beri ruang lebih dari timeout bawaan.
-        await expect(successBoxes).toHaveCount(6, { timeout: 20_000 })
-        expect(verifyStatus).toBe(302)
-        expect(verifyLocation).toContain('/dashboard')
-        await expect(page).toHaveURL(/\/auth\/verify-otp/)
     })
 
     test('ganti akun kembali ke form pendaftaran', async ({ page }) => {

@@ -25,9 +25,11 @@ const props = defineProps<{
 const { expiresIn, resendIn, isExpired, isLocked } = useOtpCountdown(props);
 
 const {
-    form,
+    code,
     codeError,
+    submitNotice,
     resendError,
+    isSubmitting,
     isResendBlocked,
     canSubmit,
     isVerified,
@@ -100,7 +102,7 @@ const codeDescriptionIds: ComputedRef<string | undefined> = computed<string | un
 
             <form class="mt-8" novalidate @submit.prevent="submit">
                 <OtpCodeInput
-                    v-model="form.code"
+                    v-model="code"
                     :invalid="codeError !== undefined && !isExpired"
                     :success="isVerified"
                     :disabled="isExpired"
@@ -117,13 +119,24 @@ const codeDescriptionIds: ComputedRef<string | undefined> = computed<string | un
                     {{ codeError }}
                 </p>
 
+                <!-- 429/jaringan: pesan saja, kotak tidak ikut merah. -->
+                <p
+                    v-if="submitNotice"
+                    data-testid="otp-submit-notice"
+                    role="alert"
+                    class="mt-3 flex items-start justify-center gap-1.5 text-sm font-medium text-destructive"
+                >
+                    <CircleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    {{ submitNotice }}
+                </p>
+
                 <Button
                     type="submit"
                     size="lg"
                     class="mt-6 w-full disabled:cursor-not-allowed disabled:bg-primary/10 disabled:text-primary disabled:opacity-100"
                     :disabled="!canSubmit"
                 >
-                    <span v-if="form.processing" class="flex items-center gap-2">
+                    <span v-if="isSubmitting" class="flex items-center gap-2">
                         <Spinner />
                         Memverifikasi
                     </span>
