@@ -29,6 +29,8 @@ Optimasi halaman auth berdasarkan audit `docs/big-changes/auth/report.md`: bundl
 | 429 Inertia             | header `Retry-After` hilang              | header disalin + toast hitung mundur           | fix            |
 | Favicon                 | 370.070 B                                | 7.406 B (ICO 16/32/48) + PNG 192 + apple-touch | −98%           |
 | SEO & meta auth         | tanpa `<title>`, `description`, `noindex` | title + description + `noindex, nofollow` di 4 halaman auth | +UX & crawl |
+| SSR Inertia             | HTML mentah tanpa title/meta/OG/JSON-LD | dirender server (`bootstrap/ssr`), fallback CSR tetap jalan | +SEO |
+| Semantik HTML5          | logo 404, 2 `<main>` di docs, auth tanpa `<main>`, 15 heading skip | semua diperbaiki, skip-link + label pencarian ditambah | +a11y/SEO |
 | Google Fonts            | `@import` di baris pertama CSS           | `<link>` + `preconnect` di root view           | non-blocking   |
 
 Angka diukur di localhost tanpa throttle jaringan dan tanpa concurrency, dengan `APP_DEBUG=true` (Debugbar aktif ±490 kB, tidak dihitung di "payload app"). Jangan diekstrapolasi ke 3G/4G tanpa menyebutnya estimasi.
@@ -184,6 +186,10 @@ Perbaikan state test: bucket limiter di-reset deterministik lewat `RateLimiter::
 
 **SEO:** `resources/js/components/seo/SeoHead.vue`, `resources/js/pages/Auth/{Login,Register,ForgotPassword,ResetPassword}.vue`.
 
+**SSR:** `resources/js/ssr.js` (baru), `vite.config.js`, `package.json`, `docker/Dockerfile.prod`, `docker-compose.prod.yml`, `.gitignore`.
+
+**Semantik:** `resources/js/layouts/{LandingLayout,AuthLayout}.vue`, `resources/js/pages/Docs.vue`, `resources/js/components/modules/landing/{Navbar,Footer}.vue`, `resources/js/components/modules/landing/home/HomeShowcase.vue`, `resources/js/components/modules/landing/features/FeaturesIntegrations.vue`, `resources/js/components/modules/landing/events/EventList.vue`.
+
 **Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `package.json`/`package-lock.json` (devDependency `@playwright/test` + script `test:e2e` yang sudah ada di working tree sebelum tiket ini), `scripts/stress/k6/auth-throttle.js` (baru, ignored).
 
 ## 14. Follow-up: SEO & meta halaman auth
@@ -211,3 +217,49 @@ Halaman auth sebelumnya tidak punya `<title>`, `description`, maupun penanda rob
 **Tidak diubah:** `SitemapController` sudah hanya memuat `/`, `/events`, `/features`, `/docs`, dan detail event published — halaman auth tidak pernah masuk sitemap. Header `X-Robots-Tag` dari `AddRobotsTagForPrivateAreas` tetap berlaku sebagai lapisan kedua.
 
 **Sisa peluang performa (perlu keputusan produk/desain, tidak dikerjakan):** animasi lottie auth ±99 kB (chunk 80,8 kB + JSON 18,7 kB) untuk elemen dekoratif; Google Fonts masih dari domain pihak ketiga (bisa self-host untuk menghapus 2 RTT). Sisanya sudah batas wajar: `vendor-inertia` 64,8 kB, `vendor-ui` 57 kB, CSS 43,8 kB.
+
+## 15. Follow-up: SSR Inertia (server-rendered HTML)
+
+Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0 JSON-LD** — semua meta dibuat JS. Sekarang dirender di server.
+
+| File                                   | Perubahan                                                                                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resources/js/ssr.js` (baru)           | entry SSR: `createServer` + `createInertiaApp({ page, render: renderToString, resolve, setup })`; glob page lazy; directive `focus` versi `getSSRProps` (tanpa DOM) karena dipakai input inti |
+| `vite.config.js`                       | `laravel({ ssr: 'resources/js/ssr.js' })` + `ssr.noExternal: true` (bundle self-contained; tanpa ini build SSR gagal karena `manualChunks`)  |
+| `package.json`                         | script `build:ssr` (`vite build --ssr`)                                                                                                      |
+| `docker/Dockerfile.prod`               | build client + SSR, lalu `rm -rf node_modules` (bundle terbukti jalan tanpa `node_modules`)                                                   |
+| `docker-compose.prod.yml`              | service `ssr` (entrypoint `node bootstrap/ssr/ssr.js`, healthcheck `/health`, hanya `d-form-internal`) + `INERTIA_SSR_URL=http://ssr:13714` di `app` |
+| `.gitignore`                           | `/bootstrap/ssr`                                                                                                                              |
+
+**Bukti HTML mentah (curl, proses SSR hidup):**
+
+| Path                       | title | description | og:title | JSON-LD | canonical |
+| -------------------------- | ----: | ----------: | -------: | ------: | --------: |
+| `/`                        | 1     | 1           | 1        | 1       | 1         |
+| `/features`                | 1     | 1           | 1        | 1       | 1         |
+| `/events`                  | 1     | 1           | 1        | 1       | 1         |
+| `/events/stress-event-839549` | 1  | 1           | 1        | 1 (`Event`) | 1     |
+| `/auth/login`              | 1     | 1           | 1        | 0 (tidak ada schema) | 0 (noindex, by design) |
+
+- Bundle SSR: `bootstrap/ssr/ssr.js` 84,43 kB + `assets/` (total 12 MB); dijalankan dari salinan tanpa `node_modules` → `{"status":"OK"}` pada `/health`.
+- Fallback: proses node dimatikan → semua halaman tetap **200**, `title=0` di HTML mentah, client merender normal (`HttpGateway` mengembalikan null saat koneksi gagal).
+- Dev: SSR tidak dipakai saat HMR (bundle statis vs chunk client baru = risiko mismatch). Perintah cek:
+  `podman exec -d -w /app d_form_app sh -lc 'cd /app && npm run build:ssr && node bootstrap/ssr/ssr.js'`
+
+**Keputusan: hydration TIDAK diaktifkan.** Percobaan mengganti `createApp` → `createSSRApp` di `app.js` menghasilkan hydration mismatch sistematis (class/node/style) di 4/4 halaman yang diuji (`/`, `/features`, `/auth/login`, `/docs`) karena komponen memakai state client-only (IntersectionObserver lottie, path aktif navbar). Dikembalikan ke `createApp`: SSR dipakai untuk HTML crawler, client merender ulang. CLS terukur **0** dengan SSR aktif, jadi tidak ada flash terukur. Hydration dicatat sebagai follow-up yang butuh audit per komponen.
+
+**Test E2E disesuaikan:** atribut `novalidate` dipasang lewat `MutationObserver` (node form SSR diganti saat mount), dan reset bucket limiter memakai `Cache::flush()` karena aplikasi melihat IP NAT podman (`10.89.0.9`), bukan `127.0.0.1`.
+
+## 16. Follow-up: semantik HTML5 & aksesibilitas
+
+| Temuan (audit DOM)                                        | Sebelum              | Sesudah                                  |
+| --------------------------------------------------------- | -------------------- | ---------------------------------------- |
+| Logo navbar/footer `src="/public/DForm%201.png"`           | 404 (gambar rusak)   | 200, `width=113 height=49`                |
+| Skip-link + `main#main` (publik)                           | tidak ada            | ada di 5 halaman publik                  |
+| `<main>` di `/docs`                                        | 2 (nested, invalid)  | 1                                        |
+| Landmark `<main>` di layout auth                           | 0                    | 1                                        |
+| Input pencarian `/events`                                  | tanpa label          | `aria-label="Cari acara"`                |
+| Heading skip (landing / features / docs)                   | 1 / 1 / 13           | 0 / 0 / 0                                |
+| Dimensi intrinsik logo auth                                | 160×40 (salah)       | 113×49                                   |
+
+Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-[4/3]` / `aspect-[16/10]` (`lib/eventBannerAspect.ts`), jadi CLS sudah dicegah tanpa menebak dimensi gambar upload.

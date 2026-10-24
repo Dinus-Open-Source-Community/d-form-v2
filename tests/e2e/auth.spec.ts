@@ -45,14 +45,9 @@ async function postAuth(
     })
 }
 
-/** Kosongkan bucket limiter berbasis IP agar hasil test deterministik lintas run. */
+/** Kosongkan cache limiter agar hasil test deterministik lintas run (pola sama dengan e2e event-search). */
 function resetThrottleBuckets(): void {
-    const limiterNames = ['auth-register', 'auth-password-email', 'auth-password-link', 'auth-password-reset']
-    const calls = limiterNames
-        .map((name) => `\\Illuminate\\Support\\Facades\\RateLimiter::clear(md5('${name}'.'127.0.0.1'));`)
-        .join(' ')
-
-    runArtisan(calls)
+    runArtisan('\\Illuminate\\Support\\Facades\\Cache::flush();')
 }
 
 test.describe('auth login', () => {
@@ -89,13 +84,22 @@ test.describe('auth login', () => {
     })
 
     test('validasi gagal menampilkan error field', async ({ page }) => {
+        // Halaman di-render server lalu diganti client; MutationObserver memastikan
+        // atribut novalidate selalu ada pada form aktif, bukan hanya node SSR lama.
+        await page.addInitScript(() => {
+            const disableNativeValidation = (): void => {
+                document.querySelectorAll('form').forEach((form) => {
+                    form.noValidate = true
+                })
+            }
+
+            new MutationObserver(disableNativeValidation).observe(document, { childList: true, subtree: true })
+            document.addEventListener('DOMContentLoaded', disableNativeValidation)
+        })
+
         await page.goto('/auth/login')
 
-        // Validasi native browser dimatikan agar jalur validasi server yang diuji.
         const form = page.locator('form').filter({ has: page.locator('#login-email') })
-        await form.evaluate((element: HTMLFormElement) => {
-            element.noValidate = true
-        })
 
         await page.getByLabel(/email/i).fill('bukan-email')
         await page.getByRole('button', { name: /masuk|login|sign in/i }).click()

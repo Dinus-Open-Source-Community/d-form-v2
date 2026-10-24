@@ -40,7 +40,13 @@ const mapEmbedUrl =
                 <div class="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)] lg:grid-cols-1 lg:gap-8">
                     <div class="min-w-0">
                         <a :href="routes.home" class="inline-flex items-center gap-2.5">
-                            <img src="/public/DForm%201.png" alt="DOSCOM" class="h-8 w-auto sm:h-9" />
+                            <img
+                                :src="`/${encodeURIComponent('DForm 1.png')}`"
+                                alt="DOSCOM"
+                                width="113"
+                                height="49"
+                                class="h-8 w-auto sm:h-9"
+                            />
                         </a>
                         <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed sm:max-w-xs sm:text-[0.9375rem]">
                             Platform sederhana untuk mengelola pendaftaran acara dari satu tempat. Dibangun oleh Doscom,

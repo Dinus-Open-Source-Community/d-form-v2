@@ -198,7 +198,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                 />
 
                 <!-- Content -->
-                <main class="min-w-0 flex-1">
+                <div class="min-w-0 flex-1">
                     <div class="prose-doc mx-auto max-w-3xl">
 
                         <!-- ============================================== -->
@@ -218,17 +218,17 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             <div class="mt-6 grid gap-3 sm:grid-cols-3">
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
                                     <FormInput class="mb-2 size-5 text-primary" />
-                                    <h4 class="text-sm font-semibold text-foreground">Form Builder Visual</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Form Builder Visual</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Drag & drop, tanpa coding.</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
                                     <BarChart3 class="mb-2 size-5 text-primary" />
-                                    <h4 class="text-sm font-semibold text-foreground">Real-time Dashboard</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Real-time Dashboard</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Pantau data secara langsung.</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
                                     <ShieldCheck class="mb-2 size-5 text-primary" />
-                                    <h4 class="text-sm font-semibold text-foreground">Aman & Terverifikasi</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Aman & Terverifikasi</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Role-based access control.</p>
                                 </div>
                             </div>
@@ -251,28 +251,28 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 <li class="flex gap-4">
                                     <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">1</span>
                                     <div>
-                                        <h4 class="text-sm font-semibold text-foreground">Buat akun</h4>
+                                        <h3 class="text-sm font-semibold text-foreground">Buat akun</h3>
                                         <p class="mt-1 text-xs text-muted-foreground">Daftar di <code>/auth/register</code> dengan email atau melalui Google/GitHub OAuth.</p>
                                     </div>
                                 </li>
                                 <li class="flex gap-4">
                                     <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">2</span>
                                     <div>
-                                        <h4 class="text-sm font-semibold text-foreground">Buat acara</h4>
+                                        <h3 class="text-sm font-semibold text-foreground">Buat acara</h3>
                                         <p class="mt-1 text-xs text-muted-foreground">Di dasbor penyelenggara, klik "Buat Acara". Isi judul, tanggal, lokasi, kuota, dan banner. Publikasikan acara.</p>
                                     </div>
                                 </li>
                                 <li class="flex gap-4">
                                     <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">3</span>
                                     <div>
-                                        <h4 class="text-sm font-semibold text-foreground">Rancang formulir</h4>
+                                        <h3 class="text-sm font-semibold text-foreground">Rancang formulir</h3>
                                         <p class="mt-1 text-xs text-muted-foreground">Masuk ke Form Builder. Tambahkan field (teks, dropdown, checkbox, dsb.) dengan drag & drop. Atur validasi lalu simpan.</p>
                                     </div>
                                 </li>
                                 <li class="flex gap-4">
                                     <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">4</span>
                                     <div>
-                                        <h4 class="text-sm font-semibold text-foreground">Bagikan & pantau</h4>
+                                        <h3 class="text-sm font-semibold text-foreground">Bagikan & pantau</h3>
                                         <p class="mt-1 text-xs text-muted-foreground">Bagikan link formulir. Lihat respons masuk secara real-time di dasbor. Ekspor data kapan saja.</p>
                                     </div>
                                 </li>
@@ -291,19 +291,19 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </h2>
                             <div class="mt-6 space-y-5">
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Registrasi Manual</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Registrasi Manual</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Kunjungi <code>/auth/register</code> dan isi nama, email, serta password. Setelah berhasil, Anda akan otomatis login dan diarahkan ke dasbor pengguna. Akun baru secara otomatis mendapat role <code>member</code>.
                                     </p>
                                 </div>
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">OAuth (Google & GitHub)</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">OAuth (Google & GitHub)</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         DForm mendukung login melalui Google dan GitHub. Jika akun belum ada, DForm akan membuat akun baru secara otomatis menggunakan data dari provider. Akun OAuth tidak memiliki password lokal — Anda hanya bisa login melalui provider tersebut.
                                     </p>
                                 </div>
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Reset Password</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Reset Password</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Kunjungi <code>/auth/forgot-password</code>, masukkan email Anda. Link reset akan dikirim ke inbox. Buka link tersebut untuk mengatur password baru. Fitur ini hanya tersedia untuk akun yang memiliki password lokal (bukan OAuth).
                                     </p>
@@ -371,20 +371,20 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-4">
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Single (Individual)</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Single (Individual)</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Satu orang mengisi satu formulir. Mode default.
                                     </p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Team</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Team</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Ketua tim mengisi formulir utama lalu memasukkan email anggota tim. Anggota akan menerima undangan
                                         untuk konfirmasi. Kuota acara dikurangi sesuai jumlah anggota tim.
                                     </p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Bundle</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Bundle</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Mirip dengan team, tetapi ketua mengisi data untuk semua anggota sekaligus. Field yang ditandai
                                         <code>duplicatable</code> akan digandakan per anggota (contoh: nama, email, ukuran kaos masing-masing anggota).
@@ -484,7 +484,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-4">
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Membuat Acara</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Membuat Acara</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Navigasi ke <code>/admin/events/create</code>. Field yang wajib diisi:
                                         judul, deskripsi, tanggal mulai dan selesai, lokasi, kuota peserta, dan banner.
@@ -492,14 +492,14 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                     </p>
                                 </div>
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Mengedit Acara</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Mengedit Acara</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Dari halaman detail acara, klik Edit. Semua field bisa diubah termasuk banner dan tanggal.
                                         Perubahan kuota tidak otomatis menolak pendaftar yang sudah diterima.
                                     </p>
                                 </div>
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Arsip & Restore</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Arsip & Restore</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Acara yang dihapus menggunakan <em>soft delete</em> — masih bisa di-restore kapan saja melalui tombol
                                         Restore di halaman detail acara.
@@ -523,15 +523,15 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 grid gap-3 sm:grid-cols-3">
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Palette (Kiri)</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Palette (Kiri)</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Daftar semua jenis field yang bisa ditambahkan. Drag field dari sini ke canvas.</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Canvas (Tengah)</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Canvas (Tengah)</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Area kerja utama. Drop field di sini, atur urutan dengan drag, dan lihat preview langsung.</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Inspector (Kanan)</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Inspector (Kanan)</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">Panel properti untuk field yang sedang dipilih. Atur label, placeholder, validasi, dan opsi.</p>
                                 </div>
                             </div>
@@ -558,7 +558,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
                             <div class="mt-5 space-y-6">
                                 <div>
-                                    <h4 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Teks</h4>
+                                    <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Teks</h3>
                                     <div class="overflow-hidden rounded-xl border border-border/40">
                                         <table class="w-full text-xs">
                                             <thead><tr class="border-b border-border/30 bg-muted/30"><th class="px-4 py-2 text-left font-semibold text-foreground">Field</th><th class="px-4 py-2 text-left font-semibold text-foreground">Keterangan</th></tr></thead>
@@ -574,7 +574,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 </div>
 
                                 <div>
-                                    <h4 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Pilihan</h4>
+                                    <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Pilihan</h3>
                                     <div class="overflow-hidden rounded-xl border border-border/40">
                                         <table class="w-full text-xs">
                                             <thead><tr class="border-b border-border/30 bg-muted/30"><th class="px-4 py-2 text-left font-semibold text-foreground">Field</th><th class="px-4 py-2 text-left font-semibold text-foreground">Keterangan</th></tr></thead>
@@ -588,7 +588,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 </div>
 
                                 <div>
-                                    <h4 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Media</h4>
+                                    <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Media</h3>
                                     <div class="overflow-hidden rounded-xl border border-border/40">
                                         <table class="w-full text-xs">
                                             <thead><tr class="border-b border-border/30 bg-muted/30"><th class="px-4 py-2 text-left font-semibold text-foreground">Field</th><th class="px-4 py-2 text-left font-semibold text-foreground">Keterangan</th></tr></thead>
@@ -601,7 +601,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 </div>
 
                                 <div>
-                                    <h4 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Tanggal & Waktu</h4>
+                                    <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Tanggal & Waktu</h3>
                                     <div class="overflow-hidden rounded-xl border border-border/40">
                                         <table class="w-full text-xs">
                                             <thead><tr class="border-b border-border/30 bg-muted/30"><th class="px-4 py-2 text-left font-semibold text-foreground">Field</th><th class="px-4 py-2 text-left font-semibold text-foreground">Keterangan</th></tr></thead>
@@ -614,7 +614,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                                 </div>
 
                                 <div>
-                                    <h4 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Konten & Layout</h4>
+                                    <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-primary">Konten & Layout</h3>
                                     <div class="overflow-hidden rounded-xl border border-border/40">
                                         <table class="w-full text-xs">
                                             <thead><tr class="border-b border-border/30 bg-muted/30"><th class="px-4 py-2 text-left font-semibold text-foreground">Field</th><th class="px-4 py-2 text-left font-semibold text-foreground">Keterangan</th></tr></thead>
@@ -645,23 +645,23 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-3">
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="text-xs font-semibold text-foreground">Judul & Deskripsi</h4>
+                                    <h3 class="text-xs font-semibold text-foreground">Judul & Deskripsi</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Nama formulir dan penjelasan singkat yang dilihat peserta.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="text-xs font-semibold text-foreground">Banner</h4>
+                                    <h3 class="text-xs font-semibold text-foreground">Banner</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Gambar header dan caption yang ditampilkan di bagian atas formulir.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="text-xs font-semibold text-foreground">Batas Waktu (closed_at)</h4>
+                                    <h3 class="text-xs font-semibold text-foreground">Batas Waktu (closed_at)</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Tanggal dan waktu formulir otomatis ditutup. Setelah waktu ini, peserta tidak bisa mengisi.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="text-xs font-semibold text-foreground">Visibilitas (visible_for)</h4>
+                                    <h3 class="text-xs font-semibold text-foreground">Visibilitas (visible_for)</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Mengatur siapa yang bisa melihat formulir: semua orang, hanya member, atau role tertentu.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="text-xs font-semibold text-foreground">Mode Registrasi</h4>
+                                    <h3 class="text-xs font-semibold text-foreground">Mode Registrasi</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Single, Team, atau Bundle. Disimpan di metadata formulir. Lihat bagian <a href="#registration-modes" class="font-medium text-primary underline underline-offset-2">Mode Registrasi</a>.</p>
                                 </div>
                             </div>
@@ -720,13 +720,13 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-4">
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Untuk Peserta</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Untuk Peserta</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Setelah pendaftaran diterima, QR code tersedia di halaman detail pendaftaran. Tunjukkan QR code ini ke penyelenggara saat check-in.
                                     </p>
                                 </div>
                                 <div>
-                                    <h4 class="text-sm font-semibold text-foreground">Untuk Penyelenggara</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Untuk Penyelenggara</h3>
                                     <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
                                         Buka halaman Scan (<code>/admin/scan</code>). Arahkan kamera ke QR peserta, atau masukkan kode registrasi secara manual. Sistem akan memverifikasi dan mencatat kehadiran. Setiap peserta hanya bisa di-scan sekali per acara.
                                     </p>
@@ -749,14 +749,14 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Registrations CSV</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Registrations CSV</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Semua data pendaftaran termasuk ringkasan jawaban yang sudah di-humanize (label → value).
                                         URL: <code>.../exports/registrations.csv</code>
                                     </p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">Attendance CSV</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">Attendance CSV</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Log absensi (scan) termasuk waktu scan dan siapa yang men-scan.
                                         URL: <code>.../exports/attendance.csv</code>
@@ -859,19 +859,19 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-4">
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">super-admin</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">super-admin</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Akses penuh ke semua fitur tanpa batasan. Semua permission otomatis diberikan.
                                     </p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">admin</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">admin</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Penyelenggara acara. Bisa membuat, mengedit, dan menghapus acara & formulir. Bisa mereview submisi, scan absensi, dan mengekspor data. Tidak bisa mengelola user, role, atau permission secara langsung.
                                     </p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 bg-muted/20 p-4">
-                                    <h4 class="text-sm font-semibold text-foreground">member</h4>
+                                    <h3 class="text-sm font-semibold text-foreground">member</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">
                                         Peserta/pengguna biasa. Bisa menjelajahi acara, mengisi formulir, melihat status pendaftaran, dan mengelola profil. Diberikan otomatis saat registrasi.
                                     </p>
@@ -894,31 +894,31 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-4">
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">users</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">users</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, name, email, password (nullable), avatar, google_id, github_id, soft deletes</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">events</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">events</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, title, slug (unique), description, start_date, end_date, registration_start/end, location, quota, registered_count, banner, price, session, status, category, soft deletes</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">forms</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">forms</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, title, description, visible_for (JSON), closed_at, event_id (FK), banner_url, banner_caption, metadata (JSON), soft deletes</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">form_fields</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">form_fields</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, input_type, label, description, name, metadata (JSON), form_id (FK), order, is_append, soft deletes</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">form_answers</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">form_answers</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, answers (JSON), user_id (FK), form_id (FK), review_status, registration_code (unique), team/bundle columns (leader_form_answer_id, registration_role, invitation_token, group_token, member_confirmation_status, invited_email), soft deletes</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">event_attendances</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">event_attendances</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, event_id (FK), form_answer_id (FK), scanned_by_user_id (FK), scanned_at. Unique: (event_id, form_answer_id)</p>
                                 </div>
                                 <div class="rounded-xl border border-border/40 p-4">
-                                    <h4 class="font-mono text-sm font-semibold text-foreground">email_logs</h4>
+                                    <h3 class="font-mono text-sm font-semibold text-foreground">email_logs</h3>
                                     <p class="mt-1 text-xs text-muted-foreground">id, form_answer_id, event_id, user_id, recipient_email, status, notification_type, error_message, sent_at</p>
                                 </div>
                             </div>
@@ -1003,39 +1003,39 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                             <div class="mt-5 space-y-3">
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Event/EventService</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Event/EventService</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Create, update, delete, restore events. Banner storage. Slug generation. Registration status.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Form/FormAccessGuard</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Form/FormAccessGuard</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Central access checks: visibility, closure time, registration window, quota, duplicate prevention.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Form/RulesBuilder</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Form/RulesBuilder</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Converts field metadata into Laravel validation rules dynamically.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Registration/TeamRegistrationSubmitter</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Registration/TeamRegistrationSubmitter</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Team mode: creates leader + member FormAnswers, generates invitation tokens, dispatches email jobs.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Registration/BundleRegistrationSubmitter</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Registration/BundleRegistrationSubmitter</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Bundle mode: group token, per-member answers for duplicatable fields.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Registration/RegistrationCodeIssuer</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Registration/RegistrationCodeIssuer</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Generates human-friendly unique registration codes on acceptance.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Registration/RegistrationQrPngGenerator</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Registration/RegistrationQrPngGenerator</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Generates QR code PNG from FormAnswer ID for attendance scanning.</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Scan/GlobalScanResolver</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Scan/GlobalScanResolver</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Discriminates one raw scan payload into an event submission or a recruitment application (QR JSON, submission UUID, or registration code).</p>
                                 </div>
                                 <div class="rounded-lg border border-border/30 px-4 py-3">
-                                    <h4 class="font-mono text-xs font-semibold text-foreground">Reporting/EventReportingQuery</h4>
+                                    <h3 class="font-mono text-xs font-semibold text-foreground">Reporting/EventReportingQuery</h3>
                                     <p class="mt-0.5 text-xs text-muted-foreground">Trends, category breakdowns, global/event summaries, attendance pagination for reporting page.</p>
                                 </div>
                             </div>
@@ -1048,7 +1048,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
                             </p>
                         </div>
                     </div>
-                </main>
+                </div>
             </div>
         </div>
 

@@ -65,6 +65,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
+    image: d-form-app:prod
 
     container_name: prod_d-form-app-core
     restart: unless-stopped
@@ -75,11 +76,17 @@ services:
     environment:
       DB_HOST: db
       REDIS_HOST: redis
+      # SSR menghasilkan <title>/meta/JSON-LD di HTML mentah; bila proses ssr mati,
+      # HttpGateway gagal konek dan Inertia jatuh ke render client-side (tanpa error).
+      INERTIA_SSR_ENABLED: "true"
+      INERTIA_SSR_URL: http://ssr:13714
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ssr:
+        condition: service_started
     networks:
       doscom_ingress:
         aliases:
@@ -88,6 +95,42 @@ services:
     volumes:
       - prod_app_storage_d_form:/app/storage/app
     stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Server-side rendering Inertia (Node). Tanpa port publik: hanya di d-form-internal.
+  ssr:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.prod
+    image: d-form-app:prod
+    container_name: prod_d-form-ssr
+    restart: unless-stopped
+    # Image prod ber-entrypoint PHP + CMD worker, jadi proses node harus mengganti entrypoint.
+    entrypoint: ["node", "bootstrap/ssr/ssr.js"]
+    working_dir: /app
+    command: []
+    expose:
+      - "13714"
+    networks:
+      - d-form-internal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:13714/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
     logging:
       driver: json-file
       options:

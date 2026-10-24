@@ -16,12 +16,17 @@ export default defineConfig({
         wayfinder(),
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
+            ssr: 'resources/js/ssr.js',
             refresh: true,
         }),
         tailwindcss(),
         vue(),
         eslint(),
     ],
+    // Bundle SSR self-contained: image prod tidak menyimpan node_modules saat runtime.
+    ssr: {
+        noExternal: true,
+    },
     build: {
         rollupOptions: {
             output: {

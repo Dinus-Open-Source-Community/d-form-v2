@@ -24,7 +24,9 @@ const user = useAuth(page.props);
 
 const scrolled = ref(false);
 const mobileOpen = ref(false);
-const currentPath = computed(() => window.location.pathname);
+const currentPath = computed(() =>
+    typeof window === 'undefined' ? '/' : window.location.pathname
+);
 
 const accountMenuOpen = ref(false);
 let accountCloseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -144,8 +146,10 @@ function isLinkActive(href: string): boolean {
         <div class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-10">
             <a :href="routes.home" class="group flex items-center gap-2.5">
                 <img
-                    src="/public/DForm%201.png"
+                    :src="`/${encodeURIComponent('DForm 1.png')}`"
                     alt="DOSCOM"
+                    width="113"
+                    height="49"
                     class="h-8 w-auto transition-colors duration-200"
                 />
             </a>

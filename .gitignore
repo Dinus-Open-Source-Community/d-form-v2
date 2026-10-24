@@ -33,6 +33,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/bootstrap/ssr
 Homestead.json
 Homestead.yaml
 Thumbs.db

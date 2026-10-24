@@ -100,7 +100,7 @@ onMounted(() => {
                                 <component :is="item.icon" class="size-4" />
                             </div>
                             <div>
-                                <h4 class="text-sm font-semibold text-foreground">{{ item.title }}</h4>
+                                <h3 class="text-sm font-semibold text-foreground">{{ item.title }}</h3>
                                 <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">{{ item.desc }}</p>
                             </div>
                         </div>
