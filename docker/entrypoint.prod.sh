@@ -197,5 +197,18 @@ else
     echo "SSR bundle tidak ada; HTML dirender client-side." >&2
 fi
 
+# Worker queue OTP: email registrasi dikirim lewat queue Redis. Matikan dengan
+# QUEUE_WORKER=0 bila worker dijalankan terpisah; loop restart menjaga worker hidup.
+if [ "${QUEUE_WORKER:-1}" = "1" ]; then
+    echo "Starting queue worker..."
+    (
+        while true; do
+            php artisan queue:work redis --sleep=1 --tries=3 --timeout=90 || true
+            echo "Queue worker exited; restarting in 2s..." >&2
+            sleep 2
+        done
+    ) &
+fi
+
 echo "Starting Octane with FrankenPHP..."
 exec php artisan octane:frankenphp "$@" --host=0.0.0.0 --port=8000

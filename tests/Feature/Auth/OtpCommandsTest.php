@@ -37,10 +37,29 @@ class OtpCommandsTest extends TestCase
             ->assertExitCode(1);
     }
 
-    /** Buat baris pending langsung; kode null meniru OTP yang sudah hangus. */
-    private function createPending(string $email, ?string $code): void
+    public function test_prune_deletes_only_stale_pending(): void
     {
-        PendingRegistration::forceCreate([
+        $stale = $this->createPending('lama@example.test', '111111');
+        $stale->forceFill(['updated_at' => now()->subDay()->subMinute()])->save();
+
+        $fresh = $this->createPending('baru@example.test', '222222');
+
+        $this->artisan('otp:prune')->assertSuccessful();
+
+        $this->assertDatabaseMissing('pending_registrations', ['id' => $stale->id]);
+        $this->assertDatabaseHas('pending_registrations', ['id' => $fresh->id]);
+        $this->assertDatabaseCount('pending_registrations', 1);
+    }
+
+    public function test_prune_succeeds_when_nothing_to_delete(): void
+    {
+        $this->artisan('otp:prune')->assertSuccessful();
+    }
+
+    /** Buat baris pending langsung; kode null meniru OTP yang sudah hangus. */
+    private function createPending(string $email, ?string $code): PendingRegistration
+    {
+        return PendingRegistration::forceCreate([
             'name' => 'Uji',
             'email' => $email,
             'password' => 'rahasia123',

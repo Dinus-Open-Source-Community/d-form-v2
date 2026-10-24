@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
         $schedule->command('broadcast:dispatch-scheduled')->everyMinute();
+        $schedule->command('otp:prune')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
