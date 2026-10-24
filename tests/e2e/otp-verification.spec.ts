@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page, type Response } from '@playwright/test'
 import { runArtisan, runArtisanCommand } from './support/artisan'
 
 const PASSWORD = 'Rahasia123'
@@ -15,6 +15,10 @@ async function registerUntilOtpPage(page: Page, email: string): Promise<void> {
     await page.locator('#register-email').fill(email)
     await page.locator('#register-password').fill(PASSWORD)
     await page.locator('#register-password-confirmation').fill(PASSWORD)
+
+    // Cek ketersediaan email hanya jalan setelah Vue ter-hydrate: penanda form siap diklik.
+    await expect(page.locator('[data-email-availability="available"]')).toBeVisible()
+
     await page.getByRole('button', { name: /buat akun/i }).click()
 
     await expect(page).toHaveURL(/\/auth\/verify-otp/)
@@ -25,11 +29,40 @@ function otpBoxes(page: Page): Locator {
     return page.getByRole('group', { name: /kode verifikasi/i }).getByRole('textbox')
 }
 
-/** Angka pada baris "Sisa kirim N". */
-async function readSendsRemaining(page: Page): Promise<number> {
-    const text = await page.getByTestId('otp-sends-remaining').innerText()
+/** Respons halaman OTP versi JSON Inertia (bukan dokumen HTML) untuk navigasi GET. */
+function isOtpPageJsonResponse(response: Response): boolean {
+    return (
+        response.request().method() === 'GET' &&
+        response.url().includes('/auth/verify-otp') &&
+        (response.headers()['content-type'] ?? '').includes('application/json')
+    )
+}
 
-    return Number(text.replace(/\D/g, ''))
+/** Respons submit kode (POST) apa pun hasilnya. */
+function isVerifyPostResponse(response: Response): boolean {
+    return response.request().method() === 'POST' && response.url().endsWith('/auth/verify-otp')
+}
+
+interface IInertiaSendQuotaPayload {
+    props: { sendsRemaining: number }
+}
+
+/** Cek bentuk payload Inertia sebelum membaca props (JSON eksternal harus dipersempit dulu). */
+function isInertiaSendQuotaPayload(value: unknown): value is IInertiaSendQuotaPayload {
+    if (typeof value !== 'object' || value === null || !('props' in value)) return false
+
+    const { props } = value
+
+    return typeof props === 'object' && props !== null && 'sendsRemaining' in props && typeof props.sendsRemaining === 'number'
+}
+
+/** Sisa kuota kirim dari props respons Inertia: kuota dibuktikan tanpa baris metadata di UI. */
+async function readSendsRemaining(response: Response): Promise<number> {
+    const payload: unknown = await response.json()
+
+    if (!isInertiaSendQuotaPayload(payload)) throw new Error('Props sendsRemaining tidak ada di respons halaman OTP')
+
+    return payload.props.sendsRemaining
 }
 
 /** Ubah label hitung mundur `mm:ss` menjadi detik. */
@@ -37,6 +70,11 @@ function toSeconds(label: string): number {
     const [minutes = '0', seconds = '0'] = label.trim().split(':')
 
     return Number(minutes) * 60 + Number(seconds)
+}
+
+/** Detik sisa pada sebuah hitung mundur, dibaca dari tampilan. */
+async function readCountdownSeconds(locator: Locator): Promise<number> {
+    return toSeconds((await locator.innerText()).trim())
 }
 
 /** Baca kode OTP aktif milik email lewat command artisan `otp:current`. */
@@ -52,6 +90,31 @@ function toWrongCode(code: string): string {
 /** Kosongkan bucket rate limiter agar beberapa test boleh mendaftar dalam satu menit (pola sama dengan auth.spec). */
 function resetThrottleBuckets(): void {
     runArtisan('\\Illuminate\\Support\\Facades\\Cache::flush();')
+}
+
+/** Isi kotak OTP lewat event paste; clipboard OS tidak tersedia di headless tanpa izin. */
+async function pasteOtp(page: Page, code: string): Promise<void> {
+    await page.evaluate((value) => {
+        const input = document.querySelector('input[aria-label="Digit 1 dari 6"]')
+
+        if (input === null) throw new Error('Kotak OTP tidak ditemukan')
+
+        const data = new DataTransfer()
+        data.setData('text/plain', value)
+        input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true }))
+    }, code)
+}
+
+/** Ketik kode pada kotak pertama, tunggu server menolaknya, lalu pastikan kotak dikosongkan. */
+async function submitWrongCode(page: Page, code: string): Promise<void> {
+    const rejected = page.waitForResponse(isVerifyPostResponse)
+
+    await otpBoxes(page).first().click()
+    await page.keyboard.type(code)
+    await rejected
+
+    // Server lambat di lingkungan dev; beri ruang lebih dari timeout assertion bawaan.
+    await expect(otpBoxes(page).first()).toHaveValue('', { timeout: 20_000 })
 }
 
 /**
@@ -93,28 +156,58 @@ test.describe('verifikasi OTP', () => {
         await expect(countdown).not.toHaveText(before ?? '', { timeout: 4_000 })
     })
 
-    test('paste 6 digit mengisi semua kotak', async ({ page }) => {
+    test('paste lima digit mengisi kotak berurutan tanpa auto-submit', async ({ page }) => {
         await registerUntilOtpPage(page, createTestEmail('paste'))
 
         await otpBoxes(page).first().click()
+        await pasteOtp(page, '13579')
 
-        // Dispatch event paste manual: clipboard OS tidak tersedia di headless tanpa izin.
-        await page.evaluate(() => {
-            const input = document.querySelector('input[aria-label="Digit 1 dari 6"]')
-
-            if (input === null) throw new Error('Kotak OTP tidak ditemukan')
-
-            const data = new DataTransfer()
-            data.setData('text/plain', '135792')
-            input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true }))
-        })
-
-        for (const [index, digit] of ['1', '3', '5', '7', '9', '2'].entries()) {
+        for (const [index, digit] of ['1', '3', '5', '7', '9'].entries()) {
             await expect(otpBoxes(page).nth(index)).toHaveValue(digit)
         }
+
+        // Kode belum lengkap: tidak ada kiriman ke server dan halaman tetap di tempat.
+        await expect(otpBoxes(page).nth(5)).toHaveValue('')
+        await expect(page).toHaveURL(/\/auth\/verify-otp/)
     })
 
-    test('kode salah menampilkan pesan error di bawah kotak', async ({ page }) => {
+    test('mengetik 6 digit langsung submit tanpa klik Verifikasi', async ({ page }) => {
+        const email = createTestEmail('auto-ketik')
+
+        await registerUntilOtpPage(page, email)
+
+        // Dashboard tidak pernah dirender: dataset stress membuatnya lambat dan menahan worker dev.
+        await page.route('**/dashboard*', (route) => route.abort())
+
+        const responsePromise = page.waitForResponse(isVerifyPostResponse)
+
+        await otpBoxes(page).first().click()
+        await page.keyboard.type(readActiveOtp(email))
+
+        // Tanpa klik tombol: server tetap menerima POST dan mengalihkan ke dashboard.
+        const response = await responsePromise
+        expect(response.status()).toBe(302)
+        expect(response.headers()['location']).toContain('/dashboard')
+    })
+
+    test('paste 6 digit langsung submit tanpa klik Verifikasi', async ({ page }) => {
+        const email = createTestEmail('auto-paste')
+
+        await registerUntilOtpPage(page, email)
+
+        await page.route('**/dashboard*', (route) => route.abort())
+
+        const responsePromise = page.waitForResponse(isVerifyPostResponse)
+
+        await otpBoxes(page).first().click()
+        await pasteOtp(page, readActiveOtp(email))
+
+        const response = await responsePromise
+        expect(response.status()).toBe(302)
+        expect(response.headers()['location']).toContain('/dashboard')
+    })
+
+    test('kode salah: kotak merah, pesan error, dan kode dikosongkan', async ({ page }) => {
         const email = createTestEmail('salah')
 
         await registerUntilOtpPage(page, email)
@@ -123,10 +216,26 @@ test.describe('verifikasi OTP', () => {
 
         await otpBoxes(page).first().click()
         await page.keyboard.type(wrongCode)
-        await page.getByRole('button', { name: /^verifikasi$/i }).click()
 
         await expect(page.getByRole('alert')).toContainText(/kode verifikasi salah/i)
+        await expect(page.locator('[data-state="invalid"]')).toHaveCount(6)
+        await expect(otpBoxes(page).first()).toHaveValue('')
         await expect(page).toHaveURL(/\/auth\/verify-otp/)
+    })
+
+    test('tiga percobaan salah: kode kedaluwarsa dan hitung mundur 00:00', async ({ page }) => {
+        const email = createTestEmail('habis')
+
+        await registerUntilOtpPage(page, email)
+
+        const wrongCode = toWrongCode(readActiveOtp(email))
+
+        for (let attempt = 1; attempt <= 3; attempt += 1) await submitWrongCode(page, wrongCode)
+
+        // Server mengosongkan kode setelah percobaan ketiga; hitung mundur langsung nol.
+        await expect(page.getByTestId('otp-countdown')).toHaveText('00:00')
+        await expect(page.getByTestId('otp-expired')).toHaveText(/kode sudah kedaluwarsa\. kirim ulang otp\./i)
+        await expect(otpBoxes(page).first()).toBeDisabled()
     })
 
     test('menolak karakter non-digit dan backspace mundur satu kotak', async ({ page }) => {
@@ -161,84 +270,108 @@ test.describe('verifikasi OTP', () => {
         await page.clock.fastForward(600_000)
 
         await expect(page.getByTestId('otp-expired')).toBeVisible()
+        await expect(page.getByTestId('otp-countdown')).toHaveText('00:00')
         await expect(page.getByTestId('otp-expiry-live')).toHaveText(/kedaluwarsa/i)
-        await expect(page.getByRole('button', { name: /^kirim ulang$/i })).toBeFocused()
+        await expect(page.getByRole('button', { name: /^kirim ulang otp$/i })).toBeFocused()
         await expect(page.getByRole('button', { name: /^verifikasi$/i })).toBeDisabled()
     })
 
-    test('kirim ulang: cooldown, sisa kirim berkurang, dan timer hidup lagi setelah kedaluwarsa', async ({ page }) => {
+    test('kirim ulang: cooldown habis → tombol aktif, kuota turun, hitung mundur kembali 5 menit', async ({ page }) => {
         // Cooldown kirim ulang mengikuti config server (60 detik); waktu tunggu dibaca dari UI, bukan hardcode.
         test.setTimeout(120_000)
 
-        await registerUntilOtpPage(page, createTestEmail('resend'))
-
-        const resendButton = page.getByRole('button', { name: /^kirim ulang$/i })
+        const resendButton = page.getByRole('button', { name: /^kirim ulang otp$/i })
         const resendCountdown = page.getByTestId('otp-resend-countdown')
+        const codeCountdown = page.getByTestId('otp-countdown')
 
-        const sendsBefore = await readSendsRemaining(page)
+        const initialOtpPage = page.waitForResponse(isOtpPageJsonResponse)
+        await registerUntilOtpPage(page, createTestEmail('resend'))
+        const sendsBefore = await readSendsRemaining(await initialOtpPage)
 
+        // Selama cooldown: tombol nonaktif, sisa detik tampil, dan angkanya berjalan.
         await expect(resendButton).toBeDisabled()
         await expect(resendCountdown).toHaveText(/^\d{2}:\d{2}$/)
 
+        const cooldownStart = (await resendCountdown.innerText()).trim()
+        await expect(resendCountdown).not.toHaveText(cooldownStart, { timeout: 4_000 })
+
+        // Cooldown habis: tombol aktif kembali dan sisa detik hilang dari baris kirim ulang.
         await waitForResendAvailable(page, resendButton)
+        await expect(resendButton).toBeEnabled()
+        await expect(resendCountdown).toHaveCount(0)
 
-        // Majukan jam sampai kode lama kedaluwarsa: kedua hitung mundur nol sehingga interval berhenti.
-        const expirySeconds = toSeconds((await page.getByTestId('otp-countdown').innerText()).trim())
-        await page.clock.install()
-        await page.clock.fastForward(expirySeconds * 1000 + 1_000)
+        const [resendPage] = await Promise.all([page.waitForResponse(isOtpPageJsonResponse), resendButton.click()])
 
-        await expect(page.getByTestId('otp-expired')).toBeVisible()
-        await expect(resendButton).toBeFocused()
+        // Kuota server turun satu setelah kirim ulang — dibuktikan dari props Inertia, bukan baris UI.
+        expect(await readSendsRemaining(resendPage)).toBe(sendsBefore - 1)
 
-        await resendButton.click()
+        // Props baru dipakai tanpa remount: kode kembali 5 menit dan kirim ulang terkunci 60 detik.
+        // Batas atas memberi ruang untuk pembulatan detik (`ceil`) dan latensi request.
+        await expect(codeCountdown).toHaveText(/^\d{2}:\d{2}$/)
+        const codeSeconds = await readCountdownSeconds(codeCountdown)
+        expect(codeSeconds).toBeGreaterThan(280)
+        expect(codeSeconds).toBeLessThan(310)
 
-        await expect.poll(() => readSendsRemaining(page)).toBe(sendsBefore - 1)
+        await expect(resendButton).toBeDisabled()
+        const cooldownSeconds = await readCountdownSeconds(resendCountdown)
+        expect(cooldownSeconds).toBeGreaterThan(50)
+        expect(cooldownSeconds).toBeLessThan(65)
 
-        // Props diganti tanpa remount: timer yang sudah berhenti harus hidup lagi dan nilainya turun.
-        const expiryCountdown = page.getByTestId('otp-countdown')
-        await expect(expiryCountdown).toBeVisible()
-
-        // Tombol kirim ulang sempat nonaktif selama request; fokus tidak boleh tertinggal di body.
-        await expect(page.locator('body')).not.toBeFocused()
-
-        const secondsBeforeTick = toSeconds((await expiryCountdown.innerText()).trim())
-        expect(secondsBeforeTick).toBeGreaterThan(1)
-
-        await page.clock.fastForward(3_000)
-
+        // Interval benar-benar hidup lagi: angkanya turun tanpa reload.
+        const secondsBeforeTick = await readCountdownSeconds(codeCountdown)
         await expect
-            .poll(async () => toSeconds((await expiryCountdown.innerText()).trim()))
+            .poll(async () => readCountdownSeconds(codeCountdown), { timeout: 5_000 })
             .toBeLessThan(secondsBeforeTick)
     })
 
-    test('kode benar mengarahkan ke dashboard', async ({ page }) => {
-        const email = createTestEmail('benar')
+    test('kotak hijau hanya setelah server menerima kode', async ({ page }) => {
+        const email = createTestEmail('hijau')
 
+        const initialOtpPage = page.waitForResponse(isOtpPageJsonResponse)
         await registerUntilOtpPage(page, email)
+        const otpPageBody: unknown = await (await initialOtpPage).json()
 
-        // Dashboard tidak pernah dirender: dataset stress membuatnya lambat dan menahan worker dev.
-        await page.route('**/dashboard*', (route) => route.abort())
+        // Server tetap memverifikasi kode; respons 200 halaman OTP yang sama dipakai agar state
+        // sukses bisa diamati (pada alur asli halaman langsung berganti ke dashboard).
+        let verifyStatus = 0
+        let verifyLocation = ''
+
+        await page.route('**/auth/verify-otp', async (route) => {
+            if (route.request().method() !== 'POST') return route.fallback()
+
+            const verified = await route.fetch({ maxRedirects: 0 })
+            verifyStatus = verified.status()
+            verifyLocation = verified.headers()['location'] ?? ''
+
+            await route.fulfill({
+                status: 200,
+                headers: { 'content-type': 'application/json', 'x-inertia': 'true' },
+                body: JSON.stringify(otpPageBody),
+            })
+        })
+
+        const code = readActiveOtp(email)
+        const successBoxes = page.locator('[data-state="success"]')
 
         await otpBoxes(page).first().click()
-        await page.keyboard.type(readActiveOtp(email))
+        await page.keyboard.type(code.slice(0, 5))
 
-        const [response] = await Promise.all([
-            page.waitForResponse(
-                (candidate) =>
-                    candidate.request().method() === 'POST' && candidate.url().endsWith('/auth/verify-otp'),
-            ),
-            page.getByRole('button', { name: /^verifikasi$/i }).click(),
-        ])
+        // Lima digit belum dikirim: tidak ada kotak yang berubah hijau.
+        await expect(successBoxes).toHaveCount(0)
 
-        // Render dashboard tidak ditunggu: dataset stress membuatnya lambat di luar scope OTP.
-        expect(response.status()).toBe(302)
-        expect(response.headers()['location']).toContain('/dashboard')
+        await page.keyboard.type(code.slice(5))
+
+        // Respons server di lingkungan dev bisa lambat; beri ruang lebih dari timeout bawaan.
+        await expect(successBoxes).toHaveCount(6, { timeout: 20_000 })
+        expect(verifyStatus).toBe(302)
+        expect(verifyLocation).toContain('/dashboard')
+        await expect(page).toHaveURL(/\/auth\/verify-otp/)
     })
 
-    test('gunakan email lain kembali ke form pendaftaran', async ({ page }) => {
+    test('ganti akun kembali ke form pendaftaran', async ({ page }) => {
         await registerUntilOtpPage(page, createTestEmail('ganti'))
 
-        await page.getByRole('button', { name: /gunakan email lain/i }).click()
+        await page.getByRole('button', { name: /ganti akun/i }).click()
 
         await expect(page).toHaveURL(/\/auth\/register/)
         await expect(page.getByRole('heading', { name: /buat akun/i })).toBeVisible()

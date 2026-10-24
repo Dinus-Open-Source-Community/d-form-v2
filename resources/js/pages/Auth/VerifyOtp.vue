@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import type { ComputedRef } from 'vue';
-import { CircleAlert, Clock3, MailCheck } from 'lucide-vue-next';
+import { CircleAlert, Clock3 } from 'lucide-vue-next';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SeoHead from '@/components/seo/SeoHead.vue';
 import OtpCodeInput from '@/components/modules/auth/OtpCodeInput.vue';
@@ -30,6 +30,7 @@ const {
     resendError,
     isResendBlocked,
     canSubmit,
+    isVerified,
     setResendButton,
     setAlternateEmailButton,
     submit,
@@ -52,9 +53,9 @@ const expiryAnnouncement: ComputedRef<string> = computed<string>(() =>
     isExpired.value ? 'Kode verifikasi sudah kedaluwarsa. Kirim ulang kode baru.' : '',
 );
 
-/** Id bantuan yang dibaca screen reader: hint kuota, ditambah pesan error saat ada. */
-const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
-    codeError.value === undefined ? 'otp-code-hint' : 'otp-code-hint otp-code-error',
+/** Id pesan error yang dibaca screen reader saat kode ditolak server (bukan saat kode habis). */
+const codeDescriptionIds: ComputedRef<string | undefined> = computed<string | undefined>(() =>
+    codeError.value === undefined || isExpired.value ? undefined : 'otp-code-error',
 );
 </script>
 
@@ -67,85 +68,59 @@ const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
             noindex
         />
 
-        <div class="w-full">
-            <p class="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                <MailCheck class="size-3.5 text-primary" aria-hidden="true" />
-                Verifikasi email
-            </p>
-
-            <h1 class="mt-3 font-display text-[2rem] leading-tight font-bold tracking-[-0.035em] text-foreground sm:text-4xl">
+        <div class="mx-auto w-full max-w-md text-center">
+            <h1 class="font-display text-[1.875rem] leading-tight font-bold tracking-[-0.035em] text-foreground sm:text-[2.125rem]">
                 Check your messages
             </h1>
 
-            <p class="mt-2.5 text-sm text-muted-foreground">Enter the code sent to</p>
-            <p data-testid="otp-email" class="mt-0.5 font-semibold break-words text-foreground">{{ email }}</p>
+            <p data-testid="otp-email" class="mt-2 text-sm font-medium break-words text-foreground">{{ email }}</p>
 
             <!-- Live region selalu ter-mount (pola sama dengan form register): hanya teksnya yang berubah. -->
             <div class="sr-only" data-testid="otp-expiry-live" aria-live="polite" aria-atomic="true">
                 <span>{{ expiryAnnouncement }}</span>
             </div>
 
-            <!-- Hitung mundur tepat di bawah subjudul; angkanya memakai jam server. -->
-            <div class="mt-4 flex min-h-6 items-center gap-2 text-sm">
+            <!-- Hitung mundur kecil tepat di bawah email; angkanya memakai jam server. -->
+            <div class="mt-1.5 flex min-h-5 items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Clock3 class="size-3.5 shrink-0" aria-hidden="true" />
+                <span>Kode berlaku</span>
                 <span
-                    v-if="isExpired"
-                    data-testid="otp-expired"
-                    class="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
+                    data-testid="otp-countdown"
+                    class="font-medium tabular-nums"
+                    :class="isExpired ? 'text-destructive' : 'text-foreground/80'"
                 >
-                    <CircleAlert class="size-3.5" aria-hidden="true" />
-                    Kode kedaluwarsa
+                    {{ expiresLabel }}
                 </span>
-
-                <template v-else>
-                    <Clock3 class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span class="text-muted-foreground">Kode berlaku</span>
-                    <span
-                        data-testid="otp-countdown"
-                        class="font-display text-base font-semibold tabular-nums text-foreground"
-                    >
-                        {{ expiresLabel }}
-                    </span>
-                </template>
             </div>
 
-            <form class="mt-7" novalidate @submit.prevent="submit">
-                <div class="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] sm:p-6">
-                    <OtpCodeInput
-                        v-model="form.code"
-                        :invalid="codeError !== undefined"
-                        :disabled="isExpired"
-                        :described-by="codeDescriptionIds"
-                    />
+            <!-- Kode habis karena kedaluwarsa atau percobaan salah; server sudah mengosongkan kode. -->
+            <p v-if="isExpired" data-testid="otp-expired" class="mt-2 text-xs font-medium text-destructive">
+                Kode sudah kedaluwarsa. Kirim ulang OTP.
+            </p>
 
-                    <p
-                        v-if="codeError"
-                        id="otp-code-error"
-                        role="alert"
-                        class="mt-3 flex items-start gap-1.5 text-sm font-medium text-destructive motion-safe:animate-shake"
-                    >
-                        <CircleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                        {{ codeError }}
-                    </p>
+            <form class="mt-8" novalidate @submit.prevent="submit">
+                <OtpCodeInput
+                    v-model="form.code"
+                    :invalid="codeError !== undefined && !isExpired"
+                    :success="isVerified"
+                    :disabled="isExpired"
+                    :described-by="codeDescriptionIds"
+                />
 
-                    <div
-                        id="otp-code-hint"
-                        class="mt-4 flex items-center justify-between gap-3 border-t border-border/70 pt-3 text-xs text-muted-foreground"
-                    >
-                        <span data-testid="otp-sends-remaining">
-                            Sisa kirim
-                            <strong class="font-semibold tabular-nums text-foreground">{{ sendsRemaining }}</strong>
-                        </span>
-                        <span data-testid="otp-attempts-remaining">
-                            <strong class="font-semibold tabular-nums text-foreground">{{ attemptsRemaining }}</strong>
-                            percobaan tersisa
-                        </span>
-                    </div>
-                </div>
+                <p
+                    v-if="codeError && !isExpired"
+                    id="otp-code-error"
+                    role="alert"
+                    class="mt-3 flex items-start justify-center gap-1.5 text-sm font-medium text-destructive motion-safe:animate-shake"
+                >
+                    <CircleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    {{ codeError }}
+                </p>
 
                 <Button
                     type="submit"
                     size="lg"
-                    class="mt-4 w-full disabled:cursor-not-allowed disabled:bg-primary/10 disabled:text-primary disabled:opacity-100"
+                    class="mt-6 w-full disabled:cursor-not-allowed disabled:bg-primary/10 disabled:text-primary disabled:opacity-100"
                     :disabled="!canSubmit"
                 >
                     <span v-if="form.processing" class="flex items-center gap-2">
@@ -156,9 +131,9 @@ const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
                 </Button>
             </form>
 
-            <div class="mt-6 space-y-2.5 text-center">
+            <div class="mt-6 space-y-3">
                 <p class="text-sm text-muted-foreground">
-                    Tidak mendapat OTP?
+                    Tidak mendapatkan OTP?
                     <button
                         type="button"
                         :ref="setResendButton"
@@ -166,10 +141,10 @@ const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
                         :disabled="isResendBlocked"
                         @click="resend"
                     >
-                        Kirim ulang
+                        Kirim ulang OTP
                     </button>
                     <span v-if="isResendBlocked" class="ml-1 text-xs text-muted-foreground">
-                        (<span data-testid="otp-resend-countdown" class="font-display font-semibold tabular-nums">{{ resendLabel }}</span>)
+                        (<span data-testid="otp-resend-countdown" class="font-medium tabular-nums">{{ resendLabel }}</span>)
                     </span>
                 </p>
 
@@ -185,10 +160,10 @@ const codeDescriptionIds: ComputedRef<string> = computed<string>(() =>
                 <button
                     type="button"
                     :ref="setAlternateEmailButton"
-                    class="mx-auto flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                    class="mx-auto flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                     @click="useAnotherEmail"
                 >
-                    Gunakan email lain
+                    Ganti akun
                 </button>
             </div>
         </div>

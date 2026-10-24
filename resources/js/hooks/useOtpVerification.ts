@@ -28,6 +28,8 @@ export interface IUseOtpVerificationState {
     isResendBlocked: ComputedRef<boolean>;
     /** True bila kode lengkap, belum kedaluwarsa, dan tidak sedang dikirim. */
     canSubmit: ComputedRef<boolean>;
+    /** True setelah server menerima kode; dipakai kotak untuk state sukses. */
+    isVerified: Ref<boolean>;
     /** Callback `ref` tombol kirim ulang; dipakai memindahkan fokus saat kode kedaluwarsa. */
     setResendButton: (element: Element | null) => void;
     /** Callback `ref` tombol "Gunakan email lain"; fokus cadangan bila kirim ulang masih terkunci. */
@@ -45,6 +47,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     const page = usePage();
     const form = useForm({ code: '' });
     const isResending: Ref<boolean> = ref(false);
+    const isVerified: Ref<boolean> = ref(false);
 
     let resendButton: HTMLButtonElement | null = null;
     let alternateEmailButton: HTMLButtonElement | null = null;
@@ -76,6 +79,10 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
 
         form.submit(verifyOtp(), {
             preserveScroll: true,
+            // Hijau hanya setelah server menyatakan kode diterima.
+            onSuccess: () => {
+                isVerified.value = true;
+            },
             // Kode yang ditolak server tidak berguna lagi; kosongkan agar pengguna mengetik ulang.
             onError: () => form.reset('code'),
         });
@@ -122,6 +129,15 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         router.post(CancelPendingRegistrationController.url(), {}, { preserveScroll: true });
     }
 
+    // Auto-submit begitu 6 digit terisi (ketik/tempel); `canSubmit` menahan kirim ganda saat proses.
+    watch(
+        () => form.code.length === OTP_CODE_LENGTH,
+        (isComplete) => {
+            if (isComplete) submit();
+        },
+        { flush: 'post' },
+    );
+
     // Kotak kode ikut nonaktif saat kedaluwarsa; fokus dipindah agar tidak jatuh ke body.
     // `flush: 'post'` supaya atribut disabled tombol sudah diperbarui DOM sebelum difokuskan.
     watch(
@@ -140,6 +156,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         resendError,
         isResendBlocked,
         canSubmit,
+        isVerified,
         setResendButton,
         setAlternateEmailButton,
         submit,
