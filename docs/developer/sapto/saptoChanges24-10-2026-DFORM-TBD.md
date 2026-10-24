@@ -28,6 +28,7 @@ Optimasi halaman auth berdasarkan audit `docs/big-changes/auth/report.md`: bundl
 | Throttle login/register | tidak ada                                | 5/menit (email+IP) · 3/menit (IP)              | baru           |
 | 429 Inertia             | header `Retry-After` hilang              | header disalin + toast hitung mundur           | fix            |
 | Favicon                 | 370.070 B                                | 7.406 B (ICO 16/32/48) + PNG 192 + apple-touch | −98%           |
+| SEO & meta auth         | tanpa `<title>`, `description`, `noindex` | title + description + `noindex, nofollow` di 4 halaman auth | +UX & crawl |
 | Google Fonts            | `@import` di baris pertama CSS           | `<link>` + `preconnect` di root view           | non-blocking   |
 
 Angka diukur di localhost tanpa throttle jaringan dan tanpa concurrency, dengan `APP_DEBUG=true` (Debugbar aktif ±490 kB, tidak dihitung di "payload app"). Jangan diekstrapolasi ke 3G/4G tanpa menyebutnya estimasi.
@@ -181,4 +182,32 @@ Perbaikan state test: bucket limiter di-reset deterministik lewat `RateLimiter::
 
 **Build & aset:** `vite.config.js` (blok `build`), `resources/css/app.css`, `resources/views/app.blade.php`, `public/favicon.ico`, `public/favicon-192.png` (baru), `public/apple-touch-icon.png` (baru), `public/favicon.ico.bak` (dihapus, 0 byte).
 
+**SEO:** `resources/js/components/seo/SeoHead.vue`, `resources/js/pages/Auth/{Login,Register,ForgotPassword,ResetPassword}.vue`.
+
 **Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `package.json`/`package-lock.json` (devDependency `@playwright/test` + script `test:e2e` yang sudah ada di working tree sebelum tiket ini), `scripts/stress/k6/auth-throttle.js` (baru, ignored).
+
+## 14. Follow-up: SEO & meta halaman auth
+
+Halaman auth sebelumnya tidak punya `<title>`, `description`, maupun penanda robots — tab browser hanya menampilkan URL dan crawler mengandalkan header `X-Robots-Tag` saja.
+
+| File                                        | Perubahan                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| `resources/js/components/seo/SeoHead.vue`   | prop opsional `noindex` (default `false`): render `<meta name="robots" content="noindex, nofollow">` dan **tidak** merender canonical (canonical pada halaman noindex saling bertentangan) |
+| `resources/js/pages/Auth/Login.vue`         | `SeoHead title="Masuk"` + description + `/auth/login` + `noindex`          |
+| `resources/js/pages/Auth/Register.vue`      | `SeoHead title="Daftar"` + description + `/auth/register` + `noindex`      |
+| `resources/js/pages/Auth/ForgotPassword.vue`| `SeoHead title="Lupa kata sandi"` + description + `noindex`                |
+| `resources/js/pages/Auth/ResetPassword.vue` | `SeoHead title="Atur ulang kata sandi"` + description + `noindex`          |
+
+**Bukti runtime (Chromium):**
+
+| URL                        | `document.title`                     | robots                 | canonical |
+| -------------------------- | ------------------------------------ | ---------------------- | --------- |
+| `/auth/login`              | `Masuk · DForm`                      | `noindex, nofollow`    | —         |
+| `/auth/register`           | `Daftar · DForm`                     | `noindex, nofollow`    | —         |
+| `/auth/forgot-password`    | `Lupa kata sandi · DForm`            | `noindex, nofollow`    | —         |
+| `/auth/reset-password/{t}` | `Atur ulang kata sandi · DForm`      | `noindex, nofollow`    | —         |
+| `/` (regresi)              | `Kelola acara & formulir… · DForm`   | —                      | tetap ada |
+
+**Tidak diubah:** `SitemapController` sudah hanya memuat `/`, `/events`, `/features`, `/docs`, dan detail event published — halaman auth tidak pernah masuk sitemap. Header `X-Robots-Tag` dari `AddRobotsTagForPrivateAreas` tetap berlaku sebagai lapisan kedua.
+
+**Sisa peluang performa (perlu keputusan produk/desain, tidak dikerjakan):** animasi lottie auth ±99 kB (chunk 80,8 kB + JSON 18,7 kB) untuk elemen dekoratif; Google Fonts masih dari domain pihak ketiga (bisa self-host untuk menghapus 2 RTT). Sisanya sudah batas wajar: `vendor-inertia` 64,8 kB, `vendor-ui` 57 kB, CSS 43,8 kB.

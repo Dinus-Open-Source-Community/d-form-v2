@@ -15,12 +15,15 @@ const props = withDefaults(
         ogType?: 'website' | 'article';
         /** Satu atau beberapa objek JSON-LD schema.org (akan di-render sebagai satu blok atau array) */
         jsonLd?: Record<string, unknown> | Record<string, unknown>[] | null;
+        /** Tandai halaman privat (auth) agar tidak diindeks; canonical ikut dihilangkan. */
+        noindex?: boolean;
     }>(),
     {
         description: undefined,
         ogImage: undefined,
         ogType: 'website',
         jsonLd: null,
+        noindex: false,
     }
 );
 
@@ -81,7 +84,8 @@ const twitterCreator = computed(() => seo.value?.twitterCreator ?? null);
     <Head>
         <title>{{ documentTitle }}</title>
         <meta name="description" :content="description" />
-        <link rel="canonical" :href="canonicalUrl" />
+        <meta v-if="noindex" name="robots" content="noindex, nofollow" />
+        <link v-if="!noindex" rel="canonical" :href="canonicalUrl" />
 
         <meta property="og:type" :content="props.ogType" />
         <meta property="og:site_name" :content="siteName" />
