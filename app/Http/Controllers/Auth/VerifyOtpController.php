@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Auth\RegistrationOtpService;
 use App\Support\PendingRegistrationSession;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,8 +36,11 @@ class VerifyOtpController extends Controller
         return inertia('Auth/VerifyOtp', $service->status($pending));
     }
 
-    /** Verifikasi kode; sukses langsung login dan menghapus penanda sesi pending. */
-    public function verify(VerifyOtpRequest $request, RegistrationOtpService $service): RedirectResponse
+    /**
+     * Verifikasi kode; sukses langsung login dan menghapus penanda sesi pending.
+     * Pemanggil JSON (auto-submit) menerima `{verified, redirect}` agar UI bisa menampilkan state sukses dulu.
+     */
+    public function verify(VerifyOtpRequest $request, RegistrationOtpService $service): JsonResponse|RedirectResponse
     {
         $email = PendingRegistrationSession::email($request);
 
@@ -47,7 +51,13 @@ class VerifyOtpController extends Controller
         $outcome = $service->verify($email, (string) $request->validated('code'));
 
         if ($outcome !== OtpOutcome::Verified) {
-            return $this->backToOtpWithError('code', $this->verifyErrorMessage($outcome));
+            $message = $this->verifyErrorMessage($outcome);
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return $this->backToOtpWithError('code', $message);
         }
 
         $user = User::query()->where('email', $email)->firstOrFail();
@@ -55,6 +65,13 @@ class VerifyOtpController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         PendingRegistrationSession::forget($request);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'verified' => true,
+                'redirect' => route('dashboard', absolute: false),
+            ]);
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',

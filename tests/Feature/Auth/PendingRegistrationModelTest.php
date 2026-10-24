@@ -34,7 +34,7 @@ class PendingRegistrationModelTest extends TestCase
     public function test_config_otp_memakai_nilai_bawaan(): void
     {
         $this->assertSame(6, config('otp.length'));
-        $this->assertSame(10, config('otp.ttl_minutes'));
+        $this->assertSame(5, config('otp.ttl_minutes'));
         $this->assertSame(3, config('otp.max_attempts'));
         $this->assertSame(3, config('otp.max_sends'));
         $this->assertSame(15, config('otp.lock_minutes'));

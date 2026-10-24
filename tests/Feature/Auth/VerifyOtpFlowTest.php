@@ -35,6 +35,20 @@ class VerifyOtpFlowTest extends TestCase
         $this->seed(RoleSeeder::class);
     }
 
+    public function test_verify_returns_json_redirect_for_auto_submit(): void
+    {
+        $service = app(\App\Services\Auth\RegistrationOtpService::class);
+        $service->start(['name' => 'Auto', 'email' => 'auto-verify@example.test', 'password' => 'rahasia123']);
+        $code = $service->currentCode('auto-verify@example.test');
+
+        $this->withSession(['otp.pending_email' => 'auto-verify@example.test'])
+            ->postJson(route('auth.otp.verify'), ['code' => $code])
+            ->assertOk()
+            ->assertJson(['verified' => true, 'redirect' => route('dashboard', absolute: false)]);
+
+        $this->assertAuthenticated();
+    }
+
     public function test_verify_success_logs_user_in_and_deletes_pending(): void
     {
         $service = app(RegistrationOtpService::class);
