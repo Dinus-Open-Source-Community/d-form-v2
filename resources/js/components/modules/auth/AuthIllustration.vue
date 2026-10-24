@@ -20,7 +20,9 @@ import LocalLottie from '@/components/core/LocalLottie.vue'
                         Protected
                     </span>
                 </div>
-                <LocalLottie name="authSecure" :height="260" width="100%" :lazy="false" />
+                <div style="height: 260px">
+                    <LocalLottie name="authSecure" :height="260" width="100%" />
+                </div>
             </div>
         </div>
 

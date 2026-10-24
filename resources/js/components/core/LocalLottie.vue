@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Vue3Lottie } from 'vue3-lottie'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { lotties, type LottieName } from '@/lib/lotties'
 import type { LocalLottieProps } from '@/types/lottie'
+
+// vue3-lottie dimuat terpisah agar tidak ikut bundel entry halaman lain.
+const Vue3Lottie = defineAsyncComponent(() => import('vue3-lottie').then((module) => module.Vue3Lottie))
 
 const props = withDefaults(
     defineProps<Omit<LocalLottieProps, 'name'> & { name?: LottieName }>(),

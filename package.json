@@ -6,10 +6,12 @@
         "build": "vite build",
         "dev": "vite",
         "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
-        "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix"
+        "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix",
+        "test:e2e": "playwright test"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
+        "@playwright/test": "^1.64.1",
         "@tailwindcss/vite": "^4.0.0",
         "@vue/eslint-config-prettier": "^10.2.0",
         "@vue/eslint-config-typescript": "^14.7.0",

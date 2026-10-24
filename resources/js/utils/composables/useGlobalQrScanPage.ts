@@ -1,7 +1,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { toast } from 'vue-sonner'
-import { Html5Qrcode } from 'html5-qrcode'
+import type { Html5Qrcode as THtml5Qrcode } from 'html5-qrcode'
 import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/lib/error-message'
 import {
     createScanHistoryEntry,
@@ -183,6 +183,13 @@ function scanIdentity(
     return `${kind}|${eventTitle}|${identifier}|${queueNumber === null ? '-' : String(queueNumber)}`
 }
 
+/** Memuat konstruktor html5-qrcode saat scanner dipakai agar tidak masuk bundel entry. */
+async function loadHtml5Qrcode(): Promise<typeof import('html5-qrcode').Html5Qrcode> {
+    const { Html5Qrcode } = await import('html5-qrcode')
+
+    return Html5Qrcode
+}
+
 export function useGlobalQrScanPage(
     scannerContainerId: string,
     storeUrl: string,
@@ -191,7 +198,7 @@ export function useGlobalQrScanPage(
 ) {
     const deskId = resolveDeskId()
 
-    const scanner = ref<Html5Qrcode | null>(null)
+    const scanner = ref<THtml5Qrcode | null>(null)
     const cameras = ref<Array<{ id: string; label: string }>>([])
     const selectedCameraId = ref('')
     const isCameraReady = ref(false)
@@ -713,8 +720,10 @@ export function useGlobalQrScanPage(
         void submitScanPayload(key, source)
     }
 
+    /** Mengisi daftar kamera yang tersedia; memuat html5-qrcode secara lazy. */
     async function loadCameras(): Promise<void> {
         try {
+            const Html5Qrcode = await loadHtml5Qrcode()
             const discoveredCameras = await Html5Qrcode.getCameras()
             cameras.value = discoveredCameras.map((camera, index) => ({
                 id: camera.id,
@@ -740,6 +749,7 @@ export function useGlobalQrScanPage(
         }
     }
 
+    /** Memulai scanner kamera; html5-qrcode dimuat lazy pada titik ini. */
     async function startCameraScanner(): Promise<void> {
         if (isCameraReady.value || isStartingCamera.value) {
             return
@@ -755,6 +765,7 @@ export function useGlobalQrScanPage(
         permissionError.value = ''
 
         try {
+            const Html5Qrcode = await loadHtml5Qrcode()
             scanner.value = new Html5Qrcode(scannerContainerId)
             await scanner.value.start(
                 selectedCameraId.value,

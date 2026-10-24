@@ -74,11 +74,51 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Daftar + pencarian acara publik: satu limiter untuk seluruh route index /events.
+        RateLimiter::for('event-search', function (Request $request) {
+            return Limit::perMinute((int) config('events.search.rate_limit_per_minute', 60))
+                ->by($request->ip());
+        });
+
+        RateLimiter::for('auth-login', function (Request $request): Limit {
+            $input = $request->input('email');
+            $email = is_string($input) ? strtolower($input) : '';
+
+            return $this->authThrottleLimit('login', $email.'|'.$request->ip());
+        });
+
+        RateLimiter::for('auth-register', function (Request $request): Limit {
+            return $this->authThrottleLimit('register', $request->ip());
+        });
+
+        RateLimiter::for('auth-password-email', function (Request $request): Limit {
+            return $this->authThrottleLimit('password_email', $request->ip());
+        });
+
+        RateLimiter::for('auth-password-link', function (Request $request): Limit {
+            return $this->authThrottleLimit('password_link', $request->ip());
+        });
+
+        RateLimiter::for('auth-password-reset', function (Request $request): Limit {
+            return $this->authThrottleLimit('password_reset', $request->ip());
+        });
+
         // Temporary scan-test helper: redirect ALL outgoing mail to one inbox.
         // Active only on local + MAIL_TEST_REDIRECT set. Production untouched.
         $testRedirect = config('mail.test_redirect');
         if ($this->app->environment('local') && filled($testRedirect)) {
             Mail::alwaysTo($testRedirect);
         }
+    }
+
+    /**
+     * Bangun batas percobaan dari config/auth_throttle.php agar angka tidak ditulis di route.
+     */
+    private function authThrottleLimit(string $endpoint, string $key): Limit
+    {
+        return Limit::perMinutes(
+            (int) config('auth_throttle.'.$endpoint.'.decay_minutes'),
+            (int) config('auth_throttle.'.$endpoint.'.max_attempts'),
+        )->by($key);
     }
 }

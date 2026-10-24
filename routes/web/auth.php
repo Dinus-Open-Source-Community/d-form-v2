@@ -25,6 +25,7 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
      */
     Route::resource('/auth/login', LoginController::class)
     ->middleware('guest')
+    ->middlewareFor('store', 'throttle:auth-login')
     ->names([
         'index' => 'auth.login',
         'store' => 'auth.login.store',
@@ -37,6 +38,7 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
      */
     Route::resource('/auth/register', RegisterController::class)
     ->middleware('guest')
+    ->middlewareFor('store', 'throttle:auth-register')
     ->names([
         'index' => 'auth.register',
         'store' => 'auth.register.store',
@@ -49,15 +51,15 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
 
     Route::get('/auth/forgot-password', [ForgotPasswordController::class, 'index'])->name('auth.password.request');
     Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-email')
+        ->middleware('throttle:auth-password-email')
         ->name('auth.password.email');
     Route::post('/auth/password-reset-link', [PasswordResetLinkController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-email')
+        ->middleware('throttle:auth-password-link')
         ->name('auth.password.reset-link');
 
     Route::get('/auth/reset-password/{token}', [ResetPasswordController::class, 'index'])->name('password.reset');
     Route::post('/auth/reset-password/{token}', [ResetPasswordController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-reset')
+        ->middleware('throttle:auth-password-reset')
         ->name('auth.password.update');
 });
 

@@ -41,6 +41,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Inertia membuang header rate limit; salin ulang agar klien tahu kapan boleh mencoba lagi.
+        $copyThrottleHeaders = static function (Response $source, Response $target): Response {
+            $headers = ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'];
+
+            foreach ($headers as $header) {
+                $value = $source->headers->get($header);
+
+                if ($value !== null) {
+                    $target->headers->set($header, $value);
+                }
+            }
+
+            return $target;
+        };
+
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             Log::warning('http_429_throttle', [
                 'route' => $request->route()?->getName(),
@@ -65,7 +80,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['message' => $e->getMessage()], 409);
         });
 
-        $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
+        $exceptions->respond(function (Response $response, Throwable $exception, Request $request) use ($copyThrottleHeaders) {
             if ($request->expectsJson()) {
                 return $response;
             }
@@ -86,8 +101,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            return Inertia::render('Error', ['status' => $status])
+            $rendered = Inertia::render('Error', ['status' => $status])
                 ->toResponse($request)
                 ->setStatusCode($status);
+
+            if ($status === 429) {
+                return $copyThrottleHeaders($response, $rendered);
+            }
+
+            return $rendered;
         });
     })->create();

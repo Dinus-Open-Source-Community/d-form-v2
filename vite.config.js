@@ -22,6 +22,17 @@ export default defineConfig({
         vue(),
         eslint(),
     ],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-vue': ['vue'],
+                    'vendor-inertia': ['@inertiajs/vue3'],
+                    'vendor-ui': ['reka-ui'],
+                },
+            },
+        },
+    },
     server: {
         host: '0.0.0.0',
         port: 5173,
