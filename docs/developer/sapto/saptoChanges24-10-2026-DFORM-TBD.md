@@ -29,7 +29,7 @@ Optimasi halaman auth berdasarkan audit `docs/big-changes/auth/report.md`: bundl
 | 429 Inertia             | header `Retry-After` hilang              | header disalin + toast hitung mundur           | fix            |
 | Favicon                 | 370.070 B                                | 7.406 B (ICO 16/32/48) + PNG 192 + apple-touch | −98%           |
 | SEO & meta auth         | tanpa `<title>`, `description`, `noindex` | title + description + `noindex, nofollow` di 4 halaman auth | +UX & crawl |
-| SSR Inertia             | HTML mentah tanpa title/meta/OG/JSON-LD | dirender server (`bootstrap/ssr`), fallback CSR tetap jalan | +SEO |
+| SSR Inertia             | HTML mentah tanpa title/meta/OG/JSON-LD | dirender server (`bootstrap/ssr`) di container app, fallback CSR tetap jalan | +SEO |
 | Semantik HTML5          | logo 404, 2 `<main>` di docs, auth tanpa `<main>`, 15 heading skip | semua diperbaiki, skip-link + label pencarian ditambah | +a11y/SEO |
 | Google Fonts            | `@import` di baris pertama CSS           | `<link>` + `preconnect` di root view           | non-blocking   |
 
@@ -228,7 +228,7 @@ Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0
 | `vite.config.js`                       | `laravel({ ssr: 'resources/js/ssr.js' })` + `ssr.noExternal: true` (bundle self-contained; tanpa ini build SSR gagal karena `manualChunks`)  |
 | `package.json`                         | script `build:ssr` (`vite build --ssr`)                                                                                                      |
 | `docker/Dockerfile.prod`               | build client + SSR, lalu `rm -rf node_modules` (bundle terbukti jalan tanpa `node_modules`)                                                   |
-| `docker-compose.prod.yml`              | service `ssr` (entrypoint `node bootstrap/ssr/ssr.js`, healthcheck `/health`, hanya `d-form-internal`) + `INERTIA_SSR_URL=http://ssr:13714` di `app` |
+| `docker/entrypoint.prod.sh`            | menjalankan `node bootstrap/ssr/ssr.js` di background dengan loop restart (2 dtk); log ke stdout container. Tidak menambah service/container baru |
 | `.gitignore`                           | `/bootstrap/ssr`                                                                                                                              |
 
 **Bukti HTML mentah (curl, proses SSR hidup):**
@@ -243,6 +243,8 @@ Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0
 
 - Bundle SSR: `bootstrap/ssr/ssr.js` 84,43 kB + `assets/` (total 12 MB); dijalankan dari salinan tanpa `node_modules` → `{"status":"OK"}` pada `/health`.
 - Fallback: proses node dimatikan → semua halaman tetap **200**, `title=0` di HTML mentah, client merender normal (`HttpGateway` mengembalikan null saat koneksi gagal).
+- Supervisor: `kill` pada proses node → SSR hidup lagi ≤6 dtk (`title` kembali 1); setelah semua proses dimatikan, halaman tetap 200 dengan fallback CSR. RSS node terukur **79 MB** di container app.
+- **Tanpa container baru:** SSR berjalan di dalam container `app` yang sama (localhost:13714), `docker-compose.prod.yml` tetap 3 service (`db`, `redis`, `app`).
 - Dev: SSR tidak dipakai saat HMR (bundle statis vs chunk client baru = risiko mismatch). Perintah cek:
   `podman exec -d -w /app d_form_app sh -lc 'cd /app && npm run build:ssr && node bootstrap/ssr/ssr.js'`
 

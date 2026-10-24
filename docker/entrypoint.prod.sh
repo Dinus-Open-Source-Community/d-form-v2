@@ -181,5 +181,21 @@ php artisan route:cache
 php artisan view:cache
 php artisan event:cache
 
+# Inertia SSR (Node) berjalan di dalam container yang sama; Laravel memanggil
+# http://127.0.0.1:13714. Loop ini me-restart proses bila crash; bila SSR mati
+# total, HttpGateway mengembalikan null dan Inertia otomatis fallback ke CSR.
+if [ -f /app/bootstrap/ssr/ssr.js ]; then
+    echo "Starting Inertia SSR..."
+    (
+        while true; do
+            node /app/bootstrap/ssr/ssr.js || true
+            echo "SSR process exited; restarting in 2s..." >&2
+            sleep 2
+        done
+    ) &
+else
+    echo "SSR bundle tidak ada; HTML dirender client-side." >&2
+fi
+
 echo "Starting Octane with FrankenPHP..."
 exec php artisan octane:frankenphp "$@" --host=0.0.0.0 --port=8000
