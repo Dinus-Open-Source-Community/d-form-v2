@@ -58,15 +58,23 @@ class RegisterOtpFlowTest extends TestCase
 
     public function test_resubmit_with_different_password_returns_neutral_message(): void
     {
-        $this->post(route('auth.register.store'), $this->payload('beda@example.test'));
+        // Pending dibuat di luar HTTP agar sesi belum pernah menerima key OTP.
+        app(RegistrationOtpService::class)->start([
+            'name' => 'Uji',
+            'email' => 'beda@example.test',
+            'password' => 'password-lama',
+        ]);
 
-        $this->post(route('auth.register.store'), $this->payload('beda@example.test', 'password-lain'))
+        $response = $this->post(route('auth.register.store'), $this->payload('beda@example.test', 'password-lain'))
             ->assertRedirect()
             ->assertSessionHas(
                 'inertia.flash_data',
                 fn ($flash): bool => ($flash['toast']['message'] ?? null) === self::NEUTRAL_MESSAGE
             );
 
+        $response->assertSessionMissing('otp.pending_email');
+        $response->assertSessionMissing('otp.cancel_token');
+        $this->assertSame(1, PendingRegistration::query()->where('email', 'beda@example.test')->count());
         $this->assertDatabaseHas('pending_registrations', ['email' => 'beda@example.test', 'otp_sends' => 1]);
         $this->assertGuest();
     }
@@ -77,9 +85,12 @@ class RegisterOtpFlowTest extends TestCase
 
         $this->post(route('auth.register.store'), $this->payload('terdaftar@example.test'))
             ->assertRedirect()
-            ->assertSessionHasErrors('email');
+            ->assertSessionHasErrors([
+                'email' => 'This email address is already registered. Please use a different email or try logging in.',
+            ]);
 
         $this->assertDatabaseCount('pending_registrations', 0);
+        $this->assertSame(1, User::query()->where('email', 'terdaftar@example.test')->count());
     }
 
     public function test_register_while_locked_redirects_to_otp_page_without_new_send(): void
