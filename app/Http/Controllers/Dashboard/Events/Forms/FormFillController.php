@@ -21,7 +21,9 @@ class FormFillController extends Controller
     {
         abort_unless($form->event_id === $event->id, 404);
 
-        $user   = $request->user();
+        $user = $request->user();
+        FormAccessGuard::assertEventAvailable($event, $user);
+
         $status = FormAccessGuard::check($form, $event, $user);
 
         $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);

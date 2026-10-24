@@ -36,6 +36,8 @@ class FormAnswerReviewController extends Controller
         RegistrationGroupPeers $groupPeers,
     ): JsonResponse {
         $this->authorize('review', $formAnswer);
+        // Review mengubah status + menerbitkan kode registrasi: wajib milik event yang dikelola.
+        $this->authorize('update', $event);
 
         abort_unless($form->event_id === $event->id, 404);
         abort_unless($formAnswer->form_id === $form->id, 404);

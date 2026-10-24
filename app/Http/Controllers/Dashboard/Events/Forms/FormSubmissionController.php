@@ -37,7 +37,9 @@ class FormSubmissionController extends Controller
     {
         abort_unless($form->event_id === $event->id, 404);
 
-        $user   = $request->user();
+        $user = $request->user();
+        FormAccessGuard::assertEventAvailable($event, $user);
+
         $status = FormAccessGuard::check($form, $event, $user);
 
         if ($status->isBlocked()) {

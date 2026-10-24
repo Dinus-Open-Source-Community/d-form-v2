@@ -3,6 +3,7 @@
 namespace App\Services\Form;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\EventStatus;
 use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\FormPurpose;
@@ -65,6 +66,19 @@ final class FormAccessGuard
 
         return self::duplicateOrInvitationStatus($form, $user)
             ?? FormAccessStatus::Allowed;
+    }
+
+    /**
+     * Tolak (404) bila event sudah dihapus atau belum dipublikasikan dan user bukan admin.
+     * Admin tetap boleh membuka form draft untuk pratinjau.
+     */
+    public static function assertEventAvailable(Event $event, User $user): void
+    {
+        if ($user->can('events.list')) {
+            return;
+        }
+
+        abort_if($event->trashed() || $event->status !== EventStatus::Published, 404);
     }
 
     /**
