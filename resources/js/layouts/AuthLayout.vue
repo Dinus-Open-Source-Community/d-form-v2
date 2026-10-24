@@ -30,8 +30,8 @@ usePageFlashToast();
             </div>
         </header>
 
-        <!-- Anchor atas deterministik: posisi tablist/judul tidak bergeser saat tinggi panel berubah. -->
-        <main class="flex min-h-dvh w-full items-start justify-center px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+        <!-- Anchor vertikal: blok auth di tengah; padding atas khusus mobile agar tidak menabrak header. -->
+        <main class="flex min-h-dvh w-full items-center justify-center px-5 pt-24 pb-12 sm:px-8 sm:pt-20 sm:pb-12 lg:py-16">
             <div class="w-full max-w-xl motion-safe:animate-app-fade-in">
                 <slot></slot>
             </div>

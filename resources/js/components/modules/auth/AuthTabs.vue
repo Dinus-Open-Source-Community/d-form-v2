@@ -32,23 +32,32 @@ function selectTab(value: string): void {
                 </TabsTrigger>
             </TabsList>
 
-            <TabsContent
-                value="signin"
-                force-mount
-                class="mt-0 rounded-xl pt-8 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0 data-[state=inactive]:hidden"
-            >
-                <AuthLoginForm />
-            </TabsContent>
+            <!-- Kedua panel menempati satu sel grid: tinggi sel mengikuti panel tertinggi (Daftar),
+                 jadi tablist dan judul tidak bergeser saat pindah tab. Panel non-aktif tetap
+                 ter-mount (state form aman) tetapi invisible + inert + aria-hidden. -->
+            <div class="grid">
+                <TabsContent
+                    value="signin"
+                    force-mount
+                    :inert="activeTab !== 'signin' ? true : undefined"
+                    :aria-hidden="activeTab !== 'signin' ? 'true' : undefined"
+                    class="col-start-1 row-start-1 mt-0 rounded-xl pt-6 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0 data-[state=inactive]:invisible"
+                >
+                    <AuthLoginForm />
+                    <AuthOAuthButtons />
+                </TabsContent>
 
-            <TabsContent
-                value="signup"
-                force-mount
-                class="mt-0 rounded-xl pt-8 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0 data-[state=inactive]:hidden"
-            >
-                <AuthRegisterForm />
-            </TabsContent>
+                <TabsContent
+                    value="signup"
+                    force-mount
+                    :inert="activeTab !== 'signup' ? true : undefined"
+                    :aria-hidden="activeTab !== 'signup' ? 'true' : undefined"
+                    class="col-start-1 row-start-1 mt-0 rounded-xl pt-6 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0 data-[state=inactive]:invisible"
+                >
+                    <AuthRegisterForm />
+                    <AuthOAuthButtons />
+                </TabsContent>
+            </div>
         </Tabs>
-
-        <AuthOAuthButtons />
     </div>
 </template>
