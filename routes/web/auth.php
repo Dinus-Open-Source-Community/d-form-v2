@@ -45,8 +45,8 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
 
-    // Placeholder Task 4: Task 5 mengganti baris ini secara utuh (URI + closure) dengan VerifyOtpController@index;
-    // jangan menambah route kedua dengan nama sama (Laravel memakai definisi terakhir).
+    // Placeholder Task 4: nama route memakai definisi pertama; karena itu Task 5 harus MENGGANTI baris ini
+    // secara utuh (URI + closure) dengan VerifyOtpController@index dan tidak boleh menambah route dengan nama `auth.otp.show` lagi.
     Route::get('/auth/verify-otp', fn () => redirect()->route('auth.register'))->name('auth.otp.show');
 
     // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
