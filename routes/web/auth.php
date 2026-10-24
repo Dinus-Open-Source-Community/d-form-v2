@@ -48,23 +48,23 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
     ])->only(['index', 'store']);
 
     /**
-     * Verifikasi OTP registrasi
+     * Verifikasi OTP registrasi (spec §7)
      * GET: index [auth/verify-otp]
-     * POST: verify [auth/otp/verify]
-     * POST: resend [auth/otp/resend]
-     * POST: cancel [auth/otp/cancel]
+     * POST: verify [auth/verify-otp]
+     * POST: resend [auth/verify-otp/resend]
+     * POST: cancel [auth/verify-otp/cancel]
      */
     Route::get('/auth/verify-otp', [VerifyOtpController::class, 'index'])->name('auth.otp.show');
 
-    Route::post('/auth/otp/verify', [VerifyOtpController::class, 'verify'])
+    Route::post('/auth/verify-otp', [VerifyOtpController::class, 'verify'])
         ->middleware('throttle:auth-otp-verify')
         ->name('auth.otp.verify');
 
-    Route::post('/auth/otp/resend', [VerifyOtpController::class, 'resend'])
+    Route::post('/auth/verify-otp/resend', [VerifyOtpController::class, 'resend'])
         ->middleware('throttle:auth-otp-resend')
         ->name('auth.otp.resend');
 
-    Route::post('/auth/otp/cancel', CancelPendingRegistrationController::class)->name('auth.otp.cancel');
+    Route::post('/auth/verify-otp/cancel', CancelPendingRegistrationController::class)->name('auth.otp.cancel');
 
     // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
     Route::post('/auth/email-availability', EmailAvailabilityController::class)

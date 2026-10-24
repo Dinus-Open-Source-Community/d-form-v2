@@ -128,7 +128,7 @@ class AppServiceProvider extends ServiceProvider
         // Cap lintas window per alamat email agar satu email tidak bisa dispam dari banyak IP.
         RateLimiter::for('auth-otp-address', function (Request $request): Limit {
             $input = $request->input('email');
-            $email = is_string($input) ? strtolower($input) : '';
+            $email = is_string($input) ? strtolower(trim($input)) : '';
 
             return $this->authThrottleLimit('otp_address', $email !== '' ? $email : $request->ip());
         });

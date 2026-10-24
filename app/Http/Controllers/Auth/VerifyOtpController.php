@@ -88,7 +88,14 @@ class VerifyOtpController extends Controller
             return $this->redirectToRegister($request);
         }
 
-        return $this->backToOtpWithError('resend', $this->resendErrorMessage($service->status($pending)));
+        // Baca ulang setelah transaksi resend agar pesan memakai kuota/lock terbaru.
+        $fresh = PendingRegistration::query()->find($pending->id);
+
+        if ($fresh === null) {
+            return $this->redirectToRegister($request);
+        }
+
+        return $this->backToOtpWithError('resend', $this->resendErrorMessage($service->status($fresh)));
     }
 
     /** Pending yang ditunjuk sesi; null bila sesi kosong atau barisnya sudah tidak ada. */

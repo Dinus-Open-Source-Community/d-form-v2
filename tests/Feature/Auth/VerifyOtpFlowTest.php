@@ -20,6 +20,8 @@ class VerifyOtpFlowTest extends TestCase
 
     private const EMAIL = 'verif@example.test';
 
+    private const OTHER_EMAIL = 'lain@example.test';
+
     private const PASSWORD = 'rahasia123';
 
     private const CANCEL_TOKEN = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -79,7 +81,7 @@ class VerifyOtpFlowTest extends TestCase
     {
         $service = app(RegistrationOtpService::class);
         $service->start($this->payload());
-        $wrongCode = $service->currentCode(self::EMAIL) === '000000' ? '000001' : '000000';
+        $wrongCode = $this->wrongCode($service->currentCode(self::EMAIL));
         $this->withSession($this->pendingSession());
 
         $this->from(route('auth.otp.show'))
@@ -123,6 +125,41 @@ class VerifyOtpFlowTest extends TestCase
 
         $this->assertAuthenticatedAs(User::query()->where('email', self::EMAIL)->firstOrFail());
         $this->assertDatabaseMissing('users', ['email' => 'penyerang@example.test']);
+    }
+
+    public function test_resend_ignores_email_from_request_body(): void
+    {
+        app(RegistrationOtpService::class)->start($this->payload());
+        $this->withSession($this->pendingSession());
+        $this->travel((int) config('otp.resend_cooldown_seconds') + 1)->seconds();
+
+        $this->post(route('auth.otp.resend'), ['email' => self::OTHER_EMAIL])
+            ->assertRedirect(route('auth.otp.show'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('pending_registrations', ['email' => self::EMAIL, 'otp_sends' => 2]);
+        $this->assertDatabaseMissing('pending_registrations', ['email' => self::OTHER_EMAIL]);
+    }
+
+    public function test_verify_without_session_redirects_to_register(): void
+    {
+        $this->post(route('auth.otp.verify'), ['code' => '123456'])
+            ->assertRedirect(route('auth.register'));
+
+        $this->assertGuest();
+    }
+
+    public function test_resend_without_session_redirects_to_register(): void
+    {
+        $this->post(route('auth.otp.resend'))->assertRedirect(route('auth.register'));
+    }
+
+    public function test_otp_routes_use_spec_uris(): void
+    {
+        $this->assertSame('/auth/verify-otp', parse_url(route('auth.otp.show'), PHP_URL_PATH));
+        $this->assertSame('/auth/verify-otp', parse_url(route('auth.otp.verify'), PHP_URL_PATH));
+        $this->assertSame('/auth/verify-otp/resend', parse_url(route('auth.otp.resend'), PHP_URL_PATH));
+        $this->assertSame('/auth/verify-otp/cancel', parse_url(route('auth.otp.cancel'), PHP_URL_PATH));
     }
 
     public function test_resend_during_cooldown_is_rejected_with_waiting_time(): void
@@ -206,19 +243,47 @@ class VerifyOtpFlowTest extends TestCase
 
     public function test_verify_is_throttled_per_ip_and_email(): void
     {
-        app(RegistrationOtpService::class)->start($this->payload());
+        $service = app(RegistrationOtpService::class);
+        $service->start($this->payload());
+        $wrong = $this->wrongCode($service->currentCode(self::EMAIL));
 
         for ($attempt = 1; $attempt <= 10; $attempt++) {
             $this->withSession($this->pendingSession())
                 ->from(route('auth.otp.show'))
-                ->post(route('auth.otp.verify'), ['code' => '000000'])
+                ->post(route('auth.otp.verify'), ['code' => $wrong])
                 ->assertRedirect(route('auth.otp.show'));
         }
 
         $this->withSession($this->pendingSession())
-            ->post(route('auth.otp.verify'), ['code' => '000000'])
+            ->post(route('auth.otp.verify'), ['code' => $wrong])
             ->assertStatus(429)
             ->assertHeader('Retry-After');
+    }
+
+    public function test_verify_throttle_bucket_is_per_email_not_only_ip(): void
+    {
+        $service = app(RegistrationOtpService::class);
+        $service->start($this->payload());
+        $service->start(['name' => 'Uji', 'email' => self::OTHER_EMAIL, 'password' => self::PASSWORD]);
+        $wrong = $this->wrongCode($service->currentCode(self::EMAIL));
+
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $this->withSession($this->pendingSession())
+                ->post(route('auth.otp.verify'), ['code' => $wrong])
+                ->assertRedirect(route('auth.otp.show'));
+        }
+
+        $this->withSession($this->pendingSession())
+            ->post(route('auth.otp.verify'), ['code' => $wrong])
+            ->assertStatus(429);
+
+        // Email lain pada IP yang sama tetap punya bucket sendiri.
+        $this->withSession([
+            'otp.pending_email' => self::OTHER_EMAIL,
+            'otp.cancel_token' => self::CANCEL_TOKEN,
+        ])->from(route('auth.otp.show'))
+            ->post(route('auth.otp.verify'), ['code' => $this->wrongCode($service->currentCode(self::OTHER_EMAIL))])
+            ->assertRedirect(route('auth.otp.show'));
     }
 
     public function test_resend_is_throttled_per_ip(): void
@@ -284,5 +349,11 @@ class VerifyOtpFlowTest extends TestCase
             'otp.pending_email' => self::EMAIL,
             'otp.cancel_token' => self::CANCEL_TOKEN,
         ];
+    }
+
+    /** Kode 6 digit yang dijamin tidak sama dengan kode aktif. */
+    private function wrongCode(?string $active): string
+    {
+        return $active === '000000' ? '000001' : '000000';
     }
 }
