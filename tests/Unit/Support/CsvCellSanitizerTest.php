@@ -21,6 +21,8 @@ class CsvCellSanitizerTest extends TestCase
             'leading spaces' => ['   =1+1', "'   =1+1"],
             'leading tab' => ["\t=1+1", "'\t=1+1"],
             'leading carriage return' => ["\r=1+1", "'\r=1+1"],
+            'leading line feed' => ["\n=1+1", "'\n=1+1"],
+            'leading non-breaking space' => ["\xA0=1+1", "'\xA0=1+1"],
         ];
     }
 
@@ -35,5 +37,9 @@ class CsvCellSanitizerTest extends TestCase
         self::assertSame('Peserta Biasa', CsvCellSanitizer::sanitize('Peserta Biasa'));
         self::assertSame('', CsvCellSanitizer::sanitize(null));
         self::assertSame('42', CsvCellSanitizer::sanitize(42));
+        self::assertSame('-1', CsvCellSanitizer::sanitize('-1'));
+        self::assertSame('-1500', CsvCellSanitizer::sanitize('-1500'));
+        self::assertSame('-1.5', CsvCellSanitizer::sanitize('-1.5'));
+        self::assertSame('-1,5', CsvCellSanitizer::sanitize('-1,5'));
     }
 }

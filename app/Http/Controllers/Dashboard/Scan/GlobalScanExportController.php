@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Registration\BundleGuestDisplayNameResolver;
 use App\Services\Registration\FormAnswerRecipientResolver;
+use App\Support\CsvCellSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Row;
@@ -111,12 +112,14 @@ class GlobalScanExportController extends Controller
      */
     private function write(string $format, array $header, iterable $rows): void
     {
+        $sanitizedRows = $this->sanitizeRows($rows);
+
         if ($format === 'xlsx') {
             $writer = new XlsxWriter();
             $writer->openToFile('php://output');
             $writer->addRow(Row::fromValues($header));
 
-            foreach ($rows as $row) {
+            foreach ($sanitizedRows as $row) {
                 $writer->addRow(Row::fromValues($row));
             }
 
@@ -133,11 +136,24 @@ class GlobalScanExportController extends Controller
         fwrite($out, "\xEF\xBB\xBF");
         fputcsv($out, $header, ',', '"', '');
 
-        foreach ($rows as $row) {
+        foreach ($sanitizedRows as $row) {
             fputcsv($out, $row, ',', '"', '');
         }
 
         fclose($out);
+    }
+
+    /**
+     * Menyaring setiap sel data sebelum ditulis ke CSV maupun XLSX.
+     *
+     * @param  iterable<int, list<string|int|null>>  $rows
+     * @return \Generator<int, list<string>>
+     */
+    private function sanitizeRows(iterable $rows): \Generator
+    {
+        foreach ($rows as $row) {
+            yield array_map(CsvCellSanitizer::sanitize(...), $row);
+        }
     }
 
     /**

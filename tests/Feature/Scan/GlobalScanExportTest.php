@@ -12,7 +12,6 @@ use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Database\Seeders\RecruitmentDivisionSeeder;
@@ -20,6 +19,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Tests\TestCase;
 
@@ -52,7 +52,7 @@ class GlobalScanExportTest extends TestCase
     /**
      * @return array{0: Event, 1: User}
      */
-    private function eventWithAttendance(): array
+    private function eventWithAttendance(string $attendeeName = 'Attendee One'): array
     {
         $admin = $this->admin();
 
@@ -63,7 +63,7 @@ class GlobalScanExportTest extends TestCase
         ]);
 
         $participant = User::factory()->create([
-            'name' => 'Attendee One',
+            'name' => $attendeeName,
             'email' => 'attendee1@example.test',
         ]);
 
@@ -294,6 +294,61 @@ class GlobalScanExportTest extends TestCase
         $this->assertStringContainsString(',qr,', $content);
 
         Carbon::setTestNow();
+    }
+
+    public function test_event_exports_neutralize_formula_like_attendee_name(): void
+    {
+        [$event, $admin] = $this->eventWithAttendance('=HYPERLINK("http://x")');
+        $query = ['kind' => 'event', 'target' => $event->id];
+
+        $csv = $this->actingAs($admin)->get(route('dashboard.scan.export', [...$query, 'format' => 'csv']))
+            ->assertOk()
+            ->streamedContent();
+
+        self::assertStringNotContainsString(',=HYPERLINK', $csv);
+        self::assertStringContainsString("'=HYPERLINK(", $csv);
+
+        $xlsx = $this->actingAs($admin)->get(route('dashboard.scan.export', [...$query, 'format' => 'xlsx']))
+            ->assertOk()
+            ->streamedContent();
+
+        $row = $this->readXlsxDataRow($xlsx);
+
+        self::assertInstanceOf(StringCell::class, $row[1]);
+        self::assertSame("'=HYPERLINK(\"http://x\")", $row[1]->getValue());
+    }
+
+    /**
+     * @return list<\OpenSpout\Common\Entity\Cell>
+     */
+    private function readXlsxDataRow(string $binary): array
+    {
+        $path = tempnam(sys_get_temp_dir(), 'scan-export-xlsx-');
+
+        try {
+            file_put_contents($path, $binary);
+
+            $reader = new XlsxReader();
+            $reader->open($path);
+
+            $cells = [];
+            $seenRows = 0;
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    if (++$seenRows === 2) {
+                        $cells = $row->getCells();
+                        break;
+                    }
+                }
+                break;
+            }
+
+            $reader->close();
+
+            return $cells;
+        } finally {
+            @unlink($path);
+        }
     }
 
     /**
