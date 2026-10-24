@@ -92,7 +92,10 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
                         ->excludeTerminatedInvitationMembers();
                 });
             })
+            ->forListPage()
             ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->limit(EventService::USER_JOINED_LIMIT)
             ->get();
 
         $pendingInviteRows = FormAnswer::query()

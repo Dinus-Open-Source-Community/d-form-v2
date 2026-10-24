@@ -8,6 +8,7 @@ use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Cache\TaggableStore;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
@@ -19,6 +20,9 @@ class EventService
 {
     /** Jumlah event per halaman di halaman jelajah (/browse). */
     public const PUBLIC_BROWSE_PER_PAGE = 5;
+
+    /** Batas event yang ditampilkan di portal "/joined" agar payload dan query tidak tumbuh tanpa batas. */
+    public const USER_JOINED_LIMIT = 60;
 
     private const LIST_CACHE_TTL_SECONDS = 3600;
 
@@ -309,12 +313,16 @@ class EventService
         );
     }
 
+    /**
+     * Simpan hasil query list event di cache; memakai tag hanya bila store mendukungnya.
+     * Deteksi dukungan tag dilakukan sebelum resolver, sehingga error query tidak pernah diulang.
+     */
     private function rememberList(string $key, \Closure $callback): mixed
     {
-        try {
+        if (Cache::getStore() instanceof TaggableStore) {
             return Cache::tags(['events'])->remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
-        } catch (\BadMethodCallException|\RuntimeException) {
-            return Cache::remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
         }
+
+        return Cache::remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
     }
 }

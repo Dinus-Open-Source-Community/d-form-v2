@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 final class EventReportingQuery
 {
+    /** Ringkasan admin di-cache singkat; angka global jarang berubah di antara dua buka halaman. */
+    private const GLOBAL_SUMMARY_TTL_SECONDS = 300;
+
     /**
      * Registration submissions per calendar month over the last N months.
      * Dibaca dari agregat harian `event_daily_registrations` (SUM(count)); sumber
@@ -172,6 +175,9 @@ final class EventReportingQuery
     }
 
     /**
+     * Ringkasan agregat lintas event untuk halaman laporan; hasilnya di-cache 5 menit
+     * dengan buster statistik agar tiga COUNT besar tidak dijalankan tiap buka halaman.
+     *
      * @return array{
      *     total_events: int,
      *     total_submissions: int,
@@ -179,6 +185,25 @@ final class EventReportingQuery
      * }
      */
     public function globalAdminSummary(): array
+    {
+        return EventCache::remember(
+            'reporting:global-admin-summary',
+            self::GLOBAL_SUMMARY_TTL_SECONDS,
+            $this->countGlobalAdminSummary(...),
+            EventCache::BUSTER_STATS,
+        );
+    }
+
+    /**
+     * Hitung agregat global dari tabel sumber; hanya dipanggil saat cache ringkasan kosong.
+     *
+     * @return array{
+     *     total_events: int,
+     *     total_submissions: int,
+     *     total_attendance_records: int
+     * }
+     */
+    private function countGlobalAdminSummary(): array
     {
         $totalEvents = (int) Event::query()->whereNull('deleted_at')->count();
 
