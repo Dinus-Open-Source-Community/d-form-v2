@@ -153,8 +153,8 @@ class EventService
      */
     public function paginateForAdminIndex(array $queryInput, int $page, User $user): LengthAwarePaginator
     {
-        // Aturan global: 20 data per halaman; pager hanya bila total > 20.
-        $perPage = 20;
+        // Default 8 per halaman; dapat diubah dari UI (1..100).
+        $perPage = max(1, min(100, (int) ($queryInput['per_page'] ?? 8)));
         $search = $queryInput['search'] ?? '';
         $filter = $queryInput['filter'] ?? [];
         $sort = $queryInput['sort'] ?? ['by' => 'title', 'order' => 'asc'];
