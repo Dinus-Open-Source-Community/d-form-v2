@@ -25,4 +25,9 @@ return [
         /* Batas halaman hasil pencarian; daftar tanpa kata kunci tidak dibatasi. */
         'max_page' => (int) env('EVENTS_SEARCH_MAX_PAGE', 20),
     ],
+
+    'admin' => [
+        /* Batas halaman daftar event admin (OFFSET dalam sangat mahal). */
+        'max_page' => (int) env('EVENTS_ADMIN_MAX_PAGE', 200),
+    ],
 ];

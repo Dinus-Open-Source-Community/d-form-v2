@@ -33,7 +33,8 @@ class EventController extends Controller
     public function index(IndexEventRequest $request): Response
     {
         $validated = $request->validated();
-        $page = $request->integer('page', 1);
+        // OFFSET dalam pada 1 juta baris = lambat; batasi halaman yang bisa diminta.
+        $page = min(max(1, $request->integer('page', 1)), (int) config('events.admin.max_page', 200));
 
         $paginator = $this->eventService->paginateForAdminIndex($validated, $page, auth()->guard('web')->user());
 

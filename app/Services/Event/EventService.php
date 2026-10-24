@@ -197,8 +197,11 @@ class EventService
                     $query->whereIn('status', $filter['statuses']);
                 }
 
-                if (!$isSuperAdmin) {
-                    $query->where('created_by', $userId)->orWhereNull('created_by');
+                if (! $isSuperAdmin) {
+                    // Dikelompokkan: filter status/kategori/timeline tidak boleh bocor ke baris created_by NULL.
+                    $query->where(fn ($owner) => $owner
+                        ->where('created_by', $userId)
+                        ->orWhereNull('created_by'));
                 }
 
                 $showTrashed = ! empty($filter['showTrashed']);
@@ -206,11 +209,12 @@ class EventService
                 if (! $showTrashed && is_string($timeline) && $timeline !== 'all') {
                     $today = now()->toDateString();
                     match ($timeline) {
-                        'upcoming' => $query->whereDate('start_date', '>', $today),
+                        // Kolom bertipe DATE: perbandingan langsung agar index range tetap terpakai.
+                        'upcoming' => $query->where('start_date', '>', $today),
                         'ongoing' => $query
-                            ->whereDate('start_date', '<=', $today)
-                            ->whereDate('end_date', '>=', $today),
-                        'completed' => $query->whereDate('end_date', '<', $today),
+                            ->where('start_date', '<=', $today)
+                            ->where('end_date', '>=', $today),
+                        'completed' => $query->where('end_date', '<', $today),
                         default => null,
                     };
                 }
