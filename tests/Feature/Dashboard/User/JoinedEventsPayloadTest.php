@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Portal "/joined" wajib dibatasi dan memilih kolom eksplisit agar payload
- * tidak tumbuh mengikuti jumlah event yang pernah diikuti peserta.
+ * Portal "/joined" wajib dibatasi, memilih kolom eksplisit, dan menandai
+ * pemotongan lewat props totalJoined/truncated agar UI bisa memberi info.
  */
 class JoinedEventsPayloadTest extends TestCase
 {
@@ -30,26 +30,12 @@ class JoinedEventsPayloadTest extends TestCase
 
     public function test_portal_membatasi_jumlah_event_dan_memilih_kolom_eksplisit(): void
     {
-        $member = User::factory()->create();
-        $member->assignRole('member');
+        $member = $this->member();
 
         $latest = null;
 
         for ($i = 0; $i < EventService::USER_JOINED_LIMIT + 5; $i++) {
-            $event = Event::factory()->create([
-                'status' => EventStatus::Published,
-                'start_date' => now()->subDays($i)->toDateString(),
-                'end_date' => now()->subDays($i)->toDateString(),
-                'registration_start' => now()->subDays(30),
-                'registration_end' => now()->addDays(30),
-            ]);
-
-            $form = Form::factory()->create(['event_id' => $event->id]);
-
-            FormAnswer::factory()->create([
-                'form_id' => $form->id,
-                'user_id' => $member->id,
-            ]);
+            $event = $this->joinEvent($member, $i);
 
             $latest ??= $event;
         }
@@ -64,10 +50,12 @@ class JoinedEventsPayloadTest extends TestCase
             ->component('Dashboard/User/Events')
             ->has('events', EventService::USER_JOINED_LIMIT)
             ->where('events.0.id', $latest->id)
+            ->where('totalJoined', EventService::USER_JOINED_LIMIT + 5)
+            ->where('truncated', true)
         );
 
         $eventsSql = $queries->first(
-            fn (string $sql): bool => str_starts_with($sql, 'select')
+            fn (string $sql): bool => str_starts_with($sql, 'select "id", "slug"')
                 && str_contains($sql, 'from "events" where')
         );
 
@@ -79,5 +67,54 @@ class JoinedEventsPayloadTest extends TestCase
         );
         $this->assertStringNotContainsString('"answers"', $eventsSql);
         $this->assertStringContainsString('limit '.EventService::USER_JOINED_LIMIT, $eventsSql);
+    }
+
+    public function test_portal_tidak_menandai_truncated_bila_event_masih_di_bawah_batas(): void
+    {
+        $member = $this->member();
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->joinEvent($member, $i);
+        }
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events'))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                ->component('Dashboard/User/Events')
+                ->has('events', 3)
+                ->where('totalJoined', 3)
+                ->where('truncated', false)
+            );
+    }
+
+    /** Buat event terpublikasi beserta form dan jawaban peserta agar muncul di portal "/joined". */
+    private function joinEvent(User $member, int $daysAgo): Event
+    {
+        $event = Event::factory()->create([
+            'status' => EventStatus::Published,
+            'start_date' => now()->subDays($daysAgo)->toDateString(),
+            'end_date' => now()->subDays($daysAgo)->toDateString(),
+            'registration_start' => now()->subDays(30),
+            'registration_end' => now()->addDays(30),
+        ]);
+
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+        ]);
+
+        return $event;
+    }
+
+    private function member(): User
+    {
+        $user = User::factory()->create();
+        $user->assignRole('member');
+
+        return $user;
     }
 }

@@ -176,8 +176,9 @@ class EventService
                 'per_page' => $perPage,
                 'page' => $page,
             ],
-            'buster' => Cache::get('events:list:cache:buster', 0),
-            'userId' => $userId
+            'buster' => Cache::get(EventCache::BUSTER_LIST, 0),
+            'userId' => $userId,
+            'isSuperAdmin' => $isSuperAdmin,
         ]));
 
         return $this->rememberList(

@@ -84,14 +84,18 @@ Route::middleware('auth')->get('/joined/profile', fn () => redirect()->route('da
 Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard.user.')->group(function () {
     Route::get('/', function (EventService $eventService) {
         $userId = auth()->id();
-        $events = Event::query()
+        $joinedEventsQuery = fn () => Event::query()
             ->where('status', EventStatus::Published)
             ->whereHas('forms', function ($q) use ($userId): void {
                 $q->whereHas('formAnswers', function ($aq) use ($userId): void {
                     $aq->where('user_id', $userId)
                         ->excludeTerminatedInvitationMembers();
                 });
-            })
+            });
+
+        $totalJoined = $joinedEventsQuery()->count();
+
+        $events = $joinedEventsQuery()
             ->forListPage()
             ->orderByDesc('start_date')
             ->orderByDesc('id')
@@ -126,6 +130,8 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
 
         return inertia('Dashboard/User/Events', [
             'events' => $payload,
+            'totalJoined' => $totalJoined,
+            'truncated' => $totalJoined > count($payload),
             'listMode' => 'mine',
         ]);
     })->name('events');
