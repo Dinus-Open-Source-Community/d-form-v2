@@ -170,3 +170,28 @@ Test: `tests/Unit/EventSearchTermsTest.php`, `tests/Feature/EventListPaginationT
 - [x] Tidak ada filesort pada kedua jalur (EXPLAIN)
 - [ ] Nomor tiket → rename file + update README
 - [ ] Push & Jira In Review (setelah review manusia)
+
+---
+
+## Sesi lanjutan — audit performa & keamanan (lanjutan hari yang sama)
+
+| Commit | Isi | Bukti |
+|---|---|---|
+| `cfe90ed` | IDOR: `EventController@update` memakai `authorize('update', $event)`; `sort=foo` tidak lagi 500 | 4 test |
+| `8801fd6` | Tren registrasi dari `event_daily_registrations` (`SUM(count)`, bukan `count(*)`) + `FormAnswerObserver` + command rekonsiliasi | 12,05 s → 0,004 s |
+| `bf3a0b7` | Filter daftar admin: predikat `created_by OR NULL` dikelompokkan, timeline memakai kolom DATE langsung, `page` dibatasi | 2 test |
+| `c1e85b3` | Index `events(deleted_at, title)` untuk sort default | query daftar 7,7 s → 7,8 ms |
+| `98aa226` | Statistik dipisah dari jumlah pendaftar (`BUSTER_REGISTRANTS`), `useIndex` untuk count closed, scan page tanpa `select *` | count closed 5,7 s → 0,14 s; 0 query `select *` |
+| `6665e57` | Review submisi wajib pemilik event; event draft/terhapus tidak menerima submisi | 4 test |
+| `aa45432` | Opsi filter kategori/sesi tanpa `DISTINCT` 1 juta baris (cache + observer + command rebuild) | `/admin/events` cold 13,3 s → 0,30 s |
+| `14ee313` | `per_page` daftar event dihormati (default 8) | 3 test |
+| `534ad7a`, `240ecd4` | CSV/formula injection: helper tunggal, termasuk export GlobalScan (CSV + XLSX) | 37 test |
+| `2ccb1b4`, `498b662` | Stored XSS: sanitasi HTML saat simpan + command backfill HTML lama + restore state libxml + decode entity | 10 test |
+| `f2522bc`, `3403e8a` | `/joined` dibatasi 60 + `totalJoined`/`truncated`, `globalAdminSummary` di-cache 300 s, `rememberList` tidak menelan error | 17 test |
+| `12db4d3` | Satu pagination global: per-halaman (8/25/50/100), rentang `1–8 dari 1m`, window 10 nomor, mode cursor, hapus `ui/pagination/*` | eslint + build + browser |
+
+Catatan operasional:
+- `ANALYZE TABLE events, forms, form_answers, users, recruitment_applications, recruitment_interviews` dijalankan sekali (statistik optimizer basi membuat count closed 5,7 s).
+- Jalankan `php artisan analytics:rebuild-event-options` setelah deploy/seed (satu-satunya jalur yang memindai `events` untuk opsi filter).
+- Jalankan `php artisan security:sanitize-stored-html` (opsional `--dry-run`) sekali untuk membersihkan HTML lama.
+- Flaky: `RecruitmentEmailResendTest` gagal bila seluruh suite berjalan (lulus saat dijalankan sendiri) — test isolation, bukan regresi.
