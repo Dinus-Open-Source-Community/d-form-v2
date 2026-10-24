@@ -8,6 +8,16 @@
 @source '../js/**/*.js';
 @source '../js/**/*.vue';
 
+/* iOS Safari memperbesar (zoom) halaman saat fokus ke kontrol form ber-font < 16px.
+   Nilai absolut 16px dipakai karena root mobile 15px; desktop tetap 14px (text-sm). */
+@media (max-width: 639px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
 @theme {
     --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;

@@ -289,3 +289,18 @@ Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-
 **E2E disesuaikan:** locator di-scope ke `#login-email`/`#login-password` karena panel Daftar ikut ter-mount (`getByLabel(/email/i)` menjadi ambigu). Suite auth **8/8 lulus**, Pint PASS, ESLint 0 error.
 
 **Build:** entry **57.668 B / 18.142 B gzip**; chunk `Auth/Login` 1.430 B (691 gzip), `Auth/Register` 1.433 B (692 gzip), chunk bersama `useAuthTabs` 11,5 kB.
+
+## 18. Penyetelan lanjutan halaman auth
+
+| Perubahan | Detail |
+| :--- | :--- |
+| Blok auth di tengah | `min-h-dvh` + `items-center`; kedua panel di-stack pada satu sel `grid` dan panel non-aktif `invisible` + `inert` + `aria-hidden` (bukan `display:none`) sehingga tinggi sel = panel tertinggi |
+| Posisi atas stabil | `tablist.top` identik antar tab: desktop **85px**, mobile **106px** (Δ0); hanya isi bawah yang berbeda/berubah tinggi |
+| Spacing mobile | `pt-24 pb-12 sm:pt-20 lg:py-16`; header absolute tidak lagi menimpa tab (header bottom 60 ≤ tablist top 106; desktop 76 ≤ 85) |
+| Lebar input mobile | font kontrol form dipaksa **16px** pada viewport <640px (root mobile 15px) → mencegah auto-zoom iOS saat fokus; desktop tetap 14px (`text-sm`) |
+| Kekuatan kata sandi | 4 segmen garis (`h-1`, gap 6px) terisi kiri→kanan (`transition-colors 300ms ease-out`), selalu tampil termasuk saat kosong, tanpa badge/label per langkah |
+| Hint & kecocokan | satu baris "Minimal 8 karakter dengan huruf besar dan angka."; indikator "Kata sandi cocok / belum cocok" dipindah ke bawah input Confirm password (`aria-live="polite"`, tinggi tetap agar tidak menggeser layout) |
+
+**A11y:** track `role="progressbar"` + `aria-valuemin/max/now` + `aria-describedby` ke hint; indikator kecocokan live region; panel non-aktif `inert` sehingga tidak masuk tab order.
+
+**Verifikasi:** E2E auth **8/8 lulus**; ESLint 0 error; build entry **57.657 B / 18.164 B gzip**, `Auth/Login` 1.401 B (687 gzip), `Auth/Register` 1.404 B (690 gzip). `scrollHeight` desktop 932 vs viewport 900 — selisih 32px berasal dari `body { margin-bottom: 32px }` milik Debugbar (dev-only), bukan layout auth.
