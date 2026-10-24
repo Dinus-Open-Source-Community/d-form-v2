@@ -85,6 +85,7 @@ class RegistrationOtpServiceTest extends TestCase
 
         Queue::assertPushed(SendRegistrationOtpJob::class, function (SendRegistrationOtpJob $job) use ($pending): bool {
             return $job->pendingId === $pending->id
+                && $job->sentAt === $pending->otp_last_sent_at?->toIso8601String()
                 && ! property_exists($job, 'code');
         });
     }

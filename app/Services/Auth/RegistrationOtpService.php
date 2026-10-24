@@ -21,38 +21,41 @@ class RegistrationOtpService
      * Mulai atau lanjutkan pendaftaran tertunda: buat pending baru atau terbitkan OTP baru.
      *
      * Resume tidak menimpa `name`/`password`; kata sandi harus cocok agar OTP baru dikirim.
+     * Baris dikunci agar dua request paralel tidak melampaui kuota kirim.
      *
      * @param  array{name: string, email: string, password: string}  $data
      */
     public function start(array $data): OtpOutcome
     {
-        $pending = PendingRegistration::query()->firstOrNew(['email' => $data['email']]);
+        return DB::transaction(function () use ($data): OtpOutcome {
+            $pending = $this->findLocked($data['email']);
 
-        if (! $pending->exists) {
-            $pending->fill([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => $data['password'],
-            ])->save();
+            if ($pending === null) {
+                $pending = PendingRegistration::create([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'password' => $data['password'],
+                ]);
+
+                $this->issue($pending);
+
+                return OtpOutcome::Issued;
+            }
+
+            if (! Hash::check($data['password'], $pending->password)) {
+                return OtpOutcome::PasswordMismatch;
+            }
+
+            $quotaOutcome = $this->guardSendQuota($pending, 0);
+
+            if ($quotaOutcome !== null) {
+                return $quotaOutcome;
+            }
 
             $this->issue($pending);
 
             return OtpOutcome::Issued;
-        }
-
-        if (! Hash::check($data['password'], $pending->password)) {
-            return OtpOutcome::PasswordMismatch;
-        }
-
-        $quotaOutcome = $this->guardSendQuota($pending, 0);
-
-        if ($quotaOutcome !== null) {
-            return $quotaOutcome;
-        }
-
-        $this->issue($pending);
-
-        return OtpOutcome::Issued;
+        });
     }
 
     /**
@@ -92,24 +95,28 @@ class RegistrationOtpService
 
     /**
      * Kirim ulang OTP; hormati lock, kuota kirim, dan cooldown antar-kirim.
+     *
+     * Baris dikunci agar dua request paralel tidak melampaui kuota kirim.
      */
     public function resend(string $email): OtpOutcome
     {
-        $pending = $this->find($email);
+        return DB::transaction(function () use ($email): OtpOutcome {
+            $pending = $this->findLocked($email);
 
-        if ($pending === null) {
-            return OtpOutcome::Missing;
-        }
+            if ($pending === null) {
+                return OtpOutcome::Missing;
+            }
 
-        $quotaOutcome = $this->guardSendQuota($pending, (int) config('otp.resend_cooldown_seconds'));
+            $quotaOutcome = $this->guardSendQuota($pending, (int) config('otp.resend_cooldown_seconds'));
 
-        if ($quotaOutcome !== null) {
-            return $quotaOutcome;
-        }
+            if ($quotaOutcome !== null) {
+                return $quotaOutcome;
+            }
 
-        $this->issue($pending);
+            $this->issue($pending);
 
-        return OtpOutcome::Issued;
+            return OtpOutcome::Issued;
+        });
     }
 
     /**
@@ -159,6 +166,17 @@ class RegistrationOtpService
     }
 
     /**
+     * Cari pending sambil mengunci baris; wajib dipanggil di dalam transaksi yang menulis kuota kirim.
+     */
+    private function findLocked(string $email): ?PendingRegistration
+    {
+        return PendingRegistration::query()
+            ->where('email', $email)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
      * Tolak kirim saat lock aktif, kuota habis, atau cooldown belum lewat.
      *
      * Kuota yang pulih setelah lock lewat diterapkan di sini agar berlaku untuk start dan resend.
@@ -184,6 +202,9 @@ class RegistrationOtpService
 
     /**
      * Terbitkan kode baru: reset percobaan, naikkan kuota kirim, kunci bila kuota habis, lalu antrekan email.
+     *
+     * Wajib dipanggil di dalam transaksi yang mengunci baris pending; email baru diantrekan setelah commit
+     * agar worker tidak membaca baris yang belum tersimpan.
      */
     private function issue(PendingRegistration $pending): void
     {
@@ -202,7 +223,7 @@ class RegistrationOtpService
                 : null,
         ])->save();
 
-        SendRegistrationOtpJob::dispatch($pending->id);
+        SendRegistrationOtpJob::dispatch($pending->id, $now->toIso8601String())->afterCommit();
     }
 
     /** Kode angka acak sepanjang `otp.length`, di-zero-pad. */
