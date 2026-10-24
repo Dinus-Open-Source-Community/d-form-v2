@@ -45,6 +45,10 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
 
+    // Placeholder Task 4: Task 5 mengganti closure ini dengan VerifyOtpController@index
+    // (jangan menambah route auth.otp.show kedua; nama/URI duplikat membuat halaman asli tertutup).
+    Route::get('/auth/otp', fn () => redirect()->route('auth.register'))->name('auth.otp.show');
+
     // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
     Route::post('/auth/email-availability', EmailAvailabilityController::class)
         ->middleware('throttle:auth-email-check')

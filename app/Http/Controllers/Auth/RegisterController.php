@@ -2,48 +2,71 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\OtpOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterStoreRequest;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Services\Auth\RegistrationOtpService;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class RegisterController extends Controller
 {
-    // method for GET: /auth/register
-    public function index()
+    /** Pesan netral agar status pending tidak bisa ditebak dari percobaan kata sandi. */
+    private const PENDING_EMAIL_MESSAGE = 'Pendaftaran dengan email ini sedang menunggu verifikasi. Selesaikan verifikasi atau gunakan email lain.';
+
+    /** Tampilkan form pendaftaran. */
+    public function index(): Response
     {
         return inertia('Auth/Register');
     }
 
-    // method for POST: /auth/register
-    public function store(RegisterStoreRequest $request)
+    /**
+     * Mulai pendaftaran tertunda lalu arahkan ke verifikasi OTP; user belum dibuat dan belum login.
+     */
+    public function store(RegisterStoreRequest $request, RegistrationOtpService $service): RedirectResponse
     {
-        $newUserData = $request->validated();
+        $data = $request->validated();
+        $outcome = $this->startPending($service, $data);
 
-        try {
-            DB::transaction(function () use ($newUserData) {
-                $user = User::create(collect($newUserData)->only(['name', 'email', 'password'])->all());
-
-                $user->assignRole('member');
-
-                Auth::login($user);
-            });
-
-            $request->session()->regenerate();
-
-            Inertia::flash('toast', [
-                'message' => 'Register success',
-                'type' => 'success'
-            ]);
-
-            return redirect()->route('dashboard');
-        } catch (\Exception $e) {
+        if ($outcome === OtpOutcome::PasswordMismatch) {
             return Inertia::flash('toast', [
-                'message' => 'Register failed',
-                'type' => 'error'
-             ])->back();
+                'message' => self::PENDING_EMAIL_MESSAGE,
+                'type' => 'error',
+            ])->back();
+        }
+
+        $request->session()->regenerate();
+        $request->session()->put([
+            'otp.pending_email' => $data['email'],
+            'otp.cancel_token' => Str::random(32),
+        ]);
+
+        $locked = $outcome === OtpOutcome::Locked;
+
+        Inertia::flash('toast', [
+            'message' => $locked
+                ? 'Batas pengiriman kode tercapai. Tunggu sampai hitung mundur berakhir.'
+                : 'Kode verifikasi sudah dikirim ke email Anda.',
+            'type' => $locked ? 'error' : 'success',
+        ]);
+
+        return redirect()->route('auth.otp.show');
+    }
+
+    /**
+     * Panggil start() dan ulangi sekali bila request paralel lebih dulu membuat baris pending.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function startPending(RegistrationOtpService $service, array $data): OtpOutcome
+    {
+        try {
+            return $service->start($data);
+        } catch (UniqueConstraintViolationException) {
+            return $service->start($data);
         }
     }
 }
