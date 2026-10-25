@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-vue-next'
+import { formatDateTime } from '@/lib/dateTime'
 
 export type ScanStatus = 'success' | 'already' | 'invalid'
 
@@ -61,7 +62,7 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         name: result.name,
         email: result.email,
-        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        time: formatDateTime({ value: new Date().toISOString(), variant: 'time' }),
         status: result.status,
         source: result.source,
         eventKind: result.eventKind,

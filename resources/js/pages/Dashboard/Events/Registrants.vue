@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { CalendarDays, FileStack, Users } from 'lucide-vue-next'
-import { formatDate } from '@/lib/dummyData'
+import { formatDateTime } from '@/lib/dateTime'
 import { useEventRegistrantsPage } from '@/utils/composables/useEventRegistrantsPage'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
@@ -52,7 +52,7 @@ onMounted(() => {
                 <div class="flex flex-col gap-1.5">
                     <Label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tanggal mulai</Label>
                     <p class="flex min-h-10 items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-foreground">
-                        {{ formatDate(props.event.start_date) }}
+                        {{ formatDateTime({ value: props.event.start_date }) }}
                     </p>
                 </div>
                 <div class="flex flex-col gap-1.5">

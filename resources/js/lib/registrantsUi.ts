@@ -1,4 +1,4 @@
-import { formatDate } from '@/lib/dummyData'
+import { formatDateTime } from '@/lib/dateTime'
 
 export const REGISTRANTS_TAB_ITEMS: {
     value: 'all' | 'pending' | 'accepted' | 'rejected'
@@ -63,5 +63,5 @@ export function registrantRelativeTimeId(dateStr: string): string {
     if (hours < 24) return `${hours} jam lalu`
     const days = Math.floor(hours / 24)
     if (days < 7) return `${days} hari lalu`
-    return formatDate(dateStr)
+    return formatDateTime({ value: dateStr })
 }

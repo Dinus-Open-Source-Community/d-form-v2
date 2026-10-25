@@ -3,11 +3,11 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, Inbox } from 'lucide-vue-next'
 import { submissionReviewBadge } from '@/lib/formSubmissionsUi'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
+import { formatDateTime } from '@/lib/dateTime'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
 
 defineProps<{
     submissions: IFormSubmission[]
-    formatDate: (v: string) => string
 }>()
 
 const emit = defineEmits<{
@@ -81,7 +81,7 @@ function onCardKeydown(e: KeyboardEvent, submission: IFormSubmission) {
                         Dikirim
                     </span>
                     <time class="text-right font-medium leading-snug text-foreground" :datetime="submission.submitted_at">
-                        {{ formatDate(submission.submitted_at) }}
+                        {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
                     </time>
                 </div>
             </div>

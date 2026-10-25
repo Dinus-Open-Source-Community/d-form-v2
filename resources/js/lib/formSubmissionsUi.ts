@@ -1,7 +1,3 @@
-export function formatSubmissionDate(value: string): string {
-    return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-}
-
 export function humanizeSubmissionKey(fieldLabelMap: Record<string, string>, value: string): string {
     return fieldLabelMap[value] || value.replace(/^field_/, '').replace(/_/g, ' ');
 }

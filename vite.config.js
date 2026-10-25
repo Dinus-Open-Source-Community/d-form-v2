@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
@@ -6,7 +6,13 @@ import eslint from 'vite-plugin-eslint2';
 import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '');
+    // Untuk akses dari perangkat lain di LAN/HP, isi VITE_DEV_HOST di .env (mis. 192.168.0.37).
+    // Kosong = perilaku lama (localhost).
+    const devHost = env.VITE_DEV_HOST || 'localhost';
+
+    return {
     resolve: {
         alias: {
             '@': path.resolve(__dirname, 'resources/js'),
@@ -33,7 +39,6 @@ export default defineConfig({
                 manualChunks: {
                     'vendor-vue': ['vue'],
                     'vendor-inertia': ['@inertiajs/vue3'],
-                    'vendor-ui': ['reka-ui'],
                 },
             },
         },
@@ -42,8 +47,11 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 5173,
         strictPort: true,
+        // Halaman di :3000 memuat aset dari :5173 (origin berbeda) — izinkan saat dev.
+        cors: true,
+        origin: `http://${devHost}:5173`,
         hmr: {
-            host: 'localhost',
+            host: devHost,
         },
         watch: {
             usePolling: true,
@@ -52,4 +60,5 @@ export default defineConfig({
             ignored: ['**/scripts/stress/**', '**/storage/**', '**/vendor/**', '**/node_modules/**'],
         },
     },
+    };
 });

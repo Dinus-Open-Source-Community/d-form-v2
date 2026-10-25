@@ -4,7 +4,8 @@ import { Link } from '@inertiajs/vue3'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { dummyEvents, formatDate, categoryLabelMap } from '@/lib/dummyData'
+import { dummyEvents, categoryLabelMap } from '@/lib/dummyData'
+import { formatDateTime } from '@/lib/dateTime'
 import { toCategoryList } from '@/lib/eventCategories'
 import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
@@ -61,7 +62,7 @@ const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index
                     <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
                         <span class="inline-flex items-center gap-1">
                             <CalendarDays class="size-3" :stroke-width="2" />
-                            {{ formatDate(event.start_date) }}
+                            {{ formatDateTime({ value: event.start_date }) }}
                         </span>
                         <span class="hidden items-center gap-1 xs:inline-flex sm:inline-flex">
                             <MapPin class="size-3" :stroke-width="2" />

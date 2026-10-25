@@ -15,6 +15,7 @@ import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnsw
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { formSubmissionReviewIsPending, submissionReviewBadge } from '@/lib/formSubmissionsUi';
 import { formFieldApiType, formFieldBuilderType } from '@/lib/formFieldOptions';
+import { formatDateTime } from '@/lib/dateTime';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 
 const open = defineModel<boolean>('open', { required: true });
@@ -23,7 +24,6 @@ const props = defineProps<{
     submission: IFormSubmission | null;
     answerKeys: string[];
     fields: IFormField[];
-    formatDate: (value: string) => string;
     humanizeKey: (value: string) => string;
     isSubmissionReviewing: (submissionId: string) => boolean;
 }>();
@@ -93,7 +93,7 @@ const answerSections = computed(() => {
                                 class="inline-flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums"
                             >
                                 <Clock class="size-3 shrink-0" aria-hidden="true" />
-                                {{ formatDate(submission.submitted_at) }}
+                                {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
                             </span>
                         </div>
                     </div>
@@ -183,7 +183,7 @@ const answerSections = computed(() => {
                         Jawaban ini sudah ditolak dan tidak dapat direview ulang.
                     </template>
                     <template v-if="submission.reviewed_at">
-                        Direview pada {{ formatDate(submission.reviewed_at) }}.
+                        Direview pada {{ formatDateTime({ value: submission.reviewed_at, variant: 'date-time-medium' }) }}.
                     </template>
                 </p>
             </SheetFooter>

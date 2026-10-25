@@ -5,12 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FileText, Eye, CheckCircle2, XCircle } from 'lucide-vue-next'
 import { formSubmissionReviewIsPending, submissionAdminAcceptBlocked, submissionReviewBadge } from '@/lib/formSubmissionsUi'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
+import { formatDateTime } from '@/lib/dateTime'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
 
 defineProps<{
     submissions: IFormSubmission[]
     answerKeys: string[]
-    formatDate: (v: string) => string
     humanizeKey: (v: string) => string
     answerPreview: (v: unknown) => string
     fileUrl: (v: unknown) => string | null
@@ -109,7 +109,7 @@ defineEmits<{
                             </span>
                         </TableCell>
                         <TableCell class="whitespace-nowrap px-6 py-4 text-[11px] text-muted-foreground">
-                            {{ formatDate(submission.submitted_at) }}
+                            {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
                         </TableCell>
                         <TableCell class="px-6 py-4 text-center">
                             <div class="flex flex-wrap items-center justify-center gap-1">

@@ -5,6 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { routes } from '@/lib/routes'
+import { formatDateTime } from '@/lib/dateTime'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
@@ -23,7 +24,7 @@ interface LogRow {
     created_at: string | null
 }
 
-const props = defineProps<{
+defineProps<{
     logs: { data: LogRow[]; links: { url: string | null; label: string; active: boolean }[] }
     periodOptions: { id: string; name: string }[]
     query: { period_id: string | null; action: string | null }
@@ -77,7 +78,7 @@ function applyFilters(periodId: string, action: string) {
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <p class="font-medium">{{ log.action }}</p>
                         <p class="text-muted-foreground text-xs">
-                            {{ log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '—' }}
+                            {{ formatDateTime({ value: log.created_at, variant: 'date-time-numeric' }) || '—' }}
                         </p>
                     </div>
                     <p class="text-muted-foreground text-xs">

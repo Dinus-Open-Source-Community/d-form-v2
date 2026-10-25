@@ -4,7 +4,8 @@ import SeoHead from '@/components/seo/SeoHead.vue';
 import { computed, ref, onMounted } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { MapPin, CalendarDays, ArrowRight, Check, Shield, FileText, ChevronRight, LogIn } from 'lucide-vue-next';
-import { formatDate, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import { categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import { stripHtmlToText } from '@/utils/stripHtml';
 import type { SharedSeoProps } from '@/types/seo';
@@ -34,7 +35,7 @@ const metaDescription = computed(() => {
     if (plain) {
         return plain;
     }
-    return `${event.value.title} — ${formatDate(event.value.start_date)} · ${event.value.location}`;
+    return `${event.value.title} — ${formatDateTime({ value: event.value.start_date })} · ${event.value.location}`;
 });
 
 const canonicalPath = computed(() => routes.landing.events.show(event.value.slug));
@@ -197,7 +198,7 @@ const highlights: string[] = [
                                     </div>
                                     <div class="min-w-0">
                                         <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Tanggal</p>
-                                        <p class="mt-0.5 text-[0.95rem] font-semibold leading-snug text-foreground">{{ formatDate(event.start_date) }}</p>
+                                        <p class="mt-0.5 text-[0.95rem] font-semibold leading-snug text-foreground">{{ formatDateTime({ value: event.start_date }) }}</p>
                                         <p class="text-[0.8rem] leading-relaxed text-muted-foreground">
                                             {{ toCategoryList(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') }}
                                         </p>
@@ -406,7 +407,7 @@ const highlights: string[] = [
                                                 Date & Time
                                             </p>
                                             <p class="text-foreground text-sm font-semibold">
-                                                {{ formatDate(event.start_date) }}
+                                                {{ formatDateTime({ value: event.start_date }) }}
                                             </p>
                                             <p class="text-muted-foreground text-xs">
                                                 {{

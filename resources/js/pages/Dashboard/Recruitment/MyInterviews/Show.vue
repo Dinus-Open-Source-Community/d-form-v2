@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import { isHttpUrl } from '@/lib/isHttpUrl'
+import { formatDateTime } from '@/lib/dateTime'
 import {
     Check,
     CheckCircle2,
@@ -258,13 +259,7 @@ function onScoreKeydown(field: ScoreField, event: KeyboardEvent): void {
 
 const interviewSchedule = computed(() => {
     if (!props.detail.interview?.scheduled_at) return null
-    return new Date(props.detail.interview.scheduled_at).toLocaleString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+    return formatDateTime({ value: props.detail.interview.scheduled_at, variant: 'date-time-long' })
 })
 
 function isFilled(value: string | null | undefined): value is string {

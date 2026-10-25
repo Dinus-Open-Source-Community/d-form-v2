@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CalendarDays, MapPin, Users, MoreVertical, SquarePen, Download, FileStack, Trash2 } from 'lucide-vue-next';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
-import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
+import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
+import { formatDateTime } from '@/lib/dateTime';
 import { routes } from '@/lib/routes';
 
 const props = withDefaults(
@@ -247,7 +248,7 @@ useEventListener('keydown', (e) => {
                 <div class="text-muted-foreground flex items-center gap-1.5 text-xs leading-snug sm:text-[13px]">
                     <CalendarDays class="text-primary/70 mt-0.5 size-3.5 shrink-0 stroke-[1.75]" aria-hidden="true" />
                     <span class="leading-snug">
-                        {{ formatDate(event.start_date) }} — {{ formatDate(event.end_date) }}
+                        {{ formatDateTime({ value: event.start_date, variant: 'date-range', end: event.end_date }) }}
                     </span>
                 </div>
 

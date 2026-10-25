@@ -8,13 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { MapPin, CalendarDays, Clock, DollarSign, Users, Send, Mail, MailOpen, FileText, ChevronRight, Lock } from 'lucide-vue-next';
 import {
-    formatDate,
-    formatDateTime,
     statusColorMap,
     categoryLabelMap,
     categoryColorMap,
     sessionLabelMap,
 } from '@/lib/dummyData';
+import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
@@ -75,7 +74,7 @@ function participantStatusLabel(s: FormAccessStatus): string {
 const metaBlocks = computed(() => [
     {
         title: 'Jadwal',
-        value: `${formatDate(event.start_date)} — ${formatDate(event.end_date)}`,
+        value: `${formatDateTime({ value: event.start_date })} — ${formatDateTime({ value: event.end_date })}`,
         icon: CalendarDays,
     },
     { title: 'Lokasi', value: event.location || '—', icon: MapPin },
@@ -293,13 +292,13 @@ const quotaPercent = computed(() => {
                             <p class="flex justify-between gap-2">
                                 <span class="text-muted-foreground">Buka</span>
                                 <span class="text-foreground text-right font-medium">{{
-                                    formatDateTime(event.registration_start)
+                                    formatDateTime({ value: event.registration_start, variant: 'date-time' })
                                 }}</span>
                             </p>
                             <p class="flex justify-between gap-2">
                                 <span class="text-muted-foreground">Tutup</span>
                                 <span class="text-foreground text-right font-medium">{{
-                                    formatDateTime(event.registration_end)
+                                    formatDateTime({ value: event.registration_end, variant: 'date-time' })
                                 }}</span>
                             </p>
                         </div>

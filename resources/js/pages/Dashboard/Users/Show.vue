@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { showErrorToast } from '@/lib/error-message'
 import { routes } from '@/lib/routes'
+import { formatDateTime } from '@/lib/dateTime'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 import {
@@ -136,29 +137,6 @@ onMounted(() => {
     setTopbar({ title: props.user.name, subtitle: 'Detail pengguna' })
 })
 
-function formatDate(value: string | null | undefined): string {
-    if (!value) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    })
-}
-
-function formatDateTime(value: string | null | undefined): string {
-    if (!value) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
-}
 
 function reviewLabel(status: string | null): string {
     if (!status) return '—'
@@ -299,7 +277,7 @@ function confirmDelete(): void {
                 <CardContent class="space-y-3 text-sm">
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Email terverifikasi</span>
-                        <span>{{ user.email_verified_at ? formatDateTime(user.email_verified_at) : 'Belum' }}</span>
+                        <span>{{ user.email_verified_at ? formatDateTime({ value: user.email_verified_at, variant: 'date-time-medium' }) : 'Belum' }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Password lokal</span>
@@ -318,11 +296,11 @@ function confirmDelete(): void {
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Dibuat</span>
-                        <span>{{ formatDateTime(user.created_at) }}</span>
+                        <span>{{ formatDateTime({ value: user.created_at, variant: 'date-time-medium' }) || '—' }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Diperbarui</span>
-                        <span>{{ formatDateTime(user.updated_at) }}</span>
+                        <span>{{ formatDateTime({ value: user.updated_at, variant: 'date-time-medium' }) || '—' }}</span>
                     </div>
                     <div v-if="stats.registrations_pending > 0" class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Registrasi pending</span>
@@ -367,7 +345,7 @@ function confirmDelete(): void {
                                                     <p class="text-muted-foreground mt-0.5 text-xs">
                                                         {{ row.form?.title || 'Form' }}
                                                         <span v-if="row.event?.start_date">
-                                                            · {{ formatDate(row.event.start_date) }}
+                                                            · {{ formatDateTime({ value: row.event.start_date, variant: 'date-medium' }) || row.event.start_date }}
                                                         </span>
                                                     </p>
                                                 </div>
@@ -379,7 +357,7 @@ function confirmDelete(): void {
                                                 {{ row.registration_code || '—' }}
                                             </TableCell>
                                             <TableCell class="text-sm">
-                                                {{ row.attended_at ? formatDateTime(row.attended_at) : '—' }}
+                                                {{ row.attended_at ? formatDateTime({ value: row.attended_at, variant: 'date-time-medium' }) : '—' }}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -506,7 +484,7 @@ function confirmDelete(): void {
                                         {{ event.title }}
                                     </Link>
                                     <span class="text-muted-foreground text-xs">
-                                        {{ event.status }} · {{ formatDate(event.start_date) }}
+                                        {{ event.status }} · {{ formatDateTime({ value: event.start_date, variant: 'date-medium' }) || event.start_date }}
                                     </span>
                                 </li>
                             </ul>

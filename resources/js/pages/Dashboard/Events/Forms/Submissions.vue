@@ -44,7 +44,6 @@ const {
     selectedGroup,
     isGroupDetailOpen,
     allAnswerKeys,
-    formatDate,
     humanizeKey,
     openDetail,
     openGroupDetail,
@@ -105,7 +104,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                     <div class="flex flex-col gap-6">
                         <FormBundleGroupsCardGridView
                             :bundle-groups="bundleGroupList"
-                            :format-date="formatDate"
                             @open-group="openGroupDetail"
                             @open-member-detail="openDetail"
                         />
@@ -142,7 +140,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
 
                         <FormSubmissionsCardGridView
                             :submissions="submissionList"
-                            :format-date="formatDate"
                             @open-detail="openDetail"
                         />
 
@@ -163,7 +160,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
         v-if="!isDetailOpen"
         v-model:open="isGroupDetailOpen"
         :group="selectedGroup"
-        :format-date="formatDate"
         @open-detail="openDetail"
     />
 
@@ -173,7 +169,6 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
         :submission="selectedSubmission"
         :all-answer-keys="allAnswerKeys"
         :fields="formFields"
-        :format-date="formatDate"
         :humanize-key="humanizeKey"
         :is-submission-reviewing="isSubmissionReviewing"
         @review="onReview"

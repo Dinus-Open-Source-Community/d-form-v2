@@ -12,6 +12,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { ClipboardList, ScanLine, Users, Download } from 'lucide-vue-next'
+import { formatDateTime } from '@/lib/dateTime'
 
 const props = withDefaults(
     defineProps<{
@@ -44,12 +45,6 @@ const props = withDefaults(
     { showExportToolbar: true },
 )
 
-function formatDt(iso: string) {
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(iso))
-}
 </script>
 
 <template>
@@ -104,7 +99,7 @@ function formatDt(iso: string) {
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="row in attendanceLog.data" :key="row.id">
-                            <TableCell class="whitespace-nowrap text-sm">{{ formatDt(row.scanned_at) }}</TableCell>
+                            <TableCell class="whitespace-nowrap text-sm">{{ formatDateTime({ value: row.scanned_at, variant: 'date-time-medium' }) }}</TableCell>
                             <TableCell>
                                 <template v-if="row.attendee">
                                     <span class="block text-sm font-medium">{{ row.attendee.name }}</span>

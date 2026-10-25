@@ -8,19 +8,12 @@ import {
 } from '@/lib/registrantsUi'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
+import { formatDateTime } from '@/lib/dateTime'
 import { FileText } from 'lucide-vue-next'
 
 defineProps<{
     rows: IRegistrant[]
 }>()
-
-function formatSubmittedDetail(iso: string): string {
-    try {
-        return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
-    } catch {
-        return iso
-    }
-}
 </script>
 
 <template>
@@ -89,7 +82,7 @@ function formatSubmittedDetail(iso: string): string {
                         </td>
                         <td class="px-4 py-4 align-top sm:px-6">
                             <p class="text-sm font-medium text-foreground">{{ registrantRelativeTimeId(reg.submitted_at) }}</p>
-                            <p class="text-xs text-muted-foreground">{{ formatSubmittedDetail(reg.submitted_at) }}</p>
+                            <p class="text-xs text-muted-foreground">{{ formatDateTime({ value: reg.submitted_at, variant: 'date-time-medium' }) || reg.submitted_at }}</p>
                         </td>
                     </tr>
                 </tbody>

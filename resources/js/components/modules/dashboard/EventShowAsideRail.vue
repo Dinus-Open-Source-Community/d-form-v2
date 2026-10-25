@@ -17,6 +17,7 @@ import {
     ChevronDown,
     ChevronUp,
     Eye,
+    Inbox,
 } from 'lucide-vue-next';
 import { edit as editEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
@@ -125,13 +126,13 @@ defineEmits<{
                         >
                             <Link
                                 :href="routes.admin.events.forms.show(props.event.id, form.id)"
-                                class="flex min-w-0 flex-1 items-center gap-2 py-0.5"
+                                class="flex min-w-0 flex-[3] items-center gap-2 py-0.5"
                             >
                                 <FileText class="text-muted-foreground size-3.5 shrink-0" />
                                 <span class="text-foreground truncate text-xs font-medium">{{ form.title }}</span>
                             </Link>
                             <div
-                                class="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+                                class="flex min-w-0 flex-1 shrink-0 items-center justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                             >
                                 <Link
                                     :href="routes.admin.events.forms.show(props.event.id, form.id)"
@@ -139,6 +140,13 @@ defineEmits<{
                                     :aria-label="`Detail form ${form.title}`"
                                 >
                                     <Eye class="size-3.5" />
+                                </Link>
+                                <Link
+                                    :href="`${routes.admin.events.forms.show(props.event.id, form.id)}?tab=jawaban`"
+                                    class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
+                                    :aria-label="`Lihat jawaban form ${form.title}`"
+                                >
+                                    <Inbox class="size-3.5" />
                                 </Link>
                                 <Button
                                     variant="ghost"

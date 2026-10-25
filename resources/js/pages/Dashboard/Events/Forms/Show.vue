@@ -41,7 +41,6 @@ import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMet
 import type { FormSiblingOption } from '@/types/form';
 import {
     answerPreview,
-    formatSubmissionDate,
     formSubmissionReviewIsPending,
     humanizeSubmissionKey,
     submissionFileUrl,
@@ -56,6 +55,7 @@ import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
+import { formatDateTime } from '@/lib/dateTime';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -348,7 +348,6 @@ const submissionLabelMap = computed(() => {
     return map;
 });
 const humanizeKey = (key: string): string => humanizeSubmissionKey(submissionLabelMap.value, key);
-const formatDate = (value: string): string => formatSubmissionDate(value);
 const submissionFileUrlOf = (value: unknown): string | null => submissionFileUrl(value);
 const answerPreviewOf = (value: unknown): string => answerPreview(value);
 
@@ -685,7 +684,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         </span>
                                     </TableCell>
                                     <TableCell class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap">
-                                        {{ formatDate(submission.submitted_at) }}
+                                        {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
                                     </TableCell>
                                     <TableCell class="px-5 py-3.5 whitespace-nowrap text-right">
                                         <div class="flex items-center justify-end gap-1">
@@ -759,7 +758,6 @@ function rejectLabel(submission: IFormSubmission): string {
                     :submission="selectedSubmission"
                     :answer-keys="answerKeys"
                     :fields="detailFields"
-                    :format-date="formatDate"
                     :humanize-key="humanizeKey"
                     :is-submission-reviewing="isSubmissionReviewing"
                     @review="onDetailReview"

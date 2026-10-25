@@ -10,12 +10,12 @@ import {
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
+import { formatDateTime } from '@/lib/dateTime';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { cn } from '@/lib/utils';
 
 defineProps<{
     bundleGroups: IBundleSubmissionGroup[];
-    formatDate: (v: string) => string;
 }>();
 
 const emit = defineEmits<{
@@ -92,7 +92,7 @@ function isLeader(member: IBundleSubmissionMember) {
                             GRUP : {{ group.leader.user?.name as string }}
                         </h4>
                         <p class="text-muted-foreground text-xs tabular-nums">
-                            {{ group.total_participants }} peserta · {{ formatDate(group.submitted_at) }}
+                            {{ group.total_participants }} peserta · {{ formatDateTime({ value: group.submitted_at, variant: 'date-time-medium' }) }}
                         </p>
                     </div>
                     <Badge
@@ -227,13 +227,13 @@ function isLeader(member: IBundleSubmissionMember) {
                                         <div class="flex justify-between gap-3">
                                             <dt>Dikirim</dt>
                                             <dd class="text-foreground/85 font-medium tabular-nums">
-                                                {{ formatDate(member.submitted_at) }}
+                                                {{ formatDateTime({ value: member.submitted_at, variant: 'date-time-medium' }) }}
                                             </dd>
                                         </div>
                                         <div v-if="member.reviewed_at" class="flex justify-between gap-3">
                                             <dt>Direview</dt>
                                             <dd class="text-foreground/85 font-medium tabular-nums">
-                                                {{ formatDate(member.reviewed_at) }}
+                                                {{ formatDateTime({ value: member.reviewed_at, variant: 'date-time-medium' }) }}
                                             </dd>
                                         </div>
                                         <div v-if="member.reviewer" class="flex justify-between gap-3">

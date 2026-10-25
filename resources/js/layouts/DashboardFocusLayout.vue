@@ -124,12 +124,6 @@ function handleLogout(): void {
                     </DropdownMenu>
                 </div>
             </header>
-            <SidebarTrigger
-                v-else
-                class="border-border/70 bg-card/95 fixed top-20 left-4 z-30 h-11! w-11! rounded-2xl border shadow-lg shadow-black/5 backdrop-blur-xl md:hidden"
-                aria-label="Buka sidebar"
-            />
-
             <main
                 class="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-14 md:px-6 lg:px-8"
                 :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-6 md:pt-8'"

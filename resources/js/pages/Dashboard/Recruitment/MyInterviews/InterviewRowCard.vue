@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Link } from '@inertiajs/vue3'
 import { routes } from '@/lib/routes'
+import { formatDateTime } from '@/lib/dateTime'
 import { ChevronRight, ClipboardCheck, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import InterviewApplicantCard, {
     type ApplicantCardMetaItem,
@@ -51,16 +52,7 @@ function showUrl(interviewId: string): string {
 }
 
 function formatSchedule(iso: string | null): string {
-    if (!iso) return 'Jadwal belum ditetapkan'
-    const parsed: Date = new Date(iso)
-    if (Number.isNaN(parsed.getTime())) return 'Jadwal belum ditetapkan'
-    return parsed.toLocaleString('id-ID', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+    return formatDateTime({ value: iso, variant: 'date-time-weekday' }) || 'Jadwal belum ditetapkan'
 }
 
 function statusLabel(row: InterviewRow): string {

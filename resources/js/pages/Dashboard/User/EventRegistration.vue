@@ -8,7 +8,8 @@ import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vu
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue'
 import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect'
 import { CalendarDays, MapPin } from 'lucide-vue-next'
-import { formatDate, formatDateTime, statusColorMap } from '@/lib/dummyData'
+import { statusColorMap } from '@/lib/dummyData'
+import { formatDateTime } from '@/lib/dateTime'
 import { routes } from '@/lib/routes'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
@@ -137,18 +138,18 @@ function isImageFileUrl(value: string): boolean {
                     <div class="text-right text-xs text-muted-foreground">
                         <p>
                             Submitted
-                            <span class="font-medium text-foreground">{{ formatDateTime(props.registration.submitted_at) }}</span>
+                            <span class="font-medium text-foreground">{{ formatDateTime({ value: props.registration.submitted_at, variant: 'date-time' }) }}</span>
                         </p>
                         <p v-if="props.registration.reviewed_at" class="mt-1">
                             Updated
-                            <span class="font-medium text-foreground">{{ formatDateTime(props.registration.reviewed_at) }}</span>
+                            <span class="font-medium text-foreground">{{ formatDateTime({ value: props.registration.reviewed_at, variant: 'date-time' }) }}</span>
                         </p>
                     </div>
                 </div>
                 <div class="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                     <p class="flex items-center gap-2">
                         <CalendarDays class="size-4 shrink-0 text-primary" />
-                        {{ formatDate(props.event.start_date) }} — {{ formatDate(props.event.end_date) }}
+                        {{ formatDateTime({ value: props.event.start_date }) }} — {{ formatDateTime({ value: props.event.end_date }) }}
                     </p>
                     <p class="flex items-center gap-2">
                         <MapPin class="size-4 shrink-0 text-primary" />

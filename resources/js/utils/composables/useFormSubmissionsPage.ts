@@ -4,7 +4,6 @@ import { toast } from 'vue-sonner'
 import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message'
 import {
     answerPreview,
-    formatSubmissionDate,
     humanizeSubmissionKey,
     submissionFileUrl,
 } from '@/lib/formSubmissionsUi'
@@ -257,7 +256,6 @@ export function useFormSubmissionsPage(props: {
         fieldLabelMap,
         answerKeys,
         allAnswerKeys,
-        formatDate: formatSubmissionDate,
         humanizeKey,
         answerPreview,
         fileUrl,

@@ -14,6 +14,7 @@ import {
     type ScanEntry,
     type ScanResult,
 } from '@/lib/qrScanUi'
+import { formatDateTime } from '@/lib/dateTime'
 
 export interface GlobalScanTargets {
     sessions: Array<{ id: string } & Record<string, unknown>>
@@ -110,12 +111,7 @@ function formatSessionDate(raw: string): string {
         return ''
     }
 
-    const parsed = new Date(text)
-    if (Number.isNaN(parsed.getTime())) {
-        return text
-    }
-
-    return parsed.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    return formatDateTime({ value: text, variant: 'date-long' }) || text
 }
 
 function readRecordString(record: Record<string, unknown>, key: string): string {
@@ -168,10 +164,10 @@ function normalizeMatchText(value: string): string {
 function formatFeedTime(ts: string): string {
     const parsed = new Date(ts)
     if (Number.isNaN(parsed.getTime())) {
-        return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        return formatDateTime({ value: new Date().toISOString(), variant: 'time' })
     }
 
-    return parsed.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    return formatDateTime({ value: ts, variant: 'time' })
 }
 
 function scanIdentity(

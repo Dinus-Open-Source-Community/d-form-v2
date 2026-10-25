@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Zap, Clock, MapPin, ArrowRight } from 'lucide-vue-next'
-import { formatDate, categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
+import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData'
+import { formatDateTime } from '@/lib/dateTime'
 import { toCategoryList } from '@/lib/eventCategories'
 import { routes } from '@/lib/routes'
 import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect'
@@ -75,7 +76,7 @@ onMounted(() => {
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-sm font-medium">{{ event.title }}</p>
                         <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                            <span class="flex items-center gap-1"><CalendarDays class="size-3" />{{ formatDate(event.start_date) }}</span>
+                            <span class="flex items-center gap-1"><CalendarDays class="size-3" />{{ formatDateTime({ value: event.start_date }) }}</span>
                             <span class="flex items-center gap-1"><MapPin class="size-3" />{{ event.location }}</span>
                         </div>
                     </div>

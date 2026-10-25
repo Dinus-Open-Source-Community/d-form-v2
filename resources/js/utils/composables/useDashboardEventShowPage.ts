@@ -6,21 +6,14 @@ import {
     destroy as destroyEvent,
     restore as restoreEvent,
 } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController'
-import {
-    formatDate,
-    formatDateTime,
-    sessionLabelMap,
-} from '@/lib/dummyData'
+import { sessionLabelMap } from '@/lib/dummyData'
 import { parseEventCategories } from '@/lib/eventShowUi'
-import { Banknote, CalendarDays, Clock, MapPin } from 'lucide-vue-next'
+import { formatDateTime } from '@/lib/dateTime'
 
 export function useDashboardEventShowPage(
     event: IEvent,
     forms: { id: string; title: string }[],
 ) {
-    const previewRegistrants = [] as IRegistrant[]
-    const totalRegistrants = event.registered_count
-
     const showDeleteModal = ref(false)
     const showRestoreModal = ref(false)
     const isDeleting = ref(false)
@@ -46,24 +39,17 @@ export function useDashboardEventShowPage(
         return { label: 'Draft', classes: 'bg-muted text-muted-foreground border-border' }
     })
 
-    const metaBlocks = computed(() => [
-        {
-            title: 'Schedule',
-            value: event.start_date === event.end_date ? formatDate(event.start_date) : `${formatDate(event.start_date)} — ${formatDate(event.end_date)}`,
-            icon: CalendarDays,
-        },
-        { title: 'Location', value: event.location, icon: MapPin },
-        {
-            title: 'Session',
-            value: parseEventCategories(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') || '—',
-            icon: Clock,
-        },
-        {
-            title: 'Price',
-            value: event.price > 0 ? `Rp ${Number(event.price).toLocaleString('id-ID')}` : 'Free',
-            icon: Banknote,
-        },
-    ])
+    const dateRange = computed(() =>
+        formatDateTime({ value: event.start_date, variant: 'date-range', end: event.end_date }),
+    )
+
+    const sessionLabel = computed(
+        () => parseEventCategories(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') || '—',
+    )
+
+    const priceLabel = computed(() =>
+        event.price > 0 ? `Rp ${Number(event.price).toLocaleString('id-ID')}` : 'Free',
+    )
 
     function handleDelete() {
         isDeleting.value = true
@@ -87,8 +73,6 @@ export function useDashboardEventShowPage(
 
     return {
         forms,
-        previewRegistrants,
-        totalRegistrants,
         showDeleteModal,
         showRestoreModal,
         isDeleting,
@@ -97,10 +81,9 @@ export function useDashboardEventShowPage(
         remainingSeats,
         progressTone,
         statusPill,
-        metaBlocks,
-        parseEventCategories,
-        formatDate,
-        formatDateTime,
+        dateRange,
+        sessionLabel,
+        priceLabel,
         handleDelete,
         handleRestore,
         cardShadow,

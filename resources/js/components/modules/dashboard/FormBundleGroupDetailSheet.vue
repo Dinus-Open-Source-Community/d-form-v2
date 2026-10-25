@@ -9,12 +9,12 @@ import {
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
+import { formatDateTime } from '@/lib/dateTime'
 import { cn } from '@/lib/utils'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
 
 const props = defineProps<{
     group: IBundleSubmissionGroup | null
-    formatDate: (v: string) => string
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
@@ -82,7 +82,7 @@ function onParticipantKeydown(e: KeyboardEvent, member: IBundleSubmissionMember)
                             #{{ groupLabel(group?.group_token) }}
                         </h2>
                         <p class="text-sm text-muted-foreground tabular-nums">
-                            {{ group?.total_participants ?? 0 }} peserta · {{ group ? formatDate(group.submitted_at) : '—' }}
+                            {{ group?.total_participants ?? 0 }} peserta · {{ group ? formatDateTime({ value: group.submitted_at, variant: 'date-time-medium' }) : '—' }}
                         </p>
                     </div>
                     <Badge

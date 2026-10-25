@@ -10,6 +10,7 @@ import { routes } from '@/lib/routes'
 import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 import { useEventSearch } from '@/hooks/useEventSearch'
+import { formatDateTime } from '@/lib/dateTime'
 
 interface IEventPaginationLink {
     url: string | null
@@ -68,14 +69,6 @@ const statusVariant = (s: string) =>
         : s === 'full'
           ? 'border-amber-500/20 bg-amber-500/10 text-amber-600'
           : 'border-border bg-muted text-muted-foreground'
-
-const formatDate = (d: string) => {
-    try {
-        return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-    } catch {
-        return d
-    }
-}
 </script>
 
 <template>
@@ -159,7 +152,7 @@ const formatDate = (d: string) => {
                                 </span>
                                 <span v-if="ev.start_date" class="flex items-center gap-1">
                                     <Calendar class="size-3" />
-                                    {{ formatDate(ev.start_date) }}
+                                    {{ formatDateTime({ value: ev.start_date, variant: 'date-medium' }) || ev.start_date }}
                                 </span>
                                 <span class="flex items-center gap-1">
                                     <Users class="size-3" />

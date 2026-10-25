@@ -9,6 +9,7 @@ import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
 import { CheckCircle2, ChevronDown, Loader2, UserRound, XCircle } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import { humanizeErrorMessage } from '@/lib/error-message'
+import { formatDateTime } from '@/lib/dateTime'
 
 const CHECK_EMAIL_URL = routes.member.checkEmail
 const DEBOUNCE_MS = 1000
@@ -266,13 +267,6 @@ function statusFor(slot: number): CheckStatus {
     return statusBySlot.value[slot] ?? 'idle'
 }
 
-function shortDate(iso: string): string {
-    try {
-        return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-    } catch {
-        return ''
-    }
-}
 
 function summaryLine(slot: number): string {
     const e = emailAt(slot).trim()
@@ -521,7 +515,7 @@ onBeforeUnmount(() => {
                                                 Member since
                                             </dt>
                                             <dd class="mt-0.5 text-xs text-foreground">
-                                                {{ shortDate(foundUserBySlot[slot]!.created_at) }}
+                                                {{ formatDateTime({ value: foundUserBySlot[slot]?.created_at, variant: 'date-medium' }) }}
                                             </dd>
                                         </div>
                                     </dl>

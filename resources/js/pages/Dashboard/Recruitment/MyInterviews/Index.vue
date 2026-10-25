@@ -23,6 +23,7 @@ import AppPagination from '@/components/core/AppPagination.vue'
 import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { formatDateTime } from '@/lib/dateTime'
 import {
     ChevronRight,
     RotateCcw,
@@ -455,13 +456,7 @@ function formatInt(value: number): string {
 }
 
 function formatSessionDay(value: string): string {
-    const parsed: Date = new Date(`${value}T00:00:00`)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toLocaleDateString('id-ID', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-    })
+    return formatDateTime({ value, variant: 'date-weekday' }) || value
 }
 
 function sessionFallbackLabel(session: TodaySession): string {

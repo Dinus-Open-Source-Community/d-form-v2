@@ -18,6 +18,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { routes } from '@/lib/routes';
+import { formatDateTime } from '@/lib/dateTime';
 import {
     ArrowRight,
     CalendarClock,
@@ -135,14 +136,7 @@ const heroToneClass = computed(() => {
 
 const interviewSchedule = computed(() => {
     if (!props.tracking.interview?.scheduled_at) return null;
-    return new Date(props.tracking.interview.scheduled_at).toLocaleString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return formatDateTime({ value: props.tracking.interview.scheduled_at, variant: 'date-time-long' });
 });
 
 const showInterviewSection = computed(
@@ -322,7 +316,7 @@ function submitCorrection() {
                         Check-in:
                         {{
                             tracking.attendance.checked_in_at
-                                ? new Date(tracking.attendance.checked_in_at).toLocaleString('id-ID')
+                                ? formatDateTime({ value: tracking.attendance.checked_in_at, variant: 'date-time-numeric' })
                                 : '—'
                         }}
                     </p>
@@ -446,7 +440,7 @@ function submitCorrection() {
                 Terima kasih! Feedback diterima
                 {{
                     tracking.feedback.submitted_at
-                        ? new Date(tracking.feedback.submitted_at).toLocaleDateString('id-ID')
+                        ? formatDateTime({ value: tracking.feedback.submitted_at, variant: 'date-numeric' })
                         : ''
                 }}.
             </CardContent>

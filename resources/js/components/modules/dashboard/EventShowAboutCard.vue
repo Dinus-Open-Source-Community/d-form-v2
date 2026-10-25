@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue'
+import { formatDateTime } from '@/lib/dateTime'
 
 defineProps<{
     event: IEvent
     cardShadow: string
-    formatDate: (v: string) => string
 }>()
 </script>
 
@@ -16,7 +16,9 @@ defineProps<{
                 <CardTitle class="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                     Tentang acara
                 </CardTitle>
-                <span class="text-[11px] text-muted-foreground">Diperbarui {{ formatDate(event.updated_at) }}</span>
+                <span class="text-[11px] text-muted-foreground"
+                    >Diperbarui {{ formatDateTime({ value: event.updated_at, variant: 'date-medium' }) }}</span
+                >
             </div>
         </CardHeader>
         <CardContent class="pt-0">

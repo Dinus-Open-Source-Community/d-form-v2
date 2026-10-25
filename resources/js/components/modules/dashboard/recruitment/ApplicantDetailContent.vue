@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import { isHttpUrl } from '@/lib/isHttpUrl'
+import { formatDateTime } from '@/lib/dateTime'
 import ApplicantEmailingSection from './ApplicantEmailingSection.vue'
 import type {
     IEmailResendPrereq,
@@ -42,13 +43,11 @@ import {
     Lock,
     Mail,
     PencilLine,
-    Star,
     ThumbsDown,
     ThumbsUp,
     Trophy,
     User,
     UserCheck,
-    UserPlus,
     XCircle,
 } from 'lucide-vue-next'
 
@@ -305,14 +304,6 @@ const finalConfirmForm = useForm({
     final_division_id: '',
     internal_reason: '',
     public_message: '',
-})
-
-const showFinalDecision = computed<boolean>((): boolean => {
-    if (props.readonly) return false
-    if (!canDecideFinal.value) return false
-    if (props.application.final_decision) return false
-    if (props.application.stage === 'completed') return false
-    return true
 })
 
 const isFinalRejectChoice = computed<boolean>((): boolean => finalChoice.value === 'reject')
@@ -870,20 +861,6 @@ function activityActionLabel(action: string): string {
     return pretty.charAt(0).toUpperCase() + pretty.slice(1)
 }
 
-const activityDateFormatter = new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Jakarta',
-})
-
-function formatActivityTime(value: string | null): string {
-    if (!value) return ''
-
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return ''
-
-    return activityDateFormatter.format(date)
-}
 
 const instagramHandle = computed<string>(() =>
     props.application.instagram_username.replace(/^@+/, '').trim(),
@@ -1764,7 +1741,7 @@ const defaultTab = computed(() => {
                             <div class="min-w-0 flex-1">
                                 <p class="font-medium">{{ activityActionLabel(log.action) }}</p>
                                 <p class="text-muted-foreground text-xs">
-                                    {{ log.actor?.name ?? 'Sistem' }} · {{ formatActivityTime(log.created_at) || 'Waktu tidak tercatat' }}
+                                    {{ log.actor?.name ?? 'Sistem' }} · {{ formatDateTime({ value: log.created_at, variant: 'date-time-medium' }) || 'Waktu tidak tercatat' }}
                                 </p>
                             </div>
                         </div>

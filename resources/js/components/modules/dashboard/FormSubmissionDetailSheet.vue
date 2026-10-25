@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, CheckCircle2, XCircle, Info } from 'lucide-vue-next'
 import { formSubmissionReviewIsPending, submissionAdminAcceptBlocked, submissionReviewBadge } from '@/lib/formSubmissionsUi'
 import { userAvatarSeed } from '@/lib/userAvatarFallback'
+import { formatDateTime } from '@/lib/dateTime'
 import { cn } from '@/lib/utils'
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue'
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
@@ -14,7 +15,6 @@ const props = defineProps<{
     submission: IFormSubmission | IBundleSubmissionMember | null
     allAnswerKeys: string[]
     fields: IFormField[]
-    formatDate: (v: string) => string
     humanizeKey: (v: string) => string
     isSubmissionReviewing: (submissionId: string) => boolean
 }>()
@@ -137,7 +137,7 @@ const canReview = computed(() => {
                             <span class="text-[11px] font-medium text-muted-foreground">Dikirim</span>
                             <div class="flex items-center gap-2 text-[0.875rem] font-medium tabular-nums leading-relaxed text-foreground">
                                 <Clock class="size-4 shrink-0 text-muted-foreground opacity-80" aria-hidden="true" />
-                                <span>{{ submission ? formatDate(submission.submitted_at) : '—' }}</span>
+                                <span>{{ submission ? formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) : '—' }}</span>
                             </div>
                         </div>
                     </div>
@@ -288,7 +288,7 @@ const canReview = computed(() => {
                                 <div v-if="submission.reviewed_at" class="space-y-1">
                                     <dt class="text-[11px] font-medium text-muted-foreground">Waktu keputusan</dt>
                                     <dd class="text-sm font-medium tabular-nums leading-snug text-foreground">
-                                        {{ formatDate(submission.reviewed_at) }}
+                                        {{ formatDateTime({ value: submission.reviewed_at, variant: 'date-time-medium' }) }}
                                     </dd>
                                 </div>
                                 <div v-if="submission.reviewer" class="space-y-1">

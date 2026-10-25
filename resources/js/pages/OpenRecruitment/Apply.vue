@@ -11,6 +11,7 @@ import { useAutosaveSync, type AutosaveStatus as AutosaveStatusType } from '@/ut
 import { readFieldRules } from '@/lib/formFieldMetadata';
 import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';
 import { routes } from '@/lib/routes';
+import { formatDateTime } from '@/lib/dateTime';
 import { CircleAlert } from 'lucide-vue-next';
 
 defineOptions({ layout: FormFillLayout });
@@ -195,7 +196,7 @@ watch(
 const draftStatusText = computed((): string => {
     if (draftStatus.value === 'saving') return 'Menyimpan…';
     if (draftStatus.value === 'saved') {
-        const time = savedAt.value?.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) ?? '';
+        const time = formatDateTime({ value: savedAt.value?.toISOString(), variant: 'time-short' });
         return `Draft tersimpan otomatis · ${time}`;
     }
     return '';
