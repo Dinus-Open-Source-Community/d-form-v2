@@ -165,6 +165,9 @@ function requestSaveAll(): void {
     workspaceRef.value?.requestSave();
 }
 
+/** Builder melaporkan kolom pratinjau live aktif, jadi tombol Pratinjau modal disembunyikan. */
+const builderLivePreviewActive = computed<boolean>(() => workspaceRef.value?.livePreviewActive ?? false);
+
 const formTitle = computed({
     get: () => settingsForm.title,
     set: (v: string) => {
@@ -515,6 +518,8 @@ function rejectLabel(submission: IFormSubmission): string {
 
                 <div class="flex shrink-0 items-center gap-2">
                     <Button
+                        v-if="!builderLivePreviewActive"
+                        data-testid="form-builder-preview-trigger"
                         variant="outline"
                         size="sm"
                         class="border-border/80 bg-background/90 hidden px-3 text-sm font-medium shadow-sm sm:inline-flex"

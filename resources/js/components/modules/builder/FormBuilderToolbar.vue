@@ -16,8 +16,10 @@ const props = withDefaults(
         saveLabel: string
         hideTitles?: boolean
         hideToolbar?: boolean
+        /** True bila kolom pratinjau live sudah tampil; tombol Pratinjau lalu disembunyikan. */
+        livePreviewActive?: boolean
     }>(),
-    { hideTitles: false, hideToolbar: false }
+    { hideTitles: false, hideToolbar: false, livePreviewActive: false }
 )
 
 defineEmits<{
@@ -67,6 +69,8 @@ onMounted(() => {
             >
                 <slot name="toolbar-extra" />
                 <Button
+                    v-if="!livePreviewActive"
+                    data-testid="form-builder-preview-trigger"
                     variant="outline"
                     size="sm"
                     class="
@@ -124,6 +128,8 @@ onMounted(() => {
         >
             <slot name="toolbar-extra" />
             <Button
+                v-if="!livePreviewActive"
+                data-testid="form-builder-preview-trigger"
                 variant="outline"
                 size="sm"
                 class="

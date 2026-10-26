@@ -14,6 +14,8 @@ import FormBuilderCanvasBuildView from './FormBuilderCanvasBuildView.vue';
 import FormBuilderAddFieldSheet from './FormBuilderAddFieldSheet.vue';
 import FormBuilderEditFieldSheet from './FormBuilderEditFieldSheet.vue';
 import FormBuilderMobileAddFab from './FormBuilderMobileAddFab.vue';
+import FormBuilderLivePreview from './FormBuilderLivePreview.vue';
+import { useFormBuilderLivePreview } from '@/hooks/useFormBuilderLivePreview';
 import { routes } from '@/lib/routes';
 import FormSettingsPanel from './FormSettingsPanel.vue';
 
@@ -72,6 +74,8 @@ const wb = reactive(
 );
 
 const backHref = computed(() => routes.admin.events.show(props.event.id));
+/** Kolom pratinjau live hanya aktif bila baris builder cukup lebar (dipantau ResizeObserver). */
+const { rootRef, livePreviewActive } = useFormBuilderLivePreview();
 const shellHeightClass = computed(() => (props.shell === 'fullscreen' ? 'h-svh' : 'min-h-0 lg:h-[calc(100svh-5rem)]'));
 const visibilityOptions = FORM_VISIBILITY_OPTIONS;
 /** Accordion "Pengaturan form" di panel kiri (bawaan tertutup). */
@@ -86,6 +90,10 @@ defineExpose({
         wb.showPreview = true;
     },
     requestSave: () => wb.requestSave(),
+    /** Read-only: true bila kolom pratinjau live tampil (dipakai tombol Pratinjau di halaman induk). */
+    get livePreviewActive() {
+        return livePreviewActive.value;
+    },
 });
 </script>
 
@@ -102,6 +110,7 @@ defineExpose({
             :save-label="saveLabel"
             :hide-titles="hideToolbarTitles"
             :hide-toolbar="hideToolbar"
+            :live-preview-active="livePreviewActive"
             @preview="wb.showPreview = true"
             @save="wb.requestSave"
         >
@@ -116,7 +125,7 @@ defineExpose({
             :is-ready-to-save="wb.isReadyToSave"
         />
 
-        <div class="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
+        <div ref="rootRef" class="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
             <FormBuilderPalettePanel
                 v-model:search-query="wb.searchQuery"
                 v-model:closed-at="closedAt"
@@ -180,6 +189,15 @@ defineExpose({
                     </div>
                 </div>
             </main>
+
+            <FormBuilderLivePreview
+                v-if="livePreviewActive"
+                :title="formTitle"
+                :description="formDescription"
+                :banner-url="banner.bannerUrl"
+                :banner-caption="banner.caption"
+                :fields="formFields"
+            />
 
             <div class="mx-auto w-full max-w-[480px] px-4 pb-6 sm:hidden">
                 <div class="grid grid-cols-2 gap-2">

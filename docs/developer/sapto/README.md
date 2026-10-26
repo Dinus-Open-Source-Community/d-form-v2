@@ -6,6 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges27-10-2026-DFORM-TBD.md](./saptoChanges27-10-2026-DFORM-TBD.md) | Kolom **Pratinjau live** di form builder desktop: body preview diekstrak ke `FormPreviewBody`, kolom 360 px dengan `ResizeObserver` (ambang 1000 px baris ≈ 1320 px viewport), tombol Pratinjau modal disembunyikan saat kolom tampil |
 | [saptoBundleBaseline-DFORM-1487.md](./saptoBundleBaseline-DFORM-1487.md) | Baseline bundel (DFORM-1487): entry gzip 25,56 KiB, 58 page lazy + 227 chunk, tabel byte gzip per chunk, aturan komparabilitas untuk pengukuran ulang 15.8 |
 | [saptoChanges24-10-2026-events.md](./saptoChanges24-10-2026-events.md) | Pencarian & paginasi `/events` + `/browse`: cache payload mentah, negative cache + lock, FULLTEXT, cursor, rate limit 429 ramah, index ronde-2 |
 | [saptoChanges24-10-2026-DFORM-TBD.md](./saptoChanges24-10-2026-DFORM-TBD.md) | Optimasi auth: code splitting per halaman, lottie lazy, rate limit login/register, handler 429, font & favicon |
