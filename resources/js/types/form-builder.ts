@@ -21,18 +21,6 @@ export interface BuilderField {
     is_append?: boolean
 }
 
-/** Bentuk field yang cukup untuk dirender responden di pratinjau (modal maupun kolom live). */
-export interface FormPreviewField {
-    id: string
-    type: string
-    label: string
-    description?: string
-    required?: boolean
-    placeholder?: string
-    options?: FieldOptionEntry[]
-    metadata?: Record<string, unknown>
-}
-
 export type BackendFieldType = 'input' | 'select' | 'textarea' | 'datePicker' | 'fileUpload' | 'checkbox' | 'radio'
 
 export interface BackendField {
