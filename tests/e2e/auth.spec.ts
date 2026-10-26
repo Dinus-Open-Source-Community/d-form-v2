@@ -1,5 +1,5 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
-import { runArtisan } from './support/artisan'
+import { resetLoginThrottle } from './support/session'
 
 interface ViteManifestEntry {
     file: string
@@ -43,11 +43,6 @@ async function postAuth(
         maxRedirects: 0,
         failOnStatusCode: false,
     })
-}
-
-/** Kosongkan cache limiter agar hasil test deterministik lintas run (pola sama dengan e2e event-search). */
-function resetThrottleBuckets(): void {
-    runArtisan('\\Illuminate\\Support\\Facades\\Cache::flush();')
 }
 
 test.describe('auth login', () => {
@@ -144,7 +139,7 @@ test.describe('bundle', () => {
 
 test.describe('throttle', () => {
     test.beforeEach(() => {
-        resetThrottleBuckets()
+        resetLoginThrottle()
     })
 
     test('login melewati limit mengembalikan 429 + Retry-After', async ({ page }) => {
