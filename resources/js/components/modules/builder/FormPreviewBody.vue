@@ -14,49 +14,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import type { FormPreviewField } from '@/types/form-builder'
 
-type TFormPreviewVariant = 'dialog' | 'inline'
-
-/** Seluruh teks yang dilihat responden; satu varian harus konsisten satu bahasa. */
-interface IFormPreviewCopy {
-    untitledTitle: string
-    emptyTitle: string
-    emptyHint: string
-    chooseOption: string
-    ratingHint: string
-    imageUploadLabel: string
-    fileUploadLabel: string
-    unsupportedTypePrefix: string
-    cancel: string
-    submit: string
-}
-
-const PREVIEW_COPY: Record<TFormPreviewVariant, IFormPreviewCopy> = {
-    dialog: {
-        untitledTitle: 'Untitled form',
-        emptyTitle: 'No questions yet',
-        emptyHint: 'Add fields from the canvas — they’ll show up here exactly as respondents will see them.',
-        chooseOption: 'Choose an option',
-        ratingHint: 'Tap a star to preview the highlight.',
-        imageUploadLabel: 'Image upload (preview)',
-        fileUploadLabel: 'File upload (preview)',
-        unsupportedTypePrefix: 'Unsupported field type in preview:',
-        cancel: 'Cancel',
-        submit: 'Submit',
-    },
-    inline: {
-        untitledTitle: 'Formulir tanpa judul',
-        emptyTitle: 'Belum ada pertanyaan',
-        emptyHint: 'Tambahkan field dari panel kiri — akan muncul di sini persis seperti yang dilihat peserta.',
-        chooseOption: 'Pilih opsi',
-        ratingHint: 'Ketuk bintang untuk melihat sorotan.',
-        imageUploadLabel: 'Unggah gambar (pratinjau)',
-        fileUploadLabel: 'Unggah berkas (pratinjau)',
-        unsupportedTypePrefix: 'Tipe field belum didukung di pratinjau:',
-        cancel: 'Batal',
-        submit: 'Kirim',
-    },
-}
-
 const props = withDefaults(
     defineProps<{
         title?: string
@@ -65,12 +22,10 @@ const props = withDefaults(
         formBannerCaption?: string
         fields?: FormPreviewField[]
         /** `inline` merapatkan padding untuk kolom pratinjau live; `dialog` mengikuti modal. */
-        variant?: TFormPreviewVariant
+        variant?: 'dialog' | 'inline'
     }>(),
     { variant: 'dialog' }
 )
-
-const copy = computed<IFormPreviewCopy>(() => PREVIEW_COPY[props.variant])
 
 const fieldsSafe = computed(() => props.fields ?? [])
 
@@ -85,9 +40,22 @@ const bannerResolved = computed(() => {
 
 const bannerCaptionTrim = computed(() => (props.formBannerCaption || '').trim())
 
-const titleText = computed(() => props.title || copy.value.untitledTitle)
+const titleText = computed(() => props.title || 'Untitled form')
 
 const hasFormDescription = computed(() => Boolean((props.description || '').trim()))
+
+/** Copy empty state per varian: kolom live berbahasa Indonesia, modal memakai copy lamanya. */
+const emptyStateCopy = computed<{ title: string; hint: string }>(() =>
+    props.variant === 'inline'
+        ? {
+              title: 'Belum ada pertanyaan',
+              hint: 'Tambahkan field dari panel kiri — akan muncul di sini persis seperti yang dilihat peserta.',
+          }
+        : {
+              title: 'No questions yet',
+              hint: 'Add fields from the canvas — they’ll show up here exactly as respondents will see them.',
+          }
+)
 
 // Local non-persisted state so stars feel interactive (preview only)
 const ratingSelection = ref<Record<string, number>>({})
@@ -161,9 +129,9 @@ function ratingStars(field: FormPreviewField): number[] {
             class="app-surface-soft rounded-2xl py-12 text-center"
             :class="hasFormDescription ? 'mt-6' : 'mt-3'"
         >
-            <p class="text-sm font-semibold text-foreground">{{ copy.emptyTitle }}</p>
+            <p class="text-sm font-semibold text-foreground">{{ emptyStateCopy.title }}</p>
             <p class="mt-1.5 max-w-sm mx-auto text-xs leading-relaxed text-muted-foreground">
-                {{ copy.emptyHint }}
+                {{ emptyStateCopy.hint }}
             </p>
         </div>
 
@@ -248,10 +216,10 @@ function ratingStars(field: FormPreviewField): number[] {
                             <SimpleSelect
                                 model-value=""
                                 :options="dropdownOptions(field)"
-                                :placeholder="copy.chooseOption"
+                                placeholder="Choose an option"
                                 disabled
                                 class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm disabled:opacity-90"
-                                :aria-label="copy.chooseOption"
+                                aria-label="Choose an option"
                             />
                             <div class="space-y-1.5 rounded-xl border border-border/70 bg-muted/20 p-2">
                                 <div
@@ -331,7 +299,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                     />
                                 </button>
                             </div>
-                            <p class="text-xs text-muted-foreground">{{ copy.ratingHint }}</p>
+                            <p class="text-xs text-muted-foreground">Tap a star to preview the highlight.</p>
                         </div>
 
                         <div
@@ -339,7 +307,7 @@ function ratingStars(field: FormPreviewField): number[] {
                             class="rounded-xl border border-dashed border-border bg-muted/25 p-4 text-center"
                         >
                             <ImagePlus class="mx-auto size-8 text-muted-foreground/35" />
-                            <p class="mt-2 text-xs font-medium text-muted-foreground">{{ copy.imageUploadLabel }}</p>
+                            <p class="mt-2 text-xs font-medium text-muted-foreground">Image upload (preview)</p>
                             <p class="mt-0.5 text-[10px] text-muted-foreground/70">
                                 {{ metaString(field, 'accepts') || 'png, jpg, jpeg' }}
                             </p>
@@ -350,14 +318,14 @@ function ratingStars(field: FormPreviewField): number[] {
                             class="rounded-xl border border-dashed border-border bg-muted/25 p-4 text-center"
                         >
                             <Upload class="mx-auto size-8 text-muted-foreground/35" />
-                            <p class="mt-2 text-xs font-medium text-muted-foreground">{{ copy.fileUploadLabel }}</p>
+                            <p class="mt-2 text-xs font-medium text-muted-foreground">File upload (preview)</p>
                             <p class="mt-0.5 text-[10px] text-muted-foreground/70">
                                 {{ metaString(field, 'accepts') || 'pdf, doc, xls' }}
                             </p>
                         </div>
 
                         <p v-else class="text-xs text-muted-foreground">
-                            {{ copy.unsupportedTypePrefix }} {{ field.type }}
+                            Unsupported field type in preview: {{ field.type }}
                         </p>
                     </CardContent>
                 </Card>
@@ -370,10 +338,10 @@ function ratingStars(field: FormPreviewField): number[] {
             class="flex flex-wrap items-center justify-end gap-3 border-t border-border"
             :class="hasFormDescription ? 'mt-8 pt-6' : 'mt-5 pt-5'"
         >
-            <Button variant="outline" type="button" disabled class="opacity-70"> {{ copy.cancel }} </Button>
+            <Button variant="outline" type="button" disabled class="opacity-70"> Cancel </Button>
             <Button type="button" disabled class="gap-2 opacity-90">
                 <Send class="size-4" />
-                {{ copy.submit }}
+                Submit
             </Button>
         </div>
     </div>
