@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import 'vue-sonner/style.css'
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
@@ -24,13 +24,21 @@ watch(
         clearTopbar()
     },
 )
+
+/** Halaman builder formulir butuh lebar penuh, jadi sidebar navigasi tidak dirender (editor & tab jawaban). */
+const FULL_WIDTH_PAGE_COMPONENTS: ReadonlySet<string> = new Set([
+    'Dashboard/Events/Forms/Show',
+    'Dashboard/Events/Forms/Create',
+])
+
+const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page.component))
 </script>
 
 <template>
     <SidebarProvider>
-        <DashboardSidebar />
+        <DashboardSidebar v-if="showSidebar" />
         <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
-            <DashboardTopbar />
+            <DashboardTopbar :show-navigation-trigger="showSidebar" />
             <div class="flex-1 overflow-y-auto px-4 pb-10 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8">
                 <div class="w-full max-w-full">
                     <slot />

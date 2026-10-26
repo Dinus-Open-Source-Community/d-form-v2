@@ -19,6 +19,11 @@ const page = usePage();
 const user = useAuth(page.props);
 const topbar = useTopbar();
 
+/** Tombol buka sidebar disembunyikan saat halaman memakai layout tanpa sidebar (mis. builder formulir). */
+const props = withDefaults(defineProps<{ showNavigationTrigger?: boolean }>(), {
+    showNavigationTrigger: true,
+});
+
 const siteName = computed(() => page.props.appName || 'DForm');
 
 function escapeRegExp(s: string): string {
@@ -116,7 +121,7 @@ function handleLogout(): void {
     >
         <!-- Kiri: toggle sidebar (mobile) + back + judul + subtitle (judul hidden di mobile) -->
         <div class="flex min-w-0 items-center gap-1.5">
-            <SidebarTrigger class="shrink-0 md:hidden" aria-label="Buka sidebar" />
+            <SidebarTrigger v-if="props.showNavigationTrigger" class="shrink-0 md:hidden" aria-label="Buka sidebar" />
             <Button radius="icon"
                 v-if="showBackButton"
                 variant="ghost"
