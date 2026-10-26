@@ -15,7 +15,7 @@ defineProps<{
     <!-- Kolom pratinjau live: header tetap di tempat, badan pratinjau menggulir sendiri. -->
     <aside
         data-testid="form-builder-live-preview"
-        class="border-border bg-muted/20 hidden min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l lg:flex"
+        class="border-border bg-muted/20 flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l"
         aria-label="Pratinjau live formulir"
     >
         <header

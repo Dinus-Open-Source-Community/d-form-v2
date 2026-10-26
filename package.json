@@ -8,7 +8,8 @@
         "dev": "vite",
         "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
         "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix",
-        "test:e2e": "playwright test"
+        "test:e2e": "playwright test",
+        "test:unit": "node --import ./tests/unit/alias-loader.mjs --test tests/unit/*.test.ts"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
