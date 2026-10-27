@@ -7,6 +7,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | [saptoChanges27-10-2026-DFORM-202.md](./saptoChanges27-10-2026-DFORM-202.md) | Rate limit endpoint submit form (10/menit per user per form) dan check-email (`auth-email-check`), beserta bukti merah-hijau |
+| [saptoChanges27-10-2026-DFORM-204.md](./saptoChanges27-10-2026-DFORM-204.md) | Gate CI `quality.yml`: ESLint + unit test blocking di `dev`/`dev-zapp`/`temp`, formatting report-only, perbaikan opsi `tsconfig` (TASK-204) |
 | [saptoChanges27-10-2026-DFORM-TBD.md](./saptoChanges27-10-2026-DFORM-TBD.md) | Revert kolom pratinjau live form builder; sidebar dashboard tidak dirender di halaman builder (editor + tab Jawaban) |
 | [saptoBundleBaseline-DFORM-1487.md](./saptoBundleBaseline-DFORM-1487.md) | Baseline bundel (DFORM-1487): entry gzip 25,56 KiB, 58 page lazy + 227 chunk, tabel byte gzip per chunk, aturan komparabilitas untuk pengukuran ulang 15.8 |
 | [saptoChanges24-10-2026-events.md](./saptoChanges24-10-2026-events.md) | Pencarian & paginasi `/events` + `/browse`: cache payload mentah, negative cache + lock, FULLTEXT, cursor, rate limit 429 ramah, index ronde-2 |
