@@ -30,4 +30,12 @@ return [
         /* Batas halaman daftar event admin (OFFSET dalam sangat mahal). */
         'max_page' => (int) env('EVENTS_ADMIN_MAX_PAGE', 200),
     ],
+
+    'forms' => [
+        /*
+         * Submit form per user per form per menit. Submit normal 1×; sisa kuota
+         * menampung retry validasi (field wajib terlewat, unggahan terlalu besar).
+         */
+        'submit_rate_limit_per_minute' => (int) env('FORMS_SUBMIT_RATE_LIMIT_PER_MINUTE', 10),
+    ],
 ];

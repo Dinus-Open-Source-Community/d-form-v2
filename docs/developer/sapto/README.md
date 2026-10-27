@@ -6,6 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges27-10-2026-DFORM-202.md](./saptoChanges27-10-2026-DFORM-202.md) | Rate limit endpoint submit form (10/menit per user per form) dan check-email (`auth-email-check`), beserta bukti merah-hijau |
 | [saptoChanges27-10-2026-DFORM-TBD.md](./saptoChanges27-10-2026-DFORM-TBD.md) | Revert kolom pratinjau live form builder; sidebar dashboard tidak dirender di halaman builder (editor + tab Jawaban) |
 | [saptoBundleBaseline-DFORM-1487.md](./saptoBundleBaseline-DFORM-1487.md) | Baseline bundel (DFORM-1487): entry gzip 25,56 KiB, 58 page lazy + 227 chunk, tabel byte gzip per chunk, aturan komparabilitas untuk pengukuran ulang 15.8 |
 | [saptoChanges24-10-2026-events.md](./saptoChanges24-10-2026-events.md) | Pencarian & paginasi `/events` + `/browse`: cache payload mentah, negative cache + lock, FULLTEXT, cursor, rate limit 429 ramah, index ronde-2 |
@@ -20,7 +21,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 ## Cara membaca (untuk tim)
 
-1. Buka changelog **terbaru** (`saptoChanges27-10-2026-DFORM-TBD.md`) untuk perubahan terakhir.
+1. Buka changelog **terbaru** (`saptoChanges27-10-2026-DFORM-202.md`) untuk perubahan terakhir.
 2. Bagian **Ringkasan (TL;DR)** di setiap dokumen cocok untuk sync singkat.
 3. Bagian **Checklist** di akhir dokumen bisa dipakai sebelum merge atau saat onboarding anggota baru.
 
