@@ -65,6 +65,8 @@ onUnmounted(() => {
     }
 });
 
+const primaryRole = computed<string | null>(() => user.value?.roles?.[0] ?? null);
+
 /** "super-admin" → "Super Admin". */
 function formatRole(r: string): string {
     return r
@@ -209,7 +211,7 @@ function handleLogout(): void {
                             {{ user?.name }}
                         </span>
                         <span class="text-muted-foreground max-w-[140px] truncate text-xs leading-tight">
-                            {{ user?.roles?.length ? formatRole(user.roles[0]!) : user?.email }}
+                            {{ primaryRole ? formatRole(primaryRole) : user?.email }}
                         </span>
                     </span>
                 </Link>

@@ -14,6 +14,7 @@ import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFi
 import type {
     FormAccessStatus,
     FormFillAnswerMap,
+    FormFillAnswerValue,
     FormFillOptionRow,
     FormFillPageEvent,
     FormFillPageForm,
@@ -284,6 +285,16 @@ export function useFormFillPage(props: {
         answerForm[fieldName] = null
     }
 
+    /** Sets one answer value; field components call this instead of mutating the form prop. */
+    function setAnswer(fieldName: string, value: FormFillAnswerValue): void {
+        answerForm[fieldName] = value
+    }
+
+    /** Replaces the team member email list; owned here so child components never mutate the form prop. */
+    function setTeamMemberEmails(emails: string[]): void {
+        answerForm.team_member_emails = emails
+    }
+
     onBeforeUnmount(() => {
         for (const key of Object.keys(filePreviewUrls)) {
             revokeFilePreview(key)
@@ -376,6 +387,8 @@ export function useFormFillPage(props: {
         isCheckboxSelected,
         onFileChange,
         clearFileUpload,
+        setAnswer,
+        setTeamMemberEmails,
         filePreviewUrls,
         submit,
         fieldError,

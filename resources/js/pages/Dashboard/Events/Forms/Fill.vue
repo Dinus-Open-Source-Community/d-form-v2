@@ -5,7 +5,7 @@ import FormFillLayout from '@/layouts/FormFillLayout.vue'
 import FormFillHeaderBlock from '@/components/modules/dashboard/FormFillHeaderBlock.vue'
 import FormFillBlockedCard from '@/components/modules/dashboard/FormFillBlockedCard.vue'
 import FormFillFieldsList from '@/components/modules/dashboard/FormFillFieldsList.vue'
-import { useFormFillPage } from '@/utils/composables/useFormFillPage'
+import { useFormFillPage } from '@/hooks/useFormFillPage'
 import type {
     FormAccessStatus,
     FormFillPageEvent,

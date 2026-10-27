@@ -87,38 +87,24 @@ function toTokenList(v: unknown): string[] {
     return [];
 }
 
-function buildFormPayload():
-    | {
-          title: string;
-          description: string;
-          location: string;
-          start_date: string;
-          end_date: string;
-          registration_start: string;
-          registration_end: string;
-          quota: number;
-          price: number;
-          session: string;
-          category: string;
-          banner: File | null;
-          publish: boolean;
-      }
-    | {
-          _method: 'PUT';
-          title: string;
-          description: string;
-          location: string;
-          start_date: string;
-          end_date: string;
-          registration_start: string;
-          registration_end: string;
-          quota: number;
-          price: number;
-          session: string;
-          category: string;
-          banner: File | null;
-          publish: boolean;
-      } {
+interface EventFormPayload {
+    _method?: 'PUT';
+    title: string;
+    description: string;
+    location: string;
+    start_date: string;
+    end_date: string;
+    registration_start: string;
+    registration_end: string;
+    quota: number;
+    price: number;
+    session: string;
+    category: string;
+    banner: File | null;
+    publish: boolean;
+}
+
+function buildFormPayload(): EventFormPayload {
     if (props.variant === 'create') {
         return {
             title: '',
@@ -137,7 +123,10 @@ function buildFormPayload():
         };
     }
 
-    const e = props.event!;
+    const e = props.event;
+    if (!e) {
+        throw new Error('EventDashboardForm varian edit membutuhkan prop event.');
+    }
     const initialCategories = toTokenList(e.category);
     const initialSessions = toTokenList(e.session);
 
@@ -208,7 +197,7 @@ const categoryPickerId = computed(() => (props.variant === 'create' ? 'field-cat
  * Field yang wajib diisi, selaras dengan StoreEventRequest.
  * Kuota & harga opsional. Banner wajib hanya saat create (saat edit banner lama dipakai).
  */
-const REQUIRED_FIELDS: ReadonlySet<string> = new Set([
+const REQUIRED_FIELD_NAMES = [
     'title',
     'description',
     'location',
@@ -219,11 +208,15 @@ const REQUIRED_FIELDS: ReadonlySet<string> = new Set([
     'session',
     'category',
     'banner',
-]);
+] as const satisfies readonly (keyof EventFormPayload)[];
 
-/** Penanda wajib (*) softcoded: cukup edit REQUIRED_FIELDS, tanpa menyentuh template. */
+type RequiredFieldName = (typeof REQUIRED_FIELD_NAMES)[number];
+
+const requiredFieldNameSet: ReadonlySet<string> = new Set(REQUIRED_FIELD_NAMES);
+
+/** Penanda wajib (*) softcoded: cukup edit REQUIRED_FIELD_NAMES, tanpa menyentuh template. */
 function isRequired(fieldName: string): boolean {
-    if (!REQUIRED_FIELDS.has(fieldName)) return false;
+    if (!requiredFieldNameSet.has(fieldName)) return false;
     if (fieldName === 'banner') return props.variant === 'create';
     return true;
 }
@@ -267,7 +260,8 @@ function shakeFields(keys: string[]): void {
     if (keys.length === 0) return;
     const next = new Set(shakingFields.value);
     for (const key of keys) {
-        if (shakeTimers.has(key)) clearTimeout(shakeTimers.get(key)!);
+        const previousTimer = shakeTimers.get(key);
+        if (previousTimer !== undefined) clearTimeout(previousTimer);
         next.add(key);
         shakeTimers.set(
             key,
@@ -356,7 +350,13 @@ function submitForm(publish: boolean): void {
         session: toTokenList(data.session),
     }));
 
-    const url = props.variant === 'create' ? storeEvent().url : updateEvent(props.event!.id).url;
+    const url =
+        props.variant === 'create'
+            ? storeEvent().url
+            : props.event
+              ? updateEvent(props.event.id).url
+              : null;
+    if (url === null) return;
 
     const isWizard = props.wizardMode === true && props.variant === 'create';
 
@@ -389,17 +389,13 @@ function fieldError(key: string): string | undefined {
 }
 
 function validateRequired(): boolean {
-    const missing: string[] = []
-    for (const key of REQUIRED_FIELDS) {
-        if (key === 'banner' && props.variant !== 'create') continue
-        const raw = (form as unknown as Record<string, unknown>)[key]
-        const val = Array.isArray(raw) ? raw.join('').trim() : String(raw ?? '').trim()
-        // banner is File | null, check file existence separately
+    const missing: RequiredFieldName[] = [];
+    for (const key of REQUIRED_FIELD_NAMES) {
         if (key === 'banner') {
-            if (!form.banner) missing.push(key)
-            continue
+            if (props.variant === 'create' && !form.banner) missing.push(key);
+            continue;
         }
-        if (val === '') missing.push(key)
+        if (String(form[key] ?? '').trim() === '') missing.push(key);
     }
     // also check description plain length for TipTap (already covered but ensure)
     if (missing.length) {
@@ -411,9 +407,8 @@ function validateRequired(): boolean {
         // Populate form.errors for red border via errorClass check (fieldError)
         // We set a temporary error message to ensure red border shows even without server roundtrip
         for (const k of missing) {
-            if (!form.errors[k as keyof typeof form.errors]) {
-                // @ts-expect-error manual set for UI
-                form.errors[k] = 'Wajib diisi.'
+            if (!form.errors[k]) {
+                form.setError(k, 'Wajib diisi.');
             }
         }
         return false

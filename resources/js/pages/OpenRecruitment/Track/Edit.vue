@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: FormFillLayout });
