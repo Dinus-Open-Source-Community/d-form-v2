@@ -4,50 +4,14 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 
 use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\ExportInterviewReportRequest;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Support\CsvCellSanitizer;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentInterviewExportController extends Controller
 {
-    /**
-     * Kolom export sesuai urutan kontrak (designer lane; JANGAN ubah urutan/nama).
-     *
-     * @var list<string>
-     */
-    private const COLUMN_KEYS = [
-        'registration_number',
-        'full_name',
-        'nim',
-        'semester',
-        'phone',
-        'personal_email',
-        'primary_division',
-        'secondary_division',
-        'interview_kind',
-        'session_date',
-        'session_time',
-        'location',
-        'room',
-        'session_division',
-        'interview_status',
-        'checked_in_at',
-        'attendance_method',
-        'interviewer_name',
-        'speaking_score',
-        'technical_score',
-        'attitude_score',
-        'recommendation',
-        'save_count',
-        'evaluated_at',
-        'application_stage',
-        'application_result',
-        'final_division',
-        'membership_type',
-    ];
-
     /**
      * @var array<string, string>
      */
@@ -82,24 +46,17 @@ class RecruitmentInterviewExportController extends Controller
         'membership_type' => 'Tipe Keanggotaan',
     ];
 
-    public function __invoke(Request $request, RecruitmentPeriod $period): StreamedResponse
+    public function __invoke(ExportInterviewReportRequest $request, RecruitmentPeriod $period): StreamedResponse
     {
-        abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
-
-        $validated = $request->validate([
-            'scope' => ['sometimes', 'string', 'in:all,evaluated,pending'],
-            'include_secondary' => ['sometimes', 'boolean'],
-            'columns' => ['sometimes', 'array'],
-            'columns.*' => ['string', 'in:'.implode(',', self::COLUMN_KEYS)],
-        ]);
+        $validated = $request->validated();
 
         $scope = (string) ($validated['scope'] ?? 'all');
         $includeSecondary = (bool) ($validated['include_secondary'] ?? true);
-        $requested = (array) ($validated['columns'] ?? self::COLUMN_KEYS);
-        $columns = array_values(array_unique(array_intersect($requested, self::COLUMN_KEYS)));
+        $requested = (array) ($validated['columns'] ?? ExportInterviewReportRequest::COLUMN_KEYS);
+        $columns = array_values(array_unique(array_intersect($requested, ExportInterviewReportRequest::COLUMN_KEYS)));
 
         if ($columns === []) {
-            $columns = self::COLUMN_KEYS;
+            $columns = ExportInterviewReportRequest::COLUMN_KEYS;
         }
 
         $fileName = 'interview-'.$period->slug.'-'.now()->format('Ymd').'.csv';

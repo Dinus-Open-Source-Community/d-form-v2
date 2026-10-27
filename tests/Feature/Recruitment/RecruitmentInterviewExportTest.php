@@ -193,6 +193,22 @@ class RecruitmentInterviewExportTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_export_rejects_unknown_scope_on_scope_key(): void
+    {
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period).'?scope=bogus')
+            ->assertRedirect()
+            ->assertSessionHasErrors('scope');
+    }
+
+    public function test_export_rejects_unknown_column_on_columns_key(): void
+    {
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period).'?columns[0]=password')
+            ->assertRedirect()
+            ->assertSessionHasErrors('columns.0');
+    }
+
     public function test_export_uses_period_slug_filename(): void
     {
         $this->makeInterviewRow(fullName: 'Export Filename', withEvaluation: false);

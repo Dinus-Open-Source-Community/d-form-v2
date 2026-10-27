@@ -85,6 +85,11 @@ class TeamInvitationController extends Controller
         ]);
     }
 
+    /**
+     * Validasi tetap inline: aturannya baru relevan setelah token terbukti milik
+     * user (403), berstatus pending, dan form-nya tim/bundle (404); Form Request
+     * akan memvalidasi lebih dulu sehingga mengubah urutan respons tersebut.
+     */
     public function update(Request $request, string $token): RedirectResponse
     {
         $answer = $this->loadInvitationAnswer($token);
@@ -113,7 +118,7 @@ class TeamInvitationController extends Controller
             'invitation_decision' => ['required', Rule::in(['accept', 'reject'])],
             'decline_reason' => [
                 'nullable',
-                Rule::requiredIf(fn () => $request->input('invitation_decision') === 'reject'),
+                Rule::requiredIf(fn (): bool => $request->input('invitation_decision') === 'reject'),
                 'string',
                 'max:2000',
             ],

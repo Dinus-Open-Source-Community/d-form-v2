@@ -6,6 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges27-10-2026-DFORM-203.md](./saptoChanges27-10-2026-DFORM-203.md) | Pindahkan 7 validasi statis dari 9 controller ke Form Request; 4 kasus dinamis + 1 urutan precondition tetap di controller dengan alasan |
 | [saptoChanges27-10-2026-DFORM-TBD.md](./saptoChanges27-10-2026-DFORM-TBD.md) | Revert kolom pratinjau live form builder; sidebar dashboard tidak dirender di halaman builder (editor + tab Jawaban) |
 | [saptoBundleBaseline-DFORM-1487.md](./saptoBundleBaseline-DFORM-1487.md) | Baseline bundel (DFORM-1487): entry gzip 25,56 KiB, 58 page lazy + 227 chunk, tabel byte gzip per chunk, aturan komparabilitas untuk pengukuran ulang 15.8 |
 | [saptoChanges24-10-2026-events.md](./saptoChanges24-10-2026-events.md) | Pencarian & paginasi `/events` + `/browse`: cache payload mentah, negative cache + lock, FULLTEXT, cursor, rate limit 429 ramah, index ronde-2 |

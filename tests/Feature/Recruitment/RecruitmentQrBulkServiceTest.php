@@ -422,6 +422,13 @@ class RecruitmentQrBulkServiceTest extends TestCase
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
     }
 
+    public function test_bulk_qr_send_route_rejects_non_boolean_include_sent(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.send-qr', $this->period), ['include_sent' => 'bukan-boolean'])
+            ->assertSessionHasErrors('include_sent');
+    }
+
     public function test_bulk_qr_skipped_count_matches_resendable_pool(): void
     {
         Queue::fake();

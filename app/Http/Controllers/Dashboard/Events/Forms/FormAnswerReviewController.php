@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard\Events\Forms;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\MemberConfirmationStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ReviewFormAnswerRequest;
 use App\Jobs\SendRegistrationAcceptedJob;
 use App\Jobs\SendRegistrationRejectedJob;
 use App\Models\Event;
@@ -20,14 +21,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class FormAnswerReviewController extends Controller
 {
     private const REGISTRATION_CODE_ATTEMPTS = 16;
 
     public function __invoke(
-        Request $request,
+        ReviewFormAnswerRequest $request,
         Event $event,
         Form $form,
         FormAnswer $formAnswer,
@@ -35,16 +35,11 @@ class FormAnswerReviewController extends Controller
         EventRegistrationCounter $registrationCounter,
         RegistrationGroupPeers $groupPeers,
     ): JsonResponse {
-        $this->authorize('review', $formAnswer);
         // Review mengubah status + menerbitkan kode registrasi: wajib milik event yang dikelola.
-        $this->authorize('update', $event);
-
         abort_unless($form->event_id === $event->id, 404);
         abort_unless($formAnswer->form_id === $form->id, 404);
 
-        $data = $request->validate([
-            'review_status' => ['required', Rule::enum(FormAnswerReviewStatus::class)],
-        ]);
+        $data = $request->validated();
 
         if ($formAnswer->review_status !== FormAnswerReviewStatus::Pending) {
             return response()->json([

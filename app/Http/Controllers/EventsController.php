@@ -3,24 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Enums\EventFormVisibility;
+use App\Http\Requests\PublicEventSearchRequest;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
 use App\Services\Event\PublicEventSearch;
 use App\Services\Event\UserPortalEventResolver;
-use Illuminate\Http\Request;
 
 class EventsController extends Controller
 {
     /**
      * Daftar acara publik: 10 per halaman, kata kunci `q` dicari di server.
      */
-    public function index(Request $request, EventService $eventService, PublicEventSearch $eventSearch)
+    public function index(PublicEventSearchRequest $request, EventService $eventService, PublicEventSearch $eventSearch)
     {
-        $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:100'],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $search = trim((string) ($validated['q'] ?? ''));
 

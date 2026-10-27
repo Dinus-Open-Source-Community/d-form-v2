@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard\Broadcasts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcast\BroadcastCreateRequest;
 use App\Http\Requests\Broadcast\BroadcastIndexRequest;
+use App\Http\Requests\Broadcast\SendBroadcastTestRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastAttachmentRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastRequest;
 use App\Http\Requests\Broadcast\UpdateBroadcastRequest;
@@ -21,7 +22,6 @@ use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use App\Services\Broadcast\BroadcastTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -191,13 +191,9 @@ class BroadcastController extends Controller
     }
 
     /** Kirim email uji ke satu alamat; tak menulis EmailLog/tracking. */
-    public function testSend(Request $request, Broadcast $broadcast): JsonResponse
+    public function testSend(SendBroadcastTestRequest $request, Broadcast $broadcast): JsonResponse
     {
-        $this->authorize('view', $broadcast);
-
-        $validated = $request->validate([
-            'email' => ['required', 'string', 'email:rfc', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         Mail::to($validated['email'])->send(new BroadcastMail($broadcast->fresh() ?? $broadcast, $validated['email']));
 

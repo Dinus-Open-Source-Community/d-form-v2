@@ -1749,6 +1749,134 @@ class FormRegistrationTest extends TestCase
             ->assertStatus(409);
     }
 
+    public function test_review_rejects_unknown_status_on_review_status_key(): void
+    {
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $member = $this->member();
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => 'unknown-status',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('review_status');
+
+        $this->assertSame(FormAnswerReviewStatus::Pending, $answer->refresh()->review_status);
+    }
+
+    public function test_invitation_keeps_invitation_decision_and_decline_reason_error_keys(): void
+    {
+        $member = $this->member();
+        $leaderUser = $this->member();
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leaderUser->id,
+            'registration_role' => RegistrationRole::Leader,
+            'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+        ]);
+
+        $token = 'validate-token-'.uniqid();
+
+        $row = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+            'invitation_expired_at' => now()->addDays(7),
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertSessionHasErrors('invitation_decision');
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'reject',
+            ])
+            ->assertSessionHasErrors('decline_reason');
+
+        $this->assertSame(MemberConfirmationStatus::Pending, $row->refresh()->member_confirmation_status);
+    }
+
+    /**
+     * Kepemilikan token dan status pending diperiksa sebelum validasi payload,
+     * supaya non-owner tetap 403 dan undangan yang sudah dijawab tetap redirect.
+     */
+    public function test_invitation_checks_ownership_and_pending_state_before_validation(): void
+    {
+        $member = $this->member();
+        $leaderUser = $this->member();
+        $outsider = $this->member();
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leaderUser->id,
+            'registration_role' => RegistrationRole::Leader,
+            'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+        ]);
+
+        $token = 'precedence-token-'.uniqid();
+
+        $row = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+            'invitation_expired_at' => now()->addDays(7),
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($outsider)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertStatus(403);
+
+        $row->forceFill(['member_confirmation_status' => MemberConfirmationStatus::Accepted])->save();
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(MemberConfirmationStatus::Accepted, $row->refresh()->member_confirmation_status);
+    }
+
     public function test_member_cannot_review_submission(): void
     {
         $member = $this->member();

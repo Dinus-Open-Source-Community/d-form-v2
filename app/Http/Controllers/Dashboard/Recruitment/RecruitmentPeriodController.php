@@ -10,6 +10,7 @@ use App\Enums\Recruitment\MembershipType;
 use App\Enums\Recruitment\ScreeningDecision;
 use App\Enums\Recruitment\ScreeningReason;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\SendPeriodQrRequest;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
@@ -525,13 +526,9 @@ class RecruitmentPeriodController extends Controller
         return response()->json($this->qrStatusForPeriod($period));
     }
 
-    public function sendQr(Request $request, RecruitmentPeriod $period): RedirectResponse
+    public function sendQr(SendPeriodQrRequest $request, RecruitmentPeriod $period): RedirectResponse
     {
-        $this->authorize('sendQr', $period);
-
-        $validated = $request->validate([
-            'include_sent' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $result = $this->qrBulkService->send(
             $request->user(),
