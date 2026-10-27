@@ -18,12 +18,14 @@ Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function
         ->name('events.forms.fill');
 
     Route::post('/{event}/forms/{form}/submit', FormSubmissionController::class)
+        ->middleware('throttle:form-submit')
         ->name('forms.submission');
 
     Route::get('/{event}/forms/{form}/submitted', FormSubmitSuccessController::class)
         ->name('events.forms.submitted');
 
     Route::get('/users/check-email', [UserValidationController::class, 'checkEmail'])
+        ->middleware('throttle:auth-email-check')
         ->name('users.check-email');
 });
 

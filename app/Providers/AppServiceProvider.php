@@ -7,6 +7,7 @@ use App\Support\PendingRegistrationSession;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
@@ -87,6 +88,18 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->ip());
         });
 
+        // Submit form dikunci per user + form: kuota satu peserta tidak memakan kuota
+        // peserta lain, sementara retry validasi tetap punya ruang di bawah batas.
+        RateLimiter::for('form-submit', function (Request $request): Limit {
+            return Limit::perMinute((int) config('events.forms.submit_rate_limit_per_minute', 10))
+                ->by(sprintf(
+                    '%s|%s|%s',
+                    $request->user()?->id ?? $request->ip(),
+                    $this->routeParameterKey($request, 'event'),
+                    $this->routeParameterKey($request, 'form'),
+                ));
+        });
+
         RateLimiter::for('auth-login', function (Request $request): Limit {
             $input = $request->input('email');
             $email = is_string($input) ? strtolower($input) : '';
@@ -110,8 +123,10 @@ class AppServiceProvider extends ServiceProvider
             return $this->authThrottleLimit('password_reset', $request->ip());
         });
 
+        // Endpoint guest memakai IP; endpoint ber-auth dashboards memakai user id,
+        // supaya kuota satu IP bersama (NAT kantor) tidak memblokir peserta lain.
         RateLimiter::for('auth-email-check', function (Request $request): Limit {
-            return $this->authThrottleLimit('email_check', $request->ip());
+            return $this->authThrottleLimit('email_check', $request->user()?->id ?? $request->ip());
         });
 
         // Email OTP diambil dari sesi; limiter berjalan setelah StartSession.
@@ -142,13 +157,30 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bangun batas percobaan dari config/auth_throttle.php agar angka tidak ditulis di route.
+     * Nilai route parameter sebagai string yang sudah dikanonikalisasi. `throttle`
+     * berjalan sebelum SubstituteBindings sehingga nilainya masih skalar; ejaan
+     * UUID disamakan agar variasi huruf besar/spasi tidak membuka bucket baru.
      */
-    private function authThrottleLimit(string $endpoint, string $key): Limit
+    private function routeParameterKey(Request $request, string $parameter): string
+    {
+        $value = $request->route($parameter);
+
+        if ($value instanceof Model) {
+            return (string) $value->getKey();
+        }
+
+        return strtolower(trim((string) $value));
+    }
+
+    /**
+     * Bangun batas percobaan dari config/auth_throttle.php agar angka tidak ditulis di route.
+     * `Request::ip()` bertipe `?string`, jadi kunci dinormalkan di satu tempat ini.
+     */
+    private function authThrottleLimit(string $endpoint, string|int|null $key): Limit
     {
         return Limit::perMinutes(
             (int) config('auth_throttle.'.$endpoint.'.decay_minutes'),
             (int) config('auth_throttle.'.$endpoint.'.max_attempts'),
-        )->by($key);
+        )->by((string) ($key ?? ''));
     }
 }
