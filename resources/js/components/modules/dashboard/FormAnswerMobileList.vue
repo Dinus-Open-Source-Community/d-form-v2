@@ -11,7 +11,7 @@ const emit = defineEmits<{ detail: [submission: IFormSubmission] }>();
 </script>
 
 <template>
-    <ul class="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-card">
+    <ul data-testid="form-answer-mobile-list" class="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-card">
         <li v-for="submission in submissions" :key="submission.id">
             <button
                 type="button"

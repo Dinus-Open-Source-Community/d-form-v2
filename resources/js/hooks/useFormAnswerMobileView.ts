@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref, type Ref } from 'vue';
 
-export type FormAnswerMobileView = 'card' | 'list';
+import type { FormAnswerMobileView } from '@/types/formAnswerMobileView';
 
 const STORAGE_KEY = 'd-form:form-answers:mobile-view';
 
@@ -10,21 +10,9 @@ export function useFormAnswerMobileView(): {
     isDesktop: Ref<boolean>;
     setView: (view: FormAnswerMobileView) => void;
 } {
-    let initialView: FormAnswerMobileView = 'card';
-    let initialIsDesktop = false;
-    try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        initialView = stored === 'list' ? 'list' : 'card';
-    } catch {
-        initialView = 'card';
-    }
-    try {
-        initialIsDesktop = window.matchMedia('(min-width: 768px)').matches;
-    } catch {
-        initialIsDesktop = false;
-    }
-
-    const view = ref<FormAnswerMobileView>(initialView);
+    // Keep SSR and the first client render identical; detect the breakpoint after hydration.
+    const initialIsDesktop = false;
+    const view = ref<FormAnswerMobileView>('card');
     const isDesktop = ref(initialIsDesktop);
     let breakpoint: MediaQueryList | null = null;
     const syncBreakpoint = (event: MediaQueryList | MediaQueryListEvent): void => {
@@ -32,6 +20,11 @@ export function useFormAnswerMobileView(): {
     };
 
     onMounted(() => {
+        try {
+            view.value = window.localStorage.getItem(STORAGE_KEY) === 'list' ? 'list' : 'card';
+        } catch {
+            view.value = 'card';
+        }
         breakpoint = window.matchMedia('(min-width: 768px)');
         syncBreakpoint(breakpoint);
         breakpoint.addEventListener('change', syncBreakpoint);

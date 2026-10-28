@@ -15,11 +15,13 @@ Branch: `task-212-redesign-the-mobile-answer-view-as-card-and-list`.
 | File | Perubahan |
 | ---- | --------- |
 | `resources/js/hooks/useFormAnswerMobileView.ts` | Pilihan tampilan tersimpan, nilai tidak dikenal kembali ke Kartu, storage error memakai state in-memory. |
+| `resources/js/types/formAnswerMobileView.ts` | Tipe mode tampilan dibagikan dari folder `types`, bukan diekspor oleh hook. |
 | `resources/js/components/modules/dashboard/FormAnswersViewToggle.vue` | Kontrol Kartu/Daftar dengan label, status `aria-pressed`, fokus terlihat, dan area tekan 40 px. |
-| `resources/js/components/modules/dashboard/FormAnswerMobileCard.vue` | Ringkasan pengirim, status, waktu, jawaban non-berkas, lampiran, dan aksi review/detail. |
-| `resources/js/components/modules/dashboard/FormAnswerMobileList.vue` | Baris ringkas yang membuka sheet detail. |
+| `resources/js/components/modules/dashboard/FormAnswerMobileCard.vue` | Ringkasan pengirim, status, waktu, jawaban non-berkas, lampiran, dan aksi review/detail; memiliki test id untuk verifikasi breakpoint. |
+| `resources/js/components/modules/dashboard/FormAnswerMobileList.vue` | Baris ringkas yang membuka sheet detail; memiliki test id untuk verifikasi breakpoint. |
 | `resources/js/pages/Dashboard/Events/Forms/Show.vue` | Tabel desktop tetap; komponen mobile ditampilkan di bawah breakpoint `md`; empty state tetap sama. |
 | `docs/developer/sapto/design/DFORM-answers-mobile-views.md` | Spesifikasi perilaku pada bingkai 375 px dan 768 px. |
+| `tests/e2e/form-answers-mobile.spec.ts` | Verifikasi tampilan 375 px dan 1280 px, persistensi, nilai rusak, empty state, console, serta screenshot. |
 
 ## Verifikasi
 
@@ -28,9 +30,25 @@ Branch: `task-212-redesign-the-mobile-answer-view-as-card-and-list`.
 | LSP pada komponen Vue dan halaman | Tidak ada error. Hook perlu pemeriksaan ulang setelah language server selesai mulai. |
 | `npm run build` langsung di host | Gagal karena PHP tidak tersedia di host (`php: command not found` saat Wayfinder berjalan). |
 | `npm run build` di container `d_form_app`, dari worktree | **Sukses**, 3.816 modul, selesai 14,54 detik. |
-| Ukuran entry dari output Vite | Sebelum: `app-BQqUlGse.js` 75,94 kB (gzip 26,45 kB), dicatat TASK-208. Sesudah: `app-DJqQ_P62.js` 76,00 kB (gzip 26,51 kB). Perubahan tercatat +0,06 kB mentah / +0,06 kB gzip; angka sesudah memakai pembulatan output Vite, bukan pengukuran byte mentah. |
+| Ukuran entry dari output Vite | Sebelum: `app-BQqUlGse.js` 75,94 kB (gzip 26,45 kB), dicatat TASK-208. Sesudah revisi: 76,00 kB (gzip 26,50 kB). Perubahan tercatat +0,06 kB mentah / +0,05 kB gzip; angka sesudah memakai pembulatan output Vite, bukan pengukuran byte mentah. |
 | ESLint untuk lima file sumber yang diubah | **Sukses**, tanpa output error atau warning. |
 | `npx tsc --noEmit` | Gagal karena error TS2307 impor Vue SFC yang sudah umum di repo dan beberapa error di file lain; tidak ada error baru dari file tiket yang terlihat pada log build. |
-| E2E dan screenshot | Belum dijalankan. Workspace menetapkan Sokudo YAML sebagai satu-satunya runner E2E, tetapi belum ada flow YAML yang tersedia; spesifikasi Playwright dari tiket tidak dapat dijalankan melalui runner tersebut. |
+| E2E hijau | `npx playwright test tests/e2e/form-answers-mobile.spec.ts` — **2 passed (11.0s)**. Cakupan: kartu default, daftar, localStorage sesudah reload, nilai `grid` kembali ke Kartu, empty state, tabel desktop, markup mobile tidak terpasang di desktop, dan tidak ada console error. Analytics eksternal dan placeholder banner di-stub untuk meniadakan kegagalan jaringan lingkungan (`seeyu.doscom.org` DNS dan banner 403). |
+| E2E seluruh suite | `npx playwright test` — **28 passed (2.6m)**, termasuk kelima spec lama. |
+| Screenshot | Terlampir pada TASK-212: kartu 375 px, daftar 375 px, empty state 375 px, dan tabel desktop 1280 px. |
+| Build | `podman exec -i -w /app/.sokudo/worktrees/task-212-redesign-the-mobile-answer-view-as-card-and-list d_form_app npm run build` — **sukses**, 3.816 modul, 13,99 detik. Entry sesudah revisi: 76,00 kB (gzip 26,50 kB); baseline sebelumnya 75,94 kB (gzip 26,45 kB), TASK-208. |
+| ESLint | ESLint pada sumber, type baru, dan spec E2E — **sukses**, tanpa error atau warning. |
+| LSP | Type baru dan hook bersih; file Vue masih menunggu language server saat dipanggil. Diagnostic lain yang dilaporkan berasal dari file di luar perubahan (pre-existing SFC imports/`process`). |
+
+UI sudah ada saat ronde revisi dimulai (`ade80de`), jadi red baseline sebelum implementasi tidak dapat direproduksi. Run pertama spec gagal karena `page.locator('table')` juga menangkap 14 tabel Debugbar; selector diperjelas ke `main table`. Output Playwright awal:
+
+```text
+Error: expect(locator).toHaveCount(expected) failed
+Locator:  locator('table')
+Expected: 0
+Received: 14
+```
+
+Hook membaca dan membersihkan localStorage secara manual agar akses storage yang gagal dapat ditangkap dengan `try/catch`. Breakpoint baru dibaca saat `onMounted`: SSR dan hidrasi klien dimulai dengan markup Card yang sama, lalu desktop beralih ke tabel setelah hidrasi; test memeriksa console setelah navigasi, bukan raw HTML respons SSR. Fixture E2E menghapus form, jawaban, field, dan user buatannya di `afterEach` agar run berulang tidak menumpuk data.
 
 Baseline entry sebelumnya berasal dari build worktree TASK-208 pada container `d_form_app`. Hash `package-lock.json` pada worktree ini sama dengan baseline resmi (`802ca7f353b929c65bf9d1f10eace914a51908857d0e617ed8e6439c32d14ebf`), tetapi nilai yang dilaporkan di atas adalah ukuran output Vite yang dibulatkan.
