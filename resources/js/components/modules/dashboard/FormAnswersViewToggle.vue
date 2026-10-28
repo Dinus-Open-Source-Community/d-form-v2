@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LayoutGrid, List } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import type { FormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
+import type { FormAnswerMobileView } from '@/types/formAnswerMobileView';
 
 defineProps<{ view: FormAnswerMobileView }>();
 const emit = defineEmits<{ change: [view: FormAnswerMobileView] }>();

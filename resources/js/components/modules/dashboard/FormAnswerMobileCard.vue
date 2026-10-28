@@ -29,7 +29,7 @@ const displayAnswerKeys = computed(() => [
 </script>
 
 <template>
-    <article class="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+    <article data-testid="form-answer-mobile-card" class="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
         <header class="flex min-w-0 items-start gap-3">
             <UserAvatarFallback
                 :src="submission.user?.avatar ?? null"
