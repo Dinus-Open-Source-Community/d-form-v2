@@ -8,7 +8,10 @@
         "dev": "vite",
         "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
         "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix",
-        "test:e2e": "playwright test"
+        "test:e2e": "playwright test",
+        "test:e2e:desktop": "playwright test --project=chromium-desktop",
+        "test:e2e:mobile": "playwright test --project=chromium-mobile",
+        "test:e2e:setup": "playwright test --project=setup"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",

@@ -27,7 +27,7 @@ watch(
 </script>
 
 <template>
-    <SidebarProvider>
+    <SidebarProvider data-testid="authenticated-shell">
         <DashboardSidebar />
         <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
             <DashboardTopbar />

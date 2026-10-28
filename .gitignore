@@ -69,3 +69,4 @@ CONTEXT.md
 /test-results
 /playwright-report
 /blob-report
+/tests/e2e/.auth/

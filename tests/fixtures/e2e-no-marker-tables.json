@@ -1,0 +1,14 @@
+{
+    "form_answers": {
+        "markerColumn": "meta->marker",
+        "parentTable": "users",
+        "parentFk": "user_id",
+        "reason": "Tabel ini tidak punya kolom marker sendiri pada skema saat ini; kepemilikan diturunkan dari user pemilik dan form milik event ber-marker."
+    },
+    "event_attendances": {
+        "markerColumn": "meta->marker",
+        "parentTable": "form_answers",
+        "parentFk": "form_answer_id",
+        "reason": "Tidak punya kolom marker; kepemilikan diturunkan dari form_answer (dan event) milik pemilik marker."
+    }
+}
