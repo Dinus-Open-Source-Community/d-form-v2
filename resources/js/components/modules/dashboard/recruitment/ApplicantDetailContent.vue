@@ -868,12 +868,16 @@ const instagramHandle = computed<string>(() =>
 const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`)
 
 const portfolioExternalUrl = computed<string | null>(() => {
-    const raw: string | null = props.application.document.portfolio_url
+    const document = props.application.document
+    if (document === null) return null
+    const raw: string | null = document.portfolio_url
     return raw !== null && isHttpUrl(raw) ? raw : null
 })
 
 const twibbonExternalUrl = computed<string | null>(() => {
-    const raw: string | null = props.application.document.twibbon_url
+    const document = props.application.document
+    if (document === null) return null
+    const raw: string | null = document.twibbon_url
     return raw !== null && isHttpUrl(raw) ? raw : null
 })
 

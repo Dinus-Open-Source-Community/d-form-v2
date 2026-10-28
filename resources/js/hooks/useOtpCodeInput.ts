@@ -1,5 +1,5 @@
 import { nextTick, onMounted, ref, watch } from 'vue';
-import type { Ref } from 'vue';
+import type { ComponentPublicInstance, Ref } from 'vue';
 
 export interface IUseOtpCodeInputOptions {
     /** Nilai gabungan dari parent (v-model); sumber kebenaran tetap parent. */
@@ -16,7 +16,7 @@ export interface IUseOtpCodeInputState {
     /** Digit per kotak; index 0 = kotak pertama. */
     digits: Ref<string[]>;
     /** Callback `ref` untuk mendaftarkan elemen input per index. */
-    setInputElement: (index: number) => (element: Element | null) => void;
+    setInputElement: (index: number) => (element: Element | ComponentPublicInstance | null) => void;
     handleInput: (index: number, event: Event) => void;
     handleKeydown: (index: number, event: KeyboardEvent) => void;
     handlePaste: (index: number, event: ClipboardEvent) => void;
@@ -76,8 +76,8 @@ export function useOtpCodeInput(options: IUseOtpCodeInputOptions): IUseOtpCodeIn
         focusAt(Math.min(cursor, options.length - 1));
     }
 
-    function setInputElement(index: number): (element: Element | null) => void {
-        return (element: Element | null): void => {
+    function setInputElement(index: number): (element: Element | ComponentPublicInstance | null) => void {
+        return (element: Element | ComponentPublicInstance | null): void => {
             elements[index] = element instanceof HTMLInputElement ? element : null;
         };
     }

@@ -74,7 +74,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
                 backgroundColor: tooltipBg,
                 titleColor: tooltipFg,
                 bodyColor: tooltipFg,
-                titleFont: { size: 12, weight: '600', family: 'Poppins, sans-serif' },
+                titleFont: { size: 12, weight: 600, family: 'Poppins, sans-serif' },
                 bodyFont: { size: 12, family: 'Poppins, sans-serif' },
                 padding: 12,
                 cornerRadius: 10,
@@ -104,7 +104,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
                 grid: { display: false },
                 border: { display: false },
                 ticks: {
-                    font: { size: 12, weight: '500', family: 'Poppins, sans-serif' },
+                    font: { size: 12, weight: 500, family: 'Poppins, sans-serif' },
                     color: tick,
                     autoSkip: false,
                 },

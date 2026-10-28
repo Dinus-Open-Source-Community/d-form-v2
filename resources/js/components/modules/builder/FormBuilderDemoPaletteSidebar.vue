@@ -67,7 +67,7 @@ const emit = defineEmits<{
                         :label="f.label"
                         :icon="f.icon"
                         :description="f.description"
-                        @dragstart="(e) => emit('sidebarDragStart', e, f)"
+                        @dragstart="(e: DragEvent) => emit('sidebarDragStart', e, f)"
                     />
                 </div>
             </div>

@@ -58,13 +58,23 @@ function listFromUnknown(value: unknown): string[] {
 }
 
 /**
+ * Pandangan transport atas `type`/`input_type`: keduanya string bebas karena payload
+ * lama (kolom DB) belum tentu sudah dinormalisasi ke union `IFormField['type']`.
+ */
+interface IFormFieldTypePayload {
+    type?: string
+    input_type?: string
+}
+
+/**
  * API `type` di IFormField, atau `input_type` legacy (kolom DB) bila payload tidak dinormalisasi.
  */
 export function formFieldApiType(field: IFormField | null): string | undefined {
     if (!field) {
         return undefined
     }
-    const raw = field as IFormField & { input_type?: string }
+    // Payload transport boleh membawa string bebas (DB lama) sebelum dinormalisasi ke union domain.
+    const raw: IFormFieldTypePayload = field
     if (typeof raw.type === 'string' && raw.type !== '') {
         return raw.type
     }

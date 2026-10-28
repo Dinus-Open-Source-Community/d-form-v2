@@ -5,6 +5,11 @@ import { computed, ref, onMounted } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { MapPin, CalendarDays, ArrowRight, Check, Shield, FileText, ChevronRight, LogIn } from 'lucide-vue-next';
 import { categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+
+/** Label sesi dari token; token tak dikenal ditampilkan apa adanya. */
+function sessionLabel(token: string): string {
+    return sessionLabelMap[token] ?? token;
+}
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import { stripHtmlToText } from '@/utils/stripHtml';
@@ -200,7 +205,7 @@ const highlights: string[] = [
                                         <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Tanggal</p>
                                         <p class="mt-0.5 text-[0.95rem] font-semibold leading-snug text-foreground">{{ formatDateTime({ value: event.start_date }) }}</p>
                                         <p class="text-[0.8rem] leading-relaxed text-muted-foreground">
-                                            {{ toCategoryList(event.session).map((s) => sessionLabelMap[s] ?? s).join(', ') }}
+                                            {{ toCategoryList(event.session).map(sessionLabel).join(', ') }}
                                         </p>
                                     </div>
                                 </div>
@@ -412,7 +417,7 @@ const highlights: string[] = [
                                             <p class="text-muted-foreground text-xs">
                                                 {{
                                                     toCategoryList(event.session)
-                                                        .map((s) => sessionLabelMap[s] ?? s)
+                                                        .map(sessionLabel)
                                                         .join(', ')
                                                 }}
                                             </p>

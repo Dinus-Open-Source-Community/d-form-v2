@@ -110,8 +110,8 @@ const emptyLogMessage = computed<string>(() => {
     return 'Belum ada riwayat scan.';
 });
 
-function onLogQueryInput(value: string): void {
-    emit('update:logQuery', value);
+function onLogQueryInput(value: string | number): void {
+    emit('update:logQuery', String(value));
 }
 
 function onToggleLog(): void {

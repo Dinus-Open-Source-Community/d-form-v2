@@ -90,13 +90,17 @@ const timeId = computed(() => `${props.idPrefix}-time`)
                 :model-value="parts.date"
                 placeholder="Pilih tanggal"
                 :aria-invalid="invalid"
-                :class="[
-                    'h-9 text-sm',
-                    invalid
-                        ? 'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10 dark:focus-visible:border-destructive/70'
-                        : '',
-                    pickerClass,
-                ]"
+                :class="
+                    [
+                        'h-9 text-sm',
+                        invalid
+                            ? 'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10 dark:focus-visible:border-destructive/70'
+                            : '',
+                        pickerClass,
+                    ]
+                        .filter(Boolean)
+                        .join(' ')
+                "
                 @update:model-value="parts.date = $event"
             />
             <TimeAmPmInput

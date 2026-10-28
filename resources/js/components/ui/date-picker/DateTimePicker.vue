@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DateValue } from 'reka-ui'
-import type { CalendarDate } from '@internationalized/date'
-import { ref, watch } from 'vue'
+import { CalendarDate } from '@internationalized/date'
+import { ref, shallowRef, watch } from 'vue'
 import { Calendar as CalendarIcon } from 'lucide-vue-next'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,8 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
-const selectedDate = ref<DateValue | undefined>(undefined)
+// shallowRef: DateValue punya private field; ref() akan mem-flatten tipenya.
+const selectedDate = shallowRef<DateValue | undefined>(undefined)
 const timeStr = ref('00:00')
 
 function syncFromModel(): void {
@@ -43,8 +44,9 @@ function syncFromModel(): void {
 watch(() => props.modelValue, syncFromModel, { immediate: true })
 
 function emitCombined(): void {
-    const d = selectedDate.value as CalendarDate | undefined
-    emit('update:modelValue', combineLocalDateTime(d, timeStr.value))
+    // DateValue (CalendarDate/CalendarDateTime/ZonedDateTime) semuanya punya year/month/day.
+    const date = selectedDate.value instanceof CalendarDate ? selectedDate.value : undefined
+    emit('update:modelValue', combineLocalDateTime(date, timeStr.value))
 }
 
 function onCalendarUpdate(v: DateValue | undefined): void {

@@ -82,7 +82,7 @@ const pageTitle = computed(() => topbar.title.value ?? fallbackTitle.value);
 const breadcrumbItems = computed(() => buildBreadcrumbs(page.url, pageTitle.value));
 
 /** Base pages (halaman utama) — back button disembunyikan di sini. */
-const BASE_PAGE_PATHS = new Set([
+const BASE_PAGE_PATHS = new Set<string>([
     routes.dashboard.index,
     routes.admin.index,
     routes.admin.events.index,

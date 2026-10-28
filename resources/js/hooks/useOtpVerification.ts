@@ -1,5 +1,5 @@
 import { computed, nextTick, ref, watch } from 'vue';
-import type { ComputedRef, Ref } from 'vue';
+import type { ComponentPublicInstance, ComputedRef, Ref } from 'vue';
 import axios from 'axios';
 import { router, usePage } from '@inertiajs/vue3';
 import { resend as resendOtp, verify as verifyOtp } from '@/actions/App/Http/Controllers/Auth/VerifyOtpController';
@@ -38,9 +38,9 @@ export interface IUseOtpVerificationState {
     /** True setelah server menerima kode; dipakai kotak untuk state sukses. */
     isVerified: Ref<boolean>;
     /** Callback `ref` tombol kirim ulang; dipakai memindahkan fokus saat kode kedaluwarsa. */
-    setResendButton: (element: Element | null) => void;
+    setResendButton: (element: Element | ComponentPublicInstance | null) => void;
     /** Callback `ref` tombol "Ganti akun"; fokus cadangan bila kirim ulang masih terkunci. */
-    setAlternateEmailButton: (element: Element | null) => void;
+    setAlternateEmailButton: (element: Element | ComponentPublicInstance | null) => void;
     submit: () => Promise<void>;
     resend: () => void;
     useAnotherEmail: () => void;
@@ -109,12 +109,12 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     );
 
     /** Daftarkan tombol kirim ulang sebagai target fokus saat kode kedaluwarsa. */
-    function setResendButton(element: Element | null): void {
+    function setResendButton(element: Element | ComponentPublicInstance | null): void {
         resendButton = element instanceof HTMLButtonElement ? element : null;
     }
 
     /** Daftarkan tombol "Ganti akun" sebagai fokus cadangan saat kirim ulang terkunci. */
-    function setAlternateEmailButton(element: Element | null): void {
+    function setAlternateEmailButton(element: Element | ComponentPublicInstance | null): void {
         alternateEmailButton = element instanceof HTMLButtonElement ? element : null;
     }
 
@@ -140,7 +140,8 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
             // Kode yang ditolak tidak berguna lagi; kotak mengosongkan diri dan fokus kembali ke kotak pertama.
             code.value = '';
             // Server bisa mengosongkan kode setelah percobaan habis; segarkan props agar status ikut.
-            router.reload({ preserveScroll: true });
+            // `reload()` selalu preserveScroll (ReloadOptions tidak menerima opsi itu di Inertia 3).
+            router.reload();
 
             return;
         }

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage } from '@inertiajs/vue3'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import AppPagination from '@/components/core/AppPagination.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { type IPaginatorLink, type IPaginatorMeta } from '@/lib/paginatorLinks'
+import { readSharedError } from '@/lib/sharedErrors'
 import {
     Dialog,
     DialogContent,
@@ -305,6 +306,10 @@ const passDialogOpen = ref(false)
 const rejectTarget = ref<ApplicationRow | null>(null)
 const rejectDialogOpen = ref(false)
 const rejectLocalError = ref<string | null>(null)
+const page = usePage()
+/** Error non-field dari server saat menolak pendaftar (mis. kuota/izin). */
+const rejectServerError = computed(() => readSharedError(page.props, 'application'))
+
 const rejectForm = useForm({
     reason: '',
     notes: '',
@@ -822,8 +827,8 @@ function submitReject(): void {
                     <p v-if="rejectLocalError" class="text-destructive text-xs">
                         {{ rejectLocalError }}
                     </p>
-                    <p v-if="rejectForm.errors.application" class="text-destructive text-xs">
-                        {{ rejectForm.errors.application }}
+                    <p v-if="rejectServerError" class="text-destructive text-xs">
+                        {{ rejectServerError }}
                     </p>
 
                     <DialogFooter>

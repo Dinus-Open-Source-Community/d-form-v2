@@ -708,9 +708,9 @@ function closePanel(): void {
 
 function refreshList(): void {
     detailCache.clear()
+    // `reload()` selalu preserveScroll; ReloadOptions tidak menerima opsi itu di Inertia 3.
     router.reload({
         only: ['applications', 'queue_counts', 'screening_reason_options', 'division_options', 'membership_type_options'],
-        preserveScroll: true,
     })
 }
 
