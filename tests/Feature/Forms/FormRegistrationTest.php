@@ -1877,6 +1877,32 @@ class FormRegistrationTest extends TestCase
         $this->assertSame(MemberConfirmationStatus::Accepted, $row->refresh()->member_confirmation_status);
     }
 
+    /**
+     * `404` karena ids tidak cocok tetap menang atas `422` validasi, sama
+     * seperti urutan sebelum status review dipindah ke Form Request.
+     */
+    public function test_review_mismatched_ids_return_404_before_validation(): void
+    {
+        $admin = $this->admin();
+        $event = $this->openEvent();
+        $form = $this->openForm($event);
+        $otherEvent = $this->openEvent();
+        $otherForm = $this->openForm($otherEvent);
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $otherForm->id,
+            'user_id' => $this->member()->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => 'unknown-status',
+            ])
+            ->assertNotFound();
+    }
+
     public function test_member_cannot_review_submission(): void
     {
         $member = $this->member();

@@ -48,11 +48,11 @@ class TeamInvitationController extends Controller
         $this->applyPendingExpiry($answer);
 
         if ($answer->member_confirmation_status === MemberConfirmationStatus::Expired) {
-            throw new HttpException(403, __('This invitation has expired.'));
+            throw new HttpException(403, (string) __('This invitation has expired.'));
         }
 
         if ($answer->member_confirmation_status === MemberConfirmationStatus::Rejected) {
-            throw new HttpException(403, __('This invitation was declined.'));
+            throw new HttpException(403, (string) __('This invitation was declined.'));
         }
 
         $form->loadMissing(['formFields' => fn ($q) => $q->orderBy('order'), 'event']);

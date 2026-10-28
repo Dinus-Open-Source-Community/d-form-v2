@@ -35,10 +35,6 @@ class FormAnswerReviewController extends Controller
         EventRegistrationCounter $registrationCounter,
         RegistrationGroupPeers $groupPeers,
     ): JsonResponse {
-        // Review mengubah status + menerbitkan kode registrasi: wajib milik event yang dikelola.
-        abort_unless($form->event_id === $event->id, 404);
-        abort_unless($formAnswer->form_id === $form->id, 404);
-
         $data = $request->validated();
 
         if ($formAnswer->review_status !== FormAnswerReviewStatus::Pending) {

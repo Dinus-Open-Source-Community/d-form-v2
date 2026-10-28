@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Event;
+use App\Models\Form;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,9 +13,21 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class StoreFormImageRequest extends FormRequest
 {
+    /**
+     * `404` form bukan milik event tetap dijawab sebelum policy `403`, sama
+     * seperti urutan controller sebelum validasi dipindahkan ke sini.
+     */
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('event')) ?? false;
+        $event = $this->route('event');
+        $form = $this->route('form');
+
+        abort_unless(
+            $event instanceof Event && $form instanceof Form && $form->event_id === $event->id,
+            404
+        );
+
+        return $this->user()?->can('update', $event) ?? false;
     }
 
     /**

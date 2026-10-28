@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Broadcasting;
 
+use App\Enums\EmailBroadcastStatus;
+use App\Models\EmailBroadcast;
 use App\Services\Broadcasting\BroadcastInlineImageService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -12,9 +14,26 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class StoreBroadcastInlineImageRequest extends FormRequest
 {
+    /**
+     * Urutan respons dipertahankan: `403` policy dulu, lalu `422` broadcast
+     * non-draft, baru validasi file.
+     */
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('broadcast')) ?? false;
+        $user = $this->user();
+        $broadcast = $this->route('broadcast');
+
+        if ($user === null || ! $broadcast instanceof EmailBroadcast || ! $user->can('update', $broadcast)) {
+            return false;
+        }
+
+        abort_unless(
+            $broadcast->status === EmailBroadcastStatus::Draft,
+            422,
+            'Gambar hanya dapat diunggah saat draft.'
+        );
+
+        return true;
     }
 
     /**

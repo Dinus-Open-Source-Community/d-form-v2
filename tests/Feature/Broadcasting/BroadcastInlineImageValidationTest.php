@@ -83,4 +83,28 @@ class BroadcastInlineImageValidationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('ok', true);
     }
+
+    /**
+     * Broadcast non-draft dijawab 422 lebih dulu, bukan error validasi `file`;
+     * urutan ini dipertahankan saat validasi pindah ke Form Request.
+     */
+    public function test_non_draft_broadcast_is_rejected_before_file_validation(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('super-admin');
+        $this->actingAs($admin);
+
+        $broadcast = EmailBroadcast::query()->create([
+            'name' => 'Sudah terjadwal',
+            'scheduled_at' => now()->addDay(),
+            'delay_min' => 0,
+            'delay_max' => 0,
+            'status' => EmailBroadcastStatus::Scheduled,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->postJson(route('dashboard.broadcasts.inline-image.upload', $broadcast))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Gambar hanya dapat diunggah saat draft.');
+    }
 }

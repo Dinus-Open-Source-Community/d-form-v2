@@ -14,8 +14,6 @@ class FormImageUploadController extends Controller
 {
     public function __invoke(StoreFormImageRequest $request, Event $event, Form $form): JsonResponse
     {
-        abort_unless($form->event_id === $event->id, 404);
-
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $request->file('file');
 
@@ -28,6 +26,8 @@ class FormImageUploadController extends Controller
             (string) Str::uuid().".{$extension}",
             'public'
         );
+
+        abort_if($path === false, 500, 'Gambar form gagal disimpan.');
 
         return response()->json([
             'ok' => true,

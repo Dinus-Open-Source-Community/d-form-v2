@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Dashboard\Broadcasting;
 
-use App\Enums\EmailBroadcastStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcasting\StoreBroadcastInlineImageRequest;
 use App\Models\EmailBroadcast;
@@ -22,8 +21,6 @@ class BroadcastInlineImageController extends Controller
         EmailBroadcast $broadcast,
         BroadcastInlineImageService $images,
     ): JsonResponse {
-        abort_unless($broadcast->status === EmailBroadcastStatus::Draft, 422, 'Gambar hanya dapat diunggah saat draft.');
-
         /** @var UploadedFile $file */
         $file = $request->file('file');
 

@@ -63,4 +63,25 @@ class FormImageUploadValidationTest extends TestCase
 
         $this->assertCount(1, Storage::disk('public')->files('form-images/'.$form->id));
     }
+
+    /**
+     * Form milik event lain tetap 404 sebelum policy 403, sama seperti urutan
+     * sebelum validasi dipindahkan ke Form Request.
+     */
+    public function test_form_from_another_event_returns_404_before_policy_denial(): void
+    {
+        $otherAdmin = User::factory()->create();
+        $otherAdmin->assignRole('admin');
+
+        $eventOwner = User::factory()->create();
+        $event = Event::factory()->create(['created_by' => $eventOwner->id]);
+        $otherEvent = Event::factory()->create(['created_by' => $eventOwner->id]);
+        $form = Form::factory()->create(['event_id' => $otherEvent->id]);
+
+        $this->actingAs($otherAdmin)
+            ->postJson(route('dashboard.events.forms.images', ['event' => $event, 'form' => $form]), [
+                'file' => UploadedFile::fake()->image('banner.png', 64, 64),
+            ])
+            ->assertNotFound();
+    }
 }
