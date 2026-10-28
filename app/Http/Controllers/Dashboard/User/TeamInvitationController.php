@@ -129,7 +129,7 @@ class TeamInvitationController extends Controller
             $answer->forceFill([
                 'member_confirmation_status' => MemberConfirmationStatus::Rejected,
             ])->save();
-            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh());
+            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh() ?? $answer);
 
             $answerId = (string) $answer->id;
             $declineReasonForEmail = $data['decline_reason'];
@@ -250,7 +250,7 @@ class TeamInvitationController extends Controller
             $answer->forceFill([
                 'member_confirmation_status' => MemberConfirmationStatus::Expired,
             ])->save();
-            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh());
+            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh() ?? $answer);
         }
     }
 

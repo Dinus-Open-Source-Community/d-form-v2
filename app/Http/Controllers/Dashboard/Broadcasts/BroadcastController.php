@@ -80,6 +80,8 @@ class BroadcastController extends Controller
         $this->authorize('create', Broadcast::class);
 
         $validated = $request->validated();
+
+        /** @var User $user */
         $user = $request->user();
 
         $event = $this->resolvePrefillEvent($validated);
@@ -195,7 +197,14 @@ class BroadcastController extends Controller
     {
         $validated = $request->validated();
 
-        Mail::to($validated['email'])->send(new BroadcastMail($broadcast->fresh() ?? $broadcast, $validated['email']));
+        $sample = $broadcast->fresh() ?? $broadcast;
+
+        Mail::to($validated['email'])->send(new BroadcastMail(
+            (string) ($sample->subject ?? $sample->name),
+            (string) $sample->body_html,
+            (string) ($sample->body_text ?? $this->broadcastBodyText->fromHtml($sample->body_html)),
+            (string) $sample->id,
+        ));
 
         return response()->json(['sent' => true, 'email' => $validated['email']]);
     }
@@ -338,14 +347,14 @@ class BroadcastController extends Controller
     private function authorizeBroadcastTarget(User $user, array $validated): void
     {
         if (($validated['source'] ?? null) === Broadcast::SOURCE_RECRUITMENT_APPLICANTS) {
-            $period = RecruitmentPeriod::query()->findOrFail($validated['period_id']);
+            $period = RecruitmentPeriod::query()->whereKey($validated['period_id'])->firstOrFail();
 
             abort_unless($this->broadcastPolicy->sendToPeriod($user, $period), 403);
 
             return;
         }
 
-        $event = Event::query()->findOrFail($validated['event_id']);
+        $event = Event::query()->whereKey($validated['event_id'])->firstOrFail();
 
         abort_unless($this->broadcastPolicy->sendToEvent($user, $event), 403);
     }

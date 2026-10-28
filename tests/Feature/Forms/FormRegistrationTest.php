@@ -2585,7 +2585,7 @@ class FormRegistrationTest extends TestCase
              ->post($this->submitPath($event, $form), ['full_name' => 'First Try'])
              ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
-        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
+        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->firstOrFail();
 
         $this->actingAs($admin)
              ->patchJson($this->reviewPath($event, $form, $firstSubmission), [
@@ -2633,7 +2633,7 @@ class FormRegistrationTest extends TestCase
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
 
-        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
+        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->firstOrFail();
 
         $this->actingAs($admin)
              ->patchJson($this->reviewPath($event, $form, $firstSubmission), [
@@ -2679,7 +2679,7 @@ class FormRegistrationTest extends TestCase
 
         $counter = app(EventRegistrationCounter::class);
         $this->assertSame(1, $counter->countOccupyingSlotsForEvent($event));
-        $this->assertSame(1, $counter->reconcile($event->fresh()));
+        $this->assertSame(1, $counter->reconcile($event->fresh() ?? $event));
 
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
@@ -2690,8 +2690,8 @@ class FormRegistrationTest extends TestCase
              ])
              ->assertOk();
 
-        $this->assertSame(0, $counter->countOccupyingSlotsForEvent($event->fresh()));
-        $this->assertSame(0, $counter->reconcile($event->fresh()));
+        $this->assertSame(0, $counter->countOccupyingSlotsForEvent($event->fresh() ?? $event));
+        $this->assertSame(0, $counter->reconcile($event->fresh() ?? $event));
 
         $event->refresh();
         $this->assertSame(0, $event->registered_count);

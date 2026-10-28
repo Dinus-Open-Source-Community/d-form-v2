@@ -108,7 +108,7 @@ Dijalankan ulang dari worktree (container `d_form_app`, `vendor` disalin nyata +
 | Setelah review: `FormRegistrationTest` penuh | 86 lulus (683 assertion) |
 | Setelah review: `EventListValidation` + `BroadcastInlineImageValidation` + `FormImageUploadValidation` + `RecruitmentInterviewExport` + `RecruitmentQrBulkService` | 30 lulus (149 assertion) |
 | `pint --test` 16 file | bersih |
-| `lsp_diagnostics` 15 file produksi (vendor salinan nyata) | tidak ada error yang berasal dari refactor. Run tanpa `vendor` memang tidak representatif; run dengan vendor menampilkan error **pre-existing** pada baris yang tidak diubah (`$request->user()` nullable, `new BroadcastMail(...)` 2 argumen di base, `abort_unless(?bool)`, nullability test lama). Dua yang sempat dilaporkan hilang ternyata nyata dan sudah diperbaiki di round 3: `storeAs()` `string\|false` (guard 500) dan `__()` `string\|array` (cast `(string)`). |
+| `lsp_diagnostics` 15 file produksi (vendor salinan nyata) | tidak ada error yang berasal dari refactor. Run tanpa `vendor` memang tidak representatif. Error **pre-existing** pada baris yang tidak diubah semuanya dibereskan di round 4 (lihat "Verifikasi round 4"): `$request->user()` nullable, `new BroadcastMail(...)` 2 argumen, `abort_unless(?bool)`, `firstOrFail` union, nullability test lama. Di round 3 baru dua yang diperbaiki: `storeAs()` `string\|false` (guard 500) dan `__()` `string\|array` (cast `(string)`). |
 
 ### Cara menjalankan test worktree (dicatat untuk tiket berikutnya)
 
@@ -146,11 +146,39 @@ Hasil setelah perbaikan (container `d_form_app`, vendor salinan nyata):
 | `pint --test` 10 file yang diubah | bersih |
 | `grep -rn -e "->validate(" -e "Validator::make" app/Http/Controllers` | tetap 5 (3 dinamis di `FormSubmissionController`, 2 di `TeamInvitationController`) |
 
-Catatan LSP: error yang tersisa di file yang disentuh berada pada baris yang **tidak diubah** (`$request->user()` nullable di `BroadcastController`/`RecruitmentPeriodController`, `new BroadcastMail(...)` 2 argumen di base, nullability test lama). Tidak diperbaiki di tiket refactor ini; `$path === false` dan `(string) __('...')` yang juga pre-existing diperbaiki karena ada di jalur yang disentuh.
+Catatan LSP: seluruh error yang dilaporkan pada file yang disentuh sudah dibereskan di round 4 — semuanya berada di baris yang tidak diubah tiket (pre-existing), tetapi diperbaiki karena file-nya memang file yang diubah tiket ini. Detail: "Verifikasi round 4".
+
+### Verifikasi round 4 (28-10-2026): kebersihan LSP pada file yang disentuh
+
+Tidak ada perubahan perilaku: semua perbaikan berupa guard/null-handling mekanis, dan tiga endpoint yang urutannya dikunci round 3 tidak tersentuh.
+
+| File | Error | Perbaikan |
+| ---- | ----- | --------- |
+| `BroadcastController` | `allowedEvents(?User)`, `allowedPeriods(?User)` | `/** @var User $user */` — pola yang sudah dipakai `index()` di file yang sama; route memakai middleware `auth` |
+| `BroadcastController` | `new BroadcastMail(...)` 2 argumen (butuh 4) | konstruksi 4 argumen dari `subject`/`body_html`/`body_text` (fallback `BroadcastBodyText::fromHtml`) + `id` |
+| `BroadcastController` | `RecruitmentPeriod::query()->findOrFail()` / `Event::query()->findOrFail()` union `Model\|Collection` | `whereKey(...)->firstOrFail()` — 404 identik |
+| `FormAnswerReviewController` | `releaseIfStoppedOccupying($before, $peer->fresh())` nullable | `$peer->fresh() ?? $peer`; return `answer` diberi fallback yang sama |
+| `RecruitmentPeriodController` | `abort_unless(?bool, 403)` ×2 | `?? false` — null tetap berarti 403 seperti sebelumnya |
+| `RecruitmentPeriodController` | `$request->user()` ke parameter `User` ×2 | `?? abort(403)` |
+| `TeamInvitationController` | `releaseIfStoppedOccupying($before, $answer->fresh())` nullable | `$answer->fresh() ?? $answer` ×2 |
+| `FormRegistrationTest` | `$firstSubmission` dari `->first()` | `firstOrFail()` pada dua test yang memakainya langsung (test lama yang memakai `assertNotNull` dibiarkan, karena assert itulah yang mem-narrow) |
+| `FormRegistrationTest` | `$event->fresh()` nullable ke `reconcile`/`countOccupyingSlotsForEvent` | `?? $event` ×3 |
+
+Bukti setelah perbaikan (vendor salinan nyata, container `d_form_app`):
+
+| Perintah | Hasil |
+| -------- | ----- |
+| `lsp_diagnostics` 5 file yang diubah | **no errors** untuk kelimanya |
+| `pint --test` 5 file yang diubah | **PASS — 5 files** |
+| `FormRegistrationTest` penuh | **87 lulus (684 assertion)** |
+| 5 suite lain (form image, inline image, event list, export interview, bulk QR) | **32 lulus (152 assertion)** |
+| `php artisan tinker` smoke: `new BroadcastMail(subject, html, text, id)` dari `Broadcast` | `App\Mail\BroadcastMail \| subj=S \| text=Hai {{nama}}` |
+
+`BroadcastHubTest` (termasuk `b19 test send`) **tidak bisa dijadikan bukti**: seluruh class memanggil `markTestSkipped('Fitur broadcast dinonaktifkan.')` di `setUp()` tanpa syarat, dan route `/admin/broadcasts/*` tidak didaftarkan saat `FEATURE_BROADCAST=false`. Jadi perbaikan `testSend` diverifikasi lewat LSP + smoke konstruksi mail, bukan lewat request HTTP.
 
 ### Temuan di luar cakupan (tidak diperbaiki)
 
-`BroadcastController::testSend` (baris 198) dan `app/Jobs/SendBroadcastJob.php:55` memanggil `new BroadcastMail($broadcast, $email)`, padahal konstruktor `BroadcastMail` butuh 4 argumen (`subjectLine`, `htmlBody`, `textBody`, `broadcastId`) → `TypeError` begitu endpoint/job itu benar-benar dijalankan. Sudah ada di base `1104063` dan tidak diubah tiket ini (bukan regresi), tapi tetap fatal. Pola yang benar ada di `BroadcastTestController`: `new BroadcastMail($subject, $html, $text, $broadcast->id)`. Tidak diperbaiki di sini karena menentukan subject/body email uji adalah keputusan produk, sedangkan tiket ini refactor validasi murni.
+`app/Jobs/SendBroadcastJob.php:55` masih memanggil `new BroadcastMail($broadcast, $email)` (2 argumen) — bug yang sama seperti `BroadcastController::testSend` sebelum round 4. Job ini tidak menyentuh kode tiket dan hanya berjalan bila `FEATURE_BROADCAST=true`; polanya sudah ada di `SendBroadcastRecipientJob:78-83`. Dicatat sebagai follow-up.
 
 ## Review keputusan (gate langkah 2)
 
@@ -177,5 +205,6 @@ Reviewer menandai satu regresi respons yang nyata: `RespondTeamInvitationRequest
 - [x] Test merah-sebelum-hijau (mutasi) untuk 7 aturan + `q`
 - [x] Urutan respons 403/404/422 terkunci test (round 3): review, form image, inline image
 - [x] `pint --test` bersih untuk file yang diubah
+- [x] `lsp_diagnostics` bersih untuk 5 file yang diubah (round 4): nullability `$request->user()`, `fresh()`, `findOrFail` union, dan `new BroadcastMail(...)` 4 argumen
 - [x] E2E — tidak dijalankan dari worktree (server `:3000` menyajikan checkout root); suite penuh `tests/e2e/` (26 test) dijalankan orchestrator pasca-merge
 - [x] Changelog + baris di `README.md`

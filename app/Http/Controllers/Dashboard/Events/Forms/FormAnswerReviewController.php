@@ -187,18 +187,18 @@ class FormAnswerReviewController extends Controller
             ]);
             $peer->save();
 
-            $registrationCounter->releaseIfStoppedOccupying($before, $peer->fresh());
+            $registrationCounter->releaseIfStoppedOccupying($before, $peer->fresh() ?? $peer);
 
             $rejectedIds->push((string) $peer->id);
 
             if ((string) $peer->id === (string) $locked->id) {
-                $primaryAnswer = $peer->fresh();
+                $primaryAnswer = $peer->fresh() ?? $peer;
             }
         }
 
         return [
             'kind' => 'ok',
-            'answer' => $primaryAnswer->fresh(),
+            'answer' => $primaryAnswer->fresh() ?? $primaryAnswer,
             'rejected_ids' => $rejectedIds,
         ];
     }
