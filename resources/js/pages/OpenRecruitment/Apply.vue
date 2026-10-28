@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
-import { useFormFillPage } from '@/utils/composables/useFormFillPage';
+import { useFormFillPage } from '@/hooks/useFormFillPage';
 import { useAutosaveSync, type AutosaveStatus as AutosaveStatusType } from '@/utils/composables/useAutosaveSync';
 import { readFieldRules } from '@/lib/formFieldMetadata';
 import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';

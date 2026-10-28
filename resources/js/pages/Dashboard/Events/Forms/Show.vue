@@ -37,7 +37,11 @@ import {
     prependFormBannerToBackendPayload,
     extractFormBannerFromBuilderFields,
 } from '@/components/modules/builder/formBanner';
-import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form';
+import {
+    emptyFormRegistrationMetadata,
+    parseFormRegistrationMetadata,
+    toFormMetadataPayload,
+} from '@/lib/formRegistrationMetadata';
 import type { FormSiblingOption } from '@/types/form';
 import {
     answerPreview,
