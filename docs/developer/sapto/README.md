@@ -6,6 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges28-10-2026-DFORM-212.md](./saptoChanges28-10-2026-DFORM-212.md) | Tampilan jawaban mobile Kartu/Daftar, tersimpan di localStorage, dengan tabel desktop tetap dipertahankan (TASK-212) |
 | [saptoChanges28-10-2026-DFORM-207.md](./saptoChanges28-10-2026-DFORM-207.md) | Laporan audit ESLint + LSP: 611 file, 0 diagnostic ESLint; 78 file dicoba, cakupan LSP 8,7% (TASK-207) |
 | [saptoChanges27-10-2026-DFORM-201.md](./saptoChanges27-10-2026-DFORM-201.md) | Hapus semua trik supresi & non-null assertion di frontend, pindahkan fungsi runtime `types/form.ts` ke `lib/`, tegakkan lewat ESLint |
 | [saptoChanges27-10-2026-DFORM-202.md](./saptoChanges27-10-2026-DFORM-202.md) | Rate limit endpoint submit form (10/menit per user per form) dan check-email (`auth-email-check`), beserta bukti merah-hijau |
