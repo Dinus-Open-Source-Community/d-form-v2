@@ -57,6 +57,10 @@ import {
 } from '@/lib/error-message';
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
+import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
+import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
+import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
+import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
@@ -344,6 +348,9 @@ const fileFieldNames = computed(
 const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
 
 const submissionRows = computed(() => props.submissions ?? []);
+const mobileAnswerView = useFormAnswerMobileView();
+const mobileAnswerKeys = computed(() => answerKeys.value);
+const mobileFileFieldNames = computed(() => [...fileFieldNames.value]);
 const submissionLabelMap = computed(() => {
     const map: Record<string, string> = {};
     props.fields.forEach((f) => {
@@ -594,7 +601,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div v-if="mobileAnswerView.isDesktop.value" class="overflow-x-auto md:block">
                         <TooltipProvider>
                         <Table>
                             <TableHeader>
@@ -754,6 +761,34 @@ function rejectLabel(submission: IFormSubmission): string {
                             </TableBody>
                         </Table>
                         </TooltipProvider>
+                    </div>
+
+                    <div v-else class="space-y-4 p-3 md:hidden">
+                        <div class="flex justify-end">
+                            <FormAnswersViewToggle
+                                :view="mobileAnswerView.view.value"
+                                @change="mobileAnswerView.setView"
+                            />
+                        </div>
+                        <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
+                            <FormAnswerMobileCard
+                                v-for="submission in submissionRows"
+                                :key="submission.id"
+                                :submission="submission"
+                                :answer-keys="mobileAnswerKeys"
+                                :file-field-names="mobileFileFieldNames"
+                                :humanize-key="humanizeKey"
+                                :file-name-of="fileNameOf"
+                                :reviewing="isSubmissionReviewing(submission.id)"
+                                @detail="openSubmissionDetail"
+                                @review="onDetailReview"
+                            />
+                        </div>
+                        <FormAnswerMobileList
+                            v-else
+                            :submissions="submissionRows"
+                            @detail="openSubmissionDetail"
+                        />
                     </div>
                 </div>
 
