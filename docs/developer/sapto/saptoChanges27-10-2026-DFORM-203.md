@@ -90,8 +90,8 @@ Hasil nyata (`php artisan test`, dijalankan dari container terpisah yang me-moun
 - Kegagalan: `RecruitmentSecurityTest::s05` (XSS di halaman tracking). Gagal karena harness tidak punya server SSR Inertia: tanpa SSR, `@inertia` memakai `<script type="application/json">` mentah (`config('inertia.use_script_element_for_initial_page') = true`), sedangkan di container dev halaman dirender SSR sehingga assertion lulus. Test ini tidak menyentuh kode yang diubah.
 - 41 dilewati = suite broadcast (`FEATURE_BROADCAST=false`), test MySQL-only/FULLTEXT, dan kasus stress yang butuh MySQL.
 - `./vendor/bin/pint --test` pada 21 file yang diubah: bersih.
-- `lsp_diagnostics` pada 16 file produksi yang diubah: nol error yang berasal dari perubahan ini. Worktree tidak punya direktori `vendor/`, sehingga language server tidak bisa me-resolve simbol Laravel sama sekali: seluruh error yang muncul berupa `Function 'abort_unless'/'response'/'config'/'now'/'route' tidak ditemukan` (terjadi juga di file yang tidak diubah), ditambah turunannya — `FormRequest` dianggap bukan turunan `Illuminate\Http\Request`, dan `abort()` tidak dianggap menghentikan alur sehingga `$locked` masih terbaca `FormAnswer|null`. Tidak ada satu pun yang bertahan bila subclass dan helper diverifikasi langsung di vendor (`FormRequest extends Request`, `abort()` melempar `HttpException`).
-- E2E: tidak ada flow yang bisa dijalankan. `e2e_list_flows` (sistem e2e workspace) mengembalikan **0 flow**; spec Playwright repo hanya berjalan di host terhadap checkout root (`:3000`), bukan worktree ini, dan binary browser tidak ada di container — aturan proyek melarang memasang dependensi browser baru. Perubahan backend-only tanpa perubahan markup, jadi tidak ada regresi UI yang perlu dibuktikan lewat browser.
+- `lsp_diagnostics` pada 16 file produksi yang diubah (run pertama, worktree tanpa `vendor/`): nol error yang berasal dari perubahan ini. Tanpa `vendor/`, language server tidak bisa me-resolve simbol Laravel sama sekali: seluruh error yang muncul berupa `Function 'abort_unless'/'response'/'config'/'now'/'route' tidak ditemukan` (terjadi juga di file yang tidak diubah), ditambah turunannya — `FormRequest` dianggap bukan turunan `Illuminate\Http\Request`, dan `abort()` tidak dianggap menghentikan alur sehingga `$locked` masih terbaca `FormAnswer|null`. Tidak ada satu pun yang bertahan bila subclass dan helper diverifikasi langsung di vendor (`FormRequest extends Request`, `abort()` melempar `HttpException`). Run ulang dengan vendor salinan nyata (tabel di bawah) bersih tanpa error.
+- E2E: **tidak dijalankan dari worktree ini**, bukan karena suite-nya kosong. Repo punya `tests/e2e/` (5 spec, 26 test Playwright) yang menargetkan server `:3000`; server itu menyajikan checkout root, sehingga hasil dari worktree tidak sah. Suite penuh dijalankan **orchestrator setelah merge** terhadap checkout hasil merge. Perubahan backend-only tanpa perubahan markup, jadi tidak ada regresi UI yang perlu dibuktikan lewat browser di sini.
 
 ### Verifikasi ulang (28-10-2026)
 
@@ -108,7 +108,7 @@ Dijalankan ulang dari worktree (container `d_form_app`, `vendor` disalin nyata +
 | Setelah review: `FormRegistrationTest` penuh | 86 lulus (683 assertion) |
 | Setelah review: `EventListValidation` + `BroadcastInlineImageValidation` + `FormImageUploadValidation` + `RecruitmentInterviewExport` + `RecruitmentQrBulkService` | 30 lulus (149 assertion) |
 | `pint --test` 16 file | bersih |
-| `lsp_diagnostics` 16 file | 2 error **pre-existing**, bukan dari refactor: `FormImageUploadController:35` (`storeAs()` bertipe `string\|false`) dan `TeamInvitationController:51/55` (`__()` bertipe `string\|array` untuk argumen `HttpException`). Keduanya ada di base `1104063` dan tidak diubah tiket ini. |
+| `lsp_diagnostics` 15 file produksi (vendor salinan nyata) | nol error. Run sebelumnya tanpa `vendor` melaporkan 2 error (`storeAs()` bertipe `string\|false`, `__()` bertipe `string\|array`); keduanya hilang begitu simbol Laravel ter-resolve, jadi memang bukan dari refactor. |
 
 ### Cara menjalankan test worktree (dicatat untuk tiket berikutnya)
 
@@ -149,5 +149,5 @@ Reviewer menandai satu regresi respons yang nyata: `RespondTeamInvitationRequest
 - [x] Aturan upload tidak melemah
 - [x] Test merah-sebelum-hijau (mutasi) untuk 7 aturan + `q`
 - [x] `pint --test` bersih untuk file yang diubah
-- [x] E2E — 0 flow tersedia di workspace (`e2e_list_flows`); spec Playwright repo tidak menyasar worktree & binary browser tidak ada di container (lihat Verifikasi)
+- [x] E2E — tidak dijalankan dari worktree (server `:3000` menyajikan checkout root); suite penuh `tests/e2e/` (26 test) dijalankan orchestrator pasca-merge
 - [x] Changelog + baris di `README.md`
