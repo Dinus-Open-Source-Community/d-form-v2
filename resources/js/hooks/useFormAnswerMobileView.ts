@@ -11,15 +11,21 @@ export function useFormAnswerMobileView(): {
     setView: (view: FormAnswerMobileView) => void;
 } {
     let initialView: FormAnswerMobileView = 'card';
+    let initialIsDesktop = false;
     try {
         const stored = window.localStorage.getItem(STORAGE_KEY);
         initialView = stored === 'list' ? 'list' : 'card';
     } catch {
         initialView = 'card';
     }
+    try {
+        initialIsDesktop = window.matchMedia('(min-width: 768px)').matches;
+    } catch {
+        initialIsDesktop = false;
+    }
 
     const view = ref<FormAnswerMobileView>(initialView);
-    const isDesktop = ref(false);
+    const isDesktop = ref(initialIsDesktop);
     let breakpoint: MediaQueryList | null = null;
     const syncBreakpoint = (event: MediaQueryList | MediaQueryListEvent): void => {
         isDesktop.value = event.matches;
