@@ -1,7 +1,7 @@
 name: Quality
 
-# Gate kualitas untuk alur branch nyata: dev (integrasi), dev-zapp (kerja harian),
-# dan temp (staging sementara).
+# Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
+# dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
 #
 # BLOCKING : ESLint dan unit test. Keduanya hijau saat gate ini dipasang
 #            (ESLint 0 error, unit test 52 passed), jadi kegagalan berarti regresi.
@@ -21,11 +21,13 @@ name: Quality
 on:
     push:
         branches:
+            - development
             - dev
             - dev-zapp
             - temp
     pull_request:
         branches:
+            - development
             - dev
             - dev-zapp
             - temp

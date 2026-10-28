@@ -22,6 +22,7 @@ import type {
     FormFieldRules,
 } from '@/types/form'
 
+/** Builds the answer map, field helpers, and submit handler for the public form fill page; used only by that page. */
 export function useFormFillPage(props: {
     event: FormFillPageEvent
     form: FormFillPageForm
@@ -397,4 +398,5 @@ export function useFormFillPage(props: {
     }
 }
 
+/** Return type of `useFormFillPage`; handed to fill-page field components so they never touch the form prop directly. */
 export type FormFillPageContext = ReturnType<typeof useFormFillPage>

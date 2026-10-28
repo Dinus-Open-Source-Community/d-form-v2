@@ -1,4 +1,4 @@
-import type { FormPurpose, FormRegistrationMetadata } from '@/types/form'
+import type { FormPurpose, FormRegistrationMetadata, TFormMetadataPayload } from '@/types/form'
 
 /** Default registration metadata for a newly created dashboard form. */
 export function emptyFormRegistrationMetadata(): FormRegistrationMetadata {
@@ -38,7 +38,7 @@ export function parseFormRegistrationMetadata(raw: unknown): FormRegistrationMet
  * Builds the create/update metadata payload, always including every registration key so
  * Inertia null omission does not wipe unrelated metadata.
  */
-export function toFormMetadataPayload(m: FormRegistrationMetadata): Record<string, unknown> {
+export function toFormMetadataPayload(m: FormRegistrationMetadata): TFormMetadataPayload {
     const purpose = m.purpose === 'other' ? 'other' : 'registration'
     const isOther = purpose === 'other'
     return {

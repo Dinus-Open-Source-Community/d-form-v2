@@ -70,6 +70,17 @@ export interface FormRegistrationMetadata {
     team_size: number | null
 }
 
+/**
+ * Create/update metadata payload: the same keys as `FormRegistrationMetadata`, all always sent
+ * so Inertia null-omission cannot wipe unrelated metadata.
+ */
+export type TFormMetadataPayload = Required<
+    Pick<
+        FormRegistrationMetadata,
+        'purpose' | 'requires_form_id' | 'registration_mode' | 'max_team_size' | 'team_size'
+    >
+>
+
 /** Payload for creating a form from the dashboard builder */
 export interface CreateDashboardFormPayload {
     title: string
@@ -79,6 +90,6 @@ export interface CreateDashboardFormPayload {
     visible_for: string[]
     banner_url: string
     banner_caption: string
-    metadata: FormRegistrationMetadata | Record<string, unknown>
+    metadata: TFormMetadataPayload | null
     fields: BackendField[]
 }
