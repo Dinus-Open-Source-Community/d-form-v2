@@ -496,8 +496,8 @@ function rejectLabel(submission: IFormSubmission): string {
 
     <div class="flex min-w-0 flex-col gap-4">
         <Tabs v-model="activeTab" class="flex w-full flex-col gap-4" :unmount-on-hide="false" aria-label="Konten form">
-            <div class="border-border/60 flex items-center justify-between gap-3 border-b pb-3">
-                <div class="flex min-w-0 items-center gap-4">
+            <div class="border-border/60 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                <div class="flex min-w-0 flex-wrap items-center gap-3">
                     <TabsList class="bg-muted/40 h-auto min-h-10 flex-wrap gap-1 rounded-xl p-1">
                         <TabsTrigger
                             value="editor"
@@ -521,6 +521,11 @@ function rejectLabel(submission: IFormSubmission): string {
                             </Badge>
                         </TabsTrigger>
                     </TabsList>
+                    <FormAnswersViewToggle
+                        v-if="activeTab === 'jawaban' && submissionRows.length > 0"
+                        :view="mobileAnswerView.view.value"
+                        @change="mobileAnswerView.setView"
+                    />
                     <AutosaveStatus :status="showSaveState" variant="inline" />
                 </div>
 
@@ -764,12 +769,6 @@ function rejectLabel(submission: IFormSubmission): string {
                     </div>
 
                     <div v-else class="space-y-4 p-3 md:hidden">
-                        <div class="flex justify-end">
-                            <FormAnswersViewToggle
-                                :view="mobileAnswerView.view.value"
-                                @change="mobileAnswerView.setView"
-                            />
-                        </div>
                         <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
                             <FormAnswerMobileCard
                                 v-for="submission in submissionRows"

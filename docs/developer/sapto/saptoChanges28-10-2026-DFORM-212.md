@@ -52,3 +52,19 @@ Received: 14
 Hook membaca dan membersihkan localStorage secara manual agar akses storage yang gagal dapat ditangkap dengan `try/catch`. Breakpoint baru dibaca saat `onMounted`: SSR dan hidrasi klien dimulai dengan markup Card yang sama, lalu desktop beralih ke tabel setelah hidrasi; test memeriksa console setelah navigasi, bukan raw HTML respons SSR. Fixture E2E menghapus form, jawaban, field, dan user buatannya di `afterEach` agar run berulang tidak menumpuk data.
 
 Baseline entry sebelumnya berasal dari build worktree TASK-208 pada container `d_form_app`. Hash `package-lock.json` pada worktree ini sama dengan baseline resmi (`802ca7f353b929c65bf9d1f10eace914a51908857d0e617ed8e6439c32d14ebf`), tetapi nilai yang dilaporkan di atas adalah ukuran output Vite yang dibulatkan.
+
+## Susulan: toggle pindah ke header tab
+
+Sesudah merge, toggle Kartu/Daftar dipindah keluar dari kartu "Daftar jawaban" ke baris header, tepat di sebelah tab Editor | Jawaban.
+
+| File | Perubahan |
+| ---- | --------- |
+| `resources/js/pages/Dashboard/Events/Forms/Show.vue` | Toggle dirender di baris header (setelah `TabsList`) hanya saat tab `jawaban` aktif dan ada jawaban; blok toggle di dalam area jawaban dihapus; header dan grup kiri memakai `flex-wrap` agar tidak meluber di layar sempit. |
+
+Perilaku yang disengaja: toggle tidak dirender di tab Editor (tidak ada yang bisa dilihat) dan tetap `md:hidden` sehingga desktop memakai tabel apa adanya. Pada 375 px lebar konten 343 px tidak cukup untuk tab (236 px) + toggle berlabel (190 px), jadi toggle turun ke baris kedua header — bukan bug.
+
+| Pemeriksaan | Hasil |
+| ----------- | ----- |
+| ESLint `Show.vue` | **Sukses**, tanpa output (exit 0). |
+| E2E `tests/e2e/form-answers-mobile.spec.ts` | **2 passed (32,3 s)** setelah toggle dipindah; spec memilih toggle lewat `getByRole('group', { name: 'Tampilan daftar jawaban' })`, bukan posisi, sehingga relokasi tidak memutusnya. |
+| Verifikasi manual 375/430/700/767/1280 px | Toggle tampil hanya di tab Jawaban; 375–430 px turun ke baris kedua, 700–767 px sebaris dengan tab, 1280 px tidak dirender; pilihan `Daftar` tetap tersimpan setelah reload. |
