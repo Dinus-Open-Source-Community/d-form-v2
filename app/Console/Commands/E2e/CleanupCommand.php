@@ -62,6 +62,9 @@ final class CleanupCommand extends Command
     {
         try {
             return $operation();
+        } catch (\InvalidArgumentException $invalid) {
+            // Kesalahan validasi argumen bersifat permanen; mengulanginya hanya menunda pesan aslinya.
+            throw $invalid;
         } catch (\Throwable $first) {
             usleep(250_000);
 

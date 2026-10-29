@@ -17,7 +17,7 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 | Observasi request/baris/header | `support/network.ts`, `support/tabs.ts`, `e2e:count-rows`, `e2e:inspect`, `e2e:http`, `e2e:derive-key` | `H-observe` hijau |
 | Gate gaya kode | `pint --test` | **PASS, 11 file** |
 
-**Enam bug harness ditemukan dan diperbaiki saat verifikasi** (bukan sekadar memindahkan kode): nama cookie sesi yang di-hardcode, identifier `SESSION_COOKIE` yang tidak pernah didefinisikan, path CLI Playwright yang tidak tahan worktree, anotasi `Dirent` di `heartbeat.ts`, dan — saat full suite pertama kali dijalankan — dua regresi yang membuat suite lama merah (guest spec ter-redirect oleh `storageState` project dan race `Cache::flush()` antar spec). Detail di §3 dan §4.5.
+**Tujuh perbaikan harness ditemukan dan diverifikasi saat verifikasi** (bukan sekadar memindahkan kode): empat bug fungsional — nama cookie sesi yang di-hardcode, identifier `SESSION_COOKIE` yang tidak pernah didefinisikan, path CLI Playwright yang tidak tahan worktree, anotasi `Dirent` di `heartbeat.ts` — dan tiga lubang keamanan data (§3.1). Di atas itu, **dua regresi suite** baru terlihat saat full suite pertama kali dijalankan (§4.5). Detail di §3, §3.1, dan §4.5.
 
 ---
 
@@ -27,13 +27,13 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 
 | File | Perubahan |
 |---|---|
-| `playwright.config.ts` | `baseURL`/artisan/kredensial dari environment, satu `runId` per invokasi, tiga project, `fullyParallel`, `retries: 1`, `trace: on-first-retry`, `screenshot: only-on-failure` |
+| `playwright.config.ts` | `baseURL`/artisan/kredensial dari environment, satu `runId` per invokasi, tiga project, `fullyParallel`, `retries: 1`, `trace: on-first-retry`, `screenshot: only-on-failure`, `workers: 1` (lihat §4.5) |
 | `package.json` | `test:e2e`, `test:e2e:desktop`, `test:e2e:mobile`, `test:e2e:setup` |
 | `.gitignore` | `/tests/e2e/.auth/` |
 | `resources/js/layouts/DashboardLayout.vue` | `data-testid="authenticated-shell"` pada `SidebarProvider` (satu-satunya perubahan produksi) |
 | `tests/e2e/support/artisan.ts` | `E2E_ARTISAN` → token perintah, dipakai semua helper |
-| `tests/e2e/support/heartbeat.ts` | `listHeartbeatRunIds()` memakai anotasi `string` padahal `readdirSync(..., { withFileTypes: true })` mengembalikan `Dirent[]` (lihat §3 baris 4) |
 | `tests/e2e/auth.spec.ts`, `otp-verification.spec.ts`, `email-availability.spec.ts` | `test.use({ storageState: { cookies: [], origins: [] } })` — spec ini menguji halaman guest (lihat §4.5) |
+| `docs/developer/sapto/README.md` | satu baris ringkasan tiket |
 
 ### 1.2 File baru — PHP (11)
 
@@ -106,9 +106,9 @@ Review menemukan tiga jalur yang bisa menghapus atau menyapu baris di luar milik
 
 | # | Risiko | Perbaikan |
 |---|---|---|
-| 5 | `e2e:cleanup --marker-prefix=A --slug-prefix=B` lolos validasi format dan menghapus event run B | `FixtureScope::prefixIdentity()` mewajibkan `slugPrefix === markerToSlug(markerPrefix)`; tidak ada caller lain yang mengirim pasangan bebas (`global.teardown.ts` menurunkan keduanya dari `runId` yang sama) |
-| 6 | `e2e:sweep` mencocokkan email `e2e+…+o…@<domain apa pun>`, sehingga user nyata berawalan `e2e+` bisa tersapu | regex diperketat ke `@e2e\.invalid$`, satu-satunya domain yang dibangkitkan `FixtureIdentity` |
-| 7 | `SweepCommand` memakai `@unlink`/`@rmdir` (supresi error, dilarang aturan repo) | diganti `is_file()` + `unlink()` dan `is_dir()` + `rmdir()` |
+| S1 | `e2e:cleanup --marker-prefix=A --slug-prefix=B` lolos validasi format dan menghapus event run B | `FixtureScope::prefixIdentity()` mewajibkan `slugPrefix === markerToSlug(markerPrefix)`; tidak ada caller lain yang mengirim pasangan bebas (`global.teardown.ts` menurunkan keduanya dari `runId` yang sama) |
+| S2 | `e2e:sweep` mencocokkan email `e2e+…+o…@<domain apa pun>`, sehingga user nyata berawalan `e2e+` bisa tersapu | regex diperketat ke `@e2e\.invalid$`, satu-satunya domain yang dibangkitkan `FixtureIdentity` |
+| S3 | `SweepCommand` memakai `@unlink`/`@rmdir` (supresi error, dilarang aturan repo) | diganti `is_file()` + `unlink()` dan `is_dir()` + `rmdir()` |
 
 ---
 
@@ -192,7 +192,9 @@ Sebelum sesi ini, **full suite tidak pernah dijalankan** (lihat batas lama di §
 | Gejala | Bukti | Akar | Perbaikan |
 |---|---|---|---|
 | `auth.spec.ts`, `otp-verification.spec.ts`, `email-availability.spec.ts` gagal di locator pertama | `curl` dengan cookie `admin.json`: `GET /auth/login → 302 /`, `GET /auth/register → 302 /`; tanpa cookie `→ 200` | `storageState` project berlaku untuk **semua** spec, padahal ketiganya menguji halaman di middleware `guest` | `test.use({ storageState: { cookies: [], origins: [] } })` di ketiga file, pola yang sudah dipakai `auth-guest-redirect.guest.spec.ts` |
-| Assert `429` di `auth.spec.ts` dan `event-search.spec.ts` gagal saat suite paralel | `--workers=1` pada file yang sama: **11 passed**; paralel: 3 gagal | empat spec lama memanggil `Cache::flush()` **global** di `beforeEach`, sehingga worker lain menghapus hitungan rate limit di tengah assert | `workers: 1` di config; `fullyParallel: true` tetap dipertahankan sesuai kontrak |
+| Assert `429` di `auth.spec.ts` dan `event-search.spec.ts` gagal saat suite paralel | `--workers=1` pada file yang sama: **11 passed**; paralel: 3 gagal | empat spec lama memanggil `Cache::flush()` **global** di `beforeEach`, sehingga worker lain menghapus hitungan rate limit di tengah assert | `workers: 1` di config; `fullyParallel: true` tetap dipertahankan sesuai brief tiket |
+
+Seluruh baris di §4.5 dijalankan dengan `E2E_BASE_URL=http://localhost:3001` (container yang menyajikan worktree), `E2E_ARTISAN` menunjuk workdir worktree, dan admin `admin@gmail.com`.
 
 | # | Perintah | Hasil |
 |---|---|---|
@@ -202,7 +204,7 @@ Sebelum sesi ini, **full suite tidak pernah dijalankan** (lihat batas lama di §
 | 4 | `playwright test auth.spec.ts email-availability.spec.ts auth-required auth-guard --project=chromium-mobile` | **14 passed, 1 flaky** |
 | 5 | `playwright test harness.spec.ts --project=chromium-desktop` (sesudah perbaikan PHP §3.1) | **17 passed (3,5 m)** |
 
-**Sisa yang harus dinyatakan:** satu test tetap kadang butuh retry. `throttle › login melewati limit` memakai limiter **per-IP** dengan decay 1 menit, sedangkan `H-auth-setup` melakukan login sungguhan pada menit yang sama; bila hitungan tidak ter-reset tepat waktu, attempt ke-5 sudah 429. Dengan `retries: 1` (kontrak) run tetap hijau, tetapi akarnya adalah desain spec lama. Perbaikan permanen: jalankan spec lama itu serial seperti di atas (sudah) dan, bila flake kembali, ganti batas per-IP pada test dengan limiter yang di-scope per email.
+**Sisa yang harus dinyatakan:** satu test masih kadang butuh retry — `throttle › kuota forgot-password` (desktop) dan `throttle › login melewati limit` (mobile). Dengan `retries: 1` run tetap hijau, tetapi **penyebab pastinya belum teridentifikasi**. Hipotesis awal yang sempat ditulis di sini — "limiter login per-IP sehingga login `H-auth-setup` memakan kuota" — **salah**: `auth-login` di-key `strtolower($email).'|'.$ip` (`app/Providers/AppServiceProvider.php:90-96`) sedangkan test memakai email unik `e2e-throttle-<timestamp>@example.test`. Yang memang per-IP adalah `auth-password-email` (`:104-106`), jadi hanya flake forgot-password yang cocok dengan hipotesis itu. Langkah berikutnya bila flake kembali: rekam status tiap attempt (bukan menebak), lalu isolasi limiter yang terbukti bocor. Jangan menaikkan `retries`.
 
 ---
 
@@ -215,7 +217,9 @@ Sebelum sesi ini, **full suite tidak pernah dijalankan** (lihat batas lama di §
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
 4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
 5. **`tests/fixtures/e2e-no-marker-tables.json` belum dibaca kode mana pun.** Isinya daftar tabel tanpa kolom marker (`form_answers`, `event_attendances`) dan kepemilikan diturunkan dari induk — itu memang cara kerja `FixtureScope`, tetapi daftarnya masih hardcoded, bukan dibaca dari JSON ini. Dibiarkan sebagai dokumentasi data, bukan wiring.
-6. **`workers: 1` membatasi manfaat `fullyParallel: true`.** Nilai kontrak tetap `fullyParallel: true`, tetapi sampai empat spec lama berhenti memanggil `Cache::flush()` global, menjalankan dua file sekaligus membuat assert `429` merah (§4.5). Menaikkan worker hanya boleh dilakukan setelah spec itu diisolasi.
+6. **`workers: 1` membatasi manfaat `fullyParallel: true`.** Nilai brief (`fullyParallel: true`) tetap dipakai, tetapi sampai empat spec lama berhenti memanggil `Cache::flush()` global, menjalankan dua file sekaligus membuat assert `429` merah (§4.5). Menaikkan worker hanya boleh dilakukan setelah spec itu diisolasi. Perbaikan permanen yang lebih murah — mempersempit flush ke key limiter, atau memberi empat spec lama cache store sendiri — tidak diambil karena mengubah spec lama di luar scope; dicatat sebagai follow-up, bukan keputusan diam-diam.
+7. **Dua guard baru belum punya test.** `FixtureScope::prefixIdentity()` (pasangan prefix) dan regex sweep `@e2e\.invalid$` adalah perubahan perilaku dengan jalur gagal, dan belum ada baris `H-*` yang menguji penolakannya. Saat ini fail-closed; test penolakan perlu ditambahkan di `harness.spec.ts` sebelum guard ini diubah lagi.
+8. **`CleanupCommand` tidak lagi mengulang `InvalidArgumentException`.** Validasi argumen bersifat permanen, jadi langsung diteruskan tanpa retry 250 ms; kegagalan DB tetap diulang sekali seperti sebelumnya.
 
 ---
 
