@@ -14,6 +14,7 @@ import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFi
 import type {
     FormAccessStatus,
     FormFillAnswerMap,
+    FormFillAnswerValue,
     FormFillOptionRow,
     FormFillPageEvent,
     FormFillPageForm,
@@ -21,6 +22,7 @@ import type {
     FormFieldRules,
 } from '@/types/form'
 
+/** Builds the answer map, field helpers, and submit handler for the public form fill page; used only by that page. */
 export function useFormFillPage(props: {
     event: FormFillPageEvent
     form: FormFillPageForm
@@ -284,6 +286,16 @@ export function useFormFillPage(props: {
         answerForm[fieldName] = null
     }
 
+    /** Sets one answer value; field components call this instead of mutating the form prop. */
+    function setAnswer(fieldName: string, value: FormFillAnswerValue): void {
+        answerForm[fieldName] = value
+    }
+
+    /** Replaces the team member email list; owned here so child components never mutate the form prop. */
+    function setTeamMemberEmails(emails: string[]): void {
+        answerForm.team_member_emails = emails
+    }
+
     onBeforeUnmount(() => {
         for (const key of Object.keys(filePreviewUrls)) {
             revokeFilePreview(key)
@@ -376,6 +388,8 @@ export function useFormFillPage(props: {
         isCheckboxSelected,
         onFileChange,
         clearFileUpload,
+        setAnswer,
+        setTeamMemberEmails,
         filePreviewUrls,
         submit,
         fieldError,
@@ -384,4 +398,5 @@ export function useFormFillPage(props: {
     }
 }
 
+/** Return type of `useFormFillPage`; handed to fill-page field components so they never touch the form prop directly. */
 export type FormFillPageContext = ReturnType<typeof useFormFillPage>

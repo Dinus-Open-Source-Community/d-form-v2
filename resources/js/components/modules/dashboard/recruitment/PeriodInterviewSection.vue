@@ -328,7 +328,7 @@ function submitExport(): void {
                                         <Checkbox
                                             :id="`export-col-${column.key}`"
                                             :checked="isExportColumnChecked(column.key)"
-                                            @update:checked="(checked) => setExportColumn(column.key, checked)"
+                                            @update:checked="(checked: boolean | 'indeterminate') => setExportColumn(column.key, checked)"
                                         />
                                         <span class="min-w-0 truncate">{{ column.label }}</span>
                                     </label>

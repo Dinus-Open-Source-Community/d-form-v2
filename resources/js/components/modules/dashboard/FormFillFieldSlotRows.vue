@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable vue/no-mutating-props -- ctx.answerForm is parent Inertia form state */
 import { computed } from 'vue'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { StyledSelect } from '@/components/ui/styled-select'
 import type { UnwrapNestedRefs } from 'vue'
 import { Star, ImagePlus, Upload, X } from 'lucide-vue-next'
-import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
+import type { FormFillPageContext } from '@/hooks/useFormFillPage'
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent'
 
 const props = withDefaults(
@@ -36,7 +35,7 @@ function textAnswer(name: string): string {
 }
 
 function setTextAnswer(name: string, value: string | number): void {
-    props.ctx.answerForm[name] = String(value)
+    props.ctx.setAnswer(name, String(value))
 }
 
 const showSubtitle = computed(() => props.variant === 'linear' && Boolean(props.participationSlot.title))
@@ -129,7 +128,7 @@ function fillReady(): boolean {
                     :key="rating"
                     type="button"
                     class=" p-1"
-                    @click="ctx.answerForm[storageKey] = String(rating)"
+                    @click="ctx.setAnswer(storageKey, String(rating))"
                 >
                     <Star
                         class="size-7 transition-colors"
@@ -206,7 +205,7 @@ function fillReady(): boolean {
                     :value="row.label"
                     :checked="(ctx.answerForm[storageKey] as string) === row.label"
                     class="size-4 accent-primary"
-                    @change="() => (ctx.answerForm[storageKey] = row.label)"
+                    @change="() => ctx.setAnswer(storageKey, row.label)"
                 />
                 <div v-if="row.type === 'image' && row.imageSrc" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />

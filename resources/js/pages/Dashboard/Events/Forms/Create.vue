@@ -10,7 +10,7 @@ import { toBackendFields } from '@/components/modules/builder/fieldMapping'
 import { builderPendingUploads, cleanStoredImageUrl } from '@/utils/composables/useBuilderImageUpload'
 import type { BuilderField } from '@/types/form-builder'
 import type { CreateDashboardFormPayload, FormSiblingOption } from '@/types/form'
-import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form'
+import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/lib/formRegistrationMetadata'
 import { routes } from '@/lib/routes'
 
 /** Inertia `FormDataType` cannot recurse `BackendField.metadata` (Record<string, unknown>); store fields loosely for typing only. */

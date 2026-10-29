@@ -50,7 +50,10 @@ function patch(partial: Partial<BuilderField>): void {
 
 const hasOptions = computed(() => ['dropdown', 'checkbox', 'radio'].includes(props.field.type))
 
-const TYPE_CONFIG = {
+/** Tone aksen yang tersedia untuk ikon kartu field. */
+type TFieldTone = 'neutral' | 'info' | 'primary' | 'success' | 'warning'
+
+const TYPE_CONFIG: Record<string, { icon: typeof Type; label: string; tone: TFieldTone }> = {
     short_text: { icon: Type, label: 'Teks pendek', tone: 'neutral' },
     long_text: { icon: AlignLeft, label: 'Teks panjang', tone: 'neutral' },
     email: { icon: Mail, label: 'Email', tone: 'info' },
@@ -71,7 +74,7 @@ const TYPE_CONFIG = {
 }
 
 /** Aksen kecil per kategori field — berbasis tone token proyek, bukan warna acak. */
-const FIELD_TONE_CLASSES: Record<'neutral' | 'info' | 'primary' | 'success' | 'warning', string> = {
+const FIELD_TONE_CLASSES: Record<TFieldTone, string> = {
     neutral: 'text-muted-foreground',
     info: 'text-info',
     primary: 'text-primary',
@@ -79,7 +82,7 @@ const FIELD_TONE_CLASSES: Record<'neutral' | 'info' | 'primary' | 'success' | 'w
     warning: 'text-warning',
 }
 
-const config = computed(() => TYPE_CONFIG[props.field.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.short_text)
+const config = computed(() => TYPE_CONFIG[props.field.type] ?? TYPE_CONFIG.short_text)
 
 /** Petunjuk di kanvas bila admin belum mengisi placeholder — hanya tampilan, bukan nilai tersimpan. */
 function canvasPlaceholder(f: BuilderField): string {

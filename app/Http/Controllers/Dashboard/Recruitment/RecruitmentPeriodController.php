@@ -10,6 +10,7 @@ use App\Enums\Recruitment\MembershipType;
 use App\Enums\Recruitment\ScreeningDecision;
 use App\Enums\Recruitment\ScreeningReason;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Recruitment\SendPeriodQrRequest;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
@@ -330,7 +331,7 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'interview') {
-            abort_unless($request->user()?->can('recruitment.interviews.schedule'), 403);
+            abort_unless($request->user()?->can('recruitment.interviews.schedule') ?? false, 403);
 
             $interviewDivisionOptions = $this->divisionService->listAllOrdered()
                 ->where('is_active', true)
@@ -357,7 +358,7 @@ class RecruitmentPeriodController extends Controller
         }
 
         if ($tab === 'laporan') {
-            abort_unless($request->user()?->can('recruitment.reports.view'), 403);
+            abort_unless($request->user()?->can('recruitment.reports.view') ?? false, 403);
 
             $report = $this->reportService->build($period->id);
         }
@@ -511,7 +512,7 @@ class RecruitmentPeriodController extends Controller
     {
         $this->authorize('sendGroupLink', $period);
 
-        $result = $this->groupLinkService->send($request->user(), $period);
+        $result = $this->groupLinkService->send($request->user() ?? abort(403), $period);
 
         return redirect()
             ->back()
@@ -525,16 +526,12 @@ class RecruitmentPeriodController extends Controller
         return response()->json($this->qrStatusForPeriod($period));
     }
 
-    public function sendQr(Request $request, RecruitmentPeriod $period): RedirectResponse
+    public function sendQr(SendPeriodQrRequest $request, RecruitmentPeriod $period): RedirectResponse
     {
-        $this->authorize('sendQr', $period);
-
-        $validated = $request->validate([
-            'include_sent' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $result = $this->qrBulkService->send(
-            $request->user(),
+            $request->user() ?? abort(403),
             $period,
             (bool) ($validated['include_sent'] ?? false)
         );

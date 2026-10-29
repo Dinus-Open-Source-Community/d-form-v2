@@ -70,7 +70,8 @@ const FORM_BANNER_NAME = 'form_banner'
 export function buildFormBannerBuilderField(state: FormBannerState): BuilderField | null {
     const trimmedUrl = state.bannerUrl.trim()
     const trimmedCaption = state.caption.trim()
-    const hadPrevious = typeof state.id === 'string' && state.id !== ''
+    const previousId = typeof state.id === 'string' && state.id !== '' ? state.id : null
+    const hadPrevious = previousId !== null
     const hasPayload = trimmedUrl !== '' || trimmedCaption !== ''
 
     if (!hasPayload && !hadPrevious) {
@@ -81,7 +82,7 @@ export function buildFormBannerBuilderField(state: FormBannerState): BuilderFiel
         return null
     }
 
-    const id = hadPrevious ? state.id! : crypto.randomUUID()
+    const id = previousId ?? crypto.randomUUID()
 
     return {
         id,

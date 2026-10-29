@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { useForm, usePage } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { readSharedError } from '@/lib/sharedErrors'
 
 const props = defineProps<{
     storeUrl: string
@@ -20,6 +22,10 @@ const ratingFields = [
     { key: 'rating_interview_experience', label: 'Pengalaman interview' },
     { key: 'rating_staff_service', label: 'Pelayanan panitia' },
 ] as const
+
+const page = usePage()
+/** Error non-field yang dikirim server saat feedback ditolak. */
+const feedbackError = computed(() => readSharedError(page.props, 'feedback'))
 
 const form = useForm({
     rating_registration_ease: '',
@@ -75,7 +81,7 @@ function submit() {
             />
         </div>
 
-        <p v-if="form.errors.feedback" class="text-destructive text-sm">{{ form.errors.feedback }}</p>
+        <p v-if="feedbackError" class="text-destructive text-sm">{{ feedbackError }}</p>
 
         <div class="flex flex-wrap gap-2 pt-1">
             <Button type="submit" size="sm" :disabled="form.processing">

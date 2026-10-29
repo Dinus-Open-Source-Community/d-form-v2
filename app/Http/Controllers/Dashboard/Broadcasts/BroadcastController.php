@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard\Broadcasts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcast\BroadcastCreateRequest;
 use App\Http\Requests\Broadcast\BroadcastIndexRequest;
+use App\Http\Requests\Broadcast\SendBroadcastTestRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastAttachmentRequest;
 use App\Http\Requests\Broadcast\StoreBroadcastRequest;
 use App\Http\Requests\Broadcast\UpdateBroadcastRequest;
@@ -21,7 +22,6 @@ use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use App\Services\Broadcast\BroadcastTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -80,6 +80,8 @@ class BroadcastController extends Controller
         $this->authorize('create', Broadcast::class);
 
         $validated = $request->validated();
+
+        /** @var User $user */
         $user = $request->user();
 
         $event = $this->resolvePrefillEvent($validated);
@@ -191,15 +193,18 @@ class BroadcastController extends Controller
     }
 
     /** Kirim email uji ke satu alamat; tak menulis EmailLog/tracking. */
-    public function testSend(Request $request, Broadcast $broadcast): JsonResponse
+    public function testSend(SendBroadcastTestRequest $request, Broadcast $broadcast): JsonResponse
     {
-        $this->authorize('view', $broadcast);
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'email' => ['required', 'string', 'email:rfc', 'max:255'],
-        ]);
+        $sample = $broadcast->fresh() ?? $broadcast;
 
-        Mail::to($validated['email'])->send(new BroadcastMail($broadcast->fresh() ?? $broadcast, $validated['email']));
+        Mail::to($validated['email'])->send(new BroadcastMail(
+            (string) ($sample->subject ?? $sample->name),
+            (string) $sample->body_html,
+            (string) ($sample->body_text ?? $this->broadcastBodyText->fromHtml($sample->body_html)),
+            (string) $sample->id,
+        ));
 
         return response()->json(['sent' => true, 'email' => $validated['email']]);
     }
@@ -342,14 +347,14 @@ class BroadcastController extends Controller
     private function authorizeBroadcastTarget(User $user, array $validated): void
     {
         if (($validated['source'] ?? null) === Broadcast::SOURCE_RECRUITMENT_APPLICANTS) {
-            $period = RecruitmentPeriod::query()->findOrFail($validated['period_id']);
+            $period = RecruitmentPeriod::query()->whereKey($validated['period_id'])->firstOrFail();
 
             abort_unless($this->broadcastPolicy->sendToPeriod($user, $period), 403);
 
             return;
         }
 
-        $event = Event::query()->findOrFail($validated['event_id']);
+        $event = Event::query()->whereKey($validated['event_id'])->firstOrFail();
 
         abort_unless($this->broadcastPolicy->sendToEvent($user, $event), 403);
     }

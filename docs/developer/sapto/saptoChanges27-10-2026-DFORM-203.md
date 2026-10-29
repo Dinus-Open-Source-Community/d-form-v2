@@ -1,0 +1,210 @@
+# Sapto Changes — 27 Oktober 2026 (DFORM-203)
+
+Memindahkan 12 validasi inline di 9 controller ke Form Request (aturan P1 nomor 5). Tujuh validasi statis pindah ke Form Request baru; lima tetap di controller dengan alasan tertulis (empat aturan dinamis + satu validasi yang urutan responsnya bergantung precondition token). Kontrak request/response ke frontend tidak berubah.
+
+> **Nomor tiket:** `DFORM-203`.
+
+| Kolom  | Isi |
+| ------ | --- |
+| Issue  | DFORM-203 |
+| Commit | `refactor(http): pindahkan validasi inline controller ke Form Request` |
+| Branch | `task-203-pindahkan-12-validasi-inline-di-9-controller-ke` |
+
+---
+
+## Ringkasan (TL;DR)
+
+| Area | Sebelum | Sesudah |
+| ---- | ------- | ------- |
+| Validasi statis di badan controller | 8 kemunculan | 1 (undangan tim, urutan precondition) |
+| Validasi yang sengaja tetap di controller | — | 5 (4 dinamis + 1 urutan precondition) |
+| Form Request baru | — | 7 |
+| Key error & pesan validasi | — | identik (dibuktikan test) |
+| Whitelist upload gambar | `image\|mimes:png,jpg,jpeg,gif,webp\|max:2048` | sama |
+
+## Peta 12 kemunculan
+
+| File | Baris awal | Bentuk | Keputusan |
+| ---- | ---------- | ------ | --------- |
+| `EventsController` | 20 | `$request->validate` | pindah → `PublicEventSearchRequest` |
+| `Dashboard/Broadcasts/BroadcastController` | 198 | `$request->validate` | pindah → `Broadcast/SendBroadcastTestRequest` |
+| `Dashboard/Broadcasting/BroadcastInlineImageController` | 29 | `$request->validate` | pindah → `Broadcasting/StoreBroadcastInlineImageRequest` |
+| `Dashboard/User/TeamInvitationController` | 112 | `$request->validate` | **tetap** — lihat "Validasi undangan tim yang dipertahankan" di bawah |
+| `Dashboard/User/TeamInvitationController` | 174 | `Validator::make` | **tetap** — aturan dibangun dari `form_fields` appendable milik form (runtime) |
+| `Dashboard/Events/Forms/FormImageUploadController` | 20 | `$request->validate` | pindah → `StoreFormImageRequest` |
+| `Dashboard/Events/Forms/FormAnswerReviewController` | 45 | `$request->validate` | pindah → `ReviewFormAnswerRequest` |
+| `Dashboard/Events/Forms/FormSubmissionController` | 96 | `Validator::make` | **tetap** — aturan dibangun dari field form (runtime) |
+| `Dashboard/Events/Forms/FormSubmissionController` | 225 | `Validator::make` | **tetap** — `size:{memberSlots}` dari `team_size` form (runtime) |
+| `Dashboard/Events/Forms/FormSubmissionController` | 326 | `Validator::make` | **tetap** — idem, jalur tim |
+| `Dashboard/Recruitment/RecruitmentPeriodController` | 532 | `$request->validate` | pindah → `Recruitment/SendPeriodQrRequest` |
+| `Dashboard/Recruitment/RecruitmentInterviewExportController` | 89 | `$request->validate` | pindah → `Recruitment/ExportInterviewReportRequest` |
+
+Hasil akhir `grep -rn -e "->validate(" -e "Validator::make" app/Http/Controllers` → 5 baris, semuanya terdaftar dan beralasan di atas.
+
+## Validasi undangan tim yang dipertahankan
+
+`TeamInvitationController::update` (baris 112) **tidak** dipindah ke Form Request. Payload (`invitation_decision`, `decline_reason`) memang statis, tetapi validasi di endpoint ini hanya dijalankan setelah tiga precondition runtime: token harus milik user (403), invitation harus `registration_role = Member` dan form-nya tim/bundle (404), lalu status harus `Pending` (redirect 302 ke halaman show). Form Request selalu memvalidasi lebih dulu, sehingga non-owner dengan payload rusak akan menerima 422/redirect berisi error, bukan 403, dan undangan yang sudah dijawab akan menerima 422, bukan redirect.
+
+Mengembalikan urutan itu di `authorize()` tidak mungkin tanpa mengubah perilaku: `authorize()` hanya bisa mengembalikan boolean (403), sedangkan precondition status hari ini me-redirect (302). Karena itu alasan satu baris: **validasi bergantung pada precondition runtime yang belum diketahui saat validasi, dan urutan 403/404/302 sebelum 422 adalah kontrak respons yang ada.** Regression test `FormRegistrationTest::test_invitation_checks_ownership_and_pending_state_before_validation` mengunci urutan ini (merah saat endpoint sempat memakai Form Request: non-owner menerima 302 berisi error, bukan 403).
+
+## Form Request baru & otorisasi
+
+| Form Request | `authorize()` (sama dengan controller sebelumnya) |
+| ------------ | ------------------------------------------------ |
+| `Requests/PublicEventSearchRequest` | `true` — halaman publik; proteksi tetap dari middleware `throttle:event-search` (controller tidak punya otorisasi eksplisit, perilaku dipertahankan) |
+| `Requests/Broadcast/SendBroadcastTestRequest` | `can('view', broadcast)` |
+| `Requests/Broadcasting/StoreBroadcastInlineImageRequest` | `can('update', broadcast)` |
+| `Requests/StoreFormImageRequest` | `can('update', event)` |
+| `Requests/ReviewFormAnswerRequest` | `can('review', formAnswer)` **dan** `can('update', event)` |
+| `Requests/Recruitment/SendPeriodQrRequest` | `can('sendQr', period)` |
+| `Requests/Recruitment/ExportInterviewReportRequest` | `can('recruitment.interviews.schedule')` |
+
+Penempatan mengikuti pola yang ada: `Broadcast/`, `Broadcasting/`, `Users/`, `Recruitment/` sudah ada. Dua request domain event (`PublicEventSearchRequest`, `StoreFormImageRequest`, `ReviewFormAnswerRequest`) diletakkan di root `app/Http/Requests/` karena seluruh request event/form yang sudah ada memang di root (`StoreEventRequest`, `StoreEventFormRequest`, `IndexEventRequest`); tidak dibuat folder baru supaya domain event tidak terpecah dua lokasi.
+
+`ExportInterviewReportRequest::COLUMN_KEYS` menjadi satu sumber daftar kolom sah; controller memakai konstanta itu untuk default dan filter kolom, sehingga daftar tidak diduplikasi.
+
+## Perilaku yang dipertahankan
+
+- **Key error & pesan**: `q`, `page`, `email`, `file`, `invitation_decision`, `decline_reason`, `review_status`, `include_sent`, `scope`, `columns.*` tidak berubah. Pesan kustom inline image dipindah apa adanya; `decline_reason` tetap di-trim di controller sebelum `$request->validate` (validasi endpoint itu tetap inline).
+- **Upload tidak melemah**: `required|image|mimes:png,jpg,jpeg,gif,webp|max:2048` (form image) dan aturan inline image dengan `BroadcastInlineImageService::MAX_UPLOAD_KB` tetap sama.
+- **Urutan 404 vs validasi**: pada review submission dan unggah gambar form, cek kecocokan `form_id`/`event_id` dipindah ke `authorize()` **sebelum** validasi, sehingga ids yang tidak cocok tetap 404 dan policy yang menolak tetap 403 (bukan 422 lebih dulu). Dikunci oleh `FormRegistrationTest::test_review_mismatched_ids_return_404_before_validation` dan `FormImageUploadValidationTest::test_form_from_another_event_returns_404_before_policy_denial`.
+- **Urutan status draft vs validasi (inline image)**: cek `status === Draft` dipindah ke `authorize()` setelah policy `update`, sehingga broadcast non-draft tetap dijawab `422` dengan pesan "Gambar hanya dapat diunggah saat draft" sebelum aturan `file` dievaluasi. Dikunci oleh `BroadcastInlineImageValidationTest::test_non_draft_broadcast_is_rejected_before_file_validation`.
+
+## Test (gate AGENTS.md)
+
+Test ditulis lebih dulu, dijalankan terhadap implementasi inline lama (hijau = mengunci perilaku), lalu dipakai sebagai bukti merah lewat mutasi aturan setelah refactor (satu aturan dilonggarkan → test merah → dipulihkan → hijau).
+
+| Kelompok | Test | Bukti merah (mutasi) |
+| -------- | ---- | -------------------- |
+| Events CRUD (publik) | `tests/Feature/EventListValidationTest.php` | `max:100` dihapus → `q` 101 karakter jadi 200 |
+| Form submission/review | `FormRegistrationTest::test_review_rejects_unknown_status_on_review_status_key` | `Rule::enum` → `string` → status `unknown-status` lolos |
+| Recruitment period/export | `RecruitmentInterviewExportTest::test_export_rejects_unknown_{scope,column}...`, `RecruitmentQrBulkServiceTest::test_bulk_qr_send_route_rejects_non_boolean_include_sent` | `in:` / `boolean` dihapus → filter tidak valid lolos |
+| Team invitation | `FormRegistrationTest::test_invitation_keeps_invitation_decision_and_decline_reason_error_keys`, `test_invitation_checks_ownership_and_pending_state_before_validation` | `Rule::requiredIf` dihapus → reject tanpa alasan lolos; endpoint dipindah ke Form Request → urutan 403/302 berubah jadi 422 (test merah, lalu validasi dikembalikan ke controller) |
+| Broadcast/image | `FormImageUploadValidationTest`, `BroadcastInlineImageValidationTest` | `image`+`mimes` dihapus → PDF diterima |
+
+Catatan harness: modul broadcast nonaktif (`FEATURE_BROADCAST=false`) sehingga route tidak terdaftar dan seluruh test lamanya `markTestSkipped`. Test inline image baru menyalakan flag lewat `$_SERVER['FEATURE_BROADCAST']` di `setUpBeforeClass` (sebelum app boot) lalu membersihkannya di `tearDownAfterClass`; hanya berlaku di proses test.
+
+Hasil nyata (`php artisan test`, dijalankan dari container terpisah yang me-mount worktree ke `/app` — lihat catatan di bawah):
+
+- Suite penuh: **809 lulus, 1 gagal, 41 dilewati** (5034 assertion).
+- Kegagalan: `RecruitmentSecurityTest::s05` (XSS di halaman tracking). Gagal karena harness tidak punya server SSR Inertia: tanpa SSR, `@inertia` memakai `<script type="application/json">` mentah (`config('inertia.use_script_element_for_initial_page') = true`), sedangkan di container dev halaman dirender SSR sehingga assertion lulus. Test ini tidak menyentuh kode yang diubah.
+- 41 dilewati = suite broadcast (`FEATURE_BROADCAST=false`), test MySQL-only/FULLTEXT, dan kasus stress yang butuh MySQL.
+- `./vendor/bin/pint --test` pada 21 file yang diubah: bersih.
+- `lsp_diagnostics` pada 16 file produksi yang diubah (run pertama, worktree tanpa `vendor/`): nol error yang berasal dari perubahan ini. Tanpa `vendor/`, language server tidak bisa me-resolve simbol Laravel sama sekali: seluruh error yang muncul berupa `Function 'abort_unless'/'response'/'config'/'now'/'route' tidak ditemukan` (terjadi juga di file yang tidak diubah), ditambah turunannya — `FormRequest` dianggap bukan turunan `Illuminate\Http\Request`, dan `abort()` tidak dianggap menghentikan alur sehingga `$locked` masih terbaca `FormAnswer|null`. Tidak ada satu pun yang bertahan bila subclass dan helper diverifikasi langsung di vendor (`FormRequest extends Request`, `abort()` melempar `HttpException`).
+- E2E: **tidak dijalankan dari worktree ini**, bukan karena suite-nya kosong. Repo punya `tests/e2e/` (5 spec, 26 test Playwright) yang menargetkan server `:3000`; server itu menyajikan checkout root, sehingga hasil dari worktree tidak sah. Suite penuh dijalankan **orchestrator setelah merge** terhadap checkout hasil merge. Perubahan backend-only tanpa perubahan markup, jadi tidak ada regresi UI yang perlu dibuktikan lewat browser di sini.
+
+### Verifikasi ulang (28-10-2026)
+
+Dijalankan ulang dari worktree (container `d_form_app`, `vendor` disalin nyata + `database/seeders/Stress` dari root):
+
+| Perintah | Hasil |
+| -------- | ----- |
+| `tests/Feature/{EventListValidation,Broadcasting/BroadcastInlineImageValidation,Forms/FormImageUploadValidation,Recruitment/RecruitmentInterviewExport}` | 16 lulus (85 assertion) |
+| `FormRegistrationTest` filter review + invitation | 4 lulus (12 assertion) |
+| `RecruitmentQrBulkServiceTest` filter bulk QR | 14 lulus (64 assertion) |
+| `FormRegistrationTest` penuh + `EventListPaginationTest` + `Broadcast*` + `Broadcasting` | 97 lulus, 35 dilewati (broadcast nonaktif / MySQL-only) |
+| Mutasi merah: `Rule::enum` → `string` pada `review_status` | test 422 gagal (bukti test benar-benar mengunci aturan), dipulihkan |
+| Mutasi merah: `in:` dihapus pada `scope` | test 422 gagal, dipulihkan |
+| Setelah review: `FormRegistrationTest` penuh | 86 lulus (683 assertion) |
+| Setelah review: `EventListValidation` + `BroadcastInlineImageValidation` + `FormImageUploadValidation` + `RecruitmentInterviewExport` + `RecruitmentQrBulkService` | 30 lulus (149 assertion) |
+| `pint --test` 16 file | bersih |
+| `lsp_diagnostics` 15 file produksi (vendor salinan nyata) | tidak ada error yang berasal dari refactor. Run tanpa `vendor` memang tidak representatif. Error **pre-existing** pada baris yang tidak diubah semuanya dibereskan di round 4 (lihat "Verifikasi round 4"): `$request->user()` nullable, `new BroadcastMail(...)` 2 argumen, `abort_unless(?bool)`, `firstOrFail` union, nullability test lama. Di round 3 baru dua yang diperbaiki: `storeAs()` `string\|false` (guard 500) dan `__()` `string\|array` (cast `(string)`). |
+
+### Cara menjalankan test worktree (dicatat untuk tiket berikutnya)
+
+`vendor/composer/autoload_psr4.php` menghitung `$baseDir = dirname($vendorDir)`, jadi bila `vendor/` di worktree hanya **symlink** ke root, realpath-nya jatuh ke `/app` dan `php artisan test` diam-diam menguji checkout root. Resep yang terbukti (28-10-2026):
+
+1. `rm vendor` lalu `cp -a <root>/vendor ./vendor` (107 MB, gitignored) — salinan nyata, bukan symlink.
+2. `cp -a <root>/database/seeders/Stress/. database/seeders/Stress/` (gitignored; classmap butuh file ini saat boot command stress).
+3. `podman exec -i -w <worktree> d_form_app php artisan test <path>`.
+4. Setelah selesai: hapus `vendor` salinan dan kembalikan symlink `vendor -> ../../../vendor`.
+
+`bootstrap/ssr`, `public/build`, dan `public/hot` sudah ada di worktree sehingga tidak perlu di-mount. Container terpisah dengan worktree di `/app` (cara yang dipakai run pertama) tetap sah, tetapi menyalin vendor lebih sederhana dan tidak perlu me-restart container.
+
+### Verifikasi ulang round 3 (28-10-2026): urutan respons yang sempat bergeser
+
+Review otomatis menandai bahwa tiga endpoint memindahkan precondition runtime ke belakang validasi. Semua diperbaiki dengan memindahkan precondition ke `authorize()` (tetap di Form Request, bukan kembali ke controller):
+
+| Endpoint | Sebelum (base) | Sempat jadi | Sekarang |
+| -------- | -------------- | ----------- | -------- |
+| `POST /events/{event}/forms/{form}/images` | 404 → 403 → validasi | 403 → 404 → validasi | 404 → 403 → validasi |
+| `PATCH .../submissions/{formAnswer}/review` | 403 → 404 → validasi | 403 → validasi → 404 | 403 → 404 → validasi |
+| `POST /admin/broadcasts/{broadcast}/inline-image` | 403 → 422 draft → validasi | 403 → validasi → 422 draft | 403 → 422 draft → validasi |
+
+Bukti merah (implementasi round 2, precondition tidak di `authorize()`):
+
+- `FormImageUploadValidationTest::test_form_from_another_event_returns_404_before_policy_denial` → `Expected response status code [404] but received 403`.
+- `FormRegistrationTest::test_review_mismatched_ids_return_404_before_validation` → `Expected response status code [404] but received 422`.
+- `BroadcastInlineImageValidationTest::test_non_draft_broadcast_is_rejected_before_file_validation` → pesan `'Pilih gambar terlebih dahulu.'`, bukan `'Gambar hanya dapat diunggah saat draft.'`.
+
+Hasil setelah perbaikan (container `d_form_app`, vendor salinan nyata):
+
+| Perintah | Hasil |
+| -------- | ----- |
+| `FormRegistrationTest` + `FormImageUploadValidationTest` + `BroadcastInlineImageValidationTest` + `EventListValidationTest` + `RecruitmentInterviewExportTest` + `RecruitmentQrBulkServiceTest` | **119 lulus (836 assertion)** |
+| `FormRegistrationTest` penuh | 87 lulus (684 assertion) |
+| `pint --test` 10 file yang diubah | bersih |
+| `grep -rn -e "->validate(" -e "Validator::make" app/Http/Controllers` | tetap 5 (3 dinamis di `FormSubmissionController`, 2 di `TeamInvitationController`) |
+
+Catatan LSP: seluruh error yang dilaporkan pada file yang disentuh sudah dibereskan di round 4 — semuanya berada di baris yang tidak diubah tiket (pre-existing), tetapi diperbaiki karena file-nya memang file yang diubah tiket ini. Detail: "Verifikasi round 4".
+
+### Verifikasi round 4 (28-10-2026): kebersihan LSP pada file yang disentuh
+
+Tidak ada perubahan perilaku: semua perbaikan berupa guard/null-handling mekanis, dan tiga endpoint yang urutannya dikunci round 3 tidak tersentuh.
+
+| File | Error | Perbaikan |
+| ---- | ----- | --------- |
+| `BroadcastController` | `allowedEvents(?User)`, `allowedPeriods(?User)` | `/** @var User $user */` — pola yang sudah dipakai `index()` di file yang sama; route memakai middleware `auth` |
+| `BroadcastController` | `new BroadcastMail(...)` 2 argumen (butuh 4) | konstruksi 4 argumen dari `subject`/`body_html`/`body_text` (fallback `BroadcastBodyText::fromHtml`) + `id` |
+| `BroadcastController` | `RecruitmentPeriod::query()->findOrFail()` / `Event::query()->findOrFail()` union `Model\|Collection` | `whereKey(...)->firstOrFail()` — 404 identik |
+| `FormAnswerReviewController` | `releaseIfStoppedOccupying($before, $peer->fresh())` nullable | `$peer->fresh() ?? $peer`; return `answer` diberi fallback yang sama |
+| `RecruitmentPeriodController` | `abort_unless(?bool, 403)` ×2 | `?? false` — null tetap berarti 403 seperti sebelumnya |
+| `RecruitmentPeriodController` | `$request->user()` ke parameter `User` ×2 | `?? abort(403)` |
+| `TeamInvitationController` | `releaseIfStoppedOccupying($before, $answer->fresh())` nullable | `$answer->fresh() ?? $answer` ×2 |
+| `FormRegistrationTest` | `$firstSubmission` dari `->first()` | `firstOrFail()` pada dua test yang memakainya langsung (test lama yang memakai `assertNotNull` dibiarkan, karena assert itulah yang mem-narrow) |
+| `FormRegistrationTest` | `$event->fresh()` nullable ke `reconcile`/`countOccupyingSlotsForEvent` | `?? $event` ×3 |
+
+Bukti setelah perbaikan (vendor salinan nyata, container `d_form_app`):
+
+| Perintah | Hasil |
+| -------- | ----- |
+| `lsp_diagnostics` 5 file yang diubah | **no errors** untuk kelimanya |
+| `pint --test` 5 file yang diubah | **PASS — 5 files** |
+| `FormRegistrationTest` penuh | **87 lulus (684 assertion)** |
+| 5 suite lain (form image, inline image, event list, export interview, bulk QR) | **32 lulus (152 assertion)** |
+| `php artisan tinker` smoke: `new BroadcastMail(subject, html, text, id)` dari `Broadcast` | `App\Mail\BroadcastMail \| subj=S \| text=Hai {{nama}}` |
+
+`BroadcastHubTest` (termasuk `b19 test send`) **tidak bisa dijadikan bukti**: seluruh class memanggil `markTestSkipped('Fitur broadcast dinonaktifkan.')` di `setUp()` tanpa syarat, dan route `/admin/broadcasts/*` tidak didaftarkan saat `FEATURE_BROADCAST=false`. Jadi perbaikan `testSend` diverifikasi lewat LSP + smoke konstruksi mail, bukan lewat request HTTP.
+
+### Temuan di luar cakupan (tidak diperbaiki)
+
+`app/Jobs/SendBroadcastJob.php:55` masih memanggil `new BroadcastMail($broadcast, $email)` (2 argumen) — bug yang sama seperti `BroadcastController::testSend` sebelum round 4. Job ini tidak menyentuh kode tiket dan hanya berjalan bila `FEATURE_BROADCAST=true`; polanya sudah ada di `SendBroadcastRecipientJob:78-83`. Dicatat sebagai follow-up.
+
+## Review keputusan (gate langkah 2)
+
+- **Best practice?** Ya — aturan statis di Form Request adalah aturan repo (`docs/rules/back-end.md`, P1 nomor 5) dan otorisasi ikut pindah ke `authorize()`.
+- **Optimal?** Ya — tidak ada layer baru: 7 file request tipis, tanpa service/abstraksi tambahan; daftar kolom export tetap satu konstanta.
+- **Opsi lain:** membuat Form Request untuk kasus dinamis (form submission, appendable fields undangan) **ditolak** — aturannya bergantung data form yang baru diketahui saat runtime, sehingga request harus membaca model dan memaksa redirect sukses/gagal buatan; hasilnya lebih buruk daripada `Validator::make` yang sudah ada.
+- **Opsi lain:** `RespondTeamInvitationRequest` sempat dibuat lalu **dibatalkan** setelah review — memindahkannya menggeser 403/404/302 menjadi 422 untuk non-owner dan undangan yang sudah dijawab (lihat "Validasi undangan tim yang dipertahankan").
+
+### Perbaikan dari review (28-10-2026)
+
+Reviewer menandai satu regresi respons yang nyata: `RespondTeamInvitationRequest` memvalidasi payload sebelum controller memeriksa kepemilikan token dan status pending.
+
+- Bukti merah: `test_invitation_checks_ownership_and_pending_state_before_validation` gagal pada versi Form Request — `Expected response status code [403] but received 302` + error "The selected invitation decision is invalid."
+- Perbaikan: validasi `invitation_decision`/`decline_reason` dikembalikan ke controller (inline `$request->validate`, trim tetap dijalankan sebelum validasi), file `app/Http/Requests/Users/RespondTeamInvitationRequest.php` dihapus.
+- Sesudah perbaikan: kedua test undangan hijau (`2 passed, 9 assertions`), `FormRegistrationTest` penuh `86 passed (683 assertions)`.
+- Nuansa inline image yang ditandai reviewer (file tidak valid pada broadcast non-draft → 422 validasi `file`, bukan 422 "draft only") awalnya dipertahankan, lalu **diperbaiki** di verifikasi lanjutan: cek draft dipindah ke `authorize()` setelah policy, sehingga urutan 403 → 422 draft → validasi kembali seperti semula (lihat "Verifikasi ulang round 3").
+
+## Checklist
+
+- [x] `grep -rn -e "->validate(" -e "Validator::make" app/Http/Controllers` → 5 kasus (4 dinamis + 1 urutan precondition), terdaftar di atas
+- [x] Setiap Form Request baru punya `authorize()` yang mempertahankan otorisasi lama + doc 1–2 baris
+- [x] Key error & pesan identik (test)
+- [x] Aturan upload tidak melemah
+- [x] Test merah-sebelum-hijau (mutasi) untuk 7 aturan + `q`
+- [x] Urutan respons 403/404/422 terkunci test (round 3): review, form image, inline image
+- [x] `pint --test` bersih untuk file yang diubah
+- [x] `lsp_diagnostics` bersih untuk 5 file yang diubah (round 4): nullability `$request->user()`, `fresh()`, `findOrFail` union, dan `new BroadcastMail(...)` 4 argumen
+- [x] E2E — tidak dijalankan dari worktree (server `:3000` menyajikan checkout root); suite penuh `tests/e2e/` (26 test) dijalankan orchestrator pasca-merge
+- [x] Changelog + baris di `README.md`

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-/* eslint-disable vue/no-mutating-props -- ctx.answerForm is Inertia useForm */
 import { computed, onBeforeUnmount, ref, watch, type UnwrapNestedRefs } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
+import type { FormFillPageContext } from '@/hooks/useFormFillPage'
 import { CheckCircle2, ChevronDown, Loader2, UserRound, XCircle } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import { humanizeErrorMessage } from '@/lib/error-message'
@@ -132,7 +131,7 @@ function setTeamEmail(slot: number, value: string) {
         arr.push('')
     }
     arr[slot - 1] = value
-    props.ctx.answerForm.team_member_emails = arr
+    props.ctx.setTeamMemberEmails(arr)
 }
 
 function validEmailFormat(s: string): boolean {
@@ -499,7 +498,7 @@ onBeforeUnmount(() => {
                                                 Name
                                             </dt>
                                             <dd class="mt-0.5 truncate font-semibold leading-snug text-foreground">
-                                                {{ foundUserBySlot[slot]!.name }}
+                                                {{ foundUserBySlot[slot]?.name }}
                                             </dd>
                                         </div>
                                         <div>
@@ -507,7 +506,7 @@ onBeforeUnmount(() => {
                                                 Email
                                             </dt>
                                             <dd class="mt-0.5 break-all text-xs leading-relaxed text-muted-foreground">
-                                                {{ foundUserBySlot[slot]!.email }}
+                                                {{ foundUserBySlot[slot]?.email }}
                                             </dd>
                                         </div>
                                         <div>

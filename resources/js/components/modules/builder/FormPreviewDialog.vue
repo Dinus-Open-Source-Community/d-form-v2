@@ -96,8 +96,8 @@ function dropdownOptions(field: FormPreviewField): SimpleSelectOption[] {
     }))
 }
 
-function choiceThumb(url: string): string {
-    return normalizeBannerSrc(url)
+function choiceThumb(url: string | undefined): string {
+    return url ? normalizeBannerSrc(url) : ''
 }
 
 function optKey(opt: FieldOptionEntry, i: number): string {
@@ -306,7 +306,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                     />
                                                     <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
                                                         <img
-                                                            :src="choiceThumb(optionImageUrl(opt)!)"
+                                                            :src="choiceThumb(optionImageUrl(opt))"
                                                             alt=""
                                                             class="size-full object-cover"
                                                         />
@@ -328,7 +328,7 @@ function ratingStars(field: FormPreviewField): number[] {
                                                     />
                                                     <div v-if="opt.type === 'image' && optionImageUrl(opt)" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
                                                         <img
-                                                            :src="choiceThumb(optionImageUrl(opt)!)"
+                                                            :src="choiceThumb(optionImageUrl(opt))"
                                                             alt=""
                                                             class="size-full object-cover"
                                                         />

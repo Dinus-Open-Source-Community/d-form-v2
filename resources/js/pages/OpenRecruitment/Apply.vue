@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
-import { useFormFillPage } from '@/utils/composables/useFormFillPage';
+import { useFormFillPage } from '@/hooks/useFormFillPage';
 import { useAutosaveSync, type AutosaveStatus as AutosaveStatusType } from '@/utils/composables/useAutosaveSync';
 import { readFieldRules } from '@/lib/formFieldMetadata';
 import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';
@@ -28,7 +28,8 @@ interface ApplyPageProps {
 
 const props = defineProps<ApplyPageProps>();
 
-const ctx = useFormFillPage({
+// reactive() membuka ref hasil hook agar template menerima nilai, bukan objek ComputedRef.
+const ctx = reactive(useFormFillPage({
     event: props.oprecEvent,
     form: props.oprecForm,
     fields: props.fields,
@@ -37,7 +38,7 @@ const ctx = useFormFillPage({
     accessMessage: '',
     memberSlots: 0,
     registrationMode: 'single',
-});
+}));
 
 const DRAFT_KEY = 'oprec-apply-draft-v1';
 const TOTAL_STEPS = 3;

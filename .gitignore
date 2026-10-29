@@ -70,3 +70,5 @@ CONTEXT.md
 /playwright-report
 /blob-report
 /tests/e2e/.auth/
+.sokudo/
+audit

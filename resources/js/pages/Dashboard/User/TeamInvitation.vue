@@ -58,17 +58,25 @@ const errorContext = computed<ErrorMessageContext>(() => ({
     fieldLabels: buildFieldLabelMap(appendableFields.value),
 }))
 
+/** Teks terpangkas dari nilai metadata mentah; string kosong bila bukan string. */
+function trimText(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : ''
+}
+
 function invitationFieldError(errors: ValidationErrors, key: string): string | undefined {
     return getFieldError(errors, key, errorContext.value)
 }
 
-function initialFormState(): Record<string, unknown> {
-    const o: Record<string, unknown> = {}
+/** Nilai yang bisa ditampung form undangan: teks, pilihan ganda, atau berkas. */
+type TInvitationAnswer = string | string[] | File | null
+
+function initialFormState(): Record<string, TInvitationAnswer> {
+    const o: Record<string, TInvitationAnswer> = {}
     for (const f of appendableFields.value) {
         const raw = props.answers[f.name]
         const meta = readFieldMetadata(f)
         if (f.type === 'checkbox' || (f.type === 'select' && meta.is_multiple)) {
-            o[f.name] = Array.isArray(raw) ? [...raw] : []
+            o[f.name] = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
         } else if (f.type === 'fileUpload') {
             o[f.name] = null
         } else {
@@ -206,17 +214,17 @@ function submitDeclineFromDialog() {
                         class="overflow-hidden rounded-2xl border border-border bg-card shadow-xs"
                     >
                         <img
-                            v-if="typeof metadata(field).bannerUrl === 'string' && metadata(field).bannerUrl.trim()"
-                            :src="normalizeBannerSrc(metadata(field).bannerUrl as string)"
+                            v-if="trimText(metadata(field).bannerUrl)"
+                            :src="normalizeBannerSrc(trimText(metadata(field).bannerUrl))"
                             alt=""
                             class="aspect-video w-full object-cover sm:aspect-[3/1]"
                             loading="lazy"
                         />
                         <p
-                            v-if="typeof metadata(field).content === 'string' && metadata(field).content.trim()"
+                            v-if="trimText(metadata(field).content)"
                             class="border-t border-border px-4 py-3 text-sm text-muted-foreground"
                         >
-                            {{ metadata(field).content }}
+                            {{ trimText(metadata(field).content) }}
                         </p>
                     </div>
 

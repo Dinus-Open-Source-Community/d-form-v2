@@ -10,7 +10,7 @@ import FormParagraphContent from '@/components/modules/dashboard/FormParagraphCo
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue'
 import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import { Send } from 'lucide-vue-next'
-import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
+import type { FormFillPageContext } from '@/hooks/useFormFillPage'
 import { routes } from '@/lib/routes'
 
 type FormSegment =

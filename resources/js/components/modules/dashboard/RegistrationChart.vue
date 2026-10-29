@@ -76,7 +76,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
                 backgroundColor: tooltipBg,
                 titleColor: tooltipFg,
                 bodyColor: tooltipFg,
-                titleFont: { size: 12, weight: '600', family: 'Poppins, sans-serif' },
+                titleFont: { size: 12, weight: 600, family: 'Poppins, sans-serif' },
                 bodyFont: { size: 12, family: 'Poppins, sans-serif' },
                 padding: 12,
                 cornerRadius: 10,

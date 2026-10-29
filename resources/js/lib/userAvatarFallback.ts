@@ -1,8 +1,8 @@
 /** Background + icon color classes for avatars without a photo (fixed palette; index chosen from seed). */
-export const USER_AVATAR_FALLBACK_PALETTE: ReadonlyArray<{
-    bg: string
-    icon: string
-}> = [
+export const USER_AVATAR_FALLBACK_PALETTE: readonly [
+    { bg: string; icon: string },
+    ...{ bg: string; icon: string }[],
+] = [
     { bg: 'bg-blue-100 dark:bg-blue-950/60', icon: 'text-blue-600 dark:text-blue-400' },
     { bg: 'bg-emerald-100 dark:bg-emerald-950/60', icon: 'text-emerald-600 dark:text-emerald-400' },
     { bg: 'bg-amber-100 dark:bg-amber-950/60', icon: 'text-amber-700 dark:text-amber-400' },
@@ -21,7 +21,7 @@ export function userAvatarFallbackPaletteIndex(seed: string): number {
 }
 
 export function userAvatarFallbackClasses(seed: string): { bg: string; icon: string } {
-    return USER_AVATAR_FALLBACK_PALETTE[userAvatarFallbackPaletteIndex(seed)]!
+    return USER_AVATAR_FALLBACK_PALETTE[userAvatarFallbackPaletteIndex(seed)]
 }
 
 /** Stable seed: prefer user id, then email (lowercased). */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
+import { readSharedError } from '@/lib/sharedErrors';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -42,6 +42,10 @@ const props = defineProps<{
     updateUrl: string;
     dashboardUrl: string;
 }>();
+
+const page = usePage();
+/** Error non-field saat pembaruan pendaftaran ditolak server. */
+const applicationError = computed(() => readSharedError(page.props, 'application'));
 
 const form = useForm({
     full_name: props.application.full_name,
@@ -183,8 +187,8 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
         </div>
 
         <form class="space-y-4" @submit.prevent="submit">
-            <p v-if="form.errors.application" class="text-destructive text-sm">
-                {{ form.errors.application }}
+            <p v-if="applicationError" class="text-destructive text-sm">
+                {{ applicationError }}
             </p>
 
             <!-- Data diri -->

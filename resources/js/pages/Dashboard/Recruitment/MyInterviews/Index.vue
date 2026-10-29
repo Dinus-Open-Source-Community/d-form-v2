@@ -616,12 +616,12 @@ const emptyDescription = computed<string>((): string => {
             >
                 {{ tab.label }}
                 <Badge
-                    v-if="queueBadgeCount(tab.key) !== null && queueBadgeCount(tab.key)! > 0"
+                    v-if="(queueBadgeCount(tab.key) ?? 0) > 0"
                     variant="secondary"
                     class="tabular-nums"
                     :class="activeTab === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : ''"
                 >
-                    {{ formatInt(queueBadgeCount(tab.key)!) }}
+                    {{ formatInt(queueBadgeCount(tab.key) ?? 0) }}
                 </Badge>
             </button>
         </div>

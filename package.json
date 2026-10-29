@@ -12,7 +12,8 @@
         "test:e2e:desktop": "playwright test --project=chromium-desktop",
         "test:e2e:mobile": "playwright test --project=chromium-mobile",
         "test:e2e:setup": "playwright test --project=setup",
-        "test:e2e:types": "tsc -p tsconfig.e2e.json"
+        "test:e2e:types": "tsc -p tsconfig.e2e.json",
+        "typecheck": "vue-tsc --noEmit"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
@@ -21,6 +22,7 @@
         "@types/node": "^24.19.2",
         "@vue/eslint-config-prettier": "^10.2.0",
         "@vue/eslint-config-typescript": "^14.7.0",
+        "@vue/language-server": "^3.3.13",
         "axios": "^1.11.0",
         "concurrently": "^10.0.6",
         "daisyui": "^5.5.5",
@@ -35,7 +37,8 @@
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.57.2",
         "vite": "^7.3.7",
-        "vite-plugin-eslint2": "^5.1.0"
+        "vite-plugin-eslint2": "^5.1.0",
+        "vue-tsc": "^3.3.13"
     },
     "dependencies": {
         "@inertiajs/core": "^3.9.1",

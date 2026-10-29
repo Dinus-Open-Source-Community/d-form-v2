@@ -1,0 +1,126 @@
+name: Quality
+
+# Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
+# dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
+#
+# BLOCKING : ESLint dan unit test. Keduanya hijau saat gate ini dipasang
+#            (ESLint 0 error, unit test 52 passed), jadi kegagalan berarti regresi.
+# REPORT   : Pint dan Prettier. Baseline terukur 27-10-2026 masih kotor:
+#            - Prettier: 429 file resources/js/**/*.{ts,vue} belum terformat
+#            - Pint: 24 file (tiket mencatat 19; baseline bertambah sebelum tiket dikerjakan)
+#            Keduanya baru dijadikan blocking setelah baseline dibersihkan di tiket
+#            terpisah. Gate yang merah sejak hari pertama akan diabaikan orang.
+# TYPECHECK: belum dijalankan. `tsc --noEmit` memerlukan vue-tsc untuk memahami
+#            modul *.vue; tanpa itu muncul 164 error palsu TS2307. Instalasi
+#            vue-tsc butuh persetujuan user (di luar tiket ini).
+#
+# Job formatting menggantikan .github/workflows/code_formatting.yml yang dihapus:
+# isinya sama, tetapi dipindahkan ke sini agar implementasi hanya berjalan sekali
+# per push/PR dan ikut terlihat di dev-zapp.
+
+on:
+    push:
+        branches:
+            - development
+            - dev
+            - dev-zapp
+            - temp
+    pull_request:
+        branches:
+            - development
+            - dev
+            - dev-zapp
+            - temp
+
+concurrency:
+    group: quality-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    lint:
+        name: ESLint (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run ESLint
+              run: npm run lint
+
+    test:
+        name: PHPUnit Unit (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            # PHP 8.4, bukan 8.3: composer.lock mengunci paket yang mensyaratkan
+            # ^8.4 (endroid/qr-code, openspout) walau composer.json menulis ^8.2.
+            # Memakai 8.3 akan menggagalkan composer install sejak awal.
+            # Tidak perlu service MySQL: phpunit.xml memakai sqlite :memory:.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: mbstring, pdo_sqlite, sqlite3
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Run Unit Tests
+              run: php artisan test --testsuite=Unit
+
+    formatting:
+        name: Formatting (report only)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: mbstring
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Run Laravel Pint (report only)
+              run: ./vendor/bin/pint --test
+              continue-on-error: true
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run Prettier (report only)
+              run: npx prettier --check "resources/js/**/*.{ts,vue}"
+              continue-on-error: true

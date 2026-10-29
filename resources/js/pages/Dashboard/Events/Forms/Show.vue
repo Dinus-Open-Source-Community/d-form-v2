@@ -37,7 +37,11 @@ import {
     prependFormBannerToBackendPayload,
     extractFormBannerFromBuilderFields,
 } from '@/components/modules/builder/formBanner';
-import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form';
+import {
+    emptyFormRegistrationMetadata,
+    parseFormRegistrationMetadata,
+    toFormMetadataPayload,
+} from '@/lib/formRegistrationMetadata';
 import type { FormSiblingOption } from '@/types/form';
 import {
     answerPreview,
@@ -53,6 +57,10 @@ import {
 } from '@/lib/error-message';
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
+import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
+import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
+import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
+import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
@@ -340,6 +348,9 @@ const fileFieldNames = computed(
 const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
 
 const submissionRows = computed(() => props.submissions ?? []);
+const mobileAnswerView = useFormAnswerMobileView();
+const mobileAnswerKeys = computed(() => answerKeys.value);
+const mobileFileFieldNames = computed(() => [...fileFieldNames.value]);
 const submissionLabelMap = computed(() => {
     const map: Record<string, string> = {};
     props.fields.forEach((f) => {
@@ -485,8 +496,8 @@ function rejectLabel(submission: IFormSubmission): string {
 
     <div class="flex min-w-0 flex-col gap-4">
         <Tabs v-model="activeTab" class="flex w-full flex-col gap-4" :unmount-on-hide="false" aria-label="Konten form">
-            <div class="border-border/60 flex items-center justify-between gap-3 border-b pb-3">
-                <div class="flex min-w-0 items-center gap-4">
+            <div class="border-border/60 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                <div class="flex min-w-0 flex-wrap items-center gap-3">
                     <TabsList class="bg-muted/40 h-auto min-h-10 flex-wrap gap-1 rounded-xl p-1">
                         <TabsTrigger
                             value="editor"
@@ -510,6 +521,11 @@ function rejectLabel(submission: IFormSubmission): string {
                             </Badge>
                         </TabsTrigger>
                     </TabsList>
+                    <FormAnswersViewToggle
+                        v-if="activeTab === 'jawaban' && submissionRows.length > 0"
+                        :view="mobileAnswerView.view.value"
+                        @change="mobileAnswerView.setView"
+                    />
                     <AutosaveStatus :status="showSaveState" variant="inline" />
                 </div>
 
@@ -590,7 +606,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div v-if="mobileAnswerView.isDesktop.value" class="overflow-x-auto md:block">
                         <TooltipProvider>
                         <Table>
                             <TableHeader>
@@ -750,6 +766,28 @@ function rejectLabel(submission: IFormSubmission): string {
                             </TableBody>
                         </Table>
                         </TooltipProvider>
+                    </div>
+
+                    <div v-else class="space-y-4 p-3 md:hidden">
+                        <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
+                            <FormAnswerMobileCard
+                                v-for="submission in submissionRows"
+                                :key="submission.id"
+                                :submission="submission"
+                                :answer-keys="mobileAnswerKeys"
+                                :file-field-names="mobileFileFieldNames"
+                                :humanize-key="humanizeKey"
+                                :file-name-of="fileNameOf"
+                                :reviewing="isSubmissionReviewing(submission.id)"
+                                @detail="openSubmissionDetail"
+                                @review="onDetailReview"
+                            />
+                        </div>
+                        <FormAnswerMobileList
+                            v-else
+                            :submissions="submissionRows"
+                            @detail="openSubmissionDetail"
+                        />
                     </div>
                 </div>
 

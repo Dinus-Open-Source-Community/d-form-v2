@@ -29,7 +29,11 @@ import {
     prependFormBannerToBackendPayload,
     extractFormBannerFromBuilderFields,
 } from '@/components/modules/builder/formBanner';
-import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form';
+import {
+    emptyFormRegistrationMetadata,
+    parseFormRegistrationMetadata,
+    toFormMetadataPayload,
+} from '@/lib/formRegistrationMetadata';
 import type { BuilderField } from '@/types/form-builder';
 import { routes } from '@/lib/routes';
 

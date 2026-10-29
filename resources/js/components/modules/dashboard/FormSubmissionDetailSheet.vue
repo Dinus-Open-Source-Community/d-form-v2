@@ -34,7 +34,7 @@ const orderedAnswerKeys = computed(() => {
         const hasA = orderMap.has(a)
         const hasB = orderMap.has(b)
         if (hasA && hasB) {
-            return orderMap.get(a)! - orderMap.get(b)!
+            return (orderMap.get(a) ?? 0) - (orderMap.get(b) ?? 0)
         }
         if (hasA) {
             return -1

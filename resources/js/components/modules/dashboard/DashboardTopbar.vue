@@ -19,6 +19,11 @@ const page = usePage();
 const user = useAuth(page.props);
 const topbar = useTopbar();
 
+/** Tombol buka sidebar disembunyikan saat halaman memakai layout tanpa sidebar (mis. builder formulir). */
+const props = withDefaults(defineProps<{ showNavigationTrigger?: boolean }>(), {
+    showNavigationTrigger: true,
+});
+
 const siteName = computed(() => page.props.appName || 'DForm');
 
 function escapeRegExp(s: string): string {
@@ -60,6 +65,8 @@ onUnmounted(() => {
     }
 });
 
+const primaryRole = computed<string | null>(() => user.value?.roles?.[0] ?? null);
+
 /** "super-admin" → "Super Admin". */
 function formatRole(r: string): string {
     return r
@@ -75,7 +82,7 @@ const pageTitle = computed(() => topbar.title.value ?? fallbackTitle.value);
 const breadcrumbItems = computed(() => buildBreadcrumbs(page.url, pageTitle.value));
 
 /** Base pages (halaman utama) — back button disembunyikan di sini. */
-const BASE_PAGE_PATHS = new Set([
+const BASE_PAGE_PATHS = new Set<string>([
     routes.dashboard.index,
     routes.admin.index,
     routes.admin.events.index,
@@ -116,7 +123,7 @@ function handleLogout(): void {
     >
         <!-- Kiri: toggle sidebar (mobile) + back + judul + subtitle (judul hidden di mobile) -->
         <div class="flex min-w-0 items-center gap-1.5">
-            <SidebarTrigger class="shrink-0 md:hidden" aria-label="Buka sidebar" />
+            <SidebarTrigger v-if="props.showNavigationTrigger" class="shrink-0 md:hidden" aria-label="Buka sidebar" />
             <Button radius="icon"
                 v-if="showBackButton"
                 variant="ghost"
@@ -204,7 +211,7 @@ function handleLogout(): void {
                             {{ user?.name }}
                         </span>
                         <span class="text-muted-foreground max-w-[140px] truncate text-xs leading-tight">
-                            {{ user?.roles?.length ? formatRole(user.roles[0]!) : user?.email }}
+                            {{ primaryRole ? formatRole(primaryRole) : user?.email }}
                         </span>
                     </span>
                 </Link>
