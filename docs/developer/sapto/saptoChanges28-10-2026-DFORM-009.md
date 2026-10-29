@@ -116,7 +116,30 @@ Semua perintah dijalankan dari worktree, PHP lewat container (`podman exec`), 28
 
 Environment saat pengukuran: `E2E_BASE_URL=http://localhost:3000`, `E2E_ARTISAN` menunjuk container dengan workdir worktree, `E2E_SESSION_COOKIE=dform-session`, admin `admin@gmail.com` dari `UserSeeder`.
 
-### 4.1 Data dev perlu admin seeder
+### 4.1 Verifikasi ulang independen (29 Oktober 2026)
+
+Seluruh angka di §4 diukur ulang dari nol pada worktree yang sama (`6aa5587`), dan hasilnya cocok:
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `php artisan test --testsuite=Feature,Unit` (container, workdir worktree) | **804 passed, 36 skipped, 0 failed (5.097 assertion)** — tidak ada regresi PHP |
+| 2 | `playwright test --project=setup` | **1 passed (14,8 s)** |
+| 3 | `playwright test harness.spec.ts --project=chromium-desktop` | **17 passed (59,7 s)** |
+| 4 | `playwright test harness-projects.spec.ts harness-projects.mobile.spec.ts` | **4 passed** (desktop + mobile + placeholder) |
+| 5 | `playwright test auth-required… auth-guard… auth-guest-redirect…` | **3 passed, 1 failed** — `H-auth-required` merah, persis seperti §4 baris 7 |
+| 6 | `H-auth-required` diulang setelah `data-testid` diterapkan sementara di root | **2 passed (12,7 s)**; root langsung di-`git checkout --`, `git status` bersih dan 0 kemunculan `authenticated-shell` |
+| 7 | `pint --test app/Console/Commands/E2e app/Support/E2e` | **PASS 11 file** |
+| 8 | `eslint "tests/e2e/**/*.ts" playwright.config.ts` | **tanpa temuan** |
+
+### 4.2 Jebakan environment: `public/hot` basi membuat setiap halaman 10 detik
+
+Gejala: `GET /` konsisten **10,0 s** (bukan 100 ms), `HEAD` juga, sementara `/up` 9 ms. Debugbar menunjukkan `Preparing Response` 10,01 s dengan view 0 μs, dan `X-Inertia` JSON hanya 43 ms — jadi bukan query, bukan Vite (`Vite::__invoke` 2 ms), melainkan **Inertia SSR**.
+
+Akar: `public/hot` berisi `http://172.20.10.8:5173` (IP host lama). Bundle SSR dev mengambil modul dari URL itu, tidak terjangkau, menunggu timeout 10 s, lalu Inertia **diam-diam fallback** ke render klien. Efek sampingnya bukan cuma lambat: `@vite` juga menyuntikkan URL mati itu ke browser, jadi aset tidak pernah dimuat dan spec berbasis halaman ikut merah. Probe `assertBaseUrl` (2 s) lebih dulu menyerah, sehingga pesan yang muncul "E2E_BASE_URL tidak menjawab HEAD" — bukan akar masalahnya.
+
+Perbaikan: tulis ulang `public/hot` dengan IP host saat ini (`git check-ignore` menandakan berkas ini memang generated dan tidak di-commit), lalu sentuh satu berkas `app/` agar Octane `--watch` me-reload worker. Setelah itu `GET /` = 12–130 ms dan seluruh spec hijau. Kalau lambatnya kembali: periksa `public/hot` sebelum menaikkan timeout apa pun.
+
+### 4.3 Data dev perlu admin seeder
 
 Database dev berisi 1.000.148 user tanpa `admin@gmail.com`, sehingga `H-auth-setup` tidak bisa login. Menjalankan `php artisan db:seed --class=UserSeeder` (idempoten, `firstOrCreate` + `syncRoles`) menambahkan 3 admin dan 5 member tanpa menghapus data. Setelah itu baris 5–7 di atas bisa dijalankan.
 
@@ -127,6 +150,7 @@ Database dev berisi 1.000.148 user tanpa `admin@gmail.com`, sehingga `H-auth-set
 1. **Server `:3000` menyajikan root checkout, bukan worktree.** Karena itu run di §4 menguji **kode aplikasi root** dengan **kode test dari branch**. Konsekuensinya hanya satu: `H-auth-required` merah sampai `data-testid` ikut ter-merge; sesudah diterapkan sementara, spec-nya hijau (§4 baris 8). Full suite dua project tetap **wajib dijalankan setelah merge** dari root.
 2. **Tidak ada tipe statis untuk test.** `tsconfig.json` hanya meng-`include` `resources/js/**`, sehingga `tsc` tidak memeriksa `tests/e2e/**`. Pemeriksaan tipe penuh butuh `@types/node` yang belum ada di `node_modules`; itu instalasi paket dan tidak dilakukan tanpa persetujuan. Yang tersedia: Playwright mem-parse semua spec (baris 2) dan seluruh spec yang dijalankan lulus.
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
+4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
 
 ---
 
