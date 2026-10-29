@@ -103,13 +103,85 @@ final class FixtureScope
     {
         $scope = new self(self::prefixIdentity($markerPrefix, $slugPrefix));
 
-        return $scope->deleteIds($scope->resolve(
+        $ids = $scope->resolve(
             email: $markerPrefix,
             slug: $slugPrefix,
             markerLike: '% ['.$markerPrefix.'%',
             metaMarker: $markerPrefix,
             isPrefix: true,
-        ));
+        );
+
+        // Audit sebelum delete: baris tanpa marker run ini tetap dihapus (perilaku lama), tapi dicatat.
+        self::auditCrossRun($markerPrefix, $slugPrefix, $ids);
+
+        return $scope->deleteIds($ids);
+    }
+
+    /**
+     * Catat baris yang hanya masuk lewat klausa induk sehingga marker miliknya bukan milik run ini.
+     *
+     * @param  array<string, list<string>>  $ids
+     */
+    private static function auditCrossRun(string $markerPrefix, string $slugPrefix, array $ids): void
+    {
+        $ownIds = self::ownMarkerIds($markerPrefix, $slugPrefix);
+        $violations = [];
+
+        foreach (self::DELETE_ORDER as $table) {
+            $owned = array_flip(array_map(static fn (mixed $id): string => (string) $id, $ownIds[$table] ?? []));
+            $foreign = 0;
+
+            foreach ($ids[$table] ?? [] as $id) {
+                if (! isset($owned[(string) $id])) {
+                    $foreign++;
+                }
+            }
+
+            if ($foreign > 0) {
+                $violations[$table] = $foreign;
+            }
+        }
+
+        if ($violations === [] || preg_match('/^e2e\+([0-9A-Za-z-]{1,22})\+$/', $markerPrefix, $matches) !== 1) {
+            return;
+        }
+
+        (new RunLedger())->recordTeardown($matches[1], $violations);
+    }
+
+    /**
+     * ID baris yang kolom marker miliknya sendiri berada di bawah prefix run.
+     *
+     * @return array<string, list<string>>
+     */
+    private static function ownMarkerIds(string $markerPrefix, string $slugPrefix): array
+    {
+        $suffixLike = '% ['.$markerPrefix.'%';
+        $own = [
+            'users' => DB::table('users')->where('email', 'like', $markerPrefix.'%')->pluck('id')->all(),
+            'events' => DB::table('events')->where('slug', 'like', $slugPrefix.'%')->pluck('id')->all(),
+            'forms' => DB::table('forms')->where('title', 'like', $suffixLike)->pluck('id')->all(),
+            'form_fields' => DB::table('form_fields')->where('label', 'like', $suffixLike)->pluck('id')->all(),
+            'form_answers' => [],
+            'event_attendances' => [],
+        ];
+
+        $expression = DB::connection()->getDriverName() === 'pgsql'
+            ? "meta->>'marker'"
+            : "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.marker'))";
+
+        foreach (['form_answers', 'event_attendances'] as $table) {
+            if (! Schema::hasColumn($table, 'meta')) {
+                continue;
+            }
+
+            $own[$table] = DB::table($table)
+                ->whereRaw("{$table}.".$expression.' like ?', [$markerPrefix.'%'])
+                ->pluck('id')
+                ->all();
+        }
+
+        return $own;
     }
 
     /**
