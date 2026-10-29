@@ -35,7 +35,7 @@ Server uji adalah container `e2e036` (`localhost/d-form-v2_app:latest`) yang men
 | Tiga baris P0-1 (sebelum perbaikan, basis `b9c0789`) | **3 failed** — assertion tercatat di `saptoChanges29-10-2026-DFORM-036.md` |
 | Tiga baris P0-1 (sesudah perbaikan) | **3 passed** — `P0-01` 11,3 dtk, `P0-02` 21,1 dtk, `P0-03` 21,6 dtk, `--retries=0` |
 | `P0-02` bukti satu jalur simpan | `requestCount('POST', /admin/events/{id}/forms)` = 1 dan `e2e:count-rows --marker` melaporkan `forms` = 1 |
-| `P0-03` bukti penjaga klik ganda | Klik ganda pada tombol yang sama dengan respons ditunda 1,5 dtk tetap menghasilkan 1 POST dan 1 baris |
+| `P0-03` bukti klik ganda | Klik ganda pada tombol yang sama dengan respons ditunda 1,5 dtk tetap menghasilkan 1 POST dan 1 baris. Yang menahan klik kedua adalah `:disabled="processing"` di toolbar, bukan penjaga `submitForm()` — lihat batas di bawah |
 | `form-answers-mobile.spec.ts` | 2 passed sesudah opt-out storageState |
 | `npx eslint` pada 3 file yang disentuh | exit 0, tanpa temuan |
 | `npx vue-tsc --noEmit` | tidak ada error pada `FormBuilderToolbar.vue` / `FormBuilderWorkspace.vue` |
@@ -45,6 +45,7 @@ Server uji adalah container `e2e036` (`localhost/d-form-v2_app:latest`) yang men
 ## Penyimpangan dan batas (satu baris masing-masing)
 
 - Penjaga klik ganda diletakkan di `FormBuilderWorkspace.submitForm()`, bukan di tiap halaman, karena dua permukaan simpan (toolbar dan blok mobile) serta dua halaman (Create dan Show) memakai komponen yang sama; menaruhnya di halaman berarti empat salinan.
-- Tombol Simpan tetap `:disabled="processing"` — penjaga di `submitForm()` adalah lapisan kedua untuk klik yang datang sebelum re-render, bukan pengganti atribut `disabled`.
+- Tombol Simpan tetap `:disabled="processing"` — dialah lapisan yang benar-benar menahan klik kedua. Diukur dengan probe: dari `dblclick()`, event `click` kedua mendarat di `DIV` pembungkus karena `BUTTON` sudah `disabled` (kontrol disabled tidak menerima event), sementara `disabledDuringProcessing=true`. Jadi penjaga `submitForm()` tidak pernah dieksekusi pada jalur klik, dan premis "klik yang datang sebelum re-render" tidak terjadi: flush render Vue selesai sebelum klik kedua.
+- Penjaga `submitForm()` tetap dipertahankan sebagai lapisan untuk panggilan programatik — `defineExpose().requestSave` dipakai `Show.vue:173` (`requestSaveAll`) dan tidak dilindungi atribut `disabled`. Penjaga ini belum punya test sendiri; `P0-03` bukan buktinya.
 - Baris P0-1 hanya dijalankan di project `chromium-desktop`; alasannya di `saptoChanges29-10-2026-DFORM-036.md`.
 - Perbaikan `form-answers-mobile.spec.ts` adalah utang harness dari TASK-009 (spec lama login sendiri tetapi mewarisi storageState admin), bukan akibat perubahan P0-1; dibuktikan dengan menjalankan spec itu pada basis yang sama sebelum perbaikan toolbar.
