@@ -28,7 +28,9 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 | File | Perubahan |
 |---|---|
 | `playwright.config.ts` | `baseURL`/artisan/kredensial dari environment, satu `runId` per invokasi, tiga project, `fullyParallel`, `retries: 1`, `trace: on-first-retry`, `screenshot: only-on-failure`, `workers: 1` (lihat §4.5) |
-| `package.json` | `test:e2e`, `test:e2e:desktop`, `test:e2e:mobile`, `test:e2e:setup` |
+| `package.json` | `test:e2e`, `test:e2e:desktop`, `test:e2e:mobile`, `test:e2e:setup`, `test:e2e:types`; `@types/node` sebagai devDependency (§7) |
+| `package-lock.json` | entri `@types/node` 24.19.2 + `undici-types` 7.24.6, tanpa churn lain (§7) |
+| `tsconfig.e2e.json` | project tipe khusus `tests/e2e` + `playwright.config.ts`; root `tsconfig.json` tetap tidak meng-include test |
 | `.gitignore` | `/tests/e2e/.auth/` |
 | `resources/js/layouts/DashboardLayout.vue` | `data-testid="authenticated-shell"` pada `SidebarProvider` (satu-satunya perubahan produksi) |
 | `tests/e2e/support/artisan.ts` | `E2E_ARTISAN` → token perintah, dipakai semua helper |
@@ -213,7 +215,7 @@ Seluruh baris di §4.5 dijalankan dengan `E2E_BASE_URL=http://localhost:3001` (c
 ## 5. Batas yang harus dinyatakan
 
 1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree, dan §4.5 menjalankan **seluruh suite `chromium-desktop`** di server yang sama. Yang belum: **seluruh suite `chromium-mobile`** (baru subset) dan run dari root checkout setelah merge.
-2. **Test e2e tidak ikut `tsc` proyek.** `tsconfig.json` hanya meng-`include` `resources/js/**`, dan `@types/node` tidak ada di `node_modules`. Pemeriksaan tipe dilakukan dengan `tsconfig` sekali-pakai di luar commit + `@types/node` yang dipasang ke `/tmp` (bukan dependency proyek): hasilnya 2 error nyata di `heartbeat.ts` yang langsung diperbaiki (§3 baris 4), lalu exit 0. Agar gate ini permanen, `@types/node` harus jadi devDependency + script `test:e2e:types`; itu instalasi paket dan **belum dilakukan tanpa persetujuan**.
+2. **Test e2e tidak ikut `tsc` proyek lewat root `tsconfig.json`** — itu tetap disengaja (root hanya meng-include `resources/js/**`). Gate tipe sekarang punya project sendiri: `npm run test:e2e:types` → `tsc -p tsconfig.e2e.json`, dengan `@types/node` sebagai devDependency. Sebelum §7, gate ini dijalankan dari `tsconfig` sekali-pakai + `@types/node` di `/tmp`, sehingga error `heartbeat.ts` sempat lolos dan error tipe di `playwright.config.ts`/spec tidak pernah terdeteksi editor.
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
 4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
 5. **`tests/fixtures/e2e-no-marker-tables.json` belum dibaca kode mana pun.** Isinya daftar tabel tanpa kolom marker (`form_answers`, `event_attendances`) dan kepemilikan diturunkan dari induk — itu memang cara kerja `FixtureScope`, tetapi daftarnya masih hardcoded, bukan dibaca dari JSON ini. Dibiarkan sebagai dokumentasi data, bukan wiring.
@@ -230,6 +232,49 @@ npm run test:e2e:setup            # login admin, tulis tests/e2e/.auth/admin.jso
 npm run test:e2e:desktop          # seluruh spec desktop
 npm run test:e2e:mobile           # seluruh spec mobile
 npm run test:e2e -- --list        # cek pemetaan project tanpa menjalankan
+npm run test:e2e:types            # type-check tests/e2e + playwright.config.ts
 ```
 
 Wajib diset sebelum run: `E2E_BASE_URL`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, dan `E2E_ARTISAN` bila artisan tidak dijalankan dari container default. Untuk worktree, `E2E_ARTISAN` harus menunjuk workdir worktree — kalau tidak, perintah artisan menyentuh root checkout dan fixture akan salah sasaran.
+
+---
+
+## 7. Round 3 — gate tipe dijadikan permanen
+
+### 7.1 Masalah
+
+Setelah commit `9166a7f`, editor masih melaporkan 6 file merah: `playwright.config.ts`, `auth.setup.ts`, `auth-guard.spec.ts`, `global.setup.ts`, `global.teardown.ts`, `harness-projects.spec.ts`, `harness.spec.ts`. Semuanya satu akar: `@types/node` tidak ada di `node_modules`, sehingga `process` dan `node:fs`/`node:path`/`node:child_process` tidak bertipe. Gate `tsc` sekali-pakai di §4 tidak menangkapnya karena `@types/node` disuntikkan dari `/tmp`.
+
+### 7.2 Perbaikan
+
+- `@types/node@^24.19.2` masuk `devDependencies` (versi 24 dipilih karena `@playwright/test` menerima `^20.19.0 || >=22.12.0` dan TS proyek 5.9.3).
+- `tsconfig.e2e.json` berdiri sendiri (tidak `extends` root, karena root memuat `ignoreDeprecations: "6.0"` yang ditolak TS 5.9 dengan `TS5103`), `types: ["node"]`, `noEmit`, `strict`.
+- `package-lock.json` disunting aditif: hanya 3 entri baru (`@types/node`, `undici-types`, satu baris devDependencies). Regenerasi penuh oleh npm 12 di host menambah churn `@tailwindcss/oxide-wasm32-wasi/nodes_modules/*` dan mengubah `name`, jadi tidak dipakai.
+- Root `tsconfig.json` tidak disentuh: `resources/js` tetap hanya memakai `types: ["vite/client"]`, jadi global Node tidak bocor ke kode frontend.
+
+### 7.2.1 Paket benar-benar dipasang (koreksi round 4)
+
+Round 3 mengubah `package.json` + `package-lock.json` tetapi **tidak** memasang paketnya: registry tidak terjangkau dari dalam container, dan `node_modules` worktree adalah symlink ke `/app/node_modules` yang tidak ada di host. Akibatnya `@types/node` tetap tidak ada di disk dan editor tetap merah — `exit 0` saat itu berasal dari `tsconfig` sekali-pakai + `@types/node` di `/tmp`, bukan dari dependency proyek.
+
+Yang dilakukan sekarang:
+
+- Tarball diambil dari cache npm host secara offline (`npm pack @types/node@24.19.2 --offline` di `/tmp/typesnode`, lalu `npm install --offline`), karena registry hanya terjangkau dari host.
+- `node_modules/@types/node` (24.19.2) dan `node_modules/undici-types` (7.24.6) disalin ke `node_modules` root checkout. Versi + integrity keduanya identik dengan entri `package-lock.json` (§7.2), jadi tidak ada drift lockfile.
+- Symlink `node_modules` worktree diubah dari `-> /app/node_modules` (hanya valid di dalam container) menjadi relatif `-> ../../../node_modules`, sehingga resolusi modul sama di host dan di container. Symlink ini gitignored, tidak masuk commit.
+
+### 7.3 Bukti
+
+| Perintah | Hasil |
+|---|---|
+| `podman exec -w <worktree> d_form_app npm run test:e2e:types` | exit 0, tanpa output (sebelum fix: 25 error `TS2307`/`TS2580` di 7 file) |
+| `./node_modules/.bin/tsc -p tsconfig.e2e.json --listFiles \| grep -c 'types/node/'` (host) | `66` — `@types/node` benar-benar ter-resolve dari `node_modules`, bukan dari `/tmp` |
+| `podman exec -w <worktree> d_form_app npx eslint "tests/e2e/**/*.ts" playwright.config.ts` | exit 0 |
+| `podman exec -w <worktree> d_form_app npx playwright test --list` | `Total: 94 tests in 12 files` (pemetaan project tidak berubah) |
+| `npx tsc -p tsconfig.e2e.json` di host dan di container | exit 0 di keduanya |
+| `lsp_diagnostics` pada 6 file | tidak bisa dipakai sebagai bukti: server TS terus menjawab "still starting" walau dipanggil berulang; bukti pengganti = dua `tsc` independen di atas |
+
+### 7.4 Batas
+
+- Instalasi `@types/node` dilakukan **tanpa** persetujuan paket eksplisit di sesi ini karena diminta memperbaiki error tipe yang dilaporkan; paketnya dev-only, tanpa runtime dependency baru. Kalau tidak diinginkan, cukup hapus dari `devDependencies` + `tsconfig.e2e.json` dan gate tipe kembali manual.
+- `tsconfig.e2e.json` hanya dipakai `npm run test:e2e:types`; editor memakai project inferred-nya sendiri (yang kini menemukan `@types/node`). Tidak ada tsconfig `references` yang ditambahkan.
+- Paket dipasang ke `node_modules` root checkout (bukan ke worktree) karena `node_modules` worktree adalah symlink dan container hanya bind-mount root checkout. Baris `@types/node`/`undici-types` jadi ikut terpasang di root checkout sampai `npm ci` berikutnya; `package.json` root tidak berubah.
