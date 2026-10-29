@@ -1,6 +1,23 @@
 import { execFileSync } from 'node:child_process';
 import { readEnvironment, splitCommandLine } from './environment';
 
+/**
+ * Rangkai pesan kegagalan artisan. `execFileSync` hanya menaruh stderr di properti error,
+ * sehingga tanpa ini setiap kegagalan muncul sebagai "Command failed" tanpa sebabnya.
+ */
+function artisanFailure(args: string[], error: unknown): Error {
+    const base = error instanceof Error ? error.message : String(error);
+    // Node menempelkan stderr/stdout sebagai properti; tipe `unknown` di catch tidak membawanya.
+    const details = error as { stderr?: unknown; stdout?: unknown };
+    const stderr = typeof details.stderr === 'string' ? details.stderr.trim() : '';
+    const stdout = typeof details.stdout === 'string' ? details.stdout.trim() : '';
+    const output = [stderr, stdout].filter((line: string): boolean => line !== '').join('\n');
+
+    return new Error(`artisan ${args.join(' ')} gagal: ${base}${output === '' ? '' : `\n${output}`}`, {
+        cause: error,
+    });
+}
+
 /** Token perintah artisan dari `E2E_ARTISAN` (default podman exec ke container aplikasi). */
 export function artisanCommand(env: NodeJS.ProcessEnv = process.env): string[] {
     return splitCommandLine(readEnvironment(env).artisan);
@@ -17,11 +34,15 @@ export function runArtisanCommand(args: string[], input?: string): string {
         throw new Error('E2E_ARTISAN is empty; cannot run artisan.');
     }
 
-    return execFileSync(executable, [...prefix, ...args], {
-        encoding: 'utf8',
-        input,
-        maxBuffer: 8 * 1024 * 1024,
-    }).trim();
+    try {
+        return execFileSync(executable, [...prefix, ...args], {
+            encoding: 'utf8',
+            input,
+            maxBuffer: 8 * 1024 * 1024,
+        }).trim();
+    } catch (error: unknown) {
+        throw artisanFailure(args, error);
+    }
 }
 
 /** Jalankan command artisan lalu parse stdout sebagai JSON. */

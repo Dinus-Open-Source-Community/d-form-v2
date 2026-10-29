@@ -214,13 +214,13 @@ Seluruh baris di §4.5 dijalankan dengan `E2E_BASE_URL=http://localhost:3001` (c
 
 ## 5. Batas yang harus dinyatakan
 
-1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree, dan §4.5 menjalankan **seluruh suite `chromium-desktop`** di server yang sama. Yang belum: **seluruh suite `chromium-mobile`** (baru subset) dan run dari root checkout setelah merge.
+1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree, §4.5 menjalankan seluruh suite `chromium-desktop`, dan §8 menutup **seluruh suite `chromium-mobile`** di server yang sama. Yang belum: run dari root checkout setelah merge.
 2. **Test e2e tidak ikut `tsc` proyek lewat root `tsconfig.json`** — itu tetap disengaja (root hanya meng-include `resources/js/**`). Gate tipe sekarang punya project sendiri: `npm run test:e2e:types` → `tsc -p tsconfig.e2e.json`, dengan `@types/node` sebagai devDependency. Sebelum §7, gate ini dijalankan dari `tsconfig` sekali-pakai + `@types/node` di `/tmp`, sehingga error `heartbeat.ts` sempat lolos dan error tipe di `playwright.config.ts`/spec tidak pernah terdeteksi editor.
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
 4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
 5. **`tests/fixtures/e2e-no-marker-tables.json` belum dibaca kode mana pun.** Isinya daftar tabel tanpa kolom marker (`form_answers`, `event_attendances`) dan kepemilikan diturunkan dari induk — itu memang cara kerja `FixtureScope`, tetapi daftarnya masih hardcoded, bukan dibaca dari JSON ini. Dibiarkan sebagai dokumentasi data, bukan wiring.
 6. **`workers: 1` membatasi manfaat `fullyParallel: true`.** Nilai brief (`fullyParallel: true`) tetap dipakai, tetapi sampai empat spec lama berhenti memanggil `Cache::flush()` global, menjalankan dua file sekaligus membuat assert `429` merah (§4.5). Menaikkan worker hanya boleh dilakukan setelah spec itu diisolasi. Perbaikan permanen yang lebih murah — mempersempit flush ke key limiter, atau memberi empat spec lama cache store sendiri — tidak diambil karena mengubah spec lama di luar scope; dicatat sebagai follow-up, bukan keputusan diam-diam.
-7. **Dua guard baru belum punya test.** `FixtureScope::prefixIdentity()` (pasangan prefix) dan regex sweep `@e2e\.invalid$` adalah perubahan perilaku dengan jalur gagal, dan belum ada baris `H-*` yang menguji penolakannya. Saat ini fail-closed; test penolakan perlu ditambahkan di `harness.spec.ts` sebelum guard ini diubah lagi.
+7. **Dua guard baru kini punya test penolakan** (§8.2), sehingga batas ini ditutup: `H-cleanup-slug-prefix` menahan `--slug-prefix` yang sah secara format tetapi bukan turunan `markerToSlug(marker-prefix)`, dan `H-sweep-domain` memastikan sweep tidak menyentuh run yang email pemiliknya bukan `@e2e.invalid`.
 8. **`CleanupCommand` tidak lagi mengulang `InvalidArgumentException`.** Validasi argumen bersifat permanen, jadi langsung diteruskan tanpa retry 250 ms; kegagalan DB tetap diulang sekali seperti sebelumnya.
 
 ---
@@ -278,3 +278,37 @@ Yang dilakukan sekarang:
 - Instalasi `@types/node` dilakukan **tanpa** persetujuan paket eksplisit di sesi ini karena diminta memperbaiki error tipe yang dilaporkan; paketnya dev-only, tanpa runtime dependency baru. Kalau tidak diinginkan, cukup hapus dari `devDependencies` + `tsconfig.e2e.json` dan gate tipe kembali manual.
 - `tsconfig.e2e.json` hanya dipakai `npm run test:e2e:types`; editor memakai project inferred-nya sendiri (yang kini menemukan `@types/node`). Tidak ada tsconfig `references` yang ditambahkan.
 - Paket dipasang ke `node_modules` root checkout (bukan ke worktree) karena `node_modules` worktree adalah symlink dan container hanya bind-mount root checkout. Baris `@types/node`/`undici-types` jadi ikut terpasang di root checkout sampai `npm ci` berikutnya; `package.json` root tidak berubah.
+
+---
+
+## 8. Round 5 — kedua project penuh hijau + test penolakan guard
+
+### 8.1 Bukti ukur (29 Oktober 2026)
+
+Semua baris dijalankan dari worktree, terhadap container `e2e009` yang menyajikan worktree di `:3001` (`E2E_ARTISAN="podman exec -i -w /app e2e009 php artisan"`, admin `admin@gmail.com`), jadi kode aplikasi **dan** kode test sama-sama dari branch.
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `npm run test:e2e:types` (`tsc -p tsconfig.e2e.json`, host) | exit 0 |
+| 2 | `eslint tests/e2e/**/*.ts playwright.config.ts` | exit 0 |
+| 3 | `playwright test --project=chromium-desktop` | **48 passed, 1 flaky (6,0 m)** |
+| 4 | `playwright test --project=chromium-mobile` | **49 passed, 1 flaky (6,1 m)** |
+| 5 | `playwright test harness.spec.ts -g "H-cleanup-slug-prefix|H-sweep-domain"` | **keduanya hijau** |
+
+Flaky yang tersisa sama dengan yang sudah dicatat di §4.5 dan bukan dari perubahan ini: `event-search.spec.ts › pesan "terlalu umum"` (desktop) dan `auth.spec.ts › throttle › login melewati limit` (mobile). Keduanya lulus pada retry pertama; penyebabnya tetap belum teridentifikasi, jadi `retries: 1` tidak dinaikkan.
+
+### 8.2 Test penolakan untuk dua guard
+
+| Test | Yang dibuktikan |
+|---|---|
+| `H-cleanup-slug-prefix` | `e2e:cleanup --marker-prefix=… --slug-prefix=<run lain>` gagal dengan `slug prefix must equal markerToSlug(marker prefix)`, dan baris event run tersebut **tetap ada** sesudahnya. Prefix uji sengaja sah secara format (22 karakter, huruf kecil) supaya satu-satunya penahan adalah pemeriksaan kesetaraan, bukan validasi bentuk. |
+| `H-sweep-domain` | Run yang email pemiliknya diganti ke `@example.com` — marker dan slug tetap sah, baris berumur 30 jam — **tidak** disapu `e2e:sweep`; user dan event-nya masih ada. Ini yang mencegah `e2e+…@gmail.com` milik user nyata ikut terhapus. |
+
+### 8.3 Perbaikan diagnosa kegagalan artisan
+
+`runArtisanCommand()` sekarang membungkus `execFileSync` dan menyusun ulang pesan gagal dari `stderr`/`stdout`. Sebelumnya pesan hanya `Command failed: …` tanpa sebab, sehingga assertion `toThrow(/slug prefix must equal/)` tidak mungkin ditulis dan kegagalan artisan apa pun kehilangan konteksnya. `cause` asli tetap dilekatkan.
+
+### 8.4 Batas
+
+- `workers: 1` tetap dipakai (§5.6): dua flake di §8.1 adalah gejala yang sama, dan menaikkan worker akan mengubahnya jadi gagal.
+- Run `chromium-desktop` + `chromium-mobile` memakan ~12 menit; tidak ada CI yang menjalankannya, jadi gate ini masih manual.

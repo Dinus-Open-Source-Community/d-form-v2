@@ -225,6 +225,36 @@ test.describe('fixture lifecycle', () => {
 
         expect(countFixtureRows(identity.marker).count).toBe(0);
     });
+
+    test('H-cleanup-slug-prefix: cleanup menolak slug-prefix yang bukan turunan marker-prefix', (): void => {
+        const runId = '20000101T000004-abcdef';
+        const identity = createOwnerIdentity(runId, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'slug-guard',
+            retry: 0,
+        });
+        // Prefix sah secara format (22 karakter) tetapi milik run lain: satu-satunya yang menahannya
+        // adalah pemeriksaan kesetaraan dengan markerToSlug(marker-prefix).
+        const foreignSlugPrefix = 'e2e-20000101t000005-abcdef-';
+
+        runFixtureCommand({ marker: identity.marker, slug: identity.slug, title: 'Slug guard', forms: [] });
+
+        try {
+            expect((): string =>
+                runArtisanCommand([
+                    'e2e:cleanup',
+                    `--marker-prefix=e2e+${runId}+`,
+                    `--slug-prefix=${foreignSlugPrefix}`,
+                    '--json',
+                ]),
+            ).toThrow(/slug prefix must equal markerToSlug/);
+
+            expect(countFixtureRows(identity.marker).counts.events).toBe(1);
+        } finally {
+            cleanupOwnerFixture(identity);
+        }
+    });
 });
 
 test.describe('heartbeat lifecycle', () => {
@@ -276,6 +306,38 @@ test.describe('heartbeat lifecycle', () => {
         runArtisanCommand(['e2e:sweep', '--grace-hours=24', '--budget=120', '--json']);
 
         expect(countFixtureRows(marker).count).toBe(0);
+    });
+
+    test('H-sweep-domain: sweep tidak menyapu run yang email pemiliknya bukan domain e2e.invalid', (): void => {
+        const runId = '20000101T000003-abcdef';
+        const identity = createOwnerIdentity(runId, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'sweep-domain',
+            retry: 0,
+        });
+        const alienEmail = `${identity.marker}@example.com`;
+        const tinker = (code: string): string => runArtisanCommand(['tinker', '--execute', code]);
+        const countAlien = `echo \\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${alienEmail}')->count();`;
+
+        runFixtureCommand({ marker: identity.marker, slug: identity.slug, title: 'Alien domain', forms: [] });
+
+        try {
+            // Domain diganti ke example.com: run ini tidak lagi memenuhi syarat pemilik e2e.invalid,
+            // jadi sweep tidak boleh menyentuhnya meski slug/markernya sah dan barisnya sudah tua.
+            tinker(
+                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${identity.marker}@e2e.invalid')`
+                    + `->update(['email'=>'${alienEmail}','created_at'=>now()->subHours(30)]);`,
+            );
+
+            runArtisanCommand(['e2e:sweep', '--grace-hours=24', '--budget=120', '--json']);
+
+            expect(tinker(countAlien)).toBe('1');
+            expect(countFixtureRows(identity.marker).counts.events).toBe(1);
+        } finally {
+            tinker(`\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${alienEmail}')->delete();`);
+            cleanupOwnerFixture(identity);
+        }
     });
 });
 
