@@ -89,7 +89,7 @@ test.describe('jawaban desktop', () => {
         await page.route('**/storage/events/banners/placeholder.jpg', (route) =>
             route.fulfill({
                 contentType: 'image/png',
-                body: PLACEHOLDER_PNG,
+                body: Buffer.from(PLACEHOLDER_PNG),
             }),
         )
         page.on('console', (message) => {
