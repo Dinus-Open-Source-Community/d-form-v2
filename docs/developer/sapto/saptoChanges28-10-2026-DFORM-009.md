@@ -391,6 +391,49 @@ Sub-tiket 3.24 meminta lima baris bernama `H-harness-fixtures`, `H-harness-isola
 | `H-harness-retry` | `H-teardown-scope` |
 | `H-harness-parallel` | **baru** — tidak ada padanannya |
 
+**Koreksi bukti fault 3.24 (`TASK-216`).** Brief `TASK-033` meminta fault yang berbeda dari 3.24b/3.24e di atas: predikat teardown memakai **prefix run** alih-alih marker exact, lalu dibuktikan teardown satu test ikut menghapus baris test lain. Fault itulah yang benar-benar menguji `FixtureScope::delete()` + `prefixIdentity()` — satu-satunya penahan hapus lintas-pemilik — jadi bukti di bawah ini yang mengikat untuk 3.24; baris 3.24b/3.24e tetap sah sebagai bukti tambahan untuk `createOwnerId()`.
+
+Fault (sementara, tidak di-commit) pada `FixtureScope::delete()`:
+
+```diff
+-        return $this->deleteIds($this->ids());
++        return $this->deleteIds($this->resolve(
++            email: $this->identity->markerPrefix(),
++            slug: $this->identity->slugPrefix(),
++            markerLike: '% ['.$this->identity->markerPrefix().'%',
++            metaMarker: $this->identity->markerPrefix(),
++            isPrefix: true,
++        ));
+```
+
+Perintah (worktree TASK-215, container `e2e215` di `:3003`, `--retries=0`):
+
+```bash
+npx playwright test --project=chromium-desktop --workers=1 --retries=0 harness.spec.ts \
+  -g "H-teardown-scope|H-harness-parallel"
+```
+
+Output merah (apa adanya):
+
+```
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:11:1 › H-auth-setup: login admin dan simpan storageState (2.6s)
+  ✘  2 [chromium-desktop] › tests/e2e/harness.spec.ts:186:5 › fixture lifecycle › H-teardown-scope: teardown r0 tidak menghapus baris retry r1 (45.8s)
+  ✘  3 [chromium-desktop] › tests/e2e/harness.spec.ts:519:5 › harness isolation › H-harness-parallel: teardown satu test tidak menghapus baris test lain di run yang sama (45.4s)
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: 1
+    Received: 0
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: 1
+    Received: 0
+  2 failed
+  1 passed (2.0m)
+```
+
+Dua baris yang menangkapnya: `H-teardown-scope` (retry r1 hilang bersama teardown r0) dan `H-harness-parallel` (sibling di run yang sama ikut terhapus). `H-harness-isolation` **tidak** menangkap fault ini karena barisnya membandingkan marker dua test yang belum pernah dibuat, bukan baris yang sudah ada — dicatat supaya tidak diklaim lebih luas dari kenyataan.
+
+Setelah `git checkout -- app/Support/E2e/FixtureScope.php`, perintah yang sama: **3 passed (2.0m)**. `git diff` final bersih dari fault (`git status --porcelain` kosong saat itu).
+
+
 ### 10.4 Green dua worker (3.25 / `TASK-034`)
 
 | # | Perintah | Hasil |
