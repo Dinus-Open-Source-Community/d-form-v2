@@ -350,3 +350,58 @@ Suffix matching dua arah dipakai supaya kedua bentuk masukan (nama dasar maupun 
 | 3 | `playwright test harness-projects.spec.ts harness-projects.mobile.spec.ts` (`:3001`, e2e009) | **6 passed** (1 setup + 2 test × 2 project + mobile placeholder) |
 
 Test baru `H-projects-path` mengunci keenam bentuk yang dipermasalahkan: nama dasar, path `rootDir`-relative, path bersarang, awalan `./`, serta dua kasus yang **harus** tidak cocok (`harness-projects.mobile` vs `harness-projects`, dan dua direktori berbeda dengan nama berkas sama).
+
+## 10. Round 7 — bukti fault-injection 3.16–3.25
+
+Sub-tiket `TASK-025`, `TASK-026`, `TASK-027`, `TASK-033`, `TASK-034` menuntut bukti **merah yang direkam**: satu fault satu baris, diff-nya diarsipkan, assertion yang gagal dicatat, lalu fault di-revert. Bagian ini yang mengisi kekosongan itu.
+
+### 10.1 Dua baris baru
+
+| Baris | Isi assertion |
+|---|---|
+| `H-cleanup-failure` | Event di luar scope menahan `DELETE users` lewat FK `restrictOnDelete`; `e2e:cleanup` harus gagal dengan `e2e cleanup failed on table users`, lalu `check:row-ownership` melaporkan `"leftoverTotal":2` |
+| `H-harness-parallel` | Fixture milik test lain di run yang sama tetap utuh setelah teardown test ini |
+
+### 10.2 Matriks fault (satu fault → satu baris merah → revert)
+
+Semua dijalankan terhadap container `e2e009` di `:3001` dengan `--retries=0` agar merahnya bukan hasil retry.
+
+| Sub-tiket | Fault yang disuntikkan | Baris yang dijalankan | Assertion yang gagal |
+|---|---|---|---|
+| 3.16 (`TASK-025`) | `array_reverse($this->journal)` → `$this->journal` di `FixtureCommand::rollbackJournal()` | `H-fixture-partial-failure` | `Expected 0 / Received 3` — tiga baris induk tertinggal |
+| 3.17 (`TASK-026`) | `catch (\Throwable)` melempar → `continue` di `FixtureScope::deleteIds()` | `H-cleanup-failure` | `Expected pattern: /e2e cleanup failed on table users/` — kegagalan ditelan, exit 0 |
+| 3.18 (`TASK-027`) | `$this->identity->slug()` → `->marker` pada predikat `events` | `H-marker-format` (cleanup via slug) | cleanup gagal `on table users` karena event tidak pernah cocok |
+| 3.24a (`TASK-033`) | predikat `events` memakai marker mentah | `H-fixture-ownership` | `Expected 1 / Received 0` pada `counts.events` |
+| 3.24b (`TASK-033`) | `createOwnerId()` membuang `testSlug` | `H-harness-isolation` | `Expected: not "e2e+…"` — dua test berbagi satu marker |
+| 3.24c (`TASK-033`) | `e2e:count-rows` mengabaikan `--marker` | `H-fixture-ownership` | `Expected 1 / Received 0` — hitungan tidak lagi milik marker |
+| 3.24d (`TASK-033`) | `createOwnerId()` membuang sufiks `.r<retry>` | `H-teardown-scope` | `Expected 1 / Received 0` — teardown r0 menghapus baris r1 |
+| 3.24e (`TASK-033`) | `createOwnerId()` membuang `testSlug` (dua worker, `--workers=2`) | `H-harness-parallel` | `Expected 1 / Received 0` — teardown satu test menghapus baris test lain |
+
+Seluruh diff yang disuntikkan dan log merahnya diarsipkan di luar repo (`/tmp/opencode/e2e-eviden/`) karena bersifat sementara; tabel di atas adalah ringkasan yang bisa diverifikasi ulang kapan saja dengan mengulang fault yang sama.
+
+### 10.3 Pemetaan baris 3.24 — dinyatakan apa adanya
+
+Sub-tiket 3.24 meminta lima baris bernama `H-harness-fixtures`, `H-harness-isolation`, `H-harness-observe`, `H-harness-retry`, `H-harness-parallel`. Empat di antaranya **sudah ada** di `harness.spec.ts` dengan nama yang dipakai sejak 3D/3E (`H-fixture-ownership`, `H-harness-isolation`, `H-observe`, `H-teardown-scope`). Menambah baris kembar hanya demi nama akan menduplikasi test yang sama, jadi yang dilakukan:
+
+| Nama di sub-tiket | Baris nyata yang dipakai |
+|---|---|
+| `H-harness-fixtures` | `H-fixture-ownership` |
+| `H-harness-isolation` | `H-harness-isolation` (sudah ada) |
+| `H-harness-observe` | `H-observe` |
+| `H-harness-retry` | `H-teardown-scope` |
+| `H-harness-parallel` | **baru** — tidak ada padanannya |
+
+### 10.4 Green dua worker (3.25 / `TASK-034`)
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `playwright test harness.spec.ts --project=chromium-desktop --workers=2` | **21 passed (3,1 m)** |
+| 2 | `npm run test:e2e:types` | exit 0 |
+| 3 | `eslint tests/e2e/harness.spec.ts` | exit 0 |
+
+`workers: 1` di `playwright.config.ts` **tidak diubah**: alasan aslinya tetap berlaku (`Cache::flush()` global di empat spec lama membuat assert 429 gagal saat paralel). Bukti dua worker diperoleh lewat override CLI yang dibatasi ke `harness.spec.ts`, karena baris-baris itulah yang memang didesain mandiri — bukan dengan melonggarkan batas untuk seluruh suite.
+
+### 10.5 Batas
+
+- `check:row-ownership` melaporkan `illegal` untuk enam event `e2e-pratinjau-live*` yang dibuat **27 Oktober 2026**, sebelum harness ini ada. Itu bukan sisa run ini (semua run di atas meninggalkan `users`/`forms`/`blocker` = 0) dan tidak dihapus karena berada di luar scope tiket.
+- Fault disuntikkan pada kode PHP/TS branch lalu di-revert dengan `git checkout`; tidak ada satu pun yang ikut ter-commit.

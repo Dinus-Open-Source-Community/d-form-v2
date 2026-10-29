@@ -226,6 +226,52 @@ test.describe('fixture lifecycle', () => {
         expect(countFixtureRows(identity.marker).count).toBe(0);
     });
 
+    test('H-cleanup-failure: kegagalan hapus menyebut tabel, exit non-zero, dan sisanya dilaporkan check:row-ownership', (): void => {
+        const runId = '20000101T000007-abcdef';
+        const identity = createOwnerIdentity(runId, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'cleanup-failure',
+            retry: 0,
+        });
+        const blockerSlug = `blocker-${identity.ownerKey}`;
+        const tinker = (code: string): string => runArtisanCommand(['tinker', '--execute', code]);
+        const created = runFixtureCommand({
+            marker: identity.marker,
+            slug: identity.slug,
+            title: 'Cleanup failure',
+            forms: [],
+        });
+
+        // Event di luar scope marker menahan `DELETE users` lewat FK restrictOnDelete, sehingga
+        // cleanup harus gagal keras (bukan diam-diam) dan sisa barisnya kelihatan.
+        tinker(
+            "\\Illuminate\\Support\\Facades\\DB::table('events')->insert(["
+                + "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid(),"
+                + "'title'=>'E2E blocker',"
+                + `'slug'=>'${blockerSlug}',`
+                + "'description'=>'blocker','start_date'=>now()->toDateString(),"
+                + "'end_date'=>now()->addDay()->toDateString(),"
+                + "'registration_start'=>now()->subDay(),'registration_end'=>now()->addDay(),"
+                + "'location'=>'blocker','quota'=>1,'registered_count'=>0,"
+                + "'banner'=>'events/banners/placeholder.jpg','price'=>0,'session'=>'general',"
+                + "'status'=>'draft','category'=>'etc',"
+                + `'created_by'=>'${created.userId}',`
+                + "'created_at'=>now(),'updated_at'=>now()]);",
+        );
+
+        try {
+            expect((): void => cleanupOwnerFixture(identity)).toThrow(/e2e cleanup failed on table users/);
+
+            expect((): string => runArtisanCommand(['check:row-ownership', `--run-id=${runId}`, '--json'])).toThrow(
+                /"leftoverTotal":2/,
+            );
+        } finally {
+            tinker(`\\Illuminate\\Support\\Facades\\DB::table('events')->where('slug','${blockerSlug}')->delete();`);
+            cleanupOwnerFixture(identity);
+        }
+    });
+
     test('H-cleanup-slug-prefix: cleanup menolak slug-prefix yang bukan turunan marker-prefix', (): void => {
         const runId = '20000101T000004-abcdef';
         const identity = createOwnerIdentity(runId, {
@@ -366,5 +412,26 @@ test.describe('harness isolation', () => {
 
         expect(other.marker).not.toBe(fixtureOwner.marker);
         expect(countFixtureRows(other.marker).count).toBe(0);
+    });
+
+    test('H-harness-parallel: teardown satu test tidak menghapus baris test lain di run yang sama', ({
+        fixtureOwner,
+    }): void => {
+        const sibling = createOwnerIdentity(process.env.E2E_RUN_ID ?? createRunId(), {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'parallel-sibling',
+            retry: 0,
+        });
+
+        runFixtureCommand({ marker: sibling.marker, slug: sibling.slug, title: 'Parallel sibling', forms: [] });
+
+        try {
+            cleanupOwnerFixture(fixtureOwner);
+
+            expect(countFixtureRows(sibling.marker).counts.events).toBe(1);
+        } finally {
+            cleanupOwnerFixture(sibling);
+        }
     });
 });
