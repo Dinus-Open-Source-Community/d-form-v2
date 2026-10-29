@@ -32,6 +32,7 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 | `.gitignore` | `/tests/e2e/.auth/` |
 | `resources/js/layouts/DashboardLayout.vue` | `data-testid="authenticated-shell"` pada `SidebarProvider` (satu-satunya perubahan produksi) |
 | `tests/e2e/support/artisan.ts` | `E2E_ARTISAN` → token perintah, dipakai semua helper |
+| `tests/e2e/support/heartbeat.ts` | `listHeartbeatRunIds()` memakai anotasi `string` padahal `readdirSync(..., { withFileTypes: true })` mengembalikan `Dirent[]` (lihat §3 baris 4) |
 
 ### 1.2 File baru — PHP (11)
 
@@ -94,6 +95,7 @@ Ketiganya membuat harness **tidak pernah hijau**, jadi tidak bisa dilewati sebag
 | 1 | `assertAdminState()` melempar `ReferenceError: SESSION_COOKIE is not defined` pada setiap state yang kehilangan cookie | `support/authGuard.ts` memakai identifier `SESSION_COOKIE` yang tidak pernah didefinisikan; `sessionCookieName()` sudah ada tapi belum dipakai | `hasSessionCookie(state, cookieName = sessionCookieName())` dan pesan error memakai `sessionCookieName()` |
 | 2 | `H-auth-setup` selalu merah di langkah terakhir meski login berhasil dan `/dashboard` terbuka | cookie sesi di-hardcode `laravel_session`, sedangkan aplikasi menamainya `dform-session` (`config('session.cookie')`) | `auth.setup.ts` memakai `sessionCookieName()`; test `harness.spec.ts` menguji lewat `E2E_SESSION_COOKIE` sehingga tidak bergantung nama produksi |
 | 3 | `H-projects` merah dengan output CLI kosong walau exit code 0 | `harness-projects.spec.ts` menjalankan `join(cwd, 'node_modules', '@playwright', 'test', 'cli.js')`; path itu tidak ada saat `node_modules` berupa symlink/worktree | resolusi lewat `createRequire(join(cwd,'package.json')).resolve('@playwright/test/cli')` |
+| 4 | Gate tipe tidak pernah dijalankan, sehingga `heartbeat.ts` lolos dengan `TS2345`/`TS2339` | `listHeartbeatRunIds()` memberi anotasi `(entry: string)` pada hasil `readdirSync(root, { withFileTypes: true })` yang sebenarnya `Dirent[]` | `filter`/`map` dianotasi `(entry: Dirent)` dan `type { Dirent }` diimpor; `tsc` exit 0 (lihat §4.4) |
 
 Konsekuensi praktis: **nama cookie sesi kini satu sumber** (`sessionCookieName`) dan tidak lagi tersebar sebagai string di dua file.
 
@@ -143,12 +145,41 @@ Perbaikan: tulis ulang `public/hot` dengan IP host saat ini (`git check-ignore` 
 
 Database dev berisi 1.000.148 user tanpa `admin@gmail.com`, sehingga `H-auth-setup` tidak bisa login. Menjalankan `php artisan db:seed --class=UserSeeder` (idempoten, `firstOrCreate` + `syncRoles`) menambahkan 3 admin dan 5 member tanpa menghapus data. Setelah itu baris 5–7 di atas bisa dijalankan.
 
+### 4.4 Verifikasi ketiga: server yang benar-benar menyajikan worktree (29 Oktober 2026)
+
+Brief tiket menyebut branch masih **0 commit**; faktanya HEAD sudah `6a63ff6` dengan 2 commit dan working tree bersih. Yang belum pernah ada adalah bukti runtime terhadap **kode worktree**: `:3000` menyajikan root checkout. Container kedua dijalankan supaya batas itu hilang.
+
+```bash
+podman run -d --name d_form_e2e_wt --network d-form-v2_d-form-network \
+  -p 3001:8000 \
+  -v /home/zappto/Serius/Udinus/DOSCOM/d-form-v2:/app \
+  -v <volume node_modules>:/app/node_modules -v <volume vendor>:/app/vendor \
+  -w /app/.sokudo/worktrees/task-009-... --entrypoint sh \
+  localhost/d-form-v2_app:latest -c 'php artisan octane:frankenphp --host=0.0.0.0 --port=8000'
+```
+
+`public/build` worktree sudah memuat `authenticated-shell`, `public/hot` tidak ada, jadi tidak perlu build ulang. `GET /` = 0,018–0,258 s.
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `GET/HEAD http://localhost:3001/` | **200**, 0,018–0,258 s |
+| 2 | `playwright test --project=setup` (BASE_URL `:3001`) | **1 passed (20,5 s)** |
+| 3 | `playwright test auth-required auth-guard auth-guest-redirect --project=chromium-desktop` | **4 passed** — `H-auth-required`, `H-auth-guard`, `H-auth-guest-redirect`, plus `H-auth-setup` |
+| 4 | `playwright test harness.spec.ts harness-projects*.spec.ts --project=chromium-desktop` | **18 passed (1,1 m)** |
+| 5 | `playwright test --project=setup` dua kali berturut-turut | **1 passed** keduanya; `tests/e2e/.auth` tetap **1 file** (`admin.json`, cookie `XSRF-TOKEN` + `dform-session`, 1 origin) |
+| 6 | `admin.json` dipindah, `playwright test auth-guard.spec.ts` | **2 passed** — guard memakai path temp, tetap melempar pesan terkontrol tanpa navigasi |
+| 7 | `tsc -p <throwaway config>` atas `tests/e2e/**/*.ts` | sempat **2 error** di `heartbeat.ts` (§3 baris 4), setelah perbaikan **exit 0** |
+| 8 | `eslint "tests/e2e/**/*.ts" playwright.config.ts` | **exit 0**, tanpa temuan |
+| 9 | `pint --test app/Support/E2e app/Console/Commands/E2e` | **PASS 11 file (PSR-12)** |
+
+Dengan begitu `H-auth-required` hijau **tanpa** menambal root checkout seperti di §4 baris 8: testid-nya berasal dari build worktree sendiri.
+
 ---
 
 ## 5. Batas yang harus dinyatakan
 
-1. **Server `:3000` menyajikan root checkout, bukan worktree.** Karena itu run di §4 menguji **kode aplikasi root** dengan **kode test dari branch**. Konsekuensinya hanya satu: `H-auth-required` merah sampai `data-testid` ikut ter-merge; sesudah diterapkan sementara, spec-nya hijau (§4 baris 8). Full suite dua project tetap **wajib dijalankan setelah merge** dari root.
-2. **Tidak ada tipe statis untuk test.** `tsconfig.json` hanya meng-`include` `resources/js/**`, sehingga `tsc` tidak memeriksa `tests/e2e/**`. Pemeriksaan tipe penuh butuh `@types/node` yang belum ada di `node_modules`; itu instalasi paket dan tidak dilakukan tanpa persetujuan. Yang tersedia: Playwright mem-parse semua spec (baris 2) dan seluruh spec yang dijalankan lulus.
+1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree. Yang masih tersisa: **full suite dua project** baru wajib dijalankan dari root **setelah merge**, karena container sementara itu tidak dijalankan untuk seluruh spec.
+2. **Test e2e tidak ikut `tsc` proyek.** `tsconfig.json` hanya meng-`include` `resources/js/**`, dan `@types/node` tidak ada di `node_modules`. Pemeriksaan tipe dilakukan dengan `tsconfig` sekali-pakai di luar commit + `@types/node` yang dipasang ke `/tmp` (bukan dependency proyek): hasilnya 2 error nyata di `heartbeat.ts` yang langsung diperbaiki (§3 baris 4), lalu exit 0. Agar gate ini permanen, `@types/node` harus jadi devDependency + script `test:e2e:types`; itu instalasi paket dan **belum dilakukan tanpa persetujuan**.
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
 4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
 

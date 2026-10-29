@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import type { Dirent } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 /** Isi file heartbeat yang ditulis setiap worker Playwright. */
@@ -124,8 +125,8 @@ export function listHeartbeatRunIds(): string[] {
     }
 
     return readdirSync(root, { withFileTypes: true })
-        .filter((entry): boolean => entry.isDirectory())
-        .map((entry: string): string => entry.name);
+        .filter((entry: Dirent): boolean => entry.isDirectory())
+        .map((entry: Dirent): string => entry.name);
 }
 
 /** Apakah satu run masih punya minimal satu heartbeat hidup. */
