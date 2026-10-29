@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import playwrightConfig from '../../playwright.config';
 
@@ -95,13 +95,29 @@ function listReport(): IListedSpec[] {
     return cachedListReport;
 }
 
+/** Bentuk path reporter ke posix tanpa awalan `./` atau `/`. */
+function normalizeReportedPath(file: string): string {
+    return file.replaceAll('\\', '/').replace(/^\.\//, '').replace(/^\/+/, '');
+}
+
+/**
+ * true bila `reported` dan `target` menunjuk berkas yang sama. Reporter mengirim path
+ * relatif terhadap `rootDir` project (= `testDir`), jadi bentuknya bisa nama dasar
+ * (`a.spec.ts`) atau path bersarang (`sub/a.spec.ts`) tergantung kedalaman berkas.
+ */
+function isSameSpecFile(reported: string, target: string): boolean {
+    const left = normalizeReportedPath(reported);
+    const right = normalizeReportedPath(target);
+
+    return left === right || left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
+}
+
 /** Nama project yang benar-benar menjalankan satu berkas spec. */
 function projectsForSpecFile(file: string): string[] {
-    const target = basename(file);
     const projects = new Set<string>();
 
     for (const spec of listReport()) {
-        if (spec.file !== target) {
+        if (spec.file === undefined || !isSameSpecFile(spec.file, file)) {
             continue;
         }
 
@@ -153,4 +169,14 @@ test('H-projects: project graph, matching desktop/mobile, dan placeholder mobile
     expect(specFilesForProject('chromium-mobile').filter((file: string): boolean => file.endsWith('.desktop.spec.ts'))).toEqual(
         [],
     );
+});
+
+/** H-projects-path: pencocokan berkas tetap benar untuk kedua bentuk path reporter. */
+test('H-projects-path: nama dasar dan path rootDir-relative sama-sama cocok', (): void => {
+    expect(isSameSpecFile('harness-projects.spec.ts', 'tests/e2e/harness-projects.spec.ts')).toBe(true);
+    expect(isSameSpecFile('tests/e2e/harness-projects.spec.ts', 'tests/e2e/harness-projects.spec.ts')).toBe(true);
+    expect(isSameSpecFile('sub/nested.spec.ts', 'tests/e2e/sub/nested.spec.ts')).toBe(true);
+    expect(isSameSpecFile('./harness-projects.spec.ts', 'tests/e2e/harness-projects.spec.ts')).toBe(true);
+    expect(isSameSpecFile('harness-projects.mobile.spec.ts', 'tests/e2e/harness-projects.spec.ts')).toBe(false);
+    expect(isSameSpecFile('other/harness-projects.spec.ts', 'tests/e2e/a/harness-projects.spec.ts')).toBe(false);
 });

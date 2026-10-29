@@ -312,3 +312,41 @@ Flaky yang tersisa sama dengan yang sudah dicatat di §4.5 dan bukan dari peruba
 
 - `workers: 1` tetap dipakai (§5.6): dua flake di §8.1 adalah gejala yang sama, dan menaikkan worker akan mengubahnya jadi gagal.
 - Run `chromium-desktop` + `chromium-mobile` memakan ~12 menit; tidak ada CI yang menjalankannya, jadi gate ini masih manual.
+
+---
+
+## 9. Round 6 — temuan review: pencocokan berkas reporter
+
+### 9.1 Temuan dan apa yang terukur
+
+Review menyatakan `projectsForSpecFile()` (`tests/e2e/harness-projects.spec.ts:99`) tidak pernah cocok karena membandingkan `spec.file` dengan `basename(file)`, sedangkan reporter mengirim path relatif terhadap `config.rootDir`. Diukur langsung pada versi yang terpasang:
+
+```
+$ node -e "console.log(require('@playwright/test/package.json').version)"
+1.64.1
+$ playwright test --list --reporter=json | <dump file field>
+suite.file= "auth-guard.spec.ts" spec.file= "auth-guard.spec.ts"
+suite.file= "harness-projects.spec.ts" spec.file= "harness-projects.spec.ts"
+```
+
+Jadi untuk konfigurasi ini `rootDir` project **sama dengan** `testDir` (`./tests/e2e`), dan karena semua spec berada langsung di `testDir`, path relatifnya memang nama dasar. Klaim "tidak pernah cocok" tidak terbukti pada tree ini — `H-projects` hijau sejak awal bukan kebetulan.
+
+### 9.2 Celah yang nyata dan diperbaiki
+
+Premisnya salah, tetapi akibat yang ditunjuknya nyata begitu ada berkas di sub-folder: reporter akan mengirim `sub/a.spec.ts`, sementara helper membandingkan dengan `a.spec.ts` → helper diam-diam mengembalikan `[]` dan assertion `toEqual([...])` gagal tanpa sebab yang jelas. Perbaikannya:
+
+| Sebelum | Sesudah |
+|---|---|
+| `spec.file !== basename(file)` | `isSameSpecFile(spec.file, file)` — normalisasi `./`, `\` → `/`, lalu cocok bila sama **atau** salah satu akhiran path dari yang lain |
+
+Suffix matching dua arah dipakai supaya kedua bentuk masukan (nama dasar maupun path penuh) bekerja, dan tidak ada asumsi tentang `testDir` yang bisa berubah. Baris `spec.file === undefined` kini dilewati eksplisit.
+
+### 9.3 Bukti
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `tsc -p tsconfig.e2e.json` | exit 0 |
+| 2 | `eslint tests/e2e/harness-projects.spec.ts` | exit 0 |
+| 3 | `playwright test harness-projects.spec.ts harness-projects.mobile.spec.ts` (`:3001`, e2e009) | **6 passed** (1 setup + 2 test × 2 project + mobile placeholder) |
+
+Test baru `H-projects-path` mengunci keenam bentuk yang dipermasalahkan: nama dasar, path `rootDir`-relative, path bersarang, awalan `./`, serta dua kasus yang **harus** tidak cocok (`harness-projects.mobile` vs `harness-projects`, dan dua direktori berbeda dengan nama berkas sama).
