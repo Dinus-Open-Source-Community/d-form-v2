@@ -80,7 +80,7 @@ final class SweepCommand extends Command
         $runIds = [];
 
         foreach ($emails as $email) {
-            if (preg_match('/^e2e\+([0-9A-Za-z-]{1,22})\+o[0-9a-f]{12}@/', (string) $email, $matches) === 1) {
+            if (preg_match('/^e2e\+([0-9A-Za-z-]{1,22})\+o[0-9a-f]{12}@e2e\.invalid$/', (string) $email, $matches) === 1) {
                 $runIds[$matches[1]] = true;
             }
         }
@@ -159,9 +159,13 @@ final class SweepCommand extends Command
         }
 
         foreach (glob($directory.'/*') ?: [] as $file) {
-            @unlink($file);
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
 
-        @rmdir($directory);
+        if (is_dir($directory)) {
+            rmdir($directory);
+        }
     }
 }

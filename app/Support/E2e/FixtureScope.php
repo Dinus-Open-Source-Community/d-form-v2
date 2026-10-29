@@ -146,6 +146,11 @@ final class FixtureScope
             throw new \InvalidArgumentException('slug prefix must look like e2e-<runid>-.');
         }
 
+        // Prefix yang tidak sepasang akan menghapus event run lain; turunkan ulang, jangan percaya input.
+        if ($slugPrefix !== strtolower(str_replace('+', '-', $markerPrefix))) {
+            throw new \InvalidArgumentException('slug prefix must equal markerToSlug(marker prefix).');
+        }
+
         return FixtureIdentity::fromMarker($markerPrefix.'o'.str_repeat('0', 12));
     }
 

@@ -17,6 +17,10 @@ export default defineConfig({
     timeout: 30_000,
     expect: { timeout: 10_000 },
     fullyParallel: true,
+    // Empat spec lama mem-flush cache global di beforeEach (auth/email/otp/event-search), jadi
+    // dua file yang jalan bersamaan saling merusak hitungan rate limit dan assert 429 gagal.
+    // fullyParallel tetap true; batasnya ada di jumlah worker sampai spec lama berhenti flush global.
+    workers: 1,
     forbidOnly: true,
     retries: 1,
     reporter: [['list']],

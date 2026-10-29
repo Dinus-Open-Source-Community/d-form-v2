@@ -6,7 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [saptoChanges28-10-2026-DFORM-009.md](./saptoChanges28-10-2026-DFORM-009.md) | Harness e2e: project desktop/mobile, login admin atomik, fixture ber-marker + sweep, helper observasi; 3 bug harness diperbaiki |
+| [saptoChanges28-10-2026-DFORM-009.md](./saptoChanges28-10-2026-DFORM-009.md) | Harness e2e: project desktop/mobile, login admin atomik, fixture ber-marker + sweep, helper observasi; 6 bug harness + 2 regresi suite diperbaiki |
 | [saptoChanges24-10-2026-events.md](./saptoChanges24-10-2026-events.md) | Pencarian & paginasi `/events` + `/browse`: cache payload mentah, negative cache + lock, FULLTEXT, cursor, rate limit 429 ramah, index ronde-2 |
 | [saptoChanges24-10-2026-DFORM-TBD.md](./saptoChanges24-10-2026-DFORM-TBD.md) | Optimasi auth: code splitting per halaman, lottie lazy, rate limit login/register, handler 429, font & favicon |
 | [saptoChanges21-10-2026.md](./saptoChanges21-10-2026.md) | Aturan proyek (14 aturan baru), `CONTEXT.md`, stress harness k6, dataset 1 juta baris, benchmark query |

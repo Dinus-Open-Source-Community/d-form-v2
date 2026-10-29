@@ -1,6 +1,9 @@
 import { expect, test, type Locator, type Page, type Response } from '@playwright/test'
 import { runArtisan, runArtisanCommand } from './support/artisan'
 
+// Alur pendaftaran OTP dimulai dari halaman guest; state admin project akan di-redirect 302.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 const PASSWORD = 'Rahasia123'
 
 /** Email unik per test supaya baris pendaftaran tertunda tidak bertabrakan. */

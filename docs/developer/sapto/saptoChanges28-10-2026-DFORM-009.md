@@ -12,18 +12,18 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 |---|---|---|
 | Project `setup` + `chromium-desktop` + `chromium-mobile` dengan pemetaan spec | `playwright.config.ts` memakai `dependencies: ['setup']`, `testIgnore` dua arah, `storageState` admin | `npx playwright test --list` → **94 test / 12 file**, tiga project |
 | Login admin sekali, state atomik | `tests/e2e/auth.setup.ts` (temp + `rename`, cookie sesi + URL `/dashboard` diperiksa) | `H-auth-setup` hijau; dua run berturut-turut menyisakan tepat satu `admin.json` |
-| Fixture ber-marker + teardown idempoten | 8 perintah artisan `e2e:*` + `check:row-ownership` | `php artisan list` memuat 8 perintah; `H-fixture-ownership`, `H-teardown-scope`, `H-marker-format` hijau |
+| Fixture ber-marker + teardown idempoten | 7 perintah `e2e:*` + `check:row-ownership` | `php artisan list` memuat 8 perintah; `H-fixture-ownership`, `H-teardown-scope`, `H-marker-format` hijau |
 | Heartbeat & sweep run terlantar | `e2e:sweep` + aturan heartbeat ≤ 30 s dan pid hidup | `H-heartbeat-live`, `H-heartbeat-stale`, `H-sweep-abandoned` hijau |
 | Observasi request/baris/header | `support/network.ts`, `support/tabs.ts`, `e2e:count-rows`, `e2e:inspect`, `e2e:http`, `e2e:derive-key` | `H-observe` hijau |
 | Gate gaya kode | `pint --test` | **PASS, 11 file** |
 
-**Tiga bug harness ditemukan dan diperbaiki saat verifikasi** (bukan sekadar memindahkan kode): nama cookie sesi yang di-hardcode, identifier `SESSION_COOKIE` yang tidak pernah didefinisikan, dan path CLI Playwright yang tidak tahan worktree. Detail di §3.
+**Enam bug harness ditemukan dan diperbaiki saat verifikasi** (bukan sekadar memindahkan kode): nama cookie sesi yang di-hardcode, identifier `SESSION_COOKIE` yang tidak pernah didefinisikan, path CLI Playwright yang tidak tahan worktree, anotasi `Dirent` di `heartbeat.ts`, dan — saat full suite pertama kali dijalankan — dua regresi yang membuat suite lama merah (guest spec ter-redirect oleh `storageState` project dan race `Cache::flush()` antar spec). Detail di §3 dan §4.5.
 
 ---
 
 ## 1. Yang berubah
 
-### 1.1 File diubah (5)
+### 1.1 File diubah (9)
 
 | File | Perubahan |
 |---|---|
@@ -33,6 +33,7 @@ Scope: harness test e2e saja. Satu-satunya perubahan produksi adalah `data-testi
 | `resources/js/layouts/DashboardLayout.vue` | `data-testid="authenticated-shell"` pada `SidebarProvider` (satu-satunya perubahan produksi) |
 | `tests/e2e/support/artisan.ts` | `E2E_ARTISAN` → token perintah, dipakai semua helper |
 | `tests/e2e/support/heartbeat.ts` | `listHeartbeatRunIds()` memakai anotasi `string` padahal `readdirSync(..., { withFileTypes: true })` mengembalikan `Dirent[]` (lihat §3 baris 4) |
+| `tests/e2e/auth.spec.ts`, `otp-verification.spec.ts`, `email-availability.spec.ts` | `test.use({ storageState: { cookies: [], origins: [] } })` — spec ini menguji halaman guest (lihat §4.5) |
 
 ### 1.2 File baru — PHP (11)
 
@@ -59,7 +60,7 @@ slug     = marker huruf kecil, "+" → "-"   (kolom slug event)
 email    = marker + "@e2e.invalid"
 ```
 
-`FixtureIdentity` adalah satu-satunya tempat marker dibentuk; fixture, teardown, sweep, dan pemeriksaan kepemilikan memakai nilai yang sama. Perintah menolak `--marker` yang tidak cocok `^e2e\+[0-9A-Za-z-]+\+o[0-9a-f]{12}$`.
+`FixtureIdentity` adalah satu-satunya tempat marker dibentuk; fixture, teardown, sweep, dan pemeriksaan kepemilikan memakai nilai yang sama. Perintah menolak `--marker` yang tidak cocok `^e2e\+[0-9A-Za-z-]{1,22}\+o[0-9a-f]{12}$` (runId dibatasi 22 karakter, sama dengan panjang yang dibangkitkan `createRunId`).
 
 ### 2.2 Project dan pemetaan spec
 
@@ -78,11 +79,11 @@ email    = marker + "@e2e.invalid"
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | kredensial admin seeder | wajib, gagal menyebut keduanya bila kosong |
 | `E2E_SESSION_COOKIE` | nama cookie sesi Laravel | `dform-session` |
 
-`assertEnvironment()` berhenti pada kegagalan pertama dan hanya menyebut satu variabel, supaya base URL tak terjangkau tidak menghasilkan cascade timeout.
+`assertEnvironment()` berhenti pada kegagalan pertama dan tiap pesan menyebut satu variabel saja, supaya base URL tak terjangkau tidak menghasilkan cascade timeout. Pengecualian yang disengaja: bila email **dan** password sama-sama kosong, pesan menyebut keduanya sekaligus agar setup tidak menebak mana yang harus diisi.
 
 ### 2.4 Siklus heartbeat
 
-Run dianggap **hidup** hanya bila `now - mtime <= 30 s`, pid masih hidup, dan command line proses memuat test runner. Selain itu basi; `e2e:sweep` menghapus run tanpa heartbeat yang lebih tua dari 24 jam, memakai `flock`, dan membatasi jumlah run yang diproses per invokasi.
+Run dianggap **hidup** hanya bila `now - mtime <= 30 s`, pid masih hidup, dan command line proses memuat test runner. Selain itu basi. `e2e:sweep` menghapus run tanpa heartbeat yang lebih tua dari 24 jam; pembatasan konkurensi (`flock`) ada di wrapper TS `tests/e2e/support/sweep.ts`, dan command-nya sendiri membatasi **waktu** proses per invokasi, bukan jumlah run.
 
 ---
 
@@ -98,6 +99,16 @@ Ketiganya membuat harness **tidak pernah hijau**, jadi tidak bisa dilewati sebag
 | 4 | Gate tipe tidak pernah dijalankan, sehingga `heartbeat.ts` lolos dengan `TS2345`/`TS2339` | `listHeartbeatRunIds()` memberi anotasi `(entry: string)` pada hasil `readdirSync(root, { withFileTypes: true })` yang sebenarnya `Dirent[]` | `filter`/`map` dianotasi `(entry: Dirent)` dan `type { Dirent }` diimpor; `tsc` exit 0 (lihat §4.4) |
 
 Konsekuensi praktis: **nama cookie sesi kini satu sumber** (`sessionCookieName`) dan tidak lagi tersebar sebagai string di dua file.
+
+### 3.1 Perbaikan keamanan data saat review (29 Oktober 2026)
+
+Review menemukan tiga jalur yang bisa menghapus atau menyapu baris di luar milik run e2e. Ketiganya diperbaiki:
+
+| # | Risiko | Perbaikan |
+|---|---|---|
+| 5 | `e2e:cleanup --marker-prefix=A --slug-prefix=B` lolos validasi format dan menghapus event run B | `FixtureScope::prefixIdentity()` mewajibkan `slugPrefix === markerToSlug(markerPrefix)`; tidak ada caller lain yang mengirim pasangan bebas (`global.teardown.ts` menurunkan keduanya dari `runId` yang sama) |
+| 6 | `e2e:sweep` mencocokkan email `e2e+…+o…@<domain apa pun>`, sehingga user nyata berawalan `e2e+` bisa tersapu | regex diperketat ke `@e2e\.invalid$`, satu-satunya domain yang dibangkitkan `FixtureIdentity` |
+| 7 | `SweepCommand` memakai `@unlink`/`@rmdir` (supresi error, dilarang aturan repo) | diganti `is_file()` + `unlink()` dan `is_dir()` + `rmdir()` |
 
 ---
 
@@ -174,14 +185,37 @@ podman run -d --name d_form_e2e_wt --network d-form-v2_d-form-network \
 
 Dengan begitu `H-auth-required` hijau **tanpa** menambal root checkout seperti di §4 baris 8: testid-nya berasal dari build worktree sendiri.
 
+### 4.5 Full suite pertama: dua regresi nyata dari config baru, lalu hijau
+
+Sebelum sesi ini, **full suite tidak pernah dijalankan** (lihat batas lama di §5.1). Saat dijalankan, config baru membuat suite lama merah. Dua penyebab, keduanya diverifikasi, bukan dugaan:
+
+| Gejala | Bukti | Akar | Perbaikan |
+|---|---|---|---|
+| `auth.spec.ts`, `otp-verification.spec.ts`, `email-availability.spec.ts` gagal di locator pertama | `curl` dengan cookie `admin.json`: `GET /auth/login → 302 /`, `GET /auth/register → 302 /`; tanpa cookie `→ 200` | `storageState` project berlaku untuk **semua** spec, padahal ketiganya menguji halaman di middleware `guest` | `test.use({ storageState: { cookies: [], origins: [] } })` di ketiga file, pola yang sudah dipakai `auth-guest-redirect.guest.spec.ts` |
+| Assert `429` di `auth.spec.ts` dan `event-search.spec.ts` gagal saat suite paralel | `--workers=1` pada file yang sama: **11 passed**; paralel: 3 gagal | empat spec lama memanggil `Cache::flush()` **global** di `beforeEach`, sehingga worker lain menghapus hitungan rate limit di tengah assert | `workers: 1` di config; `fullyParallel: true` tetap dipertahankan sesuai kontrak |
+
+| # | Perintah | Hasil |
+|---|---|---|
+| 1 | `playwright test --project=chromium-desktop` (sebelum perbaikan) | **merah** — 3 gagal (2 throttle, 1 event-search 429) |
+| 2 | `playwright test auth.spec.ts event-search.spec.ts --workers=1` | **11 passed (50,8 s)** — membuktikan penyebabnya race, bukan logika |
+| 3 | `playwright test --project=chromium-desktop` (sesudah perbaikan) | **46 passed, 1 flaky (6,5 m)** |
+| 4 | `playwright test auth.spec.ts email-availability.spec.ts auth-required auth-guard --project=chromium-mobile` | **14 passed, 1 flaky** |
+| 5 | `playwright test harness.spec.ts --project=chromium-desktop` (sesudah perbaikan PHP §3.1) | **17 passed (3,5 m)** |
+
+**Sisa yang harus dinyatakan:** satu test tetap kadang butuh retry. `throttle › login melewati limit` memakai limiter **per-IP** dengan decay 1 menit, sedangkan `H-auth-setup` melakukan login sungguhan pada menit yang sama; bila hitungan tidak ter-reset tepat waktu, attempt ke-5 sudah 429. Dengan `retries: 1` (kontrak) run tetap hijau, tetapi akarnya adalah desain spec lama. Perbaikan permanen: jalankan spec lama itu serial seperti di atas (sudah) dan, bila flake kembali, ganti batas per-IP pada test dengan limiter yang di-scope per email.
+
 ---
+
+
 
 ## 5. Batas yang harus dinyatakan
 
-1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree. Yang masih tersisa: **full suite dua project** baru wajib dijalankan dari root **setelah merge**, karena container sementara itu tidak dijalankan untuk seluruh spec.
+1. **Server `:3000` menyajikan root checkout, bukan worktree.** Run di §4 karena itu menguji **kode aplikasi root** dengan **kode test dari branch**; hanya `H-auth-required` yang terpengaruh dan di sana ia merah. Batas itu ditutup di §4.4 lewat container kedua di `:3001` yang menyajikan worktree, dan §4.5 menjalankan **seluruh suite `chromium-desktop`** di server yang sama. Yang belum: **seluruh suite `chromium-mobile`** (baru subset) dan run dari root checkout setelah merge.
 2. **Test e2e tidak ikut `tsc` proyek.** `tsconfig.json` hanya meng-`include` `resources/js/**`, dan `@types/node` tidak ada di `node_modules`. Pemeriksaan tipe dilakukan dengan `tsconfig` sekali-pakai di luar commit + `@types/node` yang dipasang ke `/tmp` (bukan dependency proyek): hasilnya 2 error nyata di `heartbeat.ts` yang langsung diperbaiki (§3 baris 4), lalu exit 0. Agar gate ini permanen, `@types/node` harus jadi devDependency + script `test:e2e:types`; itu instalasi paket dan **belum dilakukan tanpa persetujuan**.
 3. **Empat perintah artisan tidak dipanggil TS**: `check:row-ownership`, `e2e:derive-key`, `e2e:http`, `e2e:inspect`. Disediakan untuk observasi manual; sengaja tidak dihapus.
 4. **Probe base URL memakai timeout tetap 2 s** (`assertBaseUrl`). Nilainya sengaja ketat supaya host mati gagal cepat, dan tidak dibuat configurable karena belum ada environment yang butuh angka lain. Konsekuensinya: kalau halaman terasa lambat, jangan naikkan timeout ini — cari dulu penyebabnya (§4.2).
+5. **`tests/fixtures/e2e-no-marker-tables.json` belum dibaca kode mana pun.** Isinya daftar tabel tanpa kolom marker (`form_answers`, `event_attendances`) dan kepemilikan diturunkan dari induk — itu memang cara kerja `FixtureScope`, tetapi daftarnya masih hardcoded, bukan dibaca dari JSON ini. Dibiarkan sebagai dokumentasi data, bukan wiring.
+6. **`workers: 1` membatasi manfaat `fullyParallel: true`.** Nilai kontrak tetap `fullyParallel: true`, tetapi sampai empat spec lama berhenti memanggil `Cache::flush()` global, menjalankan dua file sekaligus membuat assert `429` merah (§4.5). Menaikkan worker hanya boleh dilakukan setelah spec itu diisolasi.
 
 ---
 
