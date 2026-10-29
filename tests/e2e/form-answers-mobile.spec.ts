@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import { runArtisanCommand, runArtisan } from './support/artisan'
 
 const ADMIN = { email: 'stress-user-1@stress.test', password: 'password' } as const
+// Spec ini login sendiri, jadi konteks harus guest; storageState admin membuat /auth/login ter-redirect.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 const STORAGE_KEY = 'd-form:form-answers:mobile-view'
 const PLACEHOLDER_PNG = Uint8Array.from(
     atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/2ioAAAAASUVORK5CYII='),

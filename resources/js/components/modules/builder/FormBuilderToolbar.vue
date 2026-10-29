@@ -38,7 +38,7 @@ onMounted(() => {
 
 <template>
     <div
-        v-if="!canTeleport && !props.hideTitles && !props.hideToolbar"
+        v-if="!canTeleport && !props.hideToolbar"
         class="mb-4 rounded-2xl border border-border/70 bg-card/95 p-3 shadow-sm sm:mb-5 sm:p-4"
     >
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -95,7 +95,7 @@ onMounted(() => {
         </div>
     </div>
 
-    <Teleport v-if="canTeleport && !props.hideTitles && !props.hideToolbar" to="#dashboard-fb-nav-left">
+    <Teleport v-if="canTeleport && !props.hideToolbar" to="#dashboard-fb-nav-left">
         <div class="flex min-w-0 items-start gap-2 sm:items-center sm:gap-3">
             <Button radius="icon" variant="ghost" size="icon-sm" class="mt-0.5 shrink-0 sm:mt-0" as-child>
                 <Link :href="backHref" aria-label="Kembali ke daftar form">
@@ -115,7 +115,7 @@ onMounted(() => {
         </div>
     </Teleport>
 
-    <Teleport v-if="canTeleport && !props.hideTitles && !props.hideToolbar" to="#dashboard-fb-nav-right">
+    <Teleport v-if="canTeleport && !props.hideToolbar" to="#dashboard-fb-nav-right">
         <div
             class="
  flex w-full flex-wrap items-center justify-start gap-2

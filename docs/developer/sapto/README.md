@@ -6,6 +6,8 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges29-10-2026-DFORM-039.md](./saptoChanges29-10-2026-DFORM-039.md) | P0-1 diperbaiki: `hideTitles` tidak lagi menyembunyikan tombol Simpan/Pratinjau; jalur simpan dipusatkan di `submitForm()`; tiga baris P0-1 hijau di desktop (klik ganda ditahan `:disabled="processing"`) |
+| [saptoChanges29-10-2026-DFORM-036.md](./saptoChanges29-10-2026-DFORM-036.md) | Baris P0-1 jalur simpan Create form ditulis dan dijalankan merah (3 baris, tanpa perubahan kode produksi); akar: `hideTitles` menyembunyikan seluruh toolbar termasuk Simpan/Pratinjau |
 | [saptoChanges28-10-2026-DFORM-009.md](./saptoChanges28-10-2026-DFORM-009.md) | Harness e2e: project desktop/mobile, login admin atomik, fixture ber-marker + sweep, helper observasi; 7 perbaikan harness + 2 regresi suite ditutup; 8 fault-injection (3.16–3.25) direkam merah lalu di-revert |
 | [saptoChanges28-10-2026-DFORM-212.md](./saptoChanges28-10-2026-DFORM-212.md) | Tampilan jawaban mobile Kartu/Daftar, tersimpan di localStorage, dengan tabel desktop tetap dipertahankan (TASK-212) |
 | [saptoChanges28-10-2026-DFORM-207.md](./saptoChanges28-10-2026-DFORM-207.md) | Laporan audit ESLint + LSP: 611 file, 0 diagnostic ESLint; 78 file dicoba, cakupan LSP 8,7% (TASK-207) |

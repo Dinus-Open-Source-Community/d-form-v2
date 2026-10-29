@@ -80,12 +80,21 @@ function toggleFormSettings(): void {
     formSettingsOpen.value = !formSettingsOpen.value;
 }
 
+/**
+ * Satu-satunya jalur simpan untuk toolbar dan blok mobile.
+ * Klik berulang saat request masih berjalan diabaikan agar form tidak terkirim dua kali.
+ */
+function submitForm(): void {
+    if (props.processing) return;
+    wb.requestSave();
+}
+
 /** Handle untuk aksi toolbar eksternal (Pratinjau / Save All) dari halaman induk. */
 defineExpose({
     showPreview: () => {
         wb.showPreview = true;
     },
-    requestSave: () => wb.requestSave(),
+    requestSave: submitForm,
 });
 </script>
 
@@ -103,7 +112,7 @@ defineExpose({
             :hide-titles="hideToolbarTitles"
             :hide-toolbar="hideToolbar"
             @preview="wb.showPreview = true"
-            @save="wb.requestSave"
+            @save="submitForm"
         >
             <template #toolbar-extra>
                 <slot name="toolbar-extra" />
@@ -192,7 +201,7 @@ defineExpose({
                     >
                         Pratinjau
                     </Button>
-                    <Button class="h-11 text-sm font-medium shadow-sm" :disabled="processing" @click="wb.requestSave">
+                    <Button class="h-11 text-sm font-medium shadow-sm" :disabled="processing" @click="submitForm">
                         Simpan
                     </Button>
                 </div>
