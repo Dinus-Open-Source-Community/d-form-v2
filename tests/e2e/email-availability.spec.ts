@@ -1,6 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { runArtisan } from './support/artisan'
 
+// Ketersediaan email diuji di form registrasi (guest); state admin project akan di-redirect 302.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 const TAKEN_EMAIL = 'stress-user-1@stress.test'
 const SCREENSHOT_DIR = '/tmp/opencode'
 const STATUS_SELECTOR = '[data-email-availability]'

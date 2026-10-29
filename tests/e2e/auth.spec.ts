@@ -1,6 +1,9 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
 import { runArtisan } from './support/artisan'
 
+// Spec ini menguji halaman guest (login/register/forgot-password); state admin project akan di-redirect 302.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 interface ViteManifestEntry {
     file: string
     isEntry?: boolean

@@ -9,12 +9,17 @@
         "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
         "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix",
         "test:e2e": "playwright test",
+        "test:e2e:desktop": "playwright test --project=chromium-desktop",
+        "test:e2e:mobile": "playwright test --project=chromium-mobile",
+        "test:e2e:setup": "playwright test --project=setup",
+        "test:e2e:types": "tsc -p tsconfig.e2e.json",
         "typecheck": "vue-tsc --noEmit"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
         "@playwright/test": "^1.64.1",
         "@tailwindcss/vite": "^4.0.0",
+        "@types/node": "^24.19.2",
         "@vue/eslint-config-prettier": "^10.2.0",
         "@vue/eslint-config-typescript": "^14.7.0",
         "@vue/language-server": "^3.3.13",

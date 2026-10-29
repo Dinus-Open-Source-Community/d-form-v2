@@ -35,7 +35,7 @@ const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page
 </script>
 
 <template>
-    <SidebarProvider>
+    <SidebarProvider data-testid="authenticated-shell">
         <DashboardSidebar v-if="showSidebar" />
         <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
             <DashboardTopbar :show-navigation-trigger="showSidebar" />

@@ -6,6 +6,7 @@ Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pa
 
 | File                                                     | Deskripsi                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [saptoChanges28-10-2026-DFORM-009.md](./saptoChanges28-10-2026-DFORM-009.md) | Harness e2e: project desktop/mobile, login admin atomik, fixture ber-marker + sweep, helper observasi; 7 perbaikan harness + 2 regresi suite ditutup; 8 fault-injection (3.16–3.25) direkam merah lalu di-revert |
 | [saptoChanges28-10-2026-DFORM-212.md](./saptoChanges28-10-2026-DFORM-212.md) | Tampilan jawaban mobile Kartu/Daftar, tersimpan di localStorage, dengan tabel desktop tetap dipertahankan (TASK-212) |
 | [saptoChanges28-10-2026-DFORM-207.md](./saptoChanges28-10-2026-DFORM-207.md) | Laporan audit ESLint + LSP: 611 file, 0 diagnostic ESLint; 78 file dicoba, cakupan LSP 8,7% (TASK-207) |
 | [saptoChanges27-10-2026-DFORM-201.md](./saptoChanges27-10-2026-DFORM-201.md) | Hapus semua trik supresi & non-null assertion di frontend, pindahkan fungsi runtime `types/form.ts` ke `lib/`, tegakkan lewat ESLint |
