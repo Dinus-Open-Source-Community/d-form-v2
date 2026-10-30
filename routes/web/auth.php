@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Route;
 
 // use App\Http\Controllers\Auth\PageController as AuthPageController;
 
-Route::redirect('/auth', '/auth/login');
+Route::redirect('/auth', '/auth/login')
+    ->middleware([PreventAuthPageCaching::class, 'guest']);
 
 // Routes for login and register
 Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
