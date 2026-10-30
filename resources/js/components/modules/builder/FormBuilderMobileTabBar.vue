@@ -7,14 +7,16 @@ const mobileTab = defineModel<FormBuilderMobileTab>({ required: true })
 defineProps<{
     fieldCount: number
     isReadyToSave: boolean
+    showSettingsTab: boolean
 }>()
 </script>
 
 <template>
     <!-- Full bleed terhadap padding main (px-4), lebar penuh area konten -->
     <div class="border-border bg-card -mx-4 w-[calc(100%+2rem)] border-b lg:hidden">
-        <div class="grid w-full grid-cols-2 gap-2 px-4 py-3">
+        <div :class="['grid w-full gap-2 px-4 py-3', showSettingsTab ? 'grid-cols-2' : 'grid-cols-1']">
             <button
+                v-if="showSettingsTab"
                 type="button"
                 role="tab"
                 :aria-selected="mobileTab === 'build'"

@@ -19,6 +19,7 @@ const props = withDefaults(
         categories: FormBuilderPaletteCategory[];
         openCategoryName: string | null;
         formSettingsOpen: boolean;
+        showFormSettings: boolean;
         fieldErrors: Partial<Record<'closed_at' | 'visible_for', string>>;
         visibilityOptions: readonly { value: string; label: string }[];
         siblingForms?: FormSiblingOption[];
@@ -162,8 +163,8 @@ function isCategoryExpanded(name: string): boolean {
                 <p class="text-muted-foreground text-sm">Tidak ada komponen yang cocok</p>
             </div>
 
-            <!-- Pengaturan form: pindahan dari tab Pengaturan kanan -->
-            <div class="border-border/70 mt-3 border-t pt-3">
+            <!-- Pengaturan form tetap tersedia di Create; halaman edit menampilkannya sebagai tab tingkat atas. -->
+            <div v-if="showFormSettings" class="border-border/70 mt-3 border-t pt-3">
                 <button
                     type="button"
                     class="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-semibold tracking-wide uppercase transition-colors"

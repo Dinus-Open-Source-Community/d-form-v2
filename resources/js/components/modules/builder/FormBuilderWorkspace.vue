@@ -28,6 +28,7 @@ const props = withDefaults(
         siblingForms?: FormSiblingOption[];
         hideToolbarTitles?: boolean;
         hideToolbar?: boolean;
+        formSettingsPlacement?: 'inline' | 'tab';
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
     }>(),
@@ -39,12 +40,14 @@ const props = withDefaults(
         siblingForms: () => [],
         hideToolbarTitles: false,
         hideToolbar: false,
+        formSettingsPlacement: 'inline',
         imageUploadUrl: '',
     }
 );
 
 const emit = defineEmits<{
     save: [];
+    openSettings: [];
 }>();
 
 const formTitle = defineModel<string>('formTitle', { required: true });
@@ -86,6 +89,14 @@ function toggleFormSettings(): void {
  */
 function submitForm(): void {
     if (props.processing) return;
+
+    if (
+        props.formSettingsPlacement === 'tab' &&
+        wb.validationIssues.some((issue) => issue.key === 'closedAt' || issue.key === 'visibleFor')
+    ) {
+        emit('openSettings');
+    }
+
     wb.requestSave();
 }
 
@@ -123,6 +134,7 @@ defineExpose({
             v-model="wb.mobileTab"
             :field-count="formFields.length"
             :is-ready-to-save="wb.isReadyToSave"
+            :show-settings-tab="formSettingsPlacement === 'inline'"
         />
 
         <div class="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
@@ -134,6 +146,7 @@ defineExpose({
                 :categories="wb.filteredCategories"
                 :open-category-name="wb.openCategoryName"
                 :form-settings-open="formSettingsOpen"
+                :show-form-settings="formSettingsPlacement === 'inline'"
                 :field-errors="fieldErrors"
                 :visibility-options="visibilityOptions"
                 :sibling-forms="siblingForms"
@@ -149,7 +162,7 @@ defineExpose({
                     v-model:success-content="successContent"
                     v-model:banner="banner"
                     :show-success-zone="wb.showSuccessZone"
-                    :hide-on-mobile-settings="wb.mobileTab === 'settings'"
+                    :hide-on-mobile-settings="formSettingsPlacement === 'inline' && wb.mobileTab === 'settings'"
                     :banner-preview-src="wb.bannerPreviewSrc"
                     :is-empty="wb.isEmpty"
                     :is-dragging-over-canvas="wb.isDraggingOverCanvas"
@@ -174,7 +187,11 @@ defineExpose({
                     @open-add-sheet="wb.showAddSheet = true"
                 />
 
-                <div v-show="wb.mobileTab === 'settings'" class="px-4 pt-5 pb-24 lg:hidden">
+                <div
+                    v-if="formSettingsPlacement === 'inline'"
+                    v-show="wb.mobileTab === 'settings'"
+                    class="px-4 pt-5 pb-24 lg:hidden"
+                >
                     <div class="mx-auto max-w-[480px]">
                         <FormSettingsPanel
                             v-model:closed-at="closedAt"

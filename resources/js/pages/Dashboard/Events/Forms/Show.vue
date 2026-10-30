@@ -13,6 +13,8 @@ import {
 import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
+import FormSettingsPanel from '@/components/modules/builder/FormSettingsPanel.vue';
+import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -24,7 +26,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
-import { Check, Eye, FileText, Inbox, PenLine, X } from 'lucide-vue-next';
+import { Check, Eye, FileText, Inbox, PenLine, Settings, X } from 'lucide-vue-next';
 import {
     fromBackendField,
     toBackendFields,
@@ -67,7 +69,7 @@ import { formatDateTime } from '@/lib/dateTime';
 
 defineOptions({ layout: DashboardLayout });
 
-type ShowTab = 'editor' | 'jawaban';
+type ShowTab = 'editor' | 'jawaban' | 'settings';
 const props = defineProps<{
     event: { id: string; title: string };
     form: IForm;
@@ -84,7 +86,8 @@ const page = usePage();
 /** Baca tab dari query string agar deep-link ?tab=jawaban bekerja saat refresh/back. */
 function tabFromQuery(): ShowTab {
     const raw = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
-    return raw === 'jawaban' ? 'jawaban' : 'editor';
+    if (raw === 'jawaban') return 'jawaban';
+    return raw === 'settings' ? 'settings' : 'editor';
 }
 const activeTab = ref<ShowTab>(tabFromQuery());
 
@@ -520,6 +523,13 @@ function rejectLabel(submission: IFormSubmission): string {
                                 {{ submissionsCount }}
                             </Badge>
                         </TabsTrigger>
+                        <TabsTrigger
+                            value="settings"
+                            class="data-[state=active]:bg-card gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium data-[state=active]:shadow-sm"
+                        >
+                            <Settings class="size-4 shrink-0" aria-hidden="true" />
+                            Pengaturan Form
+                        </TabsTrigger>
                     </TabsList>
                     <FormAnswersViewToggle
                         v-if="activeTab === 'jawaban' && submissionRows.length > 0"
@@ -568,12 +578,28 @@ function rejectLabel(submission: IFormSubmission): string {
                     :sibling-forms="siblingForms ?? []"
                     :toolbar-subtitle="`Edit form · ${event.title}`"
                     :image-upload-url="builderImageUploadUrl"
+                    form-settings-placement="tab"
                     save-label="Save All"
                     hide-toolbar
                     :processing="settingsForm.processing"
                     :field-errors="fieldErrors"
                     @save="onSave"
+                    @open-settings="activeTab = 'settings'"
                 />
+            </TabsContent>
+
+            <TabsContent value="settings" class="mt-0">
+                <div class="mx-auto w-full max-w-2xl">
+                    <FormSettingsPanel
+                        v-model:closed-at="closedAt"
+                        v-model:visible-for="visibleFor"
+                        v-model:form-metadata="formMetadata"
+                        id-prefix="tab"
+                        :field-errors="fieldErrors"
+                        :visibility-options="FORM_VISIBILITY_OPTIONS"
+                        :sibling-forms="siblingForms ?? []"
+                    />
+                </div>
             </TabsContent>
 
             <TabsContent value="jawaban" class="mt-0">

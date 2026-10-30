@@ -107,4 +107,14 @@ test.describe('jawaban desktop', () => {
         await page.screenshot({ path: '/tmp/task-212-desktop-table.png', fullPage: true })
         expect(errors).toEqual([])
     })
+
+    test('pengaturan form menjadi tab tingkat atas', async ({ page }) => {
+        const fixture = createFixture(false)
+        await signIn(page)
+        await page.goto(fixture.url.replace('?tab=jawaban', '?tab=settings'))
+
+        await expect(page.getByRole('tab', { name: /pengaturan form/i })).toHaveAttribute('aria-selected', 'true')
+        await expect(page.getByLabel('Tujuan form')).toBeVisible()
+        await expect(page.getByLabel('Registration mode')).toBeVisible()
+    })
 })
