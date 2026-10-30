@@ -4,6 +4,7 @@ namespace App\Console\Commands\E2e;
 
 use App\Console\Commands\E2e\Concerns\ResolvesFixtureIdentity;
 use App\Support\E2e\FixtureIdentity;
+use App\Support\E2e\RunLedger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,9 @@ final class FixtureCommand extends Command
         $identity = $this->resolveIdentity();
         $payload = $this->readPayload();
         $forms = $this->normalizeForms($payload);
+
+        // Baseline ditulis sebelum baris pertama: batas window illegal-marker milik run ini.
+        (new RunLedger())->recordBaseline($identity);
 
         try {
             $ids = $this->create($identity, $payload, $forms);

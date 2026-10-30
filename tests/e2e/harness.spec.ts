@@ -14,6 +14,8 @@ import {
     createRunId,
     markerToSlug,
     ownerEmail,
+    runMarkerPrefix,
+    runSlugPrefix,
 } from './support/marker';
 import { runArtisanCommand } from './support/artisan';
 
@@ -299,6 +301,106 @@ test.describe('fixture lifecycle', () => {
             expect(countFixtureRows(identity.marker).counts.events).toBe(1);
         } finally {
             cleanupOwnerFixture(identity);
+        }
+    });
+});
+
+test.describe('ownership ledger', () => {
+    test('H-ownership-window: marker ilegal hanya dihitung bila dibuat di dalam window run', (): void => {
+        const runId = '20000101T000008-abcdef';
+        const identity = createOwnerIdentity(runId, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'ownership-window',
+            retry: 0,
+        });
+        const tinker = (code: string): string => runArtisanCommand(['tinker', '--execute', code]);
+        // Marker rusak (bukan `o<12 hex>`) dan tidak berada di bawah prefix run mana pun.
+        const illegalEmail = 'e2e+broken-marker@e2e.invalid';
+        const insertIllegal = (createdAt: string): void => {
+            tinker(
+                "\\Illuminate\\Support\\Facades\\DB::table('users')->insert(["
+                    + "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid(),"
+                    + "'name'=>'E2E illegal marker',"
+                    + `'email'=>'${illegalEmail}',`
+                    + "'email_verified_at'=>now(),"
+                    + "'password'=>'e2e-illegal',"
+                    + `'created_at'=>${createdAt},'updated_at'=>${createdAt}]);`,
+            );
+        };
+        const check = (): string => runArtisanCommand(['check:row-ownership', `--run-id=${runId}`, '--json']);
+
+        // Fixture hanya untuk menulis baseline run; barisnya dibersihkan agar `leftover` nol.
+        runFixtureCommand({ marker: identity.marker, slug: identity.slug, title: 'Ownership window', forms: [] });
+        cleanupOwnerFixture(identity);
+        insertIllegal('now()');
+
+        try {
+            expect(check).toThrow(/"illegalTotal":1/);
+
+            // Dibuat sebelum window: bukti bahwa yang diuji scoping, bukan "ada baris aneh".
+            tinker(
+                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${illegalEmail}')`
+                    + "->update(['created_at'=>now()->subDays(2)]);",
+            );
+
+            expect(check()).toContain('"ok":true');
+        } finally {
+            tinker(`\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${illegalEmail}')->delete();`);
+        }
+    });
+
+    test('H-ownership-cross-run: teardown run A mencatat form milik run B, bukan menghapusnya diam-diam', (): void => {
+        const runA = '20000101T000009-abcdef';
+        const runB = '20000101T000010-abcdef';
+        const ownerA = createOwnerIdentity(runA, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'cross-run-a',
+            retry: 0,
+        });
+        const ownerB = createOwnerIdentity(runB, {
+            project: 'chromium-desktop',
+            specSlug: 'harness.spec',
+            testSlug: 'cross-run-b',
+            retry: 0,
+        });
+        const tinker = (code: string): string => runArtisanCommand(['tinker', '--execute', code]);
+        const fixtureA = runFixtureCommand({ marker: ownerA.marker, slug: ownerA.slug, title: 'Cross A', forms: [] });
+        const fixtureB = runFixtureCommand({
+            marker: ownerB.marker,
+            slug: ownerB.slug,
+            title: 'Cross B',
+            forms: [
+                { title: 'Form B', fields: [{ label: 'Field', name: 'field_1', input_type: 'input', required: true }], submissions: 0 },
+                ],
+        });
+        const foreignForm = fixtureB.forms[0];
+
+        if (foreignForm === undefined) {
+            throw new Error('e2e:fixture returned no form for run B.');
+        }
+
+        // Form milik run B dipindah ke event run A: satu-satunya jalan masuknya adalah klausa induk.
+        tinker(
+            "\\Illuminate\\Support\\Facades\\DB::table('forms')"
+                + `->where('id','${foreignForm.formId}')->update(['event_id'=>'${fixtureA.eventId}']);`,
+        );
+
+        try {
+            runArtisanCommand([
+                'e2e:cleanup',
+                `--marker-prefix=${runMarkerPrefix(runA)}`,
+                `--slug-prefix=${runSlugPrefix(runA)}`,
+                '--json',
+            ]);
+
+            // Form + field run B ikut terhapus (perilaku lama tetap), tetapi audit wajib melaporkannya.
+            expect((): string => runArtisanCommand(['check:row-ownership', `--run-id=${runA}`, '--json'])).toThrow(
+                /"crossRun":\{"violations":2,"tables":\{"form_fields":1,"forms":1\}\}/,
+            );
+        } finally {
+            cleanupOwnerFixture(ownerB);
         }
     });
 });
