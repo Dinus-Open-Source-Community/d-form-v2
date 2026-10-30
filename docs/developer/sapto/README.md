@@ -1,6 +1,7 @@
 # Dokumentasi developer — Sapto
 
 - [saptoChanges29-10-2026-DFORM-SEC-UPLOAD.md](./saptoChanges29-10-2026-DFORM-SEC-UPLOAD.md) | Sentralisasi validasi upload 5 MB, pemeriksaan isi, dan re-encode gambar.
+- [saptoChanges30-10-2026-DFORM-AUTH-GUARD.md](./saptoChanges30-10-2026-DFORM-AUTH-GUARD.md) | Guard root `/auth` agar user aktif langsung diarahkan ke `/` tanpa masuk history halaman auth.
 
 Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pada branch/sesi pengembangan dashboard & UI terkait.
 
