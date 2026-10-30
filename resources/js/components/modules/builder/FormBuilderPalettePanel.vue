@@ -112,7 +112,7 @@ function isCategoryExpanded(name: string): boolean {
 
 <template>
     <aside
-        class="border-border bg-card hidden w-[260px] shrink-0 flex-col border-r lg:flex lg:max-h-full lg:self-start"
+        class="border-border bg-background hidden w-[260px] shrink-0 flex-col border-r lg:flex lg:max-h-full lg:self-start"
         aria-label="Component palette"
     >
         <div class="border-border shrink-0 border-b px-4 pt-5 pb-4">

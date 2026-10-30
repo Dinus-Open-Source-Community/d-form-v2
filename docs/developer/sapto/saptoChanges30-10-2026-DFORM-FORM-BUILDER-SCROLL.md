@@ -14,6 +14,8 @@ Shell editor form tidak lagi ikut memanjang dan terscroll bersama halaman. Paren
 - Tab `Editor`, `Pengaturan Form`, dan `Jawaban` tetap dapat menggulir konten masing-masing tanpa mengaktifkan scroll parent.
 - Parent kanvas memakai `overflow-y-auto`, sehingga daftar field bergerak bersama kartu form tanpa nested scroll pada section field.
 - Panel komponen kiri tetap menjadi pane tersendiri; tab tingkat atas berada di luar area scroll editor.
+- Padding bawah wrapper halaman form dipadatkan agar tidak menyisakan gap kosong besar setelah kanvas.
+- Pane komponen kiri dan kanvas memakai token `bg-background` yang sama agar tidak ada garis perbedaan warna.
 - Teks helper `Lebar pratinjau mengikuti...` dihapus sesuai kebutuhan UI.
 - Regression E2E ditambahkan untuk memverifikasi shell tidak memiliki overflow vertikal dan area field tetap menjadi scroll container.
 

@@ -138,7 +138,7 @@ const showDropChrome = computed(
 <template>
     <div
         :class="[
-            'flex min-h-full justify-center px-4 py-5 sm:px-6 sm:py-6 lg:pt-5 lg:pb-12',
+            'flex min-h-full justify-center px-4 pt-5 pb-2 sm:px-6 sm:pt-6 sm:pb-2 lg:pt-5 lg:pb-4',
             hideOnMobileSettings && 'hidden lg:flex',
         ]"
     >

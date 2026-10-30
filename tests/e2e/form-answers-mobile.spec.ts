@@ -131,6 +131,18 @@ test.describe('editor layout', () => {
         await expect(page.getByText(/Lebar pratinjau mengikuti/i)).toHaveCount(0)
         await expect(page.getByTestId('form-builder-canvas-scroll')).toHaveCSS('overflow-y', 'auto')
         await expect(page.getByTestId('form-builder-fields-scroll')).toHaveCSS('overflow-y', 'visible')
+        await expect(page.getByTestId('dashboard-content')).toHaveCSS('padding-bottom', '8px')
+
+        const paneBackgrounds = await page.evaluate(() => {
+            const canvas = document.querySelector('[data-testid="form-builder-canvas-scroll"]')
+            const palette = document.querySelector('[aria-label="Component palette"]')
+            return {
+                canvas: canvas ? getComputedStyle(canvas).backgroundColor : '',
+                palette: palette ? getComputedStyle(palette).backgroundColor : '',
+            }
+        })
+
+        expect(paneBackgrounds.palette).toBe(paneBackgrounds.canvas)
 
         const shellMetrics = await page.getByTestId('dashboard-content').evaluate((element) => ({
             clientHeight: element.clientHeight,

@@ -43,8 +43,10 @@ const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(p
             <div
                 data-testid="dashboard-content"
                 :class="[
-                    'min-h-0 flex-1 px-4 pb-10 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8',
-                    isFullWidthPage ? 'overflow-hidden' : 'overflow-y-auto',
+                    'min-h-0 flex-1 px-4 md:px-6 lg:px-8',
+                    isFullWidthPage
+                        ? 'overflow-hidden pt-6 pb-2 md:pt-8 md:pb-2'
+                        : 'overflow-y-auto pt-6 pb-10 md:pt-8 md:pb-12',
                 ]"
             >
                 <div :class="['w-full max-w-full', isFullWidthPage && 'h-full min-h-0']">
