@@ -157,7 +157,13 @@ test.describe('editor layout', () => {
         await signIn(page)
         await page.goto(fixture.url.replace('?tab=jawaban', '?tab=editor'))
 
-        await page.getByRole('button', { name: /tambah bagian/i }).click()
+        const canvas = page.getByTestId('form-builder-canvas-scroll')
+        await canvas.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: 'auto' }))
+
+        const addSectionButton = page.getByRole('button', { name: /tambah bagian setelah ini/i })
+        await expect(addSectionButton).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Tambah bagian', exact: true })).toHaveCount(0)
+        await addSectionButton.click()
 
         await expect(page.getByLabel('Bagian 2 dari 2')).toBeVisible()
         await expect(page.getByText(/bagian ini belum memiliki field/i)).toBeVisible()

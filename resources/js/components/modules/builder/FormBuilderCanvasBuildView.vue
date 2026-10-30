@@ -13,6 +13,7 @@ import {
     ChevronRight,
     ChevronUp,
     ChevronDown,
+    Plus,
     PlusCircle,
 } from 'lucide-vue-next';
 import type { BuilderField, IFormBuilderSection } from '@/types/form-builder';
@@ -191,17 +192,6 @@ const showDropChrome = computed(
                             <p class="text-muted-foreground text-xs font-semibold">
                                 {{ sections[currentSectionIndex]?.title }}
                             </p>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                class="h-9 gap-1.5 px-3"
-                                aria-label="Tambah bagian"
-                                @click="$emit('addSection')"
-                            >
-                                <PlusCircle class="size-4" />
-                                <span>Tambah bagian</span>
-                            </Button>
                         </div>
                         <div
                             v-if="isEmpty && !isDraggingOverCanvas"
@@ -445,6 +435,22 @@ const showDropChrome = computed(
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            <div
+                                data-testid="form-builder-add-section-boundary"
+                                class="border-border/80 mt-6 flex flex-col items-center gap-2 border-t border-dashed pt-5"
+                            >
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="h-10 w-full gap-2 border-dashed bg-background px-4 text-sm font-semibold sm:w-auto"
+                                    aria-label="Tambah bagian setelah ini"
+                                    @click="$emit('addSection')"
+                                >
+                                    <Plus class="size-4" />
+                                    <span>Tambah bagian setelah ini</span>
+                                </Button>
                             </div>
 
                             <nav

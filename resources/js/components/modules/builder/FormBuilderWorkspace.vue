@@ -58,6 +58,7 @@ const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const banner = defineModel<FormBannerState>('banner', { required: true });
 const formFields = defineModel<BuilderField[]>('formFields', { required: true });
 const formMetadata = defineModel<FormRegistrationMetadata>('formMetadata', { required: true });
+const canvasScrollContainer = ref<HTMLElement | null>(null);
 
 const wb = reactive(
     useFormBuilderWorkspace(
@@ -69,6 +70,7 @@ const wb = reactive(
             banner,
             formFields,
             formMetadata,
+            canvasScrollContainer,
             successContent,
         },
         { onSave: () => emit('save') }
@@ -160,6 +162,7 @@ defineExpose({
             />
 
             <main
+                ref="canvasScrollContainer"
                 data-testid="form-builder-canvas-scroll"
                 class="bg-background relative min-h-0 min-w-0 flex-1 overflow-y-auto"
             >

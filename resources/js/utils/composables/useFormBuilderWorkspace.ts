@@ -1,4 +1,4 @@
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, nextTick, watch, type Ref } from 'vue'
 import { showErrorToast } from '@/lib/error-message'
 import { DEFAULT_FORM_SECTION_ID, defaultFormBuilderSections } from '@/lib/formRegistrationMetadata'
 import { normalizeBannerSrc, type FormBannerState } from '@/components/modules/builder/formBanner'
@@ -27,6 +27,7 @@ export interface FormBuilderWorkspaceModels {
     banner: Ref<FormBannerState>
     formFields: Ref<BuilderField[]>
     formMetadata: Ref<FormRegistrationMetadata>
+    canvasScrollContainer: Ref<HTMLElement | null>
     successContent?: Ref<string>
 }
 
@@ -100,6 +101,7 @@ export function useFormBuilderWorkspace(
         currentSectionId.value = section.id
         selectedFieldId.value = null
         inspectorMode.value = 'settings'
+        resetCanvasScroll()
     }
 
     function goToSection(index: number): void {
@@ -108,6 +110,14 @@ export function useFormBuilderWorkspace(
         currentSectionId.value = target.id
         selectedFieldId.value = null
         inspectorMode.value = 'settings'
+        resetCanvasScroll()
+    }
+
+    /** Returns the canvas to the beginning after changing the active form section. */
+    function resetCanvasScroll(): void {
+        void nextTick(() => {
+            models.canvasScrollContainer.value?.scrollTo({ top: 0, behavior: 'auto' })
+        })
     }
 
     function assignFieldToSection(field: BuilderField, sectionId: string): BuilderField {

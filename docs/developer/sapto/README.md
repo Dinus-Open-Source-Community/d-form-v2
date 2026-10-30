@@ -5,6 +5,7 @@
 - [saptoChanges30-10-2026-DFORM-FORM-SETTINGS-TAB.md](./saptoChanges30-10-2026-DFORM-FORM-SETTINGS-TAB.md) | Memindahkan aturan global form edit ke tab tingkat atas `Pengaturan Form` tanpa menduplikasi panel.
 - [saptoChanges30-10-2026-DFORM-FORM-BUILDER-SCROLL.md](./saptoChanges30-10-2026-DFORM-FORM-BUILDER-SCROLL.md) | Mengunci shell editor form dan memusatkan scroll pada area field form.
 - [saptoChanges30-10-2026-DFORM-FORM-SECTIONS.md](./saptoChanges30-10-2026-DFORM-FORM-SECTIONS.md) | Menambah section form bebas jumlah field, navigasi antarsection, dan validasi field wajib per section.
+- [saptoChanges30-10-2026-DFORM-FORM-SECTION-ACTION.md](./saptoChanges30-10-2026-DFORM-FORM-SECTION-ACTION.md) | Memindahkan aksi tambah section ke boundary konten agar tetap mudah dijangkau tanpa sticky UI.
 
 Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pada branch/sesi pengembangan dashboard & UI terkait.
 
