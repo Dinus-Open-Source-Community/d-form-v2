@@ -72,3 +72,4 @@ CONTEXT.md
 /tests/e2e/.auth/
 .sokudo/
 audit
+docs/big-changes

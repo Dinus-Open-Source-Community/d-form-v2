@@ -69,7 +69,7 @@ class RecruitmentPublicApplyTest extends TestCase
             'secondary_division_id' => $this->dataDivision->id,
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://portfolio.example.com/budi',
-            'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv"),
+            'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
             'instagram_follow_proof' => UploadedFile::fake()->image('follow.jpg', 640, 480),
             'twibbon_url' => 'https://instagram.com/p/twibbon-example',
         ], $overrides);
@@ -169,7 +169,7 @@ class RecruitmentPublicApplyTest extends TestCase
         $this->post(route('recruitment.apply.store'), $this->validPayload([
             'portfolio_type' => 'file',
             'portfolio_url' => null,
-            'portfolio_file' => UploadedFile::fake()->createWithContent('portfolio.pdf', "%PDF-1.7\nvalid portfolio"),
+            'portfolio_file' => UploadedFile::fake()->createWithContent('portfolio.pdf', "%PDF-1.7\nvalid portfolio\n%%EOF"),
         ]))->assertRedirect();
 
         $document = RecruitmentApplication::query()->firstOrFail()->document()->firstOrFail();

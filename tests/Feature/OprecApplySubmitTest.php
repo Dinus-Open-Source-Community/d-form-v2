@@ -82,7 +82,7 @@ class OprecApplySubmitTest extends TestCase
             'secondary_division_id' => '',
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://example.com/portfolio',
-            'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv"),
+            'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
             'instagram_follow_proof' => UploadedFile::fake()->image('follow.png', 640, 480),
             'twibbon_url' => 'https://instagram.com/p/twibbon-calon',
         ];
@@ -188,7 +188,7 @@ class OprecApplySubmitTest extends TestCase
             app(ApplicationSubmitter::class)->submit(
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.99999'),
-                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv"),
+                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
                 null,
                 UploadedFile::fake()->image('follow.jpg'),
             );
@@ -230,7 +230,7 @@ class OprecApplySubmitTest extends TestCase
             app(ApplicationSubmitter::class)->submit(
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.77777'),
-                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv"),
+                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
                 null,
                 UploadedFile::fake()->image('follow.jpg'),
             );
