@@ -3,8 +3,10 @@ import './bootstrap';
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { useGlobalHttpStatusToast } from '@/hooks/useGlobalHttpStatusToast';
+import { useAuthHistoryGuard } from '@/hooks/useAuthHistoryGuard';
 
 useGlobalHttpStatusToast();
+useAuthHistoryGuard();
 
 const pages = import.meta.glob('./pages/**/*.vue');
 

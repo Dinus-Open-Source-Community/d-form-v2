@@ -10,6 +10,7 @@ const form = useForm({ email: '', password: '' }).dontRemember('password')
 
 function submit(): void {
     form.submit(login(), {
+        replace: true,
         onError: (errors) => {
             handleInertiaFormErrors(errors, { title: 'Gagal masuk' })
         },

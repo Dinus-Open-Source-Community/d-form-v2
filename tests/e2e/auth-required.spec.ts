@@ -17,3 +17,15 @@ test('H-auth-required: user aktif tidak dapat membuka root auth', async ({ page 
 
     expect(new URL(page.url()).pathname).toBe('/');
 });
+
+/** Snapshot auth yang tersisip di history harus divalidasi ulang saat tombol Back dipakai. */
+test('H-auth-required: back tidak memulihkan snapshot auth untuk sesi aktif', async ({ page }): Promise<void> => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.evaluate((): void => {
+        window.history.pushState({ page: 'auth' }, '', '/auth/login');
+        window.history.pushState({ page: 'dashboard' }, '', '/dashboard');
+    });
+
+    await page.goBack({ waitUntil: 'domcontentloaded' });
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/');
+});
