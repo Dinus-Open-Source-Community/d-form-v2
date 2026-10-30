@@ -45,25 +45,36 @@ Agar kode di laptopmu tidak tertinggal dengan fitur terbaru yang sudah di-merge 
 
 Setiap pesan commit wajib mengikuti format [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `✨ feat:` Untuk penambahan fitur baru.
-- `🔧 fix:` Untuk perbaikan bug.
-- `🏗️ refactor:` Untuk memperbaiki struktur kode
-- `📝 docs:` Untuk perubahan dokumentasi.
-- `⬆️ chore:` Untuk tugas rutin/maintenance (update library, dll).
+- `feat:` untuk penambahan fitur baru.
+- `fix:` untuk perbaikan bug.
+- `refactor:` untuk perubahan struktur tanpa perubahan behavior.
+- `docs:` untuk perubahan dokumentasi.
+- `chore:` untuk maintenance.
+- `test:` untuk penambahan atau perubahan test.
+- `perf:` untuk optimasi performance.
+- `security:` untuk perubahan security.
 
-Contoh: `✨ feat: add oklch color support to tailwind config`
+Commit wajib English-only, jelas, singkat, dan tanpa emoji.
+
+Contoh: `feat: add oklch color support to Tailwind config`
 
 ## 3. Pull Requests (PR)
 
 1. PR wajib memiliki deskripsi yang jelas tentang apa yang diubah.
 2. Setiap PR wajib di-review oleh minimal satu pengembang lain sebelum di-merge.
 3. Pastikan tidak ada konflik (_resolve conflicts_) sebelum meminta review.
+4. PR wajib mencantumkan acceptance criteria, test yang dijalankan, risiko, migration impact, dan rollback/mitigasi bila relevan.
+5. CI yang relevan harus selesai dan hijau sebelum merge. Kegagalan yang disetujui sebagai waiver wajib mencantumkan alasan, owner, dan follow-up.
 
 ## 4. Environment & Security
 
 1. **Dilarang keras** melakukan commit pada file `.env`. Pastikan `.env` terdaftar di `.gitignore`.
 2. Gunakan `.env.example` sebagai referensi variabel apa saja yang dibutuhkan.
 3. Jangan pernah membagikan kredensial (Password/Token) di dalam _source code_.
+4. Jangan mencatat password, token, file sensitif, atau PII berlebihan ke log.
+5. Dependency baru membutuhkan alasan, owner, evaluasi license/vulnerability, dan evaluasi dampak performance.
+6. Lockfile harus berubah konsisten dengan manifest dependency.
+7. Source code tidak boleh dikirim ke layanan eksternal tanpa persetujuan dan pemeriksaan secret.
 
 ## 5. Daily Sync & Communication
 

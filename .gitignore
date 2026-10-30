@@ -73,3 +73,4 @@ CONTEXT.md
 .sokudo/
 audit
 docs/big-changes
+docs/adr/
