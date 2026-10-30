@@ -2,8 +2,8 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 
 /**
  * Konversi gambar legacy form yang masih berupa data: URL (base64 inline)
@@ -75,8 +75,20 @@ final class LegacyFormImage
             return null;
         }
 
-        // Pastikan bytes benar-benar gambar, bukan payload acak berlabel image/*.
-        if (@getimagesizefromstring($bytes) === false) {
+        $image = @getimagesizefromstring($bytes);
+        if ($image === false) {
+            return null;
+        }
+
+        $decoded = @imagecreatefromstring($bytes);
+        if ($decoded === false) {
+            return null;
+        }
+
+        $maxPixels = (int) config('events.forms.upload_max_pixels', 25_000_000);
+        $withinPixelLimit = imagesx($decoded) * imagesy($decoded) <= $maxPixels;
+        imagedestroy($decoded);
+        if ($withinPixelLimit === false) {
             return null;
         }
 
@@ -94,15 +106,16 @@ final class LegacyFormImage
             return null;
         }
 
-        $path = trim($directory, '/').'/legacy-'.(string) Str::uuid().'.'.$decoded['extension'];
-
         try {
-            $ok = Storage::disk($disk)->put($path, $decoded['bytes']);
+            $path = app(SafeUploadStorage::class)->storeImageBytes(
+                $decoded['bytes'],
+                new UploadStorageTarget(trim($directory, '/'), $disk),
+            );
         } catch (\Throwable) {
             return null;
         }
 
-        return $ok ? $path : null;
+        return $path;
     }
 
     /**

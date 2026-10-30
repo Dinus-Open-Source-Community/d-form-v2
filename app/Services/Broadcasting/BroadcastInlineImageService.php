@@ -7,8 +7,6 @@ use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * Inline image broadcast tersimpan di storage Laravel (disk `public`),
@@ -147,10 +145,14 @@ class BroadcastInlineImageService
             return null;
         }
 
-        $extension = self::MIME_TO_EXTENSION[$subtype];
-        $path = 'broadcasts/'.$broadcast->id.'/inline/'.(string) Str::uuid().'.'.$extension;
-
-        Storage::disk('public')->put($path, $binary);
+        try {
+            $path = app(SafeUploadStorage::class)->storeImageBytes(
+                $binary,
+                UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'),
+            );
+        } catch (\Throwable) {
+            return null;
+        }
 
         return [
             'path' => $path,

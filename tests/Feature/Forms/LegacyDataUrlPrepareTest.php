@@ -83,4 +83,52 @@ class LegacyDataUrlPrepareTest extends TestCase
         $this->assertStringNotContainsString('data:', $stored);
         Storage::disk('public')->assertExists($stored);
     }
+
+    public function test_legacy_data_url_is_reencoded_before_storage(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $binary = (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            true,
+        );
+        $dataUrl = 'data:image/png;base64,'.base64_encode($binary.'APPENDED-PAYLOAD');
+
+        $this->actingAs($admin)
+            ->post(route('dashboard.events.forms.fields', [
+                'event' => $event->id,
+                'form' => $form->id,
+            ]), [
+                'fields' => [[
+                    'id' => (string) Str::uuid(),
+                    'label' => 'Form banner',
+                    'description' => null,
+                    'name' => 'form_banner',
+                    'type' => 'fileUpload',
+                    'order' => 1,
+                    'metadata' => [
+                        'builderType' => 'banner',
+                        'bannerUrl' => $dataUrl,
+                        'formBanner' => true,
+                    ],
+                ]],
+            ])
+            ->assertRedirect()
+            ->assertValid();
+
+        $row = FormField::query()->where('form_id', $form->id)->where('name', 'form_banner')->firstOrFail();
+        $rawMetadata = $row->metadata;
+        $metadata = $rawMetadata instanceof \Illuminate\Support\Collection
+            ? $rawMetadata->all()
+            : (array) $rawMetadata;
+        $stored = (string) ($metadata['bannerUrl'] ?? '');
+
+        self::assertStringStartsWith('form-images/'.$form->id.'/', $stored);
+        self::assertStringNotContainsString('data:', $stored);
+        Storage::disk('public')->assertExists($stored);
+        self::assertStringNotContainsString('APPENDED-PAYLOAD', Storage::disk('public')->get($stored));
+    }
 }
