@@ -158,7 +158,10 @@ defineExpose({
                 @toggle-visibility="wb.toggleVisibility"
             />
 
-            <main class="bg-background relative min-h-0 min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
+            <main
+                data-testid="form-builder-canvas-scroll"
+                class="bg-background relative min-h-0 min-w-0 flex-1 overflow-y-auto"
+            >
                 <FormBuilderCanvasBuildView
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"

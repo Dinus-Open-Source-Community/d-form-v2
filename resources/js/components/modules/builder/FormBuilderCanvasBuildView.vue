@@ -301,7 +301,7 @@ const showDropChrome = computed(
                         >
                             <div
                                 data-testid="form-builder-fields-scroll"
-                                class="max-h-[min(36rem,60dvh)] min-h-0 overflow-x-visible overflow-y-auto pr-0.5"
+                                class="pr-0.5"
                             >
                                 <TransitionGroup name="fb-field" tag="div" class="flex flex-col gap-3 lg:gap-4">
                                     <div
