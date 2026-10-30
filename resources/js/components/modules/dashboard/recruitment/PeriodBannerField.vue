@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, useId, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import { ImagePlus, X } from 'lucide-vue-next'
 
 const props = withDefaults(
@@ -57,18 +58,18 @@ function openBannerPicker(): void {
     if (!props.disabled) bannerInput.value?.click()
 }
 
-function handleBannerChange(event: Event): void {
+async function handleBannerChange(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
-    if (file) emit('update:modelValue', file)
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file)
     input.value = ''
 }
 
-function handleBannerDrop(event: DragEvent): void {
+async function handleBannerDrop(event: DragEvent): Promise<void> {
     isDragging.value = false
     if (props.disabled) return
     const file = event.dataTransfer?.files?.[0]
-    if (file && file.type.startsWith('image/')) emit('update:modelValue', file)
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file)
 }
 
 function removeBanner(): void {
@@ -155,11 +156,11 @@ function removeBanner(): void {
                 <p class="text-sm font-medium">Persyaratan berkas</p>
                 <ul class="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
                     <li>Format JPG, JPEG, PNG, atau WEBP.</li>
-                    <li>Ukuran maksimal 10 MB.</li>
+                    <li>Ukuran maksimal 5 MB.</li>
                     <li>Rasio 16:9 disarankan agar tampil penuh (tidak wajib).</li>
                 </ul>
                 <p class="text-muted-foreground text-xs">
-                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 10 MB
+                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 5 MB
                     bila unggahan gagal.
                 </p>
             </div>

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Recruitment;
 
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -41,9 +42,9 @@ class StoreApplicationRequest extends FormRequest
             ],
             'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'starts_with:http://,https://', 'max:500'],
-            'portfolio_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
-            'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'],
-            'instagram_follow_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'portfolio_file' => SafeUploadFile::rules(false, ['pdf']),
+            'cv' => SafeUploadFile::rules(true, ['pdf']),
+            'instagram_follow_proof' => SafeUploadFile::rules(true, ['jpg', 'jpeg', 'png', 'webp']),
             'twibbon_url' => ['required', 'url', 'starts_with:http://,https://', 'max:500'],
         ];
     }

@@ -32,6 +32,8 @@ return [
     ],
 
     'forms' => [
+        'upload_max_size_kb' => max(1, min(5120, (int) env('FORMS_UPLOAD_MAX_SIZE_KB', 5120))),
+        'upload_allowed_mimes' => env('FORMS_UPLOAD_ALLOWED_MIMES', 'pdf,jpg,jpeg,png,webp,gif'),
         /*
          * Submit form per user per form per menit. Submit normal 1×; sisa kuota
          * menampung retry validasi (field wajib terlewat, unggahan terlalu besar).

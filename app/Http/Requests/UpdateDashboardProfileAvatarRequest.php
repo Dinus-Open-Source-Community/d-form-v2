@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -18,7 +19,7 @@ class UpdateDashboardProfileAvatarRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'avatar' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
+            'avatar' => SafeUploadFile::rules(true, ['jpeg', 'jpg', 'png', 'gif', 'webp']),
         ];
     }
 
@@ -31,7 +32,7 @@ class UpdateDashboardProfileAvatarRequest extends FormRequest
             'avatar.required' => 'Pilih berkas gambar terlebih dahulu.',
             'avatar.image' => 'Unggahan harus berupa gambar.',
             'avatar.mimes' => 'Gunakan JPEG, PNG, GIF, atau WebP.',
-            'avatar.max' => 'Ukuran gambar maksimal 2 MB.',
+            'avatar.max' => 'Ukuran gambar maksimal 5 MB.',
         ];
     }
 }

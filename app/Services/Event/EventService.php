@@ -7,6 +7,8 @@ use App\Enums\EventStatus;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use Carbon\Carbon;
 use Illuminate\Cache\TaggableStore;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -67,6 +69,7 @@ class EventService
      * OFFSET (121 ms di halaman dalam).
      *
      * @param  array{category: string|null, session: string|null}  $filters
+     * @return CursorPaginator<int, Event>
      */
     public function paginateForPublicBrowse(array $filters): CursorPaginator
     {
@@ -82,10 +85,14 @@ class EventService
             $query->forSessionTokens([$filters['session']]);
         }
 
-        return $query->orderByDesc('start_date')
+        // cursorPaginate() dideklarasikan sebagai kontrak, instans runtime-nya CursorPaginator konkret.
+        /** @var CursorPaginator<int, Event> $paginator */
+        $paginator = $query->orderByDesc('start_date')
             ->orderByDesc('id')
             ->cursorPaginate(self::PUBLIC_BROWSE_PER_PAGE)
             ->withQueryString();
+
+        return $paginator;
     }
 
     /**
@@ -179,7 +186,7 @@ class EventService
             'buster' => Cache::get(EventCache::BUSTER_LIST, 0),
             'userId' => $userId,
             'isSuperAdmin' => $isSuperAdmin,
-        ]));
+        ], JSON_THROW_ON_ERROR));
 
         return $this->rememberList(
             "list-page:events:{$hashedQuery}",
@@ -247,7 +254,7 @@ class EventService
     {
         unset($data['banner']);
 
-        $path = $banner->store('events/banners', 'public');
+        $path = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'));
 
         $status = ! empty($data['publish']) ? EventStatus::Published : EventStatus::Draft;
         unset($data['publish']);
@@ -276,7 +283,7 @@ class EventService
             if ($event->banner) {
                 Storage::disk('public')->delete($event->banner);
             }
-            $data['banner'] = $banner->store('events/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'));
         }
 
         if (array_key_exists('quota', $data) && ! array_key_exists('registered_count', $data)) {
@@ -285,7 +292,7 @@ class EventService
 
         $event->update($data);
 
-        return $event->fresh();
+        return $event->refresh();
     }
 
     public function delete(Event $event): void

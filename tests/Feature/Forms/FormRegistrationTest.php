@@ -571,7 +571,7 @@ class FormRegistrationTest extends TestCase
             'metadata'   => ['rules' => ['required' => true, 'mimes' => 'pdf', 'max_size' => 2048]],
         ]);
 
-        $file = UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\n".str_repeat('x', 100));
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['cv' => $file])

@@ -23,9 +23,3 @@ Route::resource('/events', EventsController::class)
     ->where(['event' => '^(?!joined(/|$)).+']);
 
 Route::get('/docs', DocsPageController::class)->name('docs');
-
-Route::get('/flush', function () {
-    if (env('APP_ENV') === 'local') {
-        \Illuminate\Support\Facades\Cache::flush();
-    }
-})->middleware(['auth']);

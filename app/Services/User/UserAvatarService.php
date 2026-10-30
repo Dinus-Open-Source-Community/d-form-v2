@@ -4,6 +4,8 @@ namespace App\Services\User;
 
 use App\Models\User;
 use App\Support\PublicStorage;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +19,7 @@ final class UserAvatarService
     {
         $previous = $user->avatar;
 
-        $path = $file->store('avatars/'.$user->getKey(), 'public');
+        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public('avatars/'.$user->getKey()));
 
         if (self::isStoredRelativePath($previous)) {
             Storage::disk('public')->delete($previous);
@@ -57,6 +59,11 @@ final class UserAvatarService
         return PublicStorage::url($stored, $request);
     }
 
+    /**
+     * True bila nilai di DB adalah path relatif disk `public`, bukan URL absolut.
+     *
+     * @phpstan-assert-if-true string $value
+     */
     private static function isStoredRelativePath(?string $value): bool
     {
         if ($value === null || $value === '') {

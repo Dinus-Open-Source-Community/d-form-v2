@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { BROADCAST_BASE_PATH } from '@/lib/broadcastHub'
 import { showErrorToast, showHttpErrorToast } from '@/lib/error-message'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import { Paperclip, Trash2, Upload } from 'lucide-vue-next'
 
 const props = defineProps<{ broadcastId: string; initialAttachments: IBroadcastAttachmentItem[] }>()
@@ -21,8 +22,6 @@ export interface IBroadcastAttachmentItem {
 }
 
 const MAX_FILES = 3
-const MAX_BYTES = 5 * 1024 * 1024
-const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png']
 
 const attachments = ref<IBroadcastAttachmentItem[]>([...props.initialAttachments])
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -48,22 +47,16 @@ function formatSize(bytes: number): string {
 }
 
 /** Validasi sisi klien cermin backend (mimes pdf/jpg/png, ≤5MB, maks 3). */
-function validateClientFile(file: File): string | null {
-    const extension = file.name.split('.').pop?.()?.toLowerCase() ?? ''
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
-        return 'Format berkas harus pdf, jpg, atau png.'
-    }
-    if (file.size > MAX_BYTES) return 'Ukuran berkas maksimal 5MB.'
-    if (attachments.value.length >= MAX_FILES) return 'Maksimal 3 file per broadcast.'
-    return null
-}
-
 function openPicker(): void {
     fileInput.value?.click()
 }
 
 async function uploadFile(file: File): Promise<void> {
-    const blocked = validateClientFile(file)
+    const blocked = await validateUploadFile(file, ['pdf', 'jpg', 'jpeg', 'png'])
+    if (!blocked && attachments.value.length >= MAX_FILES) {
+        showErrorToast('Maksimal 3 file per broadcast.', { title: 'Lampiran tidak valid' })
+        return
+    }
     if (blocked) {
         showErrorToast(blocked, { title: 'Lampiran tidak valid' })
         return

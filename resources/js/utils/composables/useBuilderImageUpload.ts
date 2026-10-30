@@ -1,5 +1,6 @@
 import { computed, ref, type Ref } from 'vue';
 import axios from 'axios';
+import { validateUploadFile } from '@/lib/uploadValidation';
 
 /**
  * Upload gambar builder (banner, blok image, opsi image) ke storage backend.
@@ -156,6 +157,12 @@ export function useBuilderImageUpload(opts: UseBuilderImageUploadOptions = {}) {
     const error = ref('');
 
     async function uploadImage(file: File): Promise<BuilderImageUploadResult | null> {
+        const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']);
+        if (validationError !== null) {
+            error.value = validationError;
+            (opts.onError ?? (() => {}))(validationError);
+            return null;
+        }
         const url = resolveUploadUrl(opts.uploadUrl);
         if (url === '') {
             return null;

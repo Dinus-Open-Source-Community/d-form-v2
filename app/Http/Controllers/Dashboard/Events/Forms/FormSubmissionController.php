@@ -12,6 +12,8 @@ use App\Models\FormField;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
 use App\Services\Form\RulesBuilder;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\BundleSubmissionRules;
@@ -483,7 +485,7 @@ class FormSubmissionController extends Controller
             $file = $request->file($inputName);
 
             return $file !== null
-                ? $file->store("form-uploads/{$form->id}", 'public')
+                ? app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("form-uploads/{$form->id}"))
                 : null;
         }
 

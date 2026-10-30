@@ -29,6 +29,7 @@ import {
 } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { getFieldError } from '@/lib/error-message';
 import { cn } from '@/lib/utils';
+import { validateUploadFile } from '@/lib/uploadValidation';
 import {
     formatIntegerId,
     formatPriceId,
@@ -155,7 +156,7 @@ const bannerEmptyTitle = computed(() =>
 );
 
 const bannerEmptyHint = computed(() =>
-    props.variant === 'create' ? 'PNG, JPG, WebP - maks. 10MB' : 'PNG, JPG, WebP - maks. 10MB'
+    props.variant === 'create' ? 'PNG, JPG, WebP - maks. 5MB' : 'PNG, JPG, WebP - maks. 5MB'
 );
 
 const classificationDescription = computed(() =>
@@ -315,20 +316,26 @@ function commitQuotaPriceFromFields(): void {
     form.price = parsePriceInput(priceDisplay.value);
 }
 
-function handleBannerChange(e: Event): void {
+async function handleBannerChange(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
-    if (input.files?.[0]) {
-        form.banner = input.files[0];
-        bannerPreview.value = URL.createObjectURL(input.files[0]);
+    const file = input.files?.[0];
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']))) {
+        form.banner = file;
+        bannerPreview.value = URL.createObjectURL(file);
+    } else if (file) {
+        toast.error('Gambar tidak valid atau melebihi 5 MB.');
+        input.value = '';
     }
 }
 
-function handleDrop(e: DragEvent): void {
+async function handleDrop(e: DragEvent): Promise<void> {
     isDragging.value = false;
     const file = e.dataTransfer?.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']))) {
         form.banner = file;
         bannerPreview.value = URL.createObjectURL(file);
+    } else if (file) {
+        toast.error('Gambar tidak valid atau melebihi 5 MB.');
     }
 }
 
@@ -556,7 +563,7 @@ defineExpose({ submitForm, validateRequired, form })
                                     <span v-if="isRequired('banner')" class="text-destructive">*</span>
                                 </Label>
                                 <p class="text-muted-foreground mt-1 text-xs">
-                                    Rasio 16:7 — PNG, JPG, atau WebP maks. 10MB.
+                                    Rasio 16:7 — PNG, JPG, atau WebP maks. 5MB.
                                 </p>
                             </div>
                             <div v-if="bannerPreview" class="flex items-center gap-2">

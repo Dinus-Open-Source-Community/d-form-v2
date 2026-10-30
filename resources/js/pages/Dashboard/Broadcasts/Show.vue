@@ -12,6 +12,7 @@ import { LazyBroadcastContentEditor } from '@/lib/lazyRichTextEditors'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import { setTopbar } from '@/utils/composables/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
@@ -112,9 +113,11 @@ function generateSnapshot(): void {
     })
 }
 
-function onCsv(e: Event): void {
+async function onCsv(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement
-    snapshotForm.csv_file = input.files?.[0] ?? null
+    const file = input.files?.[0] ?? null
+    if (file && !(await validateUploadFile(file, ['csv', 'txt']))) snapshotForm.csv_file = file
+    else if (file) input.value = ''
 }
 
 // --- Recipients manual ---
@@ -164,12 +167,19 @@ function saveContent(): void {
 // --- Attachments ---
 const attachForm = useForm({ file: null as File | null })
 
+async function onAttachmentFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0] ?? null
+    if (file && !(await validateUploadFile(file, ['pdf', 'jpg', 'jpeg', 'png']))) attachForm.file = file
+    else if (file) input.value = ''
+}
+
 function uploadAttachment(): void {
     attachForm.post(routes.admin.broadcasts.attachments(props.broadcast.id), {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => attachForm.reset(),
-        onError: () => showErrorToast('Attachment maks 1.5 MB.'),
+        onError: () => showErrorToast('Attachment maksimal 5 MB.'),
     })
 }
 
@@ -273,7 +283,7 @@ const progress = computed(() => {
                     <textarea v-model="manualRows" rows="3" class="border-input bg-background rounded-md border p-2 text-sm" placeholder="Nafan,nafan@gmail.com&#10;budi@gmail.com" />
                 </div>
                 <div class="grid gap-2">
-                    <Label>CSV (header <code>name,email</code> atau <code>email</code>, maks 2 MB)</Label>
+                    <Label>CSV (header <code>name,email</code> atau <code>email</code>, maks 5 MB)</Label>
                     <Input type="file" accept=".csv,.txt" @change="onCsv" />
                 </div>
                 <Button :disabled="snapshotForm.processing" @click="generateSnapshot">
@@ -338,12 +348,12 @@ const progress = computed(() => {
                     <DeferredRender min-height="14rem">
                         <LazyBroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
                     </DeferredRender>
-                    <p class="text-muted-foreground text-xs">Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 2 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
+                    <p class="text-muted-foreground text-xs">Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 5 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
                 </div>
                 <Button :disabled="contentForm.processing" @click="saveContent">Simpan email</Button>
 
                 <div class="border-t pt-4">
-                    <Label>Attachments (masing-masing maks 1.5 MB)</Label>
+                    <Label>Attachments (masing-masing maks 5 MB)</Label>
                     <ul class="mt-2 flex flex-col gap-1 text-sm">
                         <li v-for="a in broadcast.attachments" :key="a.id" class="flex items-center justify-between gap-2">
                             <span class="font-mono text-xs">{{ a.file_name }} ({{ (a.file_size / 1024).toFixed(1) }} KB)</span>
@@ -351,7 +361,7 @@ const progress = computed(() => {
                         </li>
                     </ul>
                     <div class="mt-2 flex gap-2">
-                        <Input type="file" @change="(e: Event) => { attachForm.file = (e.target as HTMLInputElement).files?.[0] ?? null }" />
+                        <Input type="file" @change="onAttachmentFile" />
                         <Button variant="outline" @click="uploadAttachment">Upload</Button>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, reactive } from 'vue'
 import { useForm, usePage } from '@inertiajs/vue3'
 import { normalizeBannerSrc, pickFormBannerField } from '@/components/modules/builder/formBanner'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import {
     buildFieldLabelMap,
     getFieldError,
@@ -271,9 +272,17 @@ export function useFormFillPage(props: {
         return isCheckboxOptionSelected(answerForm[fieldName], option)
     }
 
-    function onFileChange(fieldName: string, event: Event) {
+    async function onFileChange(fieldName: string, event: Event): Promise<void> {
         const input = event.target as HTMLInputElement
         const file = input.files?.[0] ?? null
+        if (file) {
+            const message = await validateUploadFile(file)
+            if (message) {
+                input.value = ''
+                answerForm.setError(fieldName, message)
+                return
+            }
+        }
         revokeFilePreview(fieldName)
         if (file) {
             filePreviewUrls[fieldName] = URL.createObjectURL(file)

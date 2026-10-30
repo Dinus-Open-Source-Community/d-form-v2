@@ -10,6 +10,7 @@ import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-se
 import { Separator } from '@/components/ui/separator';
 import { routes } from '@/lib/routes';
 import { readSharedError } from '@/lib/sharedErrors';
+import { validateUploadFile } from '@/lib/uploadValidation';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -94,19 +95,25 @@ const instagramFollowHint = computed(() =>
         : 'Unggah screenshot follow Instagram (jpg/jpeg/png/webp)'
 );
 
-function onCvChange(event: Event) {
+async function onCvChange(event: Event): Promise<void> {
     const target = event.target as HTMLInputElement;
-    form.cv = target.files?.[0] ?? null;
+    const file = target.files?.[0] ?? null;
+    if (file && !(await validateUploadFile(file, ['pdf']))) form.cv = file;
+    else if (file) target.value = '';
 }
 
-function onPortfolioFileChange(event: Event) {
+async function onPortfolioFileChange(event: Event): Promise<void> {
     const target = event.target as HTMLInputElement;
-    form.portfolio_file = target.files?.[0] ?? null;
+    const file = target.files?.[0] ?? null;
+    if (file && !(await validateUploadFile(file, ['pdf']))) form.portfolio_file = file;
+    else if (file) target.value = '';
 }
 
-function onInstagramFollowChange(event: Event) {
+async function onInstagramFollowChange(event: Event): Promise<void> {
     const target = event.target as HTMLInputElement;
-    form.instagram_follow_proof = target.files?.[0] ?? null;
+    const file = target.files?.[0] ?? null;
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) form.instagram_follow_proof = file;
+    else if (file) target.value = '';
 }
 
 function submit() {

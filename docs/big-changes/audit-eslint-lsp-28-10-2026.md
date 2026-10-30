@@ -153,3 +153,51 @@ podman exec -i -w /app d_form_app node --version
 ```
 
 JSON dapat dihitung per objek: `filePath` untuk ekstensi, lalu jumlahkan `errorCount`, `warningCount`, `fatalErrorCount`, jumlah objek dengan `messages.length > 0`, dan `messages[].ruleId` untuk rekap rule. Untuk mengulang LSP, panggil `lsp_diagnostics` dengan daftar path pada §4.2 dalam batch tidak lebih dari 25 path; bila respons menyebut `still starting`, ulangi sekali dan tetap catat sebagai tidak tercakup jika status tidak berubah. Cakupan terkonfirmasi pada snapshot 28-10-2026 06:46–06:48 UTC: `(47 + 6) / 611 × 100 = 8,7%`; jumlah percobaan pada 78 file kandidat ESLint: `78 / 611 × 100 = 12,8%`. Status tetap snapshot dan tidak dijamin dapat direproduksi setelah language server memuat dependency/generated files.
+
+---
+
+## 8. Tindak lanjut — 28 Oktober 2026 (implementasi)
+
+Perbaikan dikerjakan pada commit `78f62d7` (tooling) dan `ce0a9df` (tipe). Semua angka di bawah diukur ulang di container `d_form_app` setelah perubahan.
+
+### 8.1 Utang tooling: typecheck Vue sekarang tersedia
+
+| Item | Sebelum | Sesudah |
+| --- | --- | --- |
+| `vue-tsc` | tidak terpasang | `vue-tsc` 5.9.3 (devDependency) |
+| `@vue/language-server` | tidak terpasang, padahal `tsconfig.json` menunjuk plugin `node_modules/@vue/language-server` | terpasang 3.3.13 |
+| Gate typecheck | tidak ada | `npm run typecheck` (`vue-tsc --noEmit`) |
+
+Akar masalah cakupan LSP juga teridentifikasi: plugin bahasa di `tsconfig.json` menunjuk `@vue/language-server` yang tidak pernah dipasang, sehingga banyak file berstatus `still starting`. Diagnostic yang sebelumnya dianggap "false positive karena dependency host stale" tidak lagi relevan karena typecheck kini berjalan di container dengan dependency lockfile (`@inertiajs/core` 3.9.1).
+
+### 8.2 Hasil `vue-tsc --noEmit` pertama
+
+Run pertama menemukan **44 error pada 19 file** — semuanya tidak terlihat oleh ESLint. Semua sudah diperbaiki; run terakhir **0 error**.
+
+| Kelompok | Contoh | Perbaikan |
+| --- | --- | --- |
+| Medium (audit) | `useOtpVerification.ts` — `preserveScroll` pada `router.reload` | opsi dihapus; `doReload()` Inertia 3 selalu `preserveScroll: true` |
+| Medium (audit, ditemukan lagi) | `Periods/Show.vue:713` pola yang sama | opsi dihapus |
+| Low (audit) | `formFieldOptions.ts` membandingkan union domain dengan `''` | payload dibaca lewat `IFormFieldTypePayload` (string bebas), cast `as` dihapus |
+| Bug tipe nyata | `Dashboard/Events/Index.vue` memakai `IProps` yang tidak ada di scope modul | `usePage()` memakai `sharedPageProps` global |
+| Bug runtime | `OpenRecruitment/Apply.vue` memakai `ctx` tanpa `reactive()`, sehingga `ComputedRef` dikirim ke prop `string` (banner bisa menjadi `[object Object]`) | `const ctx = reactive(useFormFillPage(...))`, sama seperti `Fill.vue` |
+| Null-safety | `ApplicantDetailContent.vue` mengakses `props.application.document` yang bisa `null` | guard early-return |
+| Error bag non-field | `errors.application`, `errors.feedback`, `errors.credentials`, `errors.tracking` tidak ada di `FormDataErrors` | helper `lib/sharedErrors.ts` + guard, tanpa cast |
+| Tipe template | ref callback (`Element | null`), `v-model` `string | number`, index string, `class` array ke prop `string` | parameter/tipe disempitkan sesuai emit komponen |
+| Tipe dependency | `chart.js` menolak `weight: '600'` (string), `reka-ui` `DateValue` punya private field yang hilang saat `ref()` | `weight: 600`, `shallowRef<DateValue>` |
+
+### 8.3 Verifikasi setelah perbaikan
+
+| Pemeriksaan | Hasil |
+| --- | --- |
+| `npm run typecheck` | **0 error** (sebelumnya 44) |
+| `npm run lint` | 0 error |
+| `npm run build` / `build:ssr` | sukses; entry tidak berubah, chunk terbesar 145,58 kB gzip |
+| `php artisan test` | 826 lulus, 36 skipped, 0 gagal |
+| Smoke browser (`localhost:3000`) | `/dashboard`, `/admin/events`, `/admin/events/create` (Tiptap bisa diketik), `/events`, `/recruitment/track` → 200, **0 pageerror** |
+
+### 8.4 Yang belum dikerjakan
+
+- Formatting baseline (sekitar 429 file Prettier dan 24 file Pint) tetap isu terpisah; tidak disentuh pada perubahan ini.
+- Gate `typecheck` belum dipasang di CI; disarankan dijalankan bersamaan `lint` pada pipeline.
+- Cakupan LSP tetap bergantung environment editor masing-masing; angka cakupan di §4 adalah snapshot, bukan jaminan.

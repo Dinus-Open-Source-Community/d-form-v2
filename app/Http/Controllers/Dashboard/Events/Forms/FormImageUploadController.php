@@ -6,9 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFormImageRequest;
 use App\Models\Event;
 use App\Models\Form;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 
 class FormImageUploadController extends Controller
 {
@@ -17,17 +18,7 @@ class FormImageUploadController extends Controller
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $request->file('file');
 
-        $extension = strtolower($file->getClientOriginalExtension() !== ''
-            ? $file->getClientOriginalExtension()
-            : ($file->guessExtension() ?? 'png'));
-
-        $path = $file->storeAs(
-            "form-images/{$form->id}",
-            (string) Str::uuid().".{$extension}",
-            'public'
-        );
-
-        abort_if($path === false, 500, 'Gambar form gagal disimpan.');
+        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("form-images/{$form->id}"));
 
         return response()->json([
             'ok' => true,

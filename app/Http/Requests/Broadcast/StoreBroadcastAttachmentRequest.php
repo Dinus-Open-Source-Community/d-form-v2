@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Broadcast;
 
+use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreBroadcastAttachmentRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreBroadcastAttachmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file' => SafeUploadFile::rules(true, ['pdf', 'jpg', 'jpeg', 'png']),
         ];
     }
 

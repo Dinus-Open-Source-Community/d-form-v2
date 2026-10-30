@@ -7,6 +7,8 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use App\Models\User;
 use App\Services\User\UserAvatarService;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -58,7 +60,7 @@ final class RecruitmentPeriodService
         $data['slug'] = $this->slugGenerator->generateForName($data['name']);
 
         if ($banner !== null) {
-            $data['banner'] = $banner->store('recruitment/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('recruitment/banners'));
         }
 
         return DB::transaction(function () use ($data): RecruitmentPeriod {
@@ -89,33 +91,33 @@ final class RecruitmentPeriodService
                 Storage::disk('public')->delete($period->banner);
             }
 
-            $data['banner'] = $banner->store('recruitment/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('recruitment/banners'));
         }
 
         $period->update($data);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function open(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Open]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function close(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Closed]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function archive(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Archived]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     /**

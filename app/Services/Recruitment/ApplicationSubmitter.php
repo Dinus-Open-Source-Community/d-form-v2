@@ -9,6 +9,8 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDocument;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Support\Database\UniqueConstraintViolation;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +61,9 @@ final class ApplicationSubmitter
 
                 $storageBase = 'recruitment/'.$period->id.'/'.$application->id;
 
-                $cvPath = $cv->store($storageBase, 'local');
+                $storage = app(SafeUploadStorage::class);
+                $localTarget = UploadStorageTarget::local($storageBase);
+                $cvPath = $storage->store($cv, $localTarget);
 
                 $documentData = [
                     'recruitment_application_id' => $application->id,
@@ -74,7 +78,7 @@ final class ApplicationSubmitter
                 if (($data['portfolio_type'] ?? 'none') === 'url') {
                     $documentData['portfolio_url'] = $data['portfolio_url'] ?? null;
                 } elseif (($data['portfolio_type'] ?? 'none') === 'file' && $portfolioFile !== null) {
-                    $portfolioPath = $portfolioFile->store($storageBase, 'local');
+                    $portfolioPath = $storage->store($portfolioFile, $localTarget);
                     $documentData['portfolio_path'] = $portfolioPath;
                     $documentData['portfolio_original_name'] = $portfolioFile->getClientOriginalName();
                     $documentData['portfolio_mime'] = $portfolioFile->getMimeType() ?? 'application/pdf';
@@ -85,7 +89,7 @@ final class ApplicationSubmitter
                 }
 
                 if ($instagramFollowProof !== null) {
-                    $documentData['instagram_follow_path'] = $instagramFollowProof->store($storageBase, 'local');
+                    $documentData['instagram_follow_path'] = $storage->store($instagramFollowProof, $localTarget);
                     $documentData['instagram_follow_original_name'] = $instagramFollowProof->getClientOriginalName();
                     $documentData['instagram_follow_mime'] = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
                     $documentData['instagram_follow_size_bytes'] = $instagramFollowProof->getSize();

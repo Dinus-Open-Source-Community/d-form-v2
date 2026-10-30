@@ -13,6 +13,7 @@ import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata'
 import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
 import { getFormFieldOptionRows, formFieldBuilderType } from '@/lib/formFieldOptions'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
@@ -65,6 +66,20 @@ function trimText(value: unknown): string {
 
 function invitationFieldError(errors: ValidationErrors, key: string): string | undefined {
     return getFieldError(errors, key, errorContext.value)
+}
+
+async function onInvitationFileChange(fieldName: string, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0] ?? null
+    if (file) {
+        const message = await validateUploadFile(file)
+        if (message) {
+            input.value = ''
+            confirmForm.setError(fieldName, message)
+            return
+        }
+    }
+    confirmForm[fieldName] = file
 }
 
 /** Nilai yang bisa ditampung form undangan: teks, pilihan ganda, atau berkas. */
@@ -319,7 +334,7 @@ function submitDeclineFromDialog() {
                                 <FormFieldAnswerDisplay v-if="typeof answers[field.name] === 'string' && answers[field.name]" :field="field" :value="answers[field.name]" />
                                 <div>
                                     <p class="mb-1.5 text-xs text-muted-foreground">Unggah berkas baru (opsional mengganti)</p>
-                                    <input type="file" class="w-full text-xs" @change="(e) => (confirmForm[field.name] = (e.target as HTMLInputElement).files?.[0] ?? null)" />
+                                    <input type="file" class="w-full text-xs" @change="(e) => onInvitationFileChange(field.name, e)" />
                                 </div>
                             </div>
                             <p v-if="invitationFieldError(confirmForm.errors, field.name)" class="text-xs font-medium text-destructive">

@@ -2,6 +2,7 @@
 
 namespace App\Services\Form;
 
+use App\Rules\SafeUploadFile;
 use Illuminate\Support\Collection;
 
 class RulesBuilder
@@ -85,7 +86,7 @@ class RulesBuilder
     /**
      * Mengonversi custom rules array menjadi Laravel Validation rules.
      * @param array<string, array<string, mixed>> $customRules
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
      */
     public static function build(array $customRules): array
     {
@@ -122,21 +123,16 @@ class RulesBuilder
                 $mappedRules   = [];
                 $mappedRules[] = $isRequired ? 'required' : 'nullable';
                 $mappedRules[] = 'file';
-                $mimesVal = $rules['mimes'] ?? '';
+                $mimesVal = $rules['mimes'] ?? (string) config('events.forms.upload_allowed_mimes', 'pdf,jpg,jpeg,png');
+                $extensions = [];
                 if ($mimesVal !== '') {
                     $extensions = array_map(
                         'trim',
                         explode(',', str_replace(' ', '', (string) $mimesVal))
                     );
                     $extensions = array_filter($extensions);
-                    if ($extensions !== []) {
-                        $mappedRules[] = 'mimes:'.implode(',', $extensions);
-                    }
                 }
-                $maxKb = $rules['max_size'] ?? '';
-                if ($maxKb !== '') {
-                    $mappedRules[] = 'max:'.(string) $maxKb;
-                }
+                $mappedRules[] = new SafeUploadFile($extensions !== [] ? array_values($extensions) : SafeUploadFile::DEFAULT_FORMATS);
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
             }

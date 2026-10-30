@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges29-10-2026-DFORM-SEC-UPLOAD.md](./saptoChanges29-10-2026-DFORM-SEC-UPLOAD.md) | Sentralisasi validasi upload 5 MB, pemeriksaan isi, dan re-encode gambar.
+
 Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pada branch/sesi pengembangan dashboard & UI terkait.
 
 ## Isi folder

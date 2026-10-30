@@ -17,6 +17,8 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Policies\BroadcastPolicy;
 use App\Services\Broadcast\BroadcastBodyText;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Services\Broadcast\BroadcastDispatchService;
 use App\Services\Broadcast\BroadcastSnapshotBuilder;
 use App\Services\Broadcast\BroadcastTrackingService;
@@ -220,7 +222,7 @@ class BroadcastController extends Controller
 
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $request->file('file');
-        $path = $file->store("broadcast-attachments/{$broadcast->id}");
+        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("broadcast-attachments/{$broadcast->id}"));
 
         $attachment = $broadcast->attachments()->create([
             'path' => $path,

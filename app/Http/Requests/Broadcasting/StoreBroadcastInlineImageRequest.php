@@ -4,7 +4,7 @@ namespace App\Http\Requests\Broadcasting;
 
 use App\Enums\EmailBroadcastStatus;
 use App\Models\EmailBroadcast;
-use App\Services\Broadcasting\BroadcastInlineImageService;
+use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -42,12 +42,7 @@ class StoreBroadcastInlineImageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => [
-                'required',
-                'image',
-                'mimes:png,jpg,jpeg,gif,webp',
-                'max:'.BroadcastInlineImageService::MAX_UPLOAD_KB,
-            ],
+            'file' => SafeUploadFile::rules(true, ['png', 'jpg', 'jpeg', 'gif', 'webp']),
         ];
     }
 
@@ -60,7 +55,7 @@ class StoreBroadcastInlineImageRequest extends FormRequest
             'file.required' => 'Pilih gambar terlebih dahulu.',
             'file.image' => 'File harus berupa gambar.',
             'file.mimes' => 'Gambar harus PNG, JPG, GIF, atau WebP.',
-            'file.max' => 'Gambar inline melebihi 2 MB.',
+            'file.max' => 'Gambar inline melebihi 5 MB.',
         ];
     }
 }

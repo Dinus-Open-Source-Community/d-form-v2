@@ -13,6 +13,7 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import useAuth from '@/utils/composables/useAuth';
 import { Eye, EyeOff, Save, UploadCloud } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
+import { validateUploadFile } from '@/lib/uploadValidation';
 
 const DASHBOARD_PROFILE_UPDATE_URL = routes.dashboard.profile
 const DASHBOARD_PROFILE_AVATAR_URL = routes.dashboard.profileAvatar
@@ -122,12 +123,18 @@ function commitAvatarRemoval(): void {
     }
 }
 
-function onAvatarFileChange(ev: Event): void {
+async function onAvatarFileChange(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) {
         clearPendingAvatar();
         return;
+    }
+    const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'gif', 'webp'])
+    if (validationError) {
+        input.value = ''
+        toast.error(validationError)
+        return
     }
     clearPendingAvatar();
     pendingAvatarRemoval.value = false;

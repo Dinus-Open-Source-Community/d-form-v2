@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { validateUploadFile } from '@/lib/uploadValidation'
 import {
     Bold,
     Italic,
@@ -58,13 +59,6 @@ import {
 const props = defineProps<{ modelValue?: string; uploadUrl: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024
-const ACCEPTED_IMAGE_TYPES: ReadonlySet<string> = new Set([
-    'image/png',
-    'image/jpeg',
-    'image/gif',
-    'image/webp',
-])
 
 function readXsrfToken(): string | null {
     if (typeof document === 'undefined') return null
@@ -84,7 +78,7 @@ function readApiErrorMessage(body: unknown, status: number): string {
             }
         }
     }
-    if (status === 413) return 'Ukuran gambar terlalu besar (maks 2 MB).'
+    if (status === 413) return 'Ukuran gambar terlalu besar (maks 5 MB).'
     return 'Gagal mengunggah gambar.'
 }
 
@@ -180,16 +174,6 @@ function imageFilesFromDrop(event: DragEvent): File[] {
     return Array.from(list).filter((file) => file.type.startsWith('image/'))
 }
 
-function validateImageFile(file: File): string | null {
-    if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
-        return `Format ${file.type || 'file'} tidak didukung. Gunakan PNG, JPG, GIF, atau WebP.`
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-        return `“${file.name}” melebihi 2 MB.`
-    }
-    return null
-}
-
 async function uploadImageFile(file: File): Promise<string | null> {
     const target = props.uploadUrl.trim()
     if (target === '') {
@@ -240,7 +224,7 @@ async function uploadAndInsert(files: File[], atPos?: number | null): Promise<vo
     if (!e) return
     uploadError.value = ''
     for (const file of files) {
-        const invalid = validateImageFile(file)
+        const invalid = await validateUploadFile(file, ['png', 'jpg', 'jpeg', 'gif', 'webp'])
         if (invalid) {
             uploadError.value = invalid
             continue
@@ -457,7 +441,7 @@ const toolbarGroups: ToolbarTool[][] = [
         },
         {
             icon: UploadIcon,
-            title: 'Unggah gambar (maks 2 MB)',
+            title: 'Unggah gambar (maks 5 MB)',
             action: triggerFilePicker,
             active: () => uploadingCount.value > 0,
         },

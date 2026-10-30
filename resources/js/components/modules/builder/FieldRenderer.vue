@@ -370,7 +370,7 @@ function builderImageAlt(f: BuilderField): string {
                         <Upload class="size-5" />
                     </div>
                     <p class="text-xs font-semibold text-muted-foreground">Unggah file di sini</p>
-                    <p class="mt-0.5 text-[10px] text-muted-foreground/60">PDF, DOC, XLS hingga 10 MB</p>
+                    <p class="mt-0.5 text-[10px] text-muted-foreground/60">PDF, JPG, PNG hingga 5 MB</p>
                 </div>
 
                 <!-- Date -->

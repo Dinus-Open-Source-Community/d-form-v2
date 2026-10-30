@@ -3,6 +3,8 @@
 namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -21,9 +23,9 @@ use Illuminate\Support\Str;
  */
 class BroadcastInlineImageService
 {
-    public const MAX_UPLOAD_KB = 2048; // 2 MB, selaras validasi endpoint
+    public const MAX_UPLOAD_KB = 5120; // Shared global upload limit: 5 MB.
 
-    public const MAX_UPLOAD_BYTES = 2097152;
+    public const MAX_UPLOAD_BYTES = 5242880; // Shared global upload limit: 5 MB.
 
     /** @var array<int, string> */
     public const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
@@ -44,17 +46,7 @@ class BroadcastInlineImageService
      */
     public function store(EmailBroadcast $broadcast, UploadedFile $file): array
     {
-        $extension = $this->normalizeExtension(
-            $file->getClientOriginalExtension() !== ''
-                ? $file->getClientOriginalExtension()
-                : ($file->guessExtension() ?? 'png')
-        );
-
-        $path = $file->storeAs(
-            'broadcasts/'.$broadcast->id.'/inline',
-            (string) Str::uuid().'.'.$extension,
-            'public'
-        );
+        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'));
 
         return [
             'path' => $path,
@@ -123,7 +115,7 @@ class BroadcastInlineImageService
         }
 
         return 'Konten masih mengandung gambar base64 (data: URL) yang tidak dapat dipindahkan ke storage. '
-            .'Silakan unggah ulang gambar lewat tombol unggah gambar (maks 2 MB, PNG/JPG/GIF/WebP) lalu simpan kembali.';
+            .'Silakan unggah ulang gambar lewat tombol unggah gambar (maks 5 MB, PNG/JPG/GIF/WebP) lalu simpan kembali.';
     }
 
     /**

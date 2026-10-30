@@ -15,6 +15,8 @@ use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\TeamRegistrationSubmitter;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -197,7 +199,7 @@ class TeamInvitationController extends Controller
             if ($field->input_type === 'fileUpload') {
                 $file = $request->file($name);
                 if ($file !== null) {
-                    $answers[$name] = $file->store("form-uploads/{$form->id}", 'public');
+                    $answers[$name] = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("form-uploads/{$form->id}"));
                 }
             } elseif ($field->input_type === 'checkbox') {
                 $answers[$name] = $request->input($name, []);

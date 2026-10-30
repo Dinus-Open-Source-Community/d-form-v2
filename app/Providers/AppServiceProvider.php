@@ -39,10 +39,12 @@ class AppServiceProvider extends ServiceProvider
         }
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
-            return url(route('password.reset', [
+            $path = route('password.reset', [
                 'token' => $token,
                 'email' => $notifiable->getEmailForPasswordReset(),
-            ], false));
+            ], false);
+
+            return rtrim((string) config('app.url'), '/').'/'.ltrim($path, '/');
         });
 
         Blade::anonymousComponentPath(resource_path() . '/views/layouts', 'layout');

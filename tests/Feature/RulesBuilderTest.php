@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\FormField;
+use App\Rules\SafeUploadFile;
 use App\Services\Form\RulesBuilder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -42,12 +43,6 @@ class RulesBuilderTest extends TestCase
                 'nullable',
                 'before_or_equal:2026-10-10',
             ],
-            'image' => [
-                'required',
-                'file',
-                'mimes:jpg',
-                'max:2048',
-            ],
         ];
 
         $fields = collect([
@@ -62,8 +57,16 @@ class RulesBuilderTest extends TestCase
 
         $this->assertEquals($expectedRawRules, $result);
 
-        $result = RulesBuilder::build($result);
+        $builtRules = RulesBuilder::build($result);
+        $fileRules = $builtRules['image'];
+        unset($builtRules['image']);
 
-        $this->assertEquals($expectedBuiltRules, $result);
+        $this->assertEquals($expectedBuiltRules, $builtRules);
+
+        // Field file memakai SafeUploadFile, bukan string mimes:/max: lagi.
+        $this->assertSame(['required', 'file'], array_slice($fileRules, 0, 2));
+        $this->assertCount(1, array_filter($fileRules, static fn (mixed $rule): bool => $rule instanceof SafeUploadFile));
+        $this->assertNotContains('mimes:jpg', $fileRules);
+        $this->assertNotContains('max:2048', $fileRules);
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\Concerns\NormalizesEventSessionRequest;
 use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Rules\CommaSeparatedEventCategories;
 use App\Rules\CommaSeparatedEventSessions;
+use App\Rules\SafeUploadFile;
 use App\Services\Event\EventService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -39,7 +40,7 @@ class UpdateEventRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'session' => ['required', 'string', 'max:2048', new CommaSeparatedEventSessions()],
             'category' => ['required', 'string', 'max:2048', new CommaSeparatedEventCategories()],
-            'banner' => ['sometimes', 'nullable', 'image', 'max:10240'],
+            'banner' => ['sometimes', ...SafeUploadFile::rules(false, ['jpg', 'jpeg', 'png', 'webp', 'gif'])],
             'publish' => ['sometimes', 'boolean'],
         ];
     }
@@ -87,7 +88,7 @@ class UpdateEventRequest extends FormRequest
             'category.string' => 'Event category must be valid text.',
             'category.max' => 'Event categories cannot exceed 2,048 characters.',
             'banner.image' => 'Banner must be an image file (JPG, PNG, etc.).',
-            'banner.max' => 'Banner image size cannot exceed 10 MB.',
+            'banner.max' => 'Banner image size cannot exceed 5 MB.',
             'publish.boolean' => 'Publish status must be true or false.',
         ];
     }

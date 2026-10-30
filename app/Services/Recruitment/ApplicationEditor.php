@@ -5,9 +5,10 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentDocument;
 use Illuminate\Http\UploadedFile;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -106,13 +107,15 @@ final class ApplicationEditor
         ]);
 
         $storageBase = 'recruitment/'.$application->recruitment_period_id.'/'.$application->id;
+        $storage = app(SafeUploadStorage::class);
+        $localTarget = UploadStorageTarget::local($storageBase);
 
         if ($cv !== null) {
             if (filled($document->cv_path)) {
                 Storage::disk('local')->delete($document->cv_path);
             }
 
-            $document->cv_path = $cv->store($storageBase, 'local');
+            $document->cv_path = $storage->store($cv, $localTarget);
             $document->cv_original_name = $cv->getClientOriginalName();
             $document->cv_mime = $cv->getMimeType() ?? 'application/pdf';
             $document->cv_size_bytes = $cv->getSize();
@@ -137,7 +140,7 @@ final class ApplicationEditor
             }
 
             $document->portfolio_url = null;
-            $document->portfolio_path = $portfolioFile->store($storageBase, 'local');
+            $document->portfolio_path = $storage->store($portfolioFile, $localTarget);
             $document->portfolio_original_name = $portfolioFile->getClientOriginalName();
             $document->portfolio_mime = $portfolioFile->getMimeType() ?? 'application/pdf';
             $document->portfolio_size_bytes = $portfolioFile->getSize();
@@ -160,7 +163,7 @@ final class ApplicationEditor
                 Storage::disk('local')->delete($document->instagram_follow_path);
             }
 
-            $document->instagram_follow_path = $instagramFollowProof->store($storageBase, 'local');
+            $document->instagram_follow_path = $storage->store($instagramFollowProof, $localTarget);
             $document->instagram_follow_original_name = $instagramFollowProof->getClientOriginalName();
             $document->instagram_follow_mime = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
             $document->instagram_follow_size_bytes = $instagramFollowProof->getSize();

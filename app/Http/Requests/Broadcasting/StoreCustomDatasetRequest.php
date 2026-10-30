@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Broadcasting;
 
+use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCustomDatasetRequest extends FormRequest
@@ -19,7 +20,7 @@ class StoreCustomDatasetRequest extends FormRequest
             'manual' => ['sometimes', 'array', 'max:1000'],
             'manual.*.name' => ['nullable', 'string', 'max:150'],
             'manual.*.email' => ['required_with:manual', 'email:rfc', 'max:255'],
-            'csv_file' => ['nullable', 'file', 'mimes:csv,txt', 'max:2048'],
+            'csv_file' => SafeUploadFile::rules(false, ['csv', 'txt']),
         ];
     }
 }

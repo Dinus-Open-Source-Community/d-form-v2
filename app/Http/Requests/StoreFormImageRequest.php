@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Event;
 use App\Models\Form;
+use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -31,14 +32,14 @@ class StoreFormImageRequest extends FormRequest
     }
 
     /**
-     * Whitelist gambar tidak boleh dilonggarkan: maksimal 2 MB.
+     * Whitelist gambar memakai batas global 5 MB.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'file' => ['required', 'image', 'mimes:png,jpg,jpeg,gif,webp', 'max:2048'],
+            'file' => SafeUploadFile::rules(true, ['png', 'jpg', 'jpeg', 'gif', 'webp']),
         ];
     }
 }
