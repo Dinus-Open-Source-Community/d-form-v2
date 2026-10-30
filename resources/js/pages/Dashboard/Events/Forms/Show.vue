@@ -497,8 +497,13 @@ function rejectLabel(submission: IFormSubmission): string {
 <template>
     <Head :title="`Edit: ${form.title}`" />
 
-    <div class="flex min-w-0 flex-col gap-4">
-        <Tabs v-model="activeTab" class="flex w-full flex-col gap-4" :unmount-on-hide="false" aria-label="Konten form">
+    <div class="flex h-full min-h-0 min-w-0 flex-col gap-4">
+        <Tabs
+            v-model="activeTab"
+            class="flex min-h-0 w-full flex-1 flex-col gap-4"
+            :unmount-on-hide="false"
+            aria-label="Konten form"
+        >
             <div class="border-border/60 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
                 <div class="flex min-w-0 flex-wrap items-center gap-3">
                     <TabsList class="bg-muted/40 h-auto min-h-10 flex-wrap gap-1 rounded-xl p-1">
@@ -563,7 +568,7 @@ function rejectLabel(submission: IFormSubmission): string {
                 </div>
             </div>
 
-            <TabsContent value="editor" class="mt-0">
+            <TabsContent value="editor" class="mt-0 min-h-0 flex-1">
                 <FormBuilderWorkspace
                     ref="workspaceRef"
                     v-model:form-title="formTitle"
@@ -588,7 +593,7 @@ function rejectLabel(submission: IFormSubmission): string {
                 />
             </TabsContent>
 
-            <TabsContent value="settings" class="mt-0">
+            <TabsContent value="settings" class="mt-0 min-h-0 flex-1 overflow-y-auto">
                 <div class="mx-auto w-full max-w-2xl">
                     <FormSettingsPanel
                         v-model:closed-at="closedAt"
@@ -602,7 +607,7 @@ function rejectLabel(submission: IFormSubmission): string {
                 </div>
             </TabsContent>
 
-            <TabsContent value="jawaban" class="mt-0">
+            <TabsContent value="jawaban" class="mt-0 min-h-0 flex-1 overflow-y-auto">
                 <div
                     v-if="submissionRows.length === 0"
                     class="border-border/70 bg-muted/10 flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-6 py-20 text-center"

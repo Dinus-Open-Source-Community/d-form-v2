@@ -32,6 +32,7 @@ const FULL_WIDTH_PAGE_COMPONENTS: ReadonlySet<string> = new Set([
 ])
 
 const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page.component))
+const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(page.component))
 </script>
 
 <template>
@@ -39,8 +40,14 @@ const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page
         <DashboardSidebar v-if="showSidebar" />
         <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
             <DashboardTopbar :show-navigation-trigger="showSidebar" />
-            <div class="flex-1 overflow-y-auto px-4 pb-10 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8">
-                <div class="w-full max-w-full">
+            <div
+                data-testid="dashboard-content"
+                :class="[
+                    'min-h-0 flex-1 px-4 pb-10 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8',
+                    isFullWidthPage ? 'overflow-hidden' : 'overflow-y-auto',
+                ]"
+            >
+                <div :class="['w-full max-w-full', isFullWidthPage && 'h-full min-h-0']">
                     <slot />
                 </div>
             </div>

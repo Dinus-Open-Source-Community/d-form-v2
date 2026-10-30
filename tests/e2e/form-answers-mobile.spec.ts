@@ -118,3 +118,24 @@ test.describe('jawaban desktop', () => {
         await expect(page.getByLabel('Registration mode')).toBeVisible()
     })
 })
+
+test.describe('editor layout', () => {
+    test.use({ viewport: { width: 777, height: 900 } })
+
+    test('shell tidak ikut scroll dan area field menjadi scroll container', async ({ page }) => {
+        const fixture = createFixture(false)
+        await signIn(page)
+        await page.goto(fixture.url.replace('?tab=jawaban', '?tab=editor'))
+
+        await expect(page.getByTestId('form-builder-workspace')).toBeVisible()
+        await expect(page.getByText(/Lebar pratinjau mengikuti/i)).toHaveCount(0)
+        await expect(page.getByTestId('form-builder-fields-scroll')).toHaveCSS('overflow-y', 'auto')
+
+        const shellMetrics = await page.getByTestId('dashboard-content').evaluate((element) => ({
+            clientHeight: element.clientHeight,
+            scrollHeight: element.scrollHeight,
+        }))
+
+        expect(shellMetrics.scrollHeight).toBeLessThanOrEqual(shellMetrics.clientHeight + 1)
+    })
+})

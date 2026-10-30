@@ -75,7 +75,7 @@ const wb = reactive(
 );
 
 const backHref = computed(() => routes.admin.events.show(props.event.id));
-const shellHeightClass = computed(() => (props.shell === 'fullscreen' ? 'h-svh' : 'min-h-0 lg:h-[calc(100svh-5rem)]'));
+const shellHeightClass = computed(() => (props.shell === 'fullscreen' ? 'h-svh' : 'h-full'));
 const visibilityOptions = FORM_VISIBILITY_OPTIONS;
 /** Accordion "Pengaturan form" di panel kiri (bawaan tertutup). */
 const formSettingsOpen = ref(false);
@@ -110,7 +110,10 @@ defineExpose({
 </script>
 
 <template>
-    <div :class="['flex min-h-0 flex-col overflow-visible lg:overflow-hidden', shellHeightClass]">
+    <div
+        data-testid="form-builder-workspace"
+        :class="['flex min-h-0 flex-col overflow-hidden', shellHeightClass]"
+    >
         <FormBuilderToolbar
             :back-href="backHref"
             :toolbar-subtitle="toolbarSubtitle"
@@ -137,7 +140,7 @@ defineExpose({
             :show-settings-tab="formSettingsPlacement === 'inline'"
         />
 
-        <div class="flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
             <FormBuilderPalettePanel
                 v-model:search-query="wb.searchQuery"
                 v-model:closed-at="closedAt"
@@ -155,7 +158,7 @@ defineExpose({
                 @toggle-visibility="wb.toggleVisibility"
             />
 
-            <main class="bg-background relative min-h-0 flex-1 overflow-visible lg:overflow-y-auto">
+            <main class="bg-background relative min-h-0 min-w-0 flex-1 overflow-y-auto lg:overflow-hidden">
                 <FormBuilderCanvasBuildView
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"

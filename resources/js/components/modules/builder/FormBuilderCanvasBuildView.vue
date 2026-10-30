@@ -138,11 +138,11 @@ const showDropChrome = computed(
 <template>
     <div
         :class="[
-            'flex min-h-0 justify-center px-4 py-5 sm:px-6 sm:py-6 lg:pt-5 lg:pb-12',
+            'flex h-full min-h-0 justify-center px-4 py-5 sm:px-6 sm:py-6 lg:pt-5 lg:pb-12',
             hideOnMobileSettings && 'hidden lg:flex',
         ]"
     >
-        <div class="w-full max-w-[480px] sm:max-w-[520px]">
+        <div class="flex min-h-0 w-full max-w-[480px] flex-col sm:max-w-[520px]">
             <div
                 v-if="isEmpty"
                 class="border-border bg-muted/30 text-muted-foreground mb-3 hidden items-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-xs whitespace-nowrap lg:flex"
@@ -156,7 +156,7 @@ const showDropChrome = computed(
 
             <!-- Section utama: banner + judul/deskripsi + field, dipisah divider -->
             <section
-                class="border-border bg-card overflow-hidden rounded-2xl border shadow-sm"
+                class="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-2xl border shadow-sm"
                 :class="showDropChrome && !isEmpty ? 'ring-primary/25 ring-2 ring-inset' : ''"
                 @dragover.prevent="$emit('canvasDragOver', $event)"
                 @dragleave="$emit('canvasDragLeave', $event)"
@@ -297,9 +297,12 @@ const showDropChrome = computed(
 
                         <div
                             v-if="!isEmpty"
-                            class="flex min-h-[min(28rem,58vh)] flex-col sm:min-h-[min(30rem,55vh)] lg:min-h-[32rem]"
+                            class="flex min-h-0 flex-col"
                         >
-                            <div class="min-h-0 flex-1 overflow-x-visible overflow-y-auto pr-0.5">
+                            <div
+                                data-testid="form-builder-fields-scroll"
+                                class="max-h-[min(36rem,60dvh)] min-h-0 overflow-x-visible overflow-y-auto pr-0.5"
+                            >
                                 <TransitionGroup name="fb-field" tag="div" class="flex flex-col gap-3 lg:gap-4">
                                     <div
                                         v-for="(field, localIdx) in paginatedFields"
@@ -521,9 +524,6 @@ const showDropChrome = computed(
                 />
             </section>
 
-            <p class="text-muted-foreground/80 mt-5 hidden text-center text-xs leading-relaxed lg:block">
-                Lebar pratinjau mengikuti tampilan form di perangkat seluler. Maks. {{ PAGE_SIZE }} field per halaman.
-            </p>
         </div>
     </div>
 </template>
