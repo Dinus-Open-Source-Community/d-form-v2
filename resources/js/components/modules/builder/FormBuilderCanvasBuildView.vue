@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import FieldRenderer from '@/components/modules/builder/FieldRenderer.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,12 +15,10 @@ import {
     ChevronDown,
     PlusCircle,
 } from 'lucide-vue-next';
-import type { BuilderField } from '@/types/form-builder';
+import type { BuilderField, IFormBuilderSection } from '@/types/form-builder';
 import FormBuilderBannerBlock from './FormBuilderBannerBlock.vue';
 import FormSuccessMessageCard from './FormSuccessMessageCard.vue';
 import type { FormBannerState } from './formBanner';
-
-const PAGE_SIZE = 5;
 
 const formTitle = defineModel<string>('formTitle', { required: true });
 const formDescription = defineModel<string>('formDescription', { required: true });
@@ -33,6 +31,8 @@ const props = defineProps<{
     isEmpty: boolean;
     isDraggingOverCanvas: boolean;
     formFields: BuilderField[];
+    sections: IFormBuilderSection[];
+    currentSectionIndex: number;
     selectedFieldId: string | null;
     dropIndicatorIndex: number;
     dragSourceId: string | null;
@@ -55,10 +55,10 @@ defineEmits<{
     duplicateField: [id: string];
     moveField: [id: string, dir: -1 | 1];
     openAddSheet: [];
+    addSection: [];
+    goToSection: [index: number];
     remove: [];
 }>();
-
-const currentPage = ref(1);
 
 /** Maks karakter judul & subtitle (validasi frontend saja — payload tidak diubah) */
 const TITLE_MAX = 200;
@@ -83,47 +83,6 @@ function onSubtitleInput(e: Event): void {
     formDescription.value = el.value;
 }
 
-const totalPages = computed(() => {
-    if (props.formFields.length === 0) return 1;
-    return Math.max(1, Math.ceil(props.formFields.length / PAGE_SIZE));
-});
-
-const sliceStart = computed(() => (currentPage.value - 1) * PAGE_SIZE);
-
-const paginatedFields = computed(() => props.formFields.slice(sliceStart.value, sliceStart.value + PAGE_SIZE));
-
-const trailingGapIndex = computed(() => sliceStart.value + paginatedFields.value.length);
-
-function goPrev(): void {
-    currentPage.value = Math.max(1, currentPage.value - 1);
-}
-
-function goNext(): void {
-    currentPage.value = Math.min(totalPages.value, currentPage.value + 1);
-}
-
-watch(
-    () => props.formFields.length,
-    (n, prev) => {
-        const maxPage = Math.max(1, n === 0 ? 1 : Math.ceil(n / PAGE_SIZE));
-        if (currentPage.value > maxPage) currentPage.value = maxPage;
-        if (prev !== undefined && n > prev) {
-            currentPage.value = maxPage;
-        }
-    }
-);
-
-watch(
-    () => [props.selectedFieldId, props.formFields.length] as const,
-    () => {
-        const id = props.selectedFieldId;
-        if (!id || props.formFields.length === 0) return;
-        const idx = props.formFields.findIndex((f) => f.id === id);
-        if (idx === -1) return;
-        const p = Math.floor(idx / PAGE_SIZE) + 1;
-        if (p !== currentPage.value) currentPage.value = p;
-    }
-);
 
 function gapActive(globalIdx: number): boolean {
     return props.dropIndicatorIndex === globalIdx;
@@ -228,6 +187,22 @@ const showDropChrome = computed(
                 <!-- Field form -->
                 <section>
                     <div class="px-5 py-7 sm:px-7 sm:py-8">
+                        <div class="mb-5 flex items-center justify-between gap-3">
+                            <p class="text-muted-foreground text-xs font-semibold">
+                                {{ sections[currentSectionIndex]?.title }}
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="h-9 gap-1.5 px-3"
+                                aria-label="Tambah bagian"
+                                @click="$emit('addSection')"
+                            >
+                                <PlusCircle class="size-4" />
+                                <span>Tambah bagian</span>
+                            </Button>
+                        </div>
                         <div
                             v-if="isEmpty && !isDraggingOverCanvas"
                             class="flex flex-col items-center justify-center py-8 text-center"
@@ -272,7 +247,7 @@ const showDropChrome = computed(
                                     />
                                 </svg>
                             </div>
-                            <p class="text-foreground text-sm font-semibold">Kanvas masih kosong</p>
+                            <p class="text-foreground text-sm font-semibold">Bagian ini belum memiliki field</p>
                             <p class="text-muted-foreground mt-1 max-w-[260px] text-sm leading-relaxed">
                                 <span class="hidden lg:inline">Tarik komponen dari kiri untuk menambah field.</span>
                                 <span class="lg:hidden">Gunakan tombol di bawah untuk menambah field pertama.</span>
@@ -295,30 +270,28 @@ const showDropChrome = computed(
                             </p>
                         </div>
 
-                        <div
-                            v-if="!isEmpty"
-                            class="flex min-h-0 flex-col"
-                        >
+                        <div class="flex min-h-0 flex-col">
                             <div
+                                v-if="!isEmpty"
                                 data-testid="form-builder-fields-scroll"
                                 class="pr-0.5"
                             >
                                 <TransitionGroup name="fb-field" tag="div" class="flex flex-col gap-3 lg:gap-4">
                                     <div
-                                        v-for="(field, localIdx) in paginatedFields"
+                                        v-for="(field, localIdx) in formFields"
                                         :key="field.id"
                                         class="fb-field-row"
                                     >
                                         <!-- Zona drop: area besar + chip saat aktif -->
                                         <div
                                             class="relative z-10 -my-1 hidden min-h-5 w-full py-1 lg:block"
-                                            @dragenter.prevent="$emit('gapDragEnter', sliceStart + localIdx)"
+                                            @dragenter.prevent="$emit('gapDragEnter', localIdx)"
                                             @dragover.prevent
                                         >
                                             <div
                                                 class="flex min-h-[1.25rem] w-full items-center justify-center transition-all duration-200"
                                                 :class="
-                                                    gapActive(sliceStart + localIdx)
+                                                    gapActive(localIdx)
                                                         ? 'py-1'
                                                         : showDropChrome
                                                           ? 'py-0.5'
@@ -326,7 +299,7 @@ const showDropChrome = computed(
                                                 "
                                             >
                                                 <div
-                                                    v-if="gapActive(sliceStart + localIdx)"
+                                                    v-if="gapActive(localIdx)"
                                                     class="border-primary bg-primary/15 text-primary flex w-full max-w-full scale-[1.01] items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-2.5 shadow-md transition-transform duration-200"
                                                 >
                                                     <PlusCircle class="size-4 shrink-0" />
@@ -356,7 +329,7 @@ const showDropChrome = computed(
                                                     draggable="true"
                                                     title="Seret untuk memindahkan urutan — atau pakai tombol naik/turun"
                                                     @dragstart="
-                                                        $emit('canvasDragStart', $event, field, sliceStart + localIdx)
+                                                        $emit('canvasDragStart', $event, field, localIdx)
                                                     "
                                                     @dragend="$emit('dragEnd')"
                                                 >
@@ -369,7 +342,7 @@ const showDropChrome = computed(
                                                         variant="outline"
                                                         size="icon"
                                                         class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 shadow-sm transition-all duration-200"
-                                                        :disabled="sliceStart + localIdx === 0"
+                                                        :disabled="localIdx === 0"
                                                         title="Pindah ke atas"
                                                         @click="$emit('moveField', field.id, -1)"
                                                     >
@@ -381,7 +354,7 @@ const showDropChrome = computed(
                                                         variant="outline"
                                                         size="icon"
                                                         class="border-border/80 hover:border-primary/40 hover:bg-primary/5 size-8 shadow-sm transition-all duration-200"
-                                                        :disabled="sliceStart + localIdx === formFields.length - 1"
+                                                        :disabled="localIdx === formFields.length - 1"
                                                         title="Pindah ke bawah"
                                                         @click="$emit('moveField', field.id, 1)"
                                                     >
@@ -411,7 +384,7 @@ const showDropChrome = computed(
                                                     radius="icon"
                                                     variant="ghost"
                                                     size="icon-sm"
-                                                    :disabled="sliceStart + localIdx === 0"
+                                                    :disabled="localIdx === 0"
                                                     aria-label="Naikkan field"
                                                     @click="$emit('moveField', field.id, -1)"
                                                 >
@@ -421,7 +394,7 @@ const showDropChrome = computed(
                                                     radius="icon"
                                                     variant="ghost"
                                                     size="icon-sm"
-                                                    :disabled="sliceStart + localIdx === formFields.length - 1"
+                                                    :disabled="localIdx === formFields.length - 1"
                                                     aria-label="Turunkan field"
                                                     @click="$emit('moveField', field.id, 1)"
                                                 >
@@ -455,12 +428,12 @@ const showDropChrome = computed(
 
                                 <div
                                     class="relative z-10 mt-1 hidden min-h-5 w-full py-1 lg:block"
-                                    @dragenter.prevent="$emit('gapDragEnter', trailingGapIndex)"
+                                    @dragenter.prevent="$emit('gapDragEnter', formFields.length)"
                                     @dragover.prevent
                                 >
                                     <div class="flex min-h-[1.25rem] w-full items-center justify-center">
                                         <div
-                                            v-if="gapActive(trailingGapIndex)"
+                                            v-if="gapActive(formFields.length)"
                                             class="border-primary bg-primary/15 text-primary flex w-full scale-[1.01] items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-2.5 shadow-md transition-transform duration-200"
                                         >
                                             <PlusCircle class="size-4 shrink-0" />
@@ -475,37 +448,37 @@ const showDropChrome = computed(
                             </div>
 
                             <nav
-                                v-if="totalPages > 1"
+                                v-if="sections.length > 1"
                                 class="border-border/80 mt-5 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t pt-5"
-                                aria-label="Halaman field"
+                                aria-label="Navigasi bagian form"
                             >
-                                <p class="text-muted-foreground text-xs font-medium">
-                                    Field {{ sliceStart + 1 }}–{{
-                                        Math.min(sliceStart + paginatedFields.length, formFields.length)
-                                    }}
-                                    dari
-                                    {{ formFields.length }}
-                                </p>
                                 <div class="flex items-center gap-2">
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
                                         class="h-9 gap-1 px-3"
-                                        :disabled="currentPage <= 1"
-                                        @click="goPrev"
+                                        :disabled="currentSectionIndex <= 0"
+                                        aria-label="Sebelumnya"
+                                        @click="$emit('goToSection', currentSectionIndex - 1)"
                                     >
                                         <ChevronLeft class="size-4" />
                                         <span class="hidden sm:inline">Sebelumnya</span>
                                     </Button>
-                                    <span class="text-muted-foreground text-xs font-semibold tabular-nums">
-                                        {{ currentPage }} / {{ totalPages }}
+                                    <span
+                                        class="text-muted-foreground min-w-10 text-center text-xs font-semibold tabular-nums"
+                                        :aria-label="`Bagian ${currentSectionIndex + 1} dari ${sections.length}`"
+                                    >
+                                        {{ currentSectionIndex + 1 }} / {{ sections.length }}
                                     </span>
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
                                         class="h-9 gap-1 px-3"
-                                        :disabled="currentPage >= totalPages"
-                                        @click="goNext"
+                                        :disabled="currentSectionIndex >= sections.length - 1"
+                                        aria-label="Berikutnya"
+                                        @click="$emit('goToSection', currentSectionIndex + 1)"
                                     >
                                         <span class="hidden sm:inline">Berikutnya</span>
                                         <ChevronRight class="size-4" />

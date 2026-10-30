@@ -7,6 +7,12 @@ export interface FieldOptionEntry {
     imageUrl?: string
 }
 
+/** A persisted form section used by the dashboard builder and public form flow. */
+export interface IFormBuilderSection {
+    id: string
+    title: string
+}
+
 export interface BuilderField {
     id: string
     type: string

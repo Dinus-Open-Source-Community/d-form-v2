@@ -151,4 +151,18 @@ test.describe('editor layout', () => {
 
         expect(shellMetrics.scrollHeight).toBeLessThanOrEqual(shellMetrics.clientHeight + 1)
     })
+
+    test('section form dapat ditambah dan dinavigasi tanpa batas lima field', async ({ page }) => {
+        const fixture = createFixture(false)
+        await signIn(page)
+        await page.goto(fixture.url.replace('?tab=jawaban', '?tab=editor'))
+
+        await page.getByRole('button', { name: /tambah bagian/i }).click()
+
+        await expect(page.getByLabel('Bagian 2 dari 2')).toBeVisible()
+        await expect(page.getByText(/bagian ini belum memiliki field/i)).toBeVisible()
+
+        await page.getByRole('button', { name: /sebelumnya/i }).click()
+        await expect(page.getByLabel('Bagian 1 dari 2')).toBeVisible()
+    })
 })

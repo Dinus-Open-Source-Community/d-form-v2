@@ -33,6 +33,21 @@ class FormFillController extends Controller
             ->values()
             ->all();
 
+        $metadata = is_array($form->metadata) ? $form->metadata : [];
+        $sections = collect($metadata['sections'] ?? [])
+            ->filter(fn ($section) => is_array($section) && is_string($section['id'] ?? null))
+            ->map(fn (array $section, int $index): array => [
+                'id' => $section['id'],
+                'title' => is_string($section['title'] ?? null) && $section['title'] !== ''
+                    ? $section['title']
+                    : 'Bagian '.($index + 1),
+            ])
+            ->values()
+            ->all();
+        if ($sections === []) {
+            $sections = [['id' => 'section-1', 'title' => 'Bagian 1']];
+        }
+
         $closed = $form->closed_at;
 
         $teamSize = TeamRegistrationSubmitter::isTeamForm($form) || BundleRegistrationSubmitter::isBundleForm($form)
@@ -40,7 +55,6 @@ class FormFillController extends Controller
             : 0;
         $memberSlots = $teamSize >= 2 ? $teamSize - 1 : 0;
 
-        $metadata        = is_array($form->metadata) ? $form->metadata : [];
         $modeRaw         = $metadata['registration_mode'] ?? 'single';
         $registrationMode = is_string($modeRaw) && $modeRaw !== '' ? strtolower($modeRaw) : 'single';
         if (! in_array($registrationMode, ['single', 'team', 'bundle'], true)) {
@@ -64,6 +78,7 @@ class FormFillController extends Controller
                 'banner_caption'   => $form->banner_caption,
             ],
             'fields'                => $fields,
+            'sections'              => $sections,
             'submitUrl'             => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
             'accessStatus'          => $status->value,
             'accessMessage'       => $status->message(),

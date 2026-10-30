@@ -12,6 +12,7 @@ import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
 import { Send } from 'lucide-vue-next'
 import type { FormFillPageContext } from '@/hooks/useFormFillPage'
 import { routes } from '@/lib/routes'
+import type { IFormBuilderSection } from '@/types/form-builder'
 
 type FormSegment =
     | { type: 'linear'; fields: IFormField[] }
@@ -19,6 +20,7 @@ type FormSegment =
 
 const props = defineProps<{
     fields: IFormField[]
+    sections: IFormBuilderSection[]
     eventId: string
     ctx: UnwrapNestedRefs<FormFillPageContext>
 }>()
@@ -27,8 +29,24 @@ const emit = defineEmits<{
     submit: []
 }>()
 
+const currentSectionIndex = ref(0)
+
+const currentSectionId = computed(() => props.sections[currentSectionIndex.value]?.id ?? 'section-1')
+
+function sectionIdForField(field: IFormField): string {
+    const raw = props.ctx.metadata(field).sectionId
+    if (typeof raw === 'string' && raw !== '' && props.sections.some((section) => section.id === raw)) {
+        return raw
+    }
+    return props.sections[0]?.id ?? 'section-1'
+}
+
+const currentSectionFields = computed(() =>
+    props.fields.filter((field) => sectionIdForField(field) === currentSectionId.value),
+)
+
 const formSegments = computed((): FormSegment[] => {
-    const list = props.fields
+    const list = currentSectionFields.value
     const out: FormSegment[] = []
     let i = 0
     while (i < list.length) {
@@ -50,6 +68,15 @@ const formSegments = computed((): FormSegment[] => {
     }
     return out
 })
+
+function previousSection(): void {
+    currentSectionIndex.value = Math.max(0, currentSectionIndex.value - 1)
+}
+
+function nextSection(): void {
+    if (!props.ctx.validateSection(currentSectionFields.value)) return
+    currentSectionIndex.value = Math.min(props.sections.length - 1, currentSectionIndex.value + 1)
+}
 
 function slotStorageKey(
     ctx: UnwrapNestedRefs<FormFillPageContext>,
@@ -126,7 +153,18 @@ function confirmSubmit() {
 
 <template>
     <form class="flex flex-col gap-6" @submit.prevent="requestSubmitConfirm">
-        <FormFillParticipantEmailsSection v-if="ctx.memberSlots > 0" :ctx="ctx" />
+        <FormFillParticipantEmailsSection v-if="ctx.memberSlots > 0 && currentSectionIndex === 0" :ctx="ctx" />
+
+        <div class="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+            <div>
+                <p class="text-foreground text-xs font-semibold">
+                    {{ props.sections[currentSectionIndex]?.title }}
+                </p>
+                <p v-if="props.sections.length > 1" class="text-muted-foreground text-xs">
+                    Bagian {{ currentSectionIndex + 1 }} dari {{ props.sections.length }}
+                </p>
+            </div>
+        </div>
 
         <template v-for="(segment, segIdx) in formSegments" :key="'seg-' + segIdx">
             <template v-if="segment.type === 'linear'">
@@ -252,11 +290,23 @@ function confirmSubmit() {
             </template>
         </template>
 
-        <div class="mb-20 flex items-center justify-end gap-3 border-t border-border pt-6">
-            <Button variant="ghost" size="lg" as-child>
+        <div class="mb-20 flex items-center justify-between gap-3 border-t border-border pt-6">
+            <Button v-if="currentSectionIndex > 0" type="button" variant="outline" size="lg" @click="previousSection">
+                Sebelumnya
+            </Button>
+            <Button v-else variant="ghost" size="lg" as-child>
                 <Link :href="routes.member.event.show(eventId)">Cancel</Link>
             </Button>
-            <Button type="submit" size="lg" :disabled="ctx.answerForm.processing" class="gap-2">
+            <Button
+                v-if="currentSectionIndex < props.sections.length - 1"
+                type="button"
+                size="lg"
+                class="gap-2"
+                @click="nextSection"
+            >
+                Berikutnya
+            </Button>
+            <Button v-else type="submit" size="lg" :disabled="ctx.answerForm.processing" class="gap-2">
                 <Send class="size-4" />
                 Submit registration
             </Button>

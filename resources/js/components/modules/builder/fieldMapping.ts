@@ -4,6 +4,7 @@
  */
 
 import type { BackendField, BuilderField, FieldOptionEntry } from '@/types/form-builder'
+import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata'
 import { cleanStoredImageUrl } from '@/utils/composables/useBuilderImageUpload'
 
 export type { BackendField, BuilderField, FieldOptionEntry }
@@ -280,6 +281,10 @@ export function fromBackendField(bf: BackendField): BuilderField {
         is_append: bf.is_append === true,
         metadata: {
             ...m,
+            sectionId:
+                typeof m.sectionId === 'string' && m.sectionId.trim() !== ''
+                    ? m.sectionId
+                    : DEFAULT_FORM_SECTION_ID,
             maxStars: (m.maxStars as number) || 5,
             accepts: ((rules.mimes as string) || '').replace(/,/g, ', '),
             formBanner: m.formBanner === true,

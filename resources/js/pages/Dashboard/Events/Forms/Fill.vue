@@ -11,6 +11,7 @@ import type {
     FormFillPageEvent,
     FormFillPageForm,
 } from '@/types/form'
+import type { IFormBuilderSection } from '@/types/form-builder'
 
 defineOptions({ layout: FormFillLayout })
 
@@ -22,6 +23,7 @@ const props = withDefaults(
         submitUrl: string
         accessStatus: FormAccessStatus
         accessMessage: string
+        sections: IFormBuilderSection[]
         registrationMode?: string
         memberSlots?: number
         pendingInvitationUrl?: string | null
@@ -77,6 +79,7 @@ const invitationActionHref =
         <FormFillFieldsList
             v-else
             :fields="props.fields"
+            :sections="props.sections"
             :event-id="props.event.id"
             :ctx="ctx"
             @submit="ctx.submit"

@@ -91,6 +91,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.caption' => 'nullable|string|max:500',
             'fields.*.metadata.formBanner' => 'nullable|boolean',
             'fields.*.metadata.accepts' => 'nullable|string',
+            'fields.*.metadata.sectionId' => 'nullable|string|max:100',
 
             'fields.*.metadata.rules' => 'nullable|array',
 
@@ -166,6 +167,9 @@ final class FormFieldsRequestValidation
             'metadata.registration_mode' => ['nullable', 'string', Rule::in(['single', 'bundle', 'team'])],
             'metadata.max_team_size' => 'nullable|integer|min:1|max:10000',
             'metadata.team_size' => 'nullable|integer|min:1|max:10000',
+            'metadata.sections' => 'nullable|array|min:1',
+            'metadata.sections.*.id' => 'required|string|max:100|distinct',
+            'metadata.sections.*.title' => 'required|string|max:100',
         ];
     }
 

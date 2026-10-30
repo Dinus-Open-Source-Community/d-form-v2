@@ -1,5 +1,6 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import { showErrorToast } from '@/lib/error-message'
+import { DEFAULT_FORM_SECTION_ID, defaultFormBuilderSections } from '@/lib/formRegistrationMetadata'
 import { normalizeBannerSrc, type FormBannerState } from '@/components/modules/builder/formBanner'
 import {
     cloneFormBuilderPalette,
@@ -7,7 +8,8 @@ import {
     type FormBuilderPaletteField,
 } from '@/components/modules/builder/formBuilderPalette'
 import { createFormBuilderField } from '@/components/modules/builder/formBuilderFieldFactory'
-import type { BuilderField } from '@/types/form-builder'
+import type { BuilderField, IFormBuilderSection } from '@/types/form-builder'
+import type { FormRegistrationMetadata } from '@/types/form'
 
 export type FormBuilderInspectorMode = 'settings' | 'field'
 export type FormBuilderMobileTab = 'build' | 'settings'
@@ -24,6 +26,7 @@ export interface FormBuilderWorkspaceModels {
     visibleFor: Ref<string[]>
     banner: Ref<FormBannerState>
     formFields: Ref<BuilderField[]>
+    formMetadata: Ref<FormRegistrationMetadata>
     successContent?: Ref<string>
 }
 
@@ -47,6 +50,91 @@ export function useFormBuilderWorkspace(
     const showAddSheet = ref<boolean>(false)
     const showMobileEditor = ref<boolean>(false)
     const showPreview = ref<boolean>(false)
+    const currentSectionId = ref<string>(DEFAULT_FORM_SECTION_ID)
+
+    const sections = computed<IFormBuilderSection[]>(() => {
+        const configured = models.formMetadata.value.sections
+        return configured.length > 0 ? configured : defaultFormBuilderSections()
+    })
+
+    const currentSectionIndex = computed<number>(() => {
+        const index = sections.value.findIndex((section) => section.id === currentSectionId.value)
+        return index >= 0 ? index : 0
+    })
+
+    const activeSectionId = computed<string>(() => sections.value[currentSectionIndex.value]?.id ?? DEFAULT_FORM_SECTION_ID)
+
+    function sectionIdForField(field: BuilderField): string {
+        const sectionId = field.metadata.sectionId
+        if (
+            typeof sectionId === 'string' &&
+            sectionId.trim() !== '' &&
+            sections.value.some((section) => section.id === sectionId)
+        ) {
+            return sectionId
+        }
+        return sections.value[0]?.id ?? DEFAULT_FORM_SECTION_ID
+    }
+
+    const currentSectionFields = computed<BuilderField[]>(() =>
+        models.formFields.value.filter((field) => sectionIdForField(field) === activeSectionId.value),
+    )
+
+    function ensureSections(): IFormBuilderSection[] {
+        if (models.formMetadata.value.sections.length > 0) return models.formMetadata.value.sections
+        const fallback = defaultFormBuilderSections()
+        models.formMetadata.value = { ...models.formMetadata.value, sections: fallback }
+        return fallback
+    }
+
+    function addSection(): void {
+        const configured = ensureSections()
+        const section: IFormBuilderSection = {
+            id: crypto.randomUUID(),
+            title: `Bagian ${configured.length + 1}`,
+        }
+        models.formMetadata.value = {
+            ...models.formMetadata.value,
+            sections: [...configured, section],
+        }
+        currentSectionId.value = section.id
+        selectedFieldId.value = null
+        inspectorMode.value = 'settings'
+    }
+
+    function goToSection(index: number): void {
+        const target = sections.value[index]
+        if (!target) return
+        currentSectionId.value = target.id
+        selectedFieldId.value = null
+        inspectorMode.value = 'settings'
+    }
+
+    function assignFieldToSection(field: BuilderField, sectionId: string): BuilderField {
+        return { ...field, metadata: { ...field.metadata, sectionId } }
+    }
+
+    function sectionFieldIndexes(sectionId: string): number[] {
+        return models.formFields.value.flatMap((field, index) => (sectionIdForField(field) === sectionId ? [index] : []))
+    }
+
+    function globalInsertIndex(sectionId: string, localIndex: number): number {
+        const indexes = sectionFieldIndexes(sectionId)
+        const target = indexes[localIndex]
+        if (target !== undefined) return target
+        const last = indexes[indexes.length - 1]
+        return last === undefined ? models.formFields.value.length : last + 1
+    }
+
+    watch(
+        sections,
+        (configured) => {
+            if (!configured.some((section) => section.id === currentSectionId.value)) {
+                currentSectionId.value = configured[0]?.id ?? DEFAULT_FORM_SECTION_ID
+            }
+        },
+        { immediate: true },
+    )
 
     /** Zona "Pesan setelah submit" (ala Google Forms). `true` = canvas menampilkan zona (dipicu drag item palette). */
     const showSuccessZone = ref(false)
@@ -80,6 +168,7 @@ export function useFormBuilderWorkspace(
     )
 
     const isEmpty = computed<boolean>(() => models.formFields.value.length === 0)
+    const isCurrentSectionEmpty = computed<boolean>(() => currentSectionFields.value.length === 0)
     const bannerPreviewSrc = computed<string>(() => normalizeBannerSrc(models.banner.value.bannerUrl))
 
     const validationIssues = computed<FormBuilderValidationIssue[]>(() => {
@@ -112,7 +201,7 @@ export function useFormBuilderWorkspace(
             return
         }
         const nf = createFormBuilderField(template.type, template.label)
-        models.formFields.value = [...models.formFields.value, nf]
+        models.formFields.value = [...models.formFields.value, assignFieldToSection(nf, activeSectionId.value)]
         selectedFieldId.value = nf.id
         inspectorMode.value = 'field'
         showAddSheet.value = false
@@ -168,13 +257,16 @@ export function useFormBuilderWorkspace(
     }
 
     function moveField(id: string, direction: -1 | 1): void {
-        const i = models.formFields.value.findIndex((f) => f.id === id)
-        if (i === -1) return
-        const target = i + direction
-        if (target < 0 || target >= models.formFields.value.length) return
+        const indexes = sectionFieldIndexes(activeSectionId.value)
+        const localIndex = currentSectionFields.value.findIndex((field) => field.id === id)
+        if (localIndex === -1) return
+        const targetLocalIndex = localIndex + direction
+        const target = indexes[targetLocalIndex]
+        const source = indexes[localIndex]
+        if (source === undefined || target === undefined) return
         const next = [...models.formFields.value]
-        const [moved] = next.splice(i, 1)
-        next.splice(target, 0, moved)
+        const [moved] = next.splice(source, 1)
+        next.splice(target > source ? target - 1 : target, 0, moved)
         models.formFields.value = next
     }
 
@@ -205,7 +297,7 @@ export function useFormBuilderWorkspace(
             }
             dt.dropEffect = dragSourceId.value ? 'move' : 'copy'
         }
-        if (dropIndicatorIndex.value === -1 && isEmpty.value) dropIndicatorIndex.value = 0
+        if (dropIndicatorIndex.value === -1 && isCurrentSectionEmpty.value) dropIndicatorIndex.value = 0
     }
 
     function onCanvasDragLeave(e: DragEvent): void {
@@ -229,10 +321,12 @@ export function useFormBuilderWorkspace(
             return
         }
         const insertAt =
-            dropIndicatorIndex.value < 0 ? models.formFields.value.length : dropIndicatorIndex.value
+            dropIndicatorIndex.value < 0
+                ? globalInsertIndex(activeSectionId.value, currentSectionFields.value.length)
+                : globalInsertIndex(activeSectionId.value, dropIndicatorIndex.value)
         const list = [...models.formFields.value]
         if (data.isNew && data.type && data.label) {
-            const nf = createFormBuilderField(data.type as FormBuilderType, data.label)
+            const nf = assignFieldToSection(createFormBuilderField(data.type as FormBuilderType, data.label), activeSectionId.value)
             list.splice(insertAt, 0, nf)
             models.formFields.value = list
             selectedFieldId.value = nf.id
@@ -300,6 +394,12 @@ export function useFormBuilderWorkspace(
         showMobileEditor,
         showPreview,
         isEmpty,
+        isCurrentSectionEmpty,
+        sections,
+        currentSectionFields,
+        currentSectionIndex,
+        addSection,
+        goToSection,
         bannerPreviewSrc,
         validationIssues,
         isReadyToSave,

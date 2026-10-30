@@ -305,6 +305,28 @@ export function useFormFillPage(props: {
         answerForm.team_member_emails = emails
     }
 
+    function hasAnswerValue(value: FormFillAnswerValue | undefined): boolean {
+        if (value === null || value === undefined) return false
+        if (Array.isArray(value)) return value.length > 0
+        if (typeof File !== 'undefined' && value instanceof File) return value.size > 0
+        return typeof value === 'string' && value.trim() !== ''
+    }
+
+    /** Validates required answers before a respondent moves to the next form section. */
+    function validateSection(fieldsInSection: IFormField[]): boolean {
+        const missingKeys: string[] = []
+        for (const field of fieldsInSection) {
+            if (isDisplayOnly(field) || !isRequired(field)) continue
+            for (const key of fieldKeysForField(field)) {
+                if (!hasAnswerValue(answerForm[key])) missingKeys.push(key)
+            }
+        }
+        if (missingKeys.length === 0) return true
+        for (const key of missingKeys) answerForm.setError(key, 'This field is required.')
+        showErrorToast('Lengkapi field wajib sebelum melanjutkan.', { title: 'Bagian belum lengkap' })
+        return false
+    }
+
     onBeforeUnmount(() => {
         for (const key of Object.keys(filePreviewUrls)) {
             revokeFilePreview(key)
@@ -399,6 +421,7 @@ export function useFormFillPage(props: {
         clearFileUpload,
         setAnswer,
         setTeamMemberEmails,
+        validateSection,
         filePreviewUrls,
         submit,
         fieldError,

@@ -4,6 +4,7 @@
  */
 
 import type { BackendField } from '@/components/modules/builder/fieldMapping'
+import type { IFormBuilderSection } from '@/types/form-builder'
 
 /** Access gate for the public form fill route */
 export type FormAccessStatus =
@@ -68,6 +69,7 @@ export interface FormRegistrationMetadata {
     registration_mode: 'single' | 'bundle' | 'team' | null
     max_team_size: number | null
     team_size: number | null
+    sections: IFormBuilderSection[]
 }
 
 /**
@@ -78,7 +80,9 @@ export type TFormMetadataPayload = Required<
     Pick<
         FormRegistrationMetadata,
         'purpose' | 'requires_form_id' | 'registration_mode' | 'max_team_size' | 'team_size'
-    >
+    > & {
+        sections: IFormBuilderSection[]
+    }
 >
 
 /** Payload for creating a form from the dashboard builder */

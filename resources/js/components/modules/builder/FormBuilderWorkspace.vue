@@ -68,6 +68,7 @@ const wb = reactive(
             visibleFor,
             banner,
             formFields,
+            formMetadata,
             successContent,
         },
         { onSave: () => emit('save') }
@@ -135,7 +136,7 @@ defineExpose({
 
         <FormBuilderMobileTabBar
             v-model="wb.mobileTab"
-            :field-count="formFields.length"
+            :field-count="wb.currentSectionFields.length"
             :is-ready-to-save="wb.isReadyToSave"
             :show-settings-tab="formSettingsPlacement === 'inline'"
         />
@@ -170,9 +171,11 @@ defineExpose({
                     :show-success-zone="wb.showSuccessZone"
                     :hide-on-mobile-settings="formSettingsPlacement === 'inline' && wb.mobileTab === 'settings'"
                     :banner-preview-src="wb.bannerPreviewSrc"
-                    :is-empty="wb.isEmpty"
+                    :is-empty="wb.isCurrentSectionEmpty"
                     :is-dragging-over-canvas="wb.isDraggingOverCanvas"
-                    :form-fields="formFields"
+                    :form-fields="wb.currentSectionFields"
+                    :sections="wb.sections"
+                    :current-section-index="wb.currentSectionIndex"
                     :selected-field-id="wb.selectedFieldId"
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
@@ -191,6 +194,8 @@ defineExpose({
                     @duplicate-field="wb.duplicateField"
                     @move-field="wb.moveField"
                     @open-add-sheet="wb.showAddSheet = true"
+                    @add-section="wb.addSection"
+                    @go-to-section="wb.goToSection"
                 />
 
                 <div
