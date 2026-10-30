@@ -4,7 +4,7 @@ name: Quality
 # dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
 #
 # BLOCKING : ESLint dan unit test. Keduanya hijau saat gate ini dipasang
-#            (ESLint 0 error, unit test 52 passed), jadi kegagalan berarti regresi.
+#            (ESLint 0 error, unit test 61 passed), jadi kegagalan berarti regresi.
 # REPORT   : Pint dan Prettier. Baseline terukur 27-10-2026 masih kotor:
 #            - Prettier: 429 file resources/js/**/*.{ts,vue} belum terformat
 #            - Pint: 24 file (tiket mencatat 19; baseline bertambah sebelum tiket dikerjakan)
@@ -51,7 +51,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '20'
+                  node-version: '24'
                   cache: npm
 
             - name: Install NPM Dependencies
@@ -76,7 +76,9 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.4'
-                  extensions: mbstring, pdo_sqlite, sqlite3
+                  # Composer lock dan unit tests membutuhkan XML/DOM, BCMath,
+                  # GD, ZIP, fileinfo, serta SQLite selain mbstring.
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
                   coverage: none
 
             - name: Install Composer Dependencies
@@ -102,7 +104,7 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: '8.4'
-                  extensions: mbstring
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
                   coverage: none
 
             - name: Install Composer Dependencies
@@ -115,7 +117,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: '20'
+                  node-version: '24'
                   cache: npm
 
             - name: Install NPM Dependencies

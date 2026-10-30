@@ -6,6 +6,7 @@
 - [saptoChanges30-10-2026-DFORM-FORM-BUILDER-SCROLL.md](./saptoChanges30-10-2026-DFORM-FORM-BUILDER-SCROLL.md) | Mengunci shell editor form dan memusatkan scroll pada area field form.
 - [saptoChanges30-10-2026-DFORM-FORM-SECTIONS.md](./saptoChanges30-10-2026-DFORM-FORM-SECTIONS.md) | Menambah section form bebas jumlah field, navigasi antarsection, dan validasi field wajib per section.
 - [saptoChanges30-10-2026-DFORM-FORM-SECTION-ACTION.md](./saptoChanges30-10-2026-DFORM-FORM-SECTION-ACTION.md) | Memindahkan aksi tambah section ke boundary konten agar tetap mudah dijangkau tanpa sticky UI.
+- [saptoChanges30-10-2026-DFORM-CI-EXTENSIONS.md](./saptoChanges30-10-2026-DFORM-CI-EXTENSIONS.md) | Memperbaiki quality gate GitHub Actions dengan runtime Node.js 24 dan ekstensi PHP lengkap.
 
 Folder ini berisi catatan perubahan dan desain yang dikerjakan oleh **Sapto** pada branch/sesi pengembangan dashboard & UI terkait.
 
