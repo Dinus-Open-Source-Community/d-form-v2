@@ -13,7 +13,7 @@ perilaku mobile yang tetap dapat memilih Daftar atau Kartu.
 | DFORM-216 — grid kartu desktop dengan satu implementasi kartu | `fbad15a` |
 | DFORM-216 — toolbar pencarian/filter dan pagination           | `50ede2d` |
 | DFORM-216 — review E2E dan stabilisasi auth fixture           | `d3c4202` |
-| dform-i7e.8 — stabilisasi assertion tab Pengaturan Form       | pending   |
+| dform-i7e.8 — stabilisasi assertion tab Pengaturan Form       | `6efdbd2` |
 
 ## Perubahan
 
