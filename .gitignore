@@ -61,8 +61,6 @@ pnpm-workspace.yaml
 .playwright-cli/
 .opencode
 scripts/stress
-AGENTS.md
-CONTEXT.md
 /database/seeders/Stress/*
 
 # Playwright
