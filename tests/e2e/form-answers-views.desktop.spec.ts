@@ -105,17 +105,31 @@ test.describe('jawaban desktop', () => {
     });
 
     test('pencarian, filter status, dan pagination klien', async ({ page }) => {
-        const fixture = createFixture({ answers: 30, statuses: Array.from({ length: 30 }, () => 'pending') });
+        const fixture = createFixture({ answers: 30, statuses: ['pending', 'accepted', 'rejected'] });
         await signIn(page);
         await page.goto(fixture.url);
 
         await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(25);
         await expect(page.getByText('1–25 dari 30')).toBeVisible();
+        await expect(page.getByLabel('Ukuran halaman')).toHaveValue('25');
+        await expect(page.getByLabel('Ukuran halaman').locator('option')).toHaveCount(3);
         await page.getByRole('button', { name: 'Berikutnya' }).click();
         await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(5);
+        await page.getByRole('group', { name: 'Filter status' }).getByRole('button', { name: 'Ditolak' }).click();
+        await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(10);
+        await page
+            .getByRole('group', { name: 'Tampilan daftar jawaban' })
+            .getByRole('button', { name: 'Kartu' })
+            .click();
+        await expect(page.getByTestId('form-answers-card-grid').getByTestId('form-answer-mobile-card')).toHaveCount(10);
         await page.getByPlaceholder('Cari nama atau email').fill('tidak-ada-hasil');
         await expect(page.getByText('Tidak ada jawaban yang cocok')).toBeVisible();
         await page.getByRole('button', { name: 'Reset filter' }).click();
+        await expect(page.getByTestId('form-answers-card-grid').getByTestId('form-answer-mobile-card')).toHaveCount(25);
+        await page
+            .getByRole('group', { name: 'Tampilan daftar jawaban' })
+            .getByRole('button', { name: 'Tabel' })
+            .click();
         await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(25);
     });
 });

@@ -44,10 +44,12 @@ import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import FormAnswersTableView from '@/components/modules/dashboard/FormAnswersTableView.vue';
 import FormAnswersCardGrid from '@/components/modules/dashboard/FormAnswersCardGrid.vue';
-import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
+import FormAnswersToolbar from '@/components/modules/dashboard/FormAnswersToolbar.vue';
+import FormAnswersPaginationBar from '@/components/modules/dashboard/FormAnswersPaginationBar.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
 import { useFormAnswersView } from '@/hooks/useFormAnswersView';
+import { useFormAnswersListState } from '@/hooks/useFormAnswersListState';
 import type { IFormAnswersColumn, IFormAnswersViewOption } from '@/types/formAnswersView';
 
 defineOptions({ layout: DashboardLayout });
@@ -327,6 +329,7 @@ const fileFieldNames = computed(() => new Set((props.fields ?? []).filter(isFile
 
 const submissionRows = computed(() => props.submissions ?? []);
 const formAnswersView = useFormAnswersView();
+const answersListState = useFormAnswersListState(submissionRows);
 const formAnswersViewOptions = computed<IFormAnswersViewOption[]>(() => {
     if (!formAnswersView.isDesktop.value) {
         return [
@@ -515,12 +518,6 @@ function rejectLabel(submission: IFormSubmission): string {
                             Pengaturan Form
                         </TabsTrigger>
                     </TabsList>
-                    <FormAnswersViewToggle
-                        v-if="activeTab === 'jawaban' && submissionRows.length > 0"
-                        :view="formAnswersView.view.value"
-                        :options="formAnswersViewOptions"
-                        @change="formAnswersView.setView"
-                    />
                     <AutosaveStatus :status="showSaveState" variant="inline" />
                 </div>
 
@@ -617,9 +614,42 @@ function rejectLabel(submission: IFormSubmission): string {
                         </div>
                     </div>
 
+                    <FormAnswersToolbar
+                        :query="answersListState.query.value"
+                        :status="answersListState.status.value"
+                        :result-count="answersListState.filteredRows.value.length"
+                        :view="formAnswersView.view.value"
+                        :view-options="formAnswersViewOptions"
+                        @update:query="answersListState.query.value = $event"
+                        @update:status="answersListState.status.value = $event"
+                        @change:view="formAnswersView.setView"
+                    />
+
+                    <div
+                        v-if="answersListState.filteredRows.value.length === 0"
+                        class="flex flex-col items-center gap-2 px-6 py-16 text-center"
+                    >
+                        <div class="border-border bg-muted/40 grid size-12 place-items-center rounded-full border">
+                            <Inbox class="text-muted-foreground size-5" aria-hidden="true" />
+                        </div>
+                        <h2 class="text-foreground mt-2 text-base font-semibold">Tidak ada jawaban yang cocok</h2>
+                        <p class="text-muted-foreground max-w-md text-sm leading-relaxed">
+                            Coba ubah kata kunci pencarian atau filter status untuk melihat jawaban lain.
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            class="mt-2"
+                            @click="answersListState.resetFilters"
+                        >
+                            Reset filter
+                        </Button>
+                    </div>
+
                     <FormAnswersTableView
-                        v-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'table'"
-                        :rows="submissionRows"
+                        v-else-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'table'"
+                        :rows="answersListState.pagedRows.value"
                         :columns="answerColumns"
                         :reviewing="isSubmissionReviewing"
                         @detail="openSubmissionDetail"
@@ -628,7 +658,7 @@ function rejectLabel(submission: IFormSubmission): string {
 
                     <FormAnswersCardGrid
                         v-else-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'card'"
-                        :rows="submissionRows"
+                        :rows="answersListState.pagedRows.value"
                         :columns="answerColumns"
                         :reviewing="isSubmissionReviewing"
                         @detail="openSubmissionDetail"
@@ -638,7 +668,7 @@ function rejectLabel(submission: IFormSubmission): string {
                     <div v-else class="space-y-4 p-3 md:hidden">
                         <div v-if="formAnswersView.view.value === 'card'" class="space-y-3">
                             <FormAnswerMobileCard
-                                v-for="submission in submissionRows"
+                                v-for="submission in answersListState.pagedRows.value"
                                 :key="submission.id"
                                 :submission="submission"
                                 :answer-keys="mobileAnswerKeys"
@@ -650,8 +680,22 @@ function rejectLabel(submission: IFormSubmission): string {
                                 @review="onDetailReview"
                             />
                         </div>
-                        <FormAnswerMobileList v-else :submissions="submissionRows" @detail="openSubmissionDetail" />
+                        <FormAnswerMobileList
+                            v-else
+                            :submissions="answersListState.pagedRows.value"
+                            @detail="openSubmissionDetail"
+                        />
                     </div>
+
+                    <FormAnswersPaginationBar
+                        v-if="answersListState.filteredRows.value.length > answersListState.pageSize.value"
+                        :page="answersListState.page.value"
+                        :page-count="answersListState.pageCount.value"
+                        :page-size="answersListState.pageSize.value"
+                        :range-label="answersListState.rangeLabel.value"
+                        @change:page="answersListState.setPage"
+                        @change:page-size="answersListState.setPageSize"
+                    />
                 </div>
 
                 <FormAnswerDetailSheet
