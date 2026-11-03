@@ -17,16 +17,9 @@ import FormSettingsPanel from '@/components/modules/builder/FormSettingsPanel.vu
 import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
-import { Check, Eye, FileText, Inbox, PenLine, Settings, X } from 'lucide-vue-next';
+import { Eye, Inbox, PenLine, Settings } from 'lucide-vue-next';
 import {
     fromBackendField,
     toBackendFields,
@@ -45,27 +38,16 @@ import {
     toFormMetadataPayload,
 } from '@/lib/formRegistrationMetadata';
 import type { FormSiblingOption } from '@/types/form';
-import {
-    answerPreview,
-    formSubmissionReviewIsPending,
-    humanizeSubmissionKey,
-    submissionFileUrl,
-    submissionReviewBadge,
-} from '@/lib/formSubmissionsUi';
-import {
-    parseApiErrorMessage,
-    showErrorToast,
-    showHttpErrorToast,
-} from '@/lib/error-message';
+import { formSubmissionReviewIsPending, humanizeSubmissionKey, submissionFileName } from '@/lib/formSubmissionsUi';
+import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message';
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
+import FormAnswersTableView from '@/components/modules/dashboard/FormAnswersTableView.vue';
 import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
-import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
-import { userAvatarSeed } from '@/lib/userAvatarFallback';
-import { formatDateTime } from '@/lib/dateTime';
+import { useFormAnswersView } from '@/hooks/useFormAnswersView';
+import type { IFormAnswersColumn, IFormAnswersViewOption } from '@/types/formAnswersView';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -130,7 +112,7 @@ function buildShowSnapshot(): string {
             closedAt: settingsForm.closed_at ?? '',
             visibleFor: settingsForm.visible_for,
             metadata: formMetadata.value,
-        }),
+        })
     );
 }
 
@@ -143,7 +125,7 @@ async function saveShowSnapshot(): Promise<void> {
     await axios.post(
         props.saveFieldsUrl,
         { fields: backendFields },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
     );
     await axios.put(
         props.updateFormUrl,
@@ -158,7 +140,7 @@ async function saveShowSnapshot(): Promise<void> {
             fields: backendFields,
             metadata: toFormMetadataPayload(formMetadata.value),
         },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
     );
 }
 
@@ -301,7 +283,7 @@ const answerKeys = computed(() => {
                 const builderType = metadata.builderType;
                 return f.name === 'form_banner' || isDisplayOnlyBuilderType(builderType);
             })
-            .map((f) => f.name),
+            .map((f) => f.name)
     );
 
     const keys = new Set<string>();
@@ -340,18 +322,23 @@ function isFileBackendField(field: BackendField): boolean {
     return FILE_FIELD_TYPE_NAMES.has(backendFieldBuilderType(field));
 }
 
-const fileFieldNames = computed(
-    () => new Set((props.fields ?? []).filter(isFileBackendField).map((f) => f.name)),
-);
-
-/**
- * Kolom jawaban untuk tabel: answerKeys tanpa field berkas/foto.
- * Berkas/foto hanya tampil di drawer detail. Key legacy tanpa definisi field tetap tampil.
- */
-const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
+const fileFieldNames = computed(() => new Set((props.fields ?? []).filter(isFileBackendField).map((f) => f.name)));
 
 const submissionRows = computed(() => props.submissions ?? []);
-const mobileAnswerView = useFormAnswerMobileView();
+const formAnswersView = useFormAnswersView();
+const formAnswersViewOptions = computed<IFormAnswersViewOption[]>(() => {
+    if (!formAnswersView.isDesktop.value) {
+        return [
+            { value: 'table', label: 'Daftar' },
+            { value: 'card', label: 'Kartu' },
+        ];
+    }
+
+    return [
+        { value: 'table', label: 'Tabel' },
+        { value: 'card', label: 'Kartu' },
+    ];
+});
 const mobileAnswerKeys = computed(() => answerKeys.value);
 const mobileFileFieldNames = computed(() => [...fileFieldNames.value]);
 const submissionLabelMap = computed(() => {
@@ -362,22 +349,13 @@ const submissionLabelMap = computed(() => {
     return map;
 });
 const humanizeKey = (key: string): string => humanizeSubmissionKey(submissionLabelMap.value, key);
-const submissionFileUrlOf = (value: unknown): string | null => submissionFileUrl(value);
-const answerPreviewOf = (value: unknown): string => answerPreview(value);
-
-/** Nama file polos untuk sel lampiran — tanpa link, tanpa membuka tab baru. */
-function fileNameOf(value: unknown): string {
-    const raw = typeof value === 'string' ? value.trim() : '';
-    if (!raw) return 'Lampiran';
-    try {
-        const path = new URL(raw, window.location.origin).pathname;
-        const last = path.split('/').filter(Boolean).pop() ?? '';
-        return decodeURIComponent(last) || 'Lampiran';
-    } catch {
-        const last = raw.split('/').filter(Boolean).pop() ?? '';
-        return last || 'Lampiran';
-    }
-}
+const answerColumns = computed<IFormAnswersColumn[]>(() =>
+    answerKeys.value.map((key) => ({
+        key,
+        label: humanizeKey(key),
+        isFile: fileFieldNames.value.has(key),
+    }))
+);
 
 /** Field builder dipetakan ke bentuk IFormField untuk pratinjau jawaban di drawer. */
 const detailFields = computed<IFormField[]>(() =>
@@ -389,7 +367,7 @@ const detailFields = computed<IFormField[]>(() =>
         name: f.name,
         order: f.order,
         metadata: f.metadata ?? {},
-    })),
+    }))
 );
 
 // ── Detail drawer + review jawaban ──
@@ -538,8 +516,9 @@ function rejectLabel(submission: IFormSubmission): string {
                     </TabsList>
                     <FormAnswersViewToggle
                         v-if="activeTab === 'jawaban' && submissionRows.length > 0"
-                        :view="mobileAnswerView.view.value"
-                        @change="mobileAnswerView.setView"
+                        :view="formAnswersView.view.value"
+                        :options="formAnswersViewOptions"
+                        @change="formAnswersView.setView"
                     />
                     <AutosaveStatus :status="showSaveState" variant="inline" />
                 </div>
@@ -637,170 +616,17 @@ function rejectLabel(submission: IFormSubmission): string {
                         </div>
                     </div>
 
-                    <div v-if="mobileAnswerView.isDesktop.value" class="overflow-x-auto md:block">
-                        <TooltipProvider>
-                        <Table>
-                            <TableHeader>
-                                <TableRow class="hover:bg-transparent">
-                                    <TableHead
-                                        class="bg-muted/40 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                    >
-                                        Pengirim
-                                    </TableHead>
-                                    <TableHead
-                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                    >
-                                        Status review
-                                    </TableHead>
-                                    <TableHead
-                                        v-for="key in tableAnswerKeys"
-                                        :key="key"
-                                        class="bg-muted/30 text-muted-foreground h-11 min-w-[160px] px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                    >
-                                        {{ humanizeKey(key) }}
-                                    </TableHead>
-                                    <TableHead
-                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                    >
-                                        Dikirim
-                                    </TableHead>
-                                    <TableHead
-                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-right text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                    >
-                                        Aksi
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <TableRow
-                                    v-for="submission in submissionRows"
-                                    :key="submission.id"
-                                    class="border-border/60 hover:bg-muted/30 border-b transition-colors"
-                                >
-                                    <TableCell class="border-border/60 bg-card border-r px-5 py-3.5">
-                                        <div class="flex items-center gap-3">
-                                            <UserAvatarFallback
-                                                :src="submission.user?.avatar ?? null"
-                                                :seed="userAvatarSeed(submission.user)"
-                                                avatar-class="size-8 rounded-lg border border-border"
-                                                fallback-round-class="rounded-lg"
-                                            />
-                                            <div class="min-w-0">
-                                                <p
-                                                    class="text-foreground truncate text-sm font-semibold tracking-[-0.005em]"
-                                                >
-                                                    {{ submission.user?.name ?? 'Tanpa nama' }}
-                                                </p>
-                                                <p class="text-muted-foreground truncate text-[10px]">
-                                                    {{ submission.user?.email ?? '—' }}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell class="px-5 py-3.5 whitespace-nowrap">
-                                        <Badge
-                                            variant="outline"
-                                            :class="[
-                                                'font-medium',
-                                                submissionReviewBadge(submission.review_status).class,
-                                            ]"
-                                        >
-                                            {{ submissionReviewBadge(submission.review_status).label }}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell
-                                        v-for="key in tableAnswerKeys"
-                                        :key="key"
-                                        class="text-muted-foreground max-w-[220px] px-5 py-3.5 text-xs leading-relaxed"
-                                    >
-                                        <span
-                                            v-if="submissionFileUrlOf(submission.answers?.[key])"
-                                            class="flex items-center gap-1.5"
-                                            :title="fileNameOf(submission.answers?.[key])"
-                                        >
-                                            <FileText
-                                                class="text-muted-foreground size-3.5 shrink-0"
-                                                aria-hidden="true"
-                                            />
-                                            <span class="text-foreground/85 line-clamp-2 font-normal break-all">
-                                                {{ fileNameOf(submission.answers?.[key]) }}
-                                            </span>
-                                        </span>
-                                        <span v-else class="text-foreground/85 line-clamp-2">
-                                            {{ answerPreviewOf(submission.answers?.[key]) }}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap">
-                                        {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
-                                    </TableCell>
-                                    <TableCell class="px-5 py-3.5 whitespace-nowrap text-right">
-                                        <div class="flex items-center justify-end gap-1">
-                                            <Tooltip v-if="formSubmissionReviewIsPending(submission)">
-                                                <TooltipTrigger as-child>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        radius="icon"
-                                                        size="icon-sm"
-                                                        class="text-success hover:bg-success/10 hover:text-success"
-                                                        :aria-label="`${acceptLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                        :disabled="isSubmissionReviewing(submission.id)"
-                                                        @click="submitSubmissionReview('accept', submission)"
-                                                    >
-                                                        <Check class="size-4" aria-hidden="true" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>{{ acceptLabel(submission) }}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                            <Tooltip v-if="formSubmissionReviewIsPending(submission)">
-                                                <TooltipTrigger as-child>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        radius="icon"
-                                                        size="icon-sm"
-                                                        class="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        :aria-label="`${rejectLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                        :disabled="isSubmissionReviewing(submission.id)"
-                                                        @click="submitSubmissionReview('reject', submission)"
-                                                    >
-                                                        <X class="size-4" aria-hidden="true" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>{{ rejectLabel(submission) }}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                            <Tooltip>
-                                                <TooltipTrigger as-child>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        radius="icon"
-                                                        size="icon-sm"
-                                                        class="hover:bg-primary/10 hover:text-primary"
-                                                        :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                        @click="openSubmissionDetail(submission)"
-                                                    >
-                                                        <Eye class="size-4" aria-hidden="true" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Lihat detail</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
-                        </TooltipProvider>
-                    </div>
+                    <FormAnswersTableView
+                        v-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'table'"
+                        :rows="submissionRows"
+                        :columns="answerColumns"
+                        :reviewing="isSubmissionReviewing"
+                        @detail="openSubmissionDetail"
+                        @review="onDetailReview"
+                    />
 
                     <div v-else class="space-y-4 p-3 md:hidden">
-                        <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
+                        <div v-if="formAnswersView.view.value === 'card'" class="space-y-3">
                             <FormAnswerMobileCard
                                 v-for="submission in submissionRows"
                                 :key="submission.id"
@@ -808,17 +634,13 @@ function rejectLabel(submission: IFormSubmission): string {
                                 :answer-keys="mobileAnswerKeys"
                                 :file-field-names="mobileFileFieldNames"
                                 :humanize-key="humanizeKey"
-                                :file-name-of="fileNameOf"
+                                :file-name-of="submissionFileName"
                                 :reviewing="isSubmissionReviewing(submission.id)"
                                 @detail="openSubmissionDetail"
                                 @review="onDetailReview"
                             />
                         </div>
-                        <FormAnswerMobileList
-                            v-else
-                            :submissions="submissionRows"
-                            @detail="openSubmissionDetail"
-                        />
+                        <FormAnswerMobileList v-else :submissions="submissionRows" @detail="openSubmissionDetail" />
                     </div>
                 </div>
 

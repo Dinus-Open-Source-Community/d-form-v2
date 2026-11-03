@@ -23,6 +23,21 @@ export function submissionFileUrl(value: unknown): string | null {
     return normalizeBannerSrc(t);
 }
 
+/** Returns a safe display name for an uploaded answer without exposing its path. */
+export function submissionFileName(value: unknown): string {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return 'Lampiran';
+
+    try {
+        const path = new URL(raw, window.location.origin).pathname;
+        const last = path.split('/').filter(Boolean).pop() ?? '';
+        return decodeURIComponent(last) || 'Lampiran';
+    } catch {
+        const last = raw.split('/').filter(Boolean).pop() ?? '';
+        return last || 'Lampiran';
+    }
+}
+
 /** True when admin must not accept until the member confirms (team / bundle). */
 export function submissionAdminAcceptBlocked(sub: {
     registration_role?: string | null;

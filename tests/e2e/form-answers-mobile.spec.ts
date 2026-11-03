@@ -5,7 +5,7 @@ const ADMIN = { email: 'stress-user-1@stress.test', password: 'password' } as co
 // Spec ini login sendiri, jadi konteks harus guest; storageState admin membuat /auth/login ter-redirect.
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const STORAGE_KEY = 'd-form:form-answers:mobile-view'
+const STORAGE_KEY = 'd-form:form-answers:view'
 const PLACEHOLDER_PNG = Uint8Array.from(
     atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/2ioAAAAASUVORK5CYII='),
     (character: string) => character.charCodeAt(0),
