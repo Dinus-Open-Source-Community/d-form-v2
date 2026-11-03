@@ -124,9 +124,12 @@ test.describe('jawaban desktop', () => {
         const fixture = createFixture(false);
         await page.goto(fixture.url.replace('?tab=jawaban', '?tab=settings'));
 
-        await expect(page.getByRole('tab', { name: /pengaturan form/i })).toHaveAttribute('aria-selected', 'true');
-        await expect(page.getByLabel('Tujuan form')).toBeVisible();
-        await expect(page.getByLabel('Registration mode')).toBeVisible();
+        const settingsTab = page.getByRole('tab', { name: /pengaturan form/i });
+        const activeSettingsPanel = page.locator('[role="tabpanel"][data-state="active"]');
+        await expect(settingsTab).toHaveAttribute('aria-selected', 'true');
+        await expect(activeSettingsPanel).toBeVisible();
+        await expect(activeSettingsPanel.getByLabel('Tujuan form')).toBeVisible();
+        await expect(activeSettingsPanel.getByLabel('Registration mode')).toBeVisible();
     });
 });
 
