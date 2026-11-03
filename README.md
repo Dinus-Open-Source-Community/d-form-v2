@@ -46,6 +46,27 @@ Setelah pendaftaran berhasil, [`SendRegistrationConfirmationJob`](app/Jobs/SendR
 - **Migrasi:** jalankan `php artisan migrate` agar tabel `email_logs` tersedia.
 - **QR di email:** paket [`endroid/qr-code`](https://github.com/endroid/qr-code) membuat PNG lewat **GD** (`extension=gd` di PHP). Tidak memerlukan Imagick.
 
+## E2E Playwright
+
+Spec berada di `tests/e2e/`. Playwright tidak menyalakan server sendiri: jalankan aplikasi lebih dulu (`podman compose up -d`, plus `npm run dev` bila butuh HMR) dan sediakan kredensial admin.
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+E2E_ADMIN_EMAIL=stress-user-1@stress.test \
+E2E_ADMIN_PASSWORD=password \
+npm run test:e2e
+```
+
+| Script                     | Fungsi                                                  |
+| -------------------------- | ------------------------------------------------------- |
+| `npm run test:e2e`         | Seluruh project (setup + desktop + mobile)              |
+| `npm run test:e2e:setup`   | Login admin sekali, simpan `tests/e2e/.auth/admin.json` |
+| `npm run test:e2e:desktop` | Hanya project `chromium-desktop` (1440×900)             |
+| `npm run test:e2e:mobile`  | Hanya project `chromium-mobile` (Pixel 7)               |
+| `npm run test:e2e:types`   | Typecheck spec (`tsconfig.e2e.json`)                    |
+
+Variabel environment: `E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (wajib), `E2E_ARTISAN` (default `podman exec -i -w /app d_form_app php artisan`), dan `E2E_SESSION_COOKIE` bila nama cookie sesi berubah. Spec memakai fixture ber-marker dan membersihkan barisnya; artefak kegagalan (trace/screenshot) ditulis ke `test-results/`.
+
 ## Daftar isi
 
 - [01. Instalasi projek](docs/01-installation.md)
