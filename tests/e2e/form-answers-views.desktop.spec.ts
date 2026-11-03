@@ -1,12 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { runArtisanCommand, runArtisan } from './support/artisan';
 
 const ADMIN = { email: 'stress-user-1@stress.test', password: 'password' } as const;
-test.use({ storageState: { cookies: [], origins: [] } });
 
 interface IFormAnswerFixtureOptions {
     answers?: number;
     statuses?: string[];
+    guest?: boolean;
+    mixedTypes?: boolean;
 }
 
 const fixtureTokens: string[] = [];
@@ -17,13 +18,22 @@ function createFixture(options: IFormAnswerFixtureOptions = {}): { url: string; 
     const answerCount = options.answers ?? 3;
     const statuses = options.statuses ?? ['pending', 'accepted', 'rejected'];
     const statusLiteral = statuses.map((status) => `'${status}'`).join(',');
+    const userAssignment = options.guest
+        ? `$user=$i===1?null:App\\Models\\User::factory()->create(['name'=>'${token} '.($i)]);`
+        : `$user=App\\Models\\User::factory()->create(['name'=>'${token} '.($i)]);`;
+    const motivationValue = options.mixedTypes ? `$i===1?['Satu','Dua']:($i===2?true:null)` : `'Contoh jawaban '.($i)`;
+    const attachmentValue = options.mixedTypes ? `$i===1?'uploads/e2e/sample.pdf':''` : `'uploads/e2e/sample.pdf'`;
+    const answerSeed =
+        answerCount > 0
+            ? `foreach(range(1,${answerCount}) as $i){${userAssignment}App\\Models\\FormAnswer::create(['form_id'=>$form->id,'user_id'=>$user?->id,'answers'=>['motivasi'=>${motivationValue},'lampiran'=>${attachmentValue}],'review_status'=>[${statusLiteral}][($i-1)%${statuses.length}]]);}`
+            : '';
     const command =
         `$owner=App\\Models\\User::where('email','${ADMIN.email}')->firstOrFail();` +
         `$event=App\\Models\\Event::where('created_by',$owner->id)->firstOrFail();` +
         `$form=$event->forms()->create(['title'=>'${token}','description'=>'Fixture E2E','visible_for'=>['public'],'closed_at'=>now()->addDay()]);` +
         `$form->formFields()->create(['label'=>'Motivasi','name'=>'motivasi','input_type'=>'input','metadata'=>[],'order'=>0]);` +
         `$form->formFields()->create(['label'=>'Lampiran','name'=>'lampiran','input_type'=>'fileUpload','metadata'=>[],'order'=>1]);` +
-        `foreach(range(1,${answerCount}) as $i){$user=App\\Models\\User::factory()->create(['name'=>'${token} '.($i)]);App\\Models\\FormAnswer::create(['form_id'=>$form->id,'user_id'=>$user->id,'answers'=>['motivasi'=>'Contoh jawaban '.($i),'lampiran'=>'uploads/e2e/sample.pdf'],'review_status'=>[${statusLiteral}][($i-1)%${statuses.length}]]);}` +
+        answerSeed +
         `echo(route('dashboard.events.forms.show',['event'=>$event,'form'=>$form],false).'?tab=jawaban');`;
 
     return { url: runArtisanCommand(['tinker', '--execute', command]), token };
@@ -40,24 +50,11 @@ test.afterEach(() => {
     }
 });
 
-async function signIn(page: Page): Promise<void> {
-    await page.goto('/auth/login');
-    await page.locator('#login-email').fill(ADMIN.email);
-    await page.locator('#login-password').fill(ADMIN.password);
-    await page
-        .locator('form')
-        .filter({ has: page.locator('#login-email') })
-        .getByRole('button', { name: /masuk/i })
-        .click();
-    await expect(page).not.toHaveURL(/\/auth\/login/);
-}
-
 test.describe('jawaban desktop', () => {
     test.use({ viewport: { width: 1280, height: 900 } });
 
     test('default tabel dan pilihan tampilan bertahan setelah reload', async ({ page }) => {
         const fixture = createFixture();
-        await signIn(page);
         await page.goto(fixture.url);
 
         const group = page.getByRole('group', { name: 'Tampilan daftar jawaban' });
@@ -72,7 +69,6 @@ test.describe('jawaban desktop', () => {
 
     test('tabel memakai label field, kolom berkas, dan aksi review', async ({ page }) => {
         const fixture = createFixture({ answers: 1 });
-        await signIn(page);
         await page.goto(fixture.url);
 
         const table = page.getByTestId('form-answers-table');
@@ -87,7 +83,6 @@ test.describe('jawaban desktop', () => {
 
     test('kartu menampilkan ringkasan dan aksi review', async ({ page }) => {
         const fixture = createFixture({ answers: 2 });
-        await signIn(page);
         await page.goto(fixture.url);
 
         await page
@@ -106,7 +101,6 @@ test.describe('jawaban desktop', () => {
 
     test('pencarian, filter status, dan pagination klien', async ({ page }) => {
         const fixture = createFixture({ answers: 30, statuses: ['pending', 'accepted', 'rejected'] });
-        await signIn(page);
         await page.goto(fixture.url);
 
         await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(25);
@@ -131,5 +125,20 @@ test.describe('jawaban desktop', () => {
             .getByRole('button', { name: 'Tabel' })
             .click();
         await expect(page.getByTestId('form-answers-table').locator('tbody tr')).toHaveCount(25);
+    });
+
+    test('keadaan kosong total berbeda dari filter kosong dan guest aman', async ({ page }) => {
+        const emptyFixture = createFixture({ answers: 0 });
+        await page.goto(emptyFixture.url);
+        await expect(page.getByText('Belum ada jawaban')).toBeVisible();
+
+        const fixture = createFixture({ answers: 2, guest: true, mixedTypes: true });
+        await page.goto(fixture.url);
+        await page.getByPlaceholder('Cari nama atau email').fill('tidak-ada-hasil');
+        await expect(page.getByText('Tidak ada jawaban yang cocok')).toBeVisible();
+        await expect(page.getByText('Belum ada jawaban')).toHaveCount(0);
+        await page.getByRole('button', { name: 'Reset filter' }).click();
+        await expect(page.getByText('Tanpa nama')).toBeVisible();
+        await expect(page.locator('body')).not.toContainText('undefined');
     });
 });

@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/dateTime';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import type { IFormAnswersColumn } from '@/types/formAnswersView';
 
-const props = defineProps<{
+defineProps<{
     rows: IFormSubmission[];
     columns: IFormAnswersColumn[];
     reviewing: (submissionId: string) => boolean;

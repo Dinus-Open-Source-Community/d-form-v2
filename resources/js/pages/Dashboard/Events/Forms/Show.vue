@@ -378,6 +378,7 @@ const detailFields = computed<IFormField[]>(() =>
 const selectedSubmission = ref<IFormSubmission | null>(null);
 const isDetailOpen = ref(false);
 const reviewingIds = ref<Set<string>>(new Set());
+const submissionsReloadError = ref(false);
 
 function isSubmissionReviewing(submissionId: string): boolean {
     return reviewingIds.value.has(submissionId);
@@ -391,6 +392,18 @@ function openSubmissionDetail(submission: IFormSubmission): void {
 function readXsrfToken(): string | null {
     const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
     return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+/** Reloads answer props and exposes a retry state when the partial visit fails. */
+function reloadSubmissions(onSuccess?: () => void): void {
+    submissionsReloadError.value = false;
+    router.reload({
+        only: ['submissions'],
+        onSuccess,
+        onError: () => {
+            submissionsReloadError.value = true;
+        },
+    });
 }
 
 function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission): void {
@@ -436,20 +449,17 @@ function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSu
                     404: 'Jawaban tidak ditemukan.',
                 });
                 if (res.status === 409 || res.status === 422) {
-                    router.reload({ only: ['submissions'] });
+                    reloadSubmissions();
                 }
                 return;
             }
 
             toast.success(action === 'accept' ? 'Jawaban diterima.' : 'Jawaban ditolak.');
-            router.reload({
-                only: ['submissions'],
-                onSuccess: () => {
-                    const next = (props.submissions ?? []).find((s) => s.id === id) ?? null;
-                    if (next && selectedSubmission.value?.id === id) {
-                        selectedSubmission.value = next;
-                    }
-                },
+            reloadSubmissions(() => {
+                const next = (props.submissions ?? []).find((s) => s.id === id) ?? null;
+                if (next && selectedSubmission.value?.id === id) {
+                    selectedSubmission.value = next;
+                }
             });
         } catch {
             showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
@@ -461,18 +471,6 @@ function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSu
 
 function onDetailReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission }): void {
     submitSubmissionReview(payload.action, payload.submission);
-}
-
-function acceptLabel(submission: IFormSubmission): string {
-    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
-    if (submission.review_status === 'accepted') return 'Sudah diterima';
-    return 'Terima';
-}
-
-function rejectLabel(submission: IFormSubmission): string {
-    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
-    if (submission.review_status === 'rejected') return 'Sudah ditolak';
-    return 'Tolak';
 }
 </script>
 
@@ -612,6 +610,15 @@ function rejectLabel(submission: IFormSubmission): string {
                                 Total {{ submissionsCount ?? submissionRows.length }} jawaban masuk.
                             </p>
                         </div>
+                    </div>
+
+                    <div
+                        v-if="submissionsReloadError"
+                        role="alert"
+                        class="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-3 border-b px-4 py-3 text-sm sm:px-5"
+                    >
+                        <span class="text-destructive">Gagal memuat ulang jawaban.</span>
+                        <Button type="button" variant="outline" size="sm" @click="reloadSubmissions">Coba lagi</Button>
                     </div>
 
                     <FormAnswersToolbar

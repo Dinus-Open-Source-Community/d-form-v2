@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import { submissionFileName } from '@/lib/formSubmissionsUi';
 import type { IFormAnswersColumn } from '@/types/formAnswersView';
@@ -14,6 +15,9 @@ const emit = defineEmits<{
     review: [payload: { action: 'accept' | 'reject'; submission: IFormSubmission }];
 }>();
 
+const answerKeys = computed(() => props.columns.map((column) => column.key));
+const fileFieldNames = computed(() => props.columns.filter((column) => column.isFile).map((column) => column.key));
+
 function humanizeKey(key: string): string {
     return props.columns.find((column) => column.key === key)?.label ?? key;
 }
@@ -25,8 +29,8 @@ function humanizeKey(key: string): string {
             v-for="submission in rows"
             :key="submission.id"
             :submission="submission"
-            :answer-keys="columns.map((column) => column.key)"
-            :file-field-names="columns.filter((column) => column.isFile).map((column) => column.key)"
+            :answer-keys="answerKeys"
+            :file-field-names="fileFieldNames"
             :humanize-key="humanizeKey"
             :file-name-of="submissionFileName"
             :reviewing="reviewing(submission.id)"
