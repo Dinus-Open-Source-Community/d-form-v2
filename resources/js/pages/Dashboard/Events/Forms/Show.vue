@@ -43,6 +43,7 @@ import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import FormAnswersTableView from '@/components/modules/dashboard/FormAnswersTableView.vue';
+import FormAnswersCardGrid from '@/components/modules/dashboard/FormAnswersCardGrid.vue';
 import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
@@ -618,6 +619,15 @@ function rejectLabel(submission: IFormSubmission): string {
 
                     <FormAnswersTableView
                         v-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'table'"
+                        :rows="submissionRows"
+                        :columns="answerColumns"
+                        :reviewing="isSubmissionReviewing"
+                        @detail="openSubmissionDetail"
+                        @review="onDetailReview"
+                    />
+
+                    <FormAnswersCardGrid
+                        v-else-if="formAnswersView.isDesktop.value && formAnswersView.view.value === 'card'"
                         :rows="submissionRows"
                         :columns="answerColumns"
                         :reviewing="isSubmissionReviewing"

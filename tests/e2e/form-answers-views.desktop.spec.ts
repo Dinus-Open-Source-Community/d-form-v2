@@ -85,6 +85,25 @@ test.describe('jawaban desktop', () => {
         await expect(table.getByText('Diterima')).toBeVisible();
     });
 
+    test('kartu menampilkan ringkasan dan aksi review', async ({ page }) => {
+        const fixture = createFixture({ answers: 2 });
+        await signIn(page);
+        await page.goto(fixture.url);
+
+        await page
+            .getByRole('group', { name: 'Tampilan daftar jawaban' })
+            .getByRole('button', { name: 'Kartu' })
+            .click();
+        const grid = page.getByTestId('form-answers-card-grid');
+        await expect(grid.getByTestId('form-answer-mobile-card')).toHaveCount(2);
+        await expect(grid.getByText('Contoh jawaban 1')).toBeVisible();
+        await grid
+            .getByRole('button', { name: /Tolak jawaban/ })
+            .first()
+            .click();
+        await expect(grid.getByText('Ditolak')).toBeVisible();
+    });
+
     test('pencarian, filter status, dan pagination klien', async ({ page }) => {
         const fixture = createFixture({ answers: 30, statuses: Array.from({ length: 30 }, () => 'pending') });
         await signIn(page);
