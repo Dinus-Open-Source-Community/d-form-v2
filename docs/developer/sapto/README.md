@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges03-11-2026-DFORM-AOA.md](./saptoChanges03-11-2026-DFORM-AOA.md) | Guard budget bundle di CI: entry ≤ 350 kB gzip, chunk non-entry ≤ 200 kB gzip, baseline entry 26,5 kB dan chunk terbesar 143,8 kB (dform-aoa).
 - [saptoChanges03-11-2026-DFORM-19O.md](./saptoChanges03-11-2026-DFORM-19O.md) | Verifikasi baseline E2E Playwright terhadap kode aktual dan dokumentasi script `test:e2e*` di `README.md` (dform-19o).
 - [saptoChanges01-11-2026-DFORM-ZBN.md](./saptoChanges01-11-2026-DFORM-ZBN.md) | Menyelaraskan `CONTEXT.md` dengan hooks, lazy bundle, komponen SEO, dan jumlah test class aktual di `dev-zapp`.
 - [saptoChanges30-10-2026-DFORM-XXX.md](./saptoChanges30-10-2026-DFORM-XXX.md) | Konsolidasi engineering rules, workflow planning, test matrix, error contract, frontend boundaries, dan reliability rules.
