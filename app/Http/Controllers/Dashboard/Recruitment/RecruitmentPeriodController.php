@@ -14,7 +14,6 @@ use App\Http\Requests\Recruitment\SendPeriodQrRequest;
 use App\Http\Requests\Recruitment\ShowRecruitmentPeriodApplicationsRequest;
 use App\Http\Requests\Recruitment\StoreRecruitmentPeriodRequest;
 use App\Http\Requests\Recruitment\UpdateRecruitmentPeriodRequest;
-use App\Models\Broadcast;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
@@ -29,7 +28,6 @@ use App\Services\Recruitment\RecruitmentQrBulkService;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -222,28 +220,6 @@ class RecruitmentPeriodController extends Controller
         return [...$summary, 'recipients' => $recipients];
     }
 
-    /** Daftar broadcast satu periode, paginasi per_page tervalidasi selaras kontrak index 4a (tanpa N+1). */
-    private function broadcastsForPeriodTab(RecruitmentPeriod $period, int $page, int $perPage): LengthAwarePaginator
-    {
-        $paginator = Broadcast::query()
-            ->where('period_id', $period->id)
-            ->orderByDesc('created_at')
-            ->paginate($perPage, ['id', 'name', 'subject', 'status', 'scheduled_at', 'recipient_count', 'created_at'], 'page', $page);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(fn (Broadcast $broadcast): array => [
-                'id' => $broadcast->id,
-                'name' => $broadcast->name,
-                'subject' => $broadcast->subject,
-                'status' => $broadcast->status,
-                'scheduled_at' => $broadcast->scheduled_at?->toIso8601String(),
-                'recipient_count' => $broadcast->recipient_count,
-                'created_at' => $broadcast->created_at?->toIso8601String(),
-            ])
-        );
-
-        return $paginator->withQueryString();
-    }
-
     public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
     {
         $this->authorize('view', $period);
@@ -251,8 +227,6 @@ class RecruitmentPeriodController extends Controller
         $period->loadCount('applications');
 
         $validated = $request->validated();
-        // Fitur broadcast dinonaktifkan (config/features.php): 'broadcast' dikeluarkan
-        // dari daftar tab sehingga ?tab=broadcast jatuh ke 'peserta'.
         $tab = $validated['tab'] ?? 'peserta';
         if (! in_array($tab, ['peserta', 'interview', 'laporan', 'interviewer', 'settings'], true)) {
             $tab = 'peserta';
@@ -271,7 +245,6 @@ class RecruitmentPeriodController extends Controller
         $assignments = null;
         $interviewerCandidates = null;
         $screeningReasonOptions = [];
-        $broadcasts = null;
         $divisionOptions = [];
         $semesterOptions = [];
 
@@ -363,13 +336,6 @@ class RecruitmentPeriodController extends Controller
             $report = $this->reportService->build($period->id);
         }
 
-        // Fitur broadcast dinonaktifkan: blok di bawah tidak terjangkau karena tab
-        // 'broadcast' selalu dinormalkan ke 'peserta'. Method broadcastsForPeriodTab
-        // dipertahankan agar mudah diaktifkan lagi.
-        if ($tab === 'broadcast' && config('features.broadcast', false)) {
-            $broadcasts = $this->broadcastsForPeriodTab($period, $request->integer('page', 1), $perPage);
-        }
-
         if ($tab === 'interviewer') {
             $this->authorize('assignInterviewer', RecruitmentDivision::class);
 
@@ -434,10 +400,6 @@ class RecruitmentPeriodController extends Controller
 
         if ($tab === 'laporan') {
             $props['report'] = $report;
-        }
-
-        if ($tab === 'broadcast') {
-            $props['broadcasts'] = $broadcasts;
         }
 
         if ($tab === 'interviewer') {

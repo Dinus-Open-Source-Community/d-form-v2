@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges03-11-2026-DFORM-7ZP.md](./saptoChanges03-11-2026-DFORM-7ZP.md) | Hapus modul broadcast legacy menyeluruh (route, controller, model, policy, service, job, factory, UI mati, test skip); modul `EmailBroadcast` tetap utuh (dform-7zp).
 - [saptoChanges03-11-2026-DFORM-09W.md](./saptoChanges03-11-2026-DFORM-09W.md) | Duplikat `form_answers` ditolak database di semua driver: generated column + unique index di MySQL, index parsial NULL-safe di SQLite/PostgreSQL; akar: predikat lama bernilai NULL untuk submission biasa (dform-09w).
 - [saptoChanges03-11-2026-DFORM-AOA.md](./saptoChanges03-11-2026-DFORM-AOA.md) | Guard budget bundle di CI: entry ≤ 350 kB gzip, chunk non-entry ≤ 200 kB gzip, baseline entry 26,5 kB dan chunk terbesar 143,8 kB (dform-aoa).
 - [saptoChanges03-11-2026-DFORM-19O.md](./saptoChanges03-11-2026-DFORM-19O.md) | Verifikasi baseline E2E Playwright terhadap kode aktual dan dokumentasi script `test:e2e*` di `README.md` (dform-19o).
