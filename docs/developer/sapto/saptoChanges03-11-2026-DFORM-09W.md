@@ -119,8 +119,8 @@ access, deploy, push, atau penghapusan baris.
 
 | Issue       | Commit                                                     |
 | ----------- | ---------------------------------------------------------- |
-| `dform-09w` | `33a3e98`, `16790a0`                                        |
-| `dform-kzc` | `33a3e98`, `16790a0`                                        |
+| `dform-09w` | `33a3e98`, `16790a0`, `311c340`                             |
+| `dform-kzc` | `33a3e98`, `16790a0`, `311c340`                             |
 
 ## Catatan historis — investigasi sebelum Opsi A (superseded)
 
