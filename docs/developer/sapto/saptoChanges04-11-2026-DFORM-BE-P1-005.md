@@ -6,7 +6,7 @@ Memperbaiki kontrak exception pada penyimpanan field form agar validation error 
 
 | Issue | Commit |
 | --- | --- |
-| BE-P1-005 — exception internal tidak boleh menjadi validation `422` | `4d9fe92` |
+| BE-P1-005 — exception internal tidak boleh menjadi validation `422` | `9ba584e` |
 
 ## Perubahan
 
