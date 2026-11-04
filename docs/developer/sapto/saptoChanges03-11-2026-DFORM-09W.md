@@ -13,7 +13,7 @@ column di MySQL dan index parsial NULL-safe di SQLite/PostgreSQL.
 
 ## Addendum 4 November 2026 — Opsi A portabel (current)
 
-Keputusan user untuk `dform-09w` dan `dform-kzc` adalah pola expand → backfill → contract.
+Keputusan user untuk `dform-09w` dan `dform-kzc` adalah pola audit → expand → backfill → contract.
 Migration generated-column lama ditulis ulang karena **belum pernah berhasil dijalankan di
 production**; rewrite ini tidak menghapus baris data dan menghilangkan risiko deploy MariaDB.
 
@@ -31,16 +31,29 @@ Schema akhir dibuat sama secara logis pada SQLite, PostgreSQL, MySQL, dan MariaD
 - `2026_11_03_000001_enforce_active_form_answer_uniqueness.php` sekarang hanya membersihkan sisa
   percobaan lama dan menambah `is_active` tanpa index. Pembersihan memakai pemeriksaan `IF EXISTS`
   dan tidak menghapus baris.
-- `2026_11_04_000002_create_active_form_answer_indexes.php` menjalankan guard read-only untuk dua
-  grup duplicate aktif sebelum membuat index. Guard dan kegagalan unique DDL mengabort dengan pesan
-  jelas; tidak ada pembersihan otomatis. `down()` menjatuhkan kedua index dan kolom marker.
+- `form-answers:audit-active-uniqueness` menjalankan audit read-only untuk jumlah duplicate group
+  user/guest dan kelengkapan marker. Exit code non-zero berarti ada temuan; command tidak menulis
+  data. Sebelum expand, pemeriksaan kelengkapan ditunda karena kolom marker belum ada; jalankan
+  audit lagi setelah backfill.
+- `2026_11_04_000002_create_active_form_answer_indexes.php` hanya membuat dua index online dan
+  mempertahankan duplicate-key exception sebagai jaring terakhir. Tidak ada GROUP BY pra-index
+  atau pembersihan otomatis. `down()` menjatuhkan kedua index dan kolom marker.
 - `form-answers:backfill-active-marker` memproses `chunkById` (default 1.000), mendukung
   `--after-id`, idempotent, dan mencetak `Rows scanned`, `Rows changed`, serta `Last ID`.
-- Contract migration mengabort lebih awal bila masih ada baris yang memenuhi predikat aktif
-  tetapi `is_active` masih `NULL`; ini memaksa urutan expand → backfill → contract saat deploy.
 - `FormAnswerObserver` adalah choke point lifecycle Eloquent untuk marker create/update; production
   registration single/team/bundle memakai `FormAnswerWriter`. E2E fixture dan stress bulk insert
   mengisi marker eksplisit.
+
+### Urutan deploy
+
+1. Jalankan `form-answers:audit-active-uniqueness` sebelum deploy. Audit ini mendeteksi duplicate
+   aktif memakai predikat domain yang sama; sebelum expand, kelengkapan marker dilaporkan sebagai
+   deferred.
+2. Jalankan expand migration untuk membersihkan sisa percobaan lama dan menambah `is_active`.
+3. Jalankan `form-answers:backfill-active-marker --chunk=1000` sampai selesai/resumable.
+4. Jalankan audit lagi. Contract hanya boleh dilanjutkan bila duplicate group user/guest dan
+   `Unmarked active rows` semuanya `0`.
+5. Jalankan contract migration untuk membangun kedua unique index.
 
 ### Verifikasi aktual
 
@@ -51,8 +64,9 @@ expand migration: DONE (is_active TINYINT NULL; no uniqueness index)
 backfill --chunk=1000: Rows scanned 1,001,051; Rows changed 1,000,764
 backfill resume --after-id=ffffe1b2-2ab4-583e-ab54-b701a5820ab6:
   Rows scanned: 0; Rows changed: 0
-contract guard + index migration: 6m 01s total
-separate online index build after guard:
+old pre-index GROUP BY guard + index migration: 6m 01s total
+same duplicate audit after indexes existed: 1.1s
+separate online index build measurement:
   user index 6.160s; guest index 5.808s; total 11.969s
 ```
 
@@ -71,12 +85,21 @@ rolled_back=true
 ```
 
 Image `mariadb:10.11` lokal juga menjalankan seluruh migration dari database kosong sampai selesai,
-backfill command (`Rows scanned: 0`), dan probe insert yang sama dengan hasil duplicate aktif ditolak
-serta dua baris nonaktif diterima. Durasi MariaDB production **belum diukur**; wajib diukur di
+audit command, backfill command (`Rows scanned: 0`), dan probe insert yang sama dengan hasil duplicate
+aktif ditolak serta dua baris nonaktif diterima. Durasi MariaDB production **belum diukur**; wajib diukur di
 staging yang merepresentasikan ukuran dan konfigurasi production sebelum deploy.
 
-Regression suite di container: **844 passed, 7 skipped** (5.413 assertions, 71.389 detik). Targeted
-marker and constraint tests: **8 passed** (31 assertions). Pint pada file perubahan: PASS. Tidak ada production
+Index guest sengaja mencakup `invited_email = ''` karena schema akhir memakai composite unique
+index tanpa predicate; jalur aplikasi hanya menghasilkan email ter-normalisasi atau `NULL`, dan
+verifikasi dev menemukan **0** baris dengan email kosong.
+
+Rollback contract menjatuhkan kedua composite index dan kolom `is_active`; ia **tidak** membuat
+kembali partial index lama. Hasil rollback adalah schema tanpa enforcement uniqueness database,
+sehingga rollback hanya mitigasi sementara dan perlu diikuti keputusan operasional.
+
+Regression suite di container: **844 passed, 7 skipped** (5.413 assertions, 71.389 detik; baseline
+sebelum QA fix). Targeted marker, audit, and constraint tests: **9 passed** (40 assertions). Pint pada
+file perubahan: PASS. Tidak ada production
 access, deploy, push, atau penghapusan baris.
 
 | Issue       | Commit                                                     |

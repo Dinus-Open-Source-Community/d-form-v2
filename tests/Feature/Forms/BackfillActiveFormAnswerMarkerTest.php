@@ -54,28 +54,51 @@ class BackfillActiveFormAnswerMarkerTest extends TestCase
         $this->assertNull($answer->fresh()?->is_active);
     }
 
-    public function test_contract_migration_aborts_before_backfill_is_complete(): void
+    public function test_audit_reports_duplicate_groups_and_unmarked_active_rows_without_writes(): void
+    {
+        $user = User::factory()->create();
+        $form = Form::factory()->create();
+        $guestEmail = 'audit-guest@example.test';
+
+        $this->insertAnswer($user->id, $form->id, 'pending');
+        $this->insertAnswer($user->id, $form->id, 'pending');
+        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail]);
+        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail]);
+        $beforeCount = DB::table('form_answers')->count();
+
+        $this->artisan('form-answers:audit-active-uniqueness')
+            ->expectsOutputToContain('Active user duplicate groups: 1')
+            ->expectsOutputToContain('Active guest duplicate groups: 1')
+            ->expectsOutputToContain('Unmarked active rows: 4')
+            ->assertExitCode(1);
+
+        $this->assertSame($beforeCount, DB::table('form_answers')->count());
+        $this->assertSame(4, DB::table('form_answers')->whereNull('is_active')->count());
+    }
+
+    public function test_audit_passes_after_marker_backfill(): void
     {
         $user = User::factory()->create();
         $form = Form::factory()->create();
 
         $this->insertAnswer($user->id, $form->id, 'pending');
 
-        $migration = require database_path(
-            'migrations/2026_11_04_000002_create_active_form_answer_indexes.php'
-        );
+        $this->artisan('form-answers:backfill-active-marker')
+            ->assertExitCode(0);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('form-answers:backfill-active-marker');
-
-        $migration->up();
+        $this->artisan('form-answers:audit-active-uniqueness')
+            ->expectsOutputToContain('Active user duplicate groups: 0')
+            ->expectsOutputToContain('Active guest duplicate groups: 0')
+            ->expectsOutputToContain('Unmarked active rows: 0')
+            ->assertExitCode(0);
     }
 
-    private function insertAnswer(string $userId, string $formId, ?string $reviewStatus): string
+    /** @param array<string, mixed> $overrides */
+    private function insertAnswer(?string $userId, string $formId, ?string $reviewStatus, array $overrides = []): string
     {
         $id = (string) Str::orderedUuid();
 
-        DB::table('form_answers')->insert([
+        DB::table('form_answers')->insert(array_merge([
             'id' => $id,
             'answers' => json_encode([]),
             'user_id' => $userId,
@@ -84,7 +107,7 @@ class BackfillActiveFormAnswerMarkerTest extends TestCase
             'is_active' => null,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ], $overrides));
 
         return $id;
     }

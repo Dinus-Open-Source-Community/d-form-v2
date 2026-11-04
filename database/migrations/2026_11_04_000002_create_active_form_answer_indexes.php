@@ -2,17 +2,17 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Contract form_answers uniqueness after the active marker has been audited.
+ * Contract form_answers uniqueness after the active marker has been audited by
+ * form-answers:audit-active-uniqueness.
  *
- * The migration never repairs duplicate data. Its read-only preflight and the
- * database unique indexes both abort safely so an operator can resolve the
- * conflict deliberately before retrying.
+ * The migration never repairs duplicate data. The database unique indexes abort
+ * safely on a duplicate-key violation so an operator can resolve the conflict
+ * deliberately before retrying.
  */
 return new class () extends Migration {
     private const USER_INDEX = 'form_answers_active_user_form_unique';
@@ -21,9 +21,6 @@ return new class () extends Migration {
 
     public function up(): void
     {
-        $this->assertActiveMarkersBackfilled();
-        $this->assertNoActiveDuplicates();
-
         try {
             $this->createUserIndex();
             $this->createGuestIndex();
@@ -58,69 +55,6 @@ return new class () extends Migration {
         Schema::table('form_answers', function (Blueprint $table): void {
             $table->dropColumn('is_active');
         });
-    }
-
-    private function assertNoActiveDuplicates(): void
-    {
-        $userDuplicate = DB::table('form_answers')
-            ->select(['user_id', 'form_id'])
-            ->where('is_active', 1)
-            ->whereNotNull('user_id')
-            ->groupBy(['user_id', 'form_id'])
-            ->havingRaw('COUNT(*) > 1')
-            ->first();
-
-        if ($userDuplicate !== null) {
-            throw new RuntimeException(
-                "Cannot create form_answers active user index: duplicate user_id {$userDuplicate->user_id} "
-                ."for form_id {$userDuplicate->form_id}. No rows were deleted."
-            );
-        }
-
-        $guestDuplicate = DB::table('form_answers')
-            ->select(['form_id', 'invited_email'])
-            ->where('is_active', 1)
-            ->whereNull('user_id')
-            ->whereNotNull('invited_email')
-            ->where('invited_email', '!=', '')
-            ->groupBy(['form_id', 'invited_email'])
-            ->havingRaw('COUNT(*) > 1')
-            ->first();
-
-        if ($guestDuplicate !== null) {
-            throw new RuntimeException(
-                "Cannot create form_answers active guest index: duplicate invited_email for form_id "
-                ."{$guestDuplicate->form_id}. No rows were deleted."
-            );
-        }
-    }
-
-    private function assertActiveMarkersBackfilled(): void
-    {
-        $unmarkedActive = DB::table('form_answers')
-            ->select('id')
-            ->whereNull('is_active')
-            ->where(function (QueryBuilder $query): void {
-                $query
-                    ->whereNull('review_status')
-                    ->orWhere('review_status', '!=', 'rejected');
-            })
-            ->where(function (QueryBuilder $query): void {
-                $query
-                    ->whereNull('registration_role')
-                    ->orWhere('registration_role', '!=', 'member')
-                    ->orWhereNull('member_confirmation_status')
-                    ->orWhereNotIn('member_confirmation_status', ['rejected', 'expired']);
-            })
-            ->first();
-
-        if ($unmarkedActive !== null) {
-            throw new RuntimeException(
-                'Cannot create form_answers active indexes: active marker backfill is incomplete. '
-                .'Run form-answers:backfill-active-marker before rerunning this migration. '
-                .'No rows were deleted.'
-            );
-        }
     }
 
     private function createUserIndex(): void
