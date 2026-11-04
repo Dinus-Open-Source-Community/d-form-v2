@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges04-11-2026-DFORM-BE-P1-001.md](./saptoChanges04-11-2026-DFORM-BE-P1-001.md) | Patch `symfony/mime` ke `v7.4.22` untuk CVE-2026-45070, regression MIME test, dan evidence verifikasi (BE-P1-001).
 - [saptoChanges04-11-2026-DFORM-I7E-REVERT.md](./saptoChanges04-11-2026-DFORM-I7E-REVERT.md) | Revert redesign tab Jawaban ke baseline `b9c3edf` dan rapikan tipe file lama sesuai prefix `I`/`G`/`T` (dform-i7e).
 - [saptoChanges03-11-2026-DFORM-216.md](./saptoChanges03-11-2026-DFORM-216.md) | Tab Jawaban Tabel/Kartu, toolbar pencarian/filter/paginasi, dan review tanpa full reload (dform-i7e).
 - [saptoChanges03-11-2026-DFORM-E62.md](./saptoChanges03-11-2026-DFORM-E62.md) | Deferred: runtime prod bukan scope agent. Fakta dikoreksi — queue worker sudah berjalan di container app, yang hilang hanya scheduler; 3 task terjadwal termasuk `otp:prune` (dform-e62).
