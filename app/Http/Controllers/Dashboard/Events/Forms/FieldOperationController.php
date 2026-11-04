@@ -12,15 +12,26 @@ use App\Support\LegacyFormImage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Throwable;
 
 class FieldOperationController extends Controller
 {
-    public function __invoke(FieldModifyRequest $request, Event $event, Form $form)
+    /**
+     * Persist the complete form-field snapshot and return the request contract.
+     *
+     * Validation and explicit HTTP/domain failures retain their status. Unexpected
+     * failures are logged with safe context and exposed as an internal-server error.
+     */
+    public function __invoke(FieldModifyRequest $request, Event $event, Form $form): SymfonyResponse
     {
         abort_unless($form->event_id === $event->id, 404);
 
         $formId = $form->id;
+        $requestId = $this->resolveRequestId($request);
         $rows = $request->validated()['fields'];
 
         // Lapis kedua: data: URL legacy yang lolos validasi (mis. optionChoices[].imageUrl)
@@ -80,18 +91,56 @@ class FieldOperationController extends Controller
             }
 
             return to_route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]);
-        } catch (\Exception $e) {
-            Log::error('[FieldOperationController, __invoke]: ' . $e->getMessage());
+        } catch (ValidationException|HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('form_fields_save_failed', [
+                'request_id' => $requestId,
+                'event_id' => $event->id,
+                'form_id' => $formId,
+                'user_id' => $request->user()?->getAuthIdentifier(),
+                'exception_class' => $exception::class,
+            ]);
 
-            if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'message' => 'Fields cannot be saved'], 422);
-            }
-
-            return Inertia::flash('toast', [
-                'type' => 'error',
-                'message' => 'Fields cannot be saved',
-            ])->back();
+            return $this->internalFailureResponse($request, $requestId);
         }
+    }
+
+    /**
+     * Accept a valid upstream request ID or create a UUID for this request.
+     */
+    private function resolveRequestId(FieldModifyRequest $request): string
+    {
+        $providedRequestId = $request->header('X-Request-ID');
+
+        if (is_string($providedRequestId) && Str::isUuid($providedRequestId)) {
+            return $providedRequestId;
+        }
+
+        return (string) Str::uuid();
+    }
+
+    /**
+     * Return a public-safe 500 response without exposing exception details.
+     */
+    private function internalFailureResponse(FieldModifyRequest $request, string $requestId): SymfonyResponse
+    {
+        if ($request->expectsJson()) {
+            return response()
+                ->json([
+                    'ok' => false,
+                    'message' => 'Fields cannot be saved',
+                    'request_id' => $requestId,
+                ], 500)
+                ->header('X-Request-ID', $requestId);
+        }
+
+        $response = Inertia::render('Error', ['status' => 500])
+            ->toResponse($request)
+            ->setStatusCode(500);
+        $response->headers->set('X-Request-ID', $requestId);
+
+        return $response;
     }
 
     /**

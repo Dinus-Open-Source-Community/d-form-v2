@@ -6,8 +6,10 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
 use App\Models\User;
+use App\Http\Middleware\HandleInertiaRequests;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -145,6 +147,109 @@ class FormBuilderHttpTest extends TestCase
                 ],
             ])
             ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_invalid_field_payload_returns_validation_error_without_writing(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'type' => 'input',
+                    'name' => 'missing_label',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['fields.0.label']);
+
+        $this->assertDatabaseCount('form_fields', 0);
+    }
+
+    public function test_unexpected_database_failure_returns_json_500_with_request_id(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $otherForm = Form::factory()->create(['event_id' => $event->id]);
+        $existingField = FormField::factory()->create(['form_id' => $otherForm->id]);
+        $requestId = (string) Str::uuid();
+
+        Log::spy();
+
+        $response = $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $existingField->id,
+                    'label' => 'Duplicate ID',
+                    'type' => 'input',
+                    'name' => 'duplicate_id',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ], ['X-Request-ID' => $requestId]);
+
+        $response
+            ->assertInternalServerError()
+            ->assertJson([
+                'ok' => false,
+                'message' => 'Fields cannot be saved',
+                'request_id' => $requestId,
+            ])
+            ->assertHeader('X-Request-ID', $requestId);
+
+        Log::shouldHaveReceived('error')->once()->withArgs(
+            fn (string $message, array $context): bool => $message === 'form_fields_save_failed'
+                && ($context['request_id'] ?? null) === $requestId
+                && isset($context['exception_class']),
+        );
+
+        $this->assertDatabaseCount('form_fields', 1);
+        $this->assertDatabaseHas('form_fields', [
+            'id' => $existingField->id,
+            'form_id' => $existingField->form_id,
+        ]);
+    }
+
+    public function test_unexpected_failure_returns_inertia_500_with_request_id(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $otherForm = Form::factory()->create(['event_id' => $event->id]);
+        $existingField = FormField::factory()->create(['form_id' => $otherForm->id]);
+        $requestId = (string) Str::uuid();
+
+        $response = $this->actingAs($admin)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+                'X-Request-ID' => $requestId,
+            ])
+            ->post($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $existingField->id,
+                    'label' => 'Duplicate ID',
+                    'type' => 'input',
+                    'name' => 'duplicate_id',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ]);
+
+        $response
+            ->assertStatus(500)
+            ->assertHeader('X-Request-ID', $requestId)
+            ->assertHeader('X-Inertia', 'true')
+            ->assertJsonPath('component', 'Error')
+            ->assertJsonPath('props.status', 500);
     }
 
     private function fieldSavePath(Event $event, Form $form): string
