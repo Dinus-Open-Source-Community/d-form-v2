@@ -93,3 +93,25 @@ Angka ini dari container dev (buffer pool default 128 MB), bukan benchmark produ
 
 - CI menjalankan test suite di SQLite `:memory:`; bukti MySQL berasal dari run manual terhadap database scratch di container dev, bukan dari pipeline. Batasan ini tidak bisa ditutup tanpa job CI MySQL (layanan tambahan + biaya waktu), di luar scope tiket.
 - Index parsial SQLite/PostgreSQL membandingkan `invited_email` apa adanya (case-sensitive), sama seperti index lama. Controller sudah menormalkan email ke huruf kecil sebelum insert, jadi perbedaan ini tidak teramati pada alur aplikasi.
+
+## Blocker terbuka: MariaDB 10.11 (prod) menolak index pada generated column
+
+Diuji di container `mariadb:10.11.19` dengan tabel minimal:
+
+```text
+ALTER TABLE ... ADD COLUMN k VARCHAR(80) AS (CONCAT(a,b)) VIRTUAL   -> OK
+ALTER TABLE ... ADD UNIQUE INDEX ix (k)                             -> ERROR 1901
+  "Function or expression 'concat(`a`,`b`)' cannot be used in the GENERATED ALWAYS AS clause of `k`"
+-- UPPER(a) juga 1901; hanya ekspresi kolom polos (AS (a)) yang bisa di-index.
+-- PERSISTENT + CASE/CONCAT ditolak sejak ADD COLUMN.
+```
+
+Artinya jalur `driver === 'mysql'` (yang juga dipakai koneksi MariaDB) **akan gagal saat deploy prod** (`migrate --force` berhenti, container tidak boot). Perbaikan DDL online di atas hanya menyelesaikan masalah durasi/lock di MySQL 8; ia tidak membuat skema ini kompatibel dengan MariaDB.
+
+Opsi yang diajukan (butuh keputusan sebelum perubahan berikutnya):
+
+1. **Kolom biasa + unique index, diisi aplikasi** (`active_user_form_key`/`active_guest_email_form_key` nullable, dihitung di model `FormAnswer` saat create/update, backfill bertahap, index dibuat online). Portabel ke MySQL, MariaDB, SQLite, PostgreSQL; butuh audit semua jalur update `review_status`/`member_confirmation_status`/`invited_email`.
+2. **Penanda nullable `active_submission` (1/NULL) + unique index komposit** `(user_id, form_id, active_submission)` dan `(form_id, invited_email, active_submission)`. Nullable menjaga baris rejected tidak saling bentrok; kolom tetap diisi aplikasi.
+3. **Pertahankan generated column hanya untuk MySQL 8** dan pakai salah satu opsi di atas untuk MariaDB. Ditolak sementara: dua skema berbeda per driver menambah risiko.
+
+Sampai keputusan diambil, jalur MariaDB tidak memiliki proteksi database; rekomendasi: jangan deploy migrasi ini ke prod sebelum opsi 1/2 dipilih.
