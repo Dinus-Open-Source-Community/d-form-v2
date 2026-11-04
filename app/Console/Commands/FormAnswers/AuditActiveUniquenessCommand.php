@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Schema;
  */
 final class AuditActiveUniquenessCommand extends Command
 {
+    private bool $activeMarkerColumnChecked = false;
+
+    private bool $activeMarkerColumnAvailable = false;
+
     protected $signature = 'form-answers:audit-active-uniqueness';
 
     protected $description = 'Audit active form-answer duplicates and marker completeness without changing data.';
@@ -47,7 +51,7 @@ final class AuditActiveUniquenessCommand extends Command
 
     private function countUserDuplicateGroups(): int
     {
-        $groups = $this->activeAnswers()
+        $groups = $this->activeUniquenessScope()
             ->whereNotNull('user_id')
             ->select(['user_id', 'form_id'])
             ->groupBy(['user_id', 'form_id'])
@@ -58,7 +62,7 @@ final class AuditActiveUniquenessCommand extends Command
 
     private function countGuestDuplicateGroups(): int
     {
-        $groups = $this->activeAnswers()
+        $groups = $this->activeUniquenessScope()
             ->whereNull('user_id')
             ->whereNotNull('invited_email')
             ->select(['form_id', 'invited_email'])
@@ -70,11 +74,30 @@ final class AuditActiveUniquenessCommand extends Command
 
     private function countUnmarkedActiveRows(): ?int
     {
-        if (! Schema::hasColumn('form_answers', 'is_active')) {
+        if (! $this->hasActiveMarkerColumn()) {
             return null;
         }
 
         return $this->activeAnswers()->whereNull('is_active')->count();
+    }
+
+    private function activeUniquenessScope(): Builder
+    {
+        if ($this->hasActiveMarkerColumn()) {
+            return DB::table('form_answers')->where('is_active', 1);
+        }
+
+        return $this->activeAnswers();
+    }
+
+    private function hasActiveMarkerColumn(): bool
+    {
+        if (! $this->activeMarkerColumnChecked) {
+            $this->activeMarkerColumnAvailable = Schema::hasColumn('form_answers', 'is_active');
+            $this->activeMarkerColumnChecked = true;
+        }
+
+        return $this->activeMarkerColumnAvailable;
     }
 
     private function activeAnswers(): Builder

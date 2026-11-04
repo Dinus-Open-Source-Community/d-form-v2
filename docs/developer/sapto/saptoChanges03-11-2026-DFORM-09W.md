@@ -64,11 +64,17 @@ expand migration: DONE (is_active TINYINT NULL; no uniqueness index)
 backfill --chunk=1000: Rows scanned 1,001,051; Rows changed 1,000,764
 backfill resume --after-id=ffffe1b2-2ab4-583e-ab54-b701a5820ab6:
   Rows scanned: 0; Rows changed: 0
-old pre-index GROUP BY guard + index migration: 6m 01s total
-same duplicate audit after indexes existed: 1.1s
+old full audit command before marker-aware query selection: 3m 38.469s
+optimized full audit command after marker-aware query selection: 7.628s
+optimized query breakdown: user duplicates 1.121s; guest duplicates 0.002s;
+unmarked active rows (required full predicate) 5.791s
 separate online index build measurement:
   user index 6.160s; guest index 5.808s; total 11.969s
 ```
+
+Target command time `<3 detik` belum tercapai karena kelengkapan marker wajib mengevaluasi
+predikat penuh pada baris `is_active IS NULL`; mempercepat bagian itu lebih jauh membutuhkan
+keputusan schema/index tambahan di luar Opsi A yang disetujui.
 
 Row count bertambah selama app dev tetap hidup, sehingga angka command di atas bukan benchmark
 dataset statis. Schema nyata sesudah build: `is_active` adalah `tinyint` nullable dan kedua index
@@ -107,7 +113,7 @@ kembali partial index lama. Hasil rollback adalah schema tanpa enforcement uniqu
 sehingga rollback hanya mitigasi sementara dan perlu diikuti keputusan operasional.
 
 Regression suite di container: **844 passed, 7 skipped** (5.413 assertions, 71.389 detik; baseline
-sebelum QA fix). Targeted marker, audit, and constraint tests: **9 passed** (40 assertions). Pint pada
+sebelum audit-query fix). Targeted marker, audit, and constraint tests: **12 passed** (56 assertions). Pint pada
 file perubahan: PASS. Tidak ada production
 access, deploy, push, atau penghapusan baris.
 

@@ -7,6 +7,7 @@ use App\Models\FormAnswer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -54,26 +55,67 @@ class BackfillActiveFormAnswerMarkerTest extends TestCase
         $this->assertNull($answer->fresh()?->is_active);
     }
 
-    public function test_audit_reports_duplicate_groups_and_unmarked_active_rows_without_writes(): void
+    public function test_audit_post_expand_branch_uses_marker_counts_without_writes(): void
+    {
+        $beforeCount = $this->seedAuditActiveRows();
+
+        $this->artisan('form-answers:audit-active-uniqueness')
+            ->expectsOutputToContain('Active user duplicate groups: 0')
+            ->expectsOutputToContain('Active guest duplicate groups: 0')
+            ->expectsOutputToContain('Unmarked active rows: 0')
+            ->assertExitCode(0);
+
+        $this->assertSame($beforeCount, DB::table('form_answers')->count());
+        $this->assertSame(0, DB::table('form_answers')->whereNull('is_active')->count());
+    }
+
+    public function test_audit_reports_unmarked_active_rows_without_writes(): void
     {
         $user = User::factory()->create();
         $form = Form::factory()->create();
-        $guestEmail = 'audit-guest@example.test';
+        $this->insertAnswer($user->id, $form->id, 'pending');
 
-        $this->insertAnswer($user->id, $form->id, 'pending');
-        $this->insertAnswer($user->id, $form->id, 'pending');
-        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail]);
-        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail]);
-        $beforeCount = DB::table('form_answers')->count();
+        $this->artisan('form-answers:audit-active-uniqueness')
+            ->expectsOutputToContain('Active user duplicate groups: 0')
+            ->expectsOutputToContain('Active guest duplicate groups: 0')
+            ->expectsOutputToContain('Unmarked active rows: 1')
+            ->assertExitCode(1);
+    }
+
+    public function test_audit_pre_expand_branch_matches_post_expand_duplicate_counts(): void
+    {
+        $beforeCount = $this->seedAuditActiveRows();
+
+        Schema::shouldReceive('hasColumn')
+            ->once()
+            ->with('form_answers', 'is_active')
+            ->andReturnFalse();
+
+        $this->artisan('form-answers:audit-active-uniqueness')
+            ->expectsOutputToContain('Active user duplicate groups: 0')
+            ->expectsOutputToContain('Active guest duplicate groups: 0')
+            ->expectsOutputToContain('Unmarked active rows: deferred until is_active exists')
+            ->assertExitCode(0);
+
+        $this->assertSame($beforeCount, DB::table('form_answers')->count());
+    }
+
+    public function test_audit_reports_duplicate_groups_before_expand_without_writes(): void
+    {
+        $beforeCount = $this->seedAuditDuplicates(null);
+
+        Schema::shouldReceive('hasColumn')
+            ->once()
+            ->with('form_answers', 'is_active')
+            ->andReturnFalse();
 
         $this->artisan('form-answers:audit-active-uniqueness')
             ->expectsOutputToContain('Active user duplicate groups: 1')
             ->expectsOutputToContain('Active guest duplicate groups: 1')
-            ->expectsOutputToContain('Unmarked active rows: 4')
+            ->expectsOutputToContain('Unmarked active rows: deferred until is_active exists')
             ->assertExitCode(1);
 
         $this->assertSame($beforeCount, DB::table('form_answers')->count());
-        $this->assertSame(4, DB::table('form_answers')->whereNull('is_active')->count());
     }
 
     public function test_audit_passes_after_marker_backfill(): void
@@ -110,5 +152,33 @@ class BackfillActiveFormAnswerMarkerTest extends TestCase
         ], $overrides));
 
         return $id;
+    }
+
+    private function seedAuditDuplicates(?int $marker = 1): int
+    {
+        $user = User::factory()->create();
+        $form = Form::factory()->create();
+        $guestEmail = 'audit-guest@example.test';
+
+        $this->insertAnswer($user->id, $form->id, 'pending', ['is_active' => $marker]);
+        $this->insertAnswer($user->id, $form->id, 'pending', ['is_active' => $marker]);
+        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail, 'is_active' => $marker]);
+        $this->insertAnswer(null, $form->id, 'pending', ['invited_email' => $guestEmail, 'is_active' => $marker]);
+
+        return DB::table('form_answers')->count();
+    }
+
+    private function seedAuditActiveRows(): int
+    {
+        $user = User::factory()->create();
+        $form = Form::factory()->create();
+
+        $this->insertAnswer($user->id, $form->id, 'pending', ['is_active' => 1]);
+        $this->insertAnswer(null, $form->id, 'pending', [
+            'invited_email' => 'audit-single-guest@example.test',
+            'is_active' => 1,
+        ]);
+
+        return DB::table('form_answers')->count();
     }
 }
