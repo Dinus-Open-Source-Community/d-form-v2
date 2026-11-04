@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md](./saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md) | Idempotency, retry, timeout, dan `delivery_key` untuk seluruh job email; log direkonsiliasi sebelum send, `failed()` PII-free, feature regression dan E2E browser happy/anomali (AUDIT-P1-007).
 - [saptoChanges04-11-2026-DFORM-BE-P3-007.md](./saptoChanges04-11-2026-DFORM-BE-P3-007.md) | Structured error logging public-safe untuk exception callback OAuth Google/GitHub dengan correlation ID dan regression feature/E2E (BE-P3-007).
 - [saptoChanges04-11-2026-DFORM-BE-P1-005.md](./saptoChanges04-11-2026-DFORM-BE-P1-005.md) | Pisahkan validation `422` dari exception internal `500` pada penyimpanan field form, dengan request ID, logging public-safe, feature regression, dan browser anomaly E2E (BE-P1-005).
 - [saptoChanges04-11-2026-DFORM-BE-P1-006.md](./saptoChanges04-11-2026-DFORM-BE-P1-006.md) | Throttle tiga mutation portal tracking OpRec (update, correction, feedback) dengan kunci sesi tracking + fallback IP, regression 429 dan E2E flood browser (BE-P1-006).
