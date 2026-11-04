@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges04-11-2026-DFORM-BE-P1-006.md](./saptoChanges04-11-2026-DFORM-BE-P1-006.md) | Throttle tiga mutation portal tracking OpRec (update, correction, feedback) dengan kunci sesi tracking + fallback IP, regression 429 dan E2E flood browser (BE-P1-006).
 - [saptoChanges04-11-2026-DFORM-BE-P1-004.md](./saptoChanges04-11-2026-DFORM-BE-P1-004.md) | Claim broadcast atomik dengan conditional update + `affected rows`; job hanya di-queue oleh pemenang claim, retry recipient memakai conditional reset (BE-P1-004).
 - [saptoChanges04-11-2026-DFORM-BE-P1-003.md](./saptoChanges04-11-2026-DFORM-BE-P1-003.md) | Pastikan job recruitment hanya di-enqueue setelah transaction commit dengan `afterCommit()` dan regression rollback/commit (BE-P1-003).
 - [saptoChanges04-11-2026-DFORM-BE-P1-002.md](./saptoChanges04-11-2026-DFORM-BE-P1-002.md) | Perketat OAuth linking: subject ID utama, email hanya jika provider verified, hapus email sintetis `@github.local`, regression feature + E2E (BE-P1-002).
