@@ -25,6 +25,8 @@ class SendRegistrationOtpJob implements ShouldQueue
 
     public int $backoff = 30;
 
+    public int $timeout = 60;
+
     /**
      * @param  string  $sentAt  ISO8601 `otp_last_sent_at` saat job diantrekan; dipakai mendeteksi job yang sudah disuperseded.
      */
@@ -81,6 +83,15 @@ class SendRegistrationOtpJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    public function failed(?Throwable $exception = null): void
+    {
+        Log::error('[SendRegistrationOtpJob] Job failed permanently.', [
+            'job' => static::class,
+            'pending_id' => $this->pendingId,
+            'exception_class' => $exception === null ? null : $exception::class,
+        ]);
     }
 
     /**

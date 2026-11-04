@@ -2,11 +2,10 @@
 
 namespace App\Jobs\Recruitment;
 
-use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
-use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentInterviewVariableBuilder;
@@ -19,11 +18,13 @@ class SendRecruitmentInterviewerNotificationJob implements ShouldQueue
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $interviewId,
         public string $templateKey = 'interview_assignment',
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(
@@ -46,22 +47,29 @@ class SendRecruitmentInterviewerNotificationJob implements ShouldQueue
 
         $variables = $variableBuilder->build($interview);
 
+        $logAttributes = [
+            'recruitment_application_id' => $interview->recruitment_application_id,
+            'event_id' => null,
+            'user_id' => $interview->interviewer_id,
+            'recipient_email' => $recipientEmail,
+            'notification_type' => EmailNotificationType::RecruitmentInterviewAssignment,
+        ];
+
         if ($recipientEmail === '') {
-            EmailLog::query()->create([
-                'recruitment_application_id' => $interview->recruitment_application_id,
-                'event_id' => null,
-                'user_id' => $interview->interviewer_id,
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RecruitmentInterviewAssignment,
-                'error_message' => 'No interviewer email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogUndeliverable($logAttributes, 'No interviewer email address configured.');
 
             return;
         }
 
         $rendered = $renderer->renderTemplate($this->templateKey, $variables);
+
+        $this->applyOutgoingEmailJitter();
+
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
 
         try {
             Mail::to($recipientEmail)->send(new RecruitmentApplicationConfirmationMail(
@@ -70,26 +78,15 @@ class SendRecruitmentInterviewerNotificationJob implements ShouldQueue
                 bodyText: $rendered['body_text'],
             ));
 
-            EmailLog::query()->create([
-                'recruitment_application_id' => $interview->recruitment_application_id,
-                'event_id' => null,
-                'user_id' => $interview->interviewer_id,
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::RecruitmentInterviewAssignment,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $exception) {
-            EmailLog::query()->create([
-                'recruitment_application_id' => $interview->recruitment_application_id,
-                'event_id' => null,
-                'user_id' => $interview->interviewer_id,
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RecruitmentInterviewAssignment,
-                'error_message' => $exception->getMessage(),
-                'sent_at' => null,
+            $this->markEmailLogFailed($log, $exception);
+
+            Log::error('[SendRecruitmentInterviewerNotificationJob] Email send failed.', [
+                'notification_type' => EmailNotificationType::RecruitmentInterviewAssignment->value,
+                'interview_id' => $interview->id,
+                'delivery_key' => $this->deliveryKey,
+                'exception_class' => $exception::class,
             ]);
 
             throw $exception;

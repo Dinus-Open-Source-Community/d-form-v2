@@ -7,6 +7,7 @@ use App\Enums\RegistrationRole;
 use App\Models\FormAnswer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Drops the member submission after invitations are sent so the user can submit the event form again
@@ -18,9 +19,25 @@ class DeleteDeclinedInvitationMemberSubmissionJob implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+
+    /** @var list<int> */
+    public array $backoff = [60, 300, 900];
+
+    public int $timeout = 60;
+
     public function __construct(
         public string $memberFormAnswerId,
     ) {
+    }
+
+    public function failed(?Throwable $exception = null): void
+    {
+        Log::error('[DeleteDeclinedInvitationMemberSubmissionJob] Job failed permanently.', [
+            'job' => static::class,
+            'member_form_answer_id' => $this->memberFormAnswerId,
+            'exception_class' => $exception === null ? null : $exception::class,
+        ]);
     }
 
     public function handle(): void

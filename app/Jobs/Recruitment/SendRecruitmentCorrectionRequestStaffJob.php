@@ -2,11 +2,10 @@
 
 namespace App\Jobs\Recruitment;
 
-use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
-use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\User;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
@@ -19,10 +18,12 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $correctionRequestId,
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(RecruitmentEmailRenderer $renderer): void
@@ -64,6 +65,20 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
         $rendered = $renderer->renderTemplate('correction_request_staff', $variables);
 
         foreach ($recipients as $recipientEmail) {
+            $deliveryKey = $this->deliveryKey.':'.substr(sha1(strtolower($recipientEmail)), 0, 24);
+
+            $log = $this->reserveEmailLog([
+                'recruitment_application_id' => $application->id,
+                'event_id' => null,
+                'user_id' => null,
+                'recipient_email' => $recipientEmail,
+                'notification_type' => EmailNotificationType::RecruitmentCorrectionRequestStaff,
+            ], null, $deliveryKey);
+
+            if ($log === null) {
+                continue;
+            }
+
             try {
                 Mail::to($recipientEmail)->send(new RecruitmentApplicationConfirmationMail(
                     subjectLine: $rendered['subject'],
@@ -71,26 +86,15 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
                     bodyText: $rendered['body_text'],
                 ));
 
-                EmailLog::query()->create([
-                    'recruitment_application_id' => $application->id,
-                    'event_id' => null,
-                    'user_id' => null,
-                    'recipient_email' => $recipientEmail,
-                    'status' => EmailLogStatus::Sent,
-                    'notification_type' => EmailNotificationType::RecruitmentCorrectionRequestStaff,
-                    'error_message' => null,
-                    'sent_at' => now(),
-                ]);
+                $this->markEmailLogSent($log, $recipientEmail);
             } catch (\Throwable $exception) {
-                EmailLog::query()->create([
-                    'recruitment_application_id' => $application->id,
-                    'event_id' => null,
-                    'user_id' => null,
-                    'recipient_email' => $recipientEmail,
-                    'status' => EmailLogStatus::Failed,
-                    'notification_type' => EmailNotificationType::RecruitmentCorrectionRequestStaff,
-                    'error_message' => $exception->getMessage(),
-                    'sent_at' => null,
+                $this->markEmailLogFailed($log, $exception);
+
+                Log::error('[SendRecruitmentCorrectionRequestStaffJob] Email send failed.', [
+                    'notification_type' => EmailNotificationType::RecruitmentCorrectionRequestStaff->value,
+                    'correction_request_id' => $correction->id,
+                    'delivery_key' => $deliveryKey,
+                    'exception_class' => $exception::class,
                 ]);
 
                 throw $exception;

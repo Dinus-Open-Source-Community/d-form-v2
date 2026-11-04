@@ -2,11 +2,10 @@
 
 namespace App\Jobs\Recruitment;
 
-use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
-use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentTrackingPortalUrlBuilder;
@@ -19,16 +18,13 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
-
-    public int $tries = 3;
-
-    /** @var list<int> */
-    public array $backoff = [60, 300, 900];
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $applicationId,
         public string $trackingToken,
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(
@@ -69,21 +65,32 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
         ];
 
         if ($recipientEmail === '') {
-            EmailLog::query()->create([
+            $this->markEmailLogUndeliverable([
                 'recruitment_application_id' => $application->id,
                 'event_id' => null,
                 'user_id' => null,
                 'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
                 'notification_type' => EmailNotificationType::RecruitmentApplicationSubmitted,
-                'error_message' => 'No recipient email address configured.',
-                'sent_at' => null,
-            ]);
+            ], 'No recipient email address configured.');
 
             return;
         }
 
         $rendered = $renderer->renderTemplate('application_submitted', $variables);
+
+        $logAttributes = [
+            'recruitment_application_id' => $application->id,
+            'event_id' => null,
+            'user_id' => null,
+            'recipient_email' => $recipientEmail,
+            'notification_type' => EmailNotificationType::RecruitmentApplicationSubmitted,
+        ];
+
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
 
         try {
             Mail::to($recipientEmail)->send(new RecruitmentApplicationConfirmationMail(
@@ -93,26 +100,15 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
                 headline: 'Pendaftaran diterima',
             ));
 
-            EmailLog::query()->create([
-                'recruitment_application_id' => $application->id,
-                'event_id' => null,
-                'user_id' => null,
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::RecruitmentApplicationSubmitted,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $exception) {
-            EmailLog::query()->create([
-                'recruitment_application_id' => $application->id,
-                'event_id' => null,
-                'user_id' => null,
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RecruitmentApplicationSubmitted,
-                'error_message' => $exception->getMessage(),
-                'sent_at' => null,
+            $this->markEmailLogFailed($log, $exception);
+
+            Log::error('[SendRecruitmentApplicationConfirmationJob] Email send failed.', [
+                'notification_type' => EmailNotificationType::RecruitmentApplicationSubmitted->value,
+                'application_id' => $application->id,
+                'delivery_key' => $this->deliveryKey,
+                'exception_class' => $exception::class,
             ]);
 
             throw $exception;
