@@ -69,7 +69,7 @@ import { formatDateTime } from '@/lib/dateTime';
 
 defineOptions({ layout: DashboardLayout });
 
-type ShowTab = 'editor' | 'jawaban' | 'settings';
+type TShowTab = 'editor' | 'jawaban' | 'settings';
 const props = defineProps<{
     event: { id: string; title: string };
     form: IForm;
@@ -84,12 +84,12 @@ const props = defineProps<{
 const page = usePage();
 
 /** Baca tab dari query string agar deep-link ?tab=jawaban bekerja saat refresh/back. */
-function tabFromQuery(): ShowTab {
+function tabFromQuery(): TShowTab {
     const raw = new URLSearchParams(page.url.split('?')[1] ?? '').get('tab');
     if (raw === 'jawaban') return 'jawaban';
     return raw === 'settings' ? 'settings' : 'editor';
 }
-const activeTab = ref<ShowTab>(tabFromQuery());
+const activeTab = ref<TShowTab>(tabFromQuery());
 
 /** Sinkronkan tab ke query string (?tab=jawaban) agar deep-link tetap bertahan saat refresh. */
 watch(activeTab, (tab) => {

@@ -1,18 +1,18 @@
 import { onMounted, onUnmounted, ref, type Ref } from 'vue';
 
-import type { FormAnswerMobileView } from '@/types/formAnswerMobileView';
+import type { TFormAnswerMobileView } from '@/types/formAnswerMobileView';
 
 const STORAGE_KEY = 'd-form:form-answers:mobile-view';
 
 /** Loads the saved mobile answer presentation, falling back to cards when storage is unavailable. */
 export function useFormAnswerMobileView(): {
-    view: Ref<FormAnswerMobileView>;
+    view: Ref<TFormAnswerMobileView>;
     isDesktop: Ref<boolean>;
-    setView: (view: FormAnswerMobileView) => void;
+    setView: (view: TFormAnswerMobileView) => void;
 } {
     // Keep SSR and the first client render identical; detect the breakpoint after hydration.
     const initialIsDesktop = false;
-    const view = ref<FormAnswerMobileView>('card');
+    const view = ref<TFormAnswerMobileView>('card');
     const isDesktop = ref(initialIsDesktop);
     let breakpoint: MediaQueryList | null = null;
     const syncBreakpoint = (event: MediaQueryList | MediaQueryListEvent): void => {
@@ -30,7 +30,7 @@ export function useFormAnswerMobileView(): {
         breakpoint.addEventListener('change', syncBreakpoint);
     });
     onUnmounted(() => breakpoint?.removeEventListener('change', syncBreakpoint));
-    const setView = (nextView: FormAnswerMobileView): void => {
+    const setView = (nextView: TFormAnswerMobileView): void => {
         view.value = nextView;
         try {
             window.localStorage.setItem(STORAGE_KEY, nextView);
