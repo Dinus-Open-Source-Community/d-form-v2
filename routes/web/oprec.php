@@ -28,10 +28,16 @@ Route::prefix('recruitment')
         Route::middleware('recruitment.tracking.session')->group(function (): void {
             Route::get('/track/dashboard', [TrackingController::class, 'show'])->name('track.show');
             Route::get('/track/edit', [TrackingController::class, 'edit'])->name('track.edit');
-            Route::put('/track', [TrackingController::class, 'update'])->name('track.update');
-            Route::post('/track/correction', [CorrectionRequestController::class, 'store'])->name('track.correction');
+            Route::put('/track', [TrackingController::class, 'update'])
+                ->middleware('throttle:oprec-track-update')
+                ->name('track.update');
+            Route::post('/track/correction', [CorrectionRequestController::class, 'store'])
+                ->middleware('throttle:oprec-track-correction')
+                ->name('track.correction');
             Route::get('/track/feedback', [FeedbackController::class, 'create'])->name('track.feedback');
-            Route::post('/track/feedback', [FeedbackController::class, 'store'])->name('track.feedback.store');
+            Route::post('/track/feedback', [FeedbackController::class, 'store'])
+                ->middleware('throttle:oprec-track-feedback')
+                ->name('track.feedback.store');
             Route::post('/track/logout', [TrackingController::class, 'logout'])->name('track.logout');
         });
     });

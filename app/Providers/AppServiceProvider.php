@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Middleware\StressBypassThrottle;
+use App\Services\Recruitment\RecruitmentTrackingSession;
 use App\Support\PendingRegistrationSession;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -62,6 +63,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('oprec-queue', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
+
+        // Mutation portal tracking OpRec. Kunci memakai id aplikasi dari sesi
+        // tracking (satu pendaftar = satu bucket) supaya pendaftar di belakang
+        // NAT tidak saling memakan kuota; request tanpa sesi jatuh ke IP agar
+        // flood tetap dibatasi sebelum guard sesi berjalan.
+        foreach (['update', 'correction', 'feedback'] as $trackingMutation) {
+            RateLimiter::for('oprec-track-'.$trackingMutation, function (Request $request) use ($trackingMutation): Limit {
+                return $this->recruitmentTrackingLimit($trackingMutation, $request);
+            });
+        }
 
         RateLimiter::for('scan-page', function (Request $request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
@@ -156,6 +167,26 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('local') && filled($testRedirect)) {
             Mail::alwaysTo($testRedirect);
         }
+    }
+
+    /**
+     * Batas satu mutation tracking OpRec. Identitas diambil dari sesi tracking
+     * (id aplikasi) dan baru jatuh ke IP ketika sesi belum/tidak valid; IP tidak
+     * digabung ke kunci agar kuota tidak bisa direset dengan rotasi IP.
+     */
+    private function recruitmentTrackingLimit(string $mutation, Request $request): Limit
+    {
+        $applicationId = $request->hasSession()
+            ? $request->session()->get(RecruitmentTrackingSession::APPLICATION_ID_KEY)
+            : null;
+
+        $identity = is_string($applicationId) && $applicationId !== ''
+            ? 'application:'.$applicationId
+            : 'ip:'.$request->ip();
+
+        $maxAttempts = (int) config('recruitment.tracking_mutation_throttle.'.$mutation);
+
+        return Limit::perMinute($maxAttempts)->by('oprec-track-'.$mutation.'|'.$identity);
     }
 
     /**
