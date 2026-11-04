@@ -81,8 +81,8 @@ access, deploy, push, atau penghapusan baris.
 
 | Issue       | Commit                                                     |
 | ----------- | ---------------------------------------------------------- |
-| `dform-09w` | `fix(forms): enforce portable active answer uniqueness`    |
-| `dform-kzc` | `fix(forms): enforce portable active answer uniqueness`    |
+| `dform-09w` | `33a3e98`                                                   |
+| `dform-kzc` | `33a3e98`                                                   |
 
 ## Catatan historis — investigasi sebelum Opsi A (superseded)
 
