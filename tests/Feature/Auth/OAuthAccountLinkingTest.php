@@ -5,6 +5,8 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -129,6 +131,33 @@ class OAuthAccountLinkingTest extends TestCase
         $this->assertSame(0, User::query()->whereNotNull('google_id')->count());
     }
 
+    public function test_google_callback_exception_is_logged_safely_and_redirects_to_login(): void
+    {
+        Log::spy();
+        $requestId = (string) Str::uuid();
+        $this->mockProviderException('google', new \RuntimeException('provider token must not be logged'));
+
+        $response = $this->get(route('auth.google.callback'), [
+            'X-Request-ID' => $requestId,
+        ]);
+
+        $this->assertRejectedWithNeutralMessage($response);
+        $this->assertOAuthExceptionWasLogged('google', $requestId);
+    }
+
+    public function test_github_callback_exception_is_logged_safely_and_replaces_invalid_request_id(): void
+    {
+        Log::spy();
+        $this->mockProviderException('github', new \RuntimeException('provider secret must not be logged'));
+
+        $response = $this->get(route('auth.github.callback'), [
+            'X-Request-ID' => 'not-a-uuid',
+        ]);
+
+        $this->assertRejectedWithNeutralMessage($response);
+        $this->assertOAuthExceptionWasLogged('github');
+    }
+
     public function test_new_github_user_with_verified_email_is_created_and_logged_in(): void
     {
         $this->mockProviderCallback('github', 'new-github@example.com');
@@ -236,6 +265,12 @@ class OAuthAccountLinkingTest extends TestCase
         Socialite::shouldReceive('user')->andReturn($socialiteUser);
     }
 
+    private function mockProviderException(string $provider, \Exception $exception): void
+    {
+        Socialite::shouldReceive('driver')->with($provider)->andReturnSelf();
+        Socialite::shouldReceive('user')->andThrow($exception);
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      */
@@ -264,5 +299,26 @@ class OAuthAccountLinkingTest extends TestCase
             });
 
         $this->assertGuest();
+    }
+
+    private function assertOAuthExceptionWasLogged(string $provider, ?string $expectedRequestId = null): void
+    {
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($provider, $expectedRequestId): bool {
+                $requestId = $context['request_id'] ?? null;
+                $requestIdMatches = $expectedRequestId === null
+                    ? is_string($requestId) && Str::isUuid($requestId)
+                    : $requestId === $expectedRequestId;
+
+                return $message === 'oauth_callback_failed'
+                    && ($context['provider'] ?? null) === $provider
+                    && ($context['route'] ?? null) === "auth.{$provider}.callback"
+                    && $requestIdMatches
+                    && ($context['exception_class'] ?? null) === \RuntimeException::class
+                    && ! array_key_exists('exception', $context)
+                    && ! array_key_exists('message', $context)
+                    && ! array_key_exists('token', $context);
+            });
     }
 }

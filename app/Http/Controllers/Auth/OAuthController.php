@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Services\Auth\OAuthAccountLinker;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteTwoUser;
@@ -23,7 +26,7 @@ class OAuthController extends Controller
     /**
      * Handle Google OAuth callback
      */
-    public function handleGoogleCallback(OAuthAccountLinker $linker): RedirectResponse
+    public function handleGoogleCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
             $googleUser = Socialite::driver('google')->user();
@@ -46,6 +49,7 @@ class OAuthController extends Controller
 
             return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
+            $this->logOAuthCallbackFailure('google', $request, $e);
             Inertia::flash('toast', [
                 'type' => 'error',
                 'message' => 'Unable to login with Google. Please try again.',
@@ -66,7 +70,7 @@ class OAuthController extends Controller
     /**
      * Handle GitHub OAuth callback
      */
-    public function handleGithubCallback(OAuthAccountLinker $linker): RedirectResponse
+    public function handleGithubCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
             $githubUser = Socialite::driver('github')->user();
@@ -82,6 +86,7 @@ class OAuthController extends Controller
 
             return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
+            $this->logOAuthCallbackFailure('github', $request, $e);
             Inertia::flash('toast', [
                 'type' => 'error',
                 'message' => 'Unable to login with GitHub. Please try again.',
@@ -111,5 +116,24 @@ class OAuthController extends Controller
         ]);
 
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    /**
+     * Record safe OAuth failure metadata without logging provider payloads or exception messages.
+     */
+    private function logOAuthCallbackFailure(string $provider, Request $request, \Exception $exception): void
+    {
+        $requestId = $request->header('X-Request-ID');
+
+        if (! is_string($requestId) || ! Str::isUuid($requestId)) {
+            $requestId = (string) Str::uuid();
+        }
+
+        Log::error('oauth_callback_failed', [
+            'provider' => $provider,
+            'route' => $request->route()?->getName(),
+            'request_id' => $requestId,
+            'exception_class' => $exception::class,
+        ]);
     }
 }
