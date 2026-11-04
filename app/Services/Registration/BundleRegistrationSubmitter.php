@@ -17,6 +17,7 @@ final class BundleRegistrationSubmitter
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
         private BundleGuestDuplicateChecker $duplicateChecker,
+        private FormAnswerWriter $formAnswerWriter,
     ) {
     }
 
@@ -107,7 +108,7 @@ final class BundleRegistrationSubmitter
 
             $groupToken = $this->generateUniqueGroupToken((string) $form->id);
 
-            $leader = FormAnswer::query()->create([
+            $leader = $this->formAnswerWriter->create([
                 'answers' => $leaderAnswers,
                 'form_id' => $form->id,
                 'user_id' => (string) $leaderUser->id,
@@ -126,7 +127,7 @@ final class BundleRegistrationSubmitter
             foreach ($memberEmails as $i => $email) {
                 $linkedUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
 
-                $memberRows[] = FormAnswer::query()->create([
+                $memberRows[] = $this->formAnswerWriter->create([
                     'answers' => $memberAnswerRows[$i],
                     'form_id' => $form->id,
                     'user_id' => $linkedUser !== null ? (string) $linkedUser->id : null,

@@ -18,6 +18,7 @@ use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\BundleSubmissionRules;
 use App\Services\Registration\EventRegistrationCounter;
+use App\Services\Registration\FormAnswerWriter;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class FormSubmissionController extends Controller
         private BundleRegistrationSubmitter $bundleRegistrationSubmitter,
         private EventRegistrationCounter $registrationCounter,
         private BundleGuestDuplicateChecker $bundleGuestDuplicateChecker,
+        private FormAnswerWriter $formAnswerWriter,
     ) {
     }
 
@@ -150,7 +152,7 @@ class FormSubmissionController extends Controller
 
             $this->registrationCounter->assertCanReserve($lockedEvent, 1, $isAdmin);
 
-            $submission = FormAnswer::create([
+            $submission = $this->formAnswerWriter->create([
                 'answers' => $answers,
                 'form_id' => $form->id,
                 'user_id' => (string) $user->id,
@@ -190,7 +192,7 @@ class FormSubmissionController extends Controller
                 ]);
             }
 
-            FormAnswer::create([
+            $this->formAnswerWriter->create([
                 'answers' => $answers,
                 'form_id' => $form->id,
                 'user_id' => (string) $user->id,

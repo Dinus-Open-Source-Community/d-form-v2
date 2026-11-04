@@ -11,6 +11,24 @@ use Illuminate\Support\Facades\DB;
  */
 class FormAnswerObserver
 {
+    /** Set the portable marker once for every Eloquent-created submission. */
+    public function creating(FormAnswer $answer): void
+    {
+        $answer->is_active = $answer->isActiveSubmission() ? 1 : null;
+    }
+
+    /** Keep the marker aligned when review or invitation status changes. */
+    public function updating(FormAnswer $answer): void
+    {
+        if ($answer->isDirty([
+            'review_status',
+            'registration_role',
+            'member_confirmation_status',
+        ])) {
+            $answer->is_active = $answer->isActiveSubmission() ? 1 : null;
+        }
+    }
+
     /** Tambah 1 pada tanggal submisi dibuat. */
     public function created(FormAnswer $answer): void
     {

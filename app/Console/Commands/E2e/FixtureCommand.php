@@ -220,6 +220,7 @@ final class FixtureCommand extends Command
                 'answers' => json_encode(['field_1' => 'jawaban e2e'], JSON_THROW_ON_ERROR),
                 'user_id' => $userId,
                 'form_id' => $formId,
+                'is_active' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

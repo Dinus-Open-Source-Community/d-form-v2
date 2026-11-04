@@ -14,8 +14,8 @@ use Tests\TestCase;
  * Membuktikan proteksi duplikat ada di level database, bukan hanya di FormAccessGuard.
  *
  * Test ini menulis langsung ke tabel agar tidak bisa lolos karena lapisan aplikasi.
- * Di SQLite/PostgreSQL constraint datang dari partial unique index; di MySQL dari
- * generated column + unique index (migrasi 2026_11_03_000001).
+ * Semua driver memakai nullable `is_active` pada dua unique index komposit; NULL
+ * membuat baris nonaktif berulang tetap diizinkan.
  */
 class FormAnswerDuplicateConstraintTest extends TestCase
 {
@@ -29,6 +29,7 @@ class FormAnswerDuplicateConstraintTest extends TestCase
                 'id' => (string) Str::orderedUuid(),
                 'answers' => json_encode([]),
                 'review_status' => 'pending',
+                'is_active' => 1,
                 'created_at' => now(),
                 'updated_at' => now(),
             ], $overrides));
@@ -66,6 +67,7 @@ class FormAnswerDuplicateConstraintTest extends TestCase
             'user_id' => (string) $user->id,
             'form_id' => (string) $form->id,
             'review_status' => 'rejected',
+            'is_active' => null,
         ]));
 
         $this->assertTrue($this->insertAnswer([
@@ -87,6 +89,7 @@ class FormAnswerDuplicateConstraintTest extends TestCase
                 'form_id' => (string) $form->id,
                 'registration_role' => 'member',
                 'member_confirmation_status' => $status,
+                'is_active' => null,
             ]));
         }
 
@@ -94,6 +97,23 @@ class FormAnswerDuplicateConstraintTest extends TestCase
             'user_id' => (string) $user->id,
             'form_id' => (string) $form->id,
         ]));
+
+        $this->assertSame(3, DB::table('form_answers')->count());
+    }
+
+    public function test_repeated_non_active_answers_are_allowed(): void
+    {
+        $user = User::factory()->create();
+        $form = Form::factory()->create();
+
+        foreach (range(1, 3) as $unusedAttempt) {
+            $this->assertTrue($this->insertAnswer([
+                'user_id' => (string) $user->id,
+                'form_id' => (string) $form->id,
+                'is_active' => null,
+                'review_status' => 'rejected',
+            ]));
+        }
 
         $this->assertSame(3, DB::table('form_answers')->count());
     }

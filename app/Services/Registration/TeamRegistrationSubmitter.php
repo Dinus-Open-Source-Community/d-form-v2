@@ -16,6 +16,7 @@ final class TeamRegistrationSubmitter
 {
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
+        private FormAnswerWriter $formAnswerWriter,
     ) {
     }
 
@@ -108,7 +109,7 @@ final class TeamRegistrationSubmitter
 
             $inviteExpiresAt = now()->addDays((int) config('registration.invitation_ttl_days', 7));
 
-            $leader = FormAnswer::query()->create([
+            $leader = $this->formAnswerWriter->create([
                 'answers' => $answers,
                 'form_id' => $form->id,
                 'user_id' => (string) $leaderUser->id,
@@ -124,7 +125,7 @@ final class TeamRegistrationSubmitter
             $memberRows = [];
 
             foreach ($memberUsers as $memberUser) {
-                $memberRows[] = FormAnswer::query()->create([
+                $memberRows[] = $this->formAnswerWriter->create([
                     'answers' => $memberAnswers,
                     'form_id' => $form->id,
                     'user_id' => (string) $memberUser->id,

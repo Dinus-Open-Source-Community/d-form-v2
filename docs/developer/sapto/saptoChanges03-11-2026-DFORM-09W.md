@@ -2,13 +2,93 @@
 
 ## Ringkasan
 
+> **Status 4 November 2026:** Bagian awal dokumen ini merekam percobaan
+> generated-column yang kemudian terbukti tidak kompatibel dengan MariaDB 10.11.
+> Addendum di bawah adalah keputusan dan implementasi yang berlaku sekarang.
+
 Ticket menyebut partial unique index `form_answers` hanya berlaku di SQLite/PostgreSQL sehingga MySQL bergantung pada aplikasi. Investigasi menemukan akar yang lebih dalam: **index parsial itu juga tidak berlaku di SQLite/PostgreSQL untuk submission biasa**, karena predikatnya memakai `NOT (registration_role = 'member' AND ...)` yang bernilai NULL ketika `registration_role` NULL. Di semua driver, proteksi duplikat efektif hanya dari `FormAccessGuard`.
 
-Perbaikan: constraint ditegakkan di database untuk semua driver — MySQL memakai generated column + unique index, SQLite/PostgreSQL memakai index parsial dengan predikat NULL-safe.
+Percobaan awal (superseded oleh addendum): constraint hendak ditegakkan dengan generated
+column di MySQL dan index parsial NULL-safe di SQLite/PostgreSQL.
+
+## Addendum 4 November 2026 — Opsi A portabel (current)
+
+Keputusan user untuk `dform-09w` dan `dform-kzc` adalah pola expand → backfill → contract.
+Migration generated-column lama ditulis ulang karena **belum pernah berhasil dijalankan di
+production**; rewrite ini tidak menghapus baris data dan menghilangkan risiko deploy MariaDB.
+
+Schema akhir dibuat sama secara logis pada SQLite, PostgreSQL, MySQL, dan MariaDB:
+
+- `form_answers.is_active TINYINT NULL`: `1` untuk submission aktif, `NULL` untuk submission tidak aktif.
+- `form_answers_active_user_form_unique`: unique `(user_id, form_id, is_active)`.
+- `form_answers_active_guest_email_form_unique`: unique `(form_id, invited_email, is_active)`.
+- Generated columns dan partial unique indexes lama dibuang oleh migration expand secara idempotent.
+  Cabang driver hanya dipakai untuk sintaks `ALGORITHM=INSTANT`/`INPLACE, LOCK=NONE`, bukan untuk
+  menghasilkan schema yang berbeda.
+
+### Implementasi
+
+- `2026_11_03_000001_enforce_active_form_answer_uniqueness.php` sekarang hanya membersihkan sisa
+  percobaan lama dan menambah `is_active` tanpa index. Pembersihan memakai pemeriksaan `IF EXISTS`
+  dan tidak menghapus baris.
+- `2026_11_04_000002_create_active_form_answer_indexes.php` menjalankan guard read-only untuk dua
+  grup duplicate aktif sebelum membuat index. Guard dan kegagalan unique DDL mengabort dengan pesan
+  jelas; tidak ada pembersihan otomatis. `down()` menjatuhkan kedua index dan kolom marker.
+- `form-answers:backfill-active-marker` memproses `chunkById` (default 1.000), mendukung
+  `--after-id`, idempotent, dan mencetak `Rows scanned`, `Rows changed`, serta `Last ID`.
+- Contract migration mengabort lebih awal bila masih ada baris yang memenuhi predikat aktif
+  tetapi `is_active` masih `NULL`; ini memaksa urutan expand → backfill → contract saat deploy.
+- `FormAnswerObserver` adalah choke point lifecycle Eloquent untuk marker create/update; production
+  registration single/team/bundle memakai `FormAnswerWriter`. E2E fixture dan stress bulk insert
+  mengisi marker eksplisit.
+
+### Verifikasi aktual
+
+Evidence `Measured` pada local MySQL 9 dev (`form_answers` 1.001.048 baris sebelum rollback lokal):
+
+```text
+expand migration: DONE (is_active TINYINT NULL; no uniqueness index)
+backfill --chunk=1000: Rows scanned 1,001,051; Rows changed 1,000,764
+backfill resume --after-id=ffffe1b2-2ab4-583e-ab54-b701a5820ab6:
+  Rows scanned: 0; Rows changed: 0
+contract guard + index migration: 6m 01s total
+separate online index build after guard:
+  user index 6.160s; guest index 5.808s; total 11.969s
+```
+
+Row count bertambah selama app dev tetap hidup, sehingga angka command di atas bukan benchmark
+dataset statis. Schema nyata sesudah build: `is_active` adalah `tinyint` nullable dan kedua index
+memiliki `Non_unique=0` dengan tiga kolom komposit yang diminta.
+
+Transactional insert probe MySQL nyata menghasilkan:
+
+```text
+active_first_insert=true
+active_duplicate_insert=false (SQLSTATE 23000)
+inactive_first_insert=true
+inactive_second_insert=true
+rolled_back=true
+```
+
+Image `mariadb:10.11` lokal juga menjalankan seluruh migration dari database kosong sampai selesai,
+backfill command (`Rows scanned: 0`), dan probe insert yang sama dengan hasil duplicate aktif ditolak
+serta dua baris nonaktif diterima. Durasi MariaDB production **belum diukur**; wajib diukur di
+staging yang merepresentasikan ukuran dan konfigurasi production sebelum deploy.
+
+Regression suite di container: **844 passed, 7 skipped** (5.413 assertions, 71.389 detik). Targeted
+marker and constraint tests: **8 passed** (31 assertions). Pint pada file perubahan: PASS. Tidak ada production
+access, deploy, push, atau penghapusan baris.
 
 | Issue       | Commit                                                     |
 | ----------- | ---------------------------------------------------------- |
-| `dform-09w` | `fix(forms): enforce active answer uniqueness in database` |
+| `dform-09w` | `fix(forms): enforce portable active answer uniqueness`    |
+| `dform-kzc` | `fix(forms): enforce portable active answer uniqueness`    |
+
+## Catatan historis — investigasi sebelum Opsi A (superseded)
+
+Bagian berikut merekam bukti dan alternatif dari investigasi awal. Ia dipertahankan untuk audit
+keputusan, tetapi bukan definisi schema atau runbook deployment saat ini; addendum Opsi A di atas
+adalah sumber kebenaran implementasi sekarang.
 
 ## Akar masalah (Evidence: Confirmed + Reproduced)
 
@@ -20,7 +100,7 @@ Perbaikan: constraint ditegakkan di database untuk semua driver — MySQL memaka
 
 `FormAccessGuard` dan pengecekan di dalam transaksi tetap ada, tetapi bersifat TOCTOU; `SELECT ... FOR UPDATE` pada baris yang belum ada tidak menjamin serialisasi, dan `submitOtherForm()` tidak mengunci baris event.
 
-## Keputusan
+## Keputusan historis sebelum Opsi A
 
 **Generated column + unique index untuk MySQL, index parsial NULL-safe untuk SQLite/PostgreSQL.**
 
@@ -30,14 +110,14 @@ Perbaikan: constraint ditegakkan di database untuk semua driver — MySQL memaka
 - Migrasi **tidak menghapus data**. Duplikat terdeteksi dari kegagalan unique index (DDL atomic: tabel kembali ke keadaan semula) dan dipetakan menjadi `RuntimeException` yang menyebut duplikat aktif; pembersihan data produksi harus keputusan manusia. Preflight `GROUP BY` penuh dihapus setelah terukur memakan >5 menit pada 1 juta baris tanpa memberi jaminan tambahan.
 - `down()` mengembalikan definisi index lama dan menghapus kolom MySQL, sehingga rollback setara keadaan sebelumnya.
 
-## Perubahan
+## Perubahan historis sebelum Opsi A
 
 - `database/migrations/2026_11_03_000001_enforce_active_form_answer_uniqueness.php` (baru): DDL per driver (`active_user_form_key`/`active_guest_email_form_key` + unique index di MySQL; recreate index parsial NULL-safe di SQLite/PostgreSQL), dengan pemetaan error duplikat.
 - `tests/Feature/Forms/FormAnswerDuplicateConstraintTest.php` (baru): menulis langsung ke `form_answers` (melewati `FormAccessGuard`) dan membuktikan database menolak duplikat; juga membuktikan baris `rejected`/member `rejected`/`expired` tidak memblokir submission baru.
 
 Tidak ada perubahan controller, route, atau perilaku UI: pesan "already submitted" tetap dari `FormAccessGuard`.
 
-## Verifikasi
+## Verifikasi historis sebelum Opsi A
 
 Test regresi pada SQLite (sebelum migrasi — merah, sesudah — hijau):
 

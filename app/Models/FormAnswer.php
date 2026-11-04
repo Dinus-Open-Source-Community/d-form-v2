@@ -41,6 +41,7 @@ class FormAnswer extends Model
         'reviewed_at',
         'reviewed_by',
         'registration_code',
+        'is_active',
     ];
 
     /**
@@ -56,7 +57,24 @@ class FormAnswer extends Model
             'reviewed_at' => 'datetime',
             'member_confirmed_at' => 'datetime',
             'invitation_expired_at' => 'datetime',
+            'is_active' => 'integer',
         ];
+    }
+
+    /**
+     * Return whether this submission participates in active uniqueness constraints.
+     */
+    public function isActiveSubmission(): bool
+    {
+        if ($this->review_status === FormAnswerReviewStatus::Rejected) {
+            return false;
+        }
+
+        return $this->registration_role !== RegistrationRole::Member
+            || ! in_array($this->member_confirmation_status, [
+                MemberConfirmationStatus::Rejected,
+                MemberConfirmationStatus::Expired,
+            ], true);
     }
 
     public function isMemberPendingInvitation(): bool
