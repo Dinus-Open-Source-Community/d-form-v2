@@ -89,3 +89,26 @@ lintas pemakai dicatat sebagai follow-up terpisah.
 - [x] Empty total berbeda dari empty hasil filter.
 - [x] Review status tanpa full page reload.
 - [x] Tidak ada perubahan di luar scope backend/translation/dependency.
+
+## dform-i7e.9 — Error reload jawaban dan aksi Coba lagi
+
+- **Gejala (Confirmed):** `router.reload({ only: ['submissions'] })` hanya memiliki
+  state error di halaman dan mengandalkan `onError`; respons HTTP 500 Inertia masuk
+  melalui `onHttpException`, sehingga pesan area dan retry tidak konsisten.
+- **Perubahan:** Menambah `useFormAnswersReload` sebagai pemilik state error dan
+  lifecycle partial reload. Hook memproses body JSON dengan `parseApiErrorMessage`,
+  menampilkan `showHttpErrorToast` untuk HTTP failure, menangani network failure,
+  dan menghapus pesan setelah reload berhasil. `Show.vue` hanya memetakan state dan
+  event tombol `Coba lagi`; jalur review 409/403/404 tetap tidak diubah.
+- **Tes merah wajib:** Test Playwright fault-injection ditambahkan untuk memblokir
+  partial reload `submissions` pertama dengan HTTP 500, memeriksa pesan body + tombol
+  `Coba lagi`, lalu memeriksa state hilang setelah retry. Belum dapat dijalankan pada
+  sesi ini karena readiness yang diwajibkan `curl http://localhost:3000` tetap HTTP
+  `000`; tidak ada klaim merah assertion tanpa server.
+- **Verifikasi statis:** `npm run typecheck`, `npm run lint`, dan Prettier pada file
+  tersentuh lulus. E2E desktop+mobile menunggu service HTTP 200 dan belum dijalankan.
+- **Keputusan/alternatif:** State ditempatkan pada hook khusus agar page tetap UI-only;
+  memakai endpoint baru atau polling ditolak karena requirement meminta partial reload
+  Inertia yang sama dan retry eksplisit. Tidak ada perubahan backend, route, migration,
+  translation, dependency, atau `FormAnswerDetailSheet.vue`.
+- **Commit:** `5fc5a3a` (`fix(forms): add retry state for answers reload failures`).

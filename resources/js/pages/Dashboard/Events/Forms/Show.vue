@@ -50,6 +50,7 @@ import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobil
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
 import { useFormAnswersView } from '@/hooks/useFormAnswersView';
 import { useFormAnswersListState } from '@/hooks/useFormAnswersListState';
+import { useFormAnswersReload } from '@/hooks/useFormAnswersReload';
 import type { IFormAnswersColumn, IFormAnswersViewOption } from '@/types/formAnswersView';
 
 defineOptions({ layout: DashboardLayout });
@@ -378,7 +379,7 @@ const detailFields = computed<IFormField[]>(() =>
 const selectedSubmission = ref<IFormSubmission | null>(null);
 const isDetailOpen = ref(false);
 const reviewingIds = ref<Set<string>>(new Set());
-const submissionsReloadError = ref(false);
+const { reloadErrorMessage, reloadSubmissions, retrySubmissions } = useFormAnswersReload();
 
 function isSubmissionReviewing(submissionId: string): boolean {
     return reviewingIds.value.has(submissionId);
@@ -392,18 +393,6 @@ function openSubmissionDetail(submission: IFormSubmission): void {
 function readXsrfToken(): string | null {
     const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
     return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
-
-/** Reloads answer props and exposes a retry state when the partial visit fails. */
-function reloadSubmissions(onSuccess?: () => void): void {
-    submissionsReloadError.value = false;
-    router.reload({
-        only: ['submissions'],
-        onSuccess,
-        onError: () => {
-            submissionsReloadError.value = true;
-        },
-    });
 }
 
 function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission): void {
@@ -613,12 +602,12 @@ function onDetailReview(payload: { action: 'accept' | 'reject'; submission: IFor
                     </div>
 
                     <div
-                        v-if="submissionsReloadError"
+                        v-if="reloadErrorMessage"
                         role="alert"
                         class="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-3 border-b px-4 py-3 text-sm sm:px-5"
                     >
-                        <span class="text-destructive">Gagal memuat ulang jawaban.</span>
-                        <Button type="button" variant="outline" size="sm" @click="reloadSubmissions">Coba lagi</Button>
+                        <span class="text-destructive">{{ reloadErrorMessage }}</span>
+                        <Button type="button" variant="outline" size="sm" @click="retrySubmissions">Coba lagi</Button>
                     </div>
 
                     <FormAnswersToolbar
