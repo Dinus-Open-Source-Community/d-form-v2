@@ -89,6 +89,15 @@ audit command, backfill command (`Rows scanned: 0`), dan probe insert yang sama 
 aktif ditolak serta dua baris nonaktif diterima. Durasi MariaDB production **belum diukur**; wajib diukur di
 staging yang merepresentasikan ukuran dan konfigurasi production sebelum deploy.
 
+Output audit MariaDB fresh:
+
+```text
+Active user duplicate groups: 0
+Active guest duplicate groups: 0
+Unmarked active rows: 0
+Active uniqueness audit passed; no rows were changed.
+```
+
 Index guest sengaja mencakup `invited_email = ''` karena schema akhir memakai composite unique
 index tanpa predicate; jalur aplikasi hanya menghasilkan email ter-normalisasi atau `NULL`, dan
 verifikasi dev menemukan **0** baris dengan email kosong.
@@ -104,8 +113,8 @@ access, deploy, push, atau penghapusan baris.
 
 | Issue       | Commit                                                     |
 | ----------- | ---------------------------------------------------------- |
-| `dform-09w` | `33a3e98`                                                   |
-| `dform-kzc` | `33a3e98`                                                   |
+| `dform-09w` | `33a3e98`, `16790a0`                                        |
+| `dform-kzc` | `33a3e98`, `16790a0`                                        |
 
 ## Catatan historis — investigasi sebelum Opsi A (superseded)
 
