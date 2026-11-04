@@ -1,7 +1,6 @@
 # Dokumentasi developer — Sapto
 
 - [saptoChanges03-11-2026-DFORM-216.md](./saptoChanges03-11-2026-DFORM-216.md) | Tab Jawaban Tabel/Kartu, toolbar pencarian/filter/paginasi, dan review tanpa full reload (dform-i7e).
-- [saptoChanges03-11-2026-DFORM-216.md](./saptoChanges03-11-2026-DFORM-216.md) | Stabilisasi assertion E2E tab Pengaturan Form setelah panel async siap (dform-i7e.8).
 - [saptoChanges03-11-2026-DFORM-E62.md](./saptoChanges03-11-2026-DFORM-E62.md) | Deferred: runtime prod bukan scope agent. Fakta dikoreksi — queue worker sudah berjalan di container app, yang hilang hanya scheduler; 3 task terjadwal termasuk `otp:prune` (dform-e62).
 - [saptoChanges03-11-2026-DFORM-WK3.md](./saptoChanges03-11-2026-DFORM-WK3.md) | Pertahankan entri beads/Dolt di `.gitignore` dengan alasan tertulis; kredensial `.beads-credential-key` tidak tercakup exclude lokal (dform-wk3).
 - [saptoChanges03-11-2026-DFORM-7ZP.md](./saptoChanges03-11-2026-DFORM-7ZP.md) | Hapus modul broadcast legacy menyeluruh (route, controller, model, policy, service, job, factory, UI mati, test skip); modul `EmailBroadcast` tetap utuh (dform-7zp).
