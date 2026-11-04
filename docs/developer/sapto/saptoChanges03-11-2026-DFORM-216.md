@@ -111,4 +111,4 @@ lintas pemakai dicatat sebagai follow-up terpisah.
   memakai endpoint baru atau polling ditolak karena requirement meminta partial reload
   Inertia yang sama dan retry eksplisit. Tidak ada perubahan backend, route, migration,
   translation, dependency, atau `FormAnswerDetailSheet.vue`.
-- **Commit:** `5fc5a3a` (`fix(forms): add retry state for answers reload failures`).
+- **Commit:** `a32441c` (`fix(forms): add retry state for answers reload failures`).
