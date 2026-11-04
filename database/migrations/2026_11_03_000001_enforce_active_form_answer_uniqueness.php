@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -27,38 +28,48 @@ return new class () extends Migration {
 
     public function up(): void
     {
-        $this->assertNoDuplicateGroups();
+        try {
+            $driver = Schema::getConnection()->getDriverName();
 
-        $driver = Schema::getConnection()->getDriverName();
+            if ($driver === 'mysql') {
+                $this->createMysqlGeneratedColumns();
 
-        if ($driver === 'mysql') {
-            $this->createMysqlGeneratedColumns();
+                return;
+            }
 
-            return;
-        }
+            if (in_array($driver, ['sqlite', 'pgsql'], true)) {
+                DB::statement('DROP INDEX IF EXISTS '.self::USER_INDEX);
+                DB::statement('DROP INDEX IF EXISTS '.self::GUEST_INDEX);
 
-        if (in_array($driver, ['sqlite', 'pgsql'], true)) {
-            DB::statement('DROP INDEX IF EXISTS '.self::USER_INDEX);
-            DB::statement('DROP INDEX IF EXISTS '.self::GUEST_INDEX);
+                DB::statement(
+                    'CREATE UNIQUE INDEX '.self::USER_INDEX.' '
+                    .'ON form_answers (user_id, form_id) '
+                    .'WHERE user_id IS NOT NULL '
+                    ."AND COALESCE(review_status, '') != 'rejected' "
+                    ."AND (COALESCE(registration_role, '') != 'member' "
+                    ."OR COALESCE(member_confirmation_status, '') NOT IN ('rejected', 'expired'))"
+                );
 
-            DB::statement(
-                'CREATE UNIQUE INDEX '.self::USER_INDEX.' '
-                .'ON form_answers (user_id, form_id) '
-                .'WHERE user_id IS NOT NULL '
-                ."AND COALESCE(review_status, '') != 'rejected' "
-                ."AND (COALESCE(registration_role, '') != 'member' "
-                ."OR COALESCE(member_confirmation_status, '') NOT IN ('rejected', 'expired'))"
-            );
+                DB::statement(
+                    'CREATE UNIQUE INDEX '.self::GUEST_INDEX.' '
+                    .'ON form_answers (form_id, invited_email) '
+                    .'WHERE user_id IS NULL '
+                    .'AND invited_email IS NOT NULL '
+                    ."AND invited_email != '' "
+                    ."AND COALESCE(review_status, '') != 'rejected' "
+                    ."AND (COALESCE(registration_role, '') != 'member' "
+                    ."OR COALESCE(member_confirmation_status, '') NOT IN ('rejected', 'expired'))"
+                );
+            }
+        } catch (QueryException $exception) {
+            if (! $this->isDuplicateKeyViolation($exception)) {
+                throw $exception;
+            }
 
-            DB::statement(
-                'CREATE UNIQUE INDEX '.self::GUEST_INDEX.' '
-                .'ON form_answers (form_id, invited_email) '
-                .'WHERE user_id IS NULL '
-                .'AND invited_email IS NOT NULL '
-                ."AND invited_email != '' "
-                ."AND COALESCE(review_status, '') != 'rejected' "
-                ."AND (COALESCE(registration_role, '') != 'member' "
-                ."OR COALESCE(member_confirmation_status, '') NOT IN ('rejected', 'expired'))"
+            throw new RuntimeException(
+                'form_answers contains active duplicate submissions; resolve them before rerunning this migration. '
+                .'No rows were deleted. Underlying error: '.$exception->getMessage(),
+                previous: $exception
             );
         }
     }
@@ -105,20 +116,33 @@ return new class () extends Migration {
     /**
      * MySQL: satu kolom generated per jenis submission aktif. Nilai NULL berarti baris
      * tidak aktif; unique index MySQL mengabaikan NULL sehingga baris historis tetap boleh.
+     *
+     * Dua langkah per kolom, bukan satu ALTER gabungan: MySQL menolak
+     * `ALGORITHM=INPLACE` bila penambahan virtual column digabung dengan aksi lain
+     * (error 1846), sehingga ALTER gabungan jatuh ke COPY yang mengunci tulis selama
+     * seluruh rebuild tabel. Diukur pada tabel 1.000.932 baris di container dev:
+     * ALTER gabungan berjalan >12 menit dengan DML terblokir. Dengan pemisahan ini,
+     * penambahan kolom memakai INSTANT dan pembuatan index memakai INPLACE + LOCK=NONE
+     * sehingga tulis tetap berjalan selama index dibangun.
      */
     private function createMysqlGeneratedColumns(): void
     {
         DB::statement(
             'ALTER TABLE form_answers '
-            .'ADD COLUMN active_user_form_key VARCHAR(73) '
+            .'ADD COLUMN active_user_form_key VARCHAR(73) CHARACTER SET ascii COLLATE ascii_bin '
             .'GENERATED ALWAYS AS ('
             .'CASE WHEN user_id IS NULL '
             ."OR COALESCE(review_status, '') = 'rejected' "
             ."OR (COALESCE(registration_role, '') = 'member' "
             ."AND COALESCE(member_confirmation_status, '') IN ('rejected', 'expired')) "
             ."THEN NULL ELSE CONCAT(user_id, ':', form_id) END"
-            .') VIRTUAL, '
-            .'ADD UNIQUE INDEX '.self::USER_INDEX.' (active_user_form_key)'
+            .') VIRTUAL, ALGORITHM=INSTANT'
+        );
+
+        DB::statement(
+            'ALTER TABLE form_answers '
+            .'ADD UNIQUE INDEX '.self::USER_INDEX.' (active_user_form_key), '
+            .'ALGORITHM=INPLACE, LOCK=NONE'
         );
 
         DB::statement(
@@ -132,50 +156,28 @@ return new class () extends Migration {
             ."OR (COALESCE(registration_role, '') = 'member' "
             ."AND COALESCE(member_confirmation_status, '') IN ('rejected', 'expired')) "
             ."THEN NULL ELSE CONCAT(form_id, ':', invited_email) END"
-            .') VIRTUAL, '
-            .'ADD UNIQUE INDEX '.self::GUEST_INDEX.' (active_guest_email_form_key)'
+            .') VIRTUAL, ALGORITHM=INSTANT'
+        );
+
+        DB::statement(
+            'ALTER TABLE form_answers '
+            .'ADD UNIQUE INDEX '.self::GUEST_INDEX.' (active_guest_email_form_key), '
+            .'ALGORITHM=INPLACE, LOCK=NONE'
         );
     }
 
     /**
-     * Hentikan migrasi dengan pesan jelas bila data lama sudah berisi duplikat.
-     * Baris tidak dihapus otomatis: pembersihan data produksi harus keputusan manusia.
+     * Deteksi pelanggaran unique dari driver mana pun tanpa bergantung pada pesan yang
+     * bisa berubah: MySQL 1062, PostgreSQL SQLSTATE 23505, SQLite memakai pesan teks.
      */
-    private function assertNoDuplicateGroups(): void
+    private function isDuplicateKeyViolation(QueryException $exception): bool
     {
-        $userDuplicates = $this->countDuplicateGroups(
-            'user_id IS NOT NULL'
-        );
+        $sqlState = $exception->errorInfo[0] ?? '';
 
-        $guestDuplicates = $this->countDuplicateGroups(
-            "user_id IS NULL AND invited_email IS NOT NULL AND invited_email != ''",
-            'form_id, invited_email'
-        );
-
-        if ($userDuplicates === 0 && $guestDuplicates === 0) {
-            return;
+        if ($sqlState === '23505' || (int) ($exception->errorInfo[1] ?? 0) === 1062) {
+            return true;
         }
 
-        throw new RuntimeException(
-            'form_answers contains active duplicate submissions '
-            ."(user/form groups: {$userDuplicates}, form/invited_email groups: {$guestDuplicates}). "
-            .'Resolve them before running this migration; the migration will not delete rows automatically.'
-        );
-    }
-
-    private function countDuplicateGroups(string $scope, string $groupBy = 'user_id, form_id'): int
-    {
-        $row = DB::selectOne(
-            'SELECT COUNT(*) AS duplicate_groups FROM ('
-            .'SELECT 1 FROM form_answers '
-            ."WHERE {$scope} "
-            ."AND COALESCE(review_status, '') != 'rejected' "
-            ."AND (COALESCE(registration_role, '') != 'member' "
-            ."OR COALESCE(member_confirmation_status, '') NOT IN ('rejected', 'expired')) "
-            ."GROUP BY {$groupBy} HAVING COUNT(*) > 1"
-            .') AS duplicate_groups'
-        );
-
-        return (int) ($row->duplicate_groups ?? 0);
+        return str_contains(strtolower($exception->getMessage()), 'unique constraint failed');
     }
 };

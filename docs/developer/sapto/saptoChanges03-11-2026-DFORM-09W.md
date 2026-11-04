@@ -27,12 +27,12 @@ Perbaikan: constraint ditegakkan di database untuk semua driver — MySQL memaka
 - MySQL tidak punya partial index; unique index mengabaikan NULL, sehingga satu kolom generated yang bernilai NULL untuk baris non-aktif memberi semantik yang sama dengan index parsial. Kolom dibuat `VIRTUAL` agar penambahan tidak menyalin tabel dan index dibangun tanpa menyimpan kolom.
 - Index parsial lama di SQLite/PostgreSQL dibuat ulang dengan predikat `COALESCE(...)` yang NULL-safe; tanpa ini perbaikan MySQL tidak menutup lubang yang sama di driver test.
 - Alternatif yang ditolak: **enforcement service saja**. Itu tidak menutup race dua request bersamaan (kasus yang justru menjadi alasan tiket) dan tidak memberi jaminan di level data; aplikasi tetap menyimpan pengecekan untuk pesan UX.
-- Migrasi **tidak menghapus data**. Bila sudah ada duplikat, migrasi berhenti dengan pesan berisi jumlah grup duplikat; pembersihan data produksi harus keputusan manusia.
+- Migrasi **tidak menghapus data**. Duplikat terdeteksi dari kegagalan unique index (DDL atomic: tabel kembali ke keadaan semula) dan dipetakan menjadi `RuntimeException` yang menyebut duplikat aktif; pembersihan data produksi harus keputusan manusia. Preflight `GROUP BY` penuh dihapus setelah terukur memakan >5 menit pada 1 juta baris tanpa memberi jaminan tambahan.
 - `down()` mengembalikan definisi index lama dan menghapus kolom MySQL, sehingga rollback setara keadaan sebelumnya.
 
 ## Perubahan
 
-- `database/migrations/2026_11_03_000001_enforce_active_form_answer_uniqueness.php` (baru): preflight duplikat, DDL per driver (`active_user_form_key`/`active_guest_email_form_key` + unique index di MySQL; recreate index parsial NULL-safe di SQLite/PostgreSQL).
+- `database/migrations/2026_11_03_000001_enforce_active_form_answer_uniqueness.php` (baru): DDL per driver (`active_user_form_key`/`active_guest_email_form_key` + unique index di MySQL; recreate index parsial NULL-safe di SQLite/PostgreSQL), dengan pemetaan error duplikat.
 - `tests/Feature/Forms/FormAnswerDuplicateConstraintTest.php` (baru): menulis langsung ke `form_answers` (melewati `FormAccessGuard`) dan membuktikan database menolak duplikat; juga membuktikan baris `rejected`/member `rejected`/`expired` tidak memblokir submission baru.
 
 Tidak ada perubahan controller, route, atau perilaku UI: pesan "already submitted" tetap dari `FormAccessGuard`.
@@ -77,6 +77,17 @@ active_guest_email_form_key varchar(292) VIRTUAL GENERATED
 Suite penuh (`composer test` di container): **840 passed, 36 skipped** (5.275 assertions), 75 detik. `pint --test` pada dua file yang berubah: PASS.
 
 Pemeriksaan data dev sebelum migrasi (read-only): grup duplikat user/form = 0, guest = 0, sehingga migrasi aman dijalankan pada dataset dev saat ini.
+
+## Migrasi pada dataset 1 juta baris (Measured)
+
+Data dev `form_answers`: 1.000.932 baris, 435 MB data + 868 MB index.
+
+- Versi pertama (satu `ALTER` gabungan dua kolom + dua index, algoritma default) teramati memakai `copy to tmp table` dan berjalan **>20 menit** dengan DML terblokir. MySQL menolak `ALGORITHM=INPLACE` untuk bentuk itu (`error 1846: INPLACE ADD or DROP of virtual columns cannot be combined with other ALTER TABLE actions`).
+- Versi final memisahkan per kolom: `ADD COLUMN ... VIRTUAL, ALGORITHM=INSTANT`, lalu `ADD UNIQUE INDEX ..., ALGORITHM=INPLACE, LOCK=NONE`. Kolom kunci user memakai `CHARACTER SET ascii` (UUID heksadesimal) sehingga key turun dari 292 byte menjadi 73 byte per baris. Penambahan index berjalan online (tulis tidak diblokir).
+- Hasil pada DB dev yang sama: migrasi selesai **<60 detik** sejak container di-restart; schema terverifikasi (`active_user_form_key varchar(73) VIRTUAL GENERATED`, dua unique index `non_unique=0`), aplikasi merespons 200.
+- Preflight `GROUP BY` dihapus karena terukur >5 menit pada dataset ini; kegagalan unique index tetap dipetakan ke pesan duplikat yang jelas.
+
+Angka ini dari container dev (buffer pool default 128 MB), bukan benchmark produksi; tetap menunjukkan bentuk DDL yang harus dipakai agar deploy tidak mengunci tulis selama puluhan menit.
 
 ## Batasan
 
