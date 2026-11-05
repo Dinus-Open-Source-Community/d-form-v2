@@ -40,5 +40,12 @@ return [
          * menampung retry validasi (field wajib terlewat, unggahan terlalu besar).
          */
         'submit_rate_limit_per_minute' => (int) env('FORMS_SUBMIT_RATE_LIMIT_PER_MINUTE', 10),
+        /*
+         * TTL URL bertanda tangan untuk berkas jawaban yang dikirim lewat email
+         * atau CSV. Halaman web memakai route terautentikasi tanpa kedaluwarsa.
+         */
+        'upload_temporary_url_ttl_minutes' => max(1, (int) env('FORMS_UPLOAD_URL_TTL_MINUTES', 10080)),
+        /* Batas unduhan berkas jawaban per user/IP per menit. */
+        'file_download_rate_limit_per_minute' => max(1, (int) env('FORMS_FILE_DOWNLOAD_RATE_LIMIT_PER_MINUTE', 120)),
     ],
 ];

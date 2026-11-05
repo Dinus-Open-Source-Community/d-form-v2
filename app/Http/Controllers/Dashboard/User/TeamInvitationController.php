@@ -14,9 +14,8 @@ use App\Models\FormField;
 use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Services\Registration\TeamRegistrationSubmitter;
-use App\Services\Upload\SafeUploadStorage;
-use App\Services\Upload\UploadStorageTarget;
 use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +30,7 @@ class TeamInvitationController extends Controller
 {
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
+        private FormAnswerFileStorage $formAnswerFiles,
     ) {
     }
 
@@ -65,6 +65,12 @@ class TeamInvitationController extends Controller
             ->all();
 
         $leaderUser = $answer->teamLeaderSubmission?->user;
+        $answers = is_array($answer->answers) ? $answer->answers : [];
+        $fileFieldNames = $form->formFields
+            ->where('input_type', 'fileUpload')
+            ->pluck('name')
+            ->values()
+            ->all();
 
         return Inertia::render('Dashboard/User/TeamInvitation', [
             'event'       => [
@@ -77,7 +83,7 @@ class TeamInvitationController extends Controller
                 'title' => $form->title,
             ],
             'fields'      => $fields,
-            'answers'     => $answer->answers ?? [],
+            'answers'     => $this->formAnswerFiles->answerUrls($answer, $answers, $fileFieldNames),
             'leader'      => [
                 'name'  => $leaderUser?->name ?? '',
                 'email' => $leaderUser?->email ?? '',
@@ -199,7 +205,7 @@ class TeamInvitationController extends Controller
             if ($field->input_type === 'fileUpload') {
                 $file = $request->file($name);
                 if ($file !== null) {
-                    $answers[$name] = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("form-uploads/{$form->id}"));
+                    $answers[$name] = $this->formAnswerFiles->store($file, $form);
                 }
             } elseif ($field->input_type === 'checkbox') {
                 $answers[$name] = $request->input($name, []);

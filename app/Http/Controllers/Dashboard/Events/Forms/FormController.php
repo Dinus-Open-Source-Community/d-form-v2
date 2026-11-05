@@ -10,6 +10,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Support\FormFieldTypeMapping;
 use App\Support\LegacyFormImage;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,10 @@ use Inertia\Response;
 
 class FormController extends Controller
 {
+    public function __construct(private readonly FormAnswerFileStorage $formAnswerFiles)
+    {
+    }
+
     public function index(Event $event): Response
     {
         $this->authorize('update', $event);
@@ -119,6 +124,12 @@ class FormController extends Controller
             ->values()
             ->all();
 
+        $fileFieldNames = $form->formFields
+            ->where('input_type', 'fileUpload')
+            ->pluck('name')
+            ->values()
+            ->all();
+
         $submissionQuery = FormAnswer::query()
             ->with(['user:id,name,email', 'reviewer:id,name,email'])
             ->where('form_id', $form->id)
@@ -127,7 +138,7 @@ class FormController extends Controller
 
         $submissions = (clone $submissionQuery)
             ->get()
-            ->map(fn (FormAnswer $answer) => $this->submissionToInertia($answer))
+            ->map(fn (FormAnswer $answer) => $this->submissionToInertia($answer, $fileFieldNames))
             ->values()
             ->all();
 
@@ -354,6 +365,7 @@ class FormController extends Controller
     }
 
     /**
+     * @param  list<string>  $fileFieldNames
      * @return array{
      *     id: string,
      *     user: array{id: string, name: string, email: string}|null,
@@ -368,7 +380,7 @@ class FormController extends Controller
      *     group_token: string|null,
      * }
      */
-    private function submissionToInertia(FormAnswer $answer): array
+    private function submissionToInertia(FormAnswer $answer, array $fileFieldNames): array
     {
         return [
             'id' => $answer->id,
@@ -379,7 +391,11 @@ class FormController extends Controller
                     'email' => $answer->user->email,
                 ]
                 : null,
-            'answers' => $answer->answers,
+            'answers' => $this->formAnswerFiles->answerUrls(
+                $answer,
+                is_array($answer->answers) ? $answer->answers : [],
+                $fileFieldNames,
+            ),
             'submitted_at' => $answer->created_at->toISOString(),
             'review_status' => $answer->review_status?->value,
             'reviewed_at' => $answer->reviewed_at?->toIso8601String(),

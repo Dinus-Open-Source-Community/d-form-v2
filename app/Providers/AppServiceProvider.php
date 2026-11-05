@@ -90,6 +90,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Berkas jawaban form sensitif: batasi per user/IP agar signed URL yang
+        // bocor tidak bisa dipakai untuk scraping massal.
+        RateLimiter::for('form-answer-file', function (Request $request): Limit {
+            return Limit::perMinute((int) config('events.forms.file_download_rate_limit_per_minute', 120))
+                ->by($request->user()?->id ?? $request->ip());
+        });
+
         // Daftar + pencarian acara publik: satu limiter untuk seluruh route index /events.
         // Guard `web` memakai provider kolom eksplisit (tanpa `select *` pada setiap request).
         Auth::provider('explicit-columns', function ($app, array $config): \App\Auth\ExplicitColumnUserProvider {

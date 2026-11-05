@@ -6,12 +6,22 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\Events\Forms\FieldOperationController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormImageUploadController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerFileController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmitSuccessController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 use App\Http\Controllers\Dashboard\User\UserValidationController;
+
+// Authorized access to registration uploads. Kept outside the auth-only groups
+// so email links with a valid temporary signature still resolve for guest
+// recipients; the controller rejects unsigned guests with 403.
+Route::get('/form-answers/{formAnswer}/files/{field}/{filename}', FormAnswerFileController::class)
+    ->where('field', '[A-Za-z0-9_.-]+')
+    ->where('filename', '[^/]+')
+    ->middleware('throttle:form-answer-file')
+    ->name('dashboard.form-answers.files');
 
 Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function () {
     Route::get('/{event}/forms/{form}/fill', FormFillController::class)

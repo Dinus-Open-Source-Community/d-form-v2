@@ -12,12 +12,11 @@ use App\Models\FormField;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
 use App\Services\Form\RulesBuilder;
-use App\Services\Upload\SafeUploadStorage;
-use App\Services\Upload\UploadStorageTarget;
 use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\BundleSubmissionRules;
 use App\Services\Registration\EventRegistrationCounter;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Services\Registration\FormAnswerWriter;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +33,7 @@ class FormSubmissionController extends Controller
         private EventRegistrationCounter $registrationCounter,
         private BundleGuestDuplicateChecker $bundleGuestDuplicateChecker,
         private FormAnswerWriter $formAnswerWriter,
+        private FormAnswerFileStorage $formAnswerFiles,
     ) {
     }
 
@@ -487,7 +487,7 @@ class FormSubmissionController extends Controller
             $file = $request->file($inputName);
 
             return $file !== null
-                ? app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public("form-uploads/{$form->id}"))
+                ? $this->formAnswerFiles->store($file, $form)
                 : null;
         }
 

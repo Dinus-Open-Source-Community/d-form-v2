@@ -4,22 +4,38 @@ namespace App\Services\Registration;
 
 use App\Models\FormAnswer;
 use App\Models\FormField;
-use Illuminate\Support\Facades\Storage;
 
 final class RegistrationAnswersSummarizer
 {
+    public function __construct(private readonly FormAnswerFileStorage $files)
+    {
+    }
+
     /**
+     * Summary for the participant portal: file links use the authenticated route.
+     *
      * @return array<string, string>
      */
     public function summarizeForPortal(FormAnswer $submission): array
     {
-        return $this->summarize($submission);
+        return $this->buildSummary($submission, temporaryFileUrls: false);
+    }
+
+    /**
+     * Summary for email and CSV export: file links are temporary signed URLs so
+     * they still work for guest recipients who have no session.
+     *
+     * @return array<string, string>
+     */
+    public function summarize(FormAnswer $submission): array
+    {
+        return $this->buildSummary($submission, temporaryFileUrls: true);
     }
 
     /**
      * @return array<string, string>
      */
-    public function summarize(FormAnswer $submission): array
+    private function buildSummary(FormAnswer $submission, bool $temporaryFileUrls): array
     {
         $answers = is_array($submission->answers) ? $submission->answers : [];
 
@@ -36,7 +52,12 @@ final class RegistrationAnswersSummarizer
             $value = $answers[$field->name];
 
             if ($field->input_type === 'fileUpload') {
-                $lines[$field->label] = $this->fileFieldSummary($value);
+                $lines[$field->label] = $this->fileFieldSummary(
+                    $submission,
+                    $field->name,
+                    $value,
+                    $temporaryFileUrls,
+                );
 
                 continue;
             }
@@ -57,14 +78,20 @@ final class RegistrationAnswersSummarizer
         return $lines;
     }
 
-    private function fileFieldSummary(mixed $value): string
-    {
+    private function fileFieldSummary(
+        FormAnswer $submission,
+        string $field,
+        mixed $value,
+        bool $temporary,
+    ): string {
         if (! is_string($value) || $value === '') {
             return '—';
         }
 
         try {
-            return Storage::disk('public')->url($value);
+            return $temporary
+                ? $this->files->temporaryUrl($submission, $field)
+                : $this->files->relativeUrl($submission, $field);
         } catch (\Throwable) {
             return __('File uploaded');
         }

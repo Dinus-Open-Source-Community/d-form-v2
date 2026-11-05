@@ -69,14 +69,14 @@ class RegistrationAnswersSummarizerTest extends TestCase
         $this->assertSame('Nama tim dari ketua', $summary['Nama tim']);
     }
 
-    public function test_file_upload_field_returns_public_url(): void
+    public function test_file_upload_field_returns_temporary_signed_url(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $event = Event::factory()->create();
         $form = Form::factory()->create(['event_id' => $event->id]);
         $path = 'form-uploads/'.$form->id.'/bukti.png';
-        Storage::disk('public')->put($path, 'fake-image');
+        Storage::disk('local')->put($path, 'fake-image');
 
         FormField::factory()->create([
             'form_id' => $form->id,
@@ -99,7 +99,36 @@ class RegistrationAnswersSummarizerTest extends TestCase
         $summary = app(RegistrationAnswersSummarizer::class)->summarize($answer);
 
         $this->assertArrayHasKey('Bukti pembayaran', $summary);
-        $this->assertStringContainsString($path, $summary['Bukti pembayaran']);
-        $this->assertStringContainsString('/storage/', $summary['Bukti pembayaran']);
+        $this->assertStringContainsString('/form-answers/'.$answer->id.'/files/payment_proof/bukti.png', $summary['Bukti pembayaran']);
+        $this->assertStringContainsString('signature=', $summary['Bukti pembayaran']);
+        $this->assertStringNotContainsString('/storage/', $summary['Bukti pembayaran']);
+    }
+
+    public function test_portal_file_upload_field_returns_authenticated_route(): void
+    {
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $path = 'form-uploads/'.$form->id.'/bukti.png';
+
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'payment_proof',
+            'label' => 'Bukti pembayaran',
+            'order' => 1,
+            'input_type' => 'fileUpload',
+            'metadata' => [],
+        ]);
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'answers' => ['payment_proof' => $path],
+        ]);
+
+        $summary = app(RegistrationAnswersSummarizer::class)->summarizeForPortal($answer);
+
+        $this->assertSame(
+            '/form-answers/'.$answer->id.'/files/payment_proof/bukti.png',
+            $summary['Bukti pembayaran'],
+        );
     }
 }

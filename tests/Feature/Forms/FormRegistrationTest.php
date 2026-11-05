@@ -556,6 +556,7 @@ class FormRegistrationTest extends TestCase
 
     public function test_file_upload_field_stores_path(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
 
         $member = $this->member();
@@ -579,7 +580,8 @@ class FormRegistrationTest extends TestCase
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertStringStartsWith("form-uploads/{$form->id}/", $answer->answers['cv']);
-        Storage::disk('public')->assertExists($answer->answers['cv']);
+        Storage::disk('local')->assertExists($answer->answers['cv']);
+        Storage::disk('public')->assertMissing($answer->answers['cv']);
     }
 
     public function test_date_picker_field_is_stored_as_scalar_string(): void
@@ -630,6 +632,7 @@ class FormRegistrationTest extends TestCase
 
     public function test_file_upload_rejects_non_matching_mime(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
 
         $member = $this->member();
