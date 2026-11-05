@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md](./saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md) | Upload jawaban form dan lampiran tim pindah ke disk privat dengan route berotorisasi + signed URL, fallback legacy public, command migrasi dry-run, regression test dan E2E happy/anomali (AUDIT-P1-002).
 - [saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md](./saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md) | Idempotency, retry, timeout, dan `delivery_key` untuk seluruh job email; log direkonsiliasi sebelum send, `failed()` PII-free, feature regression dan E2E browser happy/anomali (AUDIT-P1-007).
 - [saptoChanges04-11-2026-DFORM-BE-P3-007.md](./saptoChanges04-11-2026-DFORM-BE-P3-007.md) | Structured error logging public-safe untuk exception callback OAuth Google/GitHub dengan correlation ID dan regression feature/E2E (BE-P3-007).
 - [saptoChanges04-11-2026-DFORM-BE-P1-005.md](./saptoChanges04-11-2026-DFORM-BE-P1-005.md) | Pisahkan validation `422` dari exception internal `500` pada penyimpanan field form, dengan request ID, logging public-safe, feature regression, dan browser anomaly E2E (BE-P1-005).
