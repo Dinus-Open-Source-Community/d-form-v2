@@ -336,7 +336,9 @@ class FormSubmissionBoundaryTest extends TestCase
         $this->actingAs($leader)
             ->post($this->submitPath($event, $form), ['full_name' => 'Team Leader'])
             ->assertRedirect($this->fillPath($event, $form))
-            ->assertSessionHasErrors('team_member_emails');
+            ->assertSessionHasErrors([
+                'team_member_emails' => 'This team form requires a team size of at least 2 in form settings.',
+            ]);
 
         $this->assertDatabaseCount('form_answers', 0);
     }
@@ -366,6 +368,27 @@ class FormSubmissionBoundaryTest extends TestCase
     // =========================================================================
     // Bundle mode
     // =========================================================================
+
+    public function test_bundle_form_misconfigured_team_size_redirects_with_error(): void
+    {
+        $leader = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->bundleForm($event, 1);
+        $this->duplicatableTextField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Lead Person',
+                'bundle__full_name__0' => 'Second Person',
+                'team_member_emails' => ['someone-'.uniqid().'@example.com'],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors([
+                'team_member_emails' => 'This bundle form requires a team size of at least 2 in form settings.',
+            ]);
+
+        $this->assertDatabaseCount('form_answers', 0);
+    }
 
     public function test_bundle_submission_stores_duplicatable_slot_answers(): void
     {

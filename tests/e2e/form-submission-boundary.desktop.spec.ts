@@ -8,7 +8,7 @@ const environment = readEnvironment();
 const RUN_TOKEN = `e2e-boundary-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 let fixtureSequence = 0;
 
-type TFixtureMode = 'single' | 'team' | 'bundle' | 'closed';
+type TFixtureMode = 'single' | 'team' | 'team3' | 'bundle' | 'closed';
 
 interface IFixtureUser {
     id: string;
@@ -41,6 +41,9 @@ const FORM_METADATA: Record<TFixtureMode, string> = {
     single: "['purpose'=>'registration','registration_mode'=>'single']",
     closed: "['purpose'=>'registration','registration_mode'=>'single']",
     team: "['purpose'=>'registration','registration_mode'=>'team','team_size'=>2]",
+    // Team dengan dua slot anggota: dipakai untuk anomali duplikat email, supaya
+    // `size:2` lolos dan yang menolak benar-benar guard keunikan.
+    team3: "['purpose'=>'registration','registration_mode'=>'team','team_size'=>3]",
     bundle: "['purpose'=>'registration','registration_mode'=>'bundle','max_team_size'=>2]",
 };
 
@@ -66,7 +69,7 @@ function nextToken(mode: TFixtureMode): string {
  * anomali "nama terlalu panjang" harus sampai ke validasi server, bukan dipotong browser.
  */
 function fieldStatements(mode: TFixtureMode): string {
-    if (mode === 'team') {
+    if (mode === 'team' || mode === 'team3') {
         return `$form->formFields()->create(['label'=>'Full Name','name'=>'full_name','input_type'=>'input','metadata'=>['type'=>'text','rules'=>['required'=>true]],'order'=>0]);`;
     }
 
@@ -82,7 +85,7 @@ function fieldStatements(mode: TFixtureMode): string {
 
 /** Single/closed memakai akun decoy untuk uji injeksi `user_id`; team memakai akun teammate asli. */
 function extraUserStatement(mode: TFixtureMode, token: string): string {
-    if (mode === 'team') {
+    if (mode === 'team' || mode === 'team3') {
         return `$extra=App\\Models\\User::factory()->create(['name'=>'E2E Boundary Mate','email'=>${phpString(`e2e-mate-${token}@example.test`)}]);`;
     }
 
@@ -240,6 +243,32 @@ async function postSubmit(context: BrowserContext, submitPath: string, fields: s
     return {
         status: response.status(),
         locationPath: locationPath(response.headers()['location'] ?? ''),
+    };
+}
+
+/**
+ * POST urlencoded dan ikuti redirect (default `maxRedirects`), lalu kembalikan
+ * body halaman tujuan. Dipakai saat anomali hanya bisa dibuktikan dari pesan
+ * server yang dirender sebagai `props.errors`, bukan dari status 302 saja.
+ */
+async function postSubmitFollowingRedirect(
+    context: BrowserContext,
+    submitPath: string,
+    fields: string[][]
+): Promise<{ status: number; body: string }> {
+    const response = await context.request.post(submitPath, {
+        headers: {
+            Accept: 'text/html',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-XSRF-TOKEN': await readXsrfToken(context),
+        },
+        data: new URLSearchParams(fields).toString(),
+        failOnStatusCode: false,
+    });
+
+    return {
+        status: response.status(),
+        body: await response.text(),
     };
 }
 
@@ -422,20 +451,20 @@ test.describe('AUDIT-P1-004 form submission request boundary', () => {
     });
 
     test('anomaly: team registration rejects duplicate teammate emails', async ({ page }) => {
-        const fixture = createFixture('team');
+        const fixture = createFixture('team3');
         const mate = firstUser(fixture);
 
         try {
             await page.goto(fixture.fillPath);
 
-            const result = await postSubmit(page.context(), fixture.submitPath, [
+            const result = await postSubmitFollowingRedirect(page.context(), fixture.submitPath, [
                 ['full_name', 'Team Leader'],
                 ['team_member_emails[0]', mate.email],
                 ['team_member_emails[1]', mate.email],
             ]);
 
-            expect(result.status).toBe(302);
-            expect(result.locationPath).toBe(fixture.fillPath);
+            expect(result.status).toBe(200);
+            expect(result.body).toContain('must be unique');
             expect(answerCount(fixture.formId)).toBe(0);
         } finally {
             cleanupFixture(fixture);

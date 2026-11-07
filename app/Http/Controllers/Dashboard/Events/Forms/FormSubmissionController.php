@@ -76,11 +76,8 @@ class FormSubmissionController extends Controller
             ? TeamRegistrationSubmitter::resolveTeamSize($form)
             : 0;
 
-        $participantEmails = [];
-        $answers = ['leader' => [], 'members' => []];
-
         try {
-            $validated = $this->validatePayload($request, $fields, $mode, $teamSize);
+            $validated = FormSubmissionRules::validate($request->all(), $fields, $mode, $teamSize);
 
             if ($mode === FormSubmissionMode::Team) {
                 $answers = $this->formAnswerInputMapper->map($validated, $fields, $form);
@@ -161,34 +158,6 @@ class FormSubmissionController extends Controller
         ]);
 
         return $this->successRedirect($user, $event, $form);
-    }
-
-    /**
-     * Field validation plus the two team-size misconfiguration guards, in the
-     * historical order: bundle guard before validation, team guard after.
-     *
-     * @param  \Illuminate\Database\Eloquent\Collection<int, FormField>  $fields
-     * @return array<string, mixed> validated input
-     *
-     * @throws ValidationException
-     */
-    private function validatePayload(Request $request, \Illuminate\Database\Eloquent\Collection $fields, FormSubmissionMode $mode, int $teamSize): array
-    {
-        if ($mode === FormSubmissionMode::Bundle && $teamSize < 2) {
-            throw ValidationException::withMessages([
-                'team_member_emails' => __('This bundle form requires a team size of at least 2 in form settings.'),
-            ]);
-        }
-
-        $validated = FormSubmissionRules::validate($request->all(), $fields, $mode, $teamSize);
-
-        if ($mode === FormSubmissionMode::Team && $teamSize < 2) {
-            throw ValidationException::withMessages([
-                'team_member_emails' => __('This team form requires a team size of at least 2 in form settings.'),
-            ]);
-        }
-
-        return $validated;
     }
 
     /**

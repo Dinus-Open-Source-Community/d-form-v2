@@ -36,8 +36,7 @@ final class MemberEmailListRules
             self::validationRules($memberSlots),
         )->validate();
 
-        $list = $validated['team_member_emails'] ?? [];
-        $emails = self::normalize(is_array($list) ? $list : []);
+        $emails = self::normalize($validated['team_member_emails']);
 
         self::assertNotSelf($leaderEmail, $emails);
         self::assertUnique($emails);
@@ -67,7 +66,7 @@ final class MemberEmailListRules
      *
      * @throws ValidationException when the leader is listed as a participant.
      */
-    public static function assertNotSelf(string $leaderEmail, array $emails): void
+    private static function assertNotSelf(string $leaderEmail, array $emails): void
     {
         $leaderLower = mb_strtolower(trim($leaderEmail));
 
@@ -85,7 +84,7 @@ final class MemberEmailListRules
      *
      * @throws ValidationException when the same email is listed twice.
      */
-    public static function assertUnique(array $emails): void
+    private static function assertUnique(array $emails): void
     {
         if (count(array_unique($emails)) !== count($emails)) {
             throw ValidationException::withMessages([
