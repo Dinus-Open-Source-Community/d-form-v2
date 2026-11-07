@@ -112,7 +112,7 @@ class RecordAttendanceJob implements ShouldQueue
                 'exception_class' => $e::class,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

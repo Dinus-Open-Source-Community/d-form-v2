@@ -149,7 +149,7 @@ class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
                 'exception_class' => $e::class,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

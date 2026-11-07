@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\RedactedMailDeliveryException;
 use App\Mail\RegistrationOtpMail;
 use App\Models\PendingRegistration;
 use App\Models\User;
+use App\Support\LogRedaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -78,11 +80,20 @@ class SendRegistrationOtpJob implements ShouldQueue
         } catch (Throwable $exception) {
             Log::error('Gagal mengirim kode verifikasi OTP registrasi.', [
                 'pending_id' => $pending->id,
-                'error' => $exception->getMessage(),
+                'job_id' => $this->job?->getJobId(),
+                'attempt' => $this->attempts(),
+                'exception_class' => $exception::class,
+                'error' => LogRedaction::text($exception->getMessage()),
             ]);
 
-            throw $exception;
+            throw RedactedMailDeliveryException::fromThrowable($exception);
         }
+
+        Log::info('[SendRegistrationOtpJob] OTP sent.', [
+            'pending_id' => $pending->id,
+            'job_id' => $this->job?->getJobId(),
+            'attempt' => $this->attempts(),
+        ]);
     }
 
     public function failed(?Throwable $exception = null): void
@@ -90,6 +101,7 @@ class SendRegistrationOtpJob implements ShouldQueue
         Log::error('[SendRegistrationOtpJob] Job failed permanently.', [
             'job' => static::class,
             'pending_id' => $this->pendingId,
+            'job_id' => $this->job?->getJobId(),
             'exception_class' => $exception === null ? null : $exception::class,
         ]);
     }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Exceptions\RedactedMailDeliveryException;
 use App\Jobs\SendRegistrationOtpJob;
 use App\Mail\RegistrationOtpMail;
 use App\Models\PendingRegistration;
@@ -154,8 +155,10 @@ class SendRegistrationOtpJobTest extends TestCase
         try {
             (new SendRegistrationOtpJob($pending->id, $this->sentAtOf($pending)))->handle();
             $this->fail('Kegagalan kirim seharusnya dilempar ulang agar job di-retry.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame('smtp mati', $exception->getMessage());
+        } catch (RedactedMailDeliveryException $exception) {
+            $this->assertInstanceOf(RuntimeException::class, $exception->getPrevious());
+            $this->assertSame('smtp mati', $exception->getPrevious()?->getMessage());
+            $this->assertStringStartsWith(RuntimeException::class.': ', $exception->getMessage());
         }
 
         Log::shouldHaveReceived('error')->once()->withArgs(

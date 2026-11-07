@@ -97,7 +97,7 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
                     'exception_class' => $exception::class,
                 ]);
 
-                throw $exception;
+                $this->throwRedacted($exception);
             }
         }
     }

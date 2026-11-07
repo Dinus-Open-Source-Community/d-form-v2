@@ -3,10 +3,12 @@
 namespace App\Jobs\Broadcasting;
 
 use App\Enums\EmailBroadcastRecipientStatus;
+use App\Exceptions\RedactedMailDeliveryException;
 use App\Mail\BroadcastMail;
 use App\Models\EmailBroadcastRecipient;
 use App\Services\Broadcasting\BroadcastDispatchService;
 use App\Services\Broadcasting\BroadcastPersonalization;
+use App\Support\LogRedaction;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -100,14 +102,16 @@ class SendBroadcastRecipientJob implements ShouldQueue
             Log::error('[SendBroadcastRecipientJob] send failed.', [
                 'recipient_id' => $recipient->id,
                 'broadcast_id' => $broadcast->id,
-                'email' => $recipient->email,
+                'recipient' => LogRedaction::email($recipient->email),
+                'job_id' => $this->job?->getJobId(),
                 'attempt' => $this->attempts(),
-                'exception' => $e->getMessage(),
+                'exception_class' => $e::class,
+                'error' => LogRedaction::text($e->getMessage()),
             ]);
 
             $recipient->forceFill([
                 'attempts' => $this->attempts(),
-                'error_message' => mb_substr($e->getMessage(), 0, 1000),
+                'error_message' => LogRedaction::exception($e, 1000),
             ])->save();
 
             if ($isLastAttempt) {
@@ -119,7 +123,7 @@ class SendBroadcastRecipientJob implements ShouldQueue
                 $broadcast->increment('total_failed');
             }
 
-            throw $e;
+            throw RedactedMailDeliveryException::fromThrowable($e);
         } finally {
             $dispatchService->maybeComplete($broadcast);
         }
@@ -138,7 +142,7 @@ class SendBroadcastRecipientJob implements ShouldQueue
             $recipient->forceFill([
                 'status' => EmailBroadcastRecipientStatus::Failed,
                 'failed_at' => $recipient->failed_at ?? now(),
-                'error_message' => $recipient->error_message ?? mb_substr($exception->getMessage(), 0, 1000),
+                'error_message' => $recipient->error_message ?? LogRedaction::exception($exception, 1000),
             ])->save();
         }
 

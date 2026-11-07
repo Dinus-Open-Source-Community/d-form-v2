@@ -3,7 +3,10 @@
 namespace App\Jobs\Concerns;
 
 use App\Enums\EmailLogStatus;
+use App\Exceptions\RedactedMailDeliveryException;
 use App\Models\EmailLog;
+use App\Support\LogRedaction;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -15,6 +18,9 @@ use Throwable;
  * queue payload, so every retry of the same job reuses it. The EmailLog row is reserved before
  * the transport call; a crash after the transport accepted the message therefore leaves a
  * `queued` row and the retry skips the send instead of delivering a duplicate.
+ *
+ * Jobs using this trait must also use `Illuminate\Foundation\Queue\Queueable`; `$this->job` and
+ * `attempts()` are provided by that trait.
  */
 trait TracksOutgoingEmail
 {
@@ -157,11 +163,14 @@ trait TracksOutgoingEmail
     public function failed(?Throwable $exception = null): void
     {
         $key = $this->deliveryKey;
+        /** @var Collection<int, EmailLog> $logs */
+        $logs = collect();
 
         if ($key !== '') {
             $logs = EmailLog::query()
                 ->where('delivery_key', $key)
-                ->orWhere('delivery_key', 'like', $key.':%')
+                ->orWhere('delivery_key', 'like', addcslashes($key, '%_').':%')
+                ->limit(100)
                 ->get();
 
             foreach ($logs as $log) {
@@ -182,19 +191,26 @@ trait TracksOutgoingEmail
         Log::error('[TracksOutgoingEmail] Email job failed permanently.', [
             'job' => static::class,
             'delivery_key' => $key,
+            'job_id' => $this->job?->getJobId(),
+            'attempt' => $this->attempts(),
             'exception_class' => $exception === null ? null : $exception::class,
+            'recipients' => $logs
+                ->map(fn (EmailLog $log): ?string => LogRedaction::email($log->recipient_email))
+                ->filter()
+                ->values()
+                ->all(),
         ]);
     }
 
-    /** Keep transport diagnostics while removing email addresses, the most common PII in errors. */
+    /** Keep transport diagnostics while delegating PII and credential redaction to LogRedaction. */
     protected function safeDeliveryError(Throwable $exception): string
     {
-        $redacted = preg_replace(
-            '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i',
-            '[email]',
-            $exception->getMessage(),
-        ) ?? '';
+        return LogRedaction::exception($exception);
+    }
 
-        return Str::limit($exception::class.': '.$redacted, 500);
+    /** Rethrow the transport failure with a redacted message so framework logging and failed_jobs store no PII. */
+    protected function throwRedacted(Throwable $exception): never
+    {
+        throw RedactedMailDeliveryException::fromThrowable($exception);
     }
 }
