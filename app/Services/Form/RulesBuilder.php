@@ -85,10 +85,13 @@ class RulesBuilder
 
     /**
      * Mengonversi custom rules array menjadi Laravel Validation rules.
+     *
      * @param array<string, array<string, mixed>> $customRules
+     * @param bool $requireScalarString Tambahkan rule `string` untuk field skalar
+     *        agar payload array tidak lolos `required` lalu tersimpan sebagai array.
      * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
      */
-    public static function build(array $customRules): array
+    public static function build(array $customRules, bool $requireScalarString = false): array
     {
         $laravelRules = [];
 
@@ -105,6 +108,8 @@ class RulesBuilder
                 if (!empty($rules['checkbox_in'])) {
                     $allowedValues = implode(',', array_map('trim', explode(',', (string) $rules['checkbox_in'])));
                     $laravelRules["{$fieldName}.*"] = ["string", "in:{$allowedValues}"];
+                } else {
+                    $laravelRules["{$fieldName}.*"] = ['string'];
                 }
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
@@ -113,6 +118,7 @@ class RulesBuilder
             if ($isMultiple) {
                 $mappedRules[] = $isRequired ? 'required' : 'nullable';
                 $mappedRules[] = 'array';
+                $laravelRules["{$fieldName}.*"] = ['string'];
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
             }
@@ -144,6 +150,10 @@ class RulesBuilder
                 $mappedRules[] = 'required';
             } else {
                 $mappedRules[] = 'nullable';
+            }
+
+            if ($requireScalarString) {
+                $mappedRules[] = 'string';
             }
 
             foreach (self::DIRECT_MAP as $customKey => $laravelKey) {

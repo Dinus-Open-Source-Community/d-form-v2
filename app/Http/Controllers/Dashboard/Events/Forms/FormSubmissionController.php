@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
+use App\Enums\FormSubmissionMode;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendRegistrationConfirmationJob;
 use App\Jobs\SendTeamInvitationJob;
@@ -11,18 +12,18 @@ use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
-use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
-use App\Services\Registration\BundleSubmissionRules;
 use App\Services\Registration\EventRegistrationCounter;
-use App\Services\Registration\FormAnswerFileStorage;
+use App\Services\Registration\FormAnswerInputMapper;
 use App\Services\Registration\FormAnswerWriter;
+use App\Services\Registration\FormSubmissionRules;
+use App\Services\Registration\MemberEmailListRules;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class FormSubmissionController extends Controller
@@ -33,7 +34,7 @@ class FormSubmissionController extends Controller
         private EventRegistrationCounter $registrationCounter,
         private BundleGuestDuplicateChecker $bundleGuestDuplicateChecker,
         private FormAnswerWriter $formAnswerWriter,
-        private FormAnswerFileStorage $formAnswerFiles,
+        private FormAnswerInputMapper $formAnswerInputMapper,
     ) {
     }
 
@@ -52,7 +53,18 @@ class FormSubmissionController extends Controller
                 'message' => $status->message(),
             ]);
 
-            return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
+            return $this->fillRedirect($event, $form);
+        }
+
+        $mode = FormSubmissionRules::modeFor($form);
+
+        if ($mode === null) {
+            Inertia::flash('toast', [
+                'type'    => 'error',
+                'message' => __('This form has an invalid registration configuration. Contact the organizer.'),
+            ]);
+
+            return $this->fillRedirect($event, $form);
         }
 
         $fields = FormField::query()
@@ -60,76 +72,54 @@ class FormSubmissionController extends Controller
             ->orderBy('order')
             ->get(['id', 'name', 'input_type', 'metadata']);
 
-        $isRegistration = $form->isRegistrationForm();
-        $isTeam   = $isRegistration && TeamRegistrationSubmitter::isTeamForm($form);
-        $isBundle = $isRegistration && BundleRegistrationSubmitter::isBundleForm($form);
+        $teamSize = in_array($mode, [FormSubmissionMode::Team, FormSubmissionMode::Bundle], true)
+            ? TeamRegistrationSubmitter::resolveTeamSize($form)
+            : 0;
 
-        if (! $isRegistration && (TeamRegistrationSubmitter::isTeamForm($form) || BundleRegistrationSubmitter::isBundleForm($form))) {
-            Inertia::flash('toast', [
-                'type'    => 'error',
-                'message' => __('This form has an invalid registration configuration. Contact the organizer.'),
-            ]);
+        $participantEmails = [];
+        $answers = ['leader' => [], 'members' => []];
 
-            return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
-        }
+        try {
+            $validated = $this->validatePayload($request, $fields, $mode, $teamSize);
 
-        if ($isTeam && $isBundle) {
-            Inertia::flash('toast', [
-                'type'    => 'error',
-                'message' => __('This form has an invalid registration configuration. Contact the organizer.'),
-            ]);
-
-            return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
-        }
-
-        if ($isBundle) {
-            $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
-            if ($teamSize < 2) {
-                return redirect()
-                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                    ->withErrors(['team_member_emails' => __('This bundle form requires a team size of at least 2 in form settings.')])
-                    ->withInput();
+            if ($mode === FormSubmissionMode::Team) {
+                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form);
             }
-            $extraSlots = $teamSize - 1;
-            $laravelRules = BundleSubmissionRules::buildForFill($fields, $extraSlots);
-        } else {
-            $rawRules     = RulesBuilder::extractRulesFromFields($fields);
-            $laravelRules = RulesBuilder::build($rawRules);
-        }
 
-        $validator = Validator::make(
-            array_merge($request->all(), $request->allFiles()),
-            $laravelRules
-        );
+            if ($mode === FormSubmissionMode::Bundle || $mode === FormSubmissionMode::Team) {
+                $participantEmails = MemberEmailListRules::resolve(
+                    $request->input('team_member_emails'),
+                    $user->email,
+                    $teamSize - 1,
+                );
+            }
 
-        if ($validator->fails()) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors($validator)
+            if ($mode === FormSubmissionMode::Bundle) {
+                $this->assertBundleGuestsAvailable($participantEmails, $form);
+                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form, $teamSize - 1);
+            }
+
+            if ($mode === FormSubmissionMode::Single || $mode === FormSubmissionMode::Other) {
+                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form);
+            }
+        } catch (ValidationException $exception) {
+            return $this->fillRedirect($event, $form)
+                ->withErrors($exception->errors())
                 ->withInput();
         }
 
         $isAdmin = $user->can('events.list');
 
-        if ($isBundle) {
-            return $this->submitBundleRegistration($request, $event, $form, $user, $fields, $isAdmin);
+        if ($mode === FormSubmissionMode::Bundle) {
+            return $this->submitBundleRegistration($answers, $participantEmails, $event, $form, $user, $isAdmin);
         }
 
-        $answers = $this->buildAnswers($request, $fields, $form);
-
-        if ($isTeam) {
-            return $this->submitTeamRegistration(
-                $request,
-                $event,
-                $form,
-                $user,
-                $answers,
-                $isAdmin
-            );
+        if ($mode === FormSubmissionMode::Team) {
+            return $this->submitTeamRegistration($answers['leader'], $participantEmails, $event, $form, $user, $isAdmin);
         }
 
-        if (! $isRegistration) {
-            return $this->submitOtherForm($answers, $form, $user, $event);
+        if ($mode === FormSubmissionMode::Other) {
+            return $this->submitOtherForm($answers['leader'], $form, $user, $event);
         }
 
         $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
@@ -145,7 +135,7 @@ class FormSubmissionController extends Controller
                 ->excludeRejectedSubmissions()
                 ->lockForUpdate()
                 ->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'form' => __('You have already submitted this form.'),
                 ]);
             }
@@ -153,7 +143,7 @@ class FormSubmissionController extends Controller
             $this->registrationCounter->assertCanReserve($lockedEvent, 1, $isAdmin);
 
             $submission = $this->formAnswerWriter->create([
-                'answers' => $answers,
+                'answers' => $answers['leader'],
                 'form_id' => $form->id,
                 'user_id' => (string) $user->id,
             ]);
@@ -174,6 +164,34 @@ class FormSubmissionController extends Controller
     }
 
     /**
+     * Field validation plus the two team-size misconfiguration guards, in the
+     * historical order: bundle guard before validation, team guard after.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, FormField>  $fields
+     * @return array<string, mixed> validated input
+     *
+     * @throws ValidationException
+     */
+    private function validatePayload(Request $request, \Illuminate\Database\Eloquent\Collection $fields, FormSubmissionMode $mode, int $teamSize): array
+    {
+        if ($mode === FormSubmissionMode::Bundle && $teamSize < 2) {
+            throw ValidationException::withMessages([
+                'team_member_emails' => __('This bundle form requires a team size of at least 2 in form settings.'),
+            ]);
+        }
+
+        $validated = FormSubmissionRules::validate($request->all(), $fields, $mode, $teamSize);
+
+        if ($mode === FormSubmissionMode::Team && $teamSize < 2) {
+            throw ValidationException::withMessages([
+                'team_member_emails' => __('This team form requires a team size of at least 2 in form settings.'),
+            ]);
+        }
+
+        return $validated;
+    }
+
+    /**
      * Non-registration forms: single submission, no quota / confirmation email.
      *
      * @param  array<string, mixed>  $answers
@@ -187,7 +205,7 @@ class FormSubmissionController extends Controller
                 ->excludeRejectedSubmissions()
                 ->lockForUpdate()
                 ->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'form' => __('You have already submitted this form.'),
                 ]);
             }
@@ -207,86 +225,25 @@ class FormSubmissionController extends Controller
         return $this->successRedirect($user, $event, $form);
     }
 
+    /**
+     * @param  array{leader: array<string, mixed>, members: list<array<string, mixed>>}  $answers
+     * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
+     */
     private function submitBundleRegistration(
-        Request $request,
+        array $answers,
+        array $memberEmails,
         Event $event,
         Form $form,
         User $leaderUser,
-        $fields,
         bool $isAdmin,
     ): RedirectResponse {
-        $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
-
-        if ($teamSize < 2) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors(['team_member_emails' => __('This bundle form requires a team size of at least 2 in form settings.')])
-                ->withInput();
-        }
-
-        $memberSlots = $teamSize - 1;
-
-        $teamValidator = Validator::make($request->all(), [
-            'team_member_emails'   => ['required', 'array', "size:{$memberSlots}"],
-            'team_member_emails.*' => ['required', 'string', 'email:rfc'],
-        ]);
-
-        if ($teamValidator->fails()) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors($teamValidator)
-                ->withInput();
-        }
-
-        /** @var list<string|mixed> $rawEmails */
-        $rawEmails = $request->input('team_member_emails', []);
-        $emails    = [];
-
-        foreach ($rawEmails as $i => $value) {
-            $email = mb_strtolower(trim((string) $value));
-            $emails[$i] = $email;
-        }
-
-        $leaderLower = mb_strtolower(trim((string) $leaderUser->email));
-        foreach ($emails as $i => $email) {
-            if ($email === $leaderLower) {
-                return redirect()
-                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                    ->withErrors(["team_member_emails.{$i}" => __('You cannot list yourself as a team member.')])
-                    ->withInput();
-            }
-        }
-
-        if (count(array_unique($emails)) !== count($emails)) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors(['team_member_emails' => __('Each team member email must be unique.')])
-                ->withInput();
-        }
-
-        foreach ($emails as $i => $email) {
-            try {
-                $this->bundleGuestDuplicateChecker->assertEmailAvailableForForm(
-                    $form,
-                    $email,
-                    "team_member_emails.{$i}",
-                );
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                return redirect()
-                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                    ->withErrors($e->errors())
-                    ->withInput();
-            }
-        }
-
-        $built  = $this->buildBundleAnswers($request, $fields, $form, $memberSlots);
         $result = $this->bundleRegistrationSubmitter->submit(
             $form,
             $event,
             $leaderUser,
-            $built['leader'],
-            $built['members'],
-            $emails,
+            $answers['leader'],
+            $answers['members'],
+            $memberEmails,
             $isAdmin,
         );
 
@@ -308,71 +265,25 @@ class FormSubmissionController extends Controller
         return $this->successRedirect($leaderUser, $event, $form);
     }
 
+    /**
+     * @param  array<string, mixed>  $answers
+     * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
+     */
     private function submitTeamRegistration(
-        Request $request,
+        array $answers,
+        array $memberEmails,
         Event $event,
         Form $form,
         User $leaderUser,
-        array $answers,
         bool $isAdmin,
     ): RedirectResponse {
-        $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
-
-        if ($teamSize < 2) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors(['team_member_emails' => __('This team form requires a team size of at least 2 in form settings.')])
-                ->withInput();
-        }
-
-        $memberSlots = $teamSize - 1;
-
-        $teamValidator = Validator::make($request->all(), [
-            'team_member_emails'   => ['required', 'array', "size:{$memberSlots}"],
-            'team_member_emails.*' => ['required', 'string', 'email:rfc'],
-        ]);
-
-        if ($teamValidator->fails()) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors($teamValidator)
-                ->withInput();
-        }
-
-        /** @var list<string|mixed> $rawEmails */
-        $rawEmails = $request->input('team_member_emails', []);
-        $emails    = [];
-
-        foreach ($rawEmails as $i => $value) {
-            $email = mb_strtolower(trim((string) $value));
-            $emails[$i] = $email;
-        }
-
-        $leaderLower = mb_strtolower(trim((string) $leaderUser->email));
-        foreach ($emails as $i => $email) {
-            if ($email === $leaderLower) {
-                return redirect()
-                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                    ->withErrors(["team_member_emails.{$i}" => __('You cannot list yourself as a team member.')])
-                    ->withInput();
-            }
-        }
-
-        if (count(array_unique($emails)) !== count($emails)) {
-            return redirect()
-                ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
-                ->withErrors(['team_member_emails' => __('Each team member email must be unique.')])
-                ->withInput();
-        }
-
         $memberUsers = [];
 
-        foreach ($emails as $i => $email) {
+        foreach ($memberEmails as $i => $email) {
             $memberUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
 
             if ($memberUser === null) {
-                return redirect()
-                    ->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form])
+                return $this->fillRedirect($event, $form)
                     ->withErrors(["team_member_emails.{$i}" => __('No account exists for this email. The teammate must register first.')])
                     ->withInput();
             }
@@ -407,6 +318,29 @@ class FormSubmissionController extends Controller
         return $this->successRedirect($leaderUser, $event, $form);
     }
 
+    /**
+     * Bundle guests must not be registered for the same form already.
+     *
+     * @param  array<array-key, string>  $emails
+     *
+     * @throws ValidationException
+     */
+    private function assertBundleGuestsAvailable(array $emails, Form $form): void
+    {
+        foreach ($emails as $index => $email) {
+            $this->bundleGuestDuplicateChecker->assertEmailAvailableForForm(
+                $form,
+                $email,
+                "team_member_emails.{$index}",
+            );
+        }
+    }
+
+    private function fillRedirect(Event $event, Form $form): RedirectResponse
+    {
+        return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
+    }
+
     private function successRedirect(User $user, Event $event, Form $form): RedirectResponse
     {
         if ($user->can('events.view')) {
@@ -417,88 +351,5 @@ class FormSubmissionController extends Controller
             'event' => $event,
             'form' => $form,
         ]);
-    }
-
-    /**
-     * @param  \Illuminate\Database\Eloquent\Collection<int, FormField>  $fields
-     * @return array{leader: array<string, mixed>, members: list<array<string, mixed>>}
-     */
-    private function buildBundleAnswers(Request $request, $fields, Form $form, int $extraSlots): array
-    {
-        $dupSet = array_flip(BundleSubmissionRules::duplicatableFieldNames($fields));
-        $leader = [];
-        /** @var list<array<string, mixed>> $members */
-        $members = [];
-        for ($i = 0; $i < $extraSlots; $i++) {
-            $members[] = [];
-        }
-
-        foreach ($fields as $field) {
-            if (BundleSubmissionRules::fieldIsDisplayOnly($field)) {
-                continue;
-            }
-
-            $name = $field->name;
-
-            if (isset($dupSet[$name])) {
-                $leader[$name] = $this->extractFieldAnswer($request, $field, $form, $name);
-                for ($i = 0; $i < $extraSlots; $i++) {
-                    $slot = BundleSubmissionRules::slotInputName($name, $i);
-                    $members[$i][$name] = $this->extractFieldAnswer($request, $field, $form, $slot);
-                }
-            } else {
-                $val = $this->extractFieldAnswer($request, $field, $form, $name);
-                $leader[$name] = $val;
-                for ($i = 0; $i < $extraSlots; $i++) {
-                    $members[$i][$name] = $val;
-                }
-            }
-        }
-
-        return ['leader' => $leader, 'members' => $members];
-    }
-
-    /**
-     * @param  \Illuminate\Database\Eloquent\Collection<int, FormField>  $fields
-     */
-    private function buildAnswers(Request $request, $fields, Form $form): array
-    {
-        $answers = [];
-
-        foreach ($fields as $field) {
-            if (BundleSubmissionRules::fieldIsDisplayOnly($field)) {
-                continue;
-            }
-
-            $answers[$field->name] = $this->extractFieldAnswer($request, $field, $form, $field->name);
-        }
-
-        return $answers;
-    }
-
-    private function extractFieldAnswer(Request $request, FormField $field, Form $form, string $inputName): mixed
-    {
-        $metadata = $field->metadata;
-        $meta     = $metadata instanceof \Illuminate\Support\Collection
-            ? $metadata->all()
-            : (array) $metadata;
-
-        if ($field->input_type === 'fileUpload') {
-            $file = $request->file($inputName);
-
-            return $file !== null
-                ? $this->formAnswerFiles->store($file, $form)
-                : null;
-        }
-
-        if ($field->input_type === 'checkbox') {
-            return $request->input($inputName, []);
-        }
-
-        if ($field->input_type === 'selectInput' && ! empty($meta['is_multiple'])) {
-            return $request->input($inputName, []);
-        }
-
-        return $request->input($inputName);
     }
 }
