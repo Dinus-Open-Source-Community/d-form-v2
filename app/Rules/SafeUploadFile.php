@@ -12,15 +12,23 @@ final class SafeUploadFile implements ValidationRule
     /** Format yang dipakai bila pemanggil tidak menyebut daftar ekstensi sendiri. */
     public const DEFAULT_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'];
 
-    /** Return the shared required/optional file rules for a known format group. */
-    public static function rules(bool $required = true, array $formats = self::DEFAULT_FORMATS): array
-    {
-        return [$required ? 'required' : 'nullable', 'file', new self($formats)];
+    /** Return the shared required/optional file rules for a known format group and optional per-field limit in KB. */
+    public static function rules(
+        bool $required = true,
+        array $formats = self::DEFAULT_FORMATS,
+        ?int $maxSizeKb = null
+    ): array {
+        return [$required ? 'required' : 'nullable', 'file', new self($formats, $maxSizeKb)];
     }
 
-    /** @param list<string> $formats */
-    public function __construct(private readonly array $formats = self::DEFAULT_FORMATS)
-    {
+    /**
+     * @param list<string> $formats
+     * @param int|null $maxSizeKb Per-field limit in KB; clamped to the global upload limit. Null falls back to global.
+     */
+    public function __construct(
+        private readonly array $formats = self::DEFAULT_FORMATS,
+        private readonly ?int $maxSizeKb = null
+    ) {
     }
 
     /** Rejects hostile names, malformed structures, active PDF content, and oversized decoded images. */
@@ -32,9 +40,10 @@ final class SafeUploadFile implements ValidationRule
         }
 
         $size = $value->getSize();
-        $maxBytes = (int) config('events.forms.upload_max_size_kb', 5120) * 1024;
+        $maxSizeKb = $this->effectiveMaxSizeKb();
+        $maxBytes = $maxSizeKb * 1024;
         if ($size === null || $size > $maxBytes) {
-            $fail('The file may not be greater than 5 MB.');
+            $fail('The file may not be greater than '.self::formatLimit($maxSizeKb).'.');
             return;
         }
 
@@ -64,6 +73,23 @@ final class SafeUploadFile implements ValidationRule
         if ($message !== null) {
             $fail($message);
         }
+    }
+
+    /** Per-field limit in KB, never exceeding the global configured limit. */
+    private function effectiveMaxSizeKb(): int
+    {
+        $globalKb = max(1, (int) config('events.forms.upload_max_size_kb', 5120));
+        $fieldKb = $this->maxSizeKb ?? 0;
+
+        return min($fieldKb > 0 ? $fieldKb : $globalKb, $globalKb);
+    }
+
+    /** Human-readable limit for validation messages: whole megabytes when divisible by 1024, otherwise KB. */
+    private static function formatLimit(int $maxSizeKb): string
+    {
+        return $maxSizeKb % 1024 === 0
+            ? intdiv($maxSizeKb, 1024).' MB'
+            : $maxSizeKb.' KB';
     }
 
     /** Rejects path traversal, control characters, alternate stream syntax, and hidden names. */

@@ -132,7 +132,10 @@ class RulesBuilder
                     );
                     $extensions = array_filter($extensions);
                 }
-                $mappedRules[] = new SafeUploadFile($extensions !== [] ? array_values($extensions) : SafeUploadFile::DEFAULT_FORMATS);
+                $mappedRules[] = new SafeUploadFile(
+                    $extensions !== [] ? array_values($extensions) : SafeUploadFile::DEFAULT_FORMATS,
+                    is_numeric($rules['max_size'] ?? null) ? (int) $rules['max_size'] : null
+                );
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
             }

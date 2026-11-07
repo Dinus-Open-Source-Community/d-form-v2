@@ -194,7 +194,7 @@ export function toBackendField(f: BuilderField, order: number): BackendField {
         }
         case 'file_upload': {
             const mimes = ((f.metadata?.accepts as string) || '').trim().replace(/\s+/g, '') || 'pdf,doc,xls'
-            return { ...base, type: 'fileUpload', metadata: withMeta(f, { rules: { ...req, mimes, max_size: 10240 }, builderType: 'file_upload' }) }
+            return { ...base, type: 'fileUpload', metadata: withMeta(f, { rules: { ...req, mimes, max_size: 5120 }, builderType: 'file_upload' }) }
         }
         case 'banner':
             return {

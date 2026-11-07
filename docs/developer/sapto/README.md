@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges07-11-2026-DFORM-AUDIT-P2-010.md](./saptoChanges07-11-2026-DFORM-AUDIT-P2-010.md) | Terapkan `max_size` per field pada validasi upload (clamp ke batas global), pesan dinamis, default builder 5120 KB, feature test dan E2E browser happy/anomali (AUDIT-P2-010).
 - [saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md](./saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md) | Upload jawaban form dan lampiran tim pindah ke disk privat dengan route berotorisasi + signed URL, fallback legacy public, command migrasi dry-run, regression test dan E2E happy/anomali (AUDIT-P1-002).
 - [saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md](./saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md) | Idempotency, retry, timeout, dan `delivery_key` untuk seluruh job email; log direkonsiliasi sebelum send, `failed()` PII-free, feature regression dan E2E browser happy/anomali (AUDIT-P1-007).
 - [saptoChanges04-11-2026-DFORM-BE-P3-007.md](./saptoChanges04-11-2026-DFORM-BE-P3-007.md) | Structured error logging public-safe untuk exception callback OAuth Google/GitHub dengan correlation ID dan regression feature/E2E (BE-P3-007).
