@@ -6,7 +6,7 @@
 | Tanggal | 08-11-2026 |
 | Klasifikasi | security |
 | Status | In Review |
-| Commit | `dab4eab` |
+| Commit | `bc35543` |
 | Report | [`docs/big-changes/patching-ticket/BE-P3-009.md`](../../big-changes/patching-ticket/BE-P3-009.md) |
 
 ## Ringkasan (TL;DR)
