@@ -23,6 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('otp:prune')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        // Prepended so the response phase runs after every other global middleware:
+        // responses short-circuited earlier (503, redirects, 404s) still get headers.
+        $middleware->prepend(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
         $middleware->redirectUsersTo(fn () => route('home', absolute: false));

@@ -219,7 +219,6 @@ onMounted(() => {
             v-else
             :title="emptyTitle"
             :description="emptyDescription"
-            animation-url="https://lottie.host/4e039bf3-670e-4a0f-8a6c-1bee793bfc23/JkaGBMIxOz.json"
         >
             <Link
                 v-if="!isBrowse"

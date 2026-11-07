@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges08-11-2026-DFORM-AUDIT-P2-006.md](./saptoChanges08-11-2026-DFORM-AUDIT-P2-006.md) | Redaksi PII dan raw exception terpusat di `LogRedaction`; job broadcast/OTP memakai konteks terstruktur dengan email ter-mask, `error_message` publik aman, unit/feature/regression dan 3 E2E browser happy/failure/anomali (AUDIT-P2-006).
+- [saptoChanges08-11-2026-DFORM-BE-P3-009.md](./saptoChanges08-11-2026-DFORM-BE-P3-009.md) | Cookie sesi HTTPS-only dengan default production + fail-fast, middleware CSP/HSTS/XFO/nosniff/Referrer-Policy/Permissions-Policy, feature test konfigurasi produksi dan E2E browser + anomaly (BE-P3-009).
 - [saptoChanges07-11-2026-DFORM-AUDIT-P2-010.md](./saptoChanges07-11-2026-DFORM-AUDIT-P2-010.md) | Terapkan `max_size` per field pada validasi upload (clamp ke batas global), pesan dinamis, default builder 5120 KB, feature test dan E2E browser happy/anomali (AUDIT-P2-010).
 - [saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md](./saptoChanges05-11-2026-DFORM-AUDIT-P1-002.md) | Upload jawaban form dan lampiran tim pindah ke disk privat dengan route berotorisasi + signed URL, fallback legacy public, command migrasi dry-run, regression test dan E2E happy/anomali (AUDIT-P1-002).
 - [saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md](./saptoChanges04-11-2026-DFORM-AUDIT-P1-007.md) | Idempotency, retry, timeout, dan `delivery_key` untuk seluruh job email; log direkonsiliasi sebelum send, `failed()` PII-free, feature regression dan E2E browser happy/anomali (AUDIT-P1-007).

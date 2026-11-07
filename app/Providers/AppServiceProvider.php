@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Http\Middleware\StressBypassThrottle;
 use App\Services\Recruitment\RecruitmentTrackingSession;
 use App\Support\PendingRegistrationSession;
+use App\Support\Security\ProductionSecurityPolicy;
+use App\Support\Security\SecurityEnvironment;
+use App\Support\Security\SessionCookieSettings;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -32,6 +35,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $policy = new ProductionSecurityPolicy();
+
+        $policy->assertProductionSafe(new SessionCookieSettings(
+            isProduction: SecurityEnvironment::isProduction(),
+            secure: SecurityEnvironment::flag(config('session.secure'), false),
+            httpOnly: SecurityEnvironment::flag(config('session.http_only'), true),
+            sameSite: SecurityEnvironment::sameSite(config('session.same_site')),
+        ));
+
+        $policy->assertCspModeSafe(
+            SecurityEnvironment::cspMode(config('security.csp.mode')),
+            SecurityEnvironment::flag(config('security.csp.allow_off_in_production'), false),
+        );
+
+        $policy->assertCspReportUriFirstParty(config('security.csp.report_uri'));
+
         Carbon::setLocale(App::getLocale());
 
         // Uji beban non-production boleh melewati rate limiter lewat STRESS_BYPASS_THROTTLE.
