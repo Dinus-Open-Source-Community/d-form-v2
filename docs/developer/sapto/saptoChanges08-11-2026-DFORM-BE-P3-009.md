@@ -35,7 +35,7 @@ response membawa CSP, HSTS, `X-Frame-Options: SAMEORIGIN`,
 
 | Command | Hasil |
 | --- | --- |
-| `php artisan test tests/Feature/Security/SecurityHeadersTest.php tests/Unit/Security` | 77 passed (203 assertions) |
+| `php artisan test` (3 file milik tiket) | 57 passed (172 assertions) |
 | `php artisan test` (full suite) | 1018 passed, 7 skipped, 0 failed (6099 assertions) |
 | `./vendor/bin/pint --test` (file tersentuh) | PASS |
 | `npx playwright test tests/e2e/security-headers.desktop.spec.ts --project=chromium-desktop` | 9 passed (29,3 s) |
