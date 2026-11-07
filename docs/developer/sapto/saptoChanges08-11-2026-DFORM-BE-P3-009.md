@@ -22,8 +22,11 @@ response membawa CSP, HSTS, `X-Frame-Options: SAMEORIGIN`,
 | --- | --- |
 | `config/security.php` (baru) | Konfigurasi header, HSTS, dan CSP (mode `enforce`/`report-only`/`off`). |
 | `app/Http/Middleware/SecurityHeaders.php` (baru) | Middleware global header keamanan. |
-| `app/Support/Security/SessionCookiePolicy.php` (baru) | Guard production untuk `session.secure` dan `session.same_site`. |
-| `bootstrap/app.php` | Registrasi middleware global. |
+| `app/Support/Security/ProductionSecurityPolicy.php` (baru) | Guard production: `secure`, `http_only`, `same_site`, CSP `off`, dan `report_uri` first-party. |
+| `app/Support/Security/SecurityEnvironment.php` (baru) | Seam environment/boolean/SameSite/CSP mode yang aman `config:cache`. |
+| `app/Support/Security/SessionCookieSettings.php` (baru) | Value object readonly untuk policy. |
+| `resources/js/pages/Dashboard/User/Events.vue` | Empty state memakai animasi lokal; URL `lottie.host` dihapus karena diblokir `connect-src`. |
+| `bootstrap/app.php` | Registrasi middleware global (`prepend`). |
 | `config/session.php` | Default `secure` per environment, nilai kosong tidak mematikan keamanan. |
 | `app/Providers/AppServiceProvider.php` | Guard dijalankan pada `boot()`. |
 | `.env.example` | Dokumentasi `SESSION_SECURE_COOKIE`, `SESSION_SAME_SITE`, `SECURITY_*`. |
@@ -43,8 +46,9 @@ response membawa CSP, HSTS, `X-Frame-Options: SAMEORIGIN`,
 
 - `X-Frame-Options: DENY` — mematahkan preview PDF/CV same-origin; dipakai
   `SAMEORIGIN` + `frame-ancestors 'self'`.
-- HSTS bergantung `isSecure()` — tidak pernah aktif karena `TrustProxies` belum
-  diset; gap itu dicatat sebagai tiket `BE-P3-011`.
+- HSTS digating pada `$request->isSecure()` — tidak pernah aktif di balik
+  ingress yang menerminasi TLS; HSTS dikirim saat enabled (browser mengabaikan
+  HSTS lewat HTTP) dan tidak bergantung pada header proxy yang bisa spoof.
 - Mewajibkan `SESSION_SECURE_COOKIE` diisi env — menggantungkan keamanan pada
   file yang tidak tracked.
 
