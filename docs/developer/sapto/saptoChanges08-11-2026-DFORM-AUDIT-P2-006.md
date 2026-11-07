@@ -17,7 +17,7 @@ email.
 
 | Issue        | Commit                                                     |
 | ------------ | ---------------------------------------------------------- |
-| AUDIT-P2-006 | `1bbbe04` — `security: redact PII and raw transport errors from email job logs` |
+| AUDIT-P2-006 | `7364326` — `security: redact PII and raw transport errors from email job logs` |
 
 ## Perubahan
 

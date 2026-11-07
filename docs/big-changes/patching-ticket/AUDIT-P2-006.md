@@ -7,7 +7,7 @@
 | Evidence | Confirmed (source) → Reproduced (regression test) → Measured (suite + E2E browser) |
 | Status | In Review |
 | Baseline | `dev-zapp` (working tree 08-11-2026) |
-| Commit | `1bbbe04` — `security: redact PII and raw transport errors from email job logs` |
+| Commit | `7364326` — `security: redact PII and raw transport errors from email job logs` |
 | Sumber tiket | `docs/big-changes/patching.md` §`AUDIT-P2-006`; `2026-10-30-agents-compliance-audit.md` §`AUDIT-P2-006`; `2026-10-30-backend-audit-batch-2.md` §`BE-P3-005` |
 | File kode | `app/Support/LogRedaction.php`, `app/Jobs/Concerns/TracksOutgoingEmail.php`, `app/Jobs/Broadcasting/SendBroadcastRecipientJob.php`, `app/Jobs/SendRegistrationOtpJob.php` |
 | File test | `tests/Unit/Support/LogRedactionTest.php`, `tests/Feature/Jobs/EmailLogRedactionTest.php`, `tests/e2e/pii-log-redaction.desktop.spec.ts` |
