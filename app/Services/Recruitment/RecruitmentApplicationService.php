@@ -21,6 +21,25 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 final class RecruitmentApplicationService
 {
     /**
+     * Kolom yang dibutuhkan `toListArray()` + foreign key relasi; `SELECT *`
+     * menghidrasi kolom berat seperti phone/personal_email tanpa dipakai.
+     */
+    private const LIST_COLUMNS = [
+        'id',
+        'recruitment_period_id',
+        'registration_number',
+        'full_name',
+        'nim',
+        'semester',
+        'stage',
+        'result',
+        'revision_required',
+        'submitted_at',
+        'primary_division_id',
+        'secondary_division_id',
+    ];
+
+    /**
      * @param  array<string, mixed>  $filters
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
@@ -63,7 +82,7 @@ final class RecruitmentApplicationService
             });
         }
 
-        return $query->paginate($perPage, ['*'], 'page', $page);
+        return $query->paginate($perPage, self::LIST_COLUMNS, 'page', $page);
     }
 
     /**
