@@ -186,6 +186,50 @@ class RecruitmentInterviewExportTest extends TestCase
         self::assertSame(["'".'=CMD|calc.exe'], str_getcsv($lines[1]));
     }
 
+    public function test_export_keeps_backslash_quote_payload_inside_one_cell(): void
+    {
+        $payload = '\\",=1+1';
+
+        $this->makeInterviewRow(fullName: $payload, withEvaluation: false);
+
+        $content = $this->exportContent(['columns' => ['registration_number', 'full_name', 'nim']]);
+        $lines = $this->csvLines($content);
+
+        self::assertCount(2, $lines);
+        // Escape backslash dimatikan sehingga `"` selalu digandakan (RFC 4180).
+        self::assertStringContainsString('"\"",=1+1"', $content);
+
+        $row = $this->parseRfc4180Row($lines[1]);
+
+        self::assertCount(3, $row);
+        self::assertSame($payload, $row[1]);
+
+        foreach ($row as $cell) {
+            self::assertFalse(str_starts_with($cell, '='), 'Sel CSV tidak boleh dimulai dengan formulir: '.$cell);
+        }
+    }
+
+    public function test_export_keeps_backslash_quote_formula_payload_inside_one_cell(): void
+    {
+        $payload = 'abc\\",=cmd|\\\' /C calc\\\'!A0';
+
+        $this->makeInterviewRow(fullName: $payload, withEvaluation: false);
+
+        $content = $this->exportContent(['columns' => ['registration_number', 'full_name', 'nim']]);
+        $lines = $this->csvLines($content);
+
+        self::assertCount(2, $lines);
+
+        $row = $this->parseRfc4180Row($lines[1]);
+
+        self::assertCount(3, $row);
+        self::assertSame($payload, $row[1]);
+
+        foreach ($row as $cell) {
+            self::assertFalse(str_starts_with($cell, '='), 'Sel CSV tidak boleh dimulai dengan formulir: '.$cell);
+        }
+    }
+
     public function test_export_forbidden_without_schedule_permission(): void
     {
         $this->actingAs($this->interviewer)
@@ -248,6 +292,20 @@ class RecruitmentInterviewExportTest extends TestCase
             array_map(fn (string $line): string => trim($line), explode("\n", trim($content))),
             fn (string $line): bool => $line !== ''
         ));
+    }
+
+    /**
+     * Parser RFC 4180 ketat: escape kosong berarti `"` di dalam sel selalu
+     * digandakan, sehingga payload tidak bisa memecah sel.
+     *
+     * @return list<string>
+     */
+    private function parseRfc4180Row(string $line): array
+    {
+        $cells = str_getcsv($line, ',', '"', '');
+        self::assertIsArray($cells);
+
+        return array_values(array_map(static fn (mixed $cell): string => (string) $cell, $cells));
     }
 
     /**

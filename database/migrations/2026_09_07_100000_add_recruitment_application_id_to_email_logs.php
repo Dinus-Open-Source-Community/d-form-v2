@@ -64,12 +64,50 @@ return new class () extends Migration {
 
     public function down(): void
     {
-        Schema::table('email_logs', function (Blueprint $table): void {
-            if (Schema::hasColumn('email_logs', 'recruitment_application_id')) {
+        // This down() deliberately does not restore the old `email_logs.event_id`
+        // NOT NULL constraint: existing rows may be NULL, so it stays nullable.
+        if (! Schema::hasColumn('email_logs', 'recruitment_application_id')) {
+            return;
+        }
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite cannot drop a foreign key by name; the column form
+            // triggers a table rebuild that drops it.
+            Schema::table('email_logs', function (Blueprint $table): void {
+                $table->dropForeign(['recruitment_application_id']);
+            });
+        } elseif ($this->foreignKeyExists('email_logs', 'email_logs_rec_app_fk')) {
+            Schema::table('email_logs', function (Blueprint $table): void {
                 $table->dropForeign('email_logs_rec_app_fk');
+            });
+        }
+
+        if (Schema::hasIndex('email_logs', 'email_logs_rec_app_idx')) {
+            Schema::table('email_logs', function (Blueprint $table): void {
                 $table->dropIndex('email_logs_rec_app_idx');
-                $table->dropColumn('recruitment_application_id');
-            }
+            });
+        }
+
+        Schema::table('email_logs', function (Blueprint $table): void {
+            $table->dropColumn('recruitment_application_id');
         });
+    }
+
+    /** Check a named foreign key on mysql (information_schema) or pgsql (pg_constraint). */
+    private function foreignKeyExists(string $table, string $foreignKey): bool
+    {
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            return DB::selectOne(
+                "SELECT CONSTRAINT_NAME AS name FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = ?",
+                [Schema::getConnection()->getDatabaseName(), $table, $foreignKey]
+            ) !== null;
+        }
+
+        return DB::selectOne(
+            'SELECT 1 FROM pg_constraint WHERE conname = ? LIMIT 1',
+            [$foreignKey]
+        ) !== null;
     }
 };

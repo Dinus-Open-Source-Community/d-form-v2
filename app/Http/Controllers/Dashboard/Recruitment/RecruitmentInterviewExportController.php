@@ -5,13 +5,21 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 use App\Enums\Recruitment\MembershipType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Recruitment\ExportInterviewReportRequest;
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Support\CsvCellSanitizer;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentInterviewExportController extends Controller
 {
+    /**
+     * Batas atas ukuran halaman: satu halaman 500 baris terukur ±25 MB, jadi
+     * nilai env yang terlalu besar akan berakhir sebagai 500 memory limit.
+     */
+    private const MAX_PAGE_SIZE = 2000;
+
     /**
      * @var array<string, string>
      */
@@ -71,28 +79,96 @@ class RecruitmentInterviewExportController extends Controller
             fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), array_map(
                 fn (string $key): string => self::COLUMN_LABELS[$key],
                 $columns
-            )));
+            )), ',', '"', '');
 
-            $this->baseQuery($period, $scope, $includeSecondary)
-                ->chunk(200, function ($interviews) use ($out, $columns): void {
-                    foreach ($interviews as $interview) {
-                        fputcsv($out, self::row($interview, $columns));
-                    }
-                });
+            $this->streamRows($out, [
+                'period' => $period,
+                'scope' => $scope,
+                'includeSecondary' => $includeSecondary,
+                'columns' => $columns,
+            ]);
 
             fclose($out);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<RecruitmentInterview>
+     * Menulis seluruh baris CSV per halaman aplikasi memakai keyset pagination.
+     *
+     * Offset chunking tidak dipakai karena query lama men-join
+     * `recruitment_applications` dan mengurutkan `registration_number`, sehingga
+     * OFFSET besar mematerialisasi ulang hasil terurut pada setiap chunk.
+     * `registration_number` unik global, jadi aman dipakai sebagai kursor tanpa
+     * tie-breaker dan urutan global tetap `(registration_number, interview_kind, id)`.
+     *
+     * @param  resource  $out
+     * @param  array{period: RecruitmentPeriod, scope: string, includeSecondary: bool, columns: list<string>}  $options
      */
-    private function baseQuery(RecruitmentPeriod $period, string $scope, bool $includeSecondary)
+    private function streamRows($out, array $options): void
+    {
+        $pageSize = min(self::MAX_PAGE_SIZE, max(1, (int) config('recruitment.interview_export_page_size')));
+        $cursor = null;
+
+        do {
+            $applications = $this->applicationPage($options['period'], $cursor, $pageSize);
+
+            if ($applications->isEmpty()) {
+                return;
+            }
+
+            $interviewsByApplication = $this->interviewsForPage(
+                $applications->modelKeys(),
+                $options['scope'],
+                $options['includeSecondary']
+            );
+
+            foreach ($applications as $application) {
+                // Kursor = aplikasi terakhir halaman, bukan baris terakhir yang
+                // tertulis: halaman yang seluruh barisnya terfilter tetap maju.
+                $cursor = (string) $application->registration_number;
+
+                foreach ($interviewsByApplication[$application->id] ?? [] as $interview) {
+                    fputcsv($out, self::row($interview, $options['columns']), ',', '"', '');
+                }
+            }
+        } while ($applications->count() === $pageSize);
+    }
+
+    /**
+     * Satu halaman aplikasi pada periode, diurutkan dan dipaginasi dengan kursor.
+     *
+     * Hanya `id` dan `registration_number` yang dipilih agar index
+     * `(recruitment_period_id, registration_number)` dipakai sebagai covering index.
+     *
+     * @return Collection<int, RecruitmentApplication>
+     */
+    private function applicationPage(RecruitmentPeriod $period, ?string $cursor, int $pageSize): Collection
+    {
+        $query = RecruitmentApplication::query()
+            ->select(['id', 'registration_number'])
+            ->where('recruitment_period_id', $period->id);
+
+        if ($cursor !== null) {
+            $query->where('registration_number', '>', $cursor);
+        }
+
+        return $query
+            ->orderBy('registration_number')
+            ->limit($pageSize)
+            ->get();
+    }
+
+    /**
+     * Interview milik satu halaman aplikasi, dikelompokkan per id aplikasi agar
+     * baris ditulis sesuai urutan halaman lalu `(interview_kind, id)`.
+     *
+     * @param  list<string>  $applicationIds
+     * @return array<string, list<RecruitmentInterview>>
+     */
+    private function interviewsForPage(array $applicationIds, string $scope, bool $includeSecondary): array
     {
         $query = RecruitmentInterview::query()
-            ->select('recruitment_interviews.*')
-            ->join('recruitment_applications', 'recruitment_applications.id', '=', 'recruitment_interviews.recruitment_application_id')
-            ->where('recruitment_applications.recruitment_period_id', $period->id)
+            ->whereIn('recruitment_application_id', $applicationIds)
             ->with([
                 'application.primaryDivision:id,name',
                 'application.secondaryDivision:id,name',
@@ -102,12 +178,11 @@ class RecruitmentInterviewExportController extends Controller
                 'interviewer:id,name',
                 'evaluation',
             ])
-            ->orderBy('recruitment_applications.registration_number')
-            ->orderBy('recruitment_interviews.interview_kind')
-            ->orderBy('recruitment_interviews.id');
+            ->orderBy('interview_kind')
+            ->orderBy('id');
 
         if (! $includeSecondary) {
-            $query->where('recruitment_interviews.interview_kind', RecruitmentInterview::KIND_PRIMARY);
+            $query->where('interview_kind', RecruitmentInterview::KIND_PRIMARY);
         }
 
         if ($scope === 'evaluated') {
@@ -116,7 +191,14 @@ class RecruitmentInterviewExportController extends Controller
             $query->whereDoesntHave('evaluation');
         }
 
-        return $query;
+        /** @var array<string, list<RecruitmentInterview>> $grouped */
+        $grouped = [];
+
+        foreach ($query->get() as $interview) {
+            $grouped[(string) $interview->recruitment_application_id][] = $interview;
+        }
+
+        return $grouped;
     }
 
     /**

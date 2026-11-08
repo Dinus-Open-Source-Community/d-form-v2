@@ -18,4 +18,11 @@ return [
         'correction' => (int) env('RECRUITMENT_TRACK_CORRECTION_RATE_LIMIT', 5),
         'feedback' => (int) env('RECRUITMENT_TRACK_FEEDBACK_RATE_LIMIT', 5),
     ],
+
+    /*
+    | Ukuran halaman keyset pagination export CSV interview. Naikkan untuk
+    | mengurangi jumlah query, turunkan bila memori per halaman jadi masalah.
+    | Controller membatasi nilai efektif ke 1..2000 (satu halaman ±25 MB per 500).
+    */
+    'interview_export_page_size' => (int) env('RECRUITMENT_INTERVIEW_EXPORT_PAGE_SIZE', 500),
 ];

@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // responses short-circuited earlier (503, redirects, 404s) still get headers.
         $middleware->prepend(\App\Http\Middleware\SecurityHeaders::class);
 
+        // Appended so it runs after TrustProxies (which applies the trusted proxy
+        // list per request) and therefore sees X-Forwarded-Host, while the prepended
+        // SecurityHeaders still wraps the plain 400 returned for an untrusted host.
+        $middleware->append(\App\Http\Middleware\EnforceTrustedHost::class);
+
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
         $middleware->redirectUsersTo(fn () => route('home', absolute: false));
@@ -37,6 +42,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\DisableSsrForPrivatePages::class,
         ]);
 
+        // TLS terminates at the ingress, so client IP/scheme/host only resolve correctly
+        // through trusted X-Forwarded-* headers. The list is applied by
+        // TrustedProxyServiceProvider::boot() so it also runs for every artisan command.
         $middleware->alias([
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,

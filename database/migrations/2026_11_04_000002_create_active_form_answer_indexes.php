@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -39,22 +38,12 @@ return new class () extends Migration {
 
     public function down(): void
     {
+        // Only the indexes this migration created are removed. `is_active` is
+        // owned by the expand migration (2026_11_03) and must survive a
+        // contract rollback, otherwise a one-step rollback breaks the running
+        // application while the column it reads is still expected to exist.
         $this->dropIndexIfExists(self::USER_INDEX);
         $this->dropIndexIfExists(self::GUEST_INDEX);
-
-        if (! Schema::hasColumn('form_answers', 'is_active')) {
-            return;
-        }
-
-        if (Schema::getConnection()->getDriverName() === 'mysql') {
-            DB::statement('ALTER TABLE form_answers DROP COLUMN `is_active`');
-
-            return;
-        }
-
-        Schema::table('form_answers', function (Blueprint $table): void {
-            $table->dropColumn('is_active');
-        });
     }
 
     private function createUserIndex(): void
