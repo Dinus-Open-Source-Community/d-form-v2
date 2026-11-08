@@ -19,7 +19,7 @@ filter, label enum, atau otorisasi.
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-002 | belum di-commit (working tree berisi perubahan sesi lain; commit hanya file tiket ini) |
+| BE-P2-002 | `343c10a` (file tiket ikut ter-commit oleh sesi lain yang menyapu working tree; tidak ada commit terpisah) |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-002.md`.
 
@@ -44,6 +44,7 @@ Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-002.md`.
 | `config/recruitment.php` | `interview_export_page_size` dari `RECRUITMENT_INTERVIEW_EXPORT_PAGE_SIZE`, default 500, dijepit ke rentang `1..2000`. |
 | `database/migrations/2026_11_08_000002_add_recruitment_interview_export_index.php` (baru) | Index `rec_apps_period_regno_idx (recruitment_period_id, registration_number)`, idempoten lewat `Schema::hasIndex`; `down()` hanya drop bila ada. Additive, tanpa perubahan data. |
 | `tests/Feature/Recruitment/RecruitmentInterviewExportPaginationTest.php` (baru) | Kelengkapan + urutan lintas halaman, primary sebelum secondary, filter `scope` melintasi batas halaman, halaman yang seluruh barisnya tersaring tetap maju, kelipatan tepat page size, `preventLazyLoading` (termasuk `attendance` + `finalDecision.finalDivision`), jumlah query datar, dan assert tidak ada `OFFSET`. |
+| `app/Http/Controllers/Dashboard/Recruitment/RecruitmentInterviewExportController.php` (perbaikan review keamanan) | Kedua `fputcsv()` memakai `(',', '"', '')`: escape `\` PHP dimatikan sehingga `"` selalu digandakan sesuai RFC 4180. Menutup CSV injection yang lolos dari `CsvCellSanitizer` (`\",=1+1` memecah sel) sekaligus menghapus 20.000 notice `E_DEPRECATED` PHP 8.4 per export. Sisa 10 call site lain dicatat sebagai `BE-P3-016`. |
 | `tests/e2e/recruitment-interview-export.desktop.spec.ts` (baru) | Unduhan nyata di browser (BOM, 28 label, urutan baris, label enum, netralisasi formula), subset `columns[]`, `scope` evaluated/pending, empat input anomali (302 + session error, JSON 422), 403 untuk role tanpa izin, dua export paralel, dan `include_secondary=false`. |
 
 Tidak ada perubahan pada `AGENTS.md`, `docs/rules/**`, route, policy, atau kontrak response.
@@ -64,12 +65,26 @@ Tidak ada perubahan pada `AGENTS.md`, `docs/rules/**`, route, policy, atau kontr
 
 | Pemeriksaan | Hasil |
 | ----------- | ----- |
-| `php artisan test --filter=RecruitmentInterviewExport` | 18 passed (148 assertions) |
-| `php artisan test tests/Feature/Recruitment` | 345 passed (2.402 assertions) |
-| `php artisan test` (suite penuh, setelah perbaikan review) | 1.130 passed, 8 skipped (7.061 assertions), 88,6 s |
+| `php artisan test --filter=RecruitmentInterviewExport` | 20 passed (167 assertions) |
+| `php artisan test tests/Feature/Recruitment` | 347 passed (2.421 assertions) |
+| `php artisan test` (suite penuh, setelah perbaikan review) | 1.132 passed, 8 skipped (7.080 assertions), 85,8 s |
 | `pint --test` file tiket | PASS |
 | E2E `tests/e2e/recruitment-interview-export.desktop.spec.ts` (`chromium-desktop`, `--retries=0`) | 8 passed (setup + 7 test) |
 | Migration round-trip MySQL 9 (tabel 1 juta baris) | create 19 s → rollback 205 ms → create 17 s |
+
+## Review
+
+- **@oracle:** satu temuan High (test tidak gagal bila fix di-revert) → ditambahkan
+  test diskriminator `OFFSET` + ambang jumlah query, dibuktikan gagal pada
+  controller lama; clamp page size 1..2000, cabang mati dihapus, return type
+  native, argumen options. Tidak ada temuan pada urutan, kelengkapan, semantik
+  filter, N+1, kualitas index, atau kepatuhan aturan.
+- **@paladin:** satu temuan High (CSV injection lewat `fputcsv()` tanpa `$escape`)
+  → **diperbaiki di tiket ini** dengan regression test RFC-4180; satu temuan
+  Medium (otorisasi objek periode pada export PII) → **tidak diperbaiki di tiket
+  ini** atas keputusan user, dicatat sebagai `BE-P1-010`. Sisanya
+  (`BE-P3-016`, `BE-P3-017`, `AUDIT-P2-019`, `HYG-003`, `BE-P2-016`) masuk
+  `docs/big-changes/patching.md` §7.3.
 
 ## Risiko & rollback
 
