@@ -18,7 +18,7 @@ FULLTEXT diukur lebih lambat untuk pola ketik paling umum dan dibatalkan
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-001 | `perf: index and narrow recruitment applicant list query` |
+| BE-P2-001 | `197032a` — `perf: index and narrow recruitment applicant list query` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-001.md`.
 Plan: `docs/big-changes/patching-ticket/BE-P2-001-plan.md`.
