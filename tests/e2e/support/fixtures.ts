@@ -26,6 +26,8 @@ export interface IFixtureRequest {
     slug: string;
     title: string;
     forms: IFixtureFormRequest[];
+    /** Email user yang sudah ada; bila diisi, kepemilikan fixture memakai user itu tanpa membuat marker user. */
+    ownerEmail?: string;
 }
 
 /** ID satu form hasil fixture. */
@@ -125,14 +127,22 @@ export function defaultFixtureRequest(
     };
 }
 
-/** Buat pemilik + event (tanpa form) lewat satu command artisan; idempoten untuk marker yang sama. */
-export function createOwnerFixture(identity: IOwnerIdentity): IFixtureOwner {
+/**
+ * Buat pemilik + event (tanpa form) lewat satu command artisan; idempoten untuk marker yang sama.
+ * `ownerEmail` membuat event milik user yang sudah ada tanpa membuat marker user.
+ */
+export function createOwnerFixture(identity: IOwnerIdentity, ownerEmail?: string): IFixtureOwner {
     const request: IFixtureRequest = {
         marker: identity.marker,
         slug: identity.slug,
         title: `E2E fixture ${identity.ownerKey}`,
         forms: [],
     };
+
+    if (ownerEmail !== undefined) {
+        request.ownerEmail = ownerEmail;
+    }
+
     const result = runFixtureCommand(request);
 
     return {

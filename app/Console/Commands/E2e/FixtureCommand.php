@@ -13,7 +13,8 @@ use Illuminate\Support\Str;
 /**
  * Tulis fixture e2e (user, event, form, field, answer, attendance) yang seluruhnya ber-marker.
  * Payload JSON dibaca dari stdin; setiap baris dicatat di journal agar kegagalan parsial
- * dibersihkan terbalik dalam satu transaksi.
+ * dibersihkan terbalik dalam satu transaksi. `ownerEmail` opsional hanya memakai user yang
+ * sudah ada sebagai `events.created_by`; marker user tetap dibuat/dijurnal sebagai anchor sweep.
  */
 final class FixtureCommand extends Command
 {
@@ -77,6 +78,21 @@ final class FixtureCommand extends Command
             $this->journal[] = ['table' => 'users', 'id' => $userId];
         }
 
+        $eventOwnerId = $userId;
+        $ownerEmail = $payload['ownerEmail'] ?? null;
+
+        if ($ownerEmail !== null) {
+            if (! is_string($ownerEmail) || $ownerEmail === '') {
+                throw new \InvalidArgumentException('payload.ownerEmail must be a non-empty string.');
+            }
+
+            $eventOwnerId = $this->firstId('users', ['email' => $ownerEmail]);
+
+            if ($eventOwnerId === null) {
+                throw new \InvalidArgumentException('payload.ownerEmail does not match any users.email row.');
+            }
+        }
+
         $eventId = $this->firstId('events', ['slug' => $identity->slug()]);
 
         if ($eventId === null) {
@@ -98,7 +114,7 @@ final class FixtureCommand extends Command
                 'session' => 'general',
                 'status' => 'published',
                 'category' => 'etc',
-                'created_by' => $userId,
+                'created_by' => $eventOwnerId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
