@@ -30,7 +30,10 @@ async function fillValidFormDraft(page: Page, title: string): Promise<void> {
     await page.locator('#f-description').fill('Deskripsi e2e P0-1');
 
     await page.getByRole('button', { name: /text inputs/i }).click();
-    const canvas = page.locator('section').filter({ has: page.locator('#f-title') }).first();
+    const canvas = page
+        .locator('section')
+        .filter({ has: page.locator('#f-title') })
+        .first();
     await page.getByText('Short Text', { exact: true }).first().dragTo(canvas);
     await expect(page.getByText(EMPTY_CANVAS_TEXT)).toHaveCount(0);
 
@@ -65,7 +68,8 @@ test.describe('P0-1 jalur simpan Create form', () => {
 
         try {
             await saveControls(page).first().click();
-            await requestLog.waitForRequestCount('POST', storePath, 1);
+            // Server single-threaded: kirim POST bisa lebih lambat dari default 10 dtk.
+            await requestLog.waitForRequestCount('POST', storePath, 1, 30_000);
             await page.waitForTimeout(1000);
 
             expect(requestLog.requestCount('POST', storePath)).toBe(1);

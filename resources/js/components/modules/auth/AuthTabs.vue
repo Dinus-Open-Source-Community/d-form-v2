@@ -54,7 +54,7 @@ function selectTab(value: string): void {
                     :aria-hidden="activeTab !== 'signup' ? 'true' : undefined"
                     class="col-start-1 row-start-1 mt-0 rounded-xl pt-6 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-0 data-[state=inactive]:invisible"
                 >
-                    <AuthRegisterForm />
+                    <AuthRegisterForm :is-active="activeTab === 'signup'" />
                     <AuthOAuthButtons />
                 </TabsContent>
             </div>

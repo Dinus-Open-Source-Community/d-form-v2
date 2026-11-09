@@ -73,8 +73,18 @@ function cleanupApplications(nims: string[]): void {
 }
 
 async function selectOption(page: Page, controlId: string, optionName: string): Promise<void> {
-    await page.locator(`#${controlId}`).click();
-    await page.getByRole('option', { name: optionName, exact: true }).click();
+    const trigger = page.locator(`#${controlId}`);
+
+    await trigger.click();
+
+    // Hanya popover ber-state open yang dirender aktif; popover lama bisa masih
+    // ada selama animasi close dan punya label opsi yang sama. Reka melepas
+    // node content saat animasi, jadi dispatch event langsung ke option.
+    await page
+        .locator('[data-state="open"] [role="listbox"]')
+        .getByRole('option', { name: optionName, exact: true })
+        .dispatchEvent('click');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 }
 
 async function fillIdentityStep(page: Page, values: { nim: string; email: string }): Promise<void> {
@@ -188,9 +198,9 @@ test.describe('AUDIT-P1-007 email delivery idempotency', () => {
 
             await page.getByRole('button', { name: /Kirim Pendaftaran/i }).click();
 
-            await expect(page.getByText(/Divisi cadangan tidak boleh sama dengan divisi utama/i)).toBeVisible({
-                timeout: 20_000,
-            });
+            await expect(
+                page.locator('#app').getByText(/Divisi cadangan tidak boleh sama dengan divisi utama/i),
+            ).toBeVisible({ timeout: 20_000 });
             await expect(page).not.toHaveURL(/\/recruitment\/success/);
             expect(applicationIdForNim(nim)).toBeNull();
         } finally {

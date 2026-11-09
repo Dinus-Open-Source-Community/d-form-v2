@@ -12,6 +12,8 @@ import type { PasswordRule } from '@/types/auth'
 /** Jumlah segmen indikator kekuatan; level 0–4 dipetakan ke segmen terisi. */
 const STRENGTH_SEGMENT_TOTAL = 4
 
+const props = defineProps<{ isActive: boolean }>()
+
 const form = useForm({
     name: '',
     email: '',
@@ -19,9 +21,13 @@ const form = useForm({
     password_confirmation: '',
 }).dontRemember('password', 'password_confirmation')
 
+/** Hanya jalankan effect ketersediaan email saat tab Daftar benar-benar aktif. */
+const isEffectEnabled = computed<boolean>(() => props.isActive)
+
 /** Status ketersediaan email: dicek otomatis saat mengetik, tanpa submit. */
 const { status: emailStatus, message: emailMessage } = useEmailAvailability({
     email: toRef(form, 'email'),
+    enabled: isEffectEnabled,
 })
 
 const rules = computed<PasswordRule[]>(() => [

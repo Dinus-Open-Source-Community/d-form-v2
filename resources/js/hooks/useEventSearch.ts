@@ -43,12 +43,19 @@ function readCooldownSeconds(response: HttpExceptionResponse): number {
  * Dipakai `EventList.vue` agar request tidak menumpuk selama rate limit aktif.
  */
 export function useEventSearch(filters?: IEventSearchFilters | null): IEventSearchState {
-    const query = ref<string>(filters?.q ?? '');
+    const initialQuery: string = filters?.q ?? '';
+    const initialTerm: string = initialQuery.trim();
+    const query = ref<string>(initialQuery);
     const cooldownUntil = ref<number>(0);
     const currentTime = ref<number>(Date.now());
 
-    let countdownTimer: number | null = null;
+    let countdownTimer: ReturnType<typeof setInterval> | null = null;
     let stopInvalidListener: (() => void) | null = null;
+    /**
+     * Term terakhir yang sudah dikirim. `null` berarti hook ini belum mengirim apa pun,
+     * sehingga reset dari halaman tanpa filter tetap mengirim satu request.
+     */
+    let lastSentTerm: string | null = initialTerm === '' ? null : initialTerm;
 
     const cooldownSeconds = computed<number>(() =>
         Math.max(0, Math.ceil((cooldownUntil.value - currentTime.value) / 1000)),
@@ -59,14 +66,14 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
     function stopCountdown(): void {
         if (countdownTimer === null) return;
 
-        window.clearInterval(countdownTimer);
+        clearInterval(countdownTimer);
         countdownTimer = null;
     }
 
     /** Jalankan hitung mundur per detik selama cooldown; berhenti sendiri saat habis. */
     function startCountdown(): void {
         stopCountdown();
-        countdownTimer = window.setInterval(() => {
+        countdownTimer = setInterval(() => {
             currentTime.value = Date.now();
             if (cooldownSeconds.value === 0) stopCountdown();
         }, COOLDOWN_TICK_MS);
@@ -79,22 +86,42 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
         startCountdown();
     }
 
-    /** Kirim request pencarian; kata kunci kosong mengirim tanpa `q`, 1–2 karakter ditahan. */
+    /**
+     * Kirim request pencarian; kata kunci kosong mengirim tanpa `q`, 1–2 karakter ditahan.
+     * Term yang sama dengan kiriman terakhir dilewati agar reset ganda tidak menggandakan request.
+     */
     function sendSearch(term: string): void {
         const q = term.trim();
         if (q.length > 0 && q.length < SEARCH_MIN_LENGTH) return;
+        if (q === lastSentTerm) return;
+
+        lastSentTerm = q;
 
         router.get(routes.landing.events.index, q ? { q } : {}, {
             preserveState: true,
             preserveScroll: true,
             replace: true,
             only: ['events', 'pagination', 'filters', 'searchError'],
+            // Visit yang gagal tidak boleh mengunci term yang sama: pengguna harus bisa
+            // mencoba ulang kata kunci yang sama setelah gangguan jaringan/validasi.
+            onError: (): void => {
+                lastSentTerm = null;
+            },
+            onNetworkError: (): void => {
+                lastSentTerm = null;
+            },
         });
     }
 
-    /** Tangkap respons 429 dari limiter lalu kunci pencarian sampai cooldown selesai. */
+    /** Tangkap respons 4xx/5xx agar term yang ditolak bisa dicoba ulang, lalu kunci saat 429. */
     function handleHttpException(event: THttpExceptionEvent): void {
         const response = event.detail.response;
+        if (response.status < 400) return;
+
+        // Server menolak/gagal sebelum hasil pencarian diproses: term ini belum
+        // dianggap terkirim, sehingga percobaan ulang dengan term sama harus jalan.
+        lastSentTerm = null;
+
         if (response.status !== 429) return;
 
         beginCooldown(readCooldownSeconds(response));
@@ -106,8 +133,9 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
         sendSearch(query.value);
     }, SEARCH_DEBOUNCE_MS);
 
-    /** Kosongkan input lalu muat ulang daftar tanpa filter. */
+    /** Batalkan debounce tertunda lalu muat ulang daftar tanpa filter. */
     function resetSearch(): void {
+        requestDebouncedSearch.cancel();
         query.value = '';
         sendSearch('');
     }
@@ -117,6 +145,9 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
     });
 
     onBeforeUnmount(() => {
+        // Timer debounce yang masih hidup bisa menumpang navigasi dan menimpa halaman
+        // tujuan setelah komponen ini dilepas.
+        requestDebouncedSearch.cancel();
         stopInvalidListener?.();
         stopInvalidListener = null;
         stopCountdown();

@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
-import axios from 'axios';
+import { checkEmailAvailability } from '@/adapters/http/auth';
+import { isHttpRequestError } from '@/adapters/http/httpError';
 import EmailAvailabilityController from '@/actions/App/Http/Controllers/Auth/EmailAvailabilityController';
 
 export type TEmailAvailabilityStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
@@ -10,16 +11,17 @@ export interface IUseEmailAvailabilityOptions {
     email: Ref<string>;
     /** Jeda sebelum request dikirim, default 500 ms. */
     debounceMs?: number;
+    /**
+     * Pemutus seluruh efek hook. Saat `false` watcher email menjadi no-op dan
+     * timer/request berjalan dibatalkan. Default `true`. Dipakai panel register
+     * yang tetap ter-mount ketika tab lain aktif.
+     */
+    enabled?: Ref<boolean> | boolean;
 }
 
 export interface IUseEmailAvailabilityState {
     status: Ref<TEmailAvailabilityStatus>;
     message: ComputedRef<string>;
-}
-
-/** Bentuk respons endpoint; nilai dicek ketat sebelum dipakai. */
-interface IEmailAvailabilityResponse {
-    available: boolean;
 }
 
 const DEFAULT_DEBOUNCE_MS = 500;
@@ -42,6 +44,8 @@ export function useEmailAvailability(options: IUseEmailAvailabilityOptions): IUs
     const status = ref<TEmailAvailabilityStatus>('idle');
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let activeController: AbortController | null = null;
+    // Email yang status finalnya (`available`/`taken`) sedang ditampilkan.
+    let resolvedEmail: string | null = null;
 
     const message = computed<string>(() => STATUS_MESSAGES[status.value]);
 
@@ -71,26 +75,44 @@ export function useEmailAvailability(options: IUseEmailAvailabilityOptions): IUs
         activeController = controller;
 
         try {
-            const response = await axios.post<IEmailAvailabilityResponse>(
+            const result = await checkEmailAvailability(
                 EmailAvailabilityController.url(),
-                { email: normalizedEmail },
-                { signal: controller.signal },
+                normalizedEmail,
+                controller.signal,
             );
 
             if (controller.signal.aborted || !isStillCurrent(normalizedEmail)) return;
-            status.value = response.data.available === true ? 'available' : 'taken';
+            status.value = result.available === true ? 'available' : 'taken';
+            resolvedEmail = normalizedEmail;
         } catch (error) {
             if (controller.signal.aborted || !isStillCurrent(normalizedEmail)) return;
+            if (isHttpRequestError(error) && error.kind === 'aborted') return;
             // 422 = input belum valid menurut server; selain itu perlakukan sebagai gangguan jaringan.
-            const isUnprocessable = axios.isAxiosError(error) && error.response?.status === 422;
-            status.value = isUnprocessable ? 'idle' : 'error';
+            status.value = isHttpRequestError(error) && error.kind === 'validation' ? 'idle' : 'error';
         } finally {
             if (activeController === controller) activeController = null;
         }
     }
 
+    /** True bila efek hook boleh berjalan (default: selalu aktif). */
+    function isEffectEnabled(): boolean {
+        const enabled = options.enabled;
+        if (enabled === undefined) return true;
+        return typeof enabled === 'boolean' ? enabled : enabled.value;
+    }
+
+    /** Hentikan timer/request berjalan lalu kembalikan status ke idle. */
+    function resetAvailability(): void {
+        clearDebounceTimer();
+        abortActiveRequest();
+        resolvedEmail = null;
+        status.value = 'idle';
+    }
+
     /** Validasi ringan lalu jadwalkan pengecekan setelah debounce. */
     function handleEmailChange(value: string): void {
+        if (!isEffectEnabled()) return;
+
         clearDebounceTimer();
         abortActiveRequest();
 
@@ -109,10 +131,26 @@ export function useEmailAvailability(options: IUseEmailAvailabilityOptions): IUs
 
     watch(options.email, handleEmailChange, { immediate: true });
 
-    onBeforeUnmount(() => {
-        clearDebounceTimer();
-        abortActiveRequest();
+    // Saat panel diaktifkan, cek nilai email terkini; saat dinonaktifkan, hentikan
+    // semua efek agar panel tersembunyi tidak memicu request atau mengubah status.
+    watch(isEffectEnabled, (enabled: boolean) => {
+        if (!enabled) {
+            clearDebounceTimer();
+            abortActiveRequest();
+            // Cek yang terpotong tidak boleh tampak masih berjalan.
+            if (status.value === 'checking') status.value = 'idle';
+            return;
+        }
+        // Hasil final hanya valid untuk email yang benar-benar di-resolve; bila email
+        // berubah saat panel tersembunyi, nilai lama tidak boleh menutupi email baru.
+        const hasFinalStatusForCurrentEmail =
+            (status.value === 'available' || status.value === 'taken') &&
+            resolvedEmail === options.email.value.trim();
+        if (hasFinalStatusForCurrentEmail) return;
+        handleEmailChange(options.email.value);
     });
+
+    onBeforeUnmount(resetAvailability);
 
     return { status, message };
 }

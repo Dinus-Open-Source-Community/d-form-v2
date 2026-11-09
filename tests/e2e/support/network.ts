@@ -1,4 +1,4 @@
-import type { Page, Request, Response } from '@playwright/test';
+import type { BrowserContext, Page, Request, Response } from '@playwright/test';
 
 /** Bentuk satu respons stub untuk mensimulasikan kegagalan/response server. */
 export interface IStubResponse {
@@ -13,6 +13,8 @@ export interface IStubResponse {
 export interface IRequestLog {
     requestCount: (method: string, pattern: string | RegExp) => number;
     responseStatuses: (pattern: string | RegExp) => number[];
+    /** Status >= 500, opsional difilter URL; pengganti listener 5xx ad-hoc di spec. */
+    serverErrorStatuses: (pattern?: string | RegExp) => number[];
     waitForRequestCount: (method: string, pattern: string | RegExp, expected: number, timeoutMs?: number) => Promise<void>;
     stop: () => void;
 }
@@ -27,7 +29,7 @@ interface ILoggedResponse {
     status: number;
 }
 
-interface IInertiaPage {
+export interface IInertiaPage {
     component: string;
     props: unknown;
     url: string;
@@ -62,6 +64,13 @@ export function startRequestLog(page: Page): IRequestLog {
         responseStatuses: (pattern: string | RegExp): number[] =>
             responses
                 .filter((entry: ILoggedResponse): boolean => matches(entry.url, pattern))
+                .map((entry: ILoggedResponse): number => entry.status),
+        serverErrorStatuses: (pattern?: string | RegExp): number[] =>
+            responses
+                .filter(
+                    (entry: ILoggedResponse): boolean =>
+                        entry.status >= 500 && (pattern === undefined || matches(entry.url, pattern)),
+                )
                 .map((entry: ILoggedResponse): number => entry.status),
         waitForRequestCount: async (
             method: string,
@@ -114,23 +123,97 @@ export async function stubStoreResponse(
     });
 }
 
-/** Baca props Inertia dari atribut `data-page` root aplikasi tanpa menebak DOM. */
+/**
+ * Baca payload Inertia yang dirender server. Inertia 3 menaruh payload di
+ * `script[data-page="app"]`; atribut `data-page` pada `#app` hanya ada di
+ * versi lama dan hilang setelah hidrasi. Payload di script tidak berubah
+ * setelah navigasi client-side, jadi URL-nya dipakai sebagai penanda.
+ */
+export async function readInertiaPage(page: Page): Promise<IInertiaPage> {
+    const payload = await readInertiaPayload(page);
+
+    if (!samePath(payload.url, page.url())) {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+
+        const reloaded = await readInertiaPayload(page);
+
+        if (!samePath(reloaded.url, page.url())) {
+            throw new Error(
+                `Inertia payload URL "${reloaded.url}" still does not match page URL "${page.url()}" after reload.`,
+            );
+        }
+
+        return reloaded;
+    }
+
+    return payload;
+}
+
+/** Baca props Inertia halaman saat ini tanpa menebak DOM terhidrasi. */
 export async function readPageProps<TProps>(page: Page): Promise<TProps> {
-    const raw = await page.locator('#app').getAttribute('data-page');
+    return (await readInertiaPage(page)).props as TProps;
+}
+
+async function readInertiaPayload(page: Page): Promise<IInertiaPage> {
+    const script = page.locator('script[data-page="app"][type="application/json"]').first();
+    const raw =
+        (await script.count()) > 0
+            ? await script.textContent()
+            : await page.locator('#app').getAttribute('data-page');
 
     if (raw === null) {
-        throw new Error('Inertia root #app has no data-page attribute.');
+        throw new Error('Inertia page payload is missing from script[data-page="app"] and #app[data-page].');
     }
 
     const parsed: unknown = JSON.parse(raw);
 
-    if (typeof parsed !== 'object' || parsed === null) {
-        throw new Error('Inertia data-page is not an object.');
+    if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        !('component' in parsed) ||
+        !('props' in parsed) ||
+        !('url' in parsed) ||
+        typeof parsed.component !== 'string' ||
+        typeof parsed.url !== 'string'
+    ) {
+        throw new Error('Inertia page payload is not an object with string component/url and props.');
     }
 
-    const pagePayload = parsed as IInertiaPage;
+    return {
+        component: parsed.component,
+        props: parsed.props,
+        url: parsed.url,
+    };
+}
 
-    return pagePayload.props as TProps;
+function samePath(left: string, right: string): boolean {
+    return pathOf(left) === pathOf(right);
+}
+
+function pathOf(value: string): string {
+    try {
+        const url = new URL(value, 'http://localhost');
+
+        // Query ikut dibandingkan: Inertia partial visit `/events?q=x` memakai
+        // pathname yang sama tetapi payload-nya berbeda.
+        return `${url.pathname}${url.search}`;
+    } catch {
+        return value;
+    }
+}
+
+/**
+ * Token CSRF dari cookie context. Satu implementasi untuk spec yang mengirim
+ * POST langsung lewat `page.request`/`context.request`.
+ */
+export async function readXsrfToken(context: BrowserContext): Promise<string> {
+    const cookie = (await context.cookies()).find((entry) => entry.name === 'XSRF-TOKEN');
+
+    if (cookie === undefined) {
+        throw new Error('XSRF-TOKEN cookie is missing; open a page before posting.');
+    }
+
+    return decodeURIComponent(cookie.value);
 }
 
 /** Cocokkan URL dengan string akhir atau RegExp. */
