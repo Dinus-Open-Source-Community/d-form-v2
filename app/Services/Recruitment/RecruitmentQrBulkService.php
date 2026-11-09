@@ -4,10 +4,8 @@ namespace App\Services\Recruitment;
 
 use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
-use App\Enums\Recruitment\ApplicationStage;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Models\EmailLog;
-use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 
@@ -15,49 +13,27 @@ final class RecruitmentQrBulkService
 {
     public function __construct(
         private readonly RecruitmentActivityLogger $activityLogger,
+        private readonly RecruitmentQrEligibilityQuery $eligibilityQuery,
     ) {
     }
 
-    /** Kirim QR interview ke applicant tahap Interview yang belum absen; yang sudah terkirim dilewati kecuali $includeSent. */
+    /**
+     * Kirim QR interview ke applicant tahap Interview yang belum absen; yang sudah
+     * terkirim dilewati kecuali $includeSent.
+     *
+     * @return array{dispatched:int,skipped:int}
+     */
     public function send(User $actor, RecruitmentPeriod $period, bool $includeSent = false): array
     {
-        $recipientsQuery = RecruitmentApplication::query()
-            ->where('recruitment_period_id', $period->id)
-            ->whereNull('cancelled_at')
-            ->where('stage', ApplicationStage::Interview->value)
-            ->whereDoesntHave('attendance');
-
-        if (! $includeSent) {
-            $recipientsQuery->whereNotExists(function ($query): void {
-                $query->selectRaw('1')
-                    ->from('email_logs')
-                    ->whereColumn('email_logs.recruitment_application_id', 'recruitment_applications.id')
-                    ->where('email_logs.notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
-                    ->where('email_logs.status', EmailLogStatus::Sent->value);
-            });
-        }
+        $recipientsQuery = $includeSent
+            ? $this->eligibilityQuery->base($period)
+            : $this->eligibilityQuery->eligible($period);
 
         $recipients = $recipientsQuery
             ->orderBy('submitted_at')
             ->get();
 
-        $skipped = 0;
-
-        if (! $includeSent) {
-            $skipped = RecruitmentApplication::query()
-                ->where('recruitment_period_id', $period->id)
-                ->whereNull('cancelled_at')
-                ->where('stage', ApplicationStage::Interview->value)
-                ->whereDoesntHave('attendance')
-                ->whereExists(function ($query): void {
-                    $query->selectRaw('1')
-                        ->from('email_logs')
-                        ->whereColumn('email_logs.recruitment_application_id', 'recruitment_applications.id')
-                        ->where('email_logs.notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
-                        ->where('email_logs.status', EmailLogStatus::Sent->value);
-                })
-                ->count();
-        }
+        $skipped = $includeSent ? 0 : $this->eligibilityQuery->countAlreadySent($period);
 
         $delaySeconds = (int) config('registration.email_send_delay_seconds', 7);
 
