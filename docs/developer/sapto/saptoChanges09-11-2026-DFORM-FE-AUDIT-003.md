@@ -11,7 +11,7 @@ dependency.
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-003 | _(diisi setelah commit)_ |
+| FE-AUDIT-003 | `f2e7432` — `refactor: migrate legacy composables into hooks`; perbaikan import `a73c476` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-003/patching-ticket.md`.
 

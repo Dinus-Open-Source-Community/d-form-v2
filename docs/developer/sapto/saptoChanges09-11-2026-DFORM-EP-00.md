@@ -16,7 +16,7 @@ tidak di-commit.
 
 | Issue | Commit |
 | ----- | ------ |
-| EP-00 (`PRG-00-03`) | `fix: decouple stress seed signature from gitignored seeder` |
+| EP-00 (`PRG-00-03`) | `3b622fc` — `fix: decouple stress seed signature from gitignored seeder` |
 
 Lane map working tree: `docs/big-changes/program/EP-00-lane-map.md` (lokal,
 `docs/big-changes/` di-gitignore).

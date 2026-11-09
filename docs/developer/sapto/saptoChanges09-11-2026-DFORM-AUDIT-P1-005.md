@@ -11,7 +11,7 @@ tidak lagi tumbuh terhadap jumlah anggota. Pesan validasi, error key
 
 | Issue | Commit |
 | ----- | ------ |
-| AUDIT-P1-005 | belum di-commit (working tree/index bersama lane lain) |
+| AUDIT-P1-005 | `966816b` — `perf: batch team and bundle participant duplicate checks` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/AUDIT-P1-005.md`.
 Plan: `docs/big-changes/patching-ticket/AUDIT-P1-005-plan.md`.

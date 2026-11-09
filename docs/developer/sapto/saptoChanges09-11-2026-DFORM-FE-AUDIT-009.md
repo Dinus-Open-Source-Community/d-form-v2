@@ -10,7 +10,7 @@ adalah blok broadcast dorman (`FEATURE_BROADCAST=false`) yang dijaga test sumber
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-009 | `PENDING` — `refactor: make lib/routes a thin adapter over wayfinder` |
+| FE-AUDIT-009 | `9a99665` — `refactor: make lib/routes a thin adapter over wayfinder` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-009/patching-ticket.md`.
 

@@ -19,7 +19,7 @@ dengan kursor komposit, mengikuti pola yang sudah dipakai
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-009 | `PENDING` — `fix: paginate event registration export by unique keyset` |
+| BE-P2-009 | `682a502` — `fix: paginate event registration export by unique keyset` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-009.md`.
 

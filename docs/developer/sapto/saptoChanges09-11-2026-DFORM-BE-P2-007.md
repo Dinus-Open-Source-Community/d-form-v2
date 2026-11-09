@@ -3,7 +3,7 @@
 | Field     | Nilai                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------ |
 | Issue     | BE-P2-007                                                                                                          |
-| Commit    | belum dibuat                                                                                                       |
+| Commit    | `58dedb8` — `perf: aggregate recruitment report interview stats in one query`                                      |
 | File kode | `app/Services/Recruitment/RecruitmentReportService.php`                                                            |
 | Test      | `tests/Feature/Recruitment/RecruitmentReportServiceTest.php`, `tests/e2e/recruitment-report-query.desktop.spec.ts` |
 | Laporan   | `docs/big-changes/patching-ticket/BE-P2-007.md`                                                                    |

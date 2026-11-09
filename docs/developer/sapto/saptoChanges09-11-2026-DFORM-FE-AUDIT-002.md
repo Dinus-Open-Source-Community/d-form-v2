@@ -12,7 +12,7 @@ diubah.
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-002 | _(diisi setelah commit)_ |
+| FE-AUDIT-002 | `b71e0ef` — `test: add vitest harness for frontend unit tests` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-002/patching-ticket.md`.
 

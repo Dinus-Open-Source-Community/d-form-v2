@@ -11,7 +11,7 @@ shape, urutan key, dan nilai tidak berubah.
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-008 | Belum dibuat — index git berisi changeset lane FE-AUDIT-003 yang belum di-commit; perubahan BE-P2-008 tetap utuh di working tree. |
+| BE-P2-008 | `f91a871` — `perf: compute recruitment queue counts from one conditional aggregate` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-008.md`.
 Plan: `docs/big-changes/patching-ticket/BE-P2-008-plan.md`.
