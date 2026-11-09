@@ -210,7 +210,11 @@ export const routes = {
                 unassign: (id: string): string => interviewerUnassign.url({ assignment: id }),
             },
             applications: {
-                document: (id: string, type: 'cv' | 'portfolio' | 'instagram_follow', preview: boolean = false): string =>
+                document: (
+                    id: string,
+                    type: 'cv' | 'portfolio' | 'instagram_follow',
+                    preview: boolean = false
+                ): string =>
                     applicationDocument.url({ application: id, type }, preview ? { query: { preview: 1 } } : undefined),
                 screening: {
                     pass: (id: string): string => screeningPass.url({ application: id }),
