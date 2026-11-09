@@ -12,7 +12,7 @@ SQLite, seed referensi, subset fokus). Tidak ada perubahan kode produksi.
 
 | Issue | Commit |
 | --- | --- |
-| AUDIT-P1-015 | _(diisi setelah commit)_ |
+| AUDIT-P1-015 | `45bd586` — `fix: stop duplicate auth and event search requests` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/AUDIT-P1-015/patching-ticket.md`.
 

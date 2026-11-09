@@ -13,7 +13,7 @@ dicek ulang sekali dan tidak mewarisi indikator email lama.
 
 | Issue | Commit |
 | ----- | ------ |
-| FLOW-P1-001 | _(belum — working tree bersama; commit ditunda agar tidak membawa perubahan lane lain)_ |
+| FLOW-P1-001 | `45bd586` — `fix: stop duplicate auth and event search requests` |
 
 Status tiket di `docs/big-changes/patching.md`: **In Review**. Commit terpisah
 ditunda oleh orchestrator karena `resources/js/hooks/useEmailAvailability.ts`

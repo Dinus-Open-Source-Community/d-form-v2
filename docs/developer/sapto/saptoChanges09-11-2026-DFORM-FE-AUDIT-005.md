@@ -12,7 +12,7 @@ kehilangan dua type assertion `as` lewat guard `lib/isRecord.ts`.
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-005 | uncommitted |
+| FE-AUDIT-005 | `9a66e8e` — `refactor: move http and browser seams behind adapters` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-005.md`.
 

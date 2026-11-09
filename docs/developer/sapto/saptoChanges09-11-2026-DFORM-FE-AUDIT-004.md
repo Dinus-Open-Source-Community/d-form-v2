@@ -11,7 +11,7 @@ HTTP diseragamkan menjadi `HttpRequestError` (`kind`, `status`, `body`,
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-004 | _(diisi setelah commit)_ |
+| FE-AUDIT-004 | `9a66e8e` — `refactor: move http and browser seams behind adapters` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-004/patching-ticket.md`.
 Plan: `docs/big-changes/patching-ticket/FE-AUDIT-004-plan.md`.

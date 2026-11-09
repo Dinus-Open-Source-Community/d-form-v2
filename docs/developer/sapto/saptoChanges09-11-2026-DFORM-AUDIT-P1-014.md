@@ -26,7 +26,7 @@ Tidak ada perubahan route, response contract, enum, otorisasi, atau schema.
 
 | Issue | Commit |
 | ----- | ------ |
-| AUDIT-P1-014 | belum di-commit (working tree dipakai bersama lane lain) |
+| AUDIT-P1-014 | `45bd586` — `fix: stop duplicate auth and event search requests` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/AUDIT-P1-014.md`.
 Plan: `docs/big-changes/patching-ticket/AUDIT-P1-014-plan.md`.

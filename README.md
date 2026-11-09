@@ -65,7 +65,7 @@ npm run test:e2e
 | `npm run test:e2e:mobile`  | Hanya project `chromium-mobile` (Pixel 7)               |
 | `npm run test:e2e:types`   | Typecheck spec (`tsconfig.e2e.json`)                    |
 
-Variabel environment: `E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (wajib), `E2E_ARTISAN` (default `podman exec -i -w /app d_form_app php artisan`), dan `E2E_SESSION_COOKIE` bila nama cookie sesi berubah. Spec memakai fixture ber-marker dan membersihkan barisnya; artefak kegagalan (trace/screenshot) ditulis ke `test-results/`.
+Variabel environment: `E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (wajib), `E2E_ARTISAN` (default `podman exec -i -w /app d_form_app php artisan`), `E2E_SESSION_COOKIE` bila nama cookie sesi berubah, `E2E_ADMIN_STATE` (default `tests/e2e/.auth/admin.json`; pakai path lain untuk run paralel/server berbeda), dan `E2E_FEATURE_BROADCAST=true` hanya bila server dijalankan dengan `FEATURE_BROADCAST=true`. Spec memakai fixture ber-marker dan membersihkan barisnya; artefak kegagalan (trace/screenshot) ditulis ke `test-results/`.
 
 ## Daftar isi
 

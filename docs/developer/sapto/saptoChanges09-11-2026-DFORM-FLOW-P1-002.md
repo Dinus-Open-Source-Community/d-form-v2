@@ -11,7 +11,7 @@ backend, route, schema, atau dependency.
 
 | Issue | Commit |
 | ----- | ------ |
-| FLOW-P1-002 | _(diisi setelah commit)_ |
+| FLOW-P1-002 | `45bd586` — `fix: stop duplicate auth and event search requests` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FLOW-P1-002/patching-ticket.md`.
 

@@ -11,7 +11,7 @@ memakai `onError` Inertia yang memang tidak membawa status transport.
 
 | Issue | Commit |
 | ----- | ------ |
-| FE-AUDIT-006 | _(diisi setelah commit)_ |
+| FE-AUDIT-006 | `9a66e8e` — `refactor: move http and browser seams behind adapters` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/FE-AUDIT-006/patching-ticket.md`.
 

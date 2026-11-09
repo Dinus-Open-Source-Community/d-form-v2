@@ -16,7 +16,7 @@ Guard arsitektur baru menutup cycle non-`components/ui`, arah `lib/`, `types/`,
 
 | Issue | Commit |
 | ----- | ------ |
-| AUDIT-P1-012 | `PENDING` — `refactor: break static cycles and enforce import boundaries` |
+| AUDIT-P1-012 | `9a66e8e` — `refactor: move http and browser seams behind adapters` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/AUDIT-P1-012.md`.
 

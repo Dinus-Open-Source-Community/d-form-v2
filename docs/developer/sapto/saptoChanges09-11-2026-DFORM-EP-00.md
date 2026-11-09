@@ -88,7 +88,7 @@ Tidak ada perubahan route, policy, schema, migration, atau perilaku `stress:seed
 | `formatting` | tidak | Pint + Prettier (report-only sampai baseline bersih) |
 | `bundle-budget` | ya | build + `check-bundle-budget.mjs` |
 | `e2e-types` | ya | `tsc -p tsconfig.e2e.json` |
-| `e2e-runtime` | ya | SQLite + server + subset Playwright desktop/mobile |
+| `e2e-runtime` | report-only sampai run pertama hijau | SQLite + server + subset Playwright desktop/mobile |
 
 `frontend-unit` men-generate Wayfinder lebih dulu karena `lib/routes.ts`
 mengimpor output generated yang gitignored. `e2e-runtime` memakai subset fokus:
@@ -97,6 +97,8 @@ dan dua flow submission; suite penuh menunggu `FE-AUDIT-004-F4/F5` dan
 `INFRA-P3-023`.
 
 **Status validasi:** `Needs verification` — `gh run list` memerlukan push ke
-GitHub, dan push belum diotorisasi. Validasi lokal yang sudah dilakukan: YAML
+GitHub, dan push belum diotorisasi. Karena itu `e2e-runtime` memakai
+`continue-on-error: true` sampai run pertama di runner hijau; setelah itu flag
+dihapus dan job menjadi blocking. Validasi lokal yang sudah dilakukan: YAML
 parse sukses (7 job), semua spec yang dirujuk ada, dan gate non-E2E hijau di
 worktree.
