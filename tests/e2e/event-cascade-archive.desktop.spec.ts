@@ -2,6 +2,7 @@ import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { runArtisanCommand, runArtisanJson } from './support/artisan';
 import { readEnvironment } from './support/environment';
+import { readXsrfToken } from './support/network';
 
 /** Kolom turunan event beserta cascade form/form_field yang diperiksa lewat DB. */
 interface IEventCascadeState {
@@ -18,7 +19,6 @@ interface IMutationOutcome {
     location: string;
 }
 
-const XSRF_COOKIE = 'XSRF-TOKEN';
 const ARCHIVE_EVENT_LABEL = 'Archive event';
 const RESTORE_EVENT_LABEL = 'Restore event';
 
@@ -66,13 +66,6 @@ function readEventCascadeState(eventId: string): IEventCascadeState {
     ].join(' ');
 
     return runArtisanJson<IEventCascadeState>(['tinker', '--execute', code]);
-}
-
-/** Token XSRF dari cookie jar context, sudah di-decode seperti pola `auth.setup.ts`. */
-async function readXsrfToken(context: BrowserContext): Promise<string> {
-    const cookie = (await context.cookies()).find((entry): boolean => entry.name === XSRF_COOKIE);
-
-    return cookie === undefined ? '' : decodeURIComponent(cookie.value);
 }
 
 /**

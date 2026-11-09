@@ -3,21 +3,37 @@
 namespace App\Support\E2e;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Satu-satunya pembaca/pemilik baris fixture e2e.
  *
  * Semua penghapusan memakai id hasil resolusi (predikat exact), bukan wildcard pada DELETE.
- * Urutan anak→induk: email log, attendance, answer, field, form, event, user.
+ * Urutan anak→induk: email log, dataset/broadcast, recruitment (anak dulu), attendance, answer,
+ * field, form, event, user.
  *
  * `email_logs` wajib lebih dulu: review submission membuat log email yang
- * mereferensikan event/form_answer/user dengan `restrictOnDelete`.
+ * mereferensikan event/form_answer/user/recruitment_application dengan `restrict`/`nullOnDelete`.
  */
 final class FixtureScope
 {
     public const DELETE_ORDER = [
         'email_logs',
+        'email_dataset_recipients',
+        'email_datasets',
+        'email_broadcast_recipients',
+        'email_broadcast_attachments',
+        'email_broadcasts',
+        'recruitment_evaluations',
+        'recruitment_attendances',
+        'recruitment_interviews',
+        'recruitment_final_decisions',
+        'recruitment_feedbacks',
+        'recruitment_activity_logs',
+        'recruitment_screenings',
+        'recruitment_correction_requests',
+        'recruitment_documents',
+        'recruitment_applications',
+        'recruitment_periods',
         'event_attendances',
         'form_answers',
         'form_fields',
@@ -41,25 +57,6 @@ final class FixtureScope
     }
 
     /**
-     * Predikat kolom marker per tabel; `null` untuk tabel yang dimiliki lewat induk.
-     *
-     * @return array{0: string, 1: string, 2: string}|null
-     */
-    public function columnPredicate(string $table): ?array
-    {
-        return match ($table) {
-            'users' => ['email', '=', $this->identity->email()],
-            'events' => ['slug', '=', $this->identity->slug()],
-            'forms' => ['title', 'suffix', $this->identity->marker],
-            'form_fields' => ['label', 'suffix', $this->identity->marker],
-            'form_answers', 'event_attendances' => $this->hasMarkerColumn($table)
-                ? ['meta->marker', '=', $this->identity->marker]
-                : null,
-            default => null,
-        };
-    }
-
-    /**
      * ID baris milik marker ini, dikelompokkan per tabel (induk lebih dulu).
      *
      * @return array<string, list<string>>
@@ -70,7 +67,6 @@ final class FixtureScope
             email: $this->identity->email(),
             slug: $this->identity->slug(),
             markerLike: '% ['.$this->identity->marker.']',
-            metaMarker: $this->identity->marker,
         );
     }
 
@@ -111,7 +107,6 @@ final class FixtureScope
             email: $markerPrefix,
             slug: $slugPrefix,
             markerLike: '% ['.$markerPrefix.'%',
-            metaMarker: $markerPrefix,
             isPrefix: true,
         );
 
@@ -162,39 +157,135 @@ final class FixtureScope
     {
         $suffixLike = '% ['.$markerPrefix.'%';
         $own = [
-            'users' => DB::table('users')->where('email', 'like', $markerPrefix.'%')->pluck('id')->all(),
-            'events' => DB::table('events')->where('slug', 'like', $slugPrefix.'%')->pluck('id')->all(),
-            'forms' => DB::table('forms')->where('title', 'like', $suffixLike)->pluck('id')->all(),
-            'form_fields' => DB::table('form_fields')->where('label', 'like', $suffixLike)->pluck('id')->all(),
+            'users' => self::stringIds(DB::table('users')->where('email', 'like', $markerPrefix.'%')->pluck('id')),
+            'events' => self::stringIds(DB::table('events')->where('slug', 'like', $slugPrefix.'%')->pluck('id')),
+            'forms' => self::stringIds(DB::table('forms')->where('title', 'like', $suffixLike)->pluck('id')),
+            'form_fields' => self::stringIds(DB::table('form_fields')->where('label', 'like', $suffixLike)->pluck('id')),
             'form_answers' => [],
             'event_attendances' => [],
             'email_logs' => [],
+            'recruitment_periods' => self::stringIds(
+                DB::table('recruitment_periods')->where('name', 'like', $suffixLike)->pluck('id'),
+            ),
+            'email_broadcasts' => self::stringIds(
+                DB::table('email_broadcasts')->where('name', 'like', $suffixLike)->pluck('id'),
+            ),
+            'email_datasets' => self::stringIds(
+                DB::table('email_datasets')->where('name', 'like', $suffixLike)->pluck('id'),
+            ),
         ];
 
-        $own['email_logs'] = DB::table('email_logs')
-            ->where(function ($query) use ($own): void {
-                $query->whereIn('event_id', $own['events'])
-                    ->orWhereIn('user_id', $own['users']);
-            })
-            ->pluck('id')
-            ->all();
+        // Answer/attendance tidak punya kolom marker; kepemilikan diturunkan dari induk fixture,
+        // memakai predikat yang sama dengan resolve() agar audit tidak menuduh baris sendiri.
+        $own['form_answers'] = self::stringIds(
+            DB::table('form_answers')
+                ->where(function ($query) use ($own): void {
+                    $query->whereIn('form_id', $own['forms'])
+                        ->orWhereIn('user_id', $own['users']);
+                })
+                ->pluck('id'),
+        );
+        $own['event_attendances'] = self::stringIds(
+            DB::table('event_attendances')
+                ->where(function ($query) use ($own): void {
+                    $query->whereIn('event_id', $own['events'])
+                        ->orWhereIn('form_answer_id', $own['form_answers'])
+                        ->orWhereIn('scanned_by_user_id', $own['users']);
+                })
+                ->pluck('id'),
+        );
 
-        $expression = DB::connection()->getDriverName() === 'pgsql'
-            ? "meta->>'marker'"
-            : "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.marker'))";
+        $own['recruitment_applications'] = self::childIds(
+            'recruitment_applications',
+            'recruitment_period_id',
+            $own['recruitment_periods'],
+        );
 
-        foreach (['form_answers', 'event_attendances'] as $table) {
-            if (! Schema::hasColumn($table, 'meta')) {
-                continue;
-            }
-
-            $own[$table] = DB::table($table)
-                ->whereRaw("{$table}.".$expression.' like ?', [$markerPrefix.'%'])
-                ->pluck('id')
-                ->all();
+        foreach ([
+            'recruitment_documents',
+            'recruitment_screenings',
+            'recruitment_correction_requests',
+            'recruitment_interviews',
+            'recruitment_attendances',
+            'recruitment_evaluations',
+            'recruitment_final_decisions',
+            'recruitment_feedbacks',
+            'recruitment_activity_logs',
+        ] as $table) {
+            $own[$table] = self::childIds($table, 'recruitment_application_id', $own['recruitment_applications']);
         }
 
+        // Activity log boleh menempel ke periode tanpa aplikasi; periode marker tetap milik run ini.
+        $own['recruitment_activity_logs'] = array_merge(
+            $own['recruitment_activity_logs'],
+            self::childIds('recruitment_activity_logs', 'recruitment_period_id', $own['recruitment_periods']),
+        );
+
+        $own['email_broadcast_recipients'] = self::childIds(
+            'email_broadcast_recipients',
+            'broadcast_id',
+            $own['email_broadcasts'],
+        );
+        $own['email_broadcast_attachments'] = self::childIds(
+            'email_broadcast_attachments',
+            'broadcast_id',
+            $own['email_broadcasts'],
+        );
+        $own['email_dataset_recipients'] = self::childIds(
+            'email_dataset_recipients',
+            'dataset_id',
+            $own['email_datasets'],
+        );
+
+        $eventIds = $own['events'];
+        $userIds = $own['users'];
+        $answerIds = $own['form_answers'];
+        $applicationIds = $own['recruitment_applications'];
+
+        $own['email_logs'] = self::stringIds(
+            DB::table('email_logs')
+                ->where(function ($query) use ($eventIds, $userIds, $answerIds, $applicationIds): void {
+                    $query->whereIn('event_id', $eventIds)
+                        ->orWhereIn('form_answer_id', $answerIds)
+                        ->orWhereIn('user_id', $userIds)
+                        ->orWhereIn('recruitment_application_id', $applicationIds);
+                })
+                ->pluck('id'),
+        );
+
         return $own;
+    }
+
+    /**
+     * Normalisasi koleksi id menjadi list<string> agar perbandingan antar tabel konsisten.
+     *
+     * @param  iterable<int, mixed>  $ids
+     * @return list<string>
+     */
+    private static function stringIds(iterable $ids): array
+    {
+        $normalized = [];
+
+        foreach ($ids as $id) {
+            $normalized[] = (string) $id;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Id anak yang menempel pada daftar id induk; query dilewati bila induk kosong.
+     *
+     * @param  list<string>  $parentIds
+     * @return list<string>
+     */
+    private static function childIds(string $table, string $column, array $parentIds): array
+    {
+        if ($parentIds === []) {
+            return [];
+        }
+
+        return self::stringIds(DB::table($table)->whereIn($column, $parentIds)->pluck('id'));
     }
 
     /**
@@ -212,7 +303,6 @@ final class FixtureScope
                 email: $markerPrefix,
                 slug: $slugPrefix,
                 markerLike: '% ['.$markerPrefix.'%',
-                metaMarker: $markerPrefix,
                 isPrefix: true,
             ),
         );
@@ -248,16 +338,13 @@ final class FixtureScope
         string $email,
         string $slug,
         string $markerLike,
-        string $metaMarker,
         bool $isPrefix = false,
     ): array {
         $operator = $isPrefix ? 'like' : '=';
         $emailMatch = $isPrefix ? $email.'%' : $email;
         $slugMatch = $isPrefix ? $slug.'%' : $slug;
-        $metaValue = $isPrefix ? $metaMarker.'%' : $metaMarker;
 
-        $userIdQuery = DB::table('users')->select('id')->where('email', $operator, $emailMatch);
-        $userIds = $userIdQuery->pluck('id')->all();
+        $userIds = DB::table('users')->select('id')->where('email', $operator, $emailMatch)->pluck('id')->all();
 
         $eventIds = DB::table('events')
             ->select('id')
@@ -285,36 +372,64 @@ final class FixtureScope
 
         $answerIds = DB::table('form_answers')
             ->select('id')
-            ->where(function ($query) use ($formIds, $userIds, $metaMarker, $isPrefix): void {
+            ->where(function ($query) use ($formIds, $userIds): void {
                 $query->whereIn('form_id', $formIds)->orWhereIn('user_id', $userIds);
-
-                if (Schema::hasColumn('form_answers', 'meta')) {
-                    $this->applyMetaMarker($query, 'form_answers', $metaMarker, $isPrefix);
-                }
             })
             ->pluck('id')
             ->all();
 
         $attendanceIds = DB::table('event_attendances')
             ->select('id')
-            ->where(function ($query) use ($eventIds, $answerIds, $userIds, $metaMarker, $isPrefix): void {
+            ->where(function ($query) use ($eventIds, $answerIds, $userIds): void {
                 $query->whereIn('event_id', $eventIds)
                     ->orWhereIn('form_answer_id', $answerIds)
                     ->orWhereIn('scanned_by_user_id', $userIds);
-
-                if (Schema::hasColumn('event_attendances', 'meta')) {
-                    $this->applyMetaMarker($query, 'event_attendances', $metaMarker, $isPrefix);
-                }
             })
             ->pluck('id')
             ->all();
 
+        $periodIds = self::stringIds(
+            DB::table('recruitment_periods')->select('id')->where('name', 'like', $markerLike)->pluck('id'),
+        );
+        $applicationIds = self::childIds('recruitment_applications', 'recruitment_period_id', $periodIds);
+        $recruitmentChildIds = [];
+
+        foreach ([
+            'recruitment_documents',
+            'recruitment_screenings',
+            'recruitment_correction_requests',
+            'recruitment_interviews',
+            'recruitment_attendances',
+            'recruitment_evaluations',
+            'recruitment_final_decisions',
+            'recruitment_feedbacks',
+        ] as $table) {
+            $recruitmentChildIds[$table] = self::childIds($table, 'recruitment_application_id', $applicationIds);
+        }
+
+        $activityIds = array_merge(
+            self::childIds('recruitment_activity_logs', 'recruitment_application_id', $applicationIds),
+            self::childIds('recruitment_activity_logs', 'recruitment_period_id', $periodIds),
+        );
+
+        $broadcastIds = self::stringIds(
+            DB::table('email_broadcasts')->select('id')->where('name', 'like', $markerLike)->pluck('id'),
+        );
+        $broadcastRecipientIds = self::childIds('email_broadcast_recipients', 'broadcast_id', $broadcastIds);
+        $broadcastAttachmentIds = self::childIds('email_broadcast_attachments', 'broadcast_id', $broadcastIds);
+
+        $datasetIds = self::stringIds(
+            DB::table('email_datasets')->select('id')->where('name', 'like', $markerLike)->pluck('id'),
+        );
+        $datasetRecipientIds = self::childIds('email_dataset_recipients', 'dataset_id', $datasetIds);
+
         $emailLogIds = DB::table('email_logs')
             ->select('id')
-            ->where(function ($query) use ($eventIds, $answerIds, $userIds): void {
+            ->where(function ($query) use ($eventIds, $answerIds, $userIds, $applicationIds): void {
                 $query->whereIn('event_id', $eventIds)
                     ->orWhereIn('form_answer_id', $answerIds)
-                    ->orWhereIn('user_id', $userIds);
+                    ->orWhereIn('user_id', $userIds)
+                    ->orWhereIn('recruitment_application_id', $applicationIds);
             })
             ->pluck('id')
             ->all();
@@ -327,19 +442,23 @@ final class FixtureScope
             'form_answers' => $answerIds,
             'event_attendances' => $attendanceIds,
             'email_logs' => $emailLogIds,
+            'recruitment_periods' => $periodIds,
+            'recruitment_applications' => $applicationIds,
+            'recruitment_documents' => $recruitmentChildIds['recruitment_documents'],
+            'recruitment_screenings' => $recruitmentChildIds['recruitment_screenings'],
+            'recruitment_correction_requests' => $recruitmentChildIds['recruitment_correction_requests'],
+            'recruitment_interviews' => $recruitmentChildIds['recruitment_interviews'],
+            'recruitment_attendances' => $recruitmentChildIds['recruitment_attendances'],
+            'recruitment_evaluations' => $recruitmentChildIds['recruitment_evaluations'],
+            'recruitment_final_decisions' => $recruitmentChildIds['recruitment_final_decisions'],
+            'recruitment_feedbacks' => $recruitmentChildIds['recruitment_feedbacks'],
+            'recruitment_activity_logs' => $activityIds,
+            'email_broadcasts' => $broadcastIds,
+            'email_broadcast_recipients' => $broadcastRecipientIds,
+            'email_broadcast_attachments' => $broadcastAttachmentIds,
+            'email_datasets' => $datasetIds,
+            'email_dataset_recipients' => $datasetRecipientIds,
         ];
-    }
-
-    /**
-     * Tambahkan predikat JSON marker untuk tabel yang punya kolom `meta`.
-     */
-    private function applyMetaMarker($query, string $table, string $marker, bool $isPrefix): void
-    {
-        $expression = DB::connection()->getDriverName() === 'pgsql'
-            ? "{$table}.meta->>'marker'"
-            : "JSON_UNQUOTE(JSON_EXTRACT({$table}.meta, '$.marker'))";
-
-        $query->orWhereRaw($expression.' like ?', [$isPrefix ? $marker.'%' : $marker]);
     }
 
     /**
@@ -371,13 +490,5 @@ final class FixtureScope
         });
 
         return $deleted;
-    }
-
-    /**
-     * Apakah tabel punya kolom `meta` untuk menyimpan marker JSON.
-     */
-    private function hasMarkerColumn(string $table): bool
-    {
-        return Schema::hasColumn($table, 'meta');
     }
 }

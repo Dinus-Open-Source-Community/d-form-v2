@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { BrowserContext, Page, Response } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { runArtisanCommand } from './support/artisan';
+import { readXsrfToken } from './support/network';
 
 /**
  * E2E BE-P2-003: eligibility kirim QR pada halaman periode recruitment.
@@ -651,13 +652,6 @@ async function openPeriod(page: Page): Promise<void> {
             }
         }
     }
-}
-
-/** Token XSRF dari cookie jar context, sudah di-decode seperti pola `auth.setup.ts`. */
-async function readXsrfToken(context: BrowserContext): Promise<string> {
-    const cookie = (await context.cookies()).find((entry): boolean => entry.name === 'XSRF-TOKEN');
-
-    return cookie === undefined ? '' : decodeURIComponent(cookie.value);
 }
 
 /** Klik tombol Kirim QR lalu konfirmasi dialog AlertDialog yang terbuka. */

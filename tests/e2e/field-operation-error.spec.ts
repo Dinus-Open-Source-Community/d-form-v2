@@ -1,11 +1,20 @@
 import type { Page } from '@playwright/test';
 import { countFixtureRows, expect, test } from './support/fixtures';
+import { readXsrfToken } from './support/network';
+import { isTinkerRecord, parseTinkerJsonRecord } from './support/tinker';
 
 interface IFieldOperationBrowserResponse {
     status: number;
     requestId: string;
     validationErrorKeys: string[];
     message: string;
+}
+
+/** Body mentah response dari `page.evaluate`; parsing dilakukan di Node karena guard tidak terserialisasi. */
+interface IBrowserResponseBody {
+    status: number;
+    requestId: string;
+    bodyText: string;
 }
 
 interface IDuplicateFieldRequest {
@@ -17,15 +26,18 @@ interface IDuplicateFieldRequest {
 
 test.use({ fixtureFormCount: 2, fixtureFieldCount: 1 });
 
-/** Read the Laravel XSRF cookie from the authenticated browser page. */
-async function readXsrfToken(page: Page): Promise<string> {
-    const raw = await page.evaluate((): string => {
-        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+/** Mapping body JSON endpoint field ke bentuk yang diassert; satu implementasi untuk kedua kasus. */
+function toFieldOperationResponse(raw: IBrowserResponseBody): IFieldOperationBrowserResponse {
+    const body = parseTinkerJsonRecord(raw.bodyText, 'respons field operation');
+    const errors = body['errors'];
+    const message = body['message'];
 
-        return match?.[1] ?? '';
-    });
-
-    return decodeURIComponent(raw);
+    return {
+        status: raw.status,
+        requestId: raw.requestId,
+        validationErrorKeys: isTinkerRecord(errors) ? Object.keys(errors) : [],
+        message: typeof message === 'string' ? message : '',
+    };
 }
 
 /** Send a malformed field snapshot through the browser fetch boundary. */
@@ -34,8 +46,8 @@ async function postInvalidFieldSnapshot(
     url: string,
     xsrfToken: string
 ): Promise<IFieldOperationBrowserResponse> {
-    return page.evaluate(
-        async ({ url: requestUrl, xsrfToken: token }): Promise<IFieldOperationBrowserResponse> => {
+    const raw = await page.evaluate(
+        async ({ url: requestUrl, xsrfToken: token }): Promise<IBrowserResponseBody> => {
             const response = await fetch(requestUrl, {
                 method: 'POST',
                 headers: {
@@ -55,22 +67,17 @@ async function postInvalidFieldSnapshot(
                     ],
                 }),
             });
-            const body: unknown = await response.json();
-            const isRecord = (value: unknown): value is Record<string, unknown> =>
-                typeof value === 'object' && value !== null;
-            const errors = isRecord(body) && isRecord(body.errors) ? body.errors : null;
-            const requestId = response.headers.get('X-Request-ID') ?? '';
-            const message = isRecord(body) && typeof body.message === 'string' ? body.message : '';
 
             return {
                 status: response.status,
-                requestId,
-                validationErrorKeys: errors === null ? [] : Object.keys(errors),
-                message,
+                requestId: response.headers.get('X-Request-ID') ?? '',
+                bodyText: await response.text(),
             };
         },
         { url, xsrfToken }
     );
+
+    return toFieldOperationResponse(raw);
 }
 
 /** Send a valid-looking snapshot whose ID belongs to another form. */
@@ -80,8 +87,8 @@ async function postDuplicateFieldId({
     xsrfToken,
     conflictingFieldId,
 }: IDuplicateFieldRequest): Promise<IFieldOperationBrowserResponse> {
-    return page.evaluate(
-        async ({ url: requestUrl, xsrfToken: token, fieldId }): Promise<IFieldOperationBrowserResponse> => {
+    const raw = await page.evaluate(
+        async ({ url: requestUrl, xsrfToken: token, fieldId }): Promise<IBrowserResponseBody> => {
             const requestId = crypto.randomUUID();
             const response = await fetch(requestUrl, {
                 method: 'POST',
@@ -105,20 +112,17 @@ async function postDuplicateFieldId({
                     ],
                 }),
             });
-            const body: unknown = await response.json();
-            const isRecord = (value: unknown): value is Record<string, unknown> =>
-                typeof value === 'object' && value !== null;
-            const message = isRecord(body) && typeof body.message === 'string' ? body.message : '';
 
             return {
                 status: response.status,
                 requestId: response.headers.get('X-Request-ID') ?? '',
-                validationErrorKeys: [],
-                message,
+                bodyText: await response.text(),
             };
         },
         { url, xsrfToken, fieldId: conflictingFieldId }
     );
+
+    return toFieldOperationResponse(raw);
 }
 
 test.describe('BE-P1-005 field operation exception contract', () => {
@@ -127,7 +131,7 @@ test.describe('BE-P1-005 field operation exception contract', () => {
             waitUntil: 'domcontentloaded',
         });
 
-        const xsrfToken = await readXsrfToken(page);
+        const xsrfToken = await readXsrfToken(page.context());
         const beforeCount = countFixtureRows(fixtureEvent.marker).counts.form_fields;
         const response = await postInvalidFieldSnapshot(
             page,
@@ -160,7 +164,7 @@ test.describe('BE-P1-005 field operation exception contract', () => {
         const response = await postDuplicateFieldId({
             page,
             url: `/admin/events/${fixtureEvent.eventId}/forms/${fixtureForm.primary.formId}/fields`,
-            xsrfToken: await readXsrfToken(page),
+            xsrfToken: await readXsrfToken(page.context()),
             conflictingFieldId,
         });
 

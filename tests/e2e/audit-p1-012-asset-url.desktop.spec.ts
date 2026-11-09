@@ -1,5 +1,6 @@
-import type { BrowserContext, ConsoleMessage, Dialog, Frame, Locator, Page, Request, TestInfo } from '@playwright/test';
+import type { ConsoleMessage, Dialog, Frame, Locator, Page, Request, TestInfo } from '@playwright/test';
 import { readEnvironment } from './support/environment';
+import { readXsrfToken } from './support/network';
 import {
     cleanupOwnerFixture,
     createFormsFixture,
@@ -109,16 +110,6 @@ async function addPaletteField(page: Page, searchTerm: string, label: string): P
     await expect(row).toBeVisible();
 
     return row;
-}
-
-async function readXsrfToken(context: BrowserContext): Promise<string> {
-    const cookie = (await context.cookies()).find((entry) => entry.name === 'XSRF-TOKEN');
-
-    if (cookie === undefined) {
-        throw new Error('XSRF-TOKEN cookie is missing; open the form page before calling the update endpoint.');
-    }
-
-    return decodeURIComponent(cookie.value);
 }
 
 /**

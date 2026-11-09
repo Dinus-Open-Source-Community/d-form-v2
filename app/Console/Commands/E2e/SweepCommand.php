@@ -22,6 +22,12 @@ final class SweepCommand extends Command
 
     public function handle(): int
     {
+        if (app()->environment('production')) {
+            $this->error('e2e:sweep dilarang di production.');
+
+            return self::FAILURE;
+        }
+
         $graceHours = max(1, (int) ($this->option('grace-hours') ?? 24));
         $budgetSeconds = max(1, (int) ($this->option('budget') ?? 120));
         $startedAt = microtime(true);

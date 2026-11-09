@@ -6,6 +6,9 @@ export interface IEnvironment {
     artisan: string;
     adminEmail: string;
     adminPassword: string;
+    /** Admin seeded dengan role `admin`; dipakai proof 403 non-super-admin. */
+    nonAdminEmail: string;
+    nonAdminPassword: string;
 }
 
 /** Opsi validasi; `probeBaseUrl: false` dipakai unit test agar tidak menyentuh jaringan. */
@@ -29,6 +32,10 @@ export class E2eEnvironmentError extends Error {
 
 const DEFAULT_BASE_URL = 'http://localhost:8000';
 const DEFAULT_ARTISAN = 'podman exec -i -w /app d_form_app php artisan';
+// Nilai seeded `UserSeeder`; role `admin`, bukan super-admin. Aman di repo karena
+// kredensial ini juga tertulis di seeder dan bukan secret produksi.
+const DEFAULT_NON_ADMIN_EMAIL = 'admin@gmail.com';
+const DEFAULT_NON_ADMIN_PASSWORD = 'admin password';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Timeout probe default > 2000 ms agar cold start `php -S`/Octane tidak dianggap mati. */
@@ -44,6 +51,8 @@ export function readEnvironment(env: NodeJS.ProcessEnv = process.env): IEnvironm
         artisan: (env.E2E_ARTISAN ?? '').trim() || DEFAULT_ARTISAN,
         adminEmail: (env.E2E_ADMIN_EMAIL ?? '').trim(),
         adminPassword: env.E2E_ADMIN_PASSWORD ?? '',
+        nonAdminEmail: (env.E2E_NON_ADMIN_EMAIL ?? '').trim() || DEFAULT_NON_ADMIN_EMAIL,
+        nonAdminPassword: env.E2E_NON_ADMIN_PASSWORD ?? DEFAULT_NON_ADMIN_PASSWORD,
     };
 }
 
@@ -91,7 +100,8 @@ export function splitCommandLine(command: string): string[] {
 
 /**
  * Validasi environment dengan urutan tetap lalu hentikan suite pada kegagalan pertama.
- * Urutan: `E2E_BASE_URL` → `E2E_ARTISAN` → `E2E_ADMIN_EMAIL` → `E2E_ADMIN_PASSWORD`.
+ * Urutan: `E2E_BASE_URL` → `E2E_ARTISAN` → `E2E_ADMIN_EMAIL` → `E2E_ADMIN_PASSWORD`
+ * → `E2E_NON_ADMIN_EMAIL` → `E2E_NON_ADMIN_PASSWORD`.
  */
 export async function assertEnvironment(options: IEnvironmentOptions = {}): Promise<IEnvironment> {
     const environment = readEnvironment(options.env);
@@ -100,6 +110,8 @@ export async function assertEnvironment(options: IEnvironmentOptions = {}): Prom
     assertArtisanCommand(environment.artisan);
     assertAdminEmail(environment.adminEmail, environment.adminPassword);
     assertAdminPassword(environment.adminPassword);
+    assertNonAdminEmail(environment.nonAdminEmail, environment.nonAdminPassword);
+    assertNonAdminPassword(environment.nonAdminPassword);
 
     return environment;
 }
@@ -238,5 +250,30 @@ function assertAdminEmail(email: string, password: string): void {
 function assertAdminPassword(password: string): void {
     if (password === '') {
         throw new E2eEnvironmentError('E2E_ADMIN_PASSWORD', 'must be set to the seeded admin password.');
+    }
+}
+
+/**
+ * Validasi admin non-super-admin. Default-nya kredensial seeded, jadi yang benar-benar
+ * diperiksa adalah override yang salah bentuk; pesan error menyebut variabelnya sendiri
+ * agar tidak tertukar dengan `E2E_ADMIN_*`.
+ */
+function assertNonAdminEmail(email: string, password: string): void {
+    if (email === '' && password === '') {
+        throw new E2eEnvironmentError(
+            'E2E_NON_ADMIN_EMAIL and E2E_NON_ADMIN_PASSWORD',
+            'must both be set to the seeded non-super-admin credentials.'
+        );
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+        throw new E2eEnvironmentError('E2E_NON_ADMIN_EMAIL', `"${email}" is not a valid email address.`);
+    }
+}
+
+/** Pastikan password non-super-admin tidak kosong; nilainya sendiri tidak pernah dicetak. */
+function assertNonAdminPassword(password: string): void {
+    if (password === '') {
+        throw new E2eEnvironmentError('E2E_NON_ADMIN_PASSWORD', 'must be set to the seeded non-super-admin password.');
     }
 }

@@ -27,6 +27,12 @@ final class CleanupCommand extends Command
 
     public function handle(): int
     {
+        if (app()->environment('production')) {
+            $this->error('e2e:cleanup dilarang di production.');
+
+            return self::FAILURE;
+        }
+
         $markerPrefix = (string) ($this->option('marker-prefix') ?? '');
 
         if ($markerPrefix !== '') {

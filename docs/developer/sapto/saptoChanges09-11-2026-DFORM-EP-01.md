@@ -145,6 +145,22 @@ CIDR tidak berubah; peer mapped-public tetap tidak dipercaya (test
 disarankan masuk commit `security:` terpisah dari commit EP-01 agar risiko
 dependency tidak tersembunyi di commit formatting/CI.
 
+
+## Follow-up AUDIT-P1-015-F1..F6
+
+Enam anak tiket EP-01 yang masih Open ditutup tanpa menyentuh production.
+
+| Tiket | Perubahan | Verifikasi |
+| --- | --- | --- |
+| F1 | Akar flake: full reload dev-server (perubahan `resources/views/**`/`routes/**`) mengganti dokumen setelah 302. Helper submit menunggu POST 302 + `Location` + `x-inertia`; URL assert hanya bila dokumen tidak diganti | `form-submission-boundary` 2x **17 passed**, retries 0 |
+| F2 | Assertion empty-state memakai teks saat ini + `.fb-field-row`/nilai label; mutation proof gagal saat drag dihapus | `create-p0-save` 3 passed; mutation exit 1 |
+| F3 | `e2e:fixture` mendukung `recruitment`/`acceptedAnswers`/`broadcasts` (marker + journal + rollback); `qr-scan`/`recruitment-tracking-portal` migrasi; dataset masuk cleanup | `filter=E2e` **14 passed / 126 assertions**; 2 spec 6 passed; cleanup 0 baris; `check:row-ownership` ok |
+| F4 | 8 spec memakai `support/network.ts#readXsrfToken` + `support/tinker.ts`; 0 salinan lokal | grep bersih; `auth.spec` **8 passed** di stress env |
+| F5 | Spec `non-superadmin-403` (403 event asing, 200 event sendiri) + job **blocking** `e2e-authz`; job `e2e-broadcast` flag-on report-only | authz subset 4 passed; YAML 13 job |
+| F6 | Hydration wait, drop position eksplisit, bukti field render, retry drag 1x, assert response POST sebelum hitung DB | combined suite 2x **12 passed**; standalone 3 passed |
+
+Review `oracle` + `paladin`: H1 ownership audit, H2 `redis` extension, H3 akar flake, M1 journal rollback, M2/M3/M4 writer, M6/M7 helper submit, M8 duplikasi spec, M10 setup status, M12 environment seam — semua diperbaiki. Residual: payload dataset broadcast belum didukung (cleanup sudah menutup tabel), kredensial seeder literal (butuh keputusan user), screenshot artefak.
+
 ## Verifikasi
 
 | Perintah | Hasil |

@@ -1,23 +1,41 @@
 import type { Page, TestInfo } from '@playwright/test';
-import { expect, ownerIdentityForTest, test } from './support/fixtures';
-import { runArtisanCommand } from './support/artisan';
+import { cleanupOwnerFixture, countFixtureRows, expect, ownerIdentityForTest, test } from './support/fixtures';
 import type { IOwnerIdentity } from './support/marker';
+import { runArtisanJson } from './support/artisan';
 import { startRequestLog, readPageProps } from './support/network';
-import { parseTinkerJsonRecord, requireTinkerNumber } from './support/tinker';
 
 /**
  * AUDIT-P1-015: portal tracking OpRec happy login, kredensial salah, dan akses
  * dashboard tanpa sesi. Token hanya tersimpan sebagai hash, jadi fixture dibuat
- * lewat factory `withTrackingToken()` dengan token yang diketahui. Setiap test
- * memakai identitas marker sendiri agar data tidak bertabrakan antar test/run.
+ * lewat satu pintu `e2e:fixture` (section `recruitment`) dengan token yang diketahui.
+ * Setiap test memakai identitas marker sendiri agar data tidak bertabrakan antar test/run.
  */
 
 interface ITrackingFixture {
     periodName: string;
-    periodSlug: string;
     registrationNumber: string;
     trackingToken: string;
     fullName: string;
+}
+
+interface ITrackingFixtureIds {
+    applicationId: string;
+    periodId: string;
+}
+
+/** Hasil section `recruitment` dari `e2e:fixture`. */
+interface IRecruitmentFixtureResult {
+    periodId: string;
+    periodName: string;
+    divisionId: string;
+    applicationId: string;
+    registrationNumber: string;
+    trackingToken: string;
+    documentId: string | null;
+}
+
+interface ITrackingFixtureResult {
+    recruitment?: IRecruitmentFixtureResult;
 }
 
 interface ITrackingApplicationProps {
@@ -39,111 +57,67 @@ const TRACKING_EXPIRED_MESSAGE = 'Sesi tracking habis. Masukkan kembali nomor pe
 function buildTrackingFixture(identity: IOwnerIdentity): ITrackingFixture {
     return {
         periodName: 'E2E AUDIT-P1-015 ' + identity.ownerKey,
-        periodSlug: 'e2e-audit-p1-015-' + identity.ownerKey,
         registrationNumber: 'OPREC-' + identity.ownerKey,
-        trackingToken: 'e2e-' + identity.ownerKey,
+        trackingToken: 'e2e-' + identity.ownerKey + '-tracking-token-0123456789abcdef',
         fullName: 'E2E Tracking ' + identity.ownerKey,
     };
 }
 
-/** Buat periode open + divisi aktif + aplikasi bertoken diketahui + dokumen minimum. */
-function createFixtures(fixture: ITrackingFixture): void {
-    const script = String.raw`
-$period = App\Models\Recruitment\RecruitmentPeriod::factory()->create([
-    'name' => '${fixture.periodName}',
-    'slug' => '${fixture.periodSlug}',
-    // Tracking login tidak membutuhkan periode open; periode closed tidak
-    // boleh mencuri findOpenPeriod() milik alur apply yang berjalan paralel.
-    'status' => App\Enums\Recruitment\RecruitmentPeriodStatus::Closed,
-]);
-$division = App\Models\Recruitment\RecruitmentDivision::query()->where('is_active', true)->orderBy('code')->firstOrFail();
-$application = App\Models\Recruitment\RecruitmentApplication::factory()
-    ->for($period, 'period')
-    ->withTrackingToken('${fixture.trackingToken}')
-    ->create([
-        'registration_number' => '${fixture.registrationNumber}',
-        'full_name' => '${fixture.fullName}',
-        'primary_division_id' => $division->id,
-        'stage' => App\Enums\Recruitment\ApplicationStage::Screening,
-        'result' => App\Enums\Recruitment\ApplicationResult::Pending,
-        'is_verified' => false,
-        'revision_required' => false,
-    ]);
+/** Buat periode closed + aplikasi bertoken diketahui + dokumen minimum lewat `e2e:fixture`. */
+function createFixtures(identity: IOwnerIdentity, fixture: ITrackingFixture): ITrackingFixtureIds {
+    const payload = {
+        marker: identity.marker,
+        slug: identity.slug,
+        title: `E2E tracking ${identity.ownerKey}`,
+        forms: [],
+        recruitment: {
+            // Tracking login tidak membutuhkan periode open; periode closed tidak
+            // boleh mencuri findOpenPeriod() milik alur apply yang berjalan paralel.
+            period: { name: fixture.periodName, status: 'closed' },
+            application: {
+                registrationNumber: fixture.registrationNumber,
+                trackingToken: fixture.trackingToken,
+                fullName: fixture.fullName,
+                stage: 'screening',
+                result: 'pending',
+            },
+        },
+    };
 
-App\Models\Recruitment\RecruitmentDocument::query()->create([
-    'recruitment_application_id' => $application->id,
-    'cv_path' => 'recruitment/e2e/'.$application->id.'/cv.pdf',
-    'cv_original_name' => 'cv.pdf',
-    'cv_mime' => 'application/pdf',
-    'cv_size_bytes' => 1000,
-    'portfolio_type' => 'url',
-    'portfolio_url' => 'https://portfolio.example.com/e2e',
-    'instagram_follow_path' => 'recruitment/e2e/'.$application->id.'/follow.jpg',
-    'instagram_follow_original_name' => 'follow.jpg',
-    'instagram_follow_mime' => 'image/jpeg',
-    'instagram_follow_size_bytes' => 2048,
-    'twibbon_url' => 'https://instagram.com/p/e2e-twibbon',
-]);
-echo json_encode(['application_id' => $application->id, 'period_id' => $period->id]);
-`;
+    const result = runArtisanJson<ITrackingFixtureResult>(
+        ['e2e:fixture', `--marker=${identity.marker}`],
+        JSON.stringify(payload)
+    );
+    const recruitment = result.recruitment;
 
-    runArtisanCommand(['tinker', '--execute', script]);
+    if (recruitment === undefined) {
+        throw new Error('e2e:fixture tidak mengembalikan section recruitment.');
+    }
+
+    if (recruitment.registrationNumber !== fixture.registrationNumber) {
+        throw new Error('e2e:fixture mengembalikan registrationNumber yang berbeda.');
+    }
+
+    return { applicationId: recruitment.applicationId, periodId: recruitment.periodId };
 }
 
-/** Hapus baris fixture (termasuk periode soft-deleted) dan direktori storage aplikasi. */
-function removeFixtures(fixture: ITrackingFixture): void {
-    const script = String.raw`
-$registrations = ['${fixture.registrationNumber}'];
-$ids = App\Models\Recruitment\RecruitmentApplication::query()
-    ->whereIn('registration_number', $registrations)
-    ->pluck('id');
-foreach (App\Models\Recruitment\RecruitmentApplication::query()->whereIn('registration_number', $registrations)->get() as $application) {
-    \Illuminate\Support\Facades\Storage::disk('local')->deleteDirectory('recruitment/'.$application->recruitment_period_id.'/'.$application->id);
-    \Illuminate\Support\Facades\Storage::disk('local')->deleteDirectory('recruitment/e2e/'.$application->id);
-}
-App\Models\Recruitment\RecruitmentDocument::query()->whereIn('recruitment_application_id', $ids)->delete();
-App\Models\Recruitment\RecruitmentCorrectionRequest::query()->whereIn('recruitment_application_id', $ids)->delete();
-App\Models\Recruitment\RecruitmentFeedback::query()->whereIn('recruitment_application_id', $ids)->delete();
-App\Models\Recruitment\RecruitmentApplication::query()->whereIn('registration_number', $registrations)->delete();
-App\Models\Recruitment\RecruitmentPeriod::withTrashed()->where('name', '${fixture.periodName}')->forceDelete();
-echo json_encode([
-    'applications' => App\Models\Recruitment\RecruitmentApplication::query()
-        ->where('registration_number', '${fixture.registrationNumber}')
-        ->count(),
-    'periods' => App\Models\Recruitment\RecruitmentPeriod::withTrashed()
-        ->where('name', '${fixture.periodName}')
-        ->count(),
-]);
-`;
+/** Bukti baris fixture benar-benar ada sebelum UI diuji. */
+function assertFixturesExist(identity: IOwnerIdentity): void {
+    const counts = countFixtureRows(identity.marker);
 
-    const label = `Cleanup tracking AUDIT-P1-015 (${fixture.registrationNumber})`;
-    const record = parseTinkerJsonRecord(runArtisanCommand(['tinker', '--execute', script]), label);
-    const applications = requireTinkerNumber(record, 'applications', label);
-    const periods = requireTinkerNumber(record, 'periods', label);
-
-    if (applications !== 0 || periods !== 0) {
-        throw new Error(`Cleanup tracking AUDIT-P1-015 gagal: applications=${applications}, periods=${periods}`);
+    if (counts.counts.recruitment_periods !== 1 || counts.counts.recruitment_applications !== 1) {
+        throw new Error(`Fixture tracking tidak lengkap: ${JSON.stringify(counts.counts)}`);
     }
 }
 
-/** Tinker tidak memberi exit code non-zero saat exception, jadi hasil create diverifikasi ulang. */
-function assertFixturesExist(fixture: ITrackingFixture): void {
-    const script = String.raw`
-echo json_encode([
-    'applications' => App\Models\Recruitment\RecruitmentApplication::query()
-        ->where('registration_number', '${fixture.registrationNumber}')
-        ->count(),
-    'period' => App\Models\Recruitment\RecruitmentPeriod::query()->where('name', '${fixture.periodName}')->count(),
-]);
-`;
+/** Hapus baris fixture ber-marker; sisa baris apa pun membuat test gagal. */
+function removeFixtures(identity: IOwnerIdentity): void {
+    cleanupOwnerFixture(identity);
 
-    const label = `Fixture tracking AUDIT-P1-015 (${fixture.registrationNumber})`;
-    const record = parseTinkerJsonRecord(runArtisanCommand(['tinker', '--execute', script]), label);
-    const applications = requireTinkerNumber(record, 'applications', label);
-    const period = requireTinkerNumber(record, 'period', label);
+    const counts = countFixtureRows(identity.marker);
 
-    if (applications !== 1 || period !== 1) {
-        throw new Error(`Fixture tracking AUDIT-P1-015 tidak lengkap: applications=${applications}, period=${period}`);
+    if (counts.count !== 0) {
+        throw new Error(`Cleanup tracking AUDIT-P1-015 menyisakan baris: ${JSON.stringify(counts.counts)}`);
     }
 }
 
@@ -159,12 +133,13 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('AUDIT-P1-015 portal tracking OpRec', () => {
     test('login token valid membuka dashboard pelamar tanpa 5xx', async ({ page }, testInfo: TestInfo) => {
-        const fixture = buildTrackingFixture(ownerIdentityForTest(testInfo));
+        const identity = ownerIdentityForTest(testInfo);
+        const fixture = buildTrackingFixture(identity);
         const requestLog = startRequestLog(page);
 
         try {
-            createFixtures(fixture);
-            assertFixturesExist(fixture);
+            createFixtures(identity, fixture);
+            assertFixturesExist(identity);
 
             await loginTracking(page, fixture, fixture.trackingToken);
             await expect(page).toHaveURL(/\/recruitment\/track\/dashboard/);
@@ -180,17 +155,18 @@ test.describe('AUDIT-P1-015 portal tracking OpRec', () => {
             expect(requestLog.serverErrorStatuses(/\/recruitment\/track/)).toEqual([]);
         } finally {
             requestLog.stop();
-            removeFixtures(fixture);
+            removeFixtures(identity);
         }
     });
 
     test('token salah tetap di login dan tidak membuat sesi', async ({ page }, testInfo: TestInfo) => {
-        const fixture = buildTrackingFixture(ownerIdentityForTest(testInfo));
+        const identity = ownerIdentityForTest(testInfo);
+        const fixture = buildTrackingFixture(identity);
         const requestLog = startRequestLog(page);
 
         try {
-            createFixtures(fixture);
-            assertFixturesExist(fixture);
+            createFixtures(identity, fixture);
+            assertFixturesExist(identity);
 
             await loginTracking(page, fixture, 'token-yang-salah');
             await expect(page).toHaveURL(/\/recruitment\/track$/);
@@ -203,7 +179,7 @@ test.describe('AUDIT-P1-015 portal tracking OpRec', () => {
             expect(requestLog.serverErrorStatuses(/\/recruitment\/track/)).toEqual([]);
         } finally {
             requestLog.stop();
-            removeFixtures(fixture);
+            removeFixtures(identity);
         }
     });
 

@@ -3,7 +3,11 @@
 namespace App\Console\Commands\E2e;
 
 use App\Console\Commands\E2e\Concerns\ResolvesFixtureIdentity;
+use App\Support\E2e\AcceptedAnswerFixtureWriter;
+use App\Support\E2e\BroadcastFixtureWriter;
 use App\Support\E2e\FixtureIdentity;
+use App\Support\E2e\FixtureJournal;
+use App\Support\E2e\RecruitmentFixtureWriter;
 use App\Support\E2e\RunLedger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +19,11 @@ use Illuminate\Support\Str;
  * Payload JSON dibaca dari stdin; setiap baris dicatat di journal agar kegagalan parsial
  * dibersihkan terbalik dalam satu transaksi. `ownerEmail` opsional hanya memakai user yang
  * sudah ada sebagai `events.created_by`; marker user tetap dibuat/dijurnal sebagai anchor sweep.
+ *
+ * Section opsional: `recruitment` (periode + aplikasi + dokumen), `acceptedAnswers`
+ * (submission `review_status=accepted` dengan `registration_code`, opsional attendance), dan
+ * `broadcasts` (email_broadcasts + recipients). Section yang tidak dikirim tidak mengubah
+ * kontrak lama: `users/events/forms/fields/answers/attendance`.
  */
 final class FixtureCommand extends Command
 {
@@ -24,18 +33,25 @@ final class FixtureCommand extends Command
         {--marker= : Marker kanonik e2e+<runId>+o<12 hex>}
         {--run-id= : runId bila marker diturunkan dari ownerId}
         {--owner-id= : ownerId bila marker diturunkan dari ownerId}
+        {--payload= : Test-only inline JSON payload; production/local wajib stdin}
         {--json : Cetak hasil sebagai JSON}';
 
     protected $description = 'Create marker-owned e2e fixture rows from a JSON payload on stdin.';
 
-    /** @var list<array{table: string, id: string}> */
-    private array $journal = [];
+    private FixtureJournal $journal;
 
     public function handle(): int
     {
+        if (app()->environment('production')) {
+            $this->error('e2e:fixture dilarang di production.');
+
+            return self::FAILURE;
+        }
+
         $identity = $this->resolveIdentity();
         $payload = $this->readPayload();
         $forms = $this->normalizeForms($payload);
+        $this->journal = new FixtureJournal();
 
         // Baseline ditulis sebelum baris pertama: batas window illegal-marker milik run ini.
         (new RunLedger())->recordBaseline($identity);
@@ -43,7 +59,7 @@ final class FixtureCommand extends Command
         try {
             $ids = $this->create($identity, $payload, $forms);
         } catch (\Throwable $exception) {
-            $this->rollbackJournal();
+            $this->journal->rollback($exception);
             throw $exception;
         }
 
@@ -75,7 +91,7 @@ final class FixtureCommand extends Command
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            $this->journal[] = ['table' => 'users', 'id' => $userId];
+            $this->journal->record('users', $userId);
         }
 
         $eventOwnerId = $userId;
@@ -118,7 +134,7 @@ final class FixtureCommand extends Command
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            $this->journal[] = ['table' => 'events', 'id' => $eventId];
+            $this->journal->record('events', $eventId);
         }
 
         $results = [];
@@ -127,14 +143,44 @@ final class FixtureCommand extends Command
             $results[] = $this->createForm($identity, $eventId, $userId, $formRequest, $now);
         }
 
-        return [
+        $formIds = array_map(static fn (array $form): string => $form['formId'], $results);
+        $acceptedAnswers = (new AcceptedAnswerFixtureWriter($this->journal))
+            ->create($payload, $formIds, $eventId, $userId, $now);
+        $recruitment = null;
+
+        if (array_key_exists('recruitment', $payload)) {
+            $recruitmentPayload = $payload['recruitment'];
+
+            if (! is_array($recruitmentPayload)) {
+                throw new \InvalidArgumentException('payload.recruitment must be an object.');
+            }
+
+            $recruitment = (new RecruitmentFixtureWriter($identity, $this->journal))->create($recruitmentPayload, $now);
+        }
+
+        $broadcasts = array_key_exists('broadcasts', $payload)
+            ? (new BroadcastFixtureWriter($identity, $this->journal))->create($payload, $userId, $now)
+            : null;
+
+        $result = [
             'marker' => $identity->marker,
             'slug' => $identity->slug(),
             'userId' => $userId,
             'eventId' => $eventId,
             'eventSlug' => $identity->slug(),
             'forms' => $results,
+            'acceptedAnswers' => $acceptedAnswers,
         ];
+
+        if ($recruitment !== null) {
+            $result['recruitment'] = $recruitment;
+        }
+
+        if ($broadcasts !== null) {
+            $result['broadcasts'] = $broadcasts;
+        }
+
+        return $result;
     }
 
     /**
@@ -167,7 +213,7 @@ final class FixtureCommand extends Command
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            $this->journal[] = ['table' => 'forms', 'id' => $formId];
+            $this->journal->record('forms', $formId);
         }
 
         $fieldIds = [];
@@ -194,7 +240,7 @@ final class FixtureCommand extends Command
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
-                $this->journal[] = ['table' => 'form_fields', 'id' => $fieldId];
+                $this->journal->record('form_fields', $fieldId);
             }
 
             $fieldIds[] = $fieldId;
@@ -246,7 +292,7 @@ final class FixtureCommand extends Command
             DB::table('form_answers')->insert($chunk);
 
             foreach ($chunk as $row) {
-                $this->journal[] = ['table' => 'form_answers', 'id' => $row['id']];
+                $this->journal->record('form_answers', $row['id']);
             }
         }
 
@@ -275,7 +321,7 @@ final class FixtureCommand extends Command
             DB::table('event_attendances')->insert($chunk);
 
             foreach ($chunk as $row) {
-                $this->journal[] = ['table' => 'event_attendances', 'id' => $row['id']];
+                $this->journal->record('event_attendances', $row['id']);
             }
         }
 
@@ -339,24 +385,5 @@ final class FixtureCommand extends Command
         }
 
         return $forms;
-    }
-
-    /**
-     * Bersihkan baris yang sudah tercatat di journal secara terbalik (anak dulu).
-     */
-    private function rollbackJournal(): void
-    {
-        $entries = array_reverse($this->journal);
-        $this->journal = [];
-
-        if ($entries === []) {
-            return;
-        }
-
-        DB::transaction(function () use ($entries): void {
-            foreach ($entries as $entry) {
-                DB::table($entry['table'])->where('id', $entry['id'])->delete();
-            }
-        });
     }
 }

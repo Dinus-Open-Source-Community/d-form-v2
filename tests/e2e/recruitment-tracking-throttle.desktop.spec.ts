@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { runArtisanCommand } from './support/artisan';
 import { readEnvironment } from './support/environment';
+import { readXsrfToken } from './support/network';
+import { parseTinkerJsonRecord, requireTinkerNumber } from './support/tinker';
 
 /**
  * E2E BE-P1-006: mutation portal tracking OpRec (update, correction, feedback)
@@ -100,15 +102,15 @@ echo json_encode([
 ]);
 `;
 
-    const result = JSON.parse(runArtisanCommand(['tinker', '--execute', script])) as {
-        applications: number;
-        period: number;
-    };
+    const result = parseTinkerJsonRecord(
+        runArtisanCommand(['tinker', '--execute', script]),
+        'fixture tracking BE-P1-006'
+    );
+    const applications = requireTinkerNumber(result, 'applications', 'fixture tracking BE-P1-006');
+    const period = requireTinkerNumber(result, 'period', 'fixture tracking BE-P1-006');
 
-    if (result.applications !== 2 || result.period !== 1) {
-        throw new Error(
-            `Fixture tracking BE-P1-006 tidak lengkap: applications=${result.applications}, period=${result.period}`
-        );
+    if (applications !== 2 || period !== 1) {
+        throw new Error(`Fixture tracking BE-P1-006 tidak lengkap: applications=${applications}, period=${period}`);
     }
 }
 
@@ -130,17 +132,6 @@ async function loginTracking(page: Page, fixture: ITrackingFixture): Promise<voi
     await page.locator('#tracking_token').fill(fixture.trackingToken);
     await page.getByRole('button', { name: 'Masuk portal' }).click();
     await expect(page).toHaveURL(/\/recruitment\/track\/dashboard/);
-}
-
-/** Token CSRF dari cookie agar request API tetap melewati middleware web. */
-async function readXsrfToken(page: Page): Promise<string> {
-    const raw = await page.evaluate((): string => {
-        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-
-        return match?.[1] ?? '';
-    });
-
-    return decodeURIComponent(raw);
 }
 
 /** Kirim satu mutation update tanpa X-Inertia supaya status HTTP-nya terbaca langsung. */
@@ -185,7 +176,7 @@ test.describe('BE-P1-006 tracking mutation throttle', () => {
         await expect(page.locator('#nim').locator('xpath=following-sibling::p[1]')).toBeVisible();
 
         // Anomali 2: flood mutation melebihi kuota sesi ini.
-        const xsrfToken = await readXsrfToken(page);
+        const xsrfToken = await readXsrfToken(page.context());
         let lastStatus = 0;
         let attempts = 0;
 

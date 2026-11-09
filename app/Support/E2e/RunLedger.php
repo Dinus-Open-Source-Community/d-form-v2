@@ -20,6 +20,11 @@ final class RunLedger
         'form_fields',
         'form_answers',
         'event_attendances',
+        'recruitment_periods',
+        'recruitment_applications',
+        'recruitment_documents',
+        'email_broadcasts',
+        'email_broadcast_recipients',
     ];
 
     /**

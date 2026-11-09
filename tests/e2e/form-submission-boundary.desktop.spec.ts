@@ -1,6 +1,7 @@
-import { expect as baseExpect, test, type BrowserContext, type Page } from '@playwright/test';
+import { expect as baseExpect, test, type BrowserContext, type Page, type Response } from '@playwright/test';
 import { readEnvironment } from './support/environment';
 import { runArtisanCommand } from './support/artisan';
+import { readXsrfToken } from './support/network';
 
 // Konfirmasi/invitation email berjalan sinkron di queue E2E dengan jitter 5-10 detik per job,
 // sehingga redirect registrasi bisa melewati timeout assertion default 10 detik.
@@ -241,17 +242,6 @@ function firstUser(fixture: IFixture): IFixtureUser {
     return user;
 }
 
-/** Token CSRF dari cookie context; dikirim lewat header `X-XSRF-TOKEN`. */
-async function readXsrfToken(context: BrowserContext): Promise<string> {
-    const cookie = (await context.cookies()).find((entry) => entry.name === 'XSRF-TOKEN');
-
-    if (cookie === undefined) {
-        throw new Error('XSRF-TOKEN cookie is missing; open a page before posting.');
-    }
-
-    return decodeURIComponent(cookie.value);
-}
-
 function locationPath(location: string): string {
     if (location === '') {
         return '';
@@ -320,6 +310,59 @@ async function submitForm(page: Page): Promise<void> {
     const confirm = page.getByRole('alertdialog').getByRole('button', { name: 'Submit', exact: true });
     await confirm.focus();
     await page.keyboard.press('Enter');
+}
+
+const SUBMIT_DOCUMENT_ATTR = 'data-e2e-submit-document';
+
+/**
+ * Tandai dokumen yang mengirim submit. Reload penuh dari dev-server (mis. edit paralel di
+ * `resources/views/**` atau `routes/**`, atau re-optimasi dependency Vite) mengganti dokumen
+ * sehingga atribut ini hilang; assert URL sesudahnya hanya bermakna selama dokumen bertahan.
+ */
+async function markSubmitDocument(page: Page): Promise<void> {
+    await page.locator('body').evaluate((body: HTMLElement, attribute: string): void => {
+        body.setAttribute(attribute, 'pending');
+    }, SUBMIT_DOCUMENT_ATTR);
+}
+
+/** True bila dokumen pengirim submit masih hidup (tanpa reload penuh). */
+async function submitDocumentSurvived(page: Page): Promise<boolean> {
+    return (await page.locator(`body[${SUBMIT_DOCUMENT_ATTR}="pending"]`).count()) > 0;
+}
+
+/**
+ * Submit lewat dialog lalu verifikasi redirect.
+ *
+ * Post-submit Inertia adalah XHR; kontrak server yang deterministik adalah response POST
+ * 302 + `Location` ke halaman event (plus header `X-Inertia` yang membuktikan jalur Inertia,
+ * bukan native form POST). Reload penuh dari dev-server bisa mengganti dokumen setelah 302
+ * diterima sehingga redirect client-side tidak pernah mendarat; karena itu assert URL hanya
+ * dijalankan bila dokumen pengirim masih hidup. Timeout response 60 dtk karena queue E2E
+ * `sync` menjalankan job email (jitter 5-10 dtk per job) di dalam request, bukan memperbesar
+ * timeout global.
+ */
+async function submitFormAndAssertRedirect(page: Page, submitPath: string): Promise<void> {
+    await markSubmitDocument(page);
+
+    const submitted = page.waitForResponse(
+        (response: Response): boolean =>
+            response.request().method() === 'POST' && new URL(response.url()).pathname === submitPath,
+        { timeout: 60_000 }
+    );
+
+    await submitForm(page);
+
+    const response = await submitted;
+
+    expect(response.request().headers()['x-inertia'], 'submit harus lewat jalur Inertia (XHR)').toBe('true');
+    expect(response.status(), 'submit registrasi harus redirect 302').toBe(302);
+    expect(locationPath(response.headers()['location'] ?? ''), 'redirect submit harus ke halaman event').toMatch(
+        /^\/admin\/events\//
+    );
+
+    if (await submitDocumentSurvived(page)) {
+        await expect(page).toHaveURL(/\/admin\/events\//, { timeout: 10_000 });
+    }
 }
 
 /**
@@ -577,9 +620,8 @@ test.describe('AUDIT-P1-004 form submission request boundary', () => {
             await page.goto(fixture.fillPath);
             await page.locator('#full_name').fill('Team Leader');
             await page.locator('#team_member_emails_1').fill(mate.email);
-            await submitForm(page);
+            await submitFormAndAssertRedirect(page, fixture.submitPath);
 
-            await expect(page).toHaveURL(/\/admin\/events\//);
             expect(answerCount(fixture.formId)).toBe(2);
 
             const rows = readAnswerRows(fixture.formId);
@@ -624,9 +666,8 @@ test.describe('AUDIT-P1-004 form submission request boundary', () => {
             await page.locator('#full_name').fill('Lead Participant');
             await page.locator('#bundle__full_name__0').fill('Second Participant');
             await page.locator('#team_member_emails_1').fill(guestEmail);
-            await submitForm(page);
+            await submitFormAndAssertRedirect(page, fixture.submitPath);
 
-            await expect(page).toHaveURL(/\/admin\/events\//);
             expect(answerCount(fixture.formId)).toBe(2);
 
             const tokens = readAnswerRows(fixture.formId).map((row) => row.groupToken);

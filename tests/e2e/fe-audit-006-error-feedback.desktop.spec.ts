@@ -2,7 +2,8 @@ import type { Page, Response } from '@playwright/test';
 import { expect, ownerIdentityForTest, test } from './support/fixtures';
 import type { IOwnerIdentity } from './support/marker';
 import { runArtisanCommand } from './support/artisan';
-import { readPageProps, startRequestLog, stubStoreResponse } from './support/network';
+import { readPageProps, readXsrfToken, startRequestLog, stubStoreResponse } from './support/network';
+import { isTinkerRecord, parseTinkerJsonRecord, requireTinkerString } from './support/tinker';
 
 /**
  * E2E FE-AUDIT-006: umpan balik kegagalan yang bisa ditindaklanjuti.
@@ -46,39 +47,6 @@ interface IScanPostResult {
     bodyText: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** Parse stdout tinker sebagai objek JSON; galat menyebut label agar kegagalan fixture jelas. */
-function parseJsonRecord(raw: string, label: string): Record<string, unknown> {
-    let parsed: unknown;
-
-    try {
-        parsed = JSON.parse(raw);
-    } catch (error: unknown) {
-        const reason = error instanceof Error ? error.message : String(error);
-
-        throw new Error(`${label}: stdout tinker bukan JSON (${reason}): ${raw.slice(0, 200)}`);
-    }
-
-    if (!isRecord(parsed)) {
-        throw new Error(`${label}: stdout tinker bukan objek JSON: ${raw.slice(0, 200)}`);
-    }
-
-    return parsed;
-}
-
-function requireString(record: Record<string, unknown>, field: string, label: string): string {
-    const value = record[field];
-
-    if (typeof value !== 'string' || value === '') {
-        throw new Error(`${label}: field "${field}" harus string tidak kosong.`);
-    }
-
-    return value;
-}
-
 /** Nilai UUID aman disisipkan ke skrip tinker yang sudah dijalankan; diperoleh dari server. */
 function escapeSqlLiteral(value: string): string {
     return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
@@ -96,9 +64,9 @@ $period = App\Models\Recruitment\RecruitmentPeriod::factory()->open()->create([
 echo json_encode(['period_id' => $period->id]);
 `;
 
-    const record = parseJsonRecord(runArtisanCommand(['tinker', '--execute', script]), 'fixture periode');
+    const record = parseTinkerJsonRecord(runArtisanCommand(['tinker', '--execute', script]), 'fixture periode');
 
-    return { periodId: requireString(record, 'period_id', 'fixture periode') };
+    return { periodId: requireTinkerString(record, 'period_id', 'fixture periode') };
 }
 
 /** Satu periode dengan satu applicant agar baris tabel bisa diklik. */
@@ -142,11 +110,11 @@ echo json_encode([
 ]);
 `;
 
-    const record = parseJsonRecord(runArtisanCommand(['tinker', '--execute', script]), 'fixture applicant');
+    const record = parseTinkerJsonRecord(runArtisanCommand(['tinker', '--execute', script]), 'fixture applicant');
 
     return {
-        periodId: requireString(record, 'period_id', 'fixture applicant'),
-        applicationId: requireString(record, 'application_id', 'fixture applicant'),
+        periodId: requireTinkerString(record, 'period_id', 'fixture applicant'),
+        applicationId: requireTinkerString(record, 'application_id', 'fixture applicant'),
         applicantName,
     };
 }
@@ -369,10 +337,10 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
 
         expect(invalidScan.status, 'body scan kosong harus ditolak validasi 422').toBe(422);
 
-        const scanBody = parseJsonRecord(invalidScan.bodyText, 'respons scan anomali');
+        const scanBody = parseTinkerJsonRecord(invalidScan.bodyText, 'respons scan anomali');
         const errors = scanBody['errors'];
 
-        if (!isRecord(errors)) {
+        if (!isTinkerRecord(errors)) {
             throw new Error(`respons scan anomali harus memuat errors: ${invalidScan.bodyText.slice(0, 200)}`);
         }
 
@@ -383,7 +351,7 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
         expect(feedResponse.status(), 'since sampah harus tetap 200').toBe(200);
 
         const feedText = await feedResponse.text();
-        const feedBody = parseJsonRecord(feedText, 'respons feed anomali');
+        const feedBody = parseTinkerJsonRecord(feedText, 'respons feed anomali');
 
         expect(Array.isArray(feedBody['rows']), 'feed harus mengembalikan rows array').toBe(true);
         // Cursor = timestamp baris terakhir; `null` sah saat tidak ada baris baru.
@@ -397,22 +365,25 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
 
 /** Kirim body JSON lewat boundary browser agar CSRF memakai token sesi yang sedang aktif. */
 async function postScanJson(page: Page, payload: Record<string, unknown>): Promise<IScanPostResult> {
-    return page.evaluate(async (input: Record<string, unknown>): Promise<IScanPostResult> => {
-        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-        const token = decodeURIComponent(match?.[1] ?? '');
-        const response = await fetch('/admin/scan', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-XSRF-TOKEN': token,
-            },
-            body: JSON.stringify(input),
-        });
+    const xsrfToken = await readXsrfToken(page.context());
 
-        return { status: response.status, bodyText: await response.text() };
-    }, payload);
+    return page.evaluate(
+        async ({ body, token }: { body: string; token: string }): Promise<IScanPostResult> => {
+            const response = await fetch('/admin/scan', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': token,
+                },
+                body,
+            });
+
+            return { status: response.status, bodyText: await response.text() };
+        },
+        { body: JSON.stringify(payload), token: xsrfToken }
+    );
 }
 
 /** Response error harus publik-safe: tanpa stack trace, SQLSTATE, atau dump HTML framework. */

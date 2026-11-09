@@ -34,13 +34,24 @@ trait ResolvesFixtureIdentity
     }
 
     /**
-     * Baca payload JSON dari stdin; array kosong bila stdin tidak berisi JSON.
+     * Baca payload JSON dari stdin; `--payload` hanya diizinkan di environment testing.
+     *
+     * Opsi inline sengaja test-only: argumen command terlihat di `ps` dan bisa memuat
+     * tracking token/registration code. Jalur nyata (local/e2e) tetap stdin.
      *
      * @return array<string, mixed>
      */
     protected function readPayload(): array
     {
-        $raw = stream_get_contents(STDIN);
+        $inline = $this->getDefinition()->hasOption('payload')
+            ? (string) ($this->option('payload') ?? '')
+            : '';
+
+        if ($inline !== '' && ! app()->environment('testing')) {
+            throw new \InvalidArgumentException('--payload is test-only; pipe the payload via stdin.');
+        }
+
+        $raw = $inline !== '' ? $inline : stream_get_contents(STDIN);
 
         if ($raw === false || trim($raw) === '') {
             return [];
@@ -49,7 +60,7 @@ trait ResolvesFixtureIdentity
         $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
 
         if (! is_array($decoded)) {
-            throw new \InvalidArgumentException('stdin payload must be a JSON object.');
+            throw new \InvalidArgumentException('payload must be a JSON object.');
         }
 
         return $decoded;

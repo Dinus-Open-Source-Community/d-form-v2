@@ -5,12 +5,14 @@ name: Quality
 #
 # BLOCKING : ESLint, typecheck proyek (vue-tsc), unit test backend (PHPUnit Unit
 #            + Feature), unit test frontend (Vitest), E2E typecheck, composer
-#            audit, migration smoke, bundle budget, Laravel Pint, dan Prettier.
+#            audit, migration smoke, bundle budget, Laravel Pint, Prettier, dan
+#            E2E authz (403 non-super-admin + auth-guard).
 #            Baseline terakhir: ESLint 0 error, typecheck 0 error, PHPUnit Feature
 #            1005 passed/16 skipped, Vitest suite green, entry 15,33 kB gzip dan
 #            chunk page terbesar 145,58 kB gzip, Pint 694 file bersih, Prettier
 #            0 file (AUDIT-P2-001, 09-11-2026).
-# REPORT   : E2E runtime. Report-only sampai hijau satu kali di runner GitHub.
+# REPORT   : E2E runtime dan E2E broadcast dispatch. Report-only sampai hijau
+#            satu kali di runner GitHub.
 #
 # Cakupan format: `resources/js/components/ui` (vendored shadcn-vue, dilarang
 # diedit langsung per AGENTS.md) dan direktori generated Wayfinder dikecualikan
@@ -438,6 +440,9 @@ jobs:
             # hanya lolos lewat bypass super-admin.
             E2E_ADMIN_EMAIL: superadmin@gmail.com
             E2E_ADMIN_PASSWORD: 'superadmin password'
+            # Admin seeded dengan role `admin` (bukan super-admin) untuk proof 403.
+            E2E_NON_ADMIN_EMAIL: admin@gmail.com
+            E2E_NON_ADMIN_PASSWORD: 'admin password'
             E2E_SESSION_COOKIE: dform-session
 
         steps:
@@ -526,6 +531,8 @@ jobs:
                   npm run test:e2e:setup || status=1
 
                   # retries=0: flake harus terlihat di gate, bukan ditutupi retry.
+                  # Proof otorisasi (auth-guard + non-superadmin-403) sudah pindah ke
+                  # job blocking `e2e-authz`; jangan diduplikasi di sini.
                   npx playwright test --project=chromium-desktop --no-deps --retries=0 \
                     builder-autosave.desktop.spec.ts \
                     qr-scan.desktop.spec.ts \
@@ -533,8 +540,7 @@ jobs:
                     email-job-idempotency.desktop.spec.ts \
                     broadcast-gated.spec.ts \
                     session-isolation.desktop.spec.ts \
-                    environment-probe.desktop.spec.ts \
-                    auth-guard.spec.ts || status=1
+                    environment-probe.desktop.spec.ts || status=1
 
                   npx playwright test --project=chromium-desktop --no-deps --retries=0 \
                     form-submission-boundary.desktop.spec.ts \
@@ -550,5 +556,289 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: playwright-e2e
+                  path: test-results
+                  retention-days: 7
+
+    # Gate otorisasi blocking (M1 AUDIT-P1-015-F5). Sebelumnya bukti 403
+    # non-super-admin hanya ada di `e2e-runtime` yang report-only, sehingga
+    # regresi otorisasi tidak memblokir merge. Job ini sengaja terpisah dan
+    # tanpa `continue-on-error`: lebih sempit dari e2e-runtime (tanpa Redis,
+    # broadcast, dan spec berat) agar cepat stabil di runner.
+    # Isinya hanya dua spec: `auth-guard.spec.ts` (kontrak storageState) dan
+    # `non-superadmin-403.desktop.spec.ts` (policy scoping 403 vs 200).
+    e2e-authz:
+        name: E2E authz (blocking)
+        runs-on: ubuntu-latest
+        # composer + npm ci + build + Chromium install memakan waktu; 30 menit
+        # memberi ruang tanpa menyembunyikan hang.
+        timeout-minutes: 30
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e-authz.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            # Gate broadcast tetap mati: job ini tidak menguji fitur dorman.
+            FEATURE_BROADCAST: 'false'
+            E2E_FEATURE_BROADCAST: 'false'
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            # Admin seeded dengan role `admin` (bukan super-admin) untuk proof 403.
+            E2E_NON_ADMIN_EMAIL: admin@gmail.com
+            E2E_NON_ADMIN_PASSWORD: 'admin password'
+            E2E_SESSION_COOKIE: dform-session
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e-authz.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Authz E2E
+              shell: bash
+              run: |
+                  set -uo pipefail
+
+                  # Satu runId untuk setup + spec: `--no-deps` menjalankan proses
+                  # terpisah, dan tanpa nilai eksplisit storageState admin tidak ditemukan.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  status=0
+
+                  npm run test:e2e:setup || status=1
+
+                  # retries=0: flake harus terlihat di gate, bukan ditutupi retry.
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    auth-guard.spec.ts \
+                    non-superadmin-403.desktop.spec.ts || status=1
+
+                  exit "$status"
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e-authz
+                  path: test-results
+                  retention-days: 7
+
+    # AUDIT-P1-015-F5: jalur happy-path broadcast hanya valid saat flag fitur
+    # aktif. Job terpisah dari e2e-runtime agar gate-off tetap diuji apa adanya.
+    # Report-only sampai hijau satu kali di runner GitHub; jangan jadikan blocking
+    # sebelum bukti run pertama ada.
+    # Spec memakai `queue:work redis --queue=broadcasts`, jadi job ini butuh
+    # service Redis dan QUEUE_CONNECTION=redis (bukan sync seperti e2e-runtime).
+    e2e-broadcast:
+        name: E2E broadcast dispatch flag-on (report only until first green run)
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        continue-on-error: true
+
+        services:
+            redis:
+                image: redis:8.0-alpine
+                ports:
+                    # Loopback-only: service hanya perlu dijangkau step job ini.
+                    - 127.0.0.1:6379:6379
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e-broadcast.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: redis
+            REDIS_HOST: 127.0.0.1
+            REDIS_PORT: '6379'
+            # `log` (bukan array) dibutuhkan email-job-idempotency; tidak ada SMTP nyata.
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            # Gate aktif: spec broadcast-dispatch-claim hanya berjalan dengan kedua flag true.
+            FEATURE_BROADCAST: 'true'
+            E2E_FEATURE_BROADCAST: 'true'
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            E2E_SESSION_COOKIE: dform-session
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  # `redis` wajib: spec menjalankan `queue:work redis` dan queue default
+                  # job ini redis; tanpa ekstensi phpredis job ini tidak mungkin hijau.
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, redis, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Verify Redis Extension
+              run: php -m | grep -qi '^redis$'
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e-broadcast.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentDivisionSeeder --force --no-interaction
+                  php artisan db:seed --class=OprecFormSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentPeriodSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Broadcast E2E
+              shell: bash
+              run: |
+                  set -uo pipefail
+
+                  # Satu runId untuk setup + spec: `--no-deps` menjalankan proses
+                  # terpisah, dan tanpa nilai eksplisit storageState admin tidak ditemukan.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  status=0
+
+                  npm run test:e2e:setup || status=1
+
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    broadcast-dispatch-claim.desktop.spec.ts || status=1
+
+                  exit "$status"
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e-broadcast
                   path: test-results
                   retention-days: 7

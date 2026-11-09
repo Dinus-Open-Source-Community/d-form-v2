@@ -1,5 +1,6 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 import { runArtisan } from './support/artisan';
+import { readXsrfToken } from './support/network';
 
 // Spec ini menguji halaman guest (login/register/forgot-password); state admin project akan di-redirect 302.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -21,13 +22,6 @@ const STRESS_USER = {
 
 const VENDOR_MARKERS = ['tiptap', 'prosemirror', 'html5-qrcode', 'vue3-lottie', 'chart.js'] as const;
 
-/** Ambil token CSRF dari cookie XSRF-TOKEN milik context halaman. */
-async function readXsrfToken(page: Page): Promise<string> {
-    const cookies = await page.context().cookies();
-    const cookie = cookies.find((entry) => entry.name === 'XSRF-TOKEN');
-    return cookie ? decodeURIComponent(cookie.value) : '';
-}
-
 /** Kirim POST tanpa mengikuti redirect, memakai cookie + CSRF dari halaman. */
 async function postAuth(
     page: Page,
@@ -35,7 +29,7 @@ async function postAuth(
     payload: Record<string, string>,
     accept: 'html' | 'json' = 'html'
 ): Promise<APIResponse> {
-    const token = await readXsrfToken(page);
+    const token = await readXsrfToken(page.context());
 
     return page.context().request.post(path, {
         form: payload,
