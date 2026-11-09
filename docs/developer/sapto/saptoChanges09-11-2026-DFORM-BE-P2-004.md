@@ -9,7 +9,7 @@ loop per model (O(form + field) query) menjadi dua bulk `UPDATE` di dalam
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-004 | _(diisi setelah commit)_ |
+| BE-P2-004 | `65b396c` — `perf: cascade event forms with constant-query bulk updates` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-004.md`.
 Plan: `docs/big-changes/patching-ticket/BE-P2-004-plan.md`.
