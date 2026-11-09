@@ -1,17 +1,18 @@
-import { defineConfig, devices } from '@playwright/test'
-import { ADMIN_STATE_PATH } from './tests/e2e/support/authGuard'
-import { readEnvironment } from './tests/e2e/support/environment'
-import { createRunId } from './tests/e2e/support/marker'
+import { defineConfig, devices } from '@playwright/test';
+import { adminStatePath } from './tests/e2e/support/authGuard';
+import { readEnvironment } from './tests/e2e/support/environment';
+import { createRunId } from './tests/e2e/support/marker';
 
 // E2E berjalan terhadap server yang sudah hidup. Base URL, perintah artisan, dan
 // kredensial admin hanya dibaca dari environment; spec tidak pernah menyimpan kredensial.
-const environment = readEnvironment()
+const environment = readEnvironment();
 
 // Satu runId per invokasi, diturunkan ke seluruh worker lewat process.env.
-const runId = createRunId()
-process.env.E2E_RUN_ID = runId
+const runId = createRunId();
+process.env.E2E_RUN_ID = runId;
 
-const ADMIN_STATE = ADMIN_STATE_PATH
+// Path default per run: setup dan spec membaca resolver yang sama lewat `E2E_RUN_ID`.
+const ADMIN_STATE = adminStatePath({ runId });
 
 export default defineConfig({
     testDir: './tests/e2e',
@@ -23,7 +24,7 @@ export default defineConfig({
     // fullyParallel tetap true; batasnya ada di jumlah worker sampai spec lama berhenti flush global.
     workers: 1,
     forbidOnly: true,
-    retries: 1,
+    retries: 0,
     reporter: [['list']],
     globalSetup: './tests/e2e/global.setup.ts',
     globalTeardown: './tests/e2e/global.teardown.ts',
@@ -61,4 +62,4 @@ export default defineConfig({
             },
         },
     ],
-})
+});

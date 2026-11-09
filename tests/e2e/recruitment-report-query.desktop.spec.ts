@@ -133,33 +133,27 @@ let otherPeriodPath = '';
 
 /** Semua baris fixture, satu sumber kebenaran untuk create dan cleanup. */
 const FIXTURE_ROWS: IFixtureRow[] = [
-    ...STATUS_APPLICATIONS.map(
-        (application: IStatusFixture): IFixtureRow => ({
-            registration_number: `${REGISTRATION_PREFIX}${application.suffix}`,
-            full_name: `${FIXTURE_MARKER} ${application.suffix}`,
-            nim: `A11.2024.P2007${application.suffix}`,
-            status: application.status,
-            period: 'main',
-        }),
-    ),
-    ...NO_INTERVIEW_SUFFIXES.map(
-        (suffix: string): IFixtureRow => ({
-            registration_number: `${REGISTRATION_PREFIX}${suffix}`,
-            full_name: `${FIXTURE_MARKER} ${suffix}`,
-            nim: `A11.2024.P2007${suffix}`,
-            status: null,
-            period: 'main',
-        }),
-    ),
-    ...BULK_SUFFIXES.map(
-        (suffix: string): IFixtureRow => ({
-            registration_number: `${REGISTRATION_PREFIX}${suffix}`,
-            full_name: `${FIXTURE_MARKER} ${suffix}`,
-            nim: `A11.2024.P2007${suffix}`,
-            status: 'waiting',
-            period: 'main',
-        }),
-    ),
+    ...STATUS_APPLICATIONS.map((application: IStatusFixture): IFixtureRow => ({
+        registration_number: `${REGISTRATION_PREFIX}${application.suffix}`,
+        full_name: `${FIXTURE_MARKER} ${application.suffix}`,
+        nim: `A11.2024.P2007${application.suffix}`,
+        status: application.status,
+        period: 'main',
+    })),
+    ...NO_INTERVIEW_SUFFIXES.map((suffix: string): IFixtureRow => ({
+        registration_number: `${REGISTRATION_PREFIX}${suffix}`,
+        full_name: `${FIXTURE_MARKER} ${suffix}`,
+        nim: `A11.2024.P2007${suffix}`,
+        status: null,
+        period: 'main',
+    })),
+    ...BULK_SUFFIXES.map((suffix: string): IFixtureRow => ({
+        registration_number: `${REGISTRATION_PREFIX}${suffix}`,
+        full_name: `${FIXTURE_MARKER} ${suffix}`,
+        nim: `A11.2024.P2007${suffix}`,
+        status: 'waiting',
+        period: 'main',
+    })),
     {
         registration_number: `${REGISTRATION_PREFIX}${OTHER_PERIOD_SUFFIX}`,
         full_name: `${FIXTURE_MARKER} ${OTHER_PERIOD_SUFFIX}`,
@@ -302,14 +296,12 @@ echo json_encode([
         probe.main_cancelled !== EXPECTED_MAIN_STATS.cancelled
     ) {
         mismatches.push(
-            `main status=${probe.main_waiting}/${probe.main_in_progress}/${probe.main_completed}/${probe.main_cancelled}`,
+            `main status=${probe.main_waiting}/${probe.main_in_progress}/${probe.main_completed}/${probe.main_cancelled}`
         );
     }
 
     if (probe.other_applications !== 1 || probe.other_interviews !== 1 || probe.other_waiting !== 1) {
-        mismatches.push(
-            `other=${probe.other_applications}/${probe.other_interviews}/${probe.other_waiting}`,
-        );
+        mismatches.push(`other=${probe.other_applications}/${probe.other_interviews}/${probe.other_waiting}`);
     }
 
     if (mismatches.length > 0) {
@@ -447,21 +439,21 @@ test.describe('BE-P2-007 query agregat laporan recruitment', () => {
                     headers: { Accept: 'application/json' },
                     failOnStatusCode: false,
                     maxRedirects: 0,
-                },
+                }
             );
 
             expect(response.status(), `export ${endpoint} period_id non-UUID harus 422`).toBe(422);
 
             const body = (await response.json()) as IValidationErrorBody;
             expect(Object.keys(body.errors ?? {}), `export ${endpoint} harus memuat errors.period_id`).toContain(
-                'period_id',
+                'period_id'
             );
         }
 
         // UUID valid tetapi tidak ada: CSV header saja, tanpa 500 dan tanpa baris data.
         const missingPeriod = await page.request.get(
             `/admin/recruitment/reports/export/applicants.csv?period_id=${NONEXISTENT_PERIOD_ID}`,
-            { failOnStatusCode: false, maxRedirects: 0 },
+            { failOnStatusCode: false, maxRedirects: 0 }
         );
 
         expect(missingPeriod.status()).toBe(200);
@@ -478,10 +470,10 @@ test.describe('BE-P2-007 query agregat laporan recruitment', () => {
         });
 
         try {
-            const anonymous = await anonymousContext.request.get(
-                '/admin/recruitment/reports/export/applicants.csv',
-                { failOnStatusCode: false, maxRedirects: 0 },
-            );
+            const anonymous = await anonymousContext.request.get('/admin/recruitment/reports/export/applicants.csv', {
+                failOnStatusCode: false,
+                maxRedirects: 0,
+            });
 
             expect(anonymous.status()).toBe(302);
             expect(anonymous.headers()['location'] ?? '').toContain('login');

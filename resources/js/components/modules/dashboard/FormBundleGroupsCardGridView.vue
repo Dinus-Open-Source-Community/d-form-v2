@@ -92,7 +92,8 @@ function isLeader(member: IBundleSubmissionMember) {
                             GRUP : {{ group.leader.user?.name as string }}
                         </h4>
                         <p class="text-muted-foreground text-xs tabular-nums">
-                            {{ group.total_participants }} peserta · {{ formatDateTime({ value: group.submitted_at, variant: 'date-time-medium' }) }}
+                            {{ group.total_participants }} peserta ·
+                            {{ formatDateTime({ value: group.submitted_at, variant: 'date-time-medium' }) }}
                         </p>
                     </div>
                     <Badge
@@ -149,7 +150,7 @@ function isLeader(member: IBundleSubmissionMember) {
 
             <div
                 class="grid h-auto transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                :class="isExpanded(group.group_token) ? 'grid-rows-[1fr] h-auto' : 'grid-rows-[0fr] h-auto'"
+                :class="isExpanded(group.group_token) ? 'h-auto grid-rows-[1fr]' : 'h-auto grid-rows-[0fr]'"
             >
                 <div class="overflow-hidden">
                     <div class="border-border/60 bg-muted/[0.05] space-y-2 border-t px-4 py-4">
@@ -166,13 +167,13 @@ function isLeader(member: IBundleSubmissionMember) {
                             :role="member.can_open_detail ? 'button' : undefined"
                             :tabindex="member.can_open_detail ? 0 : undefined"
                             :class="
- cn(
- 'border-border/60 bg-card rounded-xl border px-3.5 py-3 transition-colors duration-200',
- member.can_open_detail
- ? 'hover:border-primary/30 hover:bg-muted/20 focus-visible:ring-ring cursor-pointer focus-visible:ring-2 focus-visible:outline-none'
- : 'cursor-default opacity-65'
- )
- "
+                                cn(
+                                    'border-border/60 bg-card rounded-xl border px-3.5 py-3 transition-colors duration-200',
+                                    member.can_open_detail
+                                        ? 'hover:border-primary/30 hover:bg-muted/20 focus-visible:ring-ring cursor-pointer focus-visible:ring-2 focus-visible:outline-none'
+                                        : 'cursor-default opacity-65'
+                                )
+                            "
                             @click="onMemberClick(member)"
                             @keydown="onMemberKeydown($event, member)"
                         >
@@ -189,8 +190,8 @@ function isLeader(member: IBundleSubmissionMember) {
                                         <p
                                             class="truncate text-sm font-semibold"
                                             :class="
- member.can_open_detail ? 'text-foreground' : 'text-muted-foreground'
- "
+                                                member.can_open_detail ? 'text-foreground' : 'text-muted-foreground'
+                                            "
                                         >
                                             {{ participantName(member) }}
                                         </p>
@@ -216,8 +217,8 @@ function isLeader(member: IBundleSubmissionMember) {
                                             variant="outline"
                                             class="h-5 px-2 text-[0.625rem] font-medium"
                                             :class="
- memberConfirmationStatusBadge(member.member_confirmation_status).class
- "
+                                                memberConfirmationStatusBadge(member.member_confirmation_status).class
+                                            "
                                         >
                                             {{ memberConfirmationStatusBadge(member.member_confirmation_status).label }}
                                         </Badge>
@@ -227,13 +228,23 @@ function isLeader(member: IBundleSubmissionMember) {
                                         <div class="flex justify-between gap-3">
                                             <dt>Dikirim</dt>
                                             <dd class="text-foreground/85 font-medium tabular-nums">
-                                                {{ formatDateTime({ value: member.submitted_at, variant: 'date-time-medium' }) }}
+                                                {{
+                                                    formatDateTime({
+                                                        value: member.submitted_at,
+                                                        variant: 'date-time-medium',
+                                                    })
+                                                }}
                                             </dd>
                                         </div>
                                         <div v-if="member.reviewed_at" class="flex justify-between gap-3">
                                             <dt>Direview</dt>
                                             <dd class="text-foreground/85 font-medium tabular-nums">
-                                                {{ formatDateTime({ value: member.reviewed_at, variant: 'date-time-medium' }) }}
+                                                {{
+                                                    formatDateTime({
+                                                        value: member.reviewed_at,
+                                                        variant: 'date-time-medium',
+                                                    })
+                                                }}
                                             </dd>
                                         </div>
                                         <div v-if="member.reviewer" class="flex justify-between gap-3">

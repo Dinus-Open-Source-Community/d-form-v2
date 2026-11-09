@@ -1,54 +1,54 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head, Link } from '@inertiajs/vue3'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
-import { setTopbar } from '@/hooks/useDashboardTopbar'
+import { onMounted } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { routes } from '@/lib/routes';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
-interface InterviewRow {
-    id: string
-    scheduled_at: string | null
-    location: string
-    room: string
-    status: string
-    status_label: string
+interface IInterviewRow {
+    id: string;
+    scheduled_at: string | null;
+    location: string;
+    room: string;
+    status: string;
+    status_label: string;
     application: {
-        id: string
-        full_name: string
-        registration_number: string
-    } | null
-    interviewer: { id: string; name: string } | null
+        id: string;
+        full_name: string;
+        registration_number: string;
+    } | null;
+    interviewer: { id: string; name: string } | null;
 }
 
 interface SessionDetail {
-    id: string
-    session_date: string
-    starts_at: string
-    ends_at: string
-    location: string
-    room: string
-    notes: string | null
-    is_active: boolean
-    interviews_count: number
-    period: { id: string; name: string } | null
-    division: { id: string; name: string; code: string } | null
-    interviews: InterviewRow[]
+    id: string;
+    session_date: string;
+    starts_at: string;
+    ends_at: string;
+    location: string;
+    room: string;
+    notes: string | null;
+    is_active: boolean;
+    interviews_count: number;
+    period: { id: string; name: string } | null;
+    division: { id: string; name: string; code: string } | null;
+    interviews: IInterviewRow[];
 }
 
 const props = defineProps<{
-    session: SessionDetail
-}>()
+    session: SessionDetail;
+}>();
 
 onMounted(() => {
     setTopbar({
         title: 'Detail sesi interview',
         subtitle: props.session.division?.name ?? '',
-    })
-})
+    });
+});
 </script>
 
 <template>
@@ -61,7 +61,7 @@ onMounted(() => {
             </Button>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Informasi sesi</CardTitle>
             </CardHeader>
@@ -76,7 +76,7 @@ onMounted(() => {
             </CardContent>
         </Card>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Applicant (setelah absen)</CardTitle>
             </CardHeader>

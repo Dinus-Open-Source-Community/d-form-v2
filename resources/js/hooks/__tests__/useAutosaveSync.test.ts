@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
-import { useAutosaveSync, type AutosaveStorage } from '@/hooks/useAutosaveSync';
+import { useAutosaveSync, type IAutosaveStorage } from '@/hooks/useAutosaveSync';
 
 interface IDeferred {
     promise: Promise<void>;
@@ -244,7 +244,7 @@ describe('useAutosaveSync', () => {
     it('storage: kegagalan tulis dilaporkan sekali sampai tulis berikutnya sukses', () => {
         vi.useFakeTimers();
         let shouldThrow = true;
-        const storage: AutosaveStorage = {
+        const storage: IAutosaveStorage = {
             read: () => null,
             write: () => {
                 if (shouldThrow) throw new Error('quota');
@@ -252,12 +252,16 @@ describe('useAutosaveSync', () => {
             remove: () => {},
         };
         const onError = vi.fn();
-        const autosave = useAutosaveSync(() => 'v1', async () => {}, {
-            debounceMs: DEBOUNCE_MS,
-            storage,
-            storageKey: 'draft',
-            onError,
-        });
+        const autosave = useAutosaveSync(
+            () => 'v1',
+            async () => {},
+            {
+                debounceMs: DEBOUNCE_MS,
+                storage,
+                storageKey: 'draft',
+                onError,
+            }
+        );
 
         autosave.schedule();
         autosave.schedule();
@@ -278,7 +282,7 @@ describe('useAutosaveSync', () => {
         vi.useFakeTimers();
         let failSnapshot = false;
         const write = vi.fn();
-        const storage: AutosaveStorage = { read: () => null, write, remove: () => {} };
+        const storage: IAutosaveStorage = { read: () => null, write, remove: () => {} };
         const onError = vi.fn();
         const autosave = useAutosaveSync(
             () => {
@@ -286,7 +290,7 @@ describe('useAutosaveSync', () => {
                 return 'v1';
             },
             async () => {},
-            { debounceMs: DEBOUNCE_MS, storage, storageKey: 'draft', onError },
+            { debounceMs: DEBOUNCE_MS, storage, storageKey: 'draft', onError }
         );
 
         failSnapshot = true;

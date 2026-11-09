@@ -36,7 +36,7 @@ export async function requestPasswordResetLink(url: string, email: string): Prom
 export async function checkEmailAvailability(
     url: string,
     email: string,
-    signal?: AbortSignal,
+    signal?: AbortSignal
 ): Promise<IEmailAvailabilityResult> {
     return requestJson({ url, method: 'POST', body: { email }, signal }, (payload) => {
         if (!isRecord(payload) || typeof payload.available !== 'boolean') return null;
@@ -51,7 +51,7 @@ export async function checkEmailAvailability(
  */
 export async function verifyOtpCode(url: string, code: string): Promise<IOtpVerificationResult> {
     const result = await requestJsonWithStatus({ url, method: 'POST', body: { code } }, (payload) =>
-        isRecord(payload) ? payload : null,
+        isRecord(payload) ? payload : null
     );
     const payload = result.data;
     const redirect = payload === null ? null : payload.redirect;

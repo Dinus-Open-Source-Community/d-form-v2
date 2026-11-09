@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
 import { useFormFillPage } from '@/hooks/useFormFillPage';
-import { useAutosaveSync, type AutosaveStatus as AutosaveStatusType } from '@/hooks/useAutosaveSync';
+import { useAutosaveSync, type TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import { readFieldRules } from '@/lib/formFieldMetadata';
-import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';
+import type { IFormFillPageEvent, IFormFillPageForm } from '@/types/form';
 import { routes } from '@/lib/routes';
 import { formatDateTime } from '@/lib/dateTime';
 import { CircleAlert, TriangleAlert } from 'lucide-vue-next';
@@ -25,8 +25,8 @@ interface ApplyPageProps {
     period: Record<string, unknown> | null;
     registration: { is_open: boolean; message: string | null };
     divisions: Array<Record<string, unknown>>;
-    oprecForm: FormFillPageForm;
-    oprecEvent: FormFillPageEvent;
+    oprecForm: IFormFillPageForm;
+    oprecEvent: IFormFillPageEvent;
     fields: IFormField[];
     submitUrl: string;
 }
@@ -34,16 +34,18 @@ interface ApplyPageProps {
 const props = defineProps<ApplyPageProps>();
 
 // reactive() membuka ref hasil hook agar template menerima nilai, bukan objek ComputedRef.
-const ctx = reactive(useFormFillPage({
-    event: props.oprecEvent,
-    form: props.oprecForm,
-    fields: props.fields,
-    submitUrl: props.submitUrl,
-    accessStatus: 'allowed',
-    accessMessage: '',
-    memberSlots: 0,
-    registrationMode: 'single',
-}));
+const ctx = reactive(
+    useFormFillPage({
+        event: props.oprecEvent,
+        form: props.oprecForm,
+        fields: props.fields,
+        submitUrl: props.submitUrl,
+        accessStatus: 'allowed',
+        accessMessage: '',
+        memberSlots: 0,
+        registrationMode: 'single',
+    })
+);
 
 const DRAFT_KEY = 'oprec-apply-draft-v1';
 const DRAFT_STORAGE_UNAVAILABLE_MESSAGE = 'Penyimpanan browser tidak tersedia.';
@@ -77,10 +79,10 @@ function isEmptyValue(value: unknown): boolean {
 
 /** Sembunyikan cabang portfolio yang tak dipilih; belum pilih / none = keduanya opsional tampil. */
 function isFieldVisible(field: IFormField): boolean {
-    const portfolioType: unknown = ctx.answerForm['portfolio_type']
-    if (field.name === 'portfolio_url') return portfolioType !== 'file' && portfolioType !== 'none'
-    if (field.name === 'portfolio_file') return portfolioType !== 'url' && portfolioType !== 'none'
-    return true
+    const portfolioType: unknown = ctx.answerForm['portfolio_type'];
+    if (field.name === 'portfolio_url') return portfolioType !== 'file' && portfolioType !== 'none';
+    if (field.name === 'portfolio_file') return portfolioType !== 'url' && portfolioType !== 'none';
+    return true;
 }
 
 function validateStep(step: number): boolean {
@@ -197,7 +199,7 @@ const {
     },
 });
 
-watch(draftStatus, (value: AutosaveStatusType): void => {
+watch(draftStatus, (value: TAutosaveStatus): void => {
     if (value !== 'saved') return;
     savedAt.value = new Date();
     draftCorruptNotice.value = '';
@@ -385,11 +387,7 @@ const periodName = computed((): string => {
             <h1 class="text-2xl font-bold tracking-tight">Formulir Pendaftaran</h1>
             <p v-if="period" class="text-muted-foreground text-sm">{{ periodName }}</p>
 
-            <AutosaveStatus
-                :status="draftError ? 'idle' : draftStatus"
-                :saved-text="draftStatusText"
-                variant="block"
-            />
+            <AutosaveStatus :status="draftError ? 'idle' : draftStatus" :saved-text="draftStatusText" variant="block" />
 
             <div
                 v-if="draftError || draftCorruptNotice"
@@ -480,8 +478,8 @@ const periodName = computed((): string => {
                 v-if="draftStorageReady && !draftError && !draftCorruptNotice"
                 class="text-muted-foreground mb-4 px-1 text-center text-xs leading-relaxed"
             >
-                Draft tersimpan otomatis di browser ini. File tidak ikut tersimpan — pilih ulang CV dan file
-                portfolio sebelum submit.
+                Draft tersimpan otomatis di browser ini. File tidak ikut tersimpan — pilih ulang CV dan file portfolio
+                sebelum submit.
             </p>
 
             <template v-for="step in STEP_LIST" :key="step">
@@ -548,11 +546,7 @@ const periodName = computed((): string => {
                             :disabled="isSubmitting || ctx.answerForm.processing"
                             @click="submitStep"
                         >
-                            {{
-                                isSubmitting || ctx.answerForm.processing
-                                    ? 'Mengirim…'
-                                    : 'Kirim Pendaftaran'
-                            }}
+                            {{ isSubmitting || ctx.answerForm.processing ? 'Mengirim…' : 'Kirim Pendaftaran' }}
                         </Button>
                     </div>
                 </div>

@@ -48,7 +48,8 @@ class EventManagementTest extends TestCase
         $this->actingAs($member)
             ->get(route('dashboard.user.events'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
+            ->assertInertia(
+                fn ($page) => $page
                 ->component('Dashboard/User/Events')
                 ->where('listMode', 'mine')
             );
@@ -72,7 +73,8 @@ class EventManagementTest extends TestCase
 
         $this->get(route('events.show', $event->slug))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
+            ->assertInertia(
+                fn ($page) => $page
                 ->component('EventDetail')
                 ->where('memberPortalEventUrl', route('dashboard.user.events.show', [
                     'event_segment' => $event->slug,

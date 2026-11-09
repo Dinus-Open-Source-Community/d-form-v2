@@ -1,15 +1,15 @@
-import { formatDateTime } from '@/lib/dateTime'
+import { formatDateTime } from '@/lib/dateTime';
 
 export const REGISTRANTS_TAB_ITEMS: {
-    value: 'all' | 'pending' | 'accepted' | 'rejected'
-    label: string
-    tone: 'default' | 'warning' | 'success' | 'destructive'
+    value: 'all' | 'pending' | 'accepted' | 'rejected';
+    label: string;
+    tone: 'default' | 'warning' | 'success' | 'destructive';
 }[] = [
     { value: 'all', label: 'Semua', tone: 'default' },
     { value: 'pending', label: 'Menunggu', tone: 'warning' },
     { value: 'accepted', label: 'Disetujui', tone: 'success' },
     { value: 'rejected', label: 'Ditolak', tone: 'destructive' },
-]
+];
 
 export const REGISTRANTS_TONE_STYLES: Record<
     'primary' | 'warning' | 'success' | 'destructive',
@@ -39,29 +39,34 @@ export const REGISTRANTS_TONE_STYLES: Record<
         bar: 'bg-destructive',
         dot: 'bg-destructive',
     },
-}
+};
 
+/** Kelas ring/warna badge status pendaftar; `pending` menjadi fallback. */
 export function registrantStatusBadgeClass(s: IRegistrant['status']): string {
-    if (s === 'accepted') return 'bg-success/10 text-success ring-success/15'
-    if (s === 'rejected') return 'bg-destructive/10 text-destructive ring-destructive/15'
-    return 'bg-warning/15 text-warning-foreground ring-warning/20'
+    if (s === 'accepted') return 'bg-success/10 text-success ring-success/15';
+    if (s === 'rejected') return 'bg-destructive/10 text-destructive ring-destructive/15';
+    return 'bg-warning/15 text-warning-foreground ring-warning/20';
 }
 
 /** Label status untuk UI (Bahasa Indonesia) */
 export function registrantStatusLabel(s: IRegistrant['status']): string {
-    if (s === 'accepted') return 'Disetujui'
-    if (s === 'rejected') return 'Ditolak'
-    return 'Menunggu'
+    if (s === 'accepted') return 'Disetujui';
+    if (s === 'rejected') return 'Ditolak';
+    return 'Menunggu';
 }
 
+/**
+ * Waktu relatif berbahasa Indonesia untuk daftar pendaftar: menit/jam/hari hingga 7 hari,
+ * setelah itu format tanggal absolut.
+ */
 export function registrantRelativeTimeId(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return 'Baru saja'
-    if (minutes < 60) return `${minutes} menit lalu`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours} jam lalu`
-    const days = Math.floor(hours / 24)
-    if (days < 7) return `${days} hari lalu`
-    return formatDateTime({ value: dateStr })
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Baru saja';
+    if (minutes < 60) return `${minutes} menit lalu`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} jam lalu`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} hari lalu`;
+    return formatDateTime({ value: dateStr });
 }

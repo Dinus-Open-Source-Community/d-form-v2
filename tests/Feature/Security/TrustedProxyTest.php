@@ -134,10 +134,11 @@ class TrustedProxyTest extends TestCase
         $this->assertStringNotContainsString('/evil', (string) $response->json('url'));
     }
 
-    public function test_ipv4_mapped_ipv6_peer_does_not_match_ipv4_cidr(): void
+    public function test_ipv4_mapped_ipv6_peer_matches_ipv4_cidr(): void
     {
-        // Documented fail-closed behaviour: "::ffff:10.1.2.3" is IPv6 for IpUtils, so the
-        // IPv4 allowlist does not match and the forwarded headers are ignored.
+        // Since symfony/http-foundation 7.4.23 (GHSA-xg2q) IpUtils::checkIp() judges an
+        // IPv4-mapped peer as the IPv4 address it embeds, so a dual-stack ingress reporting
+        // "::ffff:10.1.2.3" still matches the 10.0.0.0/8 allowlist and its headers are used.
         $response = $this->withServerVariables(['REMOTE_ADDR' => '::ffff:10.1.2.3'])
             ->withHeaders([
                 'X-Forwarded-For' => '203.0.113.9',
@@ -146,7 +147,23 @@ class TrustedProxyTest extends TestCase
             ->get(self::PROBE);
 
         $response->assertOk()
-            ->assertJsonPath('ip', '::ffff:10.1.2.3')
+            ->assertJsonPath('ip', '203.0.113.9')
+            ->assertJsonPath('secure', true);
+    }
+
+    public function test_ipv4_mapped_ipv6_peer_outside_trusted_cidr_is_ignored(): void
+    {
+        // Narrowness check: mapping only widens trust to peers embedded in a trusted
+        // range, so a mapped public address still falls outside the allowlist.
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '::ffff:198.51.100.5'])
+            ->withHeaders([
+                'X-Forwarded-For' => '203.0.113.9',
+                'X-Forwarded-Proto' => 'https',
+            ])
+            ->get(self::PROBE);
+
+        $response->assertOk()
+            ->assertJsonPath('ip', '::ffff:198.51.100.5')
             ->assertJsonPath('secure', false);
     }
 

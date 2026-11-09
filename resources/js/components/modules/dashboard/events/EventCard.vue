@@ -19,7 +19,7 @@ const props = withDefaults(
         showPrice?: boolean;
         alertBadge?: string | null;
     }>(),
-    { canManage: false, showPrice: true, alertBadge: null },
+    { canManage: false, showPrice: true, alertBadge: null }
 );
 
 const emit = defineEmits<{ delete: [event: IEvent] }>();
@@ -157,13 +157,18 @@ useEventListener('keydown', (e) => {
                 </template>
             </div>
 
-            <Button radius="icon"
+            <Button
+                radius="icon"
                 v-if="canManage"
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Menu acara"
                 class="border-border/60 relative size-8 shrink-0 cursor-pointer border bg-white/90 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white"
-                :ref="(el) => { triggerRef = el as HTMLElement | null }"
+                :ref="
+                    (el) => {
+                        triggerRef = el as HTMLElement | null;
+                    }
+                "
                 @click.stop="toggleMenu"
             >
                 <MoreVertical class="size-4 shrink-0 stroke-[1.75]" />
@@ -179,7 +184,11 @@ useEventListener('keydown', (e) => {
             >
                 <div
                     v-if="canManage && openMenuId === event.id"
-                    :ref="(el) => { menuRef = el as HTMLElement | null }"
+                    :ref="
+                        (el) => {
+                            menuRef = el as HTMLElement | null;
+                        }
+                    "
                     class="border-border bg-popover text-popover-foreground absolute top-10 right-0 z-[20] min-w-48 overflow-hidden rounded-xl border p-1 shadow-sm"
                 >
                     <button
@@ -217,11 +226,7 @@ useEventListener('keydown', (e) => {
 
         <!-- Banner bersih (di luar Link — tidak redirect) -->
         <div class="bg-muted relative aspect-[16/7] w-full overflow-hidden rounded-xl">
-            <EventBannerImage
-                :src="event.banner_url"
-                :alt="event.title"
-                img-class="size-full object-cover"
-            />
+            <EventBannerImage :src="event.banner_url" :alt="event.title" img-class="size-full object-cover" />
         </div>
 
         <!-- Konten: hanya ini yang redirect ke detail -->
@@ -231,15 +236,17 @@ useEventListener('keydown', (e) => {
         >
             <div class="flex h-full flex-col gap-2.5">
                 <div class="flex items-center gap-3">
-                    <h3 class="text-foreground min-w-0 flex-1 truncate text-sm leading-snug font-semibold tracking-tight">
+                    <h3
+                        class="text-foreground min-w-0 flex-1 truncate text-sm leading-snug font-semibold tracking-tight"
+                    >
                         {{ event.title }}
                     </h3>
                     <Badge
                         variant="outline"
                         :class="[
                             'shrink-0 px-2.5 py-1 text-xs font-medium whitespace-nowrap',
- registrationUi(event).badgeClass,
- ]"
+                            registrationUi(event).badgeClass,
+                        ]"
                     >
                         {{ registrationUi(event).label }}
                     </Badge>

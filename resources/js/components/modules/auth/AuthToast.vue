@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { CheckCircle2, XCircle, X } from 'lucide-vue-next'
-import type { AuthToastPayload } from '@/types/auth'
+import { CheckCircle2, XCircle, X } from 'lucide-vue-next';
+import type { IAuthToastPayload } from '@/types/auth';
 
 defineProps<{
-    toast: AuthToastPayload | null
-}>()
+    toast: IAuthToastPayload | null;
+}>();
 
 const emit = defineEmits<{
-    (e: 'dismiss'): void
-}>()
+    (e: 'dismiss'): void;
+}>();
 </script>
 
 <template>
@@ -17,29 +17,23 @@ const emit = defineEmits<{
             v-if="toast"
             role="status"
             aria-live="polite"
-            class="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm"
+            class="bg-card fixed top-4 right-4 z-50 flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm"
             :class="
- toast.type === 'success'
- ? 'border-success/25 text-success'
- : 'border-destructive/25 text-destructive'
- "
+                toast.type === 'success' ? 'border-success/25 text-success' : 'border-destructive/25 text-destructive'
+            "
         >
             <span
                 class="grid size-8 place-items-center rounded-xl"
-                :class="
- toast.type === 'success'
- ? 'bg-success/10'
- : 'bg-destructive/10'
- "
+                :class="toast.type === 'success' ? 'bg-success/10' : 'bg-destructive/10'"
             >
                 <CheckCircle2 v-if="toast.type === 'success'" class="size-4" :stroke-width="2.5" />
                 <XCircle v-else class="size-4" :stroke-width="2.5" />
             </span>
-            <span class="text-sm font-semibold text-foreground">{{ toast.message }}</span>
+            <span class="text-foreground text-sm font-semibold">{{ toast.message }}</span>
             <button
                 @click="emit('dismiss')"
                 aria-label="Dismiss"
-                class="ml-1 -mr-1 grid size-7 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                class="text-muted-foreground hover:bg-muted hover:text-foreground -mr-1 ml-1 grid size-7 place-items-center transition-colors"
             >
                 <X class="size-3.5" :stroke-width="2.5" />
             </button>

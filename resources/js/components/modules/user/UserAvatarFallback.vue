@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { User } from 'lucide-vue-next';
+import { computed } from 'vue';
 
-import { cn } from '@/lib/utils'
-import { userAvatarFallbackClasses } from '@/lib/userAvatarFallback'
+import { cn } from '@/lib/utils';
+import { userAvatarFallbackClasses } from '@/lib/userAvatarFallback';
 
 const props = withDefaults(
     defineProps<{
         /** avatar URL or empty */
-        src: string | null | undefined
+        src: string | null | undefined;
         /** Stable seed (user id preferred, then email) for color selection */
-        seed: string
+        seed: string;
         /** Classes merged onto Avatar root (size, rounded, border, etc.) */
-        avatarClass?: string
+        avatarClass?: string;
         /** Border radius for fallback; should match the visible shape of the avatar */
-        fallbackRoundClass?: string
+        fallbackRoundClass?: string;
     }>(),
-    { avatarClass: 'h-9 w-9', fallbackRoundClass: 'rounded-full' },
-)
+    { avatarClass: 'h-9 w-9', fallbackRoundClass: 'rounded-full' }
+);
 
-const palette = computed(() => userAvatarFallbackClasses(props.seed))
+const palette = computed(() => userAvatarFallbackClasses(props.seed));
 
-const rootClass = computed(() => cn(props.avatarClass))
+const rootClass = computed(() => cn(props.avatarClass));
 </script>
 
 <template>

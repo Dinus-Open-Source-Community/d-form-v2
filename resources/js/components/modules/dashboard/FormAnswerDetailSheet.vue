@@ -3,14 +3,7 @@ import { computed } from 'vue';
 import { Check, Clock, FileText, X } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetFooter,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { formSubmissionReviewIsPending, submissionReviewBadge } from '@/lib/formSubmissionsUi';
@@ -59,11 +52,8 @@ const answerSections = computed(() => {
 
 <template>
     <Sheet v-model:open="open">
-        <SheetContent
-            side="right"
-            class="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md lg:max-w-lg"
-        >
-            <SheetHeader class="shrink-0 gap-0 border-b border-border/70 px-5 pt-5 pb-4 text-left sm:px-6">
+        <SheetContent side="right" class="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md lg:max-w-lg">
+            <SheetHeader class="border-border/70 shrink-0 gap-0 border-b px-5 pt-5 pb-4 text-left sm:px-6">
                 <div class="flex items-start gap-3.5 pr-8">
                     <UserAvatarFallback
                         :src="submission?.user?.avatar ?? null"
@@ -72,9 +62,7 @@ const answerSections = computed(() => {
                         fallback-round-class="rounded-xl"
                     />
                     <div class="min-w-0 flex-1">
-                        <SheetTitle
-                            class="truncate text-base font-semibold tracking-[-0.01em] text-foreground"
-                        >
+                        <SheetTitle class="text-foreground truncate text-base font-semibold tracking-[-0.01em]">
                             {{ submission?.user?.name ?? 'Tanpa nama' }}
                         </SheetTitle>
                         <SheetDescription class="mt-0.5 truncate text-xs">
@@ -90,7 +78,7 @@ const answerSections = computed(() => {
                             </Badge>
                             <span
                                 v-if="submission"
-                                class="inline-flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums"
+                                class="text-muted-foreground inline-flex items-center gap-1 text-[11px] tabular-nums"
                             >
                                 <Clock class="size-3 shrink-0" aria-hidden="true" />
                                 {{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}
@@ -103,60 +91,52 @@ const answerSections = computed(() => {
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
                 <section v-if="submission" class="space-y-5">
                     <div v-for="section in answerSections" :key="section.title" class="space-y-3">
-                        <h3 class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                        <h3 class="text-muted-foreground text-xs font-semibold tracking-[0.08em] uppercase">
                             {{ section.title }}
                         </h3>
                         <div class="space-y-3">
                             <div
                                 v-for="key in section.keys"
                                 :key="key"
-                                class="rounded-xl border border-border/70 bg-card/50 p-4"
+                                class="border-border/70 bg-card/50 rounded-xl border p-4"
                             >
-                                <p
-                                    class="mb-3 border-b border-border/60 pb-2 text-sm font-semibold text-foreground"
-                                >
+                                <p class="border-border/60 text-foreground mb-3 border-b pb-2 text-sm font-semibold">
                                     {{ humanizeKey(key) }}
                                 </p>
-                                <FormFieldAnswerDisplay
-                                    :field="fieldForKey(key)"
-                                    :value="submission.answers?.[key]"
-                                />
+                                <FormFieldAnswerDisplay :field="fieldForKey(key)" :value="submission.answers?.[key]" />
                             </div>
                         </div>
                     </div>
-                    <p
-                        v-if="answerSections.length === 0"
-                        class="py-6 text-center text-sm text-muted-foreground"
-                    >
+                    <p v-if="answerSections.length === 0" class="text-muted-foreground py-6 text-center text-sm">
                         Belum ada jawaban tercatat.
                     </p>
                     <p
                         v-if="fileAnswerKeys.length > 0"
-                        class="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                        class="text-muted-foreground flex items-start gap-1.5 text-[11px] leading-relaxed"
                     >
                         <FileText class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                        Lampiran hanya berupa pratinjau di sini. Buka atau unduh berkas dari tombol yang
-                        tersedia pada setiap jawaban bila perlu memeriksa isinya.
+                        Lampiran hanya berupa pratinjau di sini. Buka atau unduh berkas dari tombol yang tersedia pada
+                        setiap jawaban bila perlu memeriksa isinya.
                     </p>
                 </section>
-                <p v-else class="py-10 text-center text-sm text-muted-foreground">
+                <p v-else class="text-muted-foreground py-10 text-center text-sm">
                     Pilih salah satu jawaban untuk melihat detailnya.
                 </p>
             </div>
 
             <SheetFooter
                 v-if="submission"
-                class="shrink-0 flex-col gap-2 border-t border-border/70 bg-muted/20 px-5 py-4 sm:flex-col sm:px-6"
+                class="border-border/70 bg-muted/20 shrink-0 flex-col gap-2 border-t px-5 py-4 sm:flex-col sm:px-6"
             >
                 <template v-if="formSubmissionReviewIsPending(submission)">
-                    <p class="w-full text-center text-xs text-muted-foreground sm:text-left">
+                    <p class="text-muted-foreground w-full text-center text-xs sm:text-left">
                         Terima jika pengajuan memenuhi syarat, tolak jika tidak dapat dilanjutkan.
                     </p>
                     <div class="flex w-full flex-col gap-2 sm:flex-row">
                         <Button
                             type="button"
                             variant="outline"
-                            class="h-10 flex-1 gap-1.5 border-success/35 text-sm font-medium text-success hover:bg-success/10 hover:text-success"
+                            class="border-success/35 text-success hover:bg-success/10 hover:text-success h-10 flex-1 gap-1.5 text-sm font-medium"
                             :disabled="isSubmissionReviewing(submission.id)"
                             @click="emit('review', { action: 'accept', submission })"
                         >
@@ -166,7 +146,7 @@ const answerSections = computed(() => {
                         <Button
                             type="button"
                             variant="outline"
-                            class="h-10 flex-1 gap-1.5 border-destructive/35 text-sm font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            class="border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive h-10 flex-1 gap-1.5 text-sm font-medium"
                             :disabled="isSubmissionReviewing(submission.id)"
                             @click="emit('review', { action: 'reject', submission })"
                         >
@@ -175,15 +155,14 @@ const answerSections = computed(() => {
                         </Button>
                     </div>
                 </template>
-                <p v-else class="w-full text-center text-xs leading-relaxed text-muted-foreground">
+                <p v-else class="text-muted-foreground w-full text-center text-xs leading-relaxed">
                     <template v-if="submission.review_status === 'accepted'">
                         Jawaban ini sudah diterima dan tidak dapat direview ulang.
                     </template>
-                    <template v-else>
-                        Jawaban ini sudah ditolak dan tidak dapat direview ulang.
-                    </template>
+                    <template v-else> Jawaban ini sudah ditolak dan tidak dapat direview ulang. </template>
                     <template v-if="submission.reviewed_at">
-                        Direview pada {{ formatDateTime({ value: submission.reviewed_at, variant: 'date-time-medium' }) }}.
+                        Direview pada
+                        {{ formatDateTime({ value: submission.reviewed_at, variant: 'date-time-medium' }) }}.
                     </template>
                 </p>
             </SheetFooter>

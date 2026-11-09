@@ -12,7 +12,6 @@ use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
-use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Database\Seeders\RecruitmentDivisionSeeder;

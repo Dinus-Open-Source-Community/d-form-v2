@@ -78,7 +78,7 @@ export function useEmailAvailability(options: IUseEmailAvailabilityOptions): IUs
             const result = await checkEmailAvailability(
                 EmailAvailabilityController.url(),
                 normalizedEmail,
-                controller.signal,
+                controller.signal
             );
 
             if (controller.signal.aborted || !isStillCurrent(normalizedEmail)) return;
@@ -144,8 +144,7 @@ export function useEmailAvailability(options: IUseEmailAvailabilityOptions): IUs
         // Hasil final hanya valid untuk email yang benar-benar di-resolve; bila email
         // berubah saat panel tersembunyi, nilai lama tidak boleh menutupi email baru.
         const hasFinalStatusForCurrentEmail =
-            (status.value === 'available' || status.value === 'taken') &&
-            resolvedEmail === options.email.value.trim();
+            (status.value === 'available' || status.value === 'taken') && resolvedEmail === options.email.value.trim();
         if (hasFinalStatusForCurrentEmail) return;
         handleEmailChange(options.email.value);
     });

@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Indeks untuk query dashboard & daftar acara publik: semuanya memfilter
  * `deleted_at IS NULL` lalu mengurutkan/menghitung pada satu kolom.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table): void {

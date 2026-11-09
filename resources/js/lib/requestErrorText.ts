@@ -1,10 +1,10 @@
-import type { THttpErrorKind } from '@/types/http'
-import { formatRetryAfterMessage } from '@/lib/http-retry-after'
+import type { THttpErrorKind } from '@/types/http';
+import { formatRetryAfterMessage } from '@/lib/http-retry-after';
 
 export interface IRequestErrorTextInput {
-    kind: THttpErrorKind
-    status: number | null
-    retryAfterSeconds?: number | null
+    kind: THttpErrorKind;
+    status: number | null;
+    retryAfterSeconds?: number | null;
 }
 
 /** Satu sumber pesan publik per jenis kegagalan; `aborted` sengaja `null` (senyap). */
@@ -22,13 +22,13 @@ const REQUEST_ERROR_MESSAGES: Record<THttpErrorKind, string | null> = {
     invalid_response: 'Server mengirim respons yang tidak valid. Coba lagi beberapa saat lagi.',
     client: 'Permintaan gagal diproses. Coba lagi.',
     unknown: 'Permintaan gagal diproses. Coba lagi.',
-}
+};
 
 /** Pesan publik per jenis kegagalan; null = sengaja senyap (aborted). */
 export function describeRequestError(error: IRequestErrorTextInput): string | null {
     if (error.kind === 'rate_limited' && error.retryAfterSeconds != null) {
-        return formatRetryAfterMessage(error.retryAfterSeconds)
+        return formatRetryAfterMessage(error.retryAfterSeconds);
     }
 
-    return REQUEST_ERROR_MESSAGES[error.kind]
+    return REQUEST_ERROR_MESSAGES[error.kind];
 }

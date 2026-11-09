@@ -1,47 +1,47 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head, Link } from '@inertiajs/vue3'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { routes } from '@/lib/routes'
-import { setTopbar } from '@/hooks/useDashboardTopbar'
-import { Plus } from 'lucide-vue-next'
+import { onMounted } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { routes } from '@/lib/routes';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { Plus } from 'lucide-vue-next';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface BroadcastRow {
-    id: string
-    name: string
-    status: string
-    scheduled_at: string | null
-    total_recipients: number
-    total_sent: number
-    total_failed: number
-    event_title: string | null
-    created_at: string | null
+    id: string;
+    name: string;
+    status: string;
+    scheduled_at: string | null;
+    total_recipients: number;
+    total_sent: number;
+    total_failed: number;
+    event_title: string | null;
+    created_at: string | null;
 }
 
 interface Paginator {
-    data: BroadcastRow[]
-    current_page: number
-    last_page: number
-    total: number
+    data: BroadcastRow[];
+    current_page: number;
+    last_page: number;
+    total: number;
 }
 
-defineProps<{ broadcasts: Paginator }>()
+defineProps<{ broadcasts: Paginator }>();
 
 onMounted(() => {
-    setTopbar({ title: 'Email Broadcasting', subtitle: 'Kirim email massal terjadwal via queue' })
-})
+    setTopbar({ title: 'Email Broadcasting', subtitle: 'Kirim email massal terjadwal via queue' });
+});
 
 function statusVariant(status: string): 'default' | 'secondary' | 'outline' | 'destructive' {
-    if (status === 'completed') return 'default'
-    if (status === 'processing') return 'secondary'
-    if (status === 'failed') return 'destructive'
-    return 'outline'
+    if (status === 'completed') return 'default';
+    if (status === 'processing') return 'secondary';
+    if (status === 'failed') return 'destructive';
+    return 'outline';
 }
 </script>
 
@@ -76,9 +76,13 @@ function statusVariant(status: string): 'default' | 'secondary' | 'outline' | 'd
                                 <Link :href="routes.admin.broadcasts.show(row.id)" class="hover:underline">
                                     {{ row.name }}
                                 </Link>
-                                <div v-if="row.event_title" class="text-muted-foreground text-xs">{{ row.event_title }}</div>
+                                <div v-if="row.event_title" class="text-muted-foreground text-xs">
+                                    {{ row.event_title }}
+                                </div>
                             </TableCell>
-                            <TableCell><Badge :variant="statusVariant(row.status)">{{ row.status }}</Badge></TableCell>
+                            <TableCell
+                                ><Badge :variant="statusVariant(row.status)">{{ row.status }}</Badge></TableCell
+                            >
                             <TableCell class="text-muted-foreground text-sm">{{ row.scheduled_at ?? '—' }}</TableCell>
                             <TableCell class="text-right">{{ row.total_sent }}/{{ row.total_recipients }}</TableCell>
                             <TableCell class="text-right">{{ row.total_failed }}</TableCell>

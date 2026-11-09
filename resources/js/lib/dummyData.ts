@@ -1,10 +1,10 @@
 /**
  * Centralized dummy data for dashboard mockup.
- * 
+ *
  * ⚠️ DEPRECATION WARNING:
  * This file contains dummy data for development, testing, and Storybook purposes only.
  * Production code should NOT use this data. Real data should come from backend API/controllers.
- * 
+ *
  * Replace with real API data when backend is wired.
  */
 
@@ -13,7 +13,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0001',
         slug: 'design-systems-workshop',
         title: 'Design Systems Workshop',
-        description: '<p>A hands-on workshop covering modern design systems, component libraries, and design tokens. Learn how to build scalable and consistent UIs across products.</p><h3>What You Will Learn</h3><ul><li>Atomic design methodology</li><li>Design token systems</li><li>Component library architecture</li></ul>',
+        description:
+            '<p>A hands-on workshop covering modern design systems, component libraries, and design tokens. Learn how to build scalable and consistent UIs across products.</p><h3>What You Will Learn</h3><ul><li>Atomic design methodology</li><li>Design token systems</li><li>Component library architecture</li></ul>',
         start_date: '2026-04-25',
         end_date: '2026-04-25',
         registration_start: '2026-04-01T00:00:00+07:00',
@@ -36,7 +37,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0002',
         slug: 'startup-pitch-night',
         title: 'Startup Pitch Night',
-        description: '<p>Connect with founders, investors, and mentors. Watch live startup pitches and network with the entrepreneurial community in Central Java.</p>',
+        description:
+            '<p>Connect with founders, investors, and mentors. Watch live startup pitches and network with the entrepreneurial community in Central Java.</p>',
         start_date: '2026-04-28',
         end_date: '2026-04-28',
         registration_start: '2026-04-05T00:00:00+07:00',
@@ -59,7 +61,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0003',
         slug: 'ai-machine-learning-summit',
         title: 'AI & Machine Learning Summit',
-        description: '<p>Explore the latest in AI research, machine learning applications, and ethical AI frameworks. Keynotes from industry leaders.</p>',
+        description:
+            '<p>Explore the latest in AI research, machine learning applications, and ethical AI frameworks. Keynotes from industry leaders.</p>',
         start_date: '2026-05-05',
         end_date: '2026-05-06',
         registration_start: '2026-04-10T00:00:00+07:00',
@@ -82,7 +85,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0004',
         slug: 'ux-research-bootcamp',
         title: 'UX Research Bootcamp',
-        description: '<p>Intensive 2-day bootcamp on user research methods, usability testing, and data-driven design decisions.</p>',
+        description:
+            '<p>Intensive 2-day bootcamp on user research methods, usability testing, and data-driven design decisions.</p>',
         start_date: '2026-05-10',
         end_date: '2026-05-11',
         registration_start: '2026-04-15T00:00:00+07:00',
@@ -105,7 +109,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0005',
         slug: 'open-source-meetup',
         title: 'Open Source Meetup',
-        description: '<p>Monthly meetup for open source contributors. Share projects, get code reviews, and contribute to popular repositories.</p>',
+        description:
+            '<p>Monthly meetup for open source contributors. Share projects, get code reviews, and contribute to popular repositories.</p>',
         start_date: '2026-05-22',
         end_date: '2026-05-22',
         registration_start: '2026-05-01T00:00:00+07:00',
@@ -128,7 +133,8 @@ export const dummyEvents: IEvent[] = [
         id: '1a2b3c4d-0006',
         slug: 'cloud-architecture-day',
         title: 'Cloud Architecture Day',
-        description: '<p>Deep-dive into cloud-native architectures, serverless patterns, and distributed systems design.</p>',
+        description:
+            '<p>Deep-dive into cloud-native architectures, serverless patterns, and distributed systems design.</p>',
         start_date: '2026-03-10',
         end_date: '2026-03-10',
         registration_start: '2026-02-15T00:00:00+07:00',
@@ -193,7 +199,7 @@ export const dummyEvents: IEvent[] = [
         created_at: '2026-01-10T08:00:00+07:00',
         updated_at: '2026-03-01T10:00:00+07:00',
     },
-]
+];
 
 export const dummyForms: IForm[] = [
     {
@@ -226,16 +232,58 @@ export const dummyForms: IForm[] = [
         banner_url: null,
         banner_caption: null,
     },
-]
+];
 
 export const dummyFormFields: IFormField[] = [
-    { id: 'ff-001', type: 'input', label: 'Full Name', name: 'full_name', order: 1, metadata: { placeholder: 'Enter your full name', required: true } },
-    { id: 'ff-002', type: 'input', label: 'Student ID (NIM)', name: 'nim', order: 2, metadata: { placeholder: 'e.g. A11.2026.xxxxx', required: true } },
-    { id: 'ff-003', type: 'select', label: 'Faculty', name: 'faculty', order: 3, metadata: { options: ['Engineering', 'Computer Science', 'Design', 'Business'], required: true } },
-    { id: 'ff-004', type: 'textarea', label: 'Motivation', name: 'motivation', order: 4, metadata: { placeholder: 'Why do you want to join?', required: false } },
-    { id: 'ff-005', type: 'fileUpload', label: 'CV / Resume', name: 'cv', order: 5, metadata: { accept: '.pdf,.doc,.docx', maxSize: 5120, required: false } },
-    { id: 'ff-006', type: 'datePicker', label: 'Preferred Date', name: 'preferred_date', order: 6, metadata: { required: false } },
-]
+    {
+        id: 'ff-001',
+        type: 'input',
+        label: 'Full Name',
+        name: 'full_name',
+        order: 1,
+        metadata: { placeholder: 'Enter your full name', required: true },
+    },
+    {
+        id: 'ff-002',
+        type: 'input',
+        label: 'Student ID (NIM)',
+        name: 'nim',
+        order: 2,
+        metadata: { placeholder: 'e.g. A11.2026.xxxxx', required: true },
+    },
+    {
+        id: 'ff-003',
+        type: 'select',
+        label: 'Faculty',
+        name: 'faculty',
+        order: 3,
+        metadata: { options: ['Engineering', 'Computer Science', 'Design', 'Business'], required: true },
+    },
+    {
+        id: 'ff-004',
+        type: 'textarea',
+        label: 'Motivation',
+        name: 'motivation',
+        order: 4,
+        metadata: { placeholder: 'Why do you want to join?', required: false },
+    },
+    {
+        id: 'ff-005',
+        type: 'fileUpload',
+        label: 'CV / Resume',
+        name: 'cv',
+        order: 5,
+        metadata: { accept: '.pdf,.doc,.docx', maxSize: 5120, required: false },
+    },
+    {
+        id: 'ff-006',
+        type: 'datePicker',
+        label: 'Preferred Date',
+        name: 'preferred_date',
+        order: 6,
+        metadata: { required: false },
+    },
+];
 
 export const dummyRegistrants: IRegistrant[] = [
     {
@@ -246,7 +294,12 @@ export const dummyRegistrants: IRegistrant[] = [
         event_id: '1a2b3c4d-0001',
         status: 'accepted',
         submitted_at: '2026-04-12T08:30:00+07:00',
-        answers: { 'Full Name': 'Ahmad Fauzi', 'Student ID (NIM)': 'A11.2026.12345', 'Faculty': 'Computer Science', 'Motivation': 'I want to learn design systems.' },
+        answers: {
+            'Full Name': 'Ahmad Fauzi',
+            'Student ID (NIM)': 'A11.2026.12345',
+            Faculty: 'Computer Science',
+            Motivation: 'I want to learn design systems.',
+        },
         registration_code: 'WK9F-7Q3P',
     },
     {
@@ -257,7 +310,12 @@ export const dummyRegistrants: IRegistrant[] = [
         event_id: '1a2b3c4d-0001',
         status: 'pending',
         submitted_at: '2026-04-14T10:15:00+07:00',
-        answers: { 'Full Name': 'Siti Nurhaliza', 'Student ID (NIM)': 'A11.2026.12346', 'Faculty': 'Design', 'Motivation': 'I am passionate about UI/UX.' },
+        answers: {
+            'Full Name': 'Siti Nurhaliza',
+            'Student ID (NIM)': 'A11.2026.12346',
+            Faculty: 'Design',
+            Motivation: 'I am passionate about UI/UX.',
+        },
     },
     {
         id: 'reg-003',
@@ -267,7 +325,12 @@ export const dummyRegistrants: IRegistrant[] = [
         event_id: '1a2b3c4d-0001',
         status: 'rejected',
         submitted_at: '2026-04-13T14:00:00+07:00',
-        answers: { 'Full Name': 'Budi Santoso', 'Student ID (NIM)': 'A11.2026.12347', 'Faculty': 'Engineering', 'Motivation': '' },
+        answers: {
+            'Full Name': 'Budi Santoso',
+            'Student ID (NIM)': 'A11.2026.12347',
+            Faculty: 'Engineering',
+            Motivation: '',
+        },
     },
     {
         id: 'reg-004',
@@ -277,7 +340,12 @@ export const dummyRegistrants: IRegistrant[] = [
         event_id: '1a2b3c4d-0001',
         status: 'pending',
         submitted_at: '2026-04-16T09:45:00+07:00',
-        answers: { 'Full Name': 'Dewi Lestari', 'Student ID (NIM)': 'A11.2026.12348', 'Faculty': 'Business', 'Motivation': 'Want to understand modern design.' },
+        answers: {
+            'Full Name': 'Dewi Lestari',
+            'Student ID (NIM)': 'A11.2026.12348',
+            Faculty: 'Business',
+            Motivation: 'Want to understand modern design.',
+        },
     },
     {
         id: 'reg-005',
@@ -287,10 +355,15 @@ export const dummyRegistrants: IRegistrant[] = [
         event_id: '1a2b3c4d-0001',
         status: 'accepted',
         submitted_at: '2026-04-11T16:30:00+07:00',
-        answers: { 'Full Name': 'Rizky Pratama', 'Student ID (NIM)': 'A11.2026.12349', 'Faculty': 'Computer Science', 'Motivation': 'Building my portfolio.' },
+        answers: {
+            'Full Name': 'Rizky Pratama',
+            'Student ID (NIM)': 'A11.2026.12349',
+            Faculty: 'Computer Science',
+            Motivation: 'Building my portfolio.',
+        },
         registration_code: 'N8TY-4HZ2',
     },
-]
+];
 
 export const dummyChartData = {
     registrationTrends: [
@@ -315,7 +388,7 @@ export const dummyChartData = {
         { month: 'Mar', rate: 88 },
         { month: 'Apr', rate: 93 },
     ],
-}
+};
 
 export const statusColorMap: Record<string, string> = {
     open: '#059669',
@@ -329,14 +402,14 @@ export const statusColorMap: Record<string, string> = {
     accepted: '#059669',
     rejected: '#DC2626',
     submitted: '#059669',
-}
+};
 
 export const categoryColorMap: Record<string, string> = {
     rkt: '#0A84DC',
     'non-rkt': '#7C3AED',
     recruitment: '#059669',
     etc: '#D97706',
-}
+};
 
 export const sessionLabelMap: Record<string, string> = {
     general: 'General',
@@ -345,12 +418,11 @@ export const sessionLabelMap: Record<string, string> = {
     networking: 'Networking',
     media_creative: 'Media Creative',
     data: 'Data',
-}
+};
 
 export const categoryLabelMap: Record<string, string> = {
     rkt: 'RKT',
     'non-rkt': 'NON RKT',
     recruitment: 'Recruitment',
     etc: 'Etc',
-}
-
+};

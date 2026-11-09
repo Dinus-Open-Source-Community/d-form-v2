@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { computed } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
     daysRemaining,
     phaseCountdownLabel,
@@ -11,33 +11,33 @@ import {
     phaseLabel,
     resolvePeriodPhase,
     statusLabel,
-    type PeriodPhaseInput,
-    type PeriodStatusValue,
-} from '@/lib/recruitmentPeriodPhase'
+    type IPeriodPhaseInput,
+    type TPeriodStatusValue,
+} from '@/lib/recruitmentPeriodPhase';
 
 const props = defineProps<{
-    period: PeriodPhaseInput & { id: string; name: string; slug: string }
-}>()
+    period: IPeriodPhaseInput & { id: string; name: string; slug: string };
+}>();
 
-const emit = defineEmits<{ open: []; close: [] }>()
+const emit = defineEmits<{ open: []; close: [] }>();
 
-const phase = computed(() => resolvePeriodPhase(props.period))
-const remaining = computed(() => daysRemaining(phaseDeadline(phase.value, props.period)))
-const countdown = computed(() => phaseCountdownLabel(phase.value, remaining.value))
+const phase = computed(() => resolvePeriodPhase(props.period));
+const remaining = computed(() => daysRemaining(phaseDeadline(phase.value, props.period)));
+const countdown = computed(() => phaseCountdownLabel(phase.value, remaining.value));
 
-const statusClasses: Record<PeriodStatusValue, string> = {
+const statusClasses: Record<TPeriodStatusValue, string> = {
     draft: 'border-border bg-secondary text-secondary-foreground',
     open: 'border-success/20 bg-success/10 text-success',
     closed: 'border-warning/25 bg-warning/10 text-warning-foreground',
     archived: 'border-border bg-muted text-muted-foreground',
-}
+};
 
-const canOpen = computed(() => props.period.status === 'draft' || props.period.status === 'closed')
-const canClose = computed(() => props.period.status === 'open')
+const canOpen = computed(() => props.period.status === 'draft' || props.period.status === 'closed');
+const canClose = computed(() => props.period.status === 'open');
 </script>
 
 <template>
-    <Card class="rounded-2xl border-border/70 shadow-sm">
+    <Card class="border-border/70 rounded-2xl shadow-sm">
         <CardContent class="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
             <div class="min-w-0 flex-1 space-y-3">
                 <div class="flex flex-wrap items-center gap-3">

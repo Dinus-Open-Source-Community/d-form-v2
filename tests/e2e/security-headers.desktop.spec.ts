@@ -1,11 +1,4 @@
-import {
-    expect,
-    test,
-    type Browser,
-    type BrowserContext,
-    type Page,
-    type Response,
-} from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page, type Response } from '@playwright/test';
 import { sessionCookieName } from './support/authGuard';
 import { readEnvironment } from './support/environment';
 
@@ -194,7 +187,7 @@ test('route 404 dan health check /up tetap membawa header keamanan', async ({ br
 
         const notFound = requireResponse(
             await page.goto('/this-route-does-not-exist-be-p3-009', { waitUntil: 'domcontentloaded' }),
-            'route 404',
+            'route 404'
         );
         expect(notFound.status()).toBe(404);
         expectSecurityHeaders(notFound.headers(), 'GET /this-route-does-not-exist-be-p3-009');
@@ -218,7 +211,7 @@ test('cookie sesi hasil login UI bersifat httpOnly + SameSite=Lax dan tidak terb
         const [loginResponse] = await Promise.all([
             page.waitForResponse(
                 (candidate) =>
-                    new URL(candidate.url()).pathname === '/auth/login' && candidate.request().method() === 'POST',
+                    new URL(candidate.url()).pathname === '/auth/login' && candidate.request().method() === 'POST'
             ),
             signIn(page),
         ]);
@@ -228,9 +221,7 @@ test('cookie sesi hasil login UI bersifat httpOnly + SameSite=Lax dan tidak terb
             .filter((header) => header.name.toLowerCase() === 'set-cookie')
             .map((header) => header.value);
 
-        const sessionSetCookie = setCookieHeaders.find((value) =>
-            value.startsWith(`${sessionCookieName()}=`),
-        );
+        const sessionSetCookie = setCookieHeaders.find((value) => value.startsWith(`${sessionCookieName()}=`));
 
         expect(sessionSetCookie, `Set-Cookie "${sessionCookieName()}" wajib ada pada respons login`).toBeDefined();
         expect(sessionSetCookie ?? '').toMatch(/;\s*httponly/i);
@@ -254,7 +245,7 @@ test('cookie sesi hasil login UI bersifat httpOnly + SameSite=Lax dan tidak terb
         // Dibandingkan sebagai boolean agar nilai cookie tidak pernah ikut tercetak saat gagal.
         expect(
             scriptVisibleCookies.includes(session.value),
-            'document.cookie tidak boleh memuat nilai cookie sesi',
+            'document.cookie tidak boleh memuat nilai cookie sesi'
         ).toBe(false);
 
         // Kontrol positif: JS memang bisa membaca cookie lain, jadi assert di atas tidak lolos karena kosong.
@@ -283,7 +274,7 @@ test('CSP benar-benar menegakkan img-src pada halaman terautentikasi', async ({ 
                         resolve();
                     }
                 },
-                { once: false },
+                { once: false }
             );
         });
 
@@ -307,13 +298,11 @@ test('CSP benar-benar menegakkan img-src pada halaman terautentikasi', async ({ 
         return { violations, inlineScriptRan };
     }, BLOCKED_IMAGE_URL);
 
-    const imageViolations = outcome.violations.filter((violation) =>
-        violation.directive.startsWith('img-src'),
-    );
+    const imageViolations = outcome.violations.filter((violation) => violation.directive.startsWith('img-src'));
 
     expect(
         imageViolations.length,
-        `tidak ada securitypolicyviolation img-src; pelanggaran tercatat: ${JSON.stringify(outcome.violations)}`,
+        `tidak ada securitypolicyviolation img-src; pelanggaran tercatat: ${JSON.stringify(outcome.violations)}`
     ).toBeGreaterThan(0);
     expect(imageViolations[0]?.blockedUri).toContain('127.0.0.1:9');
     expect(outcome.inlineScriptRan, 'inline script dieksekusi karena dev allowance, bukan bukti blokir').toBe(true);
@@ -362,10 +351,9 @@ test('CSP tidak merusak halaman /, /events, dan /auth/login', async ({ browser }
         // Perbaikan yang disarankan: ganti URL ke bentuk akhir `https://maps.google.com/maps/embed?pb=...`
         // (200 tanpa redirect) atau tambahkan `https://www.google.com` ke `frame-src`.
         // Assert di bawah sengaja TIDAK dilonggarkan: pelanggaran CSP di halaman publik adalah regresi nyata.
-        expect(
-            violations,
-            `pelanggaran CSP pada ${visitedPaths.join(', ')}: ${JSON.stringify(violations)}`,
-        ).toEqual([]);
+        expect(violations, `pelanggaran CSP pada ${visitedPaths.join(', ')}: ${JSON.stringify(violations)}`).toEqual(
+            []
+        );
     } finally {
         await context.close();
     }
@@ -408,8 +396,7 @@ test('clickjacking: dokumen aplikasi ditolak saat di-frame origin lain', async (
 
         await expect
             .poll(refusalReason, {
-                message:
-                    'dokumen aplikasi harus ditolak di iframe lintas origin (X-Frame-Options/frame-ancestors)',
+                message: 'dokumen aplikasi harus ditolak di iframe lintas origin (X-Frame-Options/frame-ancestors)',
                 timeout: 10_000,
             })
             .not.toBe('');
@@ -417,7 +404,7 @@ test('clickjacking: dokumen aplikasi ditolak saat di-frame origin lain', async (
         const appFrames = page.frames().filter((frame) => frame.url().startsWith(environment.baseUrl));
         expect(
             appFrames.map((frame) => frame.url()),
-            'iframe lintas origin tidak boleh memuat dokumen aplikasi',
+            'iframe lintas origin tidak boleh memuat dokumen aplikasi'
         ).toHaveLength(0);
     } finally {
         await context.close();
@@ -440,7 +427,7 @@ test('anomali input: payload script di query dan NUL byte di path tidak menghasi
 
         const queryPayload = requireResponse(
             await page.goto('/?q=%3Cscript%3Ealert(1)%3C/script%3E', { waitUntil: 'domcontentloaded' }),
-            'query payload',
+            'query payload'
         );
         expect(queryPayload.status(), 'payload query tidak boleh 500').toBe(200);
         expectSecurityHeaders(queryPayload.headers(), 'GET /?q=<script>alert(1)</script>');

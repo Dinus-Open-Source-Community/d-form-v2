@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { ComponentPublicInstance } from 'vue'
-import { router, useForm, usePage } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { SimpleSelect } from '@/components/ui/simple-select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { computed, ref, watch } from 'vue';
+import type { ComponentPublicInstance } from 'vue';
+import { router, useForm, usePage } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { SimpleSelect } from '@/components/ui/simple-select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Dialog,
     DialogContent,
@@ -17,16 +17,16 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
-import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
-import { isHttpUrl } from '@/lib/isHttpUrl'
-import { formatDateTime } from '@/lib/dateTime'
-import ApplicantEmailingSection from './ApplicantEmailingSection.vue'
-import type { IApplicationDetail } from '@/types/recruitment'
-import { routes } from '@/lib/routes'
-import { showErrorToast } from '@/lib/error-message'
-import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
-import { useAuth } from '@/hooks/useAuth'
+} from '@/components/ui/dialog';
+import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities';
+import { isHttpUrl } from '@/lib/isHttpUrl';
+import { formatDateTime } from '@/lib/dateTime';
+import ApplicantEmailingSection from './ApplicantEmailingSection.vue';
+import type { IApplicationDetail } from '@/types/recruitment';
+import { routes } from '@/lib/routes';
+import { showErrorToast } from '@/lib/error-message';
+import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
+import { useAuth } from '@/hooks/useAuth';
 import {
     CalendarClock,
     CheckCircle2,
@@ -45,23 +45,22 @@ import {
     User,
     UserCheck,
     XCircle,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
-type ScreeningAction = 'revision' | 'reject' | null
-
+type ScreeningAction = 'revision' | 'reject' | null;
 
 const props = withDefaults(
     defineProps<{
-        application: IApplicationDetail
-        screeningReasonOptions?: { value: string; label: string }[]
-        divisionOptions?: { id: string; name: string; code: string }[]
-        membershipTypeOptions?: { value: string; label: string }[]
-        readonly?: boolean
-        hideRevisionAction?: boolean
-        hideActions?: boolean
-        whatsappGroupUrl?: string | null
-        whatsappGroupAaUrl?: string | null
-        whatsappGroupMemberUrl?: string | null
+        application: IApplicationDetail;
+        screeningReasonOptions?: { value: string; label: string }[];
+        divisionOptions?: { id: string; name: string; code: string }[];
+        membershipTypeOptions?: { value: string; label: string }[];
+        readonly?: boolean;
+        hideRevisionAction?: boolean;
+        hideActions?: boolean;
+        whatsappGroupUrl?: string | null;
+        whatsappGroupAaUrl?: string | null;
+        whatsappGroupMemberUrl?: string | null;
     }>(),
     {
         screeningReasonOptions: () => [],
@@ -73,64 +72,65 @@ const props = withDefaults(
         whatsappGroupUrl: null,
         whatsappGroupAaUrl: null,
         whatsappGroupMemberUrl: null,
-    },
-)
+    }
+);
 
-const page = usePage()
-const user = useAuth(page.props)
+const page = usePage();
+const user = useAuth(page.props);
 
-const emit = defineEmits<{ submitted: []; resent: [] }>()
+const emit = defineEmits<{ submitted: []; resent: [] }>();
 
 const canScreen = computed(
-    () => props.application.can_screen && user.value?.can_screen_recruitment_applications === true,
-)
-const canVerify = computed(() => props.application.can_verify && user.value?.can_screen_recruitment_applications === true)
+    () => props.application.can_screen && user.value?.can_screen_recruitment_applications === true
+);
+const canVerify = computed(
+    () => props.application.can_verify && user.value?.can_screen_recruitment_applications === true
+);
 const canResendTracking = computed(
-    () =>
-        applicantAllowsTrackingResend(props.application) && userAllowsTrackingResend(user.value),
-)
-const canReviewCorrections = computed(() => user.value?.can_review_recruitment_corrections === true)
+    () => applicantAllowsTrackingResend(props.application) && userAllowsTrackingResend(user.value)
+);
+const canReviewCorrections = computed(() => user.value?.can_review_recruitment_corrections === true);
 const canDecideFinal = computed(
-    () => props.application.can_decide_final && user.value?.can_decide_recruitment_final === true,
-)
+    () => props.application.can_decide_final && user.value?.can_decide_recruitment_final === true
+);
 
 const correctionReviewForm = useForm({
     review_notes: '',
-})
+});
 
-const screeningModalOpen = ref(false)
-const screeningAction = ref<ScreeningAction>(null)
+const screeningModalOpen = ref(false);
+const screeningAction = ref<ScreeningAction>(null);
 
-const confirmOpen = ref(false)
-const confirmAction = ref<'verify' | 'pass' | 'reject' | 'resend_tracking' | null>(null)
+const confirmOpen = ref(false);
+const confirmAction = ref<'verify' | 'pass' | 'reject' | 'resend_tracking' | null>(null);
 
 const screeningForm = useForm({
     reason: '',
     notes: '',
     public_message: '',
     sections: [] as string[],
-})
+});
 
 const revisionSectionOptions: { value: string; label: string }[] = [
     { value: 'data_diri', label: 'Data diri' },
     { value: 'divisi', label: 'Divisi' },
     { value: 'cv', label: 'CV' },
     { value: 'portfolio', label: 'Portofolio' },
-]
+];
 
 function toggleRevisionSection(value: string, checked: boolean) {
-    screeningForm.sections = toggleCheckboxSelection(screeningForm.sections, value, checked)
+    screeningForm.sections = toggleCheckboxSelection(screeningForm.sections, value, checked);
 }
 
 function openScreeningModal(action: ScreeningAction) {
-    screeningAction.value = action
-    screeningForm.reset()
-    screeningForm.clearErrors()
-    screeningModalOpen.value = true
+    screeningAction.value = action;
+    screeningForm.reset();
+    screeningForm.clearErrors();
+    screeningModalOpen.value = true;
 }
 
 function openRevisionModal() {
-    openScreeningModal('revision')
+    openScreeningModal('revision');
 }
 
 defineExpose({
@@ -144,24 +144,24 @@ defineExpose({
     openFinalConfirm,
     openFinalAcceptCross,
     openFinalReject,
-})
+});
 
 function submitScreening() {
     if (screeningAction.value === 'revision') {
         screeningForm.post(routes.admin.recruitment.applications.screening.revision(props.application.id), {
             preserveScroll: true,
             onSuccess: () => {
-                screeningModalOpen.value = false
-                toast.success('Permintaan revisi telah dikirim.')
-                emit('submitted')
+                screeningModalOpen.value = false;
+                toast.success('Permintaan revisi telah dikirim.');
+                emit('submitted');
             },
             onError: () => showErrorToast('Gagal mengirim permintaan revisi.'),
-        })
-        return
+        });
+        return;
     }
 
     if (screeningAction.value === 'reject') {
-        requestConfirm('reject')
+        requestConfirm('reject');
     }
 }
 
@@ -169,105 +169,95 @@ function postScreeningReject() {
     screeningForm.post(routes.admin.recruitment.applications.screening.reject(props.application.id), {
         preserveScroll: true,
         onSuccess: () => {
-            screeningModalOpen.value = false
-            toast.success('Applicant ditolak pada tahap screening.')
-            emit('submitted')
+            screeningModalOpen.value = false;
+            toast.success('Applicant ditolak pada tahap screening.');
+            emit('submitted');
         },
         onError: () => showErrorToast('Gagal menolak applicant.'),
-    })
+    });
 }
 
-type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject'
+type FinalDecisionChoice = 'accept_aa' | 'accept_member' | 'reject';
 
-const finalConfirmOpen = ref(false)
-const finalChoice = ref<FinalDecisionChoice | null>(null)
-const finalStep = ref<1 | 2>(1)
-const finalCancelRef = ref<ComponentPublicInstance | null>(null)
-const finalDivisionName = ref<string>('')
+const finalConfirmOpen = ref(false);
+const finalChoice = ref<FinalDecisionChoice | null>(null);
+const finalStep = ref<1 | 2>(1);
+const finalCancelRef = ref<ComponentPublicInstance | null>(null);
+const finalDivisionName = ref<string>('');
 
 const finalConfirmForm = useForm({
     membership_type: '',
     final_division_id: '',
     internal_reason: '',
     public_message: '',
-})
+});
 
-const isFinalRejectChoice = computed<boolean>((): boolean => finalChoice.value === 'reject')
+const isFinalRejectChoice = computed<boolean>((): boolean => finalChoice.value === 'reject');
 
 const finalChoiceActionLabel = computed<string>((): string => {
-    if (finalChoice.value === 'accept_aa') return 'Diterima sebagai AA'
-    if (finalChoice.value === 'accept_member') return 'Diterima sebagai Member'
-    return 'Ditolak'
-})
+    if (finalChoice.value === 'accept_aa') return 'Diterima sebagai AA';
+    if (finalChoice.value === 'accept_member') return 'Diterima sebagai Member';
+    return 'Ditolak';
+});
 
 const primaryDivisionId = computed<string>(
-    (): string =>
-        props.application.evaluations?.primary?.division_id ??
-        props.application.primary_division?.id ??
-        '',
-)
+    (): string => props.application.evaluations?.primary?.division_id ?? props.application.primary_division?.id ?? ''
+);
 
 const primaryDivisionName = computed<string>(
-    (): string =>
-        props.application.evaluations?.primary?.division ??
-        props.application.primary_division?.name ??
-        '—',
-)
+    (): string => props.application.evaluations?.primary?.division ?? props.application.primary_division?.name ?? '—'
+);
 
 const secondaryDivisionId = computed<string>(
     (): string =>
-        props.application.evaluations?.secondary?.division_id ??
-        props.application.secondary_division?.id ??
-        '',
-)
+        props.application.evaluations?.secondary?.division_id ?? props.application.secondary_division?.id ?? ''
+);
 
 const secondaryDivisionName = computed<string>(
     (): string =>
-        props.application.evaluations?.secondary?.division ??
-        props.application.secondary_division?.name ??
-        '—',
-)
+        props.application.evaluations?.secondary?.division ?? props.application.secondary_division?.name ?? '—'
+);
 
 function openFinalConfirm(choice: FinalDecisionChoice, divisionId?: string, divisionName?: string): void {
-    finalChoice.value = choice
-    finalConfirmForm.reset()
-    finalConfirmForm.clearErrors()
-    finalStep.value = 1
+    finalChoice.value = choice;
+    finalConfirmForm.reset();
+    finalConfirmForm.clearErrors();
+    finalStep.value = 1;
     if (choice === 'accept_aa' || choice === 'accept_member') {
-        finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member'
-        finalConfirmForm.final_division_id = divisionId ?? ''
-        finalDivisionName.value = divisionName ?? ''
-        finalWaIncludeGroup.value = true
+        finalConfirmForm.membership_type = choice === 'accept_aa' ? 'aa' : 'member';
+        finalConfirmForm.final_division_id = divisionId ?? '';
+        finalDivisionName.value = divisionName ?? '';
+        finalWaIncludeGroup.value = true;
     } else {
-        finalConfirmForm.membership_type = ''
-        finalConfirmForm.final_division_id = ''
-        finalDivisionName.value = ''
+        finalConfirmForm.membership_type = '';
+        finalConfirmForm.final_division_id = '';
+        finalDivisionName.value = '';
     }
-    finalConfirmOpen.value = true
+    finalConfirmOpen.value = true;
 }
 
 function openFinalReject(): void {
-    openFinalConfirm('reject')
+    openFinalConfirm('reject');
 }
 
 interface IDivisionHint {
-    isPrimary: boolean
-    isSecondary: boolean
-    recommendationLabel: string | null
-    averageLabel: string | null
+    isPrimary: boolean;
+    isSecondary: boolean;
+    recommendationLabel: string | null;
+    averageLabel: string | null;
 }
 
 function divisionHint(divisionId: string): IDivisionHint {
     if (divisionId === '') {
-        return { isPrimary: false, isSecondary: false, recommendationLabel: null, averageLabel: null }
+        return { isPrimary: false, isSecondary: false, recommendationLabel: null, averageLabel: null };
     }
-    const isPrimary = divisionId === primaryDivisionId.value
-    const isSecondary = divisionId === secondaryDivisionId.value
+    const isPrimary = divisionId === primaryDivisionId.value;
+    const isSecondary = divisionId === secondaryDivisionId.value;
     const evaluation = isPrimary
         ? props.application.evaluations?.primary
         : isSecondary
-            ? props.application.evaluations?.secondary
-            : null
+          ? props.application.evaluations?.secondary
+          : null;
     return {
         isPrimary,
         isSecondary,
@@ -275,385 +265,373 @@ function divisionHint(divisionId: string): IDivisionHint {
         averageLabel: evaluation
             ? evaluationAverageLabel(evaluation.speaking_score, evaluation.technical_score, evaluation.attitude_score)
             : null,
-    }
+    };
 }
 
 const divisionSelectOptions = computed<{ value: string; label: string }[]>(() =>
     (props.divisionOptions ?? []).map((option) => ({
         value: option.id,
         label: option.name,
-    })),
-)
+    }))
+);
 
 /** Penanda divisi terpilih (primary/secondary, rekomendasi, rata-rata) — ditampilkan sebagai badge di bawah select. */
 const selectedDivisionHint = computed<IDivisionHint>((): IDivisionHint =>
-    divisionHint(finalConfirmForm.final_division_id),
-)
+    divisionHint(finalConfirmForm.final_division_id)
+);
 
 const selectedDivisionName = computed<string>((): string => {
-    const id = finalConfirmForm.final_division_id
-    if (id === '') return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
-    const found = (props.divisionOptions ?? []).find((option) => option.id === id)
-    if (found) return found.name
-    return finalDivisionName.value !== '' ? finalDivisionName.value : '—'
-})
+    const id = finalConfirmForm.final_division_id;
+    if (id === '') return finalDivisionName.value !== '' ? finalDivisionName.value : '—';
+    const found = (props.divisionOptions ?? []).find((option) => option.id === id);
+    if (found) return found.name;
+    return finalDivisionName.value !== '' ? finalDivisionName.value : '—';
+});
 
 const suggestedDivision = computed<{ id: string; name: string; reason: string } | null>(() => {
-    const primaryEvaluation = props.application.evaluations?.primary
-    const secondaryEvaluation = props.application.evaluations?.secondary
-    const primaryRecommended = primaryEvaluation?.recommendation === 'recommended'
-    const secondaryRecommended = secondaryEvaluation?.recommendation === 'recommended'
+    const primaryEvaluation = props.application.evaluations?.primary;
+    const secondaryEvaluation = props.application.evaluations?.secondary;
+    const primaryRecommended = primaryEvaluation?.recommendation === 'recommended';
+    const secondaryRecommended = secondaryEvaluation?.recommendation === 'recommended';
     if (primaryRecommended && primaryDivisionId.value !== '') {
         return {
             id: primaryDivisionId.value,
             name: primaryDivisionName.value,
             reason: `Direkomendasikan primary — rata-rata ${evaluationAverageLabel(primaryEvaluation.speaking_score, primaryEvaluation.technical_score, primaryEvaluation.attitude_score)}`,
-        }
+        };
     }
     if (secondaryRecommended && secondaryDivisionId.value !== '') {
         return {
             id: secondaryDivisionId.value,
             name: secondaryDivisionName.value,
             reason: `Direkomendasikan secondary — rata-rata ${evaluationAverageLabel(secondaryEvaluation.speaking_score, secondaryEvaluation.technical_score, secondaryEvaluation.attitude_score)}`,
-        }
+        };
     }
     if (primaryDivisionId.value !== '') {
         return {
             id: primaryDivisionId.value,
             name: primaryDivisionName.value,
             reason: 'Belum ada rekomendasi — default primary',
-        }
+        };
     }
-    return null
-})
+    return null;
+});
 
 function divisionNameFor(divisionId: string): string {
-    if (divisionId === '') return ''
-    const found = (props.divisionOptions ?? []).find((option) => option.id === divisionId)
-    if (found) return found.name
-    if (divisionId === primaryDivisionId.value) return primaryDivisionName.value
-    if (divisionId === secondaryDivisionId.value) return secondaryDivisionName.value
-    return ''
+    if (divisionId === '') return '';
+    const found = (props.divisionOptions ?? []).find((option) => option.id === divisionId);
+    if (found) return found.name;
+    if (divisionId === primaryDivisionId.value) return primaryDivisionName.value;
+    if (divisionId === secondaryDivisionId.value) return secondaryDivisionName.value;
+    return '';
 }
 
 function openFinalAcceptCross(membership: 'aa' | 'member'): void {
-    finalChoice.value = membership === 'aa' ? 'accept_aa' : 'accept_member'
-    finalConfirmForm.reset()
-    finalConfirmForm.clearErrors()
-    finalConfirmForm.membership_type = membership
-    const primaryRecommended = props.application.evaluations?.primary?.recommendation === 'recommended'
-    const secondaryRecommended = props.application.evaluations?.secondary?.recommendation === 'recommended'
-    let preselectId = primaryDivisionId.value
+    finalChoice.value = membership === 'aa' ? 'accept_aa' : 'accept_member';
+    finalConfirmForm.reset();
+    finalConfirmForm.clearErrors();
+    finalConfirmForm.membership_type = membership;
+    const primaryRecommended = props.application.evaluations?.primary?.recommendation === 'recommended';
+    const secondaryRecommended = props.application.evaluations?.secondary?.recommendation === 'recommended';
+    let preselectId = primaryDivisionId.value;
     if (!primaryRecommended && secondaryRecommended && secondaryDivisionId.value !== '') {
-        preselectId = secondaryDivisionId.value
+        preselectId = secondaryDivisionId.value;
     }
-    finalConfirmForm.final_division_id = preselectId
-    finalDivisionName.value = divisionNameFor(preselectId)
-    finalWaIncludeGroup.value = true
-    finalWaLinkInput.value = ''
-    finalWaLocalError.value = null
-    finalStep.value = 1
-    finalConfirmOpen.value = true
+    finalConfirmForm.final_division_id = preselectId;
+    finalDivisionName.value = divisionNameFor(preselectId);
+    finalWaIncludeGroup.value = true;
+    finalWaLinkInput.value = '';
+    finalWaLocalError.value = null;
+    finalStep.value = 1;
+    finalConfirmOpen.value = true;
 }
 
 watch(
     () => finalConfirmForm.final_division_id,
     (divisionId: string) => {
-        if (divisionId !== '') finalDivisionName.value = divisionNameFor(divisionId)
-    },
-)
+        if (divisionId !== '') finalDivisionName.value = divisionNameFor(divisionId);
+    }
+);
 
 function focusFinalCancel(event: Event): void {
-    event.preventDefault()
-    const target: unknown = finalCancelRef.value?.$el
-    if (target instanceof HTMLElement) target.focus()
+    event.preventDefault();
+    const target: unknown = finalCancelRef.value?.$el;
+    if (target instanceof HTMLElement) target.focus();
 }
 
 function submitFinalConfirm(): void {
     if (finalChoice.value === 'accept_aa' || finalChoice.value === 'accept_member') {
         if (!finalWaIncludeGroup.value) {
-            acceptFinal({ include_group_link: false }, 'Applicant diterima tanpa link grup.')
-            return
+            acceptFinal({ include_group_link: false }, 'Applicant diterima tanpa link grup.');
+            return;
         }
         if (relevantGroupLink.value === '') {
-            const value = finalWaLinkInput.value.trim()
+            const value = finalWaLinkInput.value.trim();
             if (value === '') {
-                finalWaLocalError.value = 'Link grup WA wajib diisi bila opsi menyertakan link aktif.'
-                return
+                finalWaLocalError.value = 'Link grup WA wajib diisi bila opsi menyertakan link aktif.';
+                return;
             }
             if (!value.startsWith('https://')) {
-                finalWaLocalError.value = 'Link grup WA harus diawali https://.'
-                return
+                finalWaLocalError.value = 'Link grup WA harus diawali https://.';
+                return;
             }
-            finalWaLocalError.value = null
+            finalWaLocalError.value = null;
             acceptFinal(
                 { include_group_link: true, whatsapp_group_url: value },
-                'Link grup tersimpan. Applicant diterima.',
-            )
-            return
+                'Link grup tersimpan. Applicant diterima.'
+            );
+            return;
         }
-        acceptFinal({ include_group_link: true }, 'Applicant diterima. Email hasil telah dikirim.')
-        return
+        acceptFinal({ include_group_link: true }, 'Applicant diterima. Email hasil telah dikirim.');
+        return;
     }
 
     if (finalChoice.value === 'reject') {
-        finalConfirmForm.transform((data) => data).post(routes.admin.recruitment.applications.final.reject(props.application.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                finalConfirmOpen.value = false
-                toast.success('Applicant ditolak. Email hasil telah dikirim.')
-                emit('submitted')
-            },
-            onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
-        })
+        finalConfirmForm
+            .transform((data) => data)
+            .post(routes.admin.recruitment.applications.final.reject(props.application.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    finalConfirmOpen.value = false;
+                    toast.success('Applicant ditolak. Email hasil telah dikirim.');
+                    emit('submitted');
+                },
+                onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
+            });
     }
 }
 
 /** Toggle + input link grup untuk penerimaan final di langkah 2. */
-const finalWaIncludeGroup = ref<boolean>(true)
-const finalWaLinkInput = ref('')
-const finalWaLocalError = ref<string | null>(null)
+const finalWaIncludeGroup = ref<boolean>(true);
+const finalWaLinkInput = ref('');
+const finalWaLocalError = ref<string | null>(null);
 /** Link grup AA/Member yang disimpan lewat modal sesi ini. */
-const finalSavedLinks = ref<{ aa: string; member: string }>({ aa: '', member: '' })
+const finalSavedLinks = ref<{ aa: string; member: string }>({ aa: '', member: '' });
 
 /** membership_type yang dipilih di dialog final ('' bila tolak). */
 const pendingFinalMembership = computed<'' | 'aa' | 'member'>(() => {
-    if (finalChoice.value === 'accept_aa') return 'aa'
-    if (finalChoice.value === 'accept_member') return 'member'
-    return ''
-})
+    if (finalChoice.value === 'accept_aa') return 'aa';
+    if (finalChoice.value === 'accept_member') return 'member';
+    return '';
+});
 
-const relevantGroupLinkLabel = computed<string>(() =>
-    pendingFinalMembership.value === 'aa' ? 'AA' : 'Member',
-)
+const relevantGroupLinkLabel = computed<string>(() => (pendingFinalMembership.value === 'aa' ? 'AA' : 'Member'));
 
 /** Label keanggotaan untuk pratinjau email (cermin backend: aa → Anggota Aktif). Label grup existing tetap untuk tombol grup. */
 const membershipDisplayLabel = computed<string>((): string => {
-    if (pendingFinalMembership.value === 'aa') return 'Anggota Aktif'
-    if (pendingFinalMembership.value === 'member') return 'Member'
-    return ''
-})
+    if (pendingFinalMembership.value === 'aa') return 'Anggota Aktif';
+    if (pendingFinalMembership.value === 'member') return 'Member';
+    return '';
+});
 
 /** Link grup periode yang relevan (AA/Member sesuai pilihan); '' bila belum diisi. */
 const relevantGroupLink = computed<string>(() => {
     if (pendingFinalMembership.value === 'aa') {
-        return finalSavedLinks.value.aa !== '' ? finalSavedLinks.value.aa : (props.whatsappGroupAaUrl ?? '')
+        return finalSavedLinks.value.aa !== '' ? finalSavedLinks.value.aa : (props.whatsappGroupAaUrl ?? '');
     }
     if (pendingFinalMembership.value === 'member') {
         return finalSavedLinks.value.member !== ''
             ? finalSavedLinks.value.member
-            : (props.whatsappGroupMemberUrl ?? '')
+            : (props.whatsappGroupMemberUrl ?? '');
     }
-    return ''
-})
+    return '';
+});
 
 function acceptFinal(payload: Record<string, string | boolean>, successMessage: string): void {
-    if (finalConfirmForm.processing) return
-    finalConfirmForm.transform((data) => ({ ...data, ...payload })).post(
-        routes.admin.recruitment.applications.final.accept(props.application.id),
-        {
+    if (finalConfirmForm.processing) return;
+    finalConfirmForm
+        .transform((data) => ({ ...data, ...payload }))
+        .post(routes.admin.recruitment.applications.final.accept(props.application.id), {
             preserveScroll: true,
             onSuccess: () => {
-                const savedUrl = payload['whatsapp_group_url']
+                const savedUrl = payload['whatsapp_group_url'];
                 if (typeof savedUrl === 'string' && pendingFinalMembership.value !== '') {
-                    finalSavedLinks.value[pendingFinalMembership.value] = savedUrl
+                    finalSavedLinks.value[pendingFinalMembership.value] = savedUrl;
                 }
-                finalConfirmOpen.value = false
-                emit('submitted')
-                toast.success(successMessage, { duration: 5000, id: 'final-decision-result' })
+                finalConfirmOpen.value = false;
+                emit('submitted');
+                toast.success(successMessage, { duration: 5000, id: 'final-decision-result' });
             },
             onError: (errors: Record<string, string | string[]>) => {
-                if (errors['final_division_id']) finalStep.value = 1
-                const first =
-                    errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application']
+                if (errors['final_division_id']) finalStep.value = 1;
+                const first = errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application'];
                 if (first) {
                     finalWaLocalError.value =
-                        (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan keputusan final.'
+                        (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan keputusan final.';
                 } else {
-                    showErrorToast('Gagal menyimpan keputusan final.')
+                    showErrorToast('Gagal menyimpan keputusan final.');
                 }
             },
-        },
-    )
+        });
 }
 
 function requestConfirm(action: 'verify' | 'pass' | 'reject' | 'resend_tracking') {
-    confirmAction.value = action
-    confirmOpen.value = true
+    confirmAction.value = action;
+    confirmOpen.value = true;
 }
 
 function requestResendTracking() {
-    requestConfirm('resend_tracking')
+    requestConfirm('resend_tracking');
 }
 
 function executeConfirmed() {
-    const action = confirmAction.value
-    confirmOpen.value = false
+    const action = confirmAction.value;
+    confirmOpen.value = false;
 
     if (action === 'verify') {
-        verifyApplication()
-        return
+        verifyApplication();
+        return;
     }
 
     if (action === 'pass') {
         if (!hasGroupLink.value) {
-            confirmOpen.value = false
-            openGroupLinkDialog()
-            return
+            confirmOpen.value = false;
+            openGroupLinkDialog();
+            return;
         }
-        passApplication()
-        return
+        passApplication();
+        return;
     }
 
     if (action === 'reject') {
-        postScreeningReject()
-        return
+        postScreeningReject();
+        return;
     }
 
     if (action === 'resend_tracking') {
-        resendTrackingApplication()
+        resendTrackingApplication();
     }
 }
 
 const confirmTitle = computed(() => {
-    if (confirmAction.value === 'verify') return 'Verifikasi pendaftaran'
-    if (confirmAction.value === 'pass') return 'Loloskan applicant'
-    if (confirmAction.value === 'reject') return 'Tolak applicant'
-    if (confirmAction.value === 'resend_tracking') return 'Kirim ulang informasi tracking'
-    return 'Konfirmasi'
-})
+    if (confirmAction.value === 'verify') return 'Verifikasi pendaftaran';
+    if (confirmAction.value === 'pass') return 'Loloskan applicant';
+    if (confirmAction.value === 'reject') return 'Tolak applicant';
+    if (confirmAction.value === 'resend_tracking') return 'Kirim ulang informasi tracking';
+    return 'Konfirmasi';
+});
 
 const confirmQuestion = computed(() => {
-    const who = `${props.application.full_name} (${props.application.registration_number})`
+    const who = `${props.application.full_name} (${props.application.registration_number})`;
 
-    if (confirmAction.value === 'verify') return `Verifikasi pendaftaran ${who}?`
-    if (confirmAction.value === 'pass') return `Loloskan ${who} ke tahap berikutnya?`
-    if (confirmAction.value === 'reject') return `Tolak ${who}?`
+    if (confirmAction.value === 'verify') return `Verifikasi pendaftaran ${who}?`;
+    if (confirmAction.value === 'pass') return `Loloskan ${who} ke tahap berikutnya?`;
+    if (confirmAction.value === 'reject') return `Tolak ${who}?`;
     if (confirmAction.value === 'resend_tracking') {
-        return `Kirim ulang email tracking ke ${props.application.personal_email}?`
+        return `Kirim ulang email tracking ke ${props.application.personal_email}?`;
     }
-    return ''
-})
+    return '';
+});
 
 const confirmConsequence = computed(() => {
-    if (confirmAction.value === 'pass') return 'Applicant lanjut ke tahap interview.'
-    if (confirmAction.value === 'reject') return 'Applicant tidak lanjut ke tahap berikutnya.'
+    if (confirmAction.value === 'pass') return 'Applicant lanjut ke tahap interview.';
+    if (confirmAction.value === 'reject') return 'Applicant tidak lanjut ke tahap berikutnya.';
     if (confirmAction.value === 'resend_tracking') {
-        return 'Token tracking lama tidak berlaku lagi. Email konfirmasi pendaftaran akan dikirim dengan token baru.'
+        return 'Token tracking lama tidak berlaku lagi. Email konfirmasi pendaftaran akan dikirim dengan token baru.';
     }
-    return ''
-})
+    return '';
+});
 
 function passApplication(payload: Record<string, string | boolean> = {}) {
-    router.post(
-        routes.admin.recruitment.applications.screening.pass(props.application.id),
-        payload,
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Applicant lolos screening.')
-                emit('submitted')
-            },
-            onError: () => showErrorToast('Gagal meloloskan applicant.'),
+    router.post(routes.admin.recruitment.applications.screening.pass(props.application.id), payload, {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.success('Applicant lolos screening.');
+            emit('submitted');
         },
-    )
+        onError: () => showErrorToast('Gagal meloloskan applicant.'),
+    });
 }
 
 /** Link grup WA periode; sekali tersimpan lokal tetap dianggap ada sesi ini. */
-const groupLinkSavedLocal = ref(false)
+const groupLinkSavedLocal = ref(false);
 const hasGroupLink = computed<boolean>(
-    () =>
-        groupLinkSavedLocal.value ||
-        (props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== ''),
-)
+    () => groupLinkSavedLocal.value || (props.whatsappGroupUrl !== null && props.whatsappGroupUrl !== '')
+);
 
-const waDialogOpen = ref(false)
-const waLinkInput = ref('')
-const waSaving = ref(false)
-const waLocalError = ref<string | null>(null)
-const waIncludeGroup = ref<boolean>(true)
+const waDialogOpen = ref(false);
+const waLinkInput = ref('');
+const waSaving = ref(false);
+const waLocalError = ref<string | null>(null);
+const waIncludeGroup = ref<boolean>(true);
 
 function openGroupLinkDialog(): void {
-    waLinkInput.value = props.whatsappGroupUrl ?? ''
-    waIncludeGroup.value = true
-    waLocalError.value = null
-    waDialogOpen.value = true
+    waLinkInput.value = props.whatsappGroupUrl ?? '';
+    waIncludeGroup.value = true;
+    waLocalError.value = null;
+    waDialogOpen.value = true;
 }
 
 function closeGroupLinkDialog(): void {
-    waDialogOpen.value = false
-    waLocalError.value = null
+    waDialogOpen.value = false;
+    waLocalError.value = null;
 }
 
 /** Lolos tanpa menyertakan link grup di email (toggle OFF). */
 function submitGroupLinkWithoutLink(): void {
-    if (waSaving.value) return
-    waLocalError.value = null
-    waSaving.value = true
+    if (waSaving.value) return;
+    waLocalError.value = null;
+    waSaving.value = true;
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
         { include_group_link: false },
         {
             preserveScroll: true,
             onSuccess: () => {
-                waDialogOpen.value = false
-                toast.success('Applicant lolos screening tanpa link grup.')
-                emit('submitted')
+                waDialogOpen.value = false;
+                toast.success('Applicant lolos screening tanpa link grup.');
+                emit('submitted');
             },
             onError: (errors: Record<string, string | string[]>) => {
-                const first = errors['whatsapp_group_url'] ?? errors['application']
-                waLocalError.value =
-                    (Array.isArray(first) ? first[0] : first) ?? 'Gagal meloloskan applicant.'
+                const first = errors['whatsapp_group_url'] ?? errors['application'];
+                waLocalError.value = (Array.isArray(first) ? first[0] : first) ?? 'Gagal meloloskan applicant.';
             },
             onFinish: () => {
-                waSaving.value = false
+                waSaving.value = false;
             },
-        },
-    )
+        }
+    );
 }
 
 function submitGroupLink(): void {
     if (!waIncludeGroup.value) {
-        submitGroupLinkWithoutLink()
-        return
+        submitGroupLinkWithoutLink();
+        return;
     }
-    const value = waLinkInput.value.trim()
+    const value = waLinkInput.value.trim();
     if (value === '') {
-        waLocalError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.'
-        return
+        waLocalError.value = 'Link grup WA wajib diisi bila toggle menyertakan link aktif.';
+        return;
     }
     if (!value.startsWith('https://')) {
-        waLocalError.value = 'Link grup WA harus diawali https://.'
-        return
+        waLocalError.value = 'Link grup WA harus diawali https://.';
+        return;
     }
-    if (waSaving.value) return
-    waLocalError.value = null
-    waSaving.value = true
+    if (waSaving.value) return;
+    waLocalError.value = null;
+    waSaving.value = true;
     router.post(
         routes.admin.recruitment.applications.screening.pass(props.application.id),
         { whatsapp_group_url: value, include_group_link: true },
         {
             preserveScroll: true,
             onSuccess: () => {
-                groupLinkSavedLocal.value = true
-                waDialogOpen.value = false
-                toast.success('Link grup tersimpan. Applicant lolos screening.')
-                emit('submitted')
+                groupLinkSavedLocal.value = true;
+                waDialogOpen.value = false;
+                toast.success('Link grup tersimpan. Applicant lolos screening.');
+                emit('submitted');
             },
             onError: (errors: Record<string, string | string[]>) => {
-                const first =
-                    errors['whatsapp_group_url'] ??
-                    errors['include_group_link'] ??
-                    errors['application']
+                const first = errors['whatsapp_group_url'] ?? errors['include_group_link'] ?? errors['application'];
                 waLocalError.value =
                     (Array.isArray(first) ? first[0] : first) ??
-                    'Gagal menyimpan link. Minta admin mengisinya di tab Settings.'
+                    'Gagal menyimpan link. Minta admin mengisinya di tab Settings.';
             },
             onFinish: () => {
-                waSaving.value = false
+                waSaving.value = false;
             },
-        },
-    )
+        }
+    );
 }
 
 function verifyApplication() {
@@ -663,12 +641,12 @@ function verifyApplication() {
         {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Pendaftaran berhasil diverifikasi.')
-                emit('submitted')
+                toast.success('Pendaftaran berhasil diverifikasi.');
+                emit('submitted');
             },
             onError: () => showErrorToast('Gagal memverifikasi pendaftaran.'),
-        },
-    )
+        }
+    );
 }
 
 function resendTrackingApplication() {
@@ -678,40 +656,40 @@ function resendTrackingApplication() {
         {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Informasi tracking telah dikirim ulang ke applicant.')
-                emit('submitted')
+                toast.success('Informasi tracking telah dikirim ulang ke applicant.');
+                emit('submitted');
             },
             onError: () => showErrorToast('Gagal mengirim ulang informasi tracking.'),
-        },
-    )
+        }
+    );
 }
 
 function approveCorrection(correctionId: string) {
     correctionReviewForm.post(routes.admin.recruitment.corrections.approve(correctionId), {
         preserveScroll: true,
         onSuccess: () => correctionReviewForm.reset(),
-    })
+    });
 }
 
 function rejectCorrection(correctionId: string) {
     correctionReviewForm.post(routes.admin.recruitment.corrections.reject(correctionId), {
         preserveScroll: true,
         onSuccess: () => correctionReviewForm.reset(),
-    })
+    });
 }
 
 function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function scoreBarWidth(score: number): string {
-    return `${Math.min(100, Math.max(0, (score / 10) * 100))}%`
+    return `${Math.min(100, Math.max(0, (score / 10) * 100))}%`;
 }
 
 function evaluationAverageLabel(speaking: number, technical: number, attitude: number): string {
-    return ((speaking + technical + attitude) / 3).toFixed(1).replace('.', ',')
+    return ((speaking + technical + attitude) / 3).toFixed(1).replace('.', ',');
 }
 
 const activityActionLabels: Record<string, string> = {
@@ -735,92 +713,89 @@ const activityActionLabels: Record<string, string> = {
     'final.reject': 'Tidak lolos seleksi akhir',
     'attendance.check_in': 'Absensi interview tercatat',
     'interview.no_show': 'Tidak hadir interview',
-}
+};
 
 function activityActionLabel(action: string): string {
-    const label = activityActionLabels[action]
-    if (label) return label
+    const label = activityActionLabels[action];
+    if (label) return label;
 
-    const pretty = action.replace(/[._-]+/g, ' ').trim()
-    if (pretty === '') return action
+    const pretty = action.replace(/[._-]+/g, ' ').trim();
+    if (pretty === '') return action;
 
-    return pretty.charAt(0).toUpperCase() + pretty.slice(1)
+    return pretty.charAt(0).toUpperCase() + pretty.slice(1);
 }
 
-
-const instagramHandle = computed<string>(() =>
-    props.application.instagram_username.replace(/^@+/, '').trim(),
-)
-const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`)
+const instagramHandle = computed<string>(() => props.application.instagram_username.replace(/^@+/, '').trim());
+const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`);
 
 const portfolioExternalUrl = computed<string | null>(() => {
-    const applicationDocument = props.application.document
-    if (applicationDocument === null) return null
-    const raw: string | null = applicationDocument.portfolio_url
-    return raw !== null && isHttpUrl(raw) ? raw : null
-})
+    const applicationDocument = props.application.document;
+    if (applicationDocument === null) return null;
+    const raw: string | null = applicationDocument.portfolio_url;
+    return raw !== null && isHttpUrl(raw) ? raw : null;
+});
 
 const twibbonExternalUrl = computed<string | null>(() => {
-    const applicationDocument = props.application.document
-    if (applicationDocument === null) return null
-    const raw: string | null = applicationDocument.twibbon_url
-    return raw !== null && isHttpUrl(raw) ? raw : null
-})
+    const applicationDocument = props.application.document;
+    if (applicationDocument === null) return null;
+    const raw: string | null = applicationDocument.twibbon_url;
+    return raw !== null && isHttpUrl(raw) ? raw : null;
+});
 
 const cvDownloadUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'cv'),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'cv')
+);
 const cvPreviewUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'cv', true),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'cv', true)
+);
 const portfolioDownloadUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'portfolio'),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'portfolio')
+);
 const portfolioPreviewUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'portfolio', true),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'portfolio', true)
+);
 const instagramFollowDownloadUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow'),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow')
+);
 const instagramFollowPreviewUrl = computed<string>(() =>
-    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow', true),
-)
+    routes.admin.recruitment.applications.document(props.application.id, 'instagram_follow', true)
+);
 
-const cvPreviewLoading = ref<boolean>(true)
-const cvPreviewFailed = ref<boolean>(false)
-const portfolioPreviewLoading = ref<boolean>(true)
-const portfolioPreviewFailed = ref<boolean>(false)
-const instagramFollowPreviewFailed = ref<boolean>(false)
+const cvPreviewLoading = ref<boolean>(true);
+const cvPreviewFailed = ref<boolean>(false);
+const portfolioPreviewLoading = ref<boolean>(true);
+const portfolioPreviewFailed = ref<boolean>(false);
+const instagramFollowPreviewFailed = ref<boolean>(false);
 
 function resetDocumentPreview(): void {
-    cvPreviewLoading.value = true
-    cvPreviewFailed.value = false
-    portfolioPreviewLoading.value = true
-    portfolioPreviewFailed.value = false
-    instagramFollowPreviewFailed.value = false
+    cvPreviewLoading.value = true;
+    cvPreviewFailed.value = false;
+    portfolioPreviewLoading.value = true;
+    portfolioPreviewFailed.value = false;
+    instagramFollowPreviewFailed.value = false;
 }
 
 watch(
     () => props.application.id,
-    () => resetDocumentPreview(),
-)
+    () => resetDocumentPreview()
+);
 
 const modalTitle = computed(() => {
-    if (screeningAction.value === 'revision') return 'Minta revisi'
-    if (screeningAction.value === 'reject') return 'Tolak applicant'
-    return 'Keputusan screening'
-})
+    if (screeningAction.value === 'revision') return 'Minta revisi';
+    if (screeningAction.value === 'reject') return 'Tolak applicant';
+    return 'Keputusan screening';
+});
 
 const defaultTab = computed(() => {
-    const { stage, revision_required, correction_requests } = props.application
-    const hasPendingCorrection = correction_requests.some((c) => c.status === 'pending')
+    const { stage, revision_required, correction_requests } = props.application;
+    const hasPendingCorrection = correction_requests.some((c) => c.status === 'pending');
 
-    if (revision_required || hasPendingCorrection) return 'screening'
-    if (stage === 'submitted' || stage === 'screening') return 'screening'
-    if (stage === 'final_review' || stage === 'completed') return 'final'
+    if (revision_required || hasPendingCorrection) return 'screening';
+    if (stage === 'submitted' || stage === 'screening') return 'screening';
+    if (stage === 'final_review' || stage === 'completed') return 'final';
 
-    return 'profile'
-})
+    return 'profile';
+});
 </script>
 
 <template>
@@ -829,7 +804,12 @@ const defaultTab = computed(() => {
             <Button v-if="canVerify" size="sm" variant="secondary" @click="requestConfirm('verify')">
                 Verifikasi
             </Button>
-            <Button v-if="canScreen && !hideRevisionAction" size="sm" variant="outline" @click="openScreeningModal('revision')">
+            <Button
+                v-if="canScreen && !hideRevisionAction"
+                size="sm"
+                variant="outline"
+                @click="openScreeningModal('revision')"
+            >
                 Revisi
             </Button>
             <Button v-if="canScreen" size="sm" variant="destructive" @click="openScreeningModal('reject')">
@@ -858,39 +838,48 @@ const defaultTab = computed(() => {
 
         <Tabs :default-value="defaultTab" class="w-full">
             <TabsList
-                class="flex h-auto w-full items-center justify-start gap-6 overflow-x-auto overflow-y-hidden whitespace-nowrap rounded-none border-0 border-b border-border bg-transparent p-0 text-muted-foreground [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                class="border-border text-muted-foreground flex h-auto w-full [scrollbar-width:none] items-center justify-start gap-6 overflow-x-auto overflow-y-hidden rounded-none border-0 border-b bg-transparent p-0 whitespace-nowrap [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
                 <TabsTrigger
                     value="profile"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    class="group hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                     <User class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
                     <span>Profil</span>
                 </TabsTrigger>
                 <TabsTrigger
                     value="screening"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    class="group hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
-                    <ClipboardCheck class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <ClipboardCheck
+                        class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100"
+                        aria-hidden="true"
+                    />
                     <span>Screening</span>
                 </TabsTrigger>
                 <TabsTrigger
                     value="final"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    class="group hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
-                    <Trophy class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <Trophy
+                        class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100"
+                        aria-hidden="true"
+                    />
                     <span>Final</span>
                 </TabsTrigger>
                 <TabsTrigger
                     value="history"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    class="group hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
-                    <History class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
+                    <History
+                        class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100"
+                        aria-hidden="true"
+                    />
                     <span>Riwayat</span>
                 </TabsTrigger>
                 <TabsTrigger
                     value="emailing"
-                    class="group -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    class="group hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground -mb-px shrink-0 gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-2.5 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                     <Mail class="size-4 shrink-0 opacity-60 group-data-[state=active]:opacity-100" aria-hidden="true" />
                     <span>Emailing</span>
@@ -898,10 +887,10 @@ const defaultTab = computed(() => {
             </TabsList>
 
             <TabsContent value="profile" class="mt-4 space-y-5">
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-5 p-6">
                         <div class="space-y-3">
-                            <p class="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
+                            <p class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
                                 Detail pendaftaran
                             </p>
                             <div class="grid gap-4 sm:grid-cols-2">
@@ -931,10 +920,8 @@ const defaultTab = computed(() => {
                                 </div>
                             </div>
                         </div>
-                        <div class="space-y-3 border-t border-border/60 pt-5">
-                            <p class="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
-                                Kontak
-                            </p>
+                        <div class="border-border/60 space-y-3 border-t pt-5">
+                            <p class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Kontak</p>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div>
                                     <p class="text-muted-foreground text-xs uppercase">Telepon</p>
@@ -967,10 +954,10 @@ const defaultTab = computed(() => {
                     </CardContent>
                 </Card>
 
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-4 p-6">
                         <p class="text-sm font-semibold">Dokumen</p>
-                        <div v-if="application.document" class="divide-y divide-border">
+                        <div v-if="application.document" class="divide-border divide-y">
                             <div class="space-y-3 pb-5">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div class="flex items-center gap-3">
@@ -992,12 +979,7 @@ const defaultTab = computed(() => {
                                                 Unduh CV
                                             </a>
                                         </Button>
-                                        <Button
-                                            v-if="!cvPreviewFailed"
-                                            as-child
-                                            variant="ghost"
-                                            size="sm"
-                                        >
+                                        <Button v-if="!cvPreviewFailed" as-child variant="ghost" size="sm">
                                             <a :href="cvPreviewUrl" target="_blank" rel="noopener">
                                                 <ExternalLink class="mr-2 size-4" />
                                                 Buka di tab baru
@@ -1007,7 +989,7 @@ const defaultTab = computed(() => {
                                 </div>
                                 <div
                                     v-if="application.document.has_cv_file"
-                                    class="relative overflow-hidden rounded-lg border bg-muted/30"
+                                    class="bg-muted/30 relative overflow-hidden rounded-lg border"
                                 >
                                     <iframe
                                         v-show="!cvPreviewFailed"
@@ -1016,11 +998,14 @@ const defaultTab = computed(() => {
                                         class="h-80 w-full bg-white"
                                         loading="lazy"
                                         @load="cvPreviewLoading = false"
-                                        @error="cvPreviewFailed = true; cvPreviewLoading = false"
+                                        @error="
+                                            cvPreviewFailed = true;
+                                            cvPreviewLoading = false;
+                                        "
                                     />
                                     <div
                                         v-if="cvPreviewLoading && !cvPreviewFailed"
-                                        class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/30 p-6 text-center"
+                                        class="bg-muted/30 absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center"
                                         aria-live="polite"
                                     >
                                         <div
@@ -1034,8 +1019,7 @@ const defaultTab = computed(() => {
                                         class="flex flex-col items-center justify-center gap-3 p-6 text-center"
                                     >
                                         <p class="text-muted-foreground text-sm">
-                                            Pratinjau tidak dapat dimuat. Gunakan tombol unduh untuk membuka
-                                            berkas.
+                                            Pratinjau tidak dapat dimuat. Gunakan tombol unduh untuk membuka berkas.
                                         </p>
                                         <Button as-child variant="outline" size="sm">
                                             <a :href="cvDownloadUrl">
@@ -1057,17 +1041,13 @@ const defaultTab = computed(() => {
                                         :href="portfolioExternalUrl"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
+                                        class="text-primary inline-flex max-w-full min-w-0 items-center gap-2 text-sm underline-offset-4 hover:underline"
                                     >
                                         <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
                                         <span class="truncate">{{ portfolioExternalUrl }}</span>
                                     </a>
                                     <Button as-child variant="outline" size="sm">
-                                        <a
-                                            :href="portfolioExternalUrl"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
+                                        <a :href="portfolioExternalUrl" target="_blank" rel="noopener noreferrer">
                                             <ExternalLink class="mr-2 size-4" />
                                             Buka tautan
                                         </a>
@@ -1097,12 +1077,7 @@ const defaultTab = computed(() => {
                                                     Unduh portfolio
                                                 </a>
                                             </Button>
-                                            <Button
-                                                v-if="!portfolioPreviewFailed"
-                                                as-child
-                                                variant="ghost"
-                                                size="sm"
-                                            >
+                                            <Button v-if="!portfolioPreviewFailed" as-child variant="ghost" size="sm">
                                                 <a :href="portfolioPreviewUrl" target="_blank" rel="noopener">
                                                     <ExternalLink class="mr-2 size-4" />
                                                     Buka di tab baru
@@ -1110,7 +1085,7 @@ const defaultTab = computed(() => {
                                             </Button>
                                         </div>
                                     </div>
-                                    <div class="relative overflow-hidden rounded-lg border bg-muted/30">
+                                    <div class="bg-muted/30 relative overflow-hidden rounded-lg border">
                                         <iframe
                                             v-show="!portfolioPreviewFailed"
                                             :src="portfolioPreviewUrl"
@@ -1118,28 +1093,28 @@ const defaultTab = computed(() => {
                                             class="h-80 w-full bg-white"
                                             loading="lazy"
                                             @load="portfolioPreviewLoading = false"
-                                            @error="portfolioPreviewFailed = true; portfolioPreviewLoading = false"
+                                            @error="
+                                                portfolioPreviewFailed = true;
+                                                portfolioPreviewLoading = false;
+                                            "
                                         />
                                         <div
                                             v-if="portfolioPreviewLoading && !portfolioPreviewFailed"
-                                            class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/30 p-6 text-center"
+                                            class="bg-muted/30 absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center"
                                             aria-live="polite"
                                         >
                                             <div
                                                 class="border-muted-foreground/30 border-t-foreground h-8 w-8 animate-spin rounded-full border-2"
                                                 aria-hidden="true"
                                             />
-                                            <p class="text-muted-foreground text-sm">
-                                                Memuat pratinjau portfolio…
-                                            </p>
+                                            <p class="text-muted-foreground text-sm">Memuat pratinjau portfolio…</p>
                                         </div>
                                         <div
                                             v-if="portfolioPreviewFailed"
                                             class="flex flex-col items-center justify-center gap-3 p-6 text-center"
                                         >
                                             <p class="text-muted-foreground text-sm">
-                                                Pratinjau tidak dapat dimuat. Gunakan tombol unduh untuk membuka
-                                                berkas.
+                                                Pratinjau tidak dapat dimuat. Gunakan tombol unduh untuk membuka berkas.
                                             </p>
                                             <Button as-child variant="outline" size="sm">
                                                 <a :href="portfolioDownloadUrl">
@@ -1155,16 +1130,13 @@ const defaultTab = computed(() => {
 
                             <div class="space-y-3 pt-5">
                                 <p class="text-sm font-semibold">Bukti Follow Instagram</p>
-                                <div
-                                    v-if="application.document.has_instagram_follow_file"
-                                    class="space-y-3"
-                                >
+                                <div v-if="application.document.has_instagram_follow_file" class="space-y-3">
                                     <div class="flex flex-wrap items-center justify-between gap-3">
                                         <div>
                                             <p class="text-sm font-medium">
                                                 {{
-                                                    application.document.instagram_follow_original_name
-                                                        ?? 'Bukti follow'
+                                                    application.document.instagram_follow_original_name ??
+                                                    'Bukti follow'
                                                 }}
                                             </p>
                                             <p
@@ -1183,23 +1155,19 @@ const defaultTab = computed(() => {
                                                 </a>
                                             </Button>
                                             <Button as-child variant="ghost" size="sm">
-                                                <a
-                                                    :href="instagramFollowPreviewUrl"
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                >
+                                                <a :href="instagramFollowPreviewUrl" target="_blank" rel="noopener">
                                                     <ExternalLink class="mr-2 size-4" />
                                                     Buka di tab baru
                                                 </a>
                                             </Button>
                                         </div>
                                     </div>
-                                    <div class="overflow-hidden rounded-lg border bg-muted/30">
+                                    <div class="bg-muted/30 overflow-hidden rounded-lg border">
                                         <img
                                             v-show="!instagramFollowPreviewFailed"
                                             :src="instagramFollowPreviewUrl"
                                             alt="Bukti follow Instagram"
-                                            class="max-h-80 w-full object-contain bg-white"
+                                            class="max-h-80 w-full bg-white object-contain"
                                             loading="lazy"
                                             @error="instagramFollowPreviewFailed = true"
                                         />
@@ -1224,22 +1192,21 @@ const defaultTab = computed(() => {
 
                             <div class="space-y-3 pt-5">
                                 <p class="text-sm font-semibold">Link Twibbon</p>
-                                <div v-if="twibbonExternalUrl" class="flex flex-wrap items-center justify-between gap-3">
+                                <div
+                                    v-if="twibbonExternalUrl"
+                                    class="flex flex-wrap items-center justify-between gap-3"
+                                >
                                     <a
                                         :href="twibbonExternalUrl"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="text-primary inline-flex min-w-0 max-w-full items-center gap-2 text-sm underline-offset-4 hover:underline"
+                                        class="text-primary inline-flex max-w-full min-w-0 items-center gap-2 text-sm underline-offset-4 hover:underline"
                                     >
                                         <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
                                         <span class="truncate">{{ twibbonExternalUrl }}</span>
                                     </a>
                                     <Button as-child variant="outline" size="sm">
-                                        <a
-                                            :href="twibbonExternalUrl"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
+                                        <a :href="twibbonExternalUrl" target="_blank" rel="noopener noreferrer">
                                             <ExternalLink class="mr-2 size-4" />
                                             Buka tautan
                                         </a>
@@ -1254,7 +1221,7 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="screening" class="mt-4 space-y-5">
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-3 p-6">
                         <p class="text-sm font-semibold">Riwayat screening</p>
                         <div
@@ -1281,7 +1248,7 @@ const defaultTab = computed(() => {
                     </CardContent>
                 </Card>
 
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-3 p-6">
                         <p class="text-sm font-semibold">Permintaan koreksi</p>
                         <div
@@ -1303,14 +1270,8 @@ const defaultTab = computed(() => {
                                 v-if="!readonly && canReviewCorrections && correction.status === 'pending'"
                                 class="mt-4 flex flex-wrap gap-2"
                             >
-                                <Button size="sm" @click="approveCorrection(correction.id)">
-                                    Setujui
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    @click="rejectCorrection(correction.id)"
-                                >
+                                <Button size="sm" @click="approveCorrection(correction.id)"> Setujui </Button>
+                                <Button size="sm" variant="destructive" @click="rejectCorrection(correction.id)">
                                     Tolak
                                 </Button>
                             </div>
@@ -1323,18 +1284,18 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="final" class="mt-4 space-y-5">
-                <Card v-if="application.evaluation" class="overflow-hidden rounded-2xl border-border/70">
+                <Card v-if="application.evaluation" class="border-border/70 overflow-hidden rounded-2xl">
                     <CardContent class="p-0">
                         <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
-                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                            <p class="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                                 Evaluasi primary
-                                <span v-if="primaryDivisionName !== '—'" class="normal-case tracking-normal">
+                                <span v-if="primaryDivisionName !== '—'" class="tracking-normal normal-case">
                                     — {{ primaryDivisionName }}
                                 </span>
                             </p>
                             <span
                                 v-if="application.evaluation.is_locked"
-                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                                class="border-border/70 bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
                             >
                                 <Lock class="size-3" aria-hidden="true" />
                                 Terkunci
@@ -1363,7 +1324,7 @@ const defaultTab = computed(() => {
 
                         <div class="px-6 pt-5">
                             <div class="flex items-baseline justify-between gap-2">
-                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                <p class="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                                     Penilaian
                                 </p>
                                 <p class="text-muted-foreground text-xs">
@@ -1372,72 +1333,73 @@ const defaultTab = computed(() => {
                                         evaluationAverageLabel(
                                             application.evaluation.speaking_score,
                                             application.evaluation.technical_score,
-                                            application.evaluation.attitude_score,
+                                            application.evaluation.attitude_score
                                         )
                                     }}</span>
                                 </p>
                             </div>
-                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                            <dl class="divide-border/60 border-border/60 mt-2 divide-y border-y">
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Speaking</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
+                                            class="bg-foreground/70 h-full rounded-full"
                                             :style="{ width: scoreBarWidth(application.evaluation.speaking_score) }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluation.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{ application.evaluation.speaking_score }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Technical</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
+                                            class="bg-foreground/70 h-full rounded-full"
                                             :style="{ width: scoreBarWidth(application.evaluation.technical_score) }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluation.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{ application.evaluation.technical_score }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Attitude</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
+                                            class="bg-foreground/70 h-full rounded-full"
                                             :style="{ width: scoreBarWidth(application.evaluation.attitude_score) }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluation.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{ application.evaluation.attitude_score }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                             </dl>
                         </div>
 
                         <div v-if="application.evaluation.notes" class="px-6 pt-4">
-                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
-                                <figcaption class="text-muted-foreground text-xs">
-                                    Catatan interviewer
-                                </figcaption>
+                            <figure class="border-foreground/25 bg-muted/40 rounded-r-lg border-l-2 py-2.5 pr-3 pl-4">
+                                <figcaption class="text-muted-foreground text-xs">Catatan interviewer</figcaption>
                                 <blockquote class="mt-1 text-sm leading-relaxed">
                                     {{ application.evaluation.notes }}
                                 </blockquote>
                             </figure>
                         </div>
 
-                        <div class="px-6 pb-6 pt-4">
+                        <div class="px-6 pt-4 pb-6">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
                                 <span>Dinilai oleh {{ application.evaluation.evaluator?.name ?? 'Interviewer' }}</span>
@@ -1446,24 +1408,21 @@ const defaultTab = computed(() => {
                     </CardContent>
                 </Card>
 
-                <Card
-                    v-if="application.evaluations?.secondary"
-                    class="overflow-hidden rounded-2xl border-border/70"
-                >
+                <Card v-if="application.evaluations?.secondary" class="border-border/70 overflow-hidden rounded-2xl">
                     <CardContent class="p-0">
                         <div class="flex flex-wrap items-start justify-between gap-2 px-6 pt-5">
-                            <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                            <p class="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                                 Evaluasi secondary
                                 <span
                                     v-if="application.evaluations.secondary.division"
-                                    class="normal-case tracking-normal"
+                                    class="tracking-normal normal-case"
                                 >
                                     — {{ application.evaluations.secondary.division }}
                                 </span>
                             </p>
                             <span
                                 v-if="application.evaluations.secondary.is_locked"
-                                class="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                                class="border-border/70 bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
                             >
                                 <Lock class="size-3" aria-hidden="true" />
                                 Terkunci
@@ -1492,7 +1451,7 @@ const defaultTab = computed(() => {
 
                         <div class="px-6 pt-5">
                             <div class="flex items-baseline justify-between gap-2">
-                                <p class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                                <p class="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                                     Penilaian
                                 </p>
                                 <p class="text-muted-foreground text-xs">
@@ -1501,82 +1460,98 @@ const defaultTab = computed(() => {
                                         evaluationAverageLabel(
                                             application.evaluations.secondary.speaking_score,
                                             application.evaluations.secondary.technical_score,
-                                            application.evaluations.secondary.attitude_score,
+                                            application.evaluations.secondary.attitude_score
                                         )
                                     }}</span>
                                 </p>
                             </div>
-                            <dl class="mt-2 divide-y divide-border/60 border-y border-border/60">
+                            <dl class="divide-border/60 border-border/60 mt-2 divide-y border-y">
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Speaking</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
-                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.speaking_score) }"
+                                            class="bg-foreground/70 h-full rounded-full"
+                                            :style="{
+                                                width: scoreBarWidth(application.evaluations.secondary.speaking_score),
+                                            }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluations.secondary.speaking_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{
+                                            application.evaluations.secondary.speaking_score
+                                        }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Technical</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
-                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.technical_score) }"
+                                            class="bg-foreground/70 h-full rounded-full"
+                                            :style="{
+                                                width: scoreBarWidth(application.evaluations.secondary.technical_score),
+                                            }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluations.secondary.technical_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{
+                                            application.evaluations.secondary.technical_score
+                                        }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                                 <div class="flex items-center gap-3 py-2">
                                     <dt class="w-24 shrink-0 text-sm">Attitude</dt>
                                     <dd
-                                        class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                                        class="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full"
                                         aria-hidden="true"
                                     >
                                         <div
-                                            class="h-full rounded-full bg-foreground/70"
-                                            :style="{ width: scoreBarWidth(application.evaluations.secondary.attitude_score) }"
+                                            class="bg-foreground/70 h-full rounded-full"
+                                            :style="{
+                                                width: scoreBarWidth(application.evaluations.secondary.attitude_score),
+                                            }"
                                         />
                                     </dd>
                                     <dd class="w-14 shrink-0 text-right text-sm tabular-nums">
-                                        <span class="font-semibold">{{ application.evaluations.secondary.attitude_score }}</span><span class="text-muted-foreground">/10</span>
+                                        <span class="font-semibold">{{
+                                            application.evaluations.secondary.attitude_score
+                                        }}</span
+                                        ><span class="text-muted-foreground">/10</span>
                                     </dd>
                                 </div>
                             </dl>
                         </div>
 
                         <div v-if="application.evaluations.secondary.notes" class="px-6 pt-4">
-                            <figure class="rounded-r-lg border-l-2 border-foreground/25 bg-muted/40 py-2.5 pl-4 pr-3">
-                                <figcaption class="text-muted-foreground text-xs">
-                                    Catatan interviewer
-                                </figcaption>
+                            <figure class="border-foreground/25 bg-muted/40 rounded-r-lg border-l-2 py-2.5 pr-3 pl-4">
+                                <figcaption class="text-muted-foreground text-xs">Catatan interviewer</figcaption>
                                 <blockquote class="mt-1 text-sm leading-relaxed">
                                     {{ application.evaluations.secondary.notes }}
                                 </blockquote>
                             </figure>
                         </div>
 
-                        <div class="px-6 pb-6 pt-4">
+                        <div class="px-6 pt-4 pb-6">
                             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <UserCheck class="size-3.5 shrink-0" aria-hidden="true" />
-                                <span>Dinilai oleh {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span>
+                                <span
+                                    >Dinilai oleh
+                                    {{ application.evaluations.secondary.evaluator?.name ?? 'Interviewer' }}</span
+                                >
                             </p>
                         </div>
                     </CardContent>
                 </Card>
                 <div
                     v-else-if="application.secondary_division && application.evaluations?.primary"
-                    class="flex items-start gap-2.5 rounded-2xl border border-dashed border-border px-4 py-3.5"
+                    class="border-border flex items-start gap-2.5 rounded-2xl border border-dashed px-4 py-3.5"
                 >
                     <CalendarClock class="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p class="text-muted-foreground text-xs leading-relaxed">
@@ -1584,7 +1559,7 @@ const defaultTab = computed(() => {
                     </p>
                 </div>
 
-                <Card v-if="application.final_decision" class="rounded-2xl border-border/70">
+                <Card v-if="application.final_decision" class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-3 p-6">
                         <p class="text-sm font-semibold">Keputusan final</p>
                         <div v-if="application.final_decision.membership_type_label" class="grid gap-3 sm:grid-cols-2">
@@ -1620,7 +1595,7 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="history" class="mt-4">
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-3 p-6">
                         <div
                             v-for="log in application.activity_logs"
@@ -1631,7 +1606,11 @@ const defaultTab = computed(() => {
                             <div class="min-w-0 flex-1">
                                 <p class="font-medium">{{ activityActionLabel(log.action) }}</p>
                                 <p class="text-muted-foreground text-xs">
-                                    {{ log.actor?.name ?? 'Sistem' }} · {{ formatDateTime({ value: log.created_at, variant: 'date-time-medium' }) || 'Waktu tidak tercatat' }}
+                                    {{ log.actor?.name ?? 'Sistem' }} ·
+                                    {{
+                                        formatDateTime({ value: log.created_at, variant: 'date-time-medium' }) ||
+                                        'Waktu tidak tercatat'
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -1689,7 +1668,9 @@ const defaultTab = computed(() => {
                             >
                                 <Checkbox
                                     :model-value="isCheckboxOptionSelected(screeningForm.sections, opt.value)"
-                                    @update:model-value="(v: boolean | 'indeterminate') => toggleRevisionSection(opt.value, v === true)"
+                                    @update:model-value="
+                                        (v: boolean | 'indeterminate') => toggleRevisionSection(opt.value, v === true)
+                                    "
                                 />
                                 {{ opt.label }}
                             </label>
@@ -1714,10 +1695,7 @@ const defaultTab = computed(() => {
                                     : 'Catatan internal untuk tim...'
                             "
                         />
-                        <p
-                            v-if="screeningAction === 'revision'"
-                            class="text-muted-foreground text-xs"
-                        >
+                        <p v-if="screeningAction === 'revision'" class="text-muted-foreground text-xs">
                             Catatan ini dikirim ke applicant lewat email.
                         </p>
                         <p v-if="screeningForm.errors.notes" class="text-destructive text-xs">
@@ -1736,15 +1714,12 @@ const defaultTab = computed(() => {
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" @click="screeningModalOpen = false">
-                            Batal
-                        </Button>
+                        <Button type="button" variant="outline" @click="screeningModalOpen = false"> Batal </Button>
                         <Button
                             type="submit"
                             :disabled="
                                 screeningForm.processing ||
-                                (screeningAction === 'revision' &&
-                                    screeningForm.sections.length === 0)
+                                (screeningAction === 'revision' && screeningForm.sections.length === 0)
                             "
                             :variant="screeningAction === 'reject' ? 'destructive' : 'default'"
                         >
@@ -1764,14 +1739,12 @@ const defaultTab = computed(() => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <p v-if="confirmConsequence" class="text-sm text-muted-foreground">
+                <p v-if="confirmConsequence" class="text-muted-foreground text-sm">
                     {{ confirmConsequence }}
                 </p>
 
                 <DialogFooter>
-                    <Button type="button" variant="outline" @click="confirmOpen = false">
-                        Batal
-                    </Button>
+                    <Button type="button" variant="outline" @click="confirmOpen = false"> Batal </Button>
                     <Button
                         type="button"
                         :variant="confirmAction === 'reject' ? 'destructive' : 'default'"
@@ -1785,7 +1758,7 @@ const defaultTab = computed(() => {
         </Dialog>
 
         <Dialog v-if="!readonly" v-model:open="finalConfirmOpen">
-            <DialogContent class="sm:max-w-lg *:min-w-0" @open-auto-focus="focusFinalCancel">
+            <DialogContent class="*:min-w-0 sm:max-w-lg" @open-auto-focus="focusFinalCancel">
                 <DialogHeader>
                     <DialogTitle>Konfirmasi keputusan final</DialogTitle>
                     <DialogDescription>
@@ -1793,9 +1766,9 @@ const defaultTab = computed(() => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="max-w-full min-w-0 rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                <div class="border-border/70 bg-muted/40 max-w-full min-w-0 rounded-xl border px-4 py-3 text-sm">
                     <p class="font-semibold break-words">{{ application.full_name }}</p>
-                    <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
+                    <p class="text-muted-foreground mt-0.5 font-mono text-xs break-words">
                         {{ application.registration_number }}
                     </p>
                     <p class="mt-2 break-words">
@@ -1807,11 +1780,14 @@ const defaultTab = computed(() => {
                     </p>
                 </div>
 
-                <p v-if="!isFinalRejectChoice" class="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                <p
+                    v-if="!isFinalRejectChoice"
+                    class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+                >
                     Langkah {{ finalStep }} dari 2 — {{ finalStep === 1 ? 'Pilih divisi' : 'Konfirmasi' }}
                 </p>
 
-                <div v-if="!isFinalRejectChoice && finalStep === 1" class="min-w-0 max-w-full space-y-2">
+                <div v-if="!isFinalRejectChoice && finalStep === 1" class="max-w-full min-w-0 space-y-2">
                     <Label for="final-division-select">Divisi penempatan</Label>
                     <SimpleSelect
                         id="final-division-select"
@@ -1819,71 +1795,73 @@ const defaultTab = computed(() => {
                         :options="divisionSelectOptions"
                         placeholder="Pilih divisi penempatan"
                         :invalid="!!finalConfirmForm.errors.final_division_id"
-                        class="min-w-0 max-w-full [&>span]:min-w-0"
+                        class="max-w-full min-w-0 [&>span]:min-w-0"
                     />
                     <p v-if="finalConfirmForm.errors.final_division_id" class="text-destructive text-xs">
                         {{ finalConfirmForm.errors.final_division_id }}
                     </p>
                     <div
                         v-if="finalConfirmForm.final_division_id !== ''"
-                        class="flex min-w-0 max-w-full flex-wrap gap-1.5"
+                        class="flex max-w-full min-w-0 flex-wrap gap-1.5"
                     >
                         <span
                             v-if="selectedDivisionHint.isPrimary"
-                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                            class="border-border/70 bg-background inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium"
                         >
                             Primary
                         </span>
                         <span
                             v-if="selectedDivisionHint.isSecondary"
-                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-medium"
+                            class="border-border/70 bg-background inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium"
                         >
                             Secondary
                         </span>
                         <span
                             v-if="selectedDivisionHint.recommendationLabel"
-                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                            class="border-border/70 bg-background inline-flex items-center rounded-md border px-2 py-0.5 text-xs"
                         >
                             {{ selectedDivisionHint.recommendationLabel }}
                         </span>
                         <span
                             v-if="selectedDivisionHint.averageLabel"
-                            class="inline-flex items-center rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs"
+                            class="border-border/70 bg-background inline-flex items-center rounded-md border px-2 py-0.5 text-xs"
                         >
                             rata-rata {{ selectedDivisionHint.averageLabel }}
                         </span>
                     </div>
                     <div
                         v-if="suggestedDivision"
-                        class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm"
+                        class="border-border/70 bg-muted/40 max-w-full min-w-0 rounded-xl border px-4 py-3 text-sm"
                     >
                         <p class="font-semibold break-words">Saran: {{ suggestedDivision.name }}</p>
                         <p class="text-muted-foreground mt-0.5 text-xs break-words">{{ suggestedDivision.reason }}</p>
                     </div>
                 </div>
 
-                <div v-if="!isFinalRejectChoice && finalStep === 2" class="min-w-0 max-w-full space-y-3">
-                    <div class="min-w-0 max-w-full rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm">
+                <div v-if="!isFinalRejectChoice && finalStep === 2" class="max-w-full min-w-0 space-y-3">
+                    <div class="border-border/70 bg-muted/40 max-w-full min-w-0 rounded-xl border px-4 py-3 text-sm">
                         <p class="font-semibold break-words">{{ application.full_name }}</p>
-                        <p class="mt-0.5 font-mono text-xs text-muted-foreground break-words">
+                        <p class="text-muted-foreground mt-0.5 font-mono text-xs break-words">
                             {{ application.registration_number }}
                         </p>
                         <p class="mt-2 break-words">{{ finalChoiceActionLabel }} — {{ selectedDivisionName }}</p>
                     </div>
 
-                    <div class="min-w-0 max-w-full space-y-2 rounded-xl border border-border/70 px-4 py-3">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div class="border-border/70 max-w-full min-w-0 space-y-2 rounded-xl border px-4 py-3">
+                        <p class="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                             Pratinjau email
                         </p>
-                        <div class="min-w-0 max-w-full rounded-lg bg-muted/40 px-4 py-3 text-sm leading-relaxed break-words">
+                        <div
+                            class="bg-muted/40 max-w-full min-w-0 rounded-lg px-4 py-3 text-sm leading-relaxed break-words"
+                        >
                             <p>Halo {{ application.full_name }},</p>
                             <p class="mt-2">
-                                Selamat! Kamu diterima sebagai {{ membershipDisplayLabel }} DOSCOM di
-                                divisi {{ selectedDivisionName }}.
+                                Selamat! Kamu diterima sebagai {{ membershipDisplayLabel }} DOSCOM di divisi
+                                {{ selectedDivisionName }}.
                             </p>
                             <span
                                 v-if="finalWaIncludeGroup"
-                                class="mt-3 inline-flex items-center rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background"
+                                class="bg-foreground text-background mt-3 inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold"
                                 aria-hidden="true"
                             >
                                 Gabung Grup WA {{ relevantGroupLinkLabel }}
@@ -1891,7 +1869,7 @@ const defaultTab = computed(() => {
                         </div>
                     </div>
 
-                    <div class="flex min-w-0 max-w-full items-center justify-between gap-3 rounded-xl border p-3">
+                    <div class="flex max-w-full min-w-0 items-center justify-between gap-3 rounded-xl border p-3">
                         <div class="min-w-0 flex-1 space-y-0.5">
                             <Label for="final-include-group">Sertakan link grup di email</Label>
                             <p class="text-muted-foreground text-xs">
@@ -1905,11 +1883,14 @@ const defaultTab = computed(() => {
                         <Switch id="final-include-group" v-model="finalWaIncludeGroup" />
                     </div>
 
-                    <div v-if="finalWaIncludeGroup && relevantGroupLink !== ''" class="rounded-xl border bg-muted/20 p-3">
+                    <div
+                        v-if="finalWaIncludeGroup && relevantGroupLink !== ''"
+                        class="bg-muted/20 rounded-xl border p-3"
+                    >
                         <p class="text-muted-foreground text-xs">
                             Menggunakan link grup WA {{ relevantGroupLinkLabel }} periode ini:
                         </p>
-                        <p class="text-foreground mt-0.5 truncate text-xs font-mono">
+                        <p class="text-foreground mt-0.5 truncate font-mono text-xs">
                             {{ relevantGroupLink }}
                         </p>
                     </div>
@@ -1917,7 +1898,8 @@ const defaultTab = computed(() => {
                     <div v-else-if="finalWaIncludeGroup" class="space-y-2 rounded-xl border border-dashed p-3">
                         <Label for="final-step2-wa-link">Link grup WA {{ relevantGroupLinkLabel }}</Label>
                         <p class="text-muted-foreground text-xs">
-                            Periode ini belum punya link grup WA {{ relevantGroupLinkLabel }}. Isi link sekarang agar disertakan di email dan disimpan pada periode ini.
+                            Periode ini belum punya link grup WA {{ relevantGroupLinkLabel }}. Isi link sekarang agar
+                            disertakan di email dan disimpan pada periode ini.
                         </p>
                         <input
                             id="final-step2-wa-link"
@@ -1945,10 +1927,7 @@ const defaultTab = computed(() => {
                             placeholder="Catatan internal untuk tim..."
                             required
                         />
-                        <p
-                            v-if="finalConfirmForm.errors.internal_reason"
-                            class="text-destructive text-xs"
-                        >
+                        <p v-if="finalConfirmForm.errors.internal_reason" class="text-destructive text-xs">
                             {{ finalConfirmForm.errors.internal_reason }}
                         </p>
                     </div>
@@ -1962,23 +1941,15 @@ const defaultTab = computed(() => {
                             placeholder="Pesan yang tampil di tracking portal..."
                             required
                         />
-                        <p
-                            v-if="finalConfirmForm.errors.public_message"
-                            class="text-destructive text-xs"
-                        >
+                        <p v-if="finalConfirmForm.errors.public_message" class="text-destructive text-xs">
                             {{ finalConfirmForm.errors.public_message }}
                         </p>
                     </div>
                 </div>
 
-                <DialogFooter class="min-w-0 max-w-full flex-wrap">
+                <DialogFooter class="max-w-full min-w-0 flex-wrap">
                     <template v-if="!isFinalRejectChoice && finalStep === 1">
-                        <Button
-                            ref="finalCancelRef"
-                            type="button"
-                            variant="outline"
-                            @click="finalConfirmOpen = false"
-                        >
+                        <Button ref="finalCancelRef" type="button" variant="outline" @click="finalConfirmOpen = false">
                             Batal
                         </Button>
                         <Button
@@ -1990,24 +1961,13 @@ const defaultTab = computed(() => {
                         </Button>
                     </template>
                     <template v-else-if="!isFinalRejectChoice">
-                        <Button type="button" variant="outline" @click="finalStep = 1">
-                            Kembali
-                        </Button>
-                        <Button
-                            type="button"
-                            :disabled="finalConfirmForm.processing"
-                            @click="submitFinalConfirm"
-                        >
+                        <Button type="button" variant="outline" @click="finalStep = 1"> Kembali </Button>
+                        <Button type="button" :disabled="finalConfirmForm.processing" @click="submitFinalConfirm">
                             Ya, lanjutkan
                         </Button>
                     </template>
                     <template v-else>
-                        <Button
-                            ref="finalCancelRef"
-                            type="button"
-                            variant="outline"
-                            @click="finalConfirmOpen = false"
-                        >
+                        <Button ref="finalCancelRef" type="button" variant="outline" @click="finalConfirmOpen = false">
                             Batal
                         </Button>
                         <Button
@@ -2028,8 +1988,8 @@ const defaultTab = computed(() => {
                 <DialogHeader>
                     <DialogTitle>Link grup WA belum diisi</DialogTitle>
                     <DialogDescription>
-                        Periode ini belum punya link grup. Isi sekarang agar email lolos menyertakan
-                        link grup, atau matikan toggle bila periode ini memang tidak pakai grup.
+                        Periode ini belum punya link grup. Isi sekarang agar email lolos menyertakan link grup, atau
+                        matikan toggle bila periode ini memang tidak pakai grup.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -2064,15 +2024,14 @@ const defaultTab = computed(() => {
                 </div>
 
                 <DialogFooter>
-                    <Button type="button" variant="outline" @click="closeGroupLinkDialog">
-                        Batal
-                    </Button>
+                    <Button type="button" variant="outline" @click="closeGroupLinkDialog"> Batal </Button>
                     <Button type="button" :disabled="waSaving" @click="submitGroupLink">
-                        {{ waSaving ? 'Menyimpan…' : waIncludeGroup ? 'Simpan & loloskan' : 'Loloskan tanpa link grup' }}
+                        {{
+                            waSaving ? 'Menyimpan…' : waIncludeGroup ? 'Simpan & loloskan' : 'Loloskan tanpa link grup'
+                        }}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-
     </div>
 </template>

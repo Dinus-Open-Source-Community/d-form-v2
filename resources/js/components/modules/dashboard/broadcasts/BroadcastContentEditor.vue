@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { ref, type Component } from 'vue'
-import { useEditor, EditorContent } from '@tiptap/vue-3'
-import { StarterKit } from '@tiptap/starter-kit'
-import { Underline } from '@tiptap/extension-underline'
-import { TextAlign } from '@tiptap/extension-text-align'
-import { Highlight } from '@tiptap/extension-highlight'
-import { Link } from '@tiptap/extension-link'
-import { Image } from '@tiptap/extension-image'
-import { Placeholder } from '@tiptap/extension-placeholder'
-import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
-import { TextStyle, Color } from '@tiptap/extension-text-style'
-import { Typography } from '@tiptap/extension-typography'
-import { Button } from '@/components/ui/button'
+import { ref, type Component } from 'vue';
+import { useEditor, EditorContent } from '@tiptap/vue-3';
+import { StarterKit } from '@tiptap/starter-kit';
+import { Underline } from '@tiptap/extension-underline';
+import { TextAlign } from '@tiptap/extension-text-align';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Link } from '@tiptap/extension-link';
+import { Image } from '@tiptap/extension-image';
+import { Placeholder } from '@tiptap/extension-placeholder';
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
+import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { Typography } from '@tiptap/extension-typography';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogClose,
@@ -20,13 +20,13 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { uploadBroadcastImage } from '@/adapters/http/broadcast'
-import { isHttpRequestError, readPublicMessage } from '@/adapters/http/httpError'
-import type { TValidationErrorBag } from '@/types/http'
-import { validateUploadFile } from '@/lib/uploadValidation'
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { uploadBroadcastImage } from '@/adapters/http/broadcast';
+import { isHttpRequestError, readPublicMessage } from '@/adapters/http/httpError';
+import type { TValidationErrorBag } from '@/types/http';
+import { validateUploadFile } from '@/lib/uploadValidation';
 import {
     Bold,
     Italic,
@@ -50,7 +50,7 @@ import {
     Redo,
     Minus,
     Upload as UploadIcon,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
 /**
  * Editor konten broadcast. Khusus broadcast (bukan builder form):
@@ -59,70 +59,69 @@ import {
  * disisipkan — base64 (`data:` URL) tidak pernah masuk ke DB.
  */
 
-const props = defineProps<{ modelValue?: string; uploadUrl: string }>()
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
-
+const props = defineProps<{ modelValue?: string; uploadUrl: string }>();
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
 function readFirstValidationMessage(errors: TValidationErrorBag | null): string {
-    if (errors === null) return ''
+    if (errors === null) return '';
     for (const entry of Object.values(errors)) {
         if (Array.isArray(entry)) {
-            const first = entry.find((item) => item.trim() !== '')
-            if (first !== undefined) return first.trim()
-            continue
+            const first = entry.find((item) => item.trim() !== '');
+            if (first !== undefined) return first.trim();
+            continue;
         }
-        if (entry.trim() !== '') return entry.trim()
+        if (entry.trim() !== '') return entry.trim();
     }
-    return ''
+    return '';
 }
 
 function readUploadErrorMessage(error: unknown): string {
-    if (!isHttpRequestError(error)) return 'Gagal mengunggah gambar. Periksa koneksi lalu coba lagi.'
+    if (!isHttpRequestError(error)) return 'Gagal mengunggah gambar. Periksa koneksi lalu coba lagi.';
 
-    const bodyMessage = readPublicMessage(error.body)
-    if (bodyMessage !== null) return bodyMessage
+    const bodyMessage = readPublicMessage(error.body);
+    if (bodyMessage !== null) return bodyMessage;
 
-    const validationMessage = readFirstValidationMessage(error.validationErrors)
-    if (validationMessage !== '') return validationMessage
+    const validationMessage = readFirstValidationMessage(error.validationErrors);
+    if (validationMessage !== '') return validationMessage;
 
-    if (error.kind === 'invalid_response') return 'Respons upload tidak membawa URL gambar yang valid.'
+    if (error.kind === 'invalid_response') return 'Respons upload tidak membawa URL gambar yang valid.';
 
-    if (error.status === 413) return 'Ukuran gambar terlalu besar (maks 5 MB).'
+    if (error.status === 413) return 'Ukuran gambar terlalu besar (maks 5 MB).';
 
-    return 'Gagal mengunggah gambar.'
+    return 'Gagal mengunggah gambar.';
 }
 
 /** Normalisasi input URL agar valid untuk TipTap (tambah https:// bila perlu). */
 function normalizeUrl(input: string): string | null {
-    const raw = input.trim()
-    if (!raw) return null
-    if (raw.startsWith('data:')) return null
-    let candidate = raw
+    const raw = input.trim();
+    if (!raw) return null;
+    if (raw.startsWith('data:')) return null;
+    let candidate = raw;
     if (candidate.startsWith('//')) {
-        candidate = `https:${candidate}`
+        candidate = `https:${candidate}`;
     } else if (!/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
-        candidate = `https://${candidate}`
+        candidate = `https://${candidate}`;
     }
     try {
-        return new URL(candidate).href
+        return new URL(candidate).href;
     } catch {
-        return null
+        return null;
     }
 }
 
-const linkDialogOpen = ref(false)
-const linkUrlDraft = ref('')
-const linkTextDraft = ref('')
-const linkHasSelection = ref(false)
-const linkUrlError = ref('')
+const linkDialogOpen = ref(false);
+const linkUrlDraft = ref('');
+const linkTextDraft = ref('');
+const linkHasSelection = ref(false);
+const linkUrlError = ref('');
 
-const imageDialogOpen = ref(false)
-const imageUrlDraft = ref('')
-const imageUrlError = ref('')
+const imageDialogOpen = ref(false);
+const imageUrlDraft = ref('');
+const imageUrlError = ref('');
 
-const fileInput = ref<HTMLInputElement | null>(null)
-const uploadingCount = ref(0)
-const uploadError = ref('')
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadingCount = ref(0);
+const uploadError = ref('');
 
 const editor = useEditor({
     content: props.modelValue ?? '',
@@ -145,131 +144,130 @@ const editor = useEditor({
     onUpdate: ({ editor: e }) => emit('update:modelValue', e.getHTML()),
     editorProps: {
         attributes: {
-            class:
-                'dform-rich-text dform-tiptap-editor ProseMirror w-full max-w-none px-4 py-4 focus:outline-none',
+            class: 'dform-rich-text dform-tiptap-editor ProseMirror w-full max-w-none px-4 py-4 focus:outline-none',
         },
         handlePaste: (_view, event) => {
-            const files = imageFilesFromClipboard(event)
-            if (files.length === 0) return false
-            event.preventDefault()
-            void uploadAndInsert(files)
-            return true
+            const files = imageFilesFromClipboard(event);
+            if (files.length === 0) return false;
+            event.preventDefault();
+            void uploadAndInsert(files);
+            return true;
         },
         handleDrop: (view, event) => {
-            const files = imageFilesFromDrop(event)
-            if (files.length === 0) return false
-            event.preventDefault()
-            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
-            void uploadAndInsert(files, coords?.pos)
-            return true
+            const files = imageFilesFromDrop(event);
+            if (files.length === 0) return false;
+            event.preventDefault();
+            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            void uploadAndInsert(files, coords?.pos);
+            return true;
         },
     },
-})
+});
 
 function imageFilesFromClipboard(event: ClipboardEvent): File[] {
-    const items = event.clipboardData?.items
-    if (!items) return []
-    const out: File[] = []
+    const items = event.clipboardData?.items;
+    if (!items) return [];
+    const out: File[] = [];
     for (const item of items) {
-        if (item.kind !== 'file') continue
-        const file = item.getAsFile()
-        if (file && file.type.startsWith('image/')) out.push(file)
+        if (item.kind !== 'file') continue;
+        const file = item.getAsFile();
+        if (file && file.type.startsWith('image/')) out.push(file);
     }
-    return out
+    return out;
 }
 
 function imageFilesFromDrop(event: DragEvent): File[] {
-    const list = event.dataTransfer?.files
-    if (!list) return []
-    return Array.from(list).filter((file) => file.type.startsWith('image/'))
+    const list = event.dataTransfer?.files;
+    if (!list) return [];
+    return Array.from(list).filter((file) => file.type.startsWith('image/'));
 }
 
 async function uploadImageFile(file: File): Promise<string | null> {
-    const target = props.uploadUrl.trim()
+    const target = props.uploadUrl.trim();
     if (target === '') {
-        uploadError.value = 'Endpoint unggah gambar belum dikonfigurasi.'
-        return null
+        uploadError.value = 'Endpoint unggah gambar belum dikonfigurasi.';
+        return null;
     }
-    uploadingCount.value += 1
+    uploadingCount.value += 1;
     try {
-        const url = await uploadBroadcastImage(target, file)
+        const url = await uploadBroadcastImage(target, file);
         if (url.trim() === '') {
-            uploadError.value = 'Respons upload tidak membawa URL gambar yang valid.'
-            return null
+            uploadError.value = 'Respons upload tidak membawa URL gambar yang valid.';
+            return null;
         }
-        return url
+        return url;
     } catch (error) {
-        uploadError.value = readUploadErrorMessage(error)
-        return null
+        uploadError.value = readUploadErrorMessage(error);
+        return null;
     } finally {
-        uploadingCount.value = Math.max(0, uploadingCount.value - 1)
+        uploadingCount.value = Math.max(0, uploadingCount.value - 1);
     }
 }
 
 async function uploadAndInsert(files: File[], atPos?: number | null): Promise<void> {
-    const e = editor.value
-    if (!e) return
-    uploadError.value = ''
+    const e = editor.value;
+    if (!e) return;
+    uploadError.value = '';
     for (const file of files) {
-        const invalid = await validateUploadFile(file, ['png', 'jpg', 'jpeg', 'gif', 'webp'])
+        const invalid = await validateUploadFile(file, ['png', 'jpg', 'jpeg', 'gif', 'webp']);
         if (invalid) {
-            uploadError.value = invalid
-            continue
+            uploadError.value = invalid;
+            continue;
         }
-        const url = await uploadImageFile(file)
-        if (!url) continue
+        const url = await uploadImageFile(file);
+        if (!url) continue;
         if (typeof atPos === 'number' && atPos >= 0) {
-            e.chain().focus().setTextSelection(atPos).setImage({ src: url }).run()
+            e.chain().focus().setTextSelection(atPos).setImage({ src: url }).run();
         } else {
-            e.chain().focus().setImage({ src: url }).run()
+            e.chain().focus().setImage({ src: url }).run();
         }
     }
 }
 
 function triggerFilePicker(): void {
-    uploadError.value = ''
-    fileInput.value?.click()
+    uploadError.value = '';
+    fileInput.value?.click();
 }
 
 function onFilePicked(event: Event): void {
-    const input = event.target as HTMLInputElement
-    const files = input.files ? Array.from(input.files) : []
-    input.value = ''
-    if (files.length > 0) void uploadAndInsert(files)
+    const input = event.target as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    if (files.length > 0) void uploadAndInsert(files);
 }
 
 function openLinkDialog(): void {
-    const e = editor.value
-    if (!e) return
-    linkUrlError.value = ''
-    const { from, to } = e.state.selection
-    linkHasSelection.value = from !== to
-    const attrs = e.getAttributes('link')
-    const href = typeof attrs.href === 'string' ? attrs.href : ''
-    linkUrlDraft.value = href
+    const e = editor.value;
+    if (!e) return;
+    linkUrlError.value = '';
+    const { from, to } = e.state.selection;
+    linkHasSelection.value = from !== to;
+    const attrs = e.getAttributes('link');
+    const href = typeof attrs.href === 'string' ? attrs.href : '';
+    linkUrlDraft.value = href;
     if (from !== to) {
-        linkTextDraft.value = e.state.doc.textBetween(from, to, '')
+        linkTextDraft.value = e.state.doc.textBetween(from, to, '');
     } else {
-        linkTextDraft.value = ''
+        linkTextDraft.value = '';
     }
-    linkDialogOpen.value = true
+    linkDialogOpen.value = true;
 }
 
 function confirmLink(): void {
-    const e = editor.value
-    if (!e) return
-    const href = normalizeUrl(linkUrlDraft.value)
+    const e = editor.value;
+    if (!e) return;
+    const href = normalizeUrl(linkUrlDraft.value);
     if (!href) {
-        linkUrlError.value = 'Masukkan URL yang valid (mis. contoh.com atau https://…).'
-        return
+        linkUrlError.value = 'Masukkan URL yang valid (mis. contoh.com atau https://…).';
+        return;
     }
-    linkUrlError.value = ''
-    const { from, to } = e.state.selection
-    const hasSelection = from !== to
+    linkUrlError.value = '';
+    const { from, to } = e.state.selection;
+    const hasSelection = from !== to;
     if (hasSelection) {
-        e.chain().focus().setLink({ href }).run()
+        e.chain().focus().setLink({ href }).run();
     } else {
-        const label = linkTextDraft.value.trim() || href
+        const label = linkTextDraft.value.trim() || href;
         e.chain()
             .focus()
             .insertContent({
@@ -277,42 +275,42 @@ function confirmLink(): void {
                 text: label,
                 marks: [{ type: 'link', attrs: { href } }],
             })
-            .run()
+            .run();
     }
-    linkDialogOpen.value = false
+    linkDialogOpen.value = false;
 }
 
 function openImageDialog(): void {
-    imageUrlError.value = ''
-    imageUrlDraft.value = ''
-    imageDialogOpen.value = true
+    imageUrlError.value = '';
+    imageUrlDraft.value = '';
+    imageDialogOpen.value = true;
 }
 
 function confirmImage(): void {
     if (imageUrlDraft.value.trim().startsWith('data:')) {
-        imageUrlError.value = 'Data URL tidak disimpan. Unggah gambar lewat tombol unggah agar tersimpan di storage.'
-        return
+        imageUrlError.value = 'Data URL tidak disimpan. Unggah gambar lewat tombol unggah agar tersimpan di storage.';
+        return;
     }
-    const src = normalizeUrl(imageUrlDraft.value)
+    const src = normalizeUrl(imageUrlDraft.value);
     if (!src) {
-        imageUrlError.value = 'Masukkan URL gambar yang valid (https://…).'
-        return
+        imageUrlError.value = 'Masukkan URL gambar yang valid (https://…).';
+        return;
     }
-    imageUrlError.value = ''
-    editor.value?.chain().focus().setImage({ src }).run()
-    imageDialogOpen.value = false
+    imageUrlError.value = '';
+    editor.value?.chain().focus().setImage({ src }).run();
+    imageDialogOpen.value = false;
 }
 
 function addTable(): void {
-    editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+    editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
 }
 
 type ToolbarTool = {
-    icon: Component
-    title: string
-    action: () => void
-    active: () => boolean
-}
+    icon: Component;
+    title: string;
+    action: () => void;
+    active: () => boolean;
+};
 
 const toolbarGroups: ToolbarTool[][] = [
     [
@@ -459,40 +457,37 @@ const toolbarGroups: ToolbarTool[][] = [
             active: () => false,
         },
     ],
-]
+];
 </script>
 
 <template>
     <div
-        class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+        class="border-border/80 bg-card overflow-hidden rounded-xl border shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
     >
         <div
             v-if="editor"
-            class="flex flex-wrap items-center gap-2 border-b border-border/60 bg-gradient-to-b from-muted/45 via-muted/25 to-muted/10 px-2 py-2 md:px-3"
+            class="border-border/60 from-muted/45 via-muted/25 to-muted/10 flex flex-wrap items-center gap-2 border-b bg-gradient-to-b px-2 py-2 md:px-3"
             role="toolbar"
             aria-label="Toolbar editor broadcast"
         >
             <template v-for="(group, gIdx) in toolbarGroups" :key="gIdx">
+                <div v-if="gIdx > 0" class="bg-border/80 hidden h-6 w-px sm:block" aria-hidden="true" />
                 <div
-                    v-if="gIdx > 0"
-                    class="hidden h-6 w-px bg-border/80 sm:block"
-                    aria-hidden="true"
-                />
-                <div
-                    class="flex flex-wrap items-center gap-0.5 rounded-xl bg-background/75 p-0.5 ring-1 ring-border/55 shadow-inner backdrop-blur-sm"
+                    class="bg-background/75 ring-border/55 flex flex-wrap items-center gap-0.5 rounded-xl p-0.5 shadow-inner ring-1 backdrop-blur-sm"
                 >
-                    <Button radius="icon"
+                    <Button
+                        radius="icon"
                         v-for="(tool, tIdx) in group"
                         :key="tIdx"
                         type="button"
                         variant="ghost"
                         size="icon"
                         :title="tool.title"
-                        class="size-8 text-muted-foreground transition-[color,background-color,box-shadow] duration-150 hover:bg-muted/90 hover:text-foreground"
+                        class="text-muted-foreground hover:bg-muted/90 hover:text-foreground size-8 transition-[color,background-color,box-shadow] duration-150"
                         :class="{
-  'bg-primary !text-primary-foreground shadow-md ring-1 ring-primary/30 hover:bg-primary hover:!text-primary-foreground':
-  tool.active(),
-  }"
+                            'bg-primary !text-primary-foreground ring-primary/30 hover:bg-primary hover:!text-primary-foreground shadow-md ring-1':
+                                tool.active(),
+                        }"
                         @click="tool.action()"
                     >
                         <component :is="tool.icon" class="size-3.5" stroke-width="2" />
@@ -509,10 +504,10 @@ const toolbarGroups: ToolbarTool[][] = [
             @change="onFilePicked"
         />
         <EditorContent :editor="editor" />
-        <p v-if="uploadingCount > 0" class="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+        <p v-if="uploadingCount > 0" class="border-border/60 text-muted-foreground border-t px-4 py-2 text-xs">
             Mengunggah gambar…
         </p>
-        <p v-if="uploadError" class="border-t border-border/60 px-4 py-2 text-xs font-medium text-destructive">
+        <p v-if="uploadError" class="border-border/60 text-destructive border-t px-4 py-2 text-xs font-medium">
             {{ uploadError }}
         </p>
 
@@ -537,7 +532,7 @@ const toolbarGroups: ToolbarTool[][] = [
                             :aria-invalid="linkUrlError ? true : undefined"
                             @keydown.enter.prevent="confirmLink"
                         />
-                        <p v-if="linkUrlError" class="text-xs font-medium text-destructive">
+                        <p v-if="linkUrlError" class="text-destructive text-xs font-medium">
                             {{ linkUrlError }}
                         </p>
                     </div>
@@ -551,7 +546,7 @@ const toolbarGroups: ToolbarTool[][] = [
                             :placeholder="linkHasSelection ? 'Mengikuti seleksi di editor' : 'Opsional'"
                             @keydown.enter.prevent="confirmLink"
                         />
-                        <p v-if="linkHasSelection" class="text-xs text-muted-foreground">
+                        <p v-if="linkHasSelection" class="text-muted-foreground text-xs">
                             Teks tautan mengikuti yang sudah Anda pilih di editor.
                         </p>
                     </div>
@@ -585,7 +580,7 @@ const toolbarGroups: ToolbarTool[][] = [
                         :aria-invalid="imageUrlError ? true : undefined"
                         @keydown.enter.prevent="confirmImage"
                     />
-                    <p v-if="imageUrlError" class="text-xs font-medium text-destructive">
+                    <p v-if="imageUrlError" class="text-destructive text-xs font-medium">
                         {{ imageUrlError }}
                     </p>
                 </div>

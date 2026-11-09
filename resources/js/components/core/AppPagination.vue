@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { router } from '@inertiajs/vue3'
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination'
-import { currentPathname, currentSearch } from '@/adapters/browser/navigation'
+import { computed } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination';
+import { currentPathname, currentSearch } from '@/adapters/browser/navigation';
 
 interface IAppPaginationProps {
-    currentPage: number
+    currentPage: number;
     /** `null` = cursor pagination: tanpa deret angka dan tanpa rentang total. */
-    lastPage?: number | null
-    total?: number | null
-    perPage?: number
+    lastPage?: number | null;
+    total?: number | null;
+    perPage?: number;
     /** Kirim `[]`/`null` untuk menyembunyikan selector jumlah baris. */
-    perPageOptions?: number[] | null
-    pageParam?: string
-    perPageParam?: string
+    perPageOptions?: number[] | null;
+    pageParam?: string;
+    perPageParam?: string;
     /** URL prev/next dari server; wajib pada mode cursor agar navigasi benar. */
-    prevUrl?: string | null
-    nextUrl?: string | null
+    prevUrl?: string | null;
+    nextUrl?: string | null;
 }
 
 const props = withDefaults(defineProps<IAppPaginationProps>(), {
@@ -31,100 +31,97 @@ const props = withDefaults(defineProps<IAppPaginationProps>(), {
     perPageParam: 'per_page',
     prevUrl: null,
     nextUrl: null,
-})
+});
 
-const NAVIGATION_OPTIONS = { preserveState: true, preserveScroll: true, replace: true }
+const NAVIGATION_OPTIONS = { preserveState: true, preserveScroll: true, replace: true };
 
-const COUNT_FORMATTER = new Intl.NumberFormat('id-ID')
+const COUNT_FORMATTER = new Intl.NumberFormat('id-ID');
 
-const isCursorMode = computed<boolean>(() => props.lastPage === null || props.total === null)
+const isCursorMode = computed<boolean>(() => props.lastPage === null || props.total === null);
 
-const perPageChoices = computed<number[]>(() => props.perPageOptions ?? [])
+const perPageChoices = computed<number[]>(() => props.perPageOptions ?? []);
 
-const showPerPageSelector = computed<boolean>(
-    (): boolean => perPageChoices.value.length > 0 && props.perPage > 0,
-)
+const showPerPageSelector = computed<boolean>((): boolean => perPageChoices.value.length > 0 && props.perPage > 0);
 
 const perPageSelectOptions = computed<SimpleSelectOption[]>(() =>
-    perPageChoices.value.map(
-        (value: number): SimpleSelectOption => ({ value: String(value), label: `${value} per halaman` }),
-    ),
-)
+    perPageChoices.value.map((value: number): SimpleSelectOption => ({
+        value: String(value),
+        label: `${value} per halaman`,
+    }))
+);
 
-const selectedPerPage = computed<string>(() => String(props.perPage))
+const selectedPerPage = computed<string>(() => String(props.perPage));
 
 const isVisible = computed<boolean>(() => {
-    if (isCursorMode.value) return props.prevUrl !== null || props.nextUrl !== null || showPerPageSelector.value
-    return props.total !== null && props.total > 0
-})
+    if (isCursorMode.value) return props.prevUrl !== null || props.nextUrl !== null || showPerPageSelector.value;
+    return props.total !== null && props.total > 0;
+});
 
-const rangeStart = computed<number>(() => Math.max(1, (props.currentPage - 1) * props.perPage + 1))
+const rangeStart = computed<number>(() => Math.max(1, (props.currentPage - 1) * props.perPage + 1));
 
 const rangeLabel = computed<string>(() => {
-    if (isCursorMode.value || props.total === null || props.total === 0) return ''
-    const rangeEnd = Math.min(props.currentPage * props.perPage, props.total)
-    return `${COUNT_FORMATTER.format(rangeStart.value)}–${COUNT_FORMATTER.format(rangeEnd)} dari ${formatCompactNumber(props.total)}`
-})
+    if (isCursorMode.value || props.total === null || props.total === 0) return '';
+    const rangeEnd = Math.min(props.currentPage * props.perPage, props.total);
+    return `${COUNT_FORMATTER.format(rangeStart.value)}–${COUNT_FORMATTER.format(rangeEnd)} dari ${formatCompactNumber(props.total)}`;
+});
 
 const pageItems = computed<TPaginationItem[]>(() =>
-    props.lastPage === null || props.lastPage <= 1 ? [] : pageWindow(props.currentPage, props.lastPage),
-)
+    props.lastPage === null || props.lastPage <= 1 ? [] : pageWindow(props.currentPage, props.lastPage)
+);
 
 const isPreviousDisabled = computed<boolean>(() =>
-    isCursorMode.value ? props.prevUrl === null : props.currentPage <= 1,
-)
+    isCursorMode.value ? props.prevUrl === null : props.currentPage <= 1
+);
 
 const isNextDisabled = computed<boolean>(() =>
-    isCursorMode.value
-        ? props.nextUrl === null
-        : props.lastPage === null || props.currentPage >= props.lastPage,
-)
+    isCursorMode.value ? props.nextUrl === null : props.lastPage === null || props.currentPage >= props.lastPage
+);
 
 /** URL tujuan dari query aktif, agar filter, tab, dan pencarian tidak hilang saat pindah halaman. */
 function pageUrl(page: number, perPage: number): string {
-    const params = new URLSearchParams(currentSearch())
-    params.set(props.pageParam, String(page))
-    if (showPerPageSelector.value) params.set(props.perPageParam, String(perPage))
-    params.delete('cursor')
-    return `${currentPathname()}?${params.toString()}`
+    const params = new URLSearchParams(currentSearch());
+    params.set(props.pageParam, String(page));
+    if (showPerPageSelector.value) params.set(props.perPageParam, String(perPage));
+    params.delete('cursor');
+    return `${currentPathname()}?${params.toString()}`;
 }
 
 /** Pindah ke nomor halaman tertentu, mempertahankan seluruh query filter. */
 function goToPage(page: number): void {
-    if (isCursorMode.value || page === props.currentPage) return
-    if (props.lastPage !== null && (page < 1 || page > props.lastPage)) return
-    router.get(pageUrl(page, props.perPage), {}, NAVIGATION_OPTIONS)
+    if (isCursorMode.value || page === props.currentPage) return;
+    if (props.lastPage !== null && (page < 1 || page > props.lastPage)) return;
+    router.get(pageUrl(page, props.perPage), {}, NAVIGATION_OPTIONS);
 }
 
 /** Ganti jumlah baris per halaman lalu kembali ke halaman pertama. */
 function changePerPage(nextValue: string): void {
-    const nextPerPage = Number(nextValue)
-    if (!Number.isInteger(nextPerPage) || nextPerPage <= 0 || nextPerPage === props.perPage) return
-    router.get(pageUrl(1, nextPerPage), {}, NAVIGATION_OPTIONS)
+    const nextPerPage = Number(nextValue);
+    if (!Number.isInteger(nextPerPage) || nextPerPage <= 0 || nextPerPage === props.perPage) return;
+    router.get(pageUrl(1, nextPerPage), {}, NAVIGATION_OPTIONS);
 }
 
 /** Mode cursor: ikuti tautan server apa adanya karena nomor halaman tidak tersedia. */
 function goToCursorPage(url: string | null): void {
-    if (url === null) return
-    router.get(url, {}, NAVIGATION_OPTIONS)
+    if (url === null) return;
+    router.get(url, {}, NAVIGATION_OPTIONS);
 }
 
 /** Tombol ‹: mundur satu halaman nomor atau satu cursor. */
 function goToPrevious(): void {
     if (isCursorMode.value) {
-        goToCursorPage(props.prevUrl)
-        return
+        goToCursorPage(props.prevUrl);
+        return;
     }
-    goToPage(props.currentPage - 1)
+    goToPage(props.currentPage - 1);
 }
 
 /** Tombol ›: maju satu halaman nomor atau satu cursor. */
 function goToNext(): void {
     if (isCursorMode.value) {
-        goToCursorPage(props.nextUrl)
-        return
+        goToCursorPage(props.nextUrl);
+        return;
     }
-    goToPage(props.currentPage + 1)
+    goToPage(props.currentPage + 1);
 }
 </script>
 

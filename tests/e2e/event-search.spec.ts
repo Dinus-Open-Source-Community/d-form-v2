@@ -200,15 +200,33 @@ test.describe('pencarian acara publik', () => {
     });
 
     test('429 tampil sebagai pesan ramah, bukan modal Inertia', async ({ page }) => {
+        // Jangan menghabiskan rate limiter `event-search` yang nyata: kuotanya per menit
+        // tetap terpakai di server, sehingga spec berikutnya yang mengharapkan `/events`
+        // 200 ikut kena 429 (polusi lintas spec). 429 disimulasikan di level jaringan;
+        // yang diuji adalah perilaku UI saat limiter menolak.
+        await page.route('**/events?*', async (route): Promise<void> => {
+            const request = route.request();
+            const url = new URL(request.url());
+
+            if (request.method() === 'GET' && url.searchParams.has('q')) {
+                await route.fulfill({
+                    status: 429,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Retry-After': '60',
+                        'X-RateLimit-Limit': '30',
+                        'X-RateLimit-Remaining': '0',
+                    },
+                    body: JSON.stringify({ message: 'Too Many Attempts.' }),
+                });
+
+                return;
+            }
+
+            await route.continue();
+        });
+
         await page.goto('/events', { waitUntil: 'domcontentloaded' });
-
-        let blocked = false;
-        for (let attempt = 0; attempt < 80 && !blocked; attempt++) {
-            const response = await page.request.get('/events');
-            blocked = response.status() === 429;
-        }
-        expect(blocked).toBe(true);
-
         await page.locator(SEARCH_INPUT).fill('5387');
 
         // Pesan dari aplikasi (bukan halaman error Laravel), shell tetap ada, tanpa modal Inertia.

@@ -1,9 +1,11 @@
+/** Nama field submission → label tampil; fallback buang prefix `field_` dan ubah `_` jadi spasi. */
 export function humanizeSubmissionKey(fieldLabelMap: Record<string, string>, value: string): string {
     return fieldLabelMap[value] || value.replace(/^field_/, '').replace(/_/g, ' ');
 }
 
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 
+/** Ringkas jawaban form jadi satu baris teks; array digabung koma, objek → placeholder. */
 export function answerPreview(value: unknown): string {
     if (Array.isArray(value)) return value.map(String).join(', ');
     if (typeof value === 'string') return value;
@@ -12,6 +14,7 @@ export function answerPreview(value: unknown): string {
     return 'Jawaban terstruktur';
 }
 
+/** URL publik file jawaban dari path storage; `null` bila bukan string atau kosong. */
 export function submissionFileUrl(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;

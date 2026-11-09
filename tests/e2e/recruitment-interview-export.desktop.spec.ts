@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import type { Download, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { runArtisanCommand } from './support/artisan';
+import { runArtisanCommand, runArtisanWithInput } from './support/artisan';
 import { readEnvironment } from './support/environment';
+import { parseTinkerJsonRecord, requireTinkerString } from './support/tinker';
 
 /**
  * E2E BE-P2-002: export CSV interview per periode recruitment.
@@ -211,7 +212,7 @@ const PLAN: IPlanInterview[] = APPLICATIONS.flatMap((application: IPlanApplicati
 });
 
 const REGISTRATION_NUMBERS: string[] = APPLICATIONS.map(
-    (application: IPlanApplication): string => `OPREC-E2E-P2002-${application.suffix}`,
+    (application: IPlanApplication): string => `OPREC-E2E-P2002-${application.suffix}`
 );
 
 interface IAnomalyInput {
@@ -235,6 +236,9 @@ const ANOMALY_INPUTS: IAnomalyInput[] = [
 /** ID periode dan nama divisi nyata, diisi `beforeAll` dari hasil probe fixture. */
 let periodId = '';
 let divisionName = '';
+
+/** Password interviewer fixture, dibuat acak di dalam skrip dan dikembalikan lewat stdout. */
+let interviewerPassword = '';
 
 interface IExportQuery {
     scope?: 'all' | 'evaluated' | 'pending';
@@ -322,13 +326,33 @@ function expectedRows(predicate: (interview: IPlanInterview) => boolean = (): bo
     return PLAN.filter(predicate).map((interview: IPlanInterview): string[] => expectedCells(interview, divisionName));
 }
 
+/** Ekstrak password dari stdout tinker; baris hasil `echo` adalah satu-satunya JSON. */
+function parseInterviewerPassword(output: string): string {
+    for (const line of output.split('\n')) {
+        const candidate = line.replace(/^>?\s*/, '').trim();
+
+        if (!candidate.startsWith('{')) {
+            continue;
+        }
+
+        try {
+            return requireTinkerString(
+                parseTinkerJsonRecord(candidate, 'Fixture BE-P2-002'),
+                'password',
+                'Fixture BE-P2-002'
+            );
+        } catch {
+            // Baris selain JSON hasil `echo` diabaikan.
+        }
+    }
+
+    throw new Error(
+        `Fixture BE-P2-002 tidak mengembalikan password interviewer (stdout redacted, ${output.split('\n').length} lines).`
+    );
+}
+
 /** Periode + divisi + sesi + 5 aplikasi + interview/evaluasi/attendance + interviewer. */
 function createFixtures(): void {
-    const env = readEnvironment();
-    // Password user fixture tidak pernah ditulis ke repo: diambil dari environment run
-    // dalam bentuk base64 agar karakter kutip tidak merusak skrip tinker.
-    const passwordBase64 = Buffer.from(env.adminPassword, 'utf8').toString('base64');
-
     const applications = APPLICATIONS.map((application: IPlanApplication) => ({
         registration_number: `OPREC-E2E-P2002-${application.suffix}`,
         full_name: application.fullName,
@@ -341,12 +365,19 @@ function createFixtures(): void {
             { kind: 'primary', status: application.primary.status, evaluated: application.primary.evaluated },
             ...(application.secondary === null
                 ? []
-                : [{ kind: 'secondary', status: application.secondary.status, evaluated: application.secondary.evaluated }]),
+                : [
+                      {
+                          kind: 'secondary',
+                          status: application.secondary.status,
+                          evaluated: application.secondary.evaluated,
+                      },
+                  ]),
         ],
     }));
 
     const script = String.raw`
 $marker = '${FIXTURE_MARKER}';
+$password = Illuminate\Support\Str::password();
 $role = Spatie\Permission\Models\Role::findOrCreate('recruitment-interviewer', 'web');
 $interviewer = App\Models\User::withTrashed()->where('email', '${INTERVIEWER_EMAIL}')->first();
 if ($interviewer !== null) {
@@ -356,9 +387,11 @@ if ($interviewer === null) {
     $interviewer = App\Models\User::query()->create([
         'name' => '${INTERVIEWER_NAME}',
         'email' => '${INTERVIEWER_EMAIL}',
-        'password' => Illuminate\Support\Facades\Hash::make(base64_decode('${passwordBase64}')),
+        'password' => Illuminate\Support\Facades\Hash::make($password),
         'email_verified_at' => now(),
     ]);
+} else {
+    $interviewer->update(['password' => Illuminate\Support\Facades\Hash::make($password)]);
 }
 $interviewer->syncRoles([$role]);
 
@@ -441,10 +474,11 @@ foreach ($applications as $row) {
     }
 }
 
-echo 'ok';
+echo json_encode(['password' => $password]);
 `;
 
-    runArtisanCommand(['tinker', '--execute', script]);
+    // Skrip dikirim lewat stdin: argv tidak memuat kredensial apa pun.
+    interviewerPassword = parseInterviewerPassword(runArtisanWithInput(['tinker'], script));
 }
 
 /** Tinker tidak memberi exit code non-zero saat exception; hasil create diverifikasi ulang. */
@@ -703,9 +737,7 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
         ]);
 
         const fullNameIndex = COLUMN_KEYS.indexOf('full_name');
-        const formulaRow = dataRows.find(
-            (row: string[]): boolean => row[fullNameIndex] === FORMULA_CELL,
-        );
+        const formulaRow = dataRows.find((row: string[]): boolean => row[fullNameIndex] === FORMULA_CELL);
         expect(formulaRow, 'nama berformula wajib ada dan diawali apostrof').toBeTruthy();
         expect(csv.raw).toContain(FORMULA_CELL);
         expect(csv.raw).not.toContain(`,${FORMULA_FULL_NAME},`);
@@ -725,7 +757,7 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
                 const index = COLUMN_KEYS.indexOf(key as TColumnKey);
 
                 return index === -1 ? '' : (row[index] ?? '');
-            }),
+            })
         );
         expect(csv.rows.slice(1)).toEqual(expected);
         expect(csv.rows.every((row: string[]): boolean => row.length === requested.length)).toBe(true);
@@ -775,7 +807,7 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
             const body = (await json.json()) as { errors?: Record<string, string[]> };
             expect(
                 Object.keys(body.errors ?? {}),
-                `${anomaly.label}: body harus memuat errors.${anomaly.errorKey}`,
+                `${anomaly.label}: body harus memuat errors.${anomaly.errorKey}`
             ).toContain(anomaly.errorKey);
         }
 
@@ -798,7 +830,7 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
             const page = await context.newPage();
             await page.goto('/auth/login');
             await page.locator('#login-email').fill(INTERVIEWER_EMAIL);
-            await page.locator('#login-password').fill(environment.adminPassword);
+            await page.locator('#login-password').fill(interviewerPassword);
             await page
                 .locator('form')
                 .filter({ has: page.locator('#login-email') })
@@ -845,7 +877,7 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
 
         const primaryOnly = await downloadCsv(page, exportPath({ includeSecondary: false }));
         expect(primaryOnly.rows.slice(1)).toEqual(
-            expectedRows((interview: IPlanInterview): boolean => interview.kind === 'primary'),
+            expectedRows((interview: IPlanInterview): boolean => interview.kind === 'primary')
         );
         expect(primaryOnly.rows.slice(1)).toHaveLength(APPLICATIONS.length);
     });

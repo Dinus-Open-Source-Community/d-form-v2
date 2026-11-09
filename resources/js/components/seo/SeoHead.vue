@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import type { SharedSeoProps } from '@/types/seo';
+import type { ISharedSeoProps } from '@/types/seo';
 
 const props = withDefaults(
     defineProps<{
@@ -29,7 +29,7 @@ const props = withDefaults(
 
 const page = usePage();
 
-const seo = computed(() => (page.props as { seo?: SharedSeoProps }).seo);
+const seo = computed(() => (page.props as { seo?: ISharedSeoProps }).seo);
 
 const siteName = computed(() => seo.value?.siteName ?? 'App');
 
@@ -44,9 +44,7 @@ const documentTitle = computed(() => {
     return t.toLowerCase().includes(sn.toLowerCase()) ? t : `${t} · ${sn}`;
 });
 
-const description = computed(
-    () => props.description?.trim() || seo.value?.defaultDescription || '—'
-);
+const description = computed(() => props.description?.trim() || seo.value?.defaultDescription || '—');
 
 const canonicalUrl = computed(() => {
     const base = (seo.value?.siteUrl ?? '').replace(/\/$/, '');

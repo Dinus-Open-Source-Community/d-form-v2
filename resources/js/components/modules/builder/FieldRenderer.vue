@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping'
-import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue'
-import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
-import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
+import { computed } from 'vue';
+import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping';
+import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
 import {
     Type,
     AlignLeft,
@@ -25,33 +25,33 @@ import {
     Trash2,
     Copy,
     GripVertical,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
-        field: BuilderField
-        isSelected?: boolean
+        field: IBuilderField;
+        isSelected?: boolean;
     }>(),
-    { isSelected: false },
-)
+    { isSelected: false }
+);
 
 const emit = defineEmits<{
-    (event: 'select'): void
-    (event: 'delete'): void
-    (event: 'duplicate'): void
-    (event: 'updateField', field: BuilderField): void
-    (event: 'manage'): void
-}>()
+    (event: 'select'): void;
+    (event: 'delete'): void;
+    (event: 'duplicate'): void;
+    (event: 'updateField', field: IBuilderField): void;
+    (event: 'manage'): void;
+}>();
 
 /** Gabung perubahan parsial ke salinan field — kartu selalu kirim objek baru (immutable). */
-function patch(partial: Partial<BuilderField>): void {
-    emit('updateField', { ...props.field, ...partial })
+function patch(partial: Partial<IBuilderField>): void {
+    emit('updateField', { ...props.field, ...partial });
 }
 
-const hasOptions = computed(() => ['dropdown', 'checkbox', 'radio'].includes(props.field.type))
+const hasOptions = computed(() => ['dropdown', 'checkbox', 'radio'].includes(props.field.type));
 
-/** Tone aksen yang tersedia untuk ikon kartu field. */
-type TFieldTone = 'neutral' | 'info' | 'primary' | 'success' | 'warning'
+/** TTone aksen yang tersedia untuk ikon kartu field. */
+type TFieldTone = 'neutral' | 'info' | 'primary' | 'success' | 'warning';
 
 const TYPE_CONFIG: Record<string, { icon: typeof Type; label: string; tone: TFieldTone }> = {
     short_text: { icon: Type, label: 'Teks pendek', tone: 'neutral' },
@@ -71,7 +71,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Type; label: string; tone: TFie
     image: { icon: ImagePlus, label: 'Gambar', tone: 'neutral' },
     paragraph: { icon: TextCursorInput, label: 'Paragraf', tone: 'neutral' },
     divider: { icon: Minus, label: 'Pemisah', tone: 'neutral' },
-}
+};
 
 /** Aksen kecil per kategori field — berbasis tone token proyek, bukan warna acak. */
 const FIELD_TONE_CLASSES: Record<TFieldTone, string> = {
@@ -80,55 +80,55 @@ const FIELD_TONE_CLASSES: Record<TFieldTone, string> = {
     primary: 'text-primary',
     success: 'text-success',
     warning: 'text-warning',
-}
+};
 
-const config = computed(() => TYPE_CONFIG[props.field.type] ?? TYPE_CONFIG.short_text)
+const config = computed(() => TYPE_CONFIG[props.field.type] ?? TYPE_CONFIG.short_text);
 
 /** Petunjuk di kanvas bila admin belum mengisi placeholder — hanya tampilan, bukan nilai tersimpan. */
-function canvasPlaceholder(f: BuilderField): string {
-    const custom = String(f.placeholder ?? '').trim()
-    if (custom) return custom
+function canvasPlaceholder(f: IBuilderField): string {
+    const custom = String(f.placeholder ?? '').trim();
+    if (custom) return custom;
     const byType: Record<string, string> = {
         short_text: 'Ketik jawaban singkat…',
         long_text: 'Tulis jawaban di sini…',
         email: 'nama@email.com',
         phone: 'Nomor WhatsApp / telepon',
         number: 'Masukkan angka',
-    }
-    return byType[f.type] ?? 'Ketik di sini…'
+    };
+    return byType[f.type] ?? 'Ketik di sini…';
 }
 
-const filledStars = computed(() => props.field.metadata?.maxStars ?? 5)
+const filledStars = computed(() => props.field.metadata?.maxStars ?? 5);
 
-const choiceOptions = computed((): FieldOptionEntry[] => {
-    const raw = props.field.options
-    if (Array.isArray(raw) && raw.length > 0) return raw as FieldOptionEntry[]
+const choiceOptions = computed((): IFieldOptionEntry[] => {
+    const raw = props.field.options;
+    if (Array.isArray(raw) && raw.length > 0) return raw as IFieldOptionEntry[];
     return ['Option 1', 'Option 2', 'Option 3'].map((label) => ({
         id: label.toLowerCase().replace(/\s+/g, '-'),
         type: 'text',
         label,
-    }))
-})
+    }));
+});
 
-function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
-    const u = optionImageUrl(entry)
-    return u ? normalizePublicStorageUrl(u) : undefined
+function choiceImageSrc(entry: IFieldOptionEntry): string | undefined {
+    const u = optionImageUrl(entry);
+    return u ? normalizePublicStorageUrl(u) : undefined;
 }
 
 /** Display-only image block: storage path / URL / blob preview → <img> src. */
-function builderImageSrc(f: BuilderField): string {
-    const raw = f.metadata?.imageUrl
-    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : ''
+function builderImageSrc(f: IBuilderField): string {
+    const raw = f.metadata?.imageUrl;
+    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : '';
 }
 
-function builderImageCaption(f: BuilderField): string {
-    const raw = f.metadata?.caption
-    return typeof raw === 'string' ? raw.trim() : ''
+function builderImageCaption(f: IBuilderField): string {
+    const raw = f.metadata?.caption;
+    return typeof raw === 'string' ? raw.trim() : '';
 }
 
-function builderImageAlt(f: BuilderField): string {
-    const raw = f.metadata?.alt
-    return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : builderImageCaption(f) || f.label
+function builderImageAlt(f: IBuilderField): string {
+    const raw = f.metadata?.alt;
+    return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : builderImageCaption(f) || f.label;
 }
 </script>
 
@@ -136,21 +136,24 @@ function builderImageAlt(f: BuilderField): string {
     <div
         class="group relative cursor-pointer rounded-2xl border transition-[border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
         :class="[
- isSelected
- ? 'border-primary bg-primary/[0.04] shadow-md ring-2 ring-primary/20'
- : 'border-border bg-card shadow-sm hover:border-primary/35 hover:shadow-md',
- ]"
+            isSelected
+                ? 'border-primary bg-primary/[0.04] ring-primary/20 shadow-md ring-2'
+                : 'border-border bg-card hover:border-primary/35 shadow-sm hover:shadow-md',
+        ]"
         @click="emit('select')"
     >
         <!-- Type badge + actions bar -->
         <div class="group/head flex items-center gap-2.5 px-4 pt-3.5 sm:px-5">
-            <GripVertical class="hidden size-3.5 cursor-grab text-muted-foreground/40 transition-colors group-hover:text-muted-foreground/80 lg:block" aria-hidden="true" />
+            <GripVertical
+                class="text-muted-foreground/40 group-hover:text-muted-foreground/80 hidden size-3.5 cursor-grab transition-colors lg:block"
+                aria-hidden="true"
+            />
             <span
                 class="inline-flex items-center gap-2 rounded-lg border px-1.5 py-1.5"
                 :class="
                     isSelected
                         ? 'border-border/80 bg-background shadow-xs'
-                        : 'border-border/80 bg-background/60 shadow-xs group-hover:border-border'
+                        : 'border-border/80 bg-background/60 group-hover:border-border shadow-xs'
                 "
             >
                 <component
@@ -174,7 +177,7 @@ function builderImageAlt(f: BuilderField): string {
                 >
                     <button
                         type="button"
-                        class="text-muted-foreground hover:text-primary focus-visible:text-primary inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-ring/30 focus-visible:ring-[3px]"
+                        class="text-muted-foreground hover:text-primary focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
                         :title="hasOptions ? 'Kelola opsi' : 'Pengaturan'"
                         :aria-label="hasOptions ? 'Kelola opsi' : 'Pengaturan field'"
                         @click.stop="emit('manage')"
@@ -183,7 +186,7 @@ function builderImageAlt(f: BuilderField): string {
                     </button>
                     <button
                         type="button"
-                        class="text-muted-foreground hover:text-primary focus-visible:text-primary inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-ring/30 focus-visible:ring-[3px]"
+                        class="text-muted-foreground hover:text-primary focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
                         title="Gandakan"
                         aria-label="Gandakan field"
                         @click.stop="emit('duplicate')"
@@ -192,7 +195,7 @@ function builderImageAlt(f: BuilderField): string {
                     </button>
                     <button
                         type="button"
-                        class="text-muted-foreground hover:text-destructive focus-visible:text-destructive inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-ring/30 focus-visible:ring-[3px]"
+                        class="text-muted-foreground hover:text-destructive focus-visible:text-destructive focus-visible:ring-ring/30 inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
                         title="Hapus"
                         aria-label="Hapus field"
                         @click.stop="emit('delete')"
@@ -210,7 +213,7 @@ function builderImageAlt(f: BuilderField): string {
                 <input
                     :value="field.label"
                     :placeholder="field.required ? 'Label pertanyaan' : 'Label pertanyaan (opsional)'"
-                    class="font-display w-full border-0 border-b border-transparent bg-transparent p-0 text-[15px] font-semibold tracking-tight text-foreground transition-colors duration-200 outline-none placeholder:text-muted-foreground/50 focus:border-primary/60 group-hover/label:border-border"
+                    class="font-display text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 group-hover/label:border-border w-full border-0 border-b border-transparent bg-transparent p-0 text-[15px] font-semibold tracking-tight transition-colors duration-200 outline-none"
                     @input="patch({ label: ($event.target as HTMLInputElement).value })"
                 />
                 <span v-if="field.required" class="text-destructive">*</span>
@@ -218,7 +221,7 @@ function builderImageAlt(f: BuilderField): string {
             <input
                 :value="field.description ?? ''"
                 :placeholder="field.description ? '' : 'Teks bantu (opsional)'"
-                class="w-full border-0 border-b border-transparent bg-transparent p-0 text-xs leading-relaxed text-muted-foreground transition-colors duration-200 outline-none placeholder:text-muted-foreground/45 hover:border-border/70 focus:border-primary/50"
+                class="text-muted-foreground placeholder:text-muted-foreground/45 hover:border-border/70 focus:border-primary/50 w-full border-0 border-b border-transparent bg-transparent p-0 text-xs leading-relaxed transition-colors duration-200 outline-none"
                 @input="patch({ description: ($event.target as HTMLInputElement).value })"
             />
 
@@ -227,7 +230,7 @@ function builderImageAlt(f: BuilderField): string {
                 <!-- Short text / Email / Phone / Number -->
                 <div
                     v-if="['short_text', 'email', 'phone', 'number'].includes(field.type)"
-                    class="rounded-xl border border-border/70 bg-muted/20 p-1.5"
+                    class="border-border/70 bg-muted/20 rounded-xl border p-1.5"
                 >
                     <input
                         :type="
@@ -244,53 +247,49 @@ function builderImageAlt(f: BuilderField): string {
                         value=""
                         :inputmode="field.type === 'number' ? 'decimal' : undefined"
                         :placeholder="canvasPlaceholder(field)"
-                        class="pointer-events-none h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground shadow-xs placeholder:text-muted-foreground/70"
+                        class="border-border/80 bg-background text-foreground placeholder:text-muted-foreground/70 pointer-events-none h-11 w-full rounded-full border px-4 text-sm shadow-xs"
                     />
                 </div>
 
                 <!-- Long text -->
                 <div
                     v-else-if="field.type === 'long_text'"
-                    class="rounded-xl border border-border/70 bg-muted/20 p-1.5"
+                    class="border-border/70 bg-muted/20 rounded-xl border p-1.5"
                 >
                     <textarea
                         readonly
                         tabindex="-1"
                         rows="3"
                         :placeholder="canvasPlaceholder(field)"
-                        class="pointer-events-none min-h-[4.75rem] w-full resize-none rounded-xl border border-border/80 bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70"
+                        class="border-border/80 bg-background text-foreground placeholder:text-muted-foreground/70 pointer-events-none min-h-[4.75rem] w-full resize-none rounded-xl border px-3 py-2.5 text-sm"
                     ></textarea>
-                    <div class="mt-4 space-y-2 border-t border-dashed border-border/70 pt-3">
-                        <div class="h-2 w-2/3 rounded-full bg-muted/70"></div>
-                        <div class="h-2 w-1/2 rounded-full bg-muted/50"></div>
+                    <div class="border-border/70 mt-4 space-y-2 border-t border-dashed pt-3">
+                        <div class="bg-muted/70 h-2 w-2/3 rounded-full"></div>
+                        <div class="bg-muted/50 h-2 w-1/2 rounded-full"></div>
                     </div>
                 </div>
 
                 <!-- Dropdown -->
                 <div v-else-if="field.type === 'dropdown'" class="space-y-2">
                     <div
-                        class="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-3"
+                        class="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border px-4 py-3"
                     >
-                        <span class="text-sm text-muted-foreground/75">{{
+                        <span class="text-muted-foreground/75 text-sm">{{
                             String(field.placeholder ?? '').trim() || 'Pilih salah satu…'
                         }}</span>
-                        <ChevronDown class="size-4 text-muted-foreground/50" />
+                        <ChevronDown class="text-muted-foreground/50 size-4" />
                     </div>
-                    <div class="space-y-1.5 rounded-xl border border-border/70 bg-card p-2.5">
+                    <div class="border-border/70 bg-card space-y-1.5 rounded-xl border p-2.5">
                         <div
                             v-for="(opt, i) in choiceOptions"
                             :key="opt.id || i"
-                            class="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2 text-xs text-foreground/85"
+                            class="border-border/60 bg-muted/20 text-foreground/85 flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs"
                         >
                             <div
                                 v-if="opt.type === 'image' && choiceImageSrc(opt)"
-                                class="size-10 shrink-0 overflow-hidden rounded-md border border-border"
+                                class="border-border size-10 shrink-0 overflow-hidden rounded-md border"
                             >
-                                <img
-                                    :src="choiceImageSrc(opt)"
-                                    alt=""
-                                    class="size-full object-cover"
-                                />
+                                <img :src="choiceImageSrc(opt)" alt="" class="size-full object-cover" />
                             </div>
                             <span v-else>{{ optionLabel(opt) }}</span>
                         </div>
@@ -302,17 +301,16 @@ function builderImageAlt(f: BuilderField): string {
                     <label
                         v-for="(opt, i) in choiceOptions"
                         :key="opt.id || i"
-                        class="flex items-center gap-2.5 text-xs text-foreground/80"
+                        class="text-foreground/80 flex items-center gap-2.5 text-xs"
                     >
                         <div
-                            class="flex size-4 shrink-0 items-center justify-center rounded border border-input bg-card"
+                            class="border-input bg-card flex size-4 shrink-0 items-center justify-center rounded border"
                         ></div>
-                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-md border border-border">
-                            <img
-                                :src="choiceImageSrc(opt)"
-                                alt=""
-                                class="size-full object-cover"
-                            />
+                        <div
+                            v-if="opt.type === 'image' && choiceImageSrc(opt)"
+                            class="border-border size-12 shrink-0 overflow-hidden rounded-md border"
+                        >
+                            <img :src="choiceImageSrc(opt)" alt="" class="size-full object-cover" />
                         </div>
                         <span v-else>{{ optionLabel(opt) }}</span>
                     </label>
@@ -323,17 +321,16 @@ function builderImageAlt(f: BuilderField): string {
                     <label
                         v-for="(opt, i) in choiceOptions"
                         :key="opt.id || i"
-                        class="flex items-center gap-2.5 text-xs text-foreground/80"
+                        class="text-foreground/80 flex items-center gap-2.5 text-xs"
                     >
                         <div
-                            class="flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-card"
+                            class="border-input bg-card flex size-4 shrink-0 items-center justify-center rounded-full border"
                         ></div>
-                        <div v-if="opt.type === 'image' && choiceImageSrc(opt)" class="size-12 shrink-0 overflow-hidden rounded-full border border-border">
-                            <img
-                                :src="choiceImageSrc(opt)"
-                                alt=""
-                                class="size-full object-cover"
-                            />
+                        <div
+                            v-if="opt.type === 'image' && choiceImageSrc(opt)"
+                            class="border-border size-12 shrink-0 overflow-hidden rounded-full border"
+                        >
+                            <img :src="choiceImageSrc(opt)" alt="" class="size-full object-cover" />
                         </div>
                         <span v-else>{{ optionLabel(opt) }}</span>
                     </label>
@@ -342,18 +339,18 @@ function builderImageAlt(f: BuilderField): string {
                 <!-- Image upload -->
                 <div
                     v-else-if="field.type === 'image_upload'"
-                    class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 py-6"
+                    class="border-border/80 bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed py-6"
                 >
-                    <div
-                        class="mb-2 flex size-10 items-center justify-center rounded-full bg-primary/8 text-primary"
-                    >
+                    <div class="bg-primary/8 text-primary mb-2 flex size-10 items-center justify-center rounded-full">
                         <ImagePlus class="size-5" />
                     </div>
-                    <p class="text-xs font-semibold text-muted-foreground">Ketuk atau jatuhkan gambar di sini</p>
-                    <p class="mt-0.5 text-[10px] text-muted-foreground/60">PNG, JPG hingga 5 MB</p>
+                    <p class="text-muted-foreground text-xs font-semibold">Ketuk atau jatuhkan gambar di sini</p>
+                    <p class="text-muted-foreground/60 mt-0.5 text-[10px]">PNG, JPG hingga 5 MB</p>
                     <div class="mt-2 flex flex-wrap justify-center gap-1">
-                        <span class="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">4:3</span>
-                        <span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+                        <span class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            >4:3</span
+                        >
+                        <span class="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-semibold"
                             >tengah</span
                         >
                     </div>
@@ -362,44 +359,38 @@ function builderImageAlt(f: BuilderField): string {
                 <!-- File upload -->
                 <div
                     v-else-if="field.type === 'file_upload'"
-                    class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 py-6"
+                    class="border-border/80 bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed py-6"
                 >
                     <div
-                        class="mb-2 flex size-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground"
+                        class="bg-muted/50 text-muted-foreground mb-2 flex size-10 items-center justify-center rounded-full"
                     >
                         <Upload class="size-5" />
                     </div>
-                    <p class="text-xs font-semibold text-muted-foreground">Unggah file di sini</p>
-                    <p class="mt-0.5 text-[10px] text-muted-foreground/60">PDF, JPG, PNG hingga 5 MB</p>
+                    <p class="text-muted-foreground text-xs font-semibold">Unggah file di sini</p>
+                    <p class="text-muted-foreground/60 mt-0.5 text-[10px]">PDF, JPG, PNG hingga 5 MB</p>
                 </div>
 
                 <!-- Date -->
-                <div
-                    v-else-if="field.type === 'date'"
-                    class="rounded-xl border border-border/70 bg-muted/20 p-1.5"
-                >
+                <div v-else-if="field.type === 'date'" class="border-border/70 bg-muted/20 rounded-xl border p-1.5">
                     <input
                         type="text"
                         readonly
                         tabindex="-1"
                         value=""
                         :placeholder="String(field.placeholder ?? '').trim() || 'Pilih tanggal'"
-                        class="pointer-events-none h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground/70"
+                        class="border-border/80 bg-background text-foreground placeholder:text-muted-foreground/70 pointer-events-none h-11 w-full rounded-full border px-4 text-sm"
                     />
                 </div>
 
                 <!-- Time -->
-                <div
-                    v-else-if="field.type === 'time'"
-                    class="rounded-xl border border-border/70 bg-muted/20 p-1.5"
-                >
+                <div v-else-if="field.type === 'time'" class="border-border/70 bg-muted/20 rounded-xl border p-1.5">
                     <input
                         type="text"
                         readonly
                         tabindex="-1"
                         value=""
                         :placeholder="String(field.placeholder ?? '').trim() || 'Pilih jam (contoh: 09:30)'"
-                        class="pointer-events-none h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground/70"
+                        class="border-border/80 bg-background text-foreground placeholder:text-muted-foreground/70 pointer-events-none h-11 w-full rounded-full border px-4 text-sm"
                     />
                 </div>
 
@@ -413,42 +404,38 @@ function builderImageAlt(f: BuilderField): string {
                             :fill="i <= 3 ? '#fbbf24' : 'none'"
                         />
                     </div>
-                    <p class="text-[10px] text-muted-foreground/80">Tap bintang untuk nilai</p>
+                    <p class="text-muted-foreground/80 text-[10px]">Tap bintang untuk nilai</p>
                 </div>
 
                 <!-- Heading -->
                 <div v-else-if="field.type === 'heading'">
-                    <h3 class="font-display text-lg font-bold text-foreground">
+                    <h3 class="font-display text-foreground text-lg font-bold">
                         {{ field.metadata?.content || 'Judul bagian' }}
                     </h3>
                 </div>
 
                 <!-- Image (display-only) -->
                 <div v-else-if="field.type === 'image'">
-                    <div v-if="builderImageSrc(field)" class="overflow-hidden rounded-xl border border-border/70">
-                        <img
-                            :src="builderImageSrc(field)"
-                            :alt="builderImageAlt(field)"
-                            class="w-full object-cover"
-                        />
+                    <div v-if="builderImageSrc(field)" class="border-border/70 overflow-hidden rounded-xl border">
+                        <img :src="builderImageSrc(field)" :alt="builderImageAlt(field)" class="w-full object-cover" />
                         <p
                             v-if="builderImageCaption(field)"
-                            class="border-t border-border/70 bg-card px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+                            class="border-border/70 bg-card text-muted-foreground border-t px-3 py-2 text-xs leading-relaxed"
                         >
                             {{ builderImageCaption(field) }}
                         </p>
                     </div>
                     <div
                         v-else
-                        class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 py-6"
+                        class="border-border/80 bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed py-6"
                     >
                         <div
-                            class="mb-2 flex size-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground"
+                            class="bg-muted/50 text-muted-foreground mb-2 flex size-10 items-center justify-center rounded-full"
                         >
                             <ImagePlus class="size-5" />
                         </div>
-                        <p class="text-xs font-semibold text-muted-foreground">Belum ada gambar</p>
-                        <p class="mt-0.5 text-[10px] text-muted-foreground/60">Atur gambar lewat properti field</p>
+                        <p class="text-muted-foreground text-xs font-semibold">Belum ada gambar</p>
+                        <p class="text-muted-foreground/60 mt-0.5 text-[10px]">Atur gambar lewat properti field</p>
                     </div>
                 </div>
 

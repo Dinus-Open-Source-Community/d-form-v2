@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { AlertCircle, CheckCircle2 } from 'lucide-vue-next'
-import { routes } from '@/lib/routes'
+import { Link } from '@inertiajs/vue3';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, CheckCircle2 } from 'lucide-vue-next';
+import { routes } from '@/lib/routes';
 
 defineProps<{
-    eventId: string
-    title: string
-    body: string
-    success?: boolean
-    primaryActionHref?: string | null
-    primaryActionLabel?: string
-}>()
+    eventId: string;
+    title: string;
+    body: string;
+    success?: boolean;
+    primaryActionHref?: string | null;
+    primaryActionLabel?: string;
+}>();
 </script>
 
 <template>
     <Card>
         <CardContent class="flex flex-col items-center gap-3 py-12 text-center">
-            <CheckCircle2 v-if="success" class="size-10 text-success" />
-            <AlertCircle v-else class="size-10 text-warning" />
-            <p class="font-display text-xl font-bold tracking-[-0.02em] text-foreground">{{ title }}</p>
-            <p class="max-w-md text-sm text-muted-foreground">{{ body }}</p>
+            <CheckCircle2 v-if="success" class="text-success size-10" />
+            <AlertCircle v-else class="text-warning size-10" />
+            <p class="font-display text-foreground text-xl font-bold tracking-[-0.02em]">{{ title }}</p>
+            <p class="text-muted-foreground max-w-md text-sm">{{ body }}</p>
             <Button v-if="primaryActionHref" variant="default" size="lg" class="mt-4" as-child>
                 <Link :href="primaryActionHref">{{ primaryActionLabel ?? 'Continue' }}</Link>
             </Button>

@@ -11,22 +11,22 @@ import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList, primaryCategory } from '@/lib/eventCategories';
 
 interface CalendarEvent {
-    id: string | number
-    title: string
-    start_date: string
-    end_date: string | null
-    category: string | string[] | null
-    location?: string | null
-    href: string
+    id: string | number;
+    title: string;
+    start_date: string;
+    end_date: string | null;
+    category: string | string[] | null;
+    location?: string | null;
+    href: string;
 }
 
 interface Props {
-    events?: CalendarEvent[]
+    events?: CalendarEvent[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    events: () => []
-})
+    events: () => [],
+});
 
 const today = new Date();
 const currentMonth = ref(today.getMonth());
@@ -103,7 +103,7 @@ function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-type CalendarEventWithEnd = CalendarEvent & { end_date: string }
+type CalendarEventWithEnd = CalendarEvent & { end_date: string };
 
 const filteredEvents = computed<CalendarEventWithEnd[]>(() => {
     let events = props.events.filter((e): e is CalendarEventWithEnd => !!e.start_date && !!e.end_date);
@@ -117,8 +117,7 @@ const calendarWeeks = computed(() => {
     const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate();
     const prevMonthDays = new Date(currentYear.value, currentMonth.value, 0).getDate();
 
-    const cells: { day: number; date: Date; isCurrentMonth: boolean; isToday: boolean; events: CalendarEvent[] }[] =
-        [];
+    const cells: { day: number; date: Date; isCurrentMonth: boolean; isToday: boolean; events: CalendarEvent[] }[] = [];
 
     for (let i = firstDay - 1; i >= 0; i--) {
         const d = prevMonthDays - i;
@@ -195,13 +194,17 @@ const legendEntries = computed(() =>
 <template>
     <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
         <CardHeader class="border-border/50 bg-muted/10 space-y-0 border-b p-0">
-            <div class="flex flex-col gap-2.5 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+            <div
+                class="flex flex-col gap-2.5 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between"
+            >
                 <div class="flex min-w-0 items-center gap-2">
                     <CardTitle class="font-display shrink-0 text-base font-bold tracking-[-0.02em] sm:text-xl">
                         Kalender acara
                     </CardTitle>
                     <span class="bg-border/80 hidden h-4 w-px shrink-0 lg:inline-block" aria-hidden="true" />
-                    <p class="font-display text-muted-foreground truncate text-sm font-semibold tracking-tight sm:text-base">
+                    <p
+                        class="font-display text-muted-foreground truncate text-sm font-semibold tracking-tight sm:text-base"
+                    >
                         <template v-if="viewMode === 'month'">
                             {{ monthNamesId[currentMonth] }} {{ currentYear }}
                         </template>
@@ -213,7 +216,8 @@ const legendEntries = computed(() =>
 
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="border-border/70 bg-background/80 flex items-center rounded-lg border p-0.5 shadow-xs">
-                        <Button radius="icon"
+                        <Button
+                            radius="icon"
                             variant="ghost"
                             size="icon-sm"
                             class="size-7 sm:size-8"
@@ -222,7 +226,8 @@ const legendEntries = computed(() =>
                         >
                             <ChevronLeft class="size-4" :stroke-width="2" />
                         </Button>
-                        <Button radius="icon"
+                        <Button
+                            radius="icon"
                             variant="ghost"
                             size="icon-sm"
                             class="size-7 sm:size-8"
@@ -244,11 +249,11 @@ const legendEntries = computed(() =>
                         <button
                             type="button"
                             :class="[
- ' px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
- viewMode === 'month'
- ? 'bg-primary text-primary-foreground shadow-sm'
- : 'text-muted-foreground hover:text-foreground',
- ]"
+                                'px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
+                                viewMode === 'month'
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground',
+                            ]"
                             @click="viewMode = 'month'"
                         >
                             Bulan
@@ -256,11 +261,11 @@ const legendEntries = computed(() =>
                         <button
                             type="button"
                             :class="[
- ' px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
- viewMode === 'week'
- ? 'bg-primary text-primary-foreground shadow-sm'
- : 'text-muted-foreground hover:text-foreground',
- ]"
+                                'px-2.5 py-1 text-xs font-semibold transition-all duration-200 sm:px-3 sm:py-1.5',
+                                viewMode === 'week'
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground',
+                            ]"
                             @click="viewMode = 'week'"
                         >
                             Minggu
@@ -294,19 +299,19 @@ const legendEntries = computed(() =>
                                 v-for="(cell, dIdx) in week"
                                 :key="dIdx"
                                 :class="[
- 'min-h-12 p-1 transition-colors sm:min-h-24 sm:p-2',
- !cell.isCurrentMonth ? 'bg-muted/25' : 'hover:bg-muted/20',
- ]"
+                                    'min-h-12 p-1 transition-colors sm:min-h-24 sm:p-2',
+                                    !cell.isCurrentMonth ? 'bg-muted/25' : 'hover:bg-muted/20',
+                                ]"
                             >
                                 <span
                                     :class="[
- 'mb-0.5 inline-flex size-6 items-center justify-center rounded-md text-[11px] font-semibold transition-colors sm:mb-1 sm:size-7 sm:rounded-lg sm:text-xs',
- cell.isToday
- ? 'bg-primary text-primary-foreground ring-primary/30 shadow-md ring-2'
- : cell.isCurrentMonth
- ? 'text-foreground'
- : 'text-muted-foreground/40',
- ]"
+                                        'mb-0.5 inline-flex size-6 items-center justify-center rounded-md text-[11px] font-semibold transition-colors sm:mb-1 sm:size-7 sm:rounded-lg sm:text-xs',
+                                        cell.isToday
+                                            ? 'bg-primary text-primary-foreground ring-primary/30 shadow-md ring-2'
+                                            : cell.isCurrentMonth
+                                              ? 'text-foreground'
+                                              : 'text-muted-foreground/40',
+                                    ]"
                                 >
                                     {{ cell.day }}
                                 </span>
@@ -316,8 +321,12 @@ const legendEntries = computed(() =>
                                         v-for="ev in cell.events.slice(0, 3)"
                                         :key="ev.id"
                                         type="button"
-                                        class="size-1.5 rounded-full shadow-sm ring-1 ring-background/80"
-                                        :style="{ backgroundColor: categoryColorMap[primaryCategory(ev.category)] ?? 'var(--muted-foreground)' }"
+                                        class="ring-background/80 size-1.5 rounded-full shadow-sm ring-1"
+                                        :style="{
+                                            backgroundColor:
+                                                categoryColorMap[primaryCategory(ev.category)] ??
+                                                'var(--muted-foreground)',
+                                        }"
                                         @click="onEventClick(ev)"
                                     />
                                 </div>
@@ -354,22 +363,18 @@ const legendEntries = computed(() =>
                 <!-- Desktop: 7-column grid -->
                 <div class="border-border/70 bg-card hidden overflow-hidden rounded-xl border shadow-inner sm:block">
                     <div class="divide-border/50 grid grid-cols-7 divide-x">
-                        <div
-                            v-for="day in weekDays"
-                            :key="day.dayName"
-                            class="flex min-h-48 flex-col p-3"
-                        >
+                        <div v-for="day in weekDays" :key="day.dayName" class="flex min-h-48 flex-col p-3">
                             <div class="mb-2 text-center">
                                 <div class="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                                     {{ day.dayName }}
                                 </div>
                                 <span
                                     :class="[
- 'mt-1 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
- day.isToday
- ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
- : 'text-foreground',
- ]"
+                                        'mt-1 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
+                                        day.isToday
+                                            ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
+                                            : 'text-foreground',
+                                    ]"
                                 >
                                     {{ day.day }}
                                 </span>
@@ -393,23 +398,21 @@ const legendEntries = computed(() =>
                     </div>
                 </div>
                 <!-- Mobile: vertical list -->
-                <div class="border-border/70 bg-card divide-border/50 divide-y overflow-hidden rounded-xl border shadow-inner sm:hidden">
-                    <div
-                        v-for="day in weekDays"
-                        :key="day.dayName"
-                        class="flex items-start gap-3 p-3"
-                    >
+                <div
+                    class="border-border/70 bg-card divide-border/50 divide-y overflow-hidden rounded-xl border shadow-inner sm:hidden"
+                >
+                    <div v-for="day in weekDays" :key="day.dayName" class="flex items-start gap-3 p-3">
                         <div class="flex w-10 shrink-0 flex-col items-center pt-0.5">
                             <div class="text-muted-foreground text-[10px] font-bold tracking-[0.1em] uppercase">
                                 {{ day.dayName }}
                             </div>
                             <span
                                 :class="[
- 'mt-0.5 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
- day.isToday
- ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
- : 'text-foreground',
- ]"
+                                    'mt-0.5 inline-flex size-8 items-center justify-center rounded-lg text-sm font-semibold',
+                                    day.isToday
+                                        ? 'bg-primary text-primary-foreground ring-primary/25 shadow-md ring-2'
+                                        : 'text-foreground',
+                                ]"
                             >
                                 {{ day.day }}
                             </span>
@@ -436,13 +439,18 @@ const legendEntries = computed(() =>
                 </div>
             </template>
 
-            <div class="border-border/40 flex flex-wrap justify-center gap-1.5 border-t pt-3 sm:gap-2 sm:pt-4 sm:justify-start">
+            <div
+                class="border-border/40 flex flex-wrap justify-center gap-1.5 border-t pt-3 sm:justify-start sm:gap-2 sm:pt-4"
+            >
                 <div
                     v-for="item in legendEntries"
                     :key="item.token"
                     class="border-border/50 bg-muted/20 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
                 >
-                    <span class="size-2 shrink-0 rounded-full shadow-sm sm:size-2.5" :style="{ backgroundColor: item.color }" />
+                    <span
+                        class="size-2 shrink-0 rounded-full shadow-sm sm:size-2.5"
+                        :style="{ backgroundColor: item.color }"
+                    />
                     <span class="text-foreground font-medium">{{ item.label }}</span>
                 </div>
             </div>
@@ -468,17 +476,22 @@ const legendEntries = computed(() =>
             <div v-if="selectedEvent" class="flex flex-col gap-3 pt-1">
                 <div class="text-muted-foreground flex items-start gap-2 text-sm">
                     <CalendarDays class="text-primary mt-0.5 size-4 shrink-0" />
-                    <span> {{ formatDateTime({ value: selectedEvent.start_date, variant: 'date-range', end: selectedEvent.end_date }) }} </span>
+                    <span>
+                        {{
+                            formatDateTime({
+                                value: selectedEvent.start_date,
+                                variant: 'date-range',
+                                end: selectedEvent.end_date,
+                            })
+                        }}
+                    </span>
                 </div>
                 <div v-if="selectedEvent.location" class="text-muted-foreground flex items-start gap-2 text-sm">
                     <MapPin class="text-primary mt-0.5 size-4 shrink-0" />
                     <span>{{ selectedEvent.location }}</span>
                 </div>
                 <Button variant="default" size="sm" class="mt-2 w-full" as-child>
-                    <Link
-                        :href="selectedEvent.href"
-                        class="inline-flex items-center justify-center gap-2"
-                    >
+                    <Link :href="selectedEvent.href" class="inline-flex items-center justify-center gap-2">
                         Buka detail acara
                         <ArrowRight class="size-3.5" />
                     </Link>

@@ -1,15 +1,15 @@
 import { ref, watch, type Ref } from 'vue';
 import { sanitizeBuilderSnapshot } from '@/hooks/useBuilderImageUpload';
 
-export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'uploading' | 'error';
+export type TAutosaveStatus = 'idle' | 'saving' | 'saved' | 'uploading' | 'error';
 
-export interface AutosaveStorage {
+export interface IAutosaveStorage {
     read(key: string): string | null;
     write(key: string, value: string): void;
     remove(key: string): void;
 }
 
-export interface UseAutosaveSyncOptions {
+export interface IUseAutosaveSyncOptions {
     debounceMs?: number;
     enabled?: Ref<boolean> | boolean;
     /**
@@ -23,12 +23,12 @@ export interface UseAutosaveSyncOptions {
     /** Batas tunggu `flush` saat terblokir (default 30 detik). */
     blockedWaitTimeoutMs?: number;
     onError?: (message: string) => void;
-    storage?: AutosaveStorage;
+    storage?: IAutosaveStorage;
     storageKey?: string;
 }
 
-export interface UseAutosaveSyncResult {
-    status: Ref<AutosaveStatus>;
+export interface IUseAutosaveSyncResult {
+    status: Ref<TAutosaveStatus>;
     /** Jadwalkan simpan remote setelah debounce; tulisan `storage` lokal langsung dieksekusi. */
     schedule: () => void;
     /** Jalankan save remote sekarang, satu request aktif; pemanggilan beruntun terkoalesasi. */
@@ -68,12 +68,12 @@ export interface UseAutosaveSyncResult {
 export function useAutosaveSync(
     source: () => string,
     save: (snapshot: string) => Promise<void>,
-    opts: UseAutosaveSyncOptions = {},
-): UseAutosaveSyncResult {
+    opts: IUseAutosaveSyncOptions = {}
+): IUseAutosaveSyncResult {
     const debounceMs = opts.debounceMs ?? 800;
     const blockedRetryMs = opts.blockedRetryMs ?? debounceMs;
     const blockedWaitTimeoutMs = opts.blockedWaitTimeoutMs ?? 30_000;
-    const status = ref<AutosaveStatus>('idle');
+    const status = ref<TAutosaveStatus>('idle');
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let runner: Promise<void> | null = null;
     let runAgain = false;

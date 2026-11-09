@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
-import type { AutosaveStatus } from '@/hooks/useAutosaveSync';
+import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
 
 export type TAutosaveStatusVariant = 'inline' | 'block';
 
 interface IAutosaveStatusProps {
-    status: AutosaveStatus;
+    status: TAutosaveStatus;
     savedText?: string;
     savingText?: string;
     uploadingText?: string;

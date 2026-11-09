@@ -31,7 +31,7 @@ export function createRunId(now: Date = new Date(), randomHex: string = randomBy
     if (fromEnv !== '') {
         if (!RUN_ID_PATTERN.test(fromEnv)) {
             throw new Error(
-                `E2E_RUN_ID must match ${RUN_ID_PATTERN.source} (22 characters, e.g. 20260102T030405-abcdef).`,
+                `E2E_RUN_ID must match ${RUN_ID_PATTERN.source} (22 characters, e.g. 20260102T030405-abcdef).`
             );
         }
 

@@ -1,10 +1,5 @@
 import { router } from '@inertiajs/vue3';
-import {
-    assignUrl,
-    currentHref,
-    currentOrigin,
-    currentPathname,
-} from '@/adapters/browser/navigation';
+import { assignUrl, currentHref, currentOrigin, currentPathname } from '@/adapters/browser/navigation';
 import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const AUTH_PATH_PATTERN = /^\/auth(?:\/|$)/;

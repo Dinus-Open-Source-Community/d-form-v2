@@ -15,9 +15,9 @@ import { Eye, EyeOff, Save, UploadCloud } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { validateUploadFile } from '@/lib/uploadValidation';
 
-const DASHBOARD_PROFILE_UPDATE_URL = routes.dashboard.profile
-const DASHBOARD_PROFILE_AVATAR_URL = routes.dashboard.profileAvatar
-const DASHBOARD_PROFILE_PASSWORD_URL = routes.dashboard.profilePassword
+const DASHBOARD_PROFILE_UPDATE_URL = routes.dashboard.profile;
+const DASHBOARD_PROFILE_AVATAR_URL = routes.dashboard.profileAvatar;
+const DASHBOARD_PROFILE_PASSWORD_URL = routes.dashboard.profilePassword;
 
 defineOptions({ layout: DashboardLayout });
 
@@ -130,11 +130,11 @@ async function onAvatarFileChange(ev: Event): Promise<void> {
         clearPendingAvatar();
         return;
     }
-    const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'gif', 'webp'])
+    const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
     if (validationError) {
-        input.value = ''
-        toast.error(validationError)
-        return
+        input.value = '';
+        toast.error(validationError);
+        return;
     }
     clearPendingAvatar();
     pendingAvatarRemoval.value = false;
@@ -317,9 +317,7 @@ function saveAllChanges(): void {
                             Pengaturan Profil
                         </p>
                         <h1 class="text-foreground mt-1 text-xl font-semibold tracking-[-0.02em]">Informasi Dasar</h1>
-                        <p class="text-muted-foreground mt-1 text-sm">
-                            Kelola identitas tampilan dan email akun Anda.
-                        </p>
+                        <p class="text-muted-foreground mt-1 text-sm">Kelola identitas tampilan dan email akun Anda.</p>
                     </div>
 
                     <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
@@ -372,7 +370,10 @@ function saveAllChanges(): void {
                                           : 'Mendukung PNG, JPEG, dan GIF di bawah 5MB'
                                 }}
                             </p>
-                            <p v-if="getFieldError(avatarUploadForm.errors, 'avatar')" class="text-destructive mt-2 text-sm">
+                            <p
+                                v-if="getFieldError(avatarUploadForm.errors, 'avatar')"
+                                class="text-destructive mt-2 text-sm"
+                            >
                                 {{ getFieldError(avatarUploadForm.errors, 'avatar') }}
                             </p>
                         </div>
@@ -393,7 +394,11 @@ function saveAllChanges(): void {
                                     class="h-12 rounded-xl"
                                     :aria-invalid="Boolean(profileForm.errors.name)"
                                 />
-                                <p v-if="getFieldError(profileForm.errors, 'name')" role="alert" class="text-destructive text-sm">
+                                <p
+                                    v-if="getFieldError(profileForm.errors, 'name')"
+                                    role="alert"
+                                    class="text-destructive text-sm"
+                                >
                                     {{ getFieldError(profileForm.errors, 'name') }}
                                 </p>
                             </div>
@@ -408,19 +413,24 @@ function saveAllChanges(): void {
                                     class="h-12 rounded-xl"
                                     :aria-invalid="Boolean(profileForm.errors.email)"
                                 />
-                                <p v-if="getFieldError(profileForm.errors, 'email')" role="alert" class="text-destructive text-sm">
+                                <p
+                                    v-if="getFieldError(profileForm.errors, 'email')"
+                                    role="alert"
+                                    class="text-destructive text-sm"
+                                >
                                     {{ getFieldError(profileForm.errors, 'email') }}
                                 </p>
                             </div>
                         </div>
-
                     </form>
                 </section>
 
                 <section class="border-border/70 bg-card border-t p-5 sm:p-8">
                     <div class="border-border/70 mb-6 border-b pb-4">
                         <p class="text-muted-foreground text-xs font-semibold tracking-[0.16em] uppercase">Keamanan</p>
-                        <h2 class="text-foreground mt-1 text-xl font-semibold tracking-[-0.02em]">Kata Sandi & Akses</h2>
+                        <h2 class="text-foreground mt-1 text-xl font-semibold tracking-[-0.02em]">
+                            Kata Sandi & Akses
+                        </h2>
                         <p class="text-muted-foreground mt-1 text-sm">
                             {{
                                 hasLocalPassword
@@ -448,7 +458,9 @@ function saveAllChanges(): void {
                                         type="button"
                                         class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-1.5 inline-flex size-9 -translate-y-1/2 items-center justify-center transition focus-visible:ring-2 focus-visible:outline-none"
                                         :aria-label="
-                                            showCurrentPassword ? 'Sembunyikan kata sandi saat ini' : 'Tampilkan kata sandi saat ini'
+                                            showCurrentPassword
+                                                ? 'Sembunyikan kata sandi saat ini'
+                                                : 'Tampilkan kata sandi saat ini'
                                         "
                                         @click="showCurrentPassword = !showCurrentPassword"
                                     >
@@ -483,7 +495,11 @@ function saveAllChanges(): void {
                                         <button
                                             type="button"
                                             class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-1.5 inline-flex size-9 -translate-y-1/2 items-center justify-center transition focus-visible:ring-2 focus-visible:outline-none"
-                                            :aria-label="showNewPassword ? 'Sembunyikan kata sandi baru' : 'Tampilkan kata sandi baru'"
+                                            :aria-label="
+                                                showNewPassword
+                                                    ? 'Sembunyikan kata sandi baru'
+                                                    : 'Tampilkan kata sandi baru'
+                                            "
                                             @click="showNewPassword = !showNewPassword"
                                         >
                                             <EyeOff v-if="showNewPassword" class="size-4" />
@@ -500,7 +516,9 @@ function saveAllChanges(): void {
                                 </div>
 
                                 <div class="grid gap-2">
-                                    <Label for="confirm_password" class="text-sm font-semibold">Konfirmasi Kata Sandi</Label>
+                                    <Label for="confirm_password" class="text-sm font-semibold"
+                                        >Konfirmasi Kata Sandi</Label
+                                    >
                                     <div class="relative">
                                         <Input
                                             id="confirm_password"
@@ -514,7 +532,9 @@ function saveAllChanges(): void {
                                             type="button"
                                             class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-1.5 inline-flex size-9 -translate-y-1/2 items-center justify-center transition focus-visible:ring-2 focus-visible:outline-none"
                                             :aria-label="
-                                                showConfirmPassword ? 'Sembunyikan konfirmasi kata sandi' : 'Tampilkan konfirmasi kata sandi'
+                                                showConfirmPassword
+                                                    ? 'Sembunyikan konfirmasi kata sandi'
+                                                    : 'Tampilkan konfirmasi kata sandi'
                                             "
                                             @click="showConfirmPassword = !showConfirmPassword"
                                         >

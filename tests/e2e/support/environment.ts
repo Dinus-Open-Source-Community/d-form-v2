@@ -13,13 +13,14 @@ export interface IEnvironmentOptions {
     env?: NodeJS.ProcessEnv;
     probeBaseUrl?: boolean;
     baseUrlTimeoutMs?: number;
+    fetchImpl?: typeof fetch;
 }
 
 /** Kegagalan environment yang selalu menyebut nama variabel penyebabnya. */
 export class E2eEnvironmentError extends Error {
     constructor(
         readonly variable: string,
-        message: string,
+        message: string
     ) {
         super(`${variable}: ${message}`);
         this.name = 'E2eEnvironmentError';
@@ -29,6 +30,12 @@ export class E2eEnvironmentError extends Error {
 const DEFAULT_BASE_URL = 'http://localhost:8000';
 const DEFAULT_ARTISAN = 'podman exec -i -w /app d_form_app php artisan';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Timeout probe default > 2000 ms agar cold start `php -S`/Octane tidak dianggap mati. */
+export const DEFAULT_BASE_URL_TIMEOUT_MS = 5000;
+
+const PROBE_ATTEMPTS = 2;
+const HEAD_METHOD_NOT_ALLOWED = 405;
 
 /** Baca konfigurasi environment tanpa validasi; aman dipanggil saat modul config dievaluasi. */
 export function readEnvironment(env: NodeJS.ProcessEnv = process.env): IEnvironment {
@@ -119,18 +126,73 @@ async function assertBaseUrl(baseUrl: string, options: IEnvironmentOptions): Pro
         return;
     }
 
-    const timeoutMs = options.baseUrlTimeoutMs ?? 2000;
+    const timeoutMs = resolveBaseUrlTimeout(options);
+    const fetchImpl = options.fetchImpl ?? fetch;
 
-    try {
-        await fetch(parsed, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
-    } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
+    await probeBaseUrl(parsed, timeoutMs, fetchImpl);
+}
 
-        throw new E2eEnvironmentError(
-            'E2E_BASE_URL',
-            `host ${parsed.origin} did not answer a HEAD request within ${timeoutMs}ms (${reason}).`,
-        );
+/** Baca `E2E_BASE_URL_TIMEOUT_MS`; nilai tidak valid ditolak agar salah ketik tidak menutupi masalah. */
+function resolveBaseUrlTimeout(options: IEnvironmentOptions): number {
+    if (options.baseUrlTimeoutMs !== undefined) {
+        return options.baseUrlTimeoutMs;
     }
+
+    const env = options.env ?? process.env;
+    const raw = (env.E2E_BASE_URL_TIMEOUT_MS ?? '').trim();
+
+    if (raw === '') {
+        return DEFAULT_BASE_URL_TIMEOUT_MS;
+    }
+
+    const parsed = Number(raw);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new E2eEnvironmentError('E2E_BASE_URL_TIMEOUT_MS', `"${raw}" must be a positive number of milliseconds.`);
+    }
+
+    return parsed;
+}
+
+/**
+ * Probe reachability: HEAD dulu, GET sebagai fallback saat HEAD timeout/405, ulang sekali.
+ * Status apa pun yang dijawab server dianggap hidup; hanya kegagalan transport yang menggagalkan probe.
+ */
+async function probeBaseUrl(baseUrl: URL, timeoutMs: number, fetchImpl: typeof fetch): Promise<void> {
+    let lastReason = 'no response';
+
+    for (let attempt = 0; attempt < PROBE_ATTEMPTS; attempt += 1) {
+        try {
+            const head = await fetchImpl(baseUrl, {
+                method: 'HEAD',
+                redirect: 'manual',
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+
+            if (head.status !== HEAD_METHOD_NOT_ALLOWED) {
+                return;
+            }
+        } catch (error) {
+            lastReason = error instanceof Error ? error.message : String(error);
+        }
+
+        try {
+            await fetchImpl(baseUrl, {
+                method: 'GET',
+                redirect: 'manual',
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+
+            return;
+        } catch (error) {
+            lastReason = error instanceof Error ? error.message : String(error);
+        }
+    }
+
+    throw new E2eEnvironmentError(
+        'E2E_BASE_URL',
+        `host ${baseUrl.origin} did not answer within ${timeoutMs}ms after ${PROBE_ATTEMPTS} attempts (${lastReason}).`
+    );
 }
 
 /** Pastikan token pertama `E2E_ARTISAN` benar-benar executable di PATH. */
@@ -149,7 +211,7 @@ function assertArtisanCommand(artisan: string): void {
     if (probe.status !== 0) {
         throw new E2eEnvironmentError(
             'E2E_ARTISAN',
-            `first token "${executable}" is not an executable found on PATH (resolved command: "${artisan}").`,
+            `first token "${executable}" is not an executable found on PATH (resolved command: "${artisan}").`
         );
     }
 }
@@ -159,7 +221,7 @@ function assertAdminEmail(email: string, password: string): void {
     if (email === '' && password === '') {
         throw new E2eEnvironmentError(
             'E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD',
-            'must both be set to the seeded admin credentials.',
+            'must both be set to the seeded admin credentials.'
         );
     }
 

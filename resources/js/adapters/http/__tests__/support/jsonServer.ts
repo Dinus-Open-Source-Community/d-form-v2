@@ -40,9 +40,7 @@ function readBody(request: IncomingMessage): Promise<string> {
  * Jalankan server HTTP lokal yang membalas satu respons per request. Dipakai
  * adapter test agar kontrak benar-benar diuji lewat transport, bukan mock axios.
  */
-export function startJsonServer(
-    handler: (url: string) => IJsonServerResponse,
-): Promise<IJsonServerHandle> {
+export function startJsonServer(handler: (url: string) => IJsonServerResponse): Promise<IJsonServerHandle> {
     const requests: IJsonServerRequest[] = [];
     const server: Server = createServer((request: IncomingMessage, response: ServerResponse): void => {
         void readBody(request).then((body): void => {

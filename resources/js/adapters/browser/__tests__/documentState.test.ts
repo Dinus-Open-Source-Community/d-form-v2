@@ -14,7 +14,10 @@ import { matchesMediaQuery, onMediaQueryChange } from '@/adapters/browser/mediaQ
 function createDocument(): {
     title: string;
     hidden: boolean;
-    documentElement: { getAttribute: (name: string) => string | null; setAttribute: (name: string, value: string) => void };
+    documentElement: {
+        getAttribute: (name: string) => string | null;
+        setAttribute: (name: string, value: string) => void;
+    };
     listeners: Map<string, EventListener>;
     addEventListener: ReturnType<typeof vi.fn>;
     removeEventListener: ReturnType<typeof vi.fn>;

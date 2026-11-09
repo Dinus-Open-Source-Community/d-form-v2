@@ -138,10 +138,7 @@ function onReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmi
                             </div>
                         </div>
 
-                        <FormSubmissionsCardGridView
-                            :submissions="submissionList"
-                            @open-detail="openDetail"
-                        />
+                        <FormSubmissionsCardGridView :submissions="submissionList" @open-detail="openDetail" />
 
                         <AppPagination
                             :current-page="submissions.current_page"

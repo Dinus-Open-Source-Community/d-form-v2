@@ -4,6 +4,10 @@ import { showFlashToast } from '@/lib/error-message';
 
 type FlashToast = { type?: string; message?: string } | null | undefined;
 
+/**
+ * Side effect: tampilkan toast dari `page.flash.toast` saat mount dan tiap perubahan.
+ * Sengaja ditunda ke `onMounted` agar Toaster layout sudah terpasang pada hard load.
+ */
 export function usePageFlashToast(): void {
     const page = usePage();
 

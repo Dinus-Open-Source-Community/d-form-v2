@@ -61,7 +61,12 @@ function toRequestError(error: unknown): HttpRequestError {
     }
 
     if (isTimeoutError(error)) {
-        return new HttpRequestError({ kind: 'timeout', status: null, message: 'Permintaan melewati batas waktu.', cause: error });
+        return new HttpRequestError({
+            kind: 'timeout',
+            status: null,
+            message: 'Permintaan melewati batas waktu.',
+            cause: error,
+        });
     }
 
     if (axios.isAxiosError(error) && error.response !== undefined) {
@@ -130,7 +135,7 @@ export async function requestJson<T>(options: IHttpRequestOptions, parse: TPaylo
 /** Request JSON yang membiarkan status HTTP apa pun dibaca pemanggil. */
 export async function requestJsonWithStatus<T>(
     options: IHttpRequestOptions,
-    parse: TPayloadParser<T>,
+    parse: TPayloadParser<T>
 ): Promise<IHttpStatusResult<T>> {
     const response = await send(options, true);
     const data = parse(response.data);

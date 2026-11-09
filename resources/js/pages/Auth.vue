@@ -15,12 +15,7 @@ const seo: ComputedRef<IAuthTabConfig> = computed(() => getAuthTab(activeTab.val
 
 <template>
     <AuthLayout>
-        <SeoHead
-            :title="seo.title"
-            :description="seo.description"
-            :canonical-path="seo.path"
-            noindex
-        />
+        <SeoHead :title="seo.title" :description="seo.description" :canonical-path="seo.path" noindex />
         <AuthTabs :active-tab="activeTab" @update:active-tab="setActiveTab" />
     </AuthLayout>
 </template>

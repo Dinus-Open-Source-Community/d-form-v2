@@ -2,10 +2,10 @@
 import { computed, reactive, ref } from 'vue';
 import FormPreviewDialog from '@/components/modules/builder/FormPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
-import type { FormBannerState } from '@/components/modules/builder/formBanner';
+import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
-import type { BuilderField } from '@/types/form-builder';
-import type { FormRegistrationMetadata, FormSiblingOption } from '@/types/form';
+import type { IBuilderField } from '@/types/form-builder';
+import type { IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
 import { useFormBuilderWorkspace } from '@/hooks/useFormBuilderWorkspace';
 import FormBuilderToolbar from './FormBuilderToolbar.vue';
 import FormBuilderMobileTabBar from './FormBuilderMobileTabBar.vue';
@@ -25,7 +25,7 @@ const props = withDefaults(
         processing?: boolean;
         fieldErrors?: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>;
         shell?: 'dashboard' | 'fullscreen';
-        siblingForms?: FormSiblingOption[];
+        siblingForms?: IFormSiblingOption[];
         hideToolbarTitles?: boolean;
         hideToolbar?: boolean;
         formSettingsPlacement?: 'inline' | 'tab';
@@ -55,9 +55,9 @@ const formDescription = defineModel<string>('formDescription', { required: true 
 const successContent = defineModel<string>('successContent', { required: true });
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
-const banner = defineModel<FormBannerState>('banner', { required: true });
-const formFields = defineModel<BuilderField[]>('formFields', { required: true });
-const formMetadata = defineModel<FormRegistrationMetadata>('formMetadata', { required: true });
+const banner = defineModel<IFormBannerState>('banner', { required: true });
+const formFields = defineModel<IBuilderField[]>('formFields', { required: true });
+const formMetadata = defineModel<IFormRegistrationMetadata>('formMetadata', { required: true });
 const canvasScrollContainer = ref<HTMLElement | null>(null);
 
 const wb = reactive(
@@ -113,10 +113,7 @@ defineExpose({
 </script>
 
 <template>
-    <div
-        data-testid="form-builder-workspace"
-        :class="['flex min-h-0 flex-col overflow-hidden', shellHeightClass]"
-    >
+    <div data-testid="form-builder-workspace" :class="['flex min-h-0 flex-col overflow-hidden', shellHeightClass]">
         <FormBuilderToolbar
             :back-href="backHref"
             :toolbar-subtitle="toolbarSubtitle"

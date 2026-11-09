@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue'
-import { userAvatarSeed } from '@/lib/userAvatarFallback'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { CheckCircle2, Clock, XCircle } from 'lucide-vue-next'
-import { formatDateTime } from '@/lib/dateTime'
-import { registrantRelativeTimeId, registrantStatusBadgeClass } from '@/lib/registrantsUi'
+import { Button } from '@/components/ui/button';
+import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import { userAvatarSeed } from '@/lib/userAvatarFallback';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { CheckCircle2, Clock, XCircle } from 'lucide-vue-next';
+import { formatDateTime } from '@/lib/dateTime';
+import { registrantRelativeTimeId, registrantStatusBadgeClass } from '@/lib/registrantsUi';
 
-const open = defineModel<boolean>('open', { required: true })
+const open = defineModel<boolean>('open', { required: true });
 
 defineProps<{
-    registrant: IRegistrant | null
-}>()
+    registrant: IRegistrant | null;
+}>();
 
 const emit = defineEmits<{
-    approve: []
-    reject: []
-}>()
+    approve: [];
+    reject: [];
+}>();
 </script>
 
 <template>
@@ -28,73 +28,73 @@ const emit = defineEmits<{
             </SheetHeader>
 
             <div v-if="registrant" class="flex flex-col gap-5 px-4 pb-4">
-                <div class="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3.5">
+                <div class="border-border/60 bg-muted/30 flex items-center gap-3 rounded-2xl border p-3.5">
                     <UserAvatarFallback
                         :src="registrant.user.avatar"
                         :seed="userAvatarSeed(registrant.user)"
                         avatar-class="size-12 ring-2 ring-background"
                     />
                     <div class="min-w-0 flex-1">
-                        <p class="truncate text-sm font-semibold text-foreground">{{ registrant.user.name }}</p>
-                        <p class="truncate text-xs text-muted-foreground">{{ registrant.user.email }}</p>
-                        <p class="mt-1 text-xs text-muted-foreground">
+                        <p class="text-foreground truncate text-sm font-semibold">{{ registrant.user.name }}</p>
+                        <p class="text-muted-foreground truncate text-xs">{{ registrant.user.email }}</p>
+                        <p class="text-muted-foreground mt-1 text-xs">
                             Formulir:
-                            <span class="font-medium text-foreground">{{ registrant.form.title }}</span>
+                            <span class="text-foreground font-medium">{{ registrant.form.title }}</span>
                         </p>
                     </div>
                     <span
                         :class="[
- 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ring-1',
- registrantStatusBadgeClass(registrant.status),
- ]"
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ring-1',
+                            registrantStatusBadgeClass(registrant.status),
+                        ]"
                     >
                         <span class="size-1.5 rounded-full bg-current" />
                         {{ registrant.status }}
                     </span>
                 </div>
 
-                <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div class="text-muted-foreground flex items-center gap-2 text-[11px]">
                     <Clock class="size-3" />
                     Submitted {{ registrantRelativeTimeId(registrant.submitted_at) }} ·
                     {{ formatDateTime({ value: registrant.submitted_at, variant: 'date-time' }) }}
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    <p class="text-muted-foreground text-[11px] font-semibold tracking-[0.08em] uppercase">
                         Form answers
                     </p>
-                    <div class="flex flex-col divide-y divide-border/50 rounded-2xl border border-border/60">
+                    <div class="divide-border/50 border-border/60 flex flex-col divide-y rounded-2xl border">
                         <div
                             v-for="(value, key) in registrant.answers"
                             :key="key"
                             class="flex flex-col gap-1 px-4 py-3"
                         >
-                            <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                            <p class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
                                 {{ key }}
                             </p>
-                            <p class="text-sm leading-relaxed text-foreground">{{ value || '—' }}</p>
+                            <p class="text-foreground text-sm leading-relaxed">{{ value || '—' }}</p>
                         </div>
                     </div>
                 </div>
 
                 <div
                     v-if="registrant.status === 'accepted' && registrant.registration_code"
-                    class="rounded-2xl border border-success/25 bg-success/5 px-4 py-3"
+                    class="border-success/25 bg-success/5 rounded-2xl border px-4 py-3"
                 >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p class="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                         Manual registration code
                     </p>
-                    <p class="mt-1 font-mono text-lg font-bold tracking-widest text-foreground">
+                    <p class="text-foreground mt-1 font-mono text-lg font-bold tracking-widest">
                         {{ registrant.registration_code }}
                     </p>
-                    <p class="mt-1 text-[11px] leading-snug text-muted-foreground">
+                    <p class="text-muted-foreground mt-1 text-[11px] leading-snug">
                         Staff can enter this at check-in if QR scanning is unavailable.
                     </p>
                 </div>
 
                 <div v-if="registrant.status === 'pending'" class="flex items-center gap-2 pt-2">
                     <Button
-                        class="flex-1 bg-success text-success-foreground hover:bg-success/90"
+                        class="bg-success text-success-foreground hover:bg-success/90 flex-1"
                         @click="emit('approve')"
                     >
                         <CheckCircle2 class="mr-1.5 size-4" />
@@ -102,7 +102,7 @@ const emit = defineEmits<{
                     </Button>
                     <Button
                         variant="outline"
-                        class="flex-1 border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                        class="border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive flex-1"
                         @click="emit('reject')"
                     >
                         <XCircle class="mr-1.5 size-4" />

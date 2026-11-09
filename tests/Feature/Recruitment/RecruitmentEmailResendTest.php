@@ -286,5 +286,19 @@ class RecruitmentEmailResendTest extends TestCase
                 ->where('applicant_detail.email_resend_prereq.has_correction', true)
                 ->where('applicant_detail.email_resend_prereq.has_interview', false)
                 ->where('applicant_detail.email_resend_prereq.has_replayable_notification', true));
+
+        // Prasyarat di atas true karena ada log passed_screening yang lebih lama; aksi POST
+        // harus memakai aturan yang sama, bukan log terbaru (konfirmasi non-resendable).
+        $this->actingAs($admin)
+            ->post(route('dashboard.recruitment.applications.resend-email', $application), [
+                'type' => 'notification',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('recruitment_activity_logs', [
+            'recruitment_application_id' => $application->id,
+            'action' => 'email.resend',
+        ]);
     }
 }

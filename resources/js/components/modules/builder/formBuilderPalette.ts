@@ -1,4 +1,4 @@
-import type { Component } from 'vue'
+import type { Component } from 'vue';
 import {
     Type,
     AlignLeft,
@@ -17,23 +17,23 @@ import {
     TextCursorInput,
     Minus,
     MessageSquareCheck,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
-export interface FormBuilderPaletteField {
-    type: FormBuilderType
-    label: string
-    icon: Component
-    description: string
+export interface IFormBuilderPaletteField {
+    type: TFormBuilderType;
+    label: string;
+    icon: Component;
+    description: string;
 }
 
-export interface FormBuilderPaletteCategory {
-    name: string
-    icon: Component
-    isOpen: boolean
-    fields: FormBuilderPaletteField[]
+export interface IFormBuilderPaletteCategory {
+    name: string;
+    icon: Component;
+    isOpen: boolean;
+    fields: IFormBuilderPaletteField[];
 }
 
-const SOURCE: FormBuilderPaletteCategory[] = [
+const SOURCE: IFormBuilderPaletteCategory[] = [
     {
         name: 'Text Inputs',
         icon: Type,
@@ -84,24 +84,31 @@ const SOURCE: FormBuilderPaletteCategory[] = [
             { type: 'paragraph', label: 'Paragraph', icon: TextCursorInput, description: 'Descriptive text block' },
             { type: 'divider', label: 'Divider', icon: Minus, description: 'Visual separator line' },
             { type: 'rating', label: 'Star Rating', icon: Star, description: 'Rate with stars' },
-            { type: 'confirmation', label: 'Pesan setelah submit', icon: MessageSquareCheck, description: 'Ucapan setelah peserta mengirim form' },
+            {
+                type: 'confirmation',
+                label: 'Pesan setelah submit',
+                icon: MessageSquareCheck,
+                description: 'Ucapan setelah peserta mengirim form',
+            },
         ],
     },
-]
+];
 
 /** Flat list of draggable palette entries (search / mobile pickers). */
-export const ALL_FORM_BUILDER_FIELD_TEMPLATES: ReadonlyArray<FormBuilderPaletteField> = SOURCE.flatMap((c) => c.fields)
+export const ALL_FORM_BUILDER_FIELD_TEMPLATES: ReadonlyArray<IFormBuilderPaletteField> = SOURCE.flatMap(
+    (c) => c.fields
+);
 
 export const FORM_VISIBILITY_OPTIONS = [
     { value: 'public', label: 'Public' },
     { value: 'participant', label: 'Participant' },
     { value: 'admin', label: 'Admin' },
-] as const
+] as const;
 
 /** Fresh mutable tree for `ref()` (categories toggle `isOpen` per instance). */
-export function cloneFormBuilderPalette(): FormBuilderPaletteCategory[] {
+export function cloneFormBuilderPalette(): IFormBuilderPaletteCategory[] {
     return SOURCE.map((c) => ({
         ...c,
         fields: c.fields.map((f) => ({ ...f })),
-    }))
+    }));
 }

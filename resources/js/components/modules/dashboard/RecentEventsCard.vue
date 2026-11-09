@@ -1,36 +1,37 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Link } from '@inertiajs/vue3'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { dummyEvents, categoryLabelMap } from '@/lib/dummyData'
-import { formatDateTime } from '@/lib/dateTime'
-import { toCategoryList } from '@/lib/eventCategories'
-import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next'
-import { routes } from '@/lib/routes'
-import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect'
+import { computed } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { dummyEvents, categoryLabelMap } from '@/lib/dummyData';
+import { formatDateTime } from '@/lib/dateTime';
+import { toCategoryList } from '@/lib/eventCategories';
+import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next';
+import { routes } from '@/lib/routes';
+import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect';
 
 const props = defineProps<{
-    events?: IEvent[]
-    viewAllHref?: string
-    eventBaseHref?: string
-}>()
+    events?: IEvent[];
+    viewAllHref?: string;
+    eventBaseHref?: string;
+}>();
 
-const recentEvents = computed(() =>
-    props.events ??
-    dummyEvents
-        .filter((e) => !e.deleted_at)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 4),
-)
+const recentEvents = computed(
+    () =>
+        props.events ??
+        dummyEvents
+            .filter((e) => !e.deleted_at)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 4)
+);
 
-const allHref = computed(() => props.viewAllHref ?? routes.admin.events.index)
-const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index)
+const allHref = computed(() => props.viewAllHref ?? routes.admin.events.index);
+const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index);
 </script>
 
 <template>
-    <Card class="rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+    <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
         <CardHeader class="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
             <div>
                 <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">Acara terbaru</CardTitle>
@@ -48,23 +49,30 @@ const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index
                 v-for="event in recentEvents"
                 :key="event.id"
                 :href="`${baseHref}/${event.id}`"
-                class="group flex items-start gap-3 rounded-xl border border-transparent p-2 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border hover:bg-muted/40 sm:p-2.5"
+                class="group hover:border-border hover:bg-muted/40 flex items-start gap-3 rounded-xl border border-transparent p-2 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-2.5"
             >
-                <div :class="['hidden w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:block', EVENT_CARD_BANNER_ASPECT]">
-                    <img
-                        :src="event.banner_url ?? ''"
-                        :alt="event.title"
-                        class="size-full object-cover"
-                    />
+                <div
+                    :class="[
+                        'border-border bg-muted hidden w-16 shrink-0 overflow-hidden rounded-lg border sm:block',
+                        EVENT_CARD_BANNER_ASPECT,
+                    ]"
+                >
+                    <img :src="event.banner_url ?? ''" :alt="event.title" class="size-full object-cover" />
                 </div>
                 <div class="min-w-0 flex-1">
-                    <p class="truncate text-[13px] font-semibold text-foreground transition-colors group-hover:text-primary sm:text-sm">{{ event.title }}</p>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
+                    <p
+                        class="text-foreground group-hover:text-primary truncate text-[13px] font-semibold transition-colors sm:text-sm"
+                    >
+                        {{ event.title }}
+                    </p>
+                    <div
+                        class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium"
+                    >
                         <span class="inline-flex items-center gap-1">
                             <CalendarDays class="size-3" :stroke-width="2" />
                             {{ formatDateTime({ value: event.start_date }) }}
                         </span>
-                        <span class="hidden items-center gap-1 xs:inline-flex sm:inline-flex">
+                        <span class="xs:inline-flex hidden items-center gap-1 sm:inline-flex">
                             <MapPin class="size-3" :stroke-width="2" />
                             {{ event.location?.split('—')[0]?.trim() ?? event.location }}
                         </span>
@@ -80,7 +88,9 @@ const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index
                         </Badge>
                     </div>
                 </div>
-                <span class="shrink-0 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground shadow-xs sm:px-2 sm:text-[11px]">
+                <span
+                    class="border-border bg-card text-foreground shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-xs sm:px-2 sm:text-[11px]"
+                >
                     {{ event.registered_count }}/{{ event.quota }}
                 </span>
             </Link>

@@ -13,7 +13,7 @@ function sessionLabel(token: string): string {
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import { stripHtmlToText } from '@/utils/stripHtml';
-import type { SharedSeoProps } from '@/types/seo';
+import type { ISharedSeoProps } from '@/types/seo';
 import { routes } from '@/lib/routes';
 import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect';
 
@@ -24,7 +24,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage();
-const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
+const seo = computed(() => (page.props as { seo: ISharedSeoProps }).seo);
 
 const event = computed(() => props.event);
 
@@ -136,23 +136,25 @@ const highlights: string[] = [
             og-type="website"
             :json-ld="eventJsonLd"
         />
-        <section class="relative bg-background pt-20 sm:pt-24 lg:pt-20">
+        <section class="bg-background relative pt-20 sm:pt-24 lg:pt-20">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="rounded-[2rem] bg-muted/40 p-1.5 ring-1 ring-border/70 sm:p-2 lg:rounded-[2.25rem]">
+                <div class="bg-muted/40 ring-border/70 rounded-[2rem] p-1.5 ring-1 sm:p-2 lg:rounded-[2.25rem]">
                     <article
                         :class="[
- 'overflow-hidden rounded-[calc(2rem-0.375rem)] border border-border/70 bg-card shadow-sm transition-all duration-700 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(23rem,0.85fr)] lg:rounded-[calc(2.25rem-0.5rem)]',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                            'border-border/70 bg-card overflow-hidden rounded-[calc(2rem-0.375rem)] border shadow-sm transition-all duration-700 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(23rem,0.85fr)] lg:rounded-[calc(2.25rem-0.5rem)]',
+                            visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                        ]"
                     >
                         <div :class="eventHeroBannerContainerClass('lg:aspect-auto lg:h-full lg:min-h-0')">
                             <img :src="event.banner_url ?? ''" :alt="event.title" class="h-full w-full object-cover" />
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent lg:from-black/35" />
-                            <div class="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2 lg:hidden">
+                            <div
+                                class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent lg:from-black/35"
+                            />
+                            <div class="absolute right-4 bottom-4 left-4 flex flex-wrap gap-2 lg:hidden">
                                 <span
                                     v-for="cat in toCategoryList(event.category)"
                                     :key="cat"
-                                    class="rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-foreground shadow-sm"
+                                    class="text-foreground rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold tracking-[0.1em] uppercase shadow-sm"
                                 >
                                     {{ categoryLabelMap[cat] ?? cat }}
                                 </span>
@@ -165,16 +167,16 @@ const highlights: string[] = [
                                     <span
                                         v-for="cat in toCategoryList(event.category)"
                                         :key="cat"
-                                        class="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                                        class="border-border/70 bg-muted/40 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.12em] uppercase"
                                         :style="{ color: categoryColorMap[cat] ?? 'var(--muted-foreground)' }"
                                     >
                                         {{ categoryLabelMap[cat] ?? cat }}
                                     </span>
                                     <span
                                         :class="[
- 'rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
- registrationTone,
- ]"
+                                            'rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.12em] uppercase',
+                                            registrationTone,
+                                        ]"
                                     >
                                         {{ registrationBadgeLabel }}
                                     </span>
@@ -182,59 +184,88 @@ const highlights: string[] = [
 
                                 <span
                                     :class="[
- 'mb-3 inline-flex w-fit rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] lg:hidden',
- registrationTone,
- ]"
+                                        'mb-3 inline-flex w-fit rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.12em] uppercase lg:hidden',
+                                        registrationTone,
+                                    ]"
                                 >
                                     {{ registrationBadgeLabel }}
                                 </span>
 
                                 <h1
-                                    class="font-display text-foreground text-[1.8rem] font-bold leading-[1.07] tracking-tight text-balance break-words sm:text-[2.35rem] lg:text-5xl lg:leading-[1.04]"
+                                    class="font-display text-foreground text-[1.8rem] leading-[1.07] font-bold tracking-tight text-balance break-words sm:text-[2.35rem] lg:text-5xl lg:leading-[1.04]"
                                 >
                                     {{ event.title }}
                                 </h1>
                             </div>
 
                             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                                <div class="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 p-3.5">
-                                    <div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                                <div
+                                    class="border-border/70 bg-muted/20 flex items-start gap-3 rounded-2xl border p-3.5"
+                                >
+                                    <div
+                                        class="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-full"
+                                    >
                                         <CalendarDays class="size-4" />
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Tanggal</p>
-                                        <p class="mt-0.5 text-[0.95rem] font-semibold leading-snug text-foreground">{{ formatDateTime({ value: event.start_date }) }}</p>
-                                        <p class="text-[0.8rem] leading-relaxed text-muted-foreground">
+                                        <p
+                                            class="text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Tanggal
+                                        </p>
+                                        <p class="text-foreground mt-0.5 text-[0.95rem] leading-snug font-semibold">
+                                            {{ formatDateTime({ value: event.start_date }) }}
+                                        </p>
+                                        <p class="text-muted-foreground text-[0.8rem] leading-relaxed">
                                             {{ toCategoryList(event.session).map(sessionLabel).join(', ') }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div class="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 p-3.5">
-                                    <div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                                <div
+                                    class="border-border/70 bg-muted/20 flex items-start gap-3 rounded-2xl border p-3.5"
+                                >
+                                    <div
+                                        class="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-full"
+                                    >
                                         <MapPin class="size-4" />
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Lokasi</p>
-                                        <p class="mt-0.5 break-words text-[0.95rem] font-semibold leading-snug text-foreground">{{ event.location }}</p>
-                                        <p class="text-[0.8rem] leading-relaxed text-muted-foreground">Venue acara</p>
+                                        <p
+                                            class="text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Lokasi
+                                        </p>
+                                        <p
+                                            class="text-foreground mt-0.5 text-[0.95rem] leading-snug font-semibold break-words"
+                                        >
+                                            {{ event.location }}
+                                        </p>
+                                        <p class="text-muted-foreground text-[0.8rem] leading-relaxed">Venue acara</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+                            <div class="border-primary/15 bg-primary/[0.04] rounded-2xl border p-4">
                                 <div class="mb-2 flex items-end justify-between gap-4">
                                     <div>
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Kapasitas</p>
-                                        <p class="mt-1 text-sm font-semibold text-foreground">
-                                            {{ event.registered_count.toLocaleString() }} / {{ event.quota.toLocaleString() }} terdaftar
+                                        <p
+                                            class="text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Kapasitas
+                                        </p>
+                                        <p class="text-foreground mt-1 text-sm font-semibold">
+                                            {{ event.registered_count.toLocaleString() }} /
+                                            {{ event.quota.toLocaleString() }} terdaftar
                                         </p>
                                     </div>
-                                    <span class="font-display text-2xl font-bold tabular-nums text-primary">{{ capacityPercent }}%</span>
+                                    <span class="font-display text-primary text-2xl font-bold tabular-nums"
+                                        >{{ capacityPercent }}%</span
+                                    >
                                 </div>
-                                <div class="h-2.5 w-full overflow-hidden rounded-full bg-background">
+                                <div class="bg-background h-2.5 w-full overflow-hidden rounded-full">
                                     <div
-                                        class="h-full rounded-full bg-primary transition-[width] duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                                        class="bg-primary h-full rounded-full transition-[width] duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                         :style="{ width: capacityPercent + '%' }"
                                     />
                                 </div>
@@ -245,7 +276,9 @@ const highlights: string[] = [
                                     v-if="isGuest"
                                     class="border-primary/20 bg-primary/[0.05] flex items-start gap-3 rounded-2xl border p-3.5 lg:hidden"
                                 >
-                                    <span class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full">
+                                    <span
+                                        class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full"
+                                    >
                                         <LogIn class="size-4" />
                                     </span>
                                     <p class="text-muted-foreground text-xs leading-relaxed">
@@ -255,8 +288,12 @@ const highlights: string[] = [
                                 </div>
 
                                 <Link
-                                    :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
-                                    class="group inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-primary/15 bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary/92"
+                                    :href="
+                                        page.props.auth?.user
+                                            ? routes.member.event.show(event.slug)
+                                            : routes.auth.registerWithIntended(routes.member.event.show(event.slug))
+                                    "
+                                    class="group border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 inline-flex w-full items-center justify-center gap-3 rounded-2xl border px-5 py-3.5 text-sm font-semibold shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                 >
                                     {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
                                     <span class="grid size-7 place-items-center rounded-full bg-white/15">
@@ -271,20 +308,27 @@ const highlights: string[] = [
                 <div class="mt-8 grid gap-6 pb-14 sm:gap-8 sm:pb-20 lg:grid-cols-3 lg:gap-10">
                     <div
                         :class="[
- 'order-2 transition-all duration-700 lg:order-1 lg:col-span-2',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                            'order-2 transition-all duration-700 lg:order-1 lg:col-span-2',
+                            visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                        ]"
                         style="transition-delay: 200ms"
                     >
-                        <div class="rounded-[1.5rem] border border-border bg-card p-5 shadow-sm sm:p-7">
-                            <h2 class="font-display text-foreground text-[1.45rem] font-bold leading-tight tracking-tight sm:text-3xl">
+                        <div class="border-border bg-card rounded-[1.5rem] border p-5 shadow-sm sm:p-7">
+                            <h2
+                                class="font-display text-foreground text-[1.45rem] leading-tight font-bold tracking-tight sm:text-3xl"
+                            >
                                 About this event
                             </h2>
-                            <div class="prose prose-sm text-muted-foreground mt-4 max-w-none" v-html="event.description" />
+                            <div
+                                class="prose prose-sm text-muted-foreground mt-4 max-w-none"
+                                v-html="event.description"
+                            />
                         </div>
 
-                        <div class="mt-6 rounded-[1.5rem] border border-border bg-card p-5 shadow-sm sm:p-7">
-                            <h3 class="font-display text-foreground mb-4 text-[1.25rem] font-bold leading-tight tracking-tight sm:text-2xl">
+                        <div class="border-border bg-card mt-6 rounded-[1.5rem] border p-5 shadow-sm sm:p-7">
+                            <h3
+                                class="font-display text-foreground mb-4 text-[1.25rem] leading-tight font-bold tracking-tight sm:text-2xl"
+                            >
                                 What you'll get
                             </h3>
                             <div class="grid gap-3 sm:grid-cols-2">
@@ -304,15 +348,17 @@ const highlights: string[] = [
 
                     <div
                         :class="[
- 'transition-all duration-700 lg:order-2',
- eventForms.length === 0 ? 'hidden lg:block' : 'order-3',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                            'transition-all duration-700 lg:order-2',
+                            eventForms.length === 0 ? 'hidden lg:block' : 'order-3',
+                            visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                        ]"
                         style="transition-delay: 300ms"
                     >
                         <div class="flex flex-col gap-6 lg:sticky lg:top-28">
                             <div class="app-surface hidden rounded-2xl p-6 lg:block">
-                                <h3 class="font-display text-foreground mb-4 text-[1.2rem] font-bold leading-tight tracking-tight">
+                                <h3
+                                    class="font-display text-foreground mb-4 text-[1.2rem] leading-tight font-bold tracking-tight"
+                                >
                                     Registration
                                 </h3>
                                 <div class="mb-2 flex items-end justify-between">
@@ -342,7 +388,11 @@ const highlights: string[] = [
                                 </div>
 
                                 <Link
-                                    :href="page.props.auth?.user ? routes.member.event.show(event.slug) : routes.auth.registerWithIntended(routes.member.event.show(event.slug))"
+                                    :href="
+                                        page.props.auth?.user
+                                            ? routes.member.event.show(event.slug)
+                                            : routes.auth.registerWithIntended(routes.member.event.show(event.slug))
+                                    "
                                     class="border-primary/15 bg-primary text-primary-foreground hover:bg-primary/92 mt-6 flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                 >
                                     {{ page.props.auth?.user ? 'View Details' : 'Register Now' }}
@@ -352,7 +402,9 @@ const highlights: string[] = [
 
                             <div v-if="eventForms.length > 0" class="app-surface rounded-2xl p-6">
                                 <div class="mb-4 flex items-center justify-between gap-3">
-                                    <h3 class="font-display text-foreground text-[1.2rem] font-bold leading-tight tracking-tight">
+                                    <h3
+                                        class="font-display text-foreground text-[1.2rem] leading-tight font-bold tracking-tight"
+                                    >
                                         Forms
                                     </h3>
                                     <span
@@ -367,11 +419,15 @@ const highlights: string[] = [
                                             :href="formHref(form.fill_url)"
                                             class="app-focus-ring group border-border bg-muted/15 hover:border-primary/30 hover:bg-muted/30 flex min-h-14 items-start gap-3 rounded-xl border p-3.5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                                         >
-                                            <span class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full">
+                                            <span
+                                                class="bg-primary/10 text-primary grid size-8 shrink-0 place-items-center rounded-full"
+                                            >
                                                 <FileText class="size-4" />
                                             </span>
                                             <div class="min-w-0 flex-1">
-                                                <p class="text-foreground line-clamp-2 text-sm font-semibold leading-snug">
+                                                <p
+                                                    class="text-foreground line-clamp-2 text-sm leading-snug font-semibold"
+                                                >
                                                     {{ form.title }}
                                                 </p>
                                                 <p
@@ -397,7 +453,9 @@ const highlights: string[] = [
                             </div>
 
                             <div class="app-surface hidden rounded-2xl p-6 lg:block">
-                                <h3 class="font-display text-foreground mb-5 text-[1.2rem] font-bold leading-tight tracking-tight">
+                                <h3
+                                    class="font-display text-foreground mb-5 text-[1.2rem] leading-tight font-bold tracking-tight"
+                                >
                                     Event Details
                                 </h3>
                                 <div class="flex flex-col gap-4">
@@ -415,11 +473,7 @@ const highlights: string[] = [
                                                 {{ formatDateTime({ value: event.start_date }) }}
                                             </p>
                                             <p class="text-muted-foreground text-xs">
-                                                {{
-                                                    toCategoryList(event.session)
-                                                        .map(sessionLabel)
-                                                        .join(', ')
-                                                }}
+                                                {{ toCategoryList(event.session).map(sessionLabel).join(', ') }}
                                             </p>
                                         </div>
                                     </div>

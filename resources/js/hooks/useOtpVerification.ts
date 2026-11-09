@@ -7,7 +7,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import { resend as resendOtp, verify as verifyOtp } from '@/actions/App/Http/Controllers/Auth/VerifyOtpController';
 import CancelPendingRegistrationController from '@/actions/App/Http/Controllers/Auth/CancelPendingRegistrationController';
 import { getFieldError } from '@/lib/error-message';
-import type { ValidationErrors } from '@/lib/error-message';
+import type { TValidationErrors } from '@/lib/error-message';
 
 /** Panjang kode OTP registrasi; harus sama dengan validasi server (`digits:6`). */
 export const OTP_CODE_LENGTH = 6;
@@ -65,7 +65,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     let resendButton: HTMLButtonElement | null = null;
     let alternateEmailButton: HTMLButtonElement | null = null;
 
-    const pageErrors = computed<ValidationErrors>(() => page.props.errors);
+    const pageErrors = computed<TValidationErrors>(() => page.props.errors);
 
     const resendError = computed<string | undefined>(() => getFieldError(pageErrors.value, 'resend'));
 
@@ -76,7 +76,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
             code.value.length === OTP_CODE_LENGTH &&
             !isSubmitting.value &&
             !isVerified.value &&
-            !options.isExpired.value,
+            !options.isExpired.value
     );
 
     /** Daftarkan tombol kirim ulang sebagai target fokus saat kode kedaluwarsa. */
@@ -107,8 +107,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         }
 
         if (result.status === 422) {
-            codeError.value =
-                result.message ?? 'Kode verifikasi salah. Periksa kembali atau kirim ulang kode.';
+            codeError.value = result.message ?? 'Kode verifikasi salah. Periksa kembali atau kirim ulang kode.';
             // Kode yang ditolak tidak berguna lagi; kotak mengosongkan diri dan fokus kembali ke kotak pertama.
             code.value = '';
             // Server bisa mengosongkan kode setelah percobaan habis; segarkan props agar status ikut.
@@ -166,7 +165,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
                     isResending.value = false;
                     restoreFocusAfterResend();
                 },
-            },
+            }
         );
     }
 
@@ -196,7 +195,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         (isComplete) => {
             if (isComplete) void submit();
         },
-        { flush: 'post' },
+        { flush: 'post' }
     );
 
     // Pesan merah milik kode lama tidak relevan lagi saat pengguna mulai mengetik kode baru.
@@ -213,7 +212,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
 
             focusActionableControl();
         },
-        { flush: 'post' },
+        { flush: 'post' }
     );
 
     return {

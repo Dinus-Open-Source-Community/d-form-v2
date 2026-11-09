@@ -162,13 +162,10 @@ test('H-projects: project graph, matching desktop/mobile, dan placeholder mobile
     }
 
     expect(projectsForSpecFile(PLACEHOLDER)).toEqual(['chromium-mobile']);
-    expect(projectsForSpecFile('tests/e2e/harness-projects.spec.ts')).toEqual([
-        'chromium-desktop',
-        'chromium-mobile',
-    ]);
-    expect(specFilesForProject('chromium-mobile').filter((file: string): boolean => file.endsWith('.desktop.spec.ts'))).toEqual(
-        [],
-    );
+    expect(projectsForSpecFile('tests/e2e/harness-projects.spec.ts')).toEqual(['chromium-desktop', 'chromium-mobile']);
+    expect(
+        specFilesForProject('chromium-mobile').filter((file: string): boolean => file.endsWith('.desktop.spec.ts'))
+    ).toEqual([]);
 });
 
 /** H-projects-path: pencocokan berkas tetap benar untuk kedua bentuk path reporter. */

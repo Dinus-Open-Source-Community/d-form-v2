@@ -1,79 +1,79 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, useId, watch } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-import { validateUploadFile } from '@/lib/uploadValidation'
-import { ImagePlus, X } from 'lucide-vue-next'
+import { computed, onUnmounted, ref, useId, watch } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { validateUploadFile } from '@/lib/uploadValidation';
+import { ImagePlus, X } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
-        modelValue: File | null
-        bannerUrl?: string | null
-        error?: string | null
-        disabled?: boolean
+        modelValue: File | null;
+        bannerUrl?: string | null;
+        error?: string | null;
+        disabled?: boolean;
     }>(),
     {
         bannerUrl: null,
         error: null,
         disabled: false,
-    },
-)
+    }
+);
 
 const emit = defineEmits<{
-    'update:modelValue': [value: File | null]
-}>()
+    'update:modelValue': [value: File | null];
+}>();
 
-const inputId = `period-banner-${useId().replace(/:/g, '')}`
-const bannerInput = ref<HTMLInputElement | null>(null)
-const bannerObjectUrl = ref<string | null>(null)
-const isDragging = ref(false)
+const inputId = `period-banner-${useId().replace(/:/g, '')}`;
+const bannerInput = ref<HTMLInputElement | null>(null);
+const bannerObjectUrl = ref<string | null>(null);
+const isDragging = ref(false);
 
 /** Pratinjau compact: berkas baru (object URL) diutamakan, lalu banner lama dari server. */
-const preview = computed<string | null>(() => bannerObjectUrl.value ?? props.bannerUrl ?? null)
-const hasNewFile = computed<boolean>(() => props.modelValue !== null)
+const preview = computed<string | null>(() => bannerObjectUrl.value ?? props.bannerUrl ?? null);
+const hasNewFile = computed<boolean>(() => props.modelValue !== null);
 const removeLabel = computed<string>(() =>
-    props.bannerUrl && hasNewFile.value ? 'Batalkan pilihan banner baru' : 'Hapus banner',
-)
+    props.bannerUrl && hasNewFile.value ? 'Batalkan pilihan banner baru' : 'Hapus banner'
+);
 
 watch(
     () => props.modelValue,
     (file) => {
-        releaseBannerObjectUrl()
-        if (file) bannerObjectUrl.value = URL.createObjectURL(file)
+        releaseBannerObjectUrl();
+        if (file) bannerObjectUrl.value = URL.createObjectURL(file);
     },
-    { immediate: true },
-)
+    { immediate: true }
+);
 
-onUnmounted(releaseBannerObjectUrl)
+onUnmounted(releaseBannerObjectUrl);
 
 function releaseBannerObjectUrl(): void {
     if (bannerObjectUrl.value) {
-        URL.revokeObjectURL(bannerObjectUrl.value)
-        bannerObjectUrl.value = null
+        URL.revokeObjectURL(bannerObjectUrl.value);
+        bannerObjectUrl.value = null;
     }
 }
 
 function openBannerPicker(): void {
-    if (!props.disabled) bannerInput.value?.click()
+    if (!props.disabled) bannerInput.value?.click();
 }
 
 async function handleBannerChange(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file)
-    input.value = ''
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file);
+    input.value = '';
 }
 
 async function handleBannerDrop(event: DragEvent): Promise<void> {
-    isDragging.value = false
-    if (props.disabled) return
-    const file = event.dataTransfer?.files?.[0]
-    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file)
+    isDragging.value = false;
+    if (props.disabled) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) emit('update:modelValue', file);
 }
 
 function removeBanner(): void {
-    emit('update:modelValue', null)
+    emit('update:modelValue', null);
 }
 </script>
 
@@ -122,17 +122,12 @@ function removeBanner(): void {
                         'aspect-video w-full max-w-xs overflow-hidden rounded-xl border transition-colors sm:max-w-sm',
                         preview
                             ? 'border-border bg-muted/25'
-                            : 'border-border cursor-pointer border-dashed hover:border-primary/50 hover:bg-primary/[0.03]',
-                        isDragging && 'border-primary/60 bg-primary/5',
+                            : 'border-border hover:border-primary/50 hover:bg-primary/[0.03] cursor-pointer border-dashed',
+                        isDragging && 'border-primary/60 bg-primary/5'
                     )
                 "
             >
-                <img
-                    v-if="preview"
-                    :src="preview"
-                    alt="Pratinjau banner"
-                    class="size-full object-cover"
-                />
+                <img v-if="preview" :src="preview" alt="Pratinjau banner" class="size-full object-cover" />
                 <div
                     v-else
                     class="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 px-4 text-center"
@@ -146,9 +141,7 @@ function removeBanner(): void {
                     </span>
                     <div>
                         <p class="text-sm font-medium">Unggah banner</p>
-                        <p class="text-muted-foreground mt-0.5 text-xs">
-                            Klik atau seret gambar ke sini
-                        </p>
+                        <p class="text-muted-foreground mt-0.5 text-xs">Klik atau seret gambar ke sini</p>
                     </div>
                 </div>
             </div>
@@ -160,8 +153,7 @@ function removeBanner(): void {
                     <li>Rasio 16:9 disarankan agar tampil penuh (tidak wajib).</li>
                 </ul>
                 <p class="text-muted-foreground text-xs">
-                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 5 MB
-                    bila unggahan gagal.
+                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 5 MB bila unggahan gagal.
                 </p>
             </div>
         </div>

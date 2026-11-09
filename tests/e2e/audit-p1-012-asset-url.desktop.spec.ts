@@ -24,7 +24,7 @@ import type { IOwnerIdentity } from './support/marker';
  */
 const VALID_PNG_BYTES: Buffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFElEQVQImWPkqjjBAANMDEgANwcAQLoBUlac4vkAAAAASUVORK5CYII=',
-    'base64',
+    'base64'
 );
 
 const ACTIVE_SVG_SOURCE = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>';
@@ -96,8 +96,14 @@ async function openShowEditor(page: Page, form: IAdminOwnedForm): Promise<void> 
 async function addPaletteField(page: Page, searchTerm: string, label: string): Promise<Locator> {
     await page.getByPlaceholder('Cari komponen…').fill(searchTerm);
 
-    const canvas = page.locator('section').filter({ has: page.locator('#f-title') }).first();
-    await page.getByText(label, { exact: true }).first().dragTo(canvas, { targetPosition: { x: 140, y: 120 } });
+    const canvas = page
+        .locator('section')
+        .filter({ has: page.locator('#f-title') })
+        .first();
+    await page
+        .getByText(label, { exact: true })
+        .first()
+        .dragTo(canvas, { targetPosition: { x: 140, y: 120 } });
 
     const row = page.locator('.fb-field-row').last();
     await expect(row).toBeVisible();
@@ -264,11 +270,11 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             expect(dialogs.messages(), 'tidak ada dialog alert dari payload').toHaveLength(0);
             expect(
                 navigations.urls().filter((url) => url.startsWith('javascript:')),
-                'tidak ada navigasi ke skema javascript:',
+                'tidak ada navigasi ke skema javascript:'
             ).toHaveLength(0);
             expect(
                 consoleErrors.texts().filter((text) => /javascript:|Uncaught/i.test(text)),
-                'console error terkait payload',
+                'console error terkait payload'
             ).toHaveLength(0);
         } finally {
             consoleErrors.stop();
@@ -349,9 +355,11 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             const preview = page.getByRole('dialog', { name: 'Form respondent preview' });
             await expect(preview).toBeVisible();
 
-            const previewSources = await preview.locator('img').evaluateAll((images: Element[]): (string | null)[] =>
-                images.map((image: Element): string | null => image.getAttribute('src')),
-            );
+            const previewSources = await preview
+                .locator('img')
+                .evaluateAll((images: Element[]): (string | null)[] =>
+                    images.map((image: Element): string | null => image.getAttribute('src'))
+                );
 
             // Non-empty agar loop tidak lolos secara vacuous saat pratinjau tidak merender gambar.
             expect(previewSources.length, 'pratinjau harus merender minimal satu gambar').toBeGreaterThan(0);
@@ -362,11 +370,11 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             expect(dialogs.messages(), 'tidak ada dialog alert dari banner').toHaveLength(0);
             expect(
                 navigations.urls().filter((url) => url.startsWith('javascript:')),
-                'tidak ada navigasi ke skema javascript:',
+                'tidak ada navigasi ke skema javascript:'
             ).toHaveLength(0);
             expect(
                 consoleErrors.texts().filter((text) => /javascript:|Uncaught/i.test(text)),
-                'console error terkait payload banner',
+                'console error terkait payload banner'
             ).toHaveLength(0);
         } finally {
             consoleErrors.stop();
@@ -387,8 +395,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             const bannerInput = page.locator('input[type=file][accept="image/png,image/jpeg,image/gif"]');
             const uploadResponse = page.waitForResponse(
                 (response): boolean =>
-                    response.request().method() === 'POST' &&
-                    new URL(response.url()).pathname.endsWith('/images'),
+                    response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/images')
             );
 
             // Kontrol positif: jalur unggah banner benar-benar aktif untuk gambar sah.
@@ -413,7 +420,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             await expect(page.getByText('Gunakan PNG, JPG, JPEG, atau GIF.')).toBeVisible();
             expect(
                 requests.urls().filter((url) => url.includes('/images')).length,
-                'file non-gambar tidak boleh dikirim ke endpoint upload',
+                'file non-gambar tidak boleh dikirim ke endpoint upload'
             ).toBe(uploadsBefore);
             // Banner lama tetap tampil: tidak ada broken image diam-diam.
             await expect(bannerImage).toBeVisible();
@@ -450,11 +457,11 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             // agar tidak tertukar dengan pesan gagal-upload generik.
             await expect(
                 page.getByText('Gagal mengunggah gambar opsi. Coba lagi.', { exact: true }),
-                'error validasi tampil di UI',
+                'error validasi tampil di UI'
             ).toBeVisible();
             expect(
                 requests.urls().filter((url) => url.endsWith('/images')).length,
-                'SVG tidak boleh dikirim ke endpoint upload',
+                'SVG tidak boleh dikirim ke endpoint upload'
             ).toBe(uploadsBefore);
 
             // Tidak boleh ada broken image diam-diam: URL opsi dikosongkan setelah gagal.
@@ -486,7 +493,10 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
 
             const traversalRequests = requests.urls().filter((url) => url.includes('etc/passwd'));
             // Loop kosong tidak membuktikan apa pun; pastikan browser benar-benar meminta path itu.
-            expect(traversalRequests.length, 'browser harus meminta path traversal agar assertion bermakna').toBeGreaterThan(0);
+            expect(
+                traversalRequests.length,
+                'browser harus meminta path traversal agar assertion bermakna'
+            ).toBeGreaterThan(0);
             for (const url of traversalRequests) {
                 expect(url.startsWith(baseUrl), `request traversal harus same-origin: ${url}`).toBe(true);
             }
@@ -524,7 +534,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             expect(dialogs.messages(), 'tidak ada dialog dari banner eksternal').toHaveLength(0);
             expect(
                 navigations.urls().filter((url) => url.startsWith('javascript:')),
-                'tidak ada navigasi javascript:',
+                'tidak ada navigasi javascript:'
             ).toHaveLength(0);
         } finally {
             dialogs.stop();
@@ -551,7 +561,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
 
             expect(
                 consoleErrors.texts().filter((text) => /Failed to fetch dynamically imported module/i.test(text)),
-                'chunk editor gagal dimuat',
+                'chunk editor gagal dimuat'
             ).toHaveLength(0);
         } finally {
             consoleErrors.stop();

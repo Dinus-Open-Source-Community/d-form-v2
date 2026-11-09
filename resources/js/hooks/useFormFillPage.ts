@@ -1,88 +1,88 @@
-import { computed, onBeforeUnmount, reactive } from 'vue'
-import { useForm, usePage } from '@inertiajs/vue3'
-import { pickFormBannerField } from '@/components/modules/builder/formBanner'
-import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
-import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
-import { validateUploadFile } from '@/lib/uploadValidation'
+import { computed, onBeforeUnmount, reactive } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { pickFormBannerField } from '@/components/modules/builder/formBanner';
+import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { validateUploadFile } from '@/lib/uploadValidation';
 import {
     buildFieldLabelMap,
     getFieldError,
     handleInertiaFormErrors,
     showErrorToast,
-    type ErrorMessageContext,
-} from '@/lib/error-message'
-import { getFormFieldOptionRows } from '@/lib/formFieldOptions'
-import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata'
+    type TErrorMessageContext,
+} from '@/lib/error-message';
+import { getFormFieldOptionRows } from '@/lib/formFieldOptions';
+import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata';
 import type {
-    FormAccessStatus,
-    FormFillAnswerMap,
-    FormFillAnswerValue,
-    FormFillOptionRow,
-    FormFillPageEvent,
-    FormFillPageForm,
-    FormFieldMetadataBag,
-    FormFieldRules,
-} from '@/types/form'
+    TFormAccessStatus,
+    TFormFillAnswerMap,
+    TFormFillAnswerValue,
+    TFormFillOptionRow,
+    IFormFillPageEvent,
+    IFormFillPageForm,
+    TFormFieldMetadataBag,
+    TFormFieldRules,
+} from '@/types/form';
 
 /** Builds the answer map, field helpers, and submit handler for the public form fill page; used only by that page. */
 export function useFormFillPage(props: {
-    event: FormFillPageEvent
-    form: FormFillPageForm
-    fields: IFormField[]
-    submitUrl: string
-    accessStatus: FormAccessStatus
-    accessMessage: string
-    memberSlots: number
-    registrationMode: string
+    event: IFormFillPageEvent;
+    form: IFormFillPageForm;
+    fields: IFormField[];
+    submitUrl: string;
+    accessStatus: TFormAccessStatus;
+    accessMessage: string;
+    memberSlots: number;
+    registrationMode: string;
 }) {
-    const fields = props.fields ?? []
-    const page = usePage()
+    const fields = props.fields ?? [];
+    const page = usePage();
 
-    function metadata(field: IFormField): FormFieldMetadataBag {
-        return readFieldMetadata(field)
+    function metadata(field: IFormField): TFormFieldMetadataBag {
+        return readFieldMetadata(field);
     }
 
-    function rules(field: IFormField): FormFieldRules {
-        return readFieldRules(field)
+    function rules(field: IFormField): TFormFieldRules {
+        return readFieldRules(field);
     }
 
     function builderType(field: IFormField): string {
-        const value = metadata(field).builderType
-        if (typeof value === 'string') return value
-        if (field.name === 'form_banner' || field.type === 'banner') return 'banner'
-        return field.type
+        const value = metadata(field).builderType;
+        if (typeof value === 'string') return value;
+        if (field.name === 'form_banner' || field.type === 'banner') return 'banner';
+        return field.type;
     }
 
     function isDisplayOnly(field: IFormField): boolean {
-        const bt = builderType(field)
-        return ['heading', 'paragraph', 'divider', 'banner', 'image'].includes(bt)
+        const bt = builderType(field);
+        return ['heading', 'paragraph', 'divider', 'banner', 'image'].includes(bt);
     }
 
-    const formBannerField = computed(() => pickFormBannerField(props.fields ?? []))
+    const formBannerField = computed(() => pickFormBannerField(props.fields ?? []));
 
     const formBannerImageSrc = computed(() => {
-        const fb = formBannerField.value
-        const meta = fb ? metadata(fb) : {}
-        const url = (meta.bannerUrl as string) || props.form.banner_url
-        if (!url) return ''
-        return normalizePublicStorageUrl(url)
-    })
+        const fb = formBannerField.value;
+        const meta = fb ? metadata(fb) : {};
+        const url = (meta.bannerUrl as string) || props.form.banner_url;
+        if (!url) return '';
+        return normalizePublicStorageUrl(url);
+    });
 
     const formBannerCaption = computed(() => {
-        const fb = formBannerField.value
+        const fb = formBannerField.value;
         if (fb) {
-            const raw = metadata(fb).content
-            if (typeof raw === 'string' && raw.trim()) return raw
+            const raw = metadata(fb).content;
+            if (typeof raw === 'string' && raw.trim()) return raw;
         }
-        return props.form.banner_caption ?? ''
-    })
+        return props.form.banner_caption ?? '';
+    });
 
-    const formHasDescription = computed(() => Boolean(props.form.description?.trim()))
-    const isBlocked = computed(() => props.accessStatus !== 'allowed')
+    const formHasDescription = computed(() => Boolean(props.form.description?.trim()));
+    const isBlocked = computed(() => props.accessStatus !== 'allowed');
 
     const blockCopy = computed(() => {
-        const fallback = props.accessMessage || 'This form is not available right now.'
-        const map: Record<FormAccessStatus, { title: string; body: string; success?: boolean }> = {
+        const fallback = props.accessMessage || 'This form is not available right now.';
+        const map: Record<TFormAccessStatus, { title: string; body: string; success?: boolean }> = {
             allowed: { title: '', body: '' },
             already_submitted: { title: 'You have already submitted this form.', body: fallback, success: true },
             form_closed: { title: 'Registration is closed.', body: fallback },
@@ -109,244 +109,251 @@ export function useFormFillPage(props: {
                 body: fallback,
             },
             not_visible: { title: 'You do not have access to this form.', body: fallback },
-        }
-        return map[props.accessStatus]
-    })
+        };
+        return map[props.accessStatus];
+    });
 
-    const initialValues: FormFillAnswerMap = {}
+    const initialValues: TFormFillAnswerMap = {};
     for (const field of fields) {
-        if (isDisplayOnly(field)) continue
+        if (isDisplayOnly(field)) continue;
         if (field.type === 'checkbox' || (field.type === 'select' && readMetaBoolean(metadata(field), 'is_multiple'))) {
-            initialValues[field.name] = []
+            initialValues[field.name] = [];
         } else if (field.type === 'fileUpload') {
-            initialValues[field.name] = null
+            initialValues[field.name] = null;
         } else {
-            initialValues[field.name] = ''
+            initialValues[field.name] = '';
         }
     }
 
     if (props.memberSlots > 0) {
-        initialValues.team_member_emails = Array.from({ length: props.memberSlots }, () => '')
+        initialValues.team_member_emails = Array.from({ length: props.memberSlots }, () => '');
     }
 
     if (props.registrationMode === 'bundle' && props.memberSlots > 0) {
         for (const field of fields) {
-            if (isDisplayOnly(field)) continue
-            if (metadata(field).duplicatable !== true) continue
+            if (isDisplayOnly(field)) continue;
+            if (metadata(field).duplicatable !== true) continue;
             for (let i = 0; i < props.memberSlots; i++) {
-                const key = `bundle__${field.name}__${i}`
-                if (field.type === 'checkbox' || (field.type === 'select' && readMetaBoolean(metadata(field), 'is_multiple'))) {
-                    initialValues[key] = []
+                const key = `bundle__${field.name}__${i}`;
+                if (
+                    field.type === 'checkbox' ||
+                    (field.type === 'select' && readMetaBoolean(metadata(field), 'is_multiple'))
+                ) {
+                    initialValues[key] = [];
                 } else if (field.type === 'fileUpload') {
-                    initialValues[key] = null
+                    initialValues[key] = null;
                 } else {
-                    initialValues[key] = ''
+                    initialValues[key] = '';
                 }
             }
         }
     }
 
-    const answerForm = useForm<FormFillAnswerMap>(initialValues)
+    const answerForm = useForm<TFormFillAnswerMap>(initialValues);
 
-    const errorContext = computed<ErrorMessageContext>(() => ({
+    const errorContext = computed<TErrorMessageContext>(() => ({
         fields,
         fieldLabels: buildFieldLabelMap(fields),
-    }))
+    }));
 
     /** Object URLs for local file previews (image upload); revoked on clear/unmount. */
-    const filePreviewUrls = reactive<Record<string, string>>({})
+    const filePreviewUrls = reactive<Record<string, string>>({});
 
     function revokeFilePreview(fieldName: string): void {
-        const url = filePreviewUrls[fieldName]
+        const url = filePreviewUrls[fieldName];
         if (url) {
-            URL.revokeObjectURL(url)
-            delete filePreviewUrls[fieldName]
+            URL.revokeObjectURL(url);
+            delete filePreviewUrls[fieldName];
         }
     }
 
-    function getOptionRows(field: IFormField): FormFillOptionRow[] {
-        return getFormFieldOptionRows(field)
+    function getOptionRows(field: IFormField): TFormFillOptionRow[] {
+        return getFormFieldOptionRows(field);
     }
 
     function getSelectedOptionRow(field: IFormField, storageKey?: string) {
-        const key = storageKey ?? field.name
-        const val = answerForm[key] as string
-        return getOptionRows(field).find((r) => r.label === val)
+        const key = storageKey ?? field.name;
+        const val = answerForm[key] as string;
+        return getOptionRows(field).find((r) => r.label === val);
     }
 
     function isBundleDuplicatableField(field: IFormField): boolean {
-        return props.registrationMode === 'bundle' && metadata(field).duplicatable === true && !isDisplayOnly(field)
+        return props.registrationMode === 'bundle' && metadata(field).duplicatable === true && !isDisplayOnly(field);
     }
 
     function participationSlotsForField(field: IFormField): { slotIndex: number | null; title: string }[] {
         if (isBundleDuplicatableField(field)) {
-            const rows: { slotIndex: number | null; title: string }[] = [{ slotIndex: null, title: 'Lead participant' }]
+            const rows: { slotIndex: number | null; title: string }[] = [
+                { slotIndex: null, title: 'Lead participant' },
+            ];
             for (let i = 0; i < props.memberSlots; i++) {
-                rows.push({ slotIndex: i, title: `Participant ${i + 2}` })
+                rows.push({ slotIndex: i, title: `Participant ${i + 2}` });
             }
-            return rows
+            return rows;
         }
-        return [{ slotIndex: null, title: '' }]
+        return [{ slotIndex: null, title: '' }];
     }
 
     function answerKeyForSlot(field: IFormField, slotIndex: number | null): string {
-        if (slotIndex === null) return field.name
-        return `bundle__${field.name}__${slotIndex}`
+        if (slotIndex === null) return field.name;
+        return `bundle__${field.name}__${slotIndex}`;
     }
 
     function getInputSubtype(field: IFormField): string {
-        const type = metadata(field).type
+        const type = metadata(field).type;
         if (typeof type === 'string') {
-            if (type === 'short_text') return 'text'
-            if (type === 'phone') return 'tel'
-            return type
+            if (type === 'short_text') return 'text';
+            if (type === 'phone') return 'tel';
+            return type;
         }
-        const bt = builderType(field)
-        if (bt === 'url') return 'url'
-        return 'text'
+        const bt = builderType(field);
+        if (bt === 'url') return 'url';
+        return 'text';
     }
 
     function getPlaceholder(field: IFormField): string {
-        const placeholder = metadata(field).placeholder
-        return typeof placeholder === 'string' ? placeholder : ''
+        const placeholder = metadata(field).placeholder;
+        return typeof placeholder === 'string' ? placeholder : '';
     }
 
     function isRequired(field: IFormField): boolean {
-        return Boolean(rules(field).required)
+        return Boolean(rules(field).required);
     }
 
     function isMultipleSelect(field: IFormField): boolean {
-        return readMetaBoolean(metadata(field), 'is_multiple')
+        return readMetaBoolean(metadata(field), 'is_multiple');
     }
 
     function isRadioLike(field: IFormField): boolean {
-        const bt = builderType(field)
-        return field.type === 'radio' || bt === 'radio' || bt === 'yes_no'
+        const bt = builderType(field);
+        return field.type === 'radio' || bt === 'radio' || bt === 'yes_no';
     }
 
     function isCheckboxLike(field: IFormField): boolean {
-        const bt = builderType(field)
-        return field.type === 'checkbox' || bt === 'checkbox' || isMultipleSelect(field)
+        const bt = builderType(field);
+        return field.type === 'checkbox' || bt === 'checkbox' || isMultipleSelect(field);
     }
 
     /** Batas karakter untuk teks pendek / panjang (metadata.rules + maxLength). */
     function maxLengthForField(field: IFormField): number | undefined {
-        const bt = builderType(field)
-        if (bt !== 'short_text' && bt !== 'long_text') return undefined
-        const r = rules(field)
-        const rm = r.max
-        if (typeof rm === 'number' && rm > 0) return rm
+        const bt = builderType(field);
+        if (bt !== 'short_text' && bt !== 'long_text') return undefined;
+        const r = rules(field);
+        const rm = r.max;
+        if (typeof rm === 'number' && rm > 0) return rm;
         if (typeof rm === 'string' && rm !== '') {
-            const n = parseInt(rm, 10)
-            if (Number.isFinite(n) && n > 0) return n
+            const n = parseInt(rm, 10);
+            if (Number.isFinite(n) && n > 0) return n;
         }
-        const meta = metadata(field)
-        const ml = meta.maxLength as unknown
-        if (typeof ml === 'number' && ml > 0) return ml
+        const meta = metadata(field);
+        const ml = meta.maxLength as unknown;
+        if (typeof ml === 'number' && ml > 0) return ml;
         if (typeof ml === 'string' && ml.trim() !== '') {
-            const n = parseInt(ml, 10)
-            if (Number.isFinite(n) && n > 0) return n
+            const n = parseInt(ml, 10);
+            if (Number.isFinite(n) && n > 0) return n;
         }
-        return undefined
+        return undefined;
     }
 
     function fileHint(field: IFormField): string {
-        const parts: string[] = []
-        const fieldRules = rules(field)
-        if (builderType(field) === 'image_upload') parts.push('Recommended: 1200 x 900 px (4:3)')
-        if (fieldRules.mimes) parts.push(`Allowed: ${String(fieldRules.mimes)}`)
-        if (fieldRules.max_size) parts.push(`Max size: ${String(fieldRules.max_size)} KB`)
-        return parts.join(' · ')
+        const parts: string[] = [];
+        const fieldRules = rules(field);
+        if (builderType(field) === 'image_upload') parts.push('Recommended: 1200 x 900 px (4:3)');
+        if (fieldRules.mimes) parts.push(`Allowed: ${String(fieldRules.mimes)}`);
+        if (fieldRules.max_size) parts.push(`Max size: ${String(fieldRules.max_size)} KB`);
+        return parts.join(' · ');
     }
 
     function acceptValue(field: IFormField): string | undefined {
-        const mimes = rules(field).mimes
-        if (typeof mimes !== 'string') return undefined
-        return mimes.split(',').map((ext) => `.${ext.trim().replace(/^\./, '')}`).join(',')
+        const mimes = rules(field).mimes;
+        if (typeof mimes !== 'string') return undefined;
+        return mimes
+            .split(',')
+            .map((ext) => `.${ext.trim().replace(/^\./, '')}`)
+            .join(',');
     }
 
     function onCheckboxToggle(fieldName: string, option: string, checked: boolean) {
-        answerForm[fieldName] = toggleCheckboxSelection(answerForm[fieldName], option, checked)
+        answerForm[fieldName] = toggleCheckboxSelection(answerForm[fieldName], option, checked);
     }
 
     function isCheckboxSelected(fieldName: string, option: string): boolean {
-        return isCheckboxOptionSelected(answerForm[fieldName], option)
+        return isCheckboxOptionSelected(answerForm[fieldName], option);
     }
 
     async function onFileChange(fieldName: string, event: Event): Promise<void> {
-        const input = event.target as HTMLInputElement
-        const file = input.files?.[0] ?? null
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0] ?? null;
         if (file) {
-            const message = await validateUploadFile(file)
+            const message = await validateUploadFile(file);
             if (message) {
-                input.value = ''
-                answerForm.setError(fieldName, message)
-                return
+                input.value = '';
+                answerForm.setError(fieldName, message);
+                return;
             }
         }
-        revokeFilePreview(fieldName)
+        revokeFilePreview(fieldName);
         if (file) {
-            filePreviewUrls[fieldName] = URL.createObjectURL(file)
+            filePreviewUrls[fieldName] = URL.createObjectURL(file);
         }
-        answerForm[fieldName] = file
+        answerForm[fieldName] = file;
     }
 
     function clearFileUpload(fieldName: string) {
-        revokeFilePreview(fieldName)
-        answerForm[fieldName] = null
+        revokeFilePreview(fieldName);
+        answerForm[fieldName] = null;
     }
 
     /** Sets one answer value; field components call this instead of mutating the form prop. */
-    function setAnswer(fieldName: string, value: FormFillAnswerValue): void {
-        answerForm[fieldName] = value
+    function setAnswer(fieldName: string, value: TFormFillAnswerValue): void {
+        answerForm[fieldName] = value;
     }
 
     /** Replaces the team member email list; owned here so child components never mutate the form prop. */
     function setTeamMemberEmails(emails: string[]): void {
-        answerForm.team_member_emails = emails
+        answerForm.team_member_emails = emails;
     }
 
-    function hasAnswerValue(value: FormFillAnswerValue | undefined): boolean {
-        if (value === null || value === undefined) return false
-        if (Array.isArray(value)) return value.length > 0
-        if (typeof File !== 'undefined' && value instanceof File) return value.size > 0
-        return typeof value === 'string' && value.trim() !== ''
+    function hasAnswerValue(value: TFormFillAnswerValue | undefined): boolean {
+        if (value === null || value === undefined) return false;
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof File !== 'undefined' && value instanceof File) return value.size > 0;
+        return typeof value === 'string' && value.trim() !== '';
     }
 
     /** Validates required answers before a respondent moves to the next form section. */
     function validateSection(fieldsInSection: IFormField[]): boolean {
-        const missingKeys: string[] = []
+        const missingKeys: string[] = [];
         for (const field of fieldsInSection) {
-            if (isDisplayOnly(field) || !isRequired(field)) continue
+            if (isDisplayOnly(field) || !isRequired(field)) continue;
             for (const key of fieldKeysForField(field)) {
-                if (!hasAnswerValue(answerForm[key])) missingKeys.push(key)
+                if (!hasAnswerValue(answerForm[key])) missingKeys.push(key);
             }
         }
-        if (missingKeys.length === 0) return true
-        for (const key of missingKeys) answerForm.setError(key, 'This field is required.')
-        showErrorToast('Lengkapi field wajib sebelum melanjutkan.', { title: 'Bagian belum lengkap' })
-        return false
+        if (missingKeys.length === 0) return true;
+        for (const key of missingKeys) answerForm.setError(key, 'This field is required.');
+        showErrorToast('Lengkapi field wajib sebelum melanjutkan.', { title: 'Bagian belum lengkap' });
+        return false;
     }
 
     onBeforeUnmount(() => {
         for (const key of Object.keys(filePreviewUrls)) {
-            revokeFilePreview(key)
+            revokeFilePreview(key);
         }
-    })
+    });
 
     function submit() {
-        if (isBlocked.value) return
+        if (isBlocked.value) return;
 
-        const myEmail = (page.props as Props).auth?.user?.email?.trim().toLowerCase()
+        const myEmail = (page.props as IProps).auth?.user?.email?.trim().toLowerCase();
         if (myEmail && props.memberSlots > 0) {
-            const emails = (answerForm.team_member_emails as string[] | undefined) ?? []
-            const clash = emails.some((e) => (e?.trim().toLowerCase() ?? '') === myEmail)
+            const emails = (answerForm.team_member_emails as string[] | undefined) ?? [];
+            const clash = emails.some((e) => (e?.trim().toLowerCase() ?? '') === myEmail);
             if (clash) {
-                const message =
-                    'Email anggota tidak boleh sama dengan email akun Anda. Gunakan email peserta lain.'
-                answerForm.setError('team_member_emails', message)
-                showErrorToast(message, { title: 'Email anggota tidak valid' })
-                return
+                const message = 'Email anggota tidak boleh sama dengan email akun Anda. Gunakan email peserta lain.';
+                answerForm.setError('team_member_emails', message);
+                showErrorToast(message, { title: 'Email anggota tidak valid' });
+                return;
             }
         }
 
@@ -356,40 +363,40 @@ export function useFormFillPage(props: {
                 handleInertiaFormErrors(errors, {
                     ...errorContext.value,
                     title: 'Gagal mengirim pendaftaran',
-                })
+                });
             },
-        })
+        });
     }
 
     function fieldError(name: string): string | undefined {
-        return getFieldError(answerForm.errors, name, errorContext.value)
+        return getFieldError(answerForm.errors, name, errorContext.value);
     }
 
     function fieldKeysForField(field: IFormField): string[] {
-        return participationSlotsForField(field).map((slot) => answerKeyForSlot(field, slot.slotIndex))
+        return participationSlotsForField(field).map((slot) => answerKeyForSlot(field, slot.slotIndex));
     }
 
     function cardErrorsForFields(fields: IFormField[]): string[] {
-        const messages = new Set<string>()
+        const messages = new Set<string>();
         for (const field of fields) {
             for (const key of fieldKeysForField(field)) {
-                const message = fieldError(key)
-                if (message) messages.add(message)
+                const message = fieldError(key);
+                if (message) messages.add(message);
             }
         }
-        return [...messages]
+        return [...messages];
     }
 
     function cardErrorsForBundleSlot(fields: IFormField[], slotIndex: number | null): string[] {
-        const messages = new Set<string>()
+        const messages = new Set<string>();
         for (const field of fields) {
-            const message = fieldError(answerKeyForSlot(field, slotIndex))
-            if (message) messages.add(message)
+            const message = fieldError(answerKeyForSlot(field, slotIndex));
+            if (message) messages.add(message);
         }
-        return [...messages]
+        return [...messages];
     }
 
-    const memberSlots = computed(() => props.memberSlots)
+    const memberSlots = computed(() => props.memberSlots);
 
     return {
         answerForm,
@@ -428,8 +435,8 @@ export function useFormFillPage(props: {
         fieldError,
         cardErrorsForFields,
         cardErrorsForBundleSlot,
-    }
+    };
 }
 
 /** Return type of `useFormFillPage`; handed to fill-page field components so they never touch the form prop directly. */
-export type FormFillPageContext = ReturnType<typeof useFormFillPage>
+export type TFormFillPageContext = ReturnType<typeof useFormFillPage>;

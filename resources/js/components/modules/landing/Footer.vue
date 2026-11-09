@@ -49,7 +49,9 @@ const mapEmbedUrl =
                                 class="h-8 w-auto sm:h-9"
                             />
                         </a>
-                        <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed sm:max-w-xs sm:text-[0.9375rem]">
+                        <p
+                            class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed sm:max-w-xs sm:text-[0.9375rem]"
+                        >
                             Platform sederhana untuk mengelola pendaftaran acara dari satu tempat. Dibangun oleh Doscom,
                             Universitas Dian Nuswantoro.
                         </p>
@@ -61,7 +63,9 @@ const mapEmbedUrl =
                             </div>
                             <div class="text-muted-foreground flex min-w-0 items-center gap-2.5 text-sm">
                                 <Mail class="text-primary/70 size-4 shrink-0" />
-                                <a href="mailto:doscom.go@gmail.com" class="hover:text-primary break-all transition-colors"
+                                <a
+                                    href="mailto:doscom.go@gmail.com"
+                                    class="hover:text-primary break-all transition-colors"
                                     >doscom.go@gmail.com</a
                                 >
                             </div>
@@ -80,7 +84,9 @@ const mapEmbedUrl =
 
                     <div class="grid grid-cols-1 gap-6 min-[420px]:grid-cols-2 sm:grid-cols-3 md:gap-8 lg:grid-cols-3">
                         <div v-for="group in linkGroups" :key="group.title">
-                            <p class="text-foreground/50 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4">
+                            <p
+                                class="text-foreground/50 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4"
+                            >
                                 {{ group.title }}
                             </p>
                             <ul class="flex flex-col gap-2">
@@ -116,7 +122,9 @@ const mapEmbedUrl =
 
             <Separator class="opacity-30" />
 
-            <div class="flex flex-col items-start justify-between gap-2 py-5 sm:flex-row sm:items-center sm:gap-3 sm:py-7">
+            <div
+                class="flex flex-col items-start justify-between gap-2 py-5 sm:flex-row sm:items-center sm:gap-3 sm:py-7"
+            >
                 <p class="text-muted-foreground text-[0.75rem] leading-relaxed">
                     &copy; {{ new Date().getFullYear() }} DForm — Doscom, Universitas Dian Nuswantoro
                 </p>

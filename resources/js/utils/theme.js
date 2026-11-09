@@ -1,5 +1,5 @@
-import { writeThemeAttribute } from '@/adapters/browser/documentState'
-import { readStorage, writeStorage } from '@/adapters/browser/storage'
+import { writeThemeAttribute } from '@/adapters/browser/documentState';
+import { readStorage, writeStorage } from '@/adapters/browser/storage';
 
 export function initTheme() {
     let theme = getTheme();

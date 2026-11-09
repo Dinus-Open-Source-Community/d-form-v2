@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    isInternalPath,
-    isPersistableImageUrl,
-    isSafeDownloadUrl,
-    isSafeNavigationUrl,
-} from '@/lib/urlPolicy';
+import { isInternalPath, isPersistableImageUrl, isSafeDownloadUrl, isSafeNavigationUrl } from '@/lib/urlPolicy';
 
 describe('urlPolicy', () => {
     it('accepts only single-slash internal paths', () => {

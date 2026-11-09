@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
-import { Download, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import AppPagination from '@/components/core/AppPagination.vue'
+import { computed, ref } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
+import { Download, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import AppPagination from '@/components/core/AppPagination.vue';
 import {
     Dialog,
     DialogContent,
@@ -13,93 +13,93 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
-import { type IPaginatorMeta } from '@/lib/paginatorLinks'
+} from '@/components/ui/dialog';
+import { type IPaginatorMeta } from '@/lib/paginatorLinks';
 import InterviewSessionCreateSheet, {
-    type InterviewDivisionChoice,
-} from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue'
+    type IInterviewDivisionChoice,
+} from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue';
 import InterviewSessionEditSheet, {
-    type EditableInterviewSession,
-} from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import { routes } from '@/lib/routes'
-import { toast } from 'vue-sonner'
-import { assignUrl } from '@/adapters/browser/navigation'
+    type IEditableInterviewSession,
+} from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import { routes } from '@/lib/routes';
+import { toast } from 'vue-sonner';
+import { assignUrl } from '@/adapters/browser/navigation';
 
 interface SessionRow {
-    id: string
-    session_date: string
-    starts_at: string
-    ends_at: string
-    location: string
-    room: string
-    notes?: string | null
-    is_active: boolean
-    interviews_count: number
-    period: { id: string; name: string } | null
-    division: { id: string; name: string; code: string } | null
+    id: string;
+    session_date: string;
+    starts_at: string;
+    ends_at: string;
+    location: string;
+    room: string;
+    notes?: string | null;
+    is_active: boolean;
+    interviews_count: number;
+    period: { id: string; name: string } | null;
+    division: { id: string; name: string; code: string } | null;
 }
 
 interface SessionPaginator extends IPaginatorMeta {
-    data: SessionRow[]
+    data: SessionRow[];
 }
 
 const props = defineProps<{
     /** Paginator kontrak 8a FINAL; null = key absent (tab lain) atau tanpa data. */
-    sessions: SessionPaginator | null | undefined
-    periodId: string
-    divisionOptions: InterviewDivisionChoice[]
-}>()
+    sessions: SessionPaginator | null | undefined;
+    periodId: string;
+    divisionOptions: IInterviewDivisionChoice[];
+}>();
 
-const createOpen = ref<boolean>(false)
+const createOpen = ref<boolean>(false);
 /** Sesi yang sedang diedit; null = sheet edit tertutup. */
-const editingSession = ref<EditableInterviewSession | null>(null)
-const editOpen = computed<boolean>(() => editingSession.value !== null)
+const editingSession = ref<IEditableInterviewSession | null>(null);
+const editOpen = computed<boolean>(() => editingSession.value !== null);
 
 function openEdit(session: SessionRow): void {
-    editingSession.value = session
+    editingSession.value = session;
 }
 
 function closeEdit(): void {
-    editingSession.value = null
+    editingSession.value = null;
 }
 
 function destroyPath(id: string): string {
-    return routes.admin.recruitment.interviewSessions.destroy(id)
+    return routes.admin.recruitment.interviewSessions.destroy(id);
 }
 
-const sessionToDelete = ref<SessionRow | null>(null)
+const sessionToDelete = ref<SessionRow | null>(null);
 
 function handleDelete(session: SessionRow): void {
-    sessionToDelete.value = session
+    sessionToDelete.value = session;
 }
 
 function confirmDelete(): void {
-    const session = sessionToDelete.value
-    if (!session) return
-    sessionToDelete.value = null
+    const session = sessionToDelete.value;
+    if (!session) return;
+    sessionToDelete.value = null;
     router.delete(destroyPath(session.id), {
         preserveScroll: true,
         only: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
-    })
+    });
 }
 
-type ExportScope = 'all' | 'evaluated' | 'pending'
+type ExportScope = 'all' | 'evaluated' | 'pending';
 
 const EXPORT_SCOPES: { value: ExportScope; label: string; hint: string }[] = [
     { value: 'all', label: 'Semua interview', hint: 'Seluruh jadwal interview periode ini.' },
     { value: 'evaluated', label: 'Sudah dinilai', hint: 'Hanya interview yang sudah ada nilainya.' },
     { value: 'pending', label: 'Belum dinilai', hint: 'Hanya interview yang belum dinilai.' },
-]
+];
 
 interface ExportColumn {
-    key: string
-    label: string
+    key: string;
+    label: string;
 }
 
 interface ExportColumnGroup {
-    label: string
-    columns: ExportColumn[]
+    label: string;
+    columns: ExportColumn[];
 }
 
 /** Urutan kunci kolom persis kontrak backend (columns[] dikirim dalam urutan ini). */
@@ -157,82 +157,80 @@ const EXPORT_COLUMN_GROUPS: ExportColumnGroup[] = [
             { key: 'membership_type', label: 'Tipe keanggotaan' },
         ],
     },
-]
+];
 
 const ALL_EXPORT_COLUMN_KEYS: string[] = EXPORT_COLUMN_GROUPS.flatMap((group) =>
-    group.columns.map((column) => column.key),
-)
+    group.columns.map((column) => column.key)
+);
 
-const exportOpen = ref<boolean>(false)
-const exportScope = ref<ExportScope>('all')
-const exportIncludeSecondary = ref<boolean>(true)
-const exportColumns = ref<string[]>([...ALL_EXPORT_COLUMN_KEYS])
+const exportOpen = ref<boolean>(false);
+const exportScope = ref<ExportScope>('all');
+const exportIncludeSecondary = ref<boolean>(true);
+const exportColumns = ref<string[]>([...ALL_EXPORT_COLUMN_KEYS]);
 
 const exportColumnCountLabel = computed<string>(
-    () => `${exportColumns.value.length} dari ${ALL_EXPORT_COLUMN_KEYS.length} kolom dipilih`,
-)
+    () => `${exportColumns.value.length} dari ${ALL_EXPORT_COLUMN_KEYS.length} kolom dipilih`
+);
 
 function openExport(): void {
-    exportScope.value = 'all'
-    exportIncludeSecondary.value = true
-    exportColumns.value = [...ALL_EXPORT_COLUMN_KEYS]
-    exportOpen.value = true
+    exportScope.value = 'all';
+    exportIncludeSecondary.value = true;
+    exportColumns.value = [...ALL_EXPORT_COLUMN_KEYS];
+    exportOpen.value = true;
 }
 
 function closeExport(): void {
-    exportOpen.value = false
+    exportOpen.value = false;
 }
 
 function isExportColumnChecked(key: string): boolean {
-    return exportColumns.value.includes(key)
+    return exportColumns.value.includes(key);
 }
 
 function setExportColumn(key: string, checked: boolean | 'indeterminate'): void {
     if (checked === true) {
-        if (!exportColumns.value.includes(key)) exportColumns.value = [...exportColumns.value, key]
-        return
+        if (!exportColumns.value.includes(key)) exportColumns.value = [...exportColumns.value, key];
+        return;
     }
-    exportColumns.value = exportColumns.value.filter((item) => item !== key)
+    exportColumns.value = exportColumns.value.filter((item) => item !== key);
 }
 
 function groupExportKeys(group: ExportColumnGroup): string[] {
-    return group.columns.map((column) => column.key)
+    return group.columns.map((column) => column.key);
 }
 
 function isExportGroupComplete(group: ExportColumnGroup): boolean {
-    return groupExportKeys(group).every((key) => exportColumns.value.includes(key))
+    return groupExportKeys(group).every((key) => exportColumns.value.includes(key));
 }
 
 function setExportGroup(group: ExportColumnGroup, checked: boolean): void {
-    const keys = groupExportKeys(group)
+    const keys = groupExportKeys(group);
     if (checked) {
-        exportColumns.value = Array.from(new Set([...exportColumns.value, ...keys]))
-        return
+        exportColumns.value = Array.from(new Set([...exportColumns.value, ...keys]));
+        return;
     }
-    exportColumns.value = exportColumns.value.filter((key) => !keys.includes(key))
+    exportColumns.value = exportColumns.value.filter((key) => !keys.includes(key));
 }
 
 function submitExport(): void {
-    if (exportColumns.value.length === 0) return
-    const params = new URLSearchParams()
-    params.set('scope', exportScope.value)
-    if (exportIncludeSecondary.value) params.set('include_secondary', '1')
-    const selected = new Set(exportColumns.value)
+    if (exportColumns.value.length === 0) return;
+    const params = new URLSearchParams();
+    params.set('scope', exportScope.value);
+    if (exportIncludeSecondary.value) params.set('include_secondary', '1');
+    const selected = new Set(exportColumns.value);
     for (const key of ALL_EXPORT_COLUMN_KEYS) {
-        if (selected.has(key)) params.append('columns[]', key)
+        if (selected.has(key)) params.append('columns[]', key);
     }
-    toast.info('Mengekspor…')
-    exportOpen.value = false
-    assignUrl(`${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`)
+    toast.info('Mengekspor…');
+    exportOpen.value = false;
+    assignUrl(`${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`);
 }
 </script>
 
 <template>
     <div class="flex flex-col gap-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                Interview periode ini
-            </h2>
+            <h2 class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Interview periode ini</h2>
             <div class="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" class="gap-1.5" @click="openExport">
                     <Download class="size-4" aria-hidden="true" />
@@ -249,9 +247,7 @@ function submitExport(): void {
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Export interview ke CSV</DialogTitle>
-                    <DialogDescription>
-                        Unduh rekap interview periode ini sebagai berkas CSV.
-                    </DialogDescription>
+                    <DialogDescription> Unduh rekap interview periode ini sebagai berkas CSV. </DialogDescription>
                 </DialogHeader>
 
                 <fieldset class="space-y-2">
@@ -260,18 +256,18 @@ function submitExport(): void {
                         <label
                             v-for="option in EXPORT_SCOPES"
                             :key="option.value"
-                            class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/70 px-3 py-2.5"
+                            class="border-border/70 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5"
                         >
                             <input
                                 v-model="exportScope"
                                 type="radio"
                                 name="export-scope"
                                 :value="option.value"
-                                class="mt-0.5 size-4 shrink-0 accent-primary"
+                                class="accent-primary mt-0.5 size-4 shrink-0"
                             />
                             <span class="text-sm leading-snug">
                                 {{ option.label }}
-                                <span class="block text-xs text-muted-foreground">{{ option.hint }}</span>
+                                <span class="text-muted-foreground block text-xs">{{ option.hint }}</span>
                             </span>
                         </label>
                     </div>
@@ -279,12 +275,12 @@ function submitExport(): void {
 
                 <label
                     for="export-include-secondary"
-                    class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/70 px-3 py-2.5"
+                    class="border-border/70 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5"
                 >
                     <Checkbox id="export-include-secondary" v-model:checked="exportIncludeSecondary" class="mt-0.5" />
                     <span class="text-sm leading-snug">
                         Sertakan interview secondary
-                        <span class="block text-xs text-muted-foreground">
+                        <span class="text-muted-foreground block text-xs">
                             Selain interview primer, jadwal secondary ikut diekspor.
                         </span>
                     </span>
@@ -293,19 +289,19 @@ function submitExport(): void {
                 <div class="space-y-2">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <p class="text-sm font-medium">Kolom</p>
-                        <p class="text-xs tabular-nums text-muted-foreground">{{ exportColumnCountLabel }}</p>
+                        <p class="text-muted-foreground text-xs tabular-nums">{{ exportColumnCountLabel }}</p>
                     </div>
-                    <div class="max-h-64 space-y-4 overflow-y-auto rounded-xl border border-border/70 p-3">
+                    <div class="border-border/70 max-h-64 space-y-4 overflow-y-auto rounded-xl border p-3">
                         <section v-for="group in EXPORT_COLUMN_GROUPS" :key="group.label" class="space-y-1.5">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                <h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
                                     {{ group.label }}
                                 </h4>
                                 <div class="flex items-center gap-3">
                                     <button
                                         v-if="!isExportGroupComplete(group)"
                                         type="button"
-                                        class="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+                                        class="text-foreground text-xs font-medium underline-offset-4 hover:underline"
                                         @click="setExportGroup(group, true)"
                                     >
                                         Pilih semua
@@ -313,7 +309,7 @@ function submitExport(): void {
                                     <button
                                         v-else
                                         type="button"
-                                        class="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
+                                        class="text-muted-foreground text-xs font-medium underline-offset-4 hover:underline"
                                         @click="setExportGroup(group, false)"
                                     >
                                         Kosongkan
@@ -324,12 +320,15 @@ function submitExport(): void {
                                 <li v-for="column in group.columns" :key="column.key">
                                     <label
                                         :for="`export-col-${column.key}`"
-                                        class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/40"
+                                        class="hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
                                     >
                                         <Checkbox
                                             :id="`export-col-${column.key}`"
                                             :checked="isExportColumnChecked(column.key)"
-                                            @update:checked="(checked: boolean | 'indeterminate') => setExportColumn(column.key, checked)"
+                                            @update:checked="
+                                                (checked: boolean | 'indeterminate') =>
+                                                    setExportColumn(column.key, checked)
+                                            "
                                         />
                                         <span class="min-w-0 truncate">{{ column.label }}</span>
                                     </label>
@@ -337,15 +336,13 @@ function submitExport(): void {
                             </ul>
                         </section>
                     </div>
-                    <p v-if="exportColumns.length === 0" role="alert" class="text-xs text-destructive">
+                    <p v-if="exportColumns.length === 0" role="alert" class="text-destructive text-xs">
                         Pilih minimal satu kolom untuk mengekspor.
                     </p>
                 </div>
 
                 <DialogFooter>
-                    <Button type="button" variant="outline" @click="closeExport">
-                        Batal
-                    </Button>
+                    <Button type="button" variant="outline" @click="closeExport"> Batal </Button>
                     <Button type="button" :disabled="exportColumns.length === 0" @click="submitExport">
                         <Download class="mr-2 size-4" aria-hidden="true" />
                         Export CSV
@@ -368,7 +365,7 @@ function submitExport(): void {
             @close="closeEdit"
         />
 
-        <Card v-if="sessions" class="overflow-hidden rounded-2xl border-border/70">
+        <Card v-if="sessions" class="border-border/70 overflow-hidden rounded-2xl">
             <CardContent class="p-0">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -386,7 +383,7 @@ function submitExport(): void {
                             <tr
                                 v-for="session in sessions.data"
                                 :key="session.id"
-                                class="border-b last:border-0 hover:bg-muted/20"
+                                class="hover:bg-muted/20 border-b last:border-0"
                             >
                                 <td class="px-4 py-3">{{ session.session_date }}</td>
                                 <td class="px-4 py-3">{{ session.starts_at }}–{{ session.ends_at }}</td>
@@ -396,9 +393,7 @@ function submitExport(): void {
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-1 whitespace-nowrap">
                                         <Button as-child size="icon-sm" variant="ghost" aria-label="Detail sesi">
-                                            <Link
-                                                :href="routes.admin.recruitment.interviewSessions.show(session.id)"
-                                            >
+                                            <Link :href="routes.admin.recruitment.interviewSessions.show(session.id)">
                                                 <Eye class="size-4" aria-hidden="true" />
                                             </Link>
                                         </Button>
@@ -423,9 +418,8 @@ function submitExport(): void {
                                 </td>
                             </tr>
                             <tr v-if="sessions.data.length === 0">
-                                <td colspan="6" class="px-4 py-10 text-center text-muted-foreground">
-                                    Belum ada sesi interview untuk periode ini. Buat sesi pertama lewat tombol di
-                                    atas.
+                                <td colspan="6" class="text-muted-foreground px-4 py-10 text-center">
+                                    Belum ada sesi interview untuk periode ini. Buat sesi pertama lewat tombol di atas.
                                 </td>
                             </tr>
                         </tbody>
@@ -459,6 +453,10 @@ function submitExport(): void {
         variant="destructive"
         @confirm="confirmDelete"
         @cancel="sessionToDelete = null"
-        @update:open="(v) => { if (!v) sessionToDelete = null }"
+        @update:open="
+            (v) => {
+                if (!v) sessionToDelete = null;
+            }
+        "
     />
 </template>

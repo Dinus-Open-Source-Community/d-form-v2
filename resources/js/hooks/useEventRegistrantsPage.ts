@@ -1,79 +1,84 @@
-import { computed, ref, watch } from 'vue'
-import { Clock, ShieldCheck, ShieldX, Users } from 'lucide-vue-next'
-import { REGISTRANTS_TONE_STYLES } from '@/lib/registrantsUi'
+import { computed, ref, watch } from 'vue';
+import { Clock, ShieldCheck, ShieldX, Users } from 'lucide-vue-next';
+import { REGISTRANTS_TONE_STYLES } from '@/lib/registrantsUi';
 
-export interface RegistrantsStatCardModel {
-    key: 'all' | 'pending' | 'accepted' | 'rejected'
-    label: string
-    helper: string
-    value: number
-    icon: typeof Users
-    tone: 'primary' | 'warning' | 'success' | 'destructive'
+export interface IRegistrantsStatCardModel {
+    key: 'all' | 'pending' | 'accepted' | 'rejected';
+    label: string;
+    helper: string;
+    value: number;
+    icon: typeof Users;
+    tone: 'primary' | 'warning' | 'success' | 'destructive';
 }
 
+/**
+ * State halaman daftar pendaftar: salinan lokal (disinkronkan `watch` deep ke prop),
+ * filter form/status/pencarian, hitungan status, dan kartu statistik.
+ * Menyalin prop ke `ref` agar filter tidak memutasi data Inertia.
+ */
 export function useEventRegistrantsPage(props: {
-    event: IEvent
-    forms: { id: string; title: string }[]
-    registrants: IRegistrant[]
+    event: IEvent;
+    forms: { id: string; title: string }[];
+    registrants: IRegistrant[];
 }) {
-    const searchQuery = ref('')
-    const activeStatusTab = ref<'all' | 'pending' | 'accepted' | 'rejected'>('all')
-    const activeFormFilter = ref<string>('all')
-    const registrants = ref<IRegistrant[]>([...props.registrants])
+    const searchQuery = ref('');
+    const activeStatusTab = ref<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+    const activeFormFilter = ref<string>('all');
+    const registrants = ref<IRegistrant[]>([...props.registrants]);
 
     watch(
         () => props.registrants,
         (v) => {
-            registrants.value = [...v]
+            registrants.value = [...v];
         },
-        { deep: true },
-    )
+        { deep: true }
+    );
 
     const filteredRegistrants = computed(() => {
-        let list = registrants.value
+        let list = registrants.value;
 
         if (activeFormFilter.value !== 'all') {
-            list = list.filter((r) => r.form.id === activeFormFilter.value)
+            list = list.filter((r) => r.form.id === activeFormFilter.value);
         }
 
         if (activeStatusTab.value !== 'all') {
-            list = list.filter((r) => r.status === activeStatusTab.value)
+            list = list.filter((r) => r.status === activeStatusTab.value);
         }
 
         if (searchQuery.value.trim()) {
-            const q = searchQuery.value.toLowerCase()
+            const q = searchQuery.value.toLowerCase();
             list = list.filter(
                 (r) =>
-                    r.user.name.toLowerCase().includes(q)
-                    || r.user.email.toLowerCase().includes(q)
-                    || r.form.title.toLowerCase().includes(q)
-                    || (r.registration_code?.toLowerCase().includes(q) ?? false),
-            )
+                    r.user.name.toLowerCase().includes(q) ||
+                    r.user.email.toLowerCase().includes(q) ||
+                    r.form.title.toLowerCase().includes(q) ||
+                    (r.registration_code?.toLowerCase().includes(q) ?? false)
+            );
         }
 
-        return list
-    })
+        return list;
+    });
 
     const statusCounts = computed(() => ({
         all: registrants.value.length,
         pending: registrants.value.filter((r) => r.status === 'pending').length,
         accepted: registrants.value.filter((r) => r.status === 'accepted').length,
         rejected: registrants.value.filter((r) => r.status === 'rejected').length,
-    }))
+    }));
 
     const approvalRate = computed(() => {
-        const decided = statusCounts.value.accepted + statusCounts.value.rejected
-        if (!decided) return 0
-        return Math.round((statusCounts.value.accepted / decided) * 100)
-    })
+        const decided = statusCounts.value.accepted + statusCounts.value.rejected;
+        if (!decided) return 0;
+        return Math.round((statusCounts.value.accepted / decided) * 100);
+    });
 
-    const statCards = computed<RegistrantsStatCardModel[]>(() => {
+    const statCards = computed<IRegistrantsStatCardModel[]>(() => {
         const formHint =
             props.forms.length === 0
                 ? 'Belum ada formulir pada acara ini'
                 : props.forms.length === 1
                   ? '1 formulir aktif'
-                  : `${props.forms.length} formulir aktif`
+                  : `${props.forms.length} formulir aktif`;
 
         return [
             {
@@ -117,19 +122,19 @@ export function useEventRegistrantsPage(props: {
                 icon: ShieldX,
                 tone: 'destructive',
             },
-        ]
-    })
+        ];
+    });
 
-    const pendingCount = computed(() => statusCounts.value.pending)
+    const pendingCount = computed(() => statusCounts.value.pending);
 
     function setStatTab(key: 'all' | 'pending' | 'accepted' | 'rejected'): void {
-        activeStatusTab.value = key
+        activeStatusTab.value = key;
     }
 
     function clearFilters(): void {
-        searchQuery.value = ''
-        activeStatusTab.value = 'all'
-        activeFormFilter.value = 'all'
+        searchQuery.value = '';
+        activeStatusTab.value = 'all';
+        activeFormFilter.value = 'all';
     }
 
     return {
@@ -144,5 +149,5 @@ export function useEventRegistrantsPage(props: {
         toneStyles: REGISTRANTS_TONE_STYLES,
         setStatTab,
         clearFilters,
-    }
+    };
 }

@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
-import { Head } from '@inertiajs/vue3'
-import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import EventShowHeroSection from '@/components/modules/dashboard/EventShowHeroSection.vue'
-import EventShowRegistrationPulseCard from '@/components/modules/dashboard/EventShowRegistrationPulseCard.vue'
-import EventShowAboutCard from '@/components/modules/dashboard/EventShowAboutCard.vue'
-import EventShowAsideRail from '@/components/modules/dashboard/EventShowAsideRail.vue'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { useDashboardEventShowPage } from '@/hooks/useDashboardEventShowPage'
-import { routes } from '@/lib/routes'
+import { reactive } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import EventShowHeroSection from '@/components/modules/dashboard/EventShowHeroSection.vue';
+import EventShowRegistrationPulseCard from '@/components/modules/dashboard/EventShowRegistrationPulseCard.vue';
+import EventShowAboutCard from '@/components/modules/dashboard/EventShowAboutCard.vue';
+import EventShowAsideRail from '@/components/modules/dashboard/EventShowAsideRail.vue';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useDashboardEventShowPage } from '@/hooks/useDashboardEventShowPage';
+import { routes } from '@/lib/routes';
 
-defineOptions({ layout: DashboardFocusLayout })
+defineOptions({ layout: DashboardFocusLayout });
 
 const props = defineProps<{
-    event: IEvent
-    forms: { id: string; title: string }[]
-}>()
+    event: IEvent;
+    forms: { id: string; title: string }[];
+}>();
 
-const laporanHref = routes.admin.events.laporan(props.event.id)
+const laporanHref = routes.admin.events.laporan(props.event.id);
 
-const p = reactive(useDashboardEventShowPage(props.event, props.forms))
+const p = reactive(useDashboardEventShowPage(props.event, props.forms));
 </script>
 
 <template>

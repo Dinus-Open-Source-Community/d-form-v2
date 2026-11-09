@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Clock3, QrCode, TriangleAlert } from 'lucide-vue-next';
-import { SCAN_STATUS_THEME, type ScanEntry, type ScanResult } from '@/lib/qrScanUi';
+import { SCAN_STATUS_THEME, type IScanEntry, type IScanResult } from '@/lib/qrScanUi';
 
 const props = withDefaults(
     defineProps<{
-        scanResult: ScanResult | null;
-        scanHistory: ScanEntry[];
-        logEntries: ScanEntry[];
+        scanResult: IScanResult | null;
+        scanHistory: IScanEntry[];
+        logEntries: IScanEntry[];
         heroEmptyMessage?: string;
         scanBusy?: boolean;
         logExpanded?: boolean;
@@ -28,7 +28,7 @@ const props = withDefaults(
         logQuery: '',
         feedStale: false,
         feedFailureCount: 0,
-    },
+    }
 );
 
 const registrationCodeInput = defineModel<string>('registrationCodeInput', { required: true });
@@ -53,11 +53,11 @@ function kindBadgeClass(kind: string): string {
     return isOprecKind(kind) ? 'border-violet-500/40 text-violet-600' : 'border-sky-500/40 text-sky-600';
 }
 
-function eventTitleOf(value: ScanResult | ScanEntry): string {
+function eventTitleOf(value: IScanResult | IScanEntry): string {
     return value.eventTitle || '';
 }
 
-function hasEventContext(value: ScanResult | ScanEntry): boolean {
+function hasEventContext(value: IScanResult | IScanEntry): boolean {
     const title = eventTitleOf(value);
     return title !== '' && title !== '-';
 }
@@ -70,7 +70,7 @@ function padQueueNumber(value: number | null): string {
     return String(value).padStart(2, '0');
 }
 
-function heroIdentifier(result: ScanResult): string {
+function heroIdentifier(result: IScanResult): string {
     if (!hasEventContext(result)) {
         return result.email;
     }
@@ -90,7 +90,7 @@ function sourceLabel(source: string): string {
     return source === 'manual' ? 'Manual' : 'Kamera';
 }
 
-const filteredHistory = computed<ScanEntry[]>(() => {
+const filteredHistory = computed<IScanEntry[]>(() => {
     const query = props.logQuery.trim().toLowerCase();
 
     if (query.length === 0) {
@@ -137,7 +137,7 @@ watch(
 
         feedAnnouncement.value = previous === true ? 'Feed scan tersambung kembali.' : '';
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 function onToggleLog(): void {
@@ -158,10 +158,7 @@ function onSubmitManual(): void {
     <div class="flex flex-col gap-5">
         <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ feedAnnouncement }}</p>
 
-        <div
-            v-if="feedStale"
-            class="border-warning/50 bg-warning/10 rounded-2xl border shadow-sm"
-        >
+        <div v-if="feedStale" class="border-warning/50 bg-warning/10 rounded-2xl border shadow-sm">
             <div class="flex items-start gap-3 px-4 py-3">
                 <span
                     class="border-warning/30 bg-warning/15 text-warning-foreground mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border"
@@ -200,7 +197,7 @@ function onSubmitManual(): void {
                 <div class="grid gap-2">
                     <Input
                         v-model="registrationCodeInput"
-                        class="placeholder:normal-case uppercase"
+                        class="uppercase placeholder:normal-case"
                         placeholder="OPREC-2026-00001 atau kode registrasi event"
                         :disabled="scanBusy"
                         @keydown.enter.prevent="onSubmitManual"
@@ -225,10 +222,7 @@ function onSubmitManual(): void {
                             :class="['mt-0.5 size-5', SCAN_STATUS_THEME[scanResult.status].class]"
                         />
                         <div class="min-w-0 flex-1">
-                            <div
-                                v-if="hasEventContext(scanResult)"
-                                class="mb-1.5 flex items-center gap-2"
-                            >
+                            <div v-if="hasEventContext(scanResult)" class="mb-1.5 flex items-center gap-2">
                                 <Badge
                                     variant="outline"
                                     :class="['shrink-0 text-[11px]', kindBadgeClass(scanResult.eventKind)]"

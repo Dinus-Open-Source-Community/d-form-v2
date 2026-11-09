@@ -29,7 +29,8 @@ const CASES: TCase[] = [
 test.describe('formatDateTime', () => {
     test('semua varian menghasilkan format yang disepakati', () => {
         const mismatches = CASES.filter(([options, expected]) => formatDateTime(options) !== expected).map(
-            ([options, expected]) => `${JSON.stringify(options)} → ${JSON.stringify(formatDateTime(options))} (harap ${expected})`,
+            ([options, expected]) =>
+                `${JSON.stringify(options)} → ${JSON.stringify(formatDateTime(options))} (harap ${expected})`
         );
 
         expect(mismatches).toEqual([]);

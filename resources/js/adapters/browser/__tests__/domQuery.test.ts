@@ -16,11 +16,6 @@ class FakeElement {
     scrollIntoView = vi.fn();
 }
 
-/** Node palsu dipakai sebagai `Element` hanya di test adapter. */
-function asElement(element: FakeElement): Element {
-    return element as unknown as Element;
-}
-
 afterEach((): void => {
     vi.unstubAllGlobals();
 });
@@ -53,7 +48,7 @@ describe('domQuery adapter', () => {
         expect(focusElementById('x')).toBe(true);
         expect(element.focus).toHaveBeenCalledTimes(1);
 
-        expect(focusElement(asElement(element))).toBe(true);
+        expect(focusElement(element)).toBe(true);
         expect(element.focus).toHaveBeenCalledTimes(2);
     });
 
@@ -67,7 +62,7 @@ describe('domQuery adapter', () => {
         vi.stubGlobal('document', documentRef);
         vi.stubGlobal('HTMLElement', FakeElement);
 
-        scrollElementIntoView(asElement(element));
+        scrollElementIntoView(element);
         scrollToElementById('x');
 
         expect(element.scrollIntoView).toHaveBeenCalledTimes(2);
@@ -77,7 +72,7 @@ describe('domQuery adapter', () => {
     it('rejects non-HTMLElement nodes', () => {
         vi.stubGlobal('HTMLElement', FakeElement);
 
-        expect(focusElement({} as Element)).toBe(false);
+        expect(focusElement({ focus: vi.fn() })).toBe(false);
     });
 });
 

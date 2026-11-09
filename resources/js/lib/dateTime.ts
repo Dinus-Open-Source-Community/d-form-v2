@@ -42,11 +42,21 @@ const PRESETS: Record<TSingleDateVariant, IFormatPreset> = {
     'date-weekday': { locale: 'id-ID', options: { weekday: 'short', day: 'numeric', month: 'short' } },
     time: { locale: 'id-ID', options: { hour: '2-digit', minute: '2-digit', second: '2-digit' } },
     'time-short': { locale: 'id-ID', options: { hour: '2-digit', minute: '2-digit' } },
-    'date-time': { locale: 'en-US', options: { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } },
+    'date-time': {
+        locale: 'en-US',
+        options: { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+    },
     'date-time-medium': { locale: 'id-ID', options: { dateStyle: 'medium', timeStyle: 'short' } },
     'date-time-long': {
         locale: 'id-ID',
-        options: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+        options: {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        },
     },
     'date-time-weekday': {
         locale: 'id-ID',
@@ -54,7 +64,14 @@ const PRESETS: Record<TSingleDateVariant, IFormatPreset> = {
     },
     'date-time-numeric': {
         locale: 'id-ID',
-        options: { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' },
+        options: {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        },
     },
 };
 
@@ -76,7 +93,12 @@ function formatterFor(variant: TSingleDateVariant): Intl.DateTimeFormat {
 }
 
 const MONTH_DAY = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, month: 'short', day: 'numeric' });
-const CALENDAR_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const CALENDAR_DAY = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+});
 
 /** "2026-01-02" versi kalender Jakarta — dipakai membandingkan hari/bulan/tahun. */
 function calendarDay(date: Date): string {

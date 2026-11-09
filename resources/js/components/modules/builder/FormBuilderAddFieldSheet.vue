@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { Search, Plus } from 'lucide-vue-next'
-import type { FormBuilderPaletteCategory, FormBuilderPaletteField } from '@/components/modules/builder/formBuilderPalette'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Search, Plus } from 'lucide-vue-next';
+import type {
+    IFormBuilderPaletteCategory,
+    IFormBuilderPaletteField,
+} from '@/components/modules/builder/formBuilderPalette';
 
-const open = defineModel<boolean>('open', { required: true })
-const searchQuery = defineModel<string>('searchQuery', { required: true })
+const open = defineModel<boolean>('open', { required: true });
+const searchQuery = defineModel<string>('searchQuery', { required: true });
 
 defineProps<{
-    categories: FormBuilderPaletteCategory[]
-}>()
+    categories: IFormBuilderPaletteCategory[];
+}>();
 
 defineEmits<{
-    pickField: [template: FormBuilderPaletteField]
-}>()
+    pickField: [template: IFormBuilderPaletteField];
+}>();
 </script>
 
 <template>
@@ -23,7 +26,9 @@ defineEmits<{
                     <Plus class="text-primary size-4" />
                     Add a field
                 </SheetTitle>
-                <SheetDescription class="text-xs">Tap any block to insert it at the bottom of your form.</SheetDescription>
+                <SheetDescription class="text-xs"
+                    >Tap any block to insert it at the bottom of your form.</SheetDescription
+                >
             </SheetHeader>
             <div class="border-border bg-card border-b px-5 py-3">
                 <div class="relative">

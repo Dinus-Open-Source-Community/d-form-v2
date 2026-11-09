@@ -5,7 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
-import AppPagination from '@/components/core/AppPagination.vue'
+import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
 import { FilterX } from 'lucide-vue-next';
 import { findCursorUrls, formatCompactNumber } from '@/lib/pagination';
@@ -215,11 +215,7 @@ onMounted(() => {
             />
         </div>
 
-        <EmptyState
-            v-else
-            :title="emptyTitle"
-            :description="emptyDescription"
-        >
+        <EmptyState v-else :title="emptyTitle" :description="emptyDescription">
             <Link
                 v-if="!isBrowse"
                 :href="routes.member.browse"
@@ -229,7 +225,7 @@ onMounted(() => {
             </Link>
         </EmptyState>
 
-        <p v-if="truncatedNotice" class="text-xs text-muted-foreground">{{ truncatedNotice }}</p>
+        <p v-if="truncatedNotice" class="text-muted-foreground text-xs">{{ truncatedNotice }}</p>
 
         <template v-if="shownPagination">
             <AppPagination

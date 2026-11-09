@@ -23,7 +23,7 @@ usePageFlashToast();
                 </a>
                 <a
                     :href="routes.home"
-                    class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/40 focus-visible:ring-offset-background text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                     Beranda
                 </a>
@@ -31,8 +31,10 @@ usePageFlashToast();
         </header>
 
         <!-- Anchor vertikal: blok auth di tengah; padding atas khusus mobile agar tidak menabrak header. -->
-        <main class="flex min-h-dvh w-full items-center justify-center px-5 pt-24 pb-12 sm:px-8 sm:pt-20 sm:pb-12 lg:py-16">
-            <div class="w-full max-w-xl motion-safe:animate-app-fade-in">
+        <main
+            class="flex min-h-dvh w-full items-center justify-center px-5 pt-24 pb-12 sm:px-8 sm:pt-20 sm:pb-12 lg:py-16"
+        >
+            <div class="motion-safe:animate-app-fade-in w-full max-w-xl">
                 <slot></slot>
             </div>
         </main>

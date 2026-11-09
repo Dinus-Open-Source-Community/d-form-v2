@@ -1,21 +1,21 @@
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { toast } from 'vue-sonner'
-import type { Html5Qrcode as THtml5Qrcode } from 'html5-qrcode'
-import { isHttpRequestError, toHttpErrorKind } from '@/adapters/http/httpError'
-import { fetchScanFeed, submitScan } from '@/adapters/http/scan'
-import { playScanFeedback } from '@/adapters/browser/feedback'
-import { findElementById } from '@/adapters/browser/domQuery'
-import { readStorage, writeStorage } from '@/adapters/browser/storage'
-import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/lib/error-message'
-import { describeRequestError } from '@/lib/requestErrorText'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { toast } from 'vue-sonner';
+import type { Html5Qrcode as THtml5Qrcode } from 'html5-qrcode';
+import { isHttpRequestError, toHttpErrorKind } from '@/adapters/http/httpError';
+import { fetchScanFeed, submitScan } from '@/adapters/http/scan';
+import { playScanFeedback } from '@/adapters/browser/feedback';
+import { findElementById } from '@/adapters/browser/domQuery';
+import { readStorage, writeStorage } from '@/adapters/browser/storage';
+import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/lib/error-message';
+import { describeRequestError } from '@/lib/requestErrorText';
 import {
     createScanHistoryEntry,
     extractQrCandidate,
     FEED_POLL_MS,
     nextFeedDelayMs,
-    type ScanEntry,
-    type ScanResult,
-} from '@/lib/qrScanUi'
+    type IScanEntry,
+    type IScanResult,
+} from '@/lib/qrScanUi';
 import type {
     IScanEnvelope,
     IScanErrorBody,
@@ -23,120 +23,118 @@ import type {
     IScanFeedRow,
     IScanTargetEvent,
     IScanTargetSession,
-} from '@/types/scan'
-import { formatDateTime } from '@/lib/dateTime'
+} from '@/types/scan';
+import { formatDateTime } from '@/lib/dateTime';
 
 export interface IGlobalScanTargets {
-    sessions: IScanTargetSession[]
-    events: IScanTargetEvent[]
+    sessions: IScanTargetSession[];
+    events: IScanTargetEvent[];
 }
 
 export interface IGlobalScanTargetOption {
-    id: string
-    label: string
-    kind: 'event' | 'oprec'
+    id: string;
+    label: string;
+    kind: 'event' | 'oprec';
     /**
      * Teks pembanding yang dipakai untuk mencocokkan opsi filter dengan
      * `eventTitle` pada entri riwayat scan. Untuk event = judul event; untuk
      * oprec = "Divisi · tanggal" seperti yang dikirim backend pada `eventTitle`
      * (mis. "Oprec · Divisi Acara · 2026-05-01").
      */
-    matchKey: string
+    matchKey: string;
 }
 
 export interface IGlobalScanSummary {
-    total: number
-    success: number
-    already: number
-    invalid: number
+    total: number;
+    success: number;
+    already: number;
+    invalid: number;
 }
 
-type TFeedPollResult = 'success' | 'failed' | 'skipped'
+type TFeedPollResult = 'success' | 'failed' | 'skipped';
 
-const DESK_STORAGE_KEY = 'scan-desk-id'
-const SCAN_COOLDOWN_MS = 2000
-const FEED_POLL_TIMEOUT_MS = 8000
+const DESK_STORAGE_KEY = 'scan-desk-id';
+const SCAN_COOLDOWN_MS = 2000;
+const FEED_POLL_TIMEOUT_MS = 8000;
 /**
  * Batas tunggu `stop()`/`clear()` html5-qrcode saat teardown. Library bisa menggantung
  * bila transaksi state tidak pernah settle (mis. `start()` masih pending saat unmount);
  * tanpa batas ini `isStartingCamera` bisa tertahan `true` selamanya.
  */
-const SCANNER_TEARDOWN_TIMEOUT_MS = 2000
+const SCANNER_TEARDOWN_TIMEOUT_MS = 2000;
 
 /** Jalankan operasi yang mungkin menggantung dengan batas waktu; kegagalan ditelan. */
 async function settleWithTimeout(operation: () => Promise<void>, timeoutMs: number): Promise<void> {
-    let timer: number | null = null
+    let timer: number | null = null;
 
     try {
         await Promise.race([
             operation(),
             new Promise<void>((resolve) => {
-                timer = setTimeout(resolve, timeoutMs)
+                timer = setTimeout(resolve, timeoutMs);
             }),
-        ])
-    }
-    catch {
+        ]);
+    } catch {
         // Library melempar saat state tidak valid; teardown tetap dianggap best-effort.
-    }
-    finally {
+    } finally {
         if (timer !== null) {
-            clearTimeout(timer)
+            clearTimeout(timer);
         }
     }
 }
 
 function resolveDeskId(): string {
-    const existing = readStorage({ area: 'session', key: DESK_STORAGE_KEY })
+    const existing = readStorage({ area: 'session', key: DESK_STORAGE_KEY });
     if (existing !== null && existing.trim().length > 0) {
-        return existing
+        return existing;
     }
 
     const fresh =
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
             ? crypto.randomUUID().slice(0, 8)
-            : Math.random().toString(16).slice(2, 10)
-    writeStorage({ area: 'session', key: DESK_STORAGE_KEY, value: fresh })
+            : Math.random().toString(16).slice(2, 10);
+    writeStorage({ area: 'session', key: DESK_STORAGE_KEY, value: fresh });
 
-    return fresh
+    return fresh;
 }
 
 function formatGlobalEventTitle(kind: 'event' | 'oprec', rawTitle: string): string {
-    const title = rawTitle.trim()
+    const title = rawTitle.trim();
     if (title.length === 0) {
-        return '-'
+        return '-';
     }
 
     if (kind !== 'oprec') {
-        return title
+        return title;
     }
 
-    return title.replace(/(\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}(?::\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?/g, '$1')
+    return title.replace(/(\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}(?::\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?/g, '$1');
 }
 
 function formatSessionDate(raw: string): string {
-    const text: string = raw.trim()
+    const text: string = raw.trim();
     if (text.length === 0) {
-        return ''
+        return '';
     }
 
-    return formatDateTime({ value: text, variant: 'date-long' }) || text
+    return formatDateTime({ value: text, variant: 'date-long' }) || text;
 }
 
 function sessionDivisionName(session: IScanTargetSession): string {
-    const name = typeof session.division?.name === 'string' ? session.division.name.trim() : ''
+    const name = typeof session.division?.name === 'string' ? session.division.name.trim() : '';
     if (name.length > 0) {
-        return name
+        return name;
     }
 
-    return 'Interview'
+    return 'Interview';
 }
 
 function sessionOptionLabel(session: IScanTargetSession): string {
-    const divisionName = sessionDivisionName(session)
-    const rawDate = typeof session.session_date === 'string' ? session.session_date.trim() : ''
-    const date = formatSessionDate(rawDate)
+    const divisionName = sessionDivisionName(session);
+    const rawDate = typeof session.session_date === 'string' ? session.session_date.trim() : '';
+    const date = formatSessionDate(rawDate);
 
-    return date.length > 0 ? `${divisionName} · ${date}` : divisionName
+    return date.length > 0 ? `${divisionName} · ${date}` : divisionName;
 }
 
 /**
@@ -145,45 +143,48 @@ function sessionOptionLabel(session: IScanTargetSession): string {
  * prefix "Oprec · " agar cocok dengan entri riwayat hasil scan.
  */
 function sessionMatchKey(session: IScanTargetSession): string {
-    const divisionName = sessionDivisionName(session)
-    const rawDate = typeof session.session_date === 'string' ? session.session_date.trim() : ''
+    const divisionName = sessionDivisionName(session);
+    const rawDate = typeof session.session_date === 'string' ? session.session_date.trim() : '';
 
-    return `${divisionName} · ${rawDate}`
+    return `${divisionName} · ${rawDate}`;
 }
 
 function eventOptionLabel(event: IScanTargetEvent): string {
-    const title = typeof event.title === 'string' ? event.title.trim() : ''
+    const title = typeof event.title === 'string' ? event.title.trim() : '';
 
-    return title.length > 0 ? title : `Event ${String(event.id)}`
+    return title.length > 0 ? title : `Event ${String(event.id)}`;
 }
 
 function normalizeMatchText(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
 }
 
 function formatFeedTime(ts: string): string {
-    const parsed = new Date(ts)
+    const parsed = new Date(ts);
     if (Number.isNaN(parsed.getTime())) {
-        return formatDateTime({ value: new Date().toISOString(), variant: 'time' })
+        return formatDateTime({ value: new Date().toISOString(), variant: 'time' });
     }
 
-    return formatDateTime({ value: ts, variant: 'time' })
+    return formatDateTime({ value: ts, variant: 'time' });
 }
 
 function scanIdentity(
     kind: 'event' | 'oprec',
     identifier: string,
     queueNumber: number | null,
-    eventTitle: string,
+    eventTitle: string
 ): string {
-    return `${kind}|${eventTitle}|${identifier}|${queueNumber === null ? '-' : String(queueNumber)}`
+    return `${kind}|${eventTitle}|${identifier}|${queueNumber === null ? '-' : String(queueNumber)}`;
 }
 
 /** Memuat konstruktor html5-qrcode saat scanner dipakai agar tidak masuk bundel entry. */
 async function loadHtml5Qrcode(): Promise<typeof import('html5-qrcode').Html5Qrcode> {
-    const { Html5Qrcode } = await import('html5-qrcode')
+    const { Html5Qrcode } = await import('html5-qrcode');
 
-    return Html5Qrcode
+    return Html5Qrcode;
 }
 
 /**
@@ -194,51 +195,51 @@ export function useGlobalQrScanPage(
     scannerContainerId: string,
     storeUrl: string,
     feedUrl: string,
-    getTargets: () => IGlobalScanTargets,
+    getTargets: () => IGlobalScanTargets
 ) {
-    const deskId = resolveDeskId()
+    const deskId = resolveDeskId();
 
-    const scanner = ref<THtml5Qrcode | null>(null)
-    const cameras = ref<Array<{ id: string; label: string }>>([])
-    const selectedCameraId = ref('')
-    const isCameraReady = ref(false)
-    const isStartingCamera = ref(false)
-    const permissionError = ref('')
-    const registrationCodeInput = ref('')
-    const scanResult = ref<ScanResult | null>(null)
-    const scanHistory = ref<ScanEntry[]>([])
-    const lastRaw = ref('')
-    const lastAt = ref(0)
-    const scanBusy = ref(false)
-    const selectedTarget = ref('all')
-    const logExpanded = ref(false)
-    const logQuery = ref('')
-    const isShutterActive = ref(false)
-    const feedState = ref<'live' | 'stale'>('live')
-    const feedFailureCount = ref(0)
+    const scanner = ref<THtml5Qrcode | null>(null);
+    const cameras = ref<Array<{ id: string; label: string }>>([]);
+    const selectedCameraId = ref('');
+    const isCameraReady = ref(false);
+    const isStartingCamera = ref(false);
+    const permissionError = ref('');
+    const registrationCodeInput = ref('');
+    const scanResult = ref<IScanResult | null>(null);
+    const scanHistory = ref<IScanEntry[]>([]);
+    const lastRaw = ref('');
+    const lastAt = ref(0);
+    const scanBusy = ref(false);
+    const selectedTarget = ref('all');
+    const logExpanded = ref(false);
+    const logQuery = ref('');
+    const isShutterActive = ref(false);
+    const feedState = ref<'live' | 'stale'>('live');
+    const feedFailureCount = ref(0);
 
-    const scanEntryEpochMs = new Map<string, number>()
-    const rawCodeByEntryId = new Map<string, string>()
-    const localEntryIdentities = new Set<string>()
-    const seenFeedIds = new Set<string>()
-    let feedCursor = ''
-    let pollTimer: number | null = null
-    let pollAbort: AbortController | null = null
-    let feedPolling = false
-    let pauseFailureNotified = false
-    let shutterTimer: number | null = null
+    const scanEntryEpochMs = new Map<string, number>();
+    const rawCodeByEntryId = new Map<string, string>();
+    const localEntryIdentities = new Set<string>();
+    const seenFeedIds = new Set<string>();
+    let feedCursor = '';
+    let pollTimer: number | null = null;
+    let pollAbort: AbortController | null = null;
+    let feedPolling = false;
+    let pauseFailureNotified = false;
+    let shutterTimer: number | null = null;
 
-    function isTodayEntry(entry: ScanEntry): boolean {
-        const epoch: number | undefined = scanEntryEpochMs.get(entry.id)
+    function isTodayEntry(entry: IScanEntry): boolean {
+        const epoch: number | undefined = scanEntryEpochMs.get(entry.id);
         if (epoch === undefined) {
-            return true
+            return true;
         }
 
-        return new Date(epoch).toDateString() === new Date().toDateString()
+        return new Date(epoch).toDateString() === new Date().toDateString();
     }
 
     const targetOptions = computed<IGlobalScanTargetOption[]>(() => {
-        const targets = getTargets()
+        const targets = getTargets();
 
         return [
             ...targets.sessions.map((session) => ({
@@ -253,19 +254,19 @@ export function useGlobalQrScanPage(
                 kind: 'event' as const,
                 matchKey: eventOptionLabel(event),
             })),
-        ]
-    })
+        ];
+    });
 
     const selectedTargetOption = computed<IGlobalScanTargetOption | null>(() => {
         if (selectedTarget.value === 'all') {
-            return null
+            return null;
         }
 
-        return targetOptions.value.find((candidate) => candidate.id === selectedTarget.value) ?? null
-    })
+        return targetOptions.value.find((candidate) => candidate.id === selectedTarget.value) ?? null;
+    });
 
     /** Nama acara yang sedang dipilih, atau "Semua acara" saat filter netral. */
-    const selectedTargetLabel = computed<string>(() => selectedTargetOption.value?.label ?? 'Semua acara')
+    const selectedTargetLabel = computed<string>(() => selectedTargetOption.value?.label ?? 'Semua acara');
 
     /**
      * Filter acara bersifat global: KPI, hero "Hasil Scan Terakhir", dan riwayat
@@ -273,48 +274,50 @@ export function useGlobalQrScanPage(
      * kembali ke seluruh riwayat. Pencarian `logQuery` tetap diterapkan terpisah di
      * QrScanSidebar sehingga filter acara dan pencarian bisa dipakai bersamaan.
      */
-    const targetEntries = computed<ScanEntry[]>(() => {
-        const option = selectedTargetOption.value
+    const targetEntries = computed<IScanEntry[]>(() => {
+        const option = selectedTargetOption.value;
         if (option === null) {
-            return scanHistory.value
+            return scanHistory.value;
         }
 
-        const wanted = normalizeMatchText(option.matchKey)
+        const wanted = normalizeMatchText(option.matchKey);
         if (wanted.length === 0) {
-            return []
+            return [];
         }
 
         return scanHistory.value.filter((entry) => {
             if (entry.eventKind !== option.kind) {
-                return false
+                return false;
             }
 
-            const haystack = normalizeMatchText(entry.eventTitle)
+            const haystack = normalizeMatchText(entry.eventTitle);
             if (haystack.length === 0) {
-                return false
+                return false;
             }
 
             // Event: judul harus sama persis. Oprec: `eventTitle` backend
             // berformat "Oprec · Divisi · tanggal", cukup dicocokkan sebagian.
-            return option.kind === 'event' ? haystack === wanted : haystack.includes(wanted)
-        })
-    })
+            return option.kind === 'event' ? haystack === wanted : haystack.includes(wanted);
+        });
+    });
 
-    const logEntries = computed<ScanEntry[]>(() => targetEntries.value)
+    const logEntries = computed<IScanEntry[]>(() => targetEntries.value);
 
-    const todayEntries = computed<ScanEntry[]>(() => targetEntries.value.filter(isTodayEntry))
-    const successfulScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'success').length)
-    const duplicateScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'already').length)
-    const invalidScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'invalid').length)
+    const todayEntries = computed<IScanEntry[]>(() => targetEntries.value.filter(isTodayEntry));
+    const successfulScansCount = computed(
+        () => todayEntries.value.filter((entry) => entry.status === 'success').length
+    );
+    const duplicateScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'already').length);
+    const invalidScansCount = computed(() => todayEntries.value.filter((entry) => entry.status === 'invalid').length);
 
     const summary = computed<IGlobalScanSummary>(() => ({
         total: todayEntries.value.length,
         success: successfulScansCount.value,
         already: duplicateScansCount.value,
         invalid: invalidScansCount.value,
-    }))
+    }));
 
-    function toHeroResult(entry: ScanEntry): ScanResult {
+    function toHeroResult(entry: IScanEntry): IScanResult {
         return {
             name: entry.name,
             email: entry.email,
@@ -324,7 +327,7 @@ export function useGlobalQrScanPage(
             eventKind: entry.eventKind,
             eventTitle: entry.eventTitle,
             queueNumber: entry.queueNumber,
-        }
+        };
     }
 
     /**
@@ -333,63 +336,61 @@ export function useGlobalQrScanPage(
      * target dipilih, hero menampilkan scan terakhir yang cocok target tersebut
      * (bisa null meski ada scan lain di acara lain).
      */
-    const heroResult = computed<ScanResult | null>(() => {
+    const heroResult = computed<IScanResult | null>(() => {
         if (selectedTargetOption.value === null) {
-            return scanResult.value
+            return scanResult.value;
         }
 
-        const latest = targetEntries.value[0]
+        const latest = targetEntries.value[0];
         if (latest === undefined) {
-            return null
+            return null;
         }
 
-        return toHeroResult(latest)
-    })
+        return toHeroResult(latest);
+    });
 
     const eventLabel = computed(() => {
-        const current = scanResult.value
+        const current = scanResult.value;
         if (current !== null && current.eventTitle !== '' && current.eventTitle !== '-') {
-            return `${current.eventKind === 'oprec' ? 'OPREC' : 'EVENT'} · ${current.eventTitle}`
+            return `${current.eventKind === 'oprec' ? 'OPREC' : 'EVENT'} · ${current.eventTitle}`;
         }
 
-        return 'Siap — mode Semua'
-    })
+        return 'Siap — mode Semua';
+    });
 
     function mapEnvelopeKind(type: string | undefined): 'event' | 'oprec' {
-        return type === 'recruitment' ? 'oprec' : 'event'
+        return type === 'recruitment' ? 'oprec' : 'event';
     }
 
-    function pushResult(result: ScanResult): void {
-        localEntryIdentities.add(
-            scanIdentity(result.eventKind, result.email, result.queueNumber, result.eventTitle),
-        )
-        scanResult.value = result
-        const entry: ScanEntry = createScanHistoryEntry(result)
-        scanEntryEpochMs.set(entry.id, Date.now())
-        rawCodeByEntryId.set(entry.id, result.rawCode)
-        scanHistory.value.unshift(entry)
-        playScanFeedback(result.status)
+    function pushResult(result: IScanResult): void {
+        localEntryIdentities.add(scanIdentity(result.eventKind, result.email, result.queueNumber, result.eventTitle));
+        scanResult.value = result;
+        const entry: IScanEntry = createScanHistoryEntry(result);
+        scanEntryEpochMs.set(entry.id, Date.now());
+        rawCodeByEntryId.set(entry.id, result.rawCode);
+        scanHistory.value.unshift(entry);
+        playScanFeedback(result.status);
     }
 
     function ingestFeedRow(row: IScanFeedRow): void {
         if (seenFeedIds.has(row.id)) {
-            return
+            return;
         }
-        seenFeedIds.add(row.id)
+        seenFeedIds.add(row.id);
 
-        const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event'
-        const name = row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama'
-        const identifier = row.identifier.trim().length > 0 ? row.identifier.trim() : '-'
-        const eventTitle = formatGlobalEventTitle(kind, row.eventTitle)
+        const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event';
+        const name = row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama';
+        const identifier = row.identifier.trim().length > 0 ? row.identifier.trim() : '-';
+        const eventTitle = formatGlobalEventTitle(kind, row.eventTitle);
 
         if (localEntryIdentities.has(scanIdentity(kind, identifier, row.queueNumber, eventTitle))) {
-            return
+            return;
         }
 
-        const parsed = new Date(row.ts)
-        const epoch = Number.isNaN(parsed.getTime()) ? Date.now() : parsed.getTime()
+        const parsed = new Date(row.ts);
+        const epoch = Number.isNaN(parsed.getTime()) ? Date.now() : parsed.getTime();
 
-        const entry: ScanEntry = {
+        const entry: IScanEntry = {
             id: row.id,
             name,
             email: identifier,
@@ -399,29 +400,29 @@ export function useGlobalQrScanPage(
             eventKind: kind,
             eventTitle,
             queueNumber: row.queueNumber,
-        }
-        scanEntryEpochMs.set(entry.id, epoch)
-        rawCodeByEntryId.set(entry.id, identifier)
-        scanHistory.value.unshift(entry)
+        };
+        scanEntryEpochMs.set(entry.id, epoch);
+        rawCodeByEntryId.set(entry.id, identifier);
+        scanHistory.value.unshift(entry);
     }
 
     function applyFeed(payload: IScanFeedPayload): void {
         if (payload.cursor.length > 0) {
-            feedCursor = payload.cursor
+            feedCursor = payload.cursor;
         }
 
         for (const row of payload.rows) {
-            ingestFeedRow(row)
+            ingestFeedRow(row);
         }
     }
 
     async function pollFeed(): Promise<TFeedPollResult> {
         if (pollAbort !== null) {
-            return 'skipped'
+            return 'skipped';
         }
 
-        const controller = new AbortController()
-        pollAbort = controller
+        const controller = new AbortController();
+        pollAbort = controller;
 
         try {
             const payload = await fetchScanFeed({
@@ -429,26 +430,24 @@ export function useGlobalQrScanPage(
                 cursor: feedCursor,
                 signal: controller.signal,
                 timeoutMs: FEED_POLL_TIMEOUT_MS,
-            })
+            });
 
-            applyFeed(payload)
-            feedFailureCount.value = 0
-            feedState.value = 'live'
+            applyFeed(payload);
+            feedFailureCount.value = 0;
+            feedState.value = 'live';
 
-            return 'success'
-        }
-        catch (error) {
+            return 'success';
+        } catch (error) {
             // Feed gagal sesaat tidak menghentikan polling; abort saat unmount bukan kegagalan.
             if (!(isHttpRequestError(error) && error.kind === 'aborted')) {
-                feedFailureCount.value += 1
-                feedState.value = 'stale'
+                feedFailureCount.value += 1;
+                feedState.value = 'stale';
             }
 
-            return 'failed'
-        }
-        finally {
+            return 'failed';
+        } finally {
             if (pollAbort === controller) {
-                pollAbort = null
+                pollAbort = null;
             }
         }
     }
@@ -456,72 +455,72 @@ export function useGlobalQrScanPage(
     /** Jadwalkan percobaan feed berikutnya; timer lama dibuang agar tidak ada dua rantai. */
     function scheduleFeedPoll(delayMs: number): void {
         if (pollTimer !== null) {
-            clearTimeout(pollTimer)
-            pollTimer = null
+            clearTimeout(pollTimer);
+            pollTimer = null;
         }
 
         if (!feedPolling) {
-            return
+            return;
         }
 
         pollTimer = setTimeout(() => {
-            pollTimer = null
-            void runFeedPoll()
-        }, delayMs)
+            pollTimer = null;
+            void runFeedPoll();
+        }, delayMs);
     }
 
     async function runFeedPoll(): Promise<void> {
         if (!feedPolling) {
-            return
+            return;
         }
 
-        const outcome = await pollFeed()
+        const outcome = await pollFeed();
         if (!feedPolling || outcome === 'skipped') {
-            return
+            return;
         }
 
-        scheduleFeedPoll(outcome === 'success' ? FEED_POLL_MS : nextFeedDelayMs(feedFailureCount.value))
+        scheduleFeedPoll(outcome === 'success' ? FEED_POLL_MS : nextFeedDelayMs(feedFailureCount.value));
     }
 
     function startFeedPolling(): void {
         if (feedPolling) {
-            return
+            return;
         }
 
-        feedPolling = true
-        void runFeedPoll()
+        feedPolling = true;
+        void runFeedPoll();
     }
 
     function stopFeedPolling(): void {
-        feedPolling = false
+        feedPolling = false;
 
         if (pollTimer !== null) {
-            clearTimeout(pollTimer)
-            pollTimer = null
+            clearTimeout(pollTimer);
+            pollTimer = null;
         }
 
         if (pollAbort !== null) {
-            pollAbort.abort()
-            pollAbort = null
+            pollAbort.abort();
+            pollAbort = null;
         }
     }
 
     async function submitScanPayload(raw: string, source: 'camera' | 'manual'): Promise<void> {
         if (scanBusy.value) {
-            return
+            return;
         }
 
-        const trimmed = raw.trim()
+        const trimmed = raw.trim();
         if (trimmed.length === 0) {
-            showErrorToast('Isi kode registrasi terlebih dahulu.')
+            showErrorToast('Isi kode registrasi terlebih dahulu.');
 
-            return
+            return;
         }
 
-        scanBusy.value = true
-        const rawDisplay = extractQrCandidate(trimmed)
+        scanBusy.value = true;
+        const rawDisplay = extractQrCandidate(trimmed);
 
-        /** Catat satu kegagalan scan nyata; bentuk `ScanEntry` dan status `invalid` dipertahankan. */
+        /** Catat satu kegagalan scan nyata; bentuk `IScanEntry` dan status `invalid` dipertahankan. */
         const pushFailureResult = (): void => {
             pushResult({
                 name: 'Kesalahan jaringan',
@@ -532,29 +531,29 @@ export function useGlobalQrScanPage(
                 eventKind: scanResult.value?.eventKind ?? 'event',
                 eventTitle: scanResult.value?.eventTitle ?? '-',
                 queueNumber: null,
-            })
-        }
+            });
+        };
 
         /** Tampilkan pesan spesifik bila ada; fallback generik hanya untuk error di luar kontrak HTTP. */
         const showFailureToast = (message: string | null): void => {
             if (message === null) {
                 showErrorToast('Permintaan gagal', {
                     description: 'Coba lagi dalam beberapa saat.',
-                })
+                });
 
-                return
+                return;
             }
 
-            showErrorToast(message)
-        }
+            showErrorToast(message);
+        };
 
         /** `aborted` bukan kegagalan: scan yang dibatalkan tidak boleh membuat entri/toast palsu. */
         const pushGenericScanError = (error: unknown): void => {
             if (isHttpRequestError(error) && error.kind === 'aborted') {
-                return
+                return;
             }
 
-            pushFailureResult()
+            pushFailureResult();
             showFailureToast(
                 isHttpRequestError(error)
                     ? describeRequestError({
@@ -562,20 +561,24 @@ export function useGlobalQrScanPage(
                           status: error.status,
                           retryAfterSeconds: error.retryAfterSeconds,
                       })
-                    : null,
-            )
-        }
+                    : null
+            );
+        };
 
-        const handleScanStatusError = (status: number, body: IScanErrorBody | null, retryAfterSeconds: number | null): boolean => {
+        const handleScanStatusError = (
+            status: number,
+            body: IScanErrorBody | null,
+            retryAfterSeconds: number | null
+        ): boolean => {
             if (status === 409) {
-                const kind = mapEnvelopeKind(body?.type)
-                const title = formatGlobalEventTitle(kind, body?.eventTitle ?? '')
-                const fallbackQueue = scanResult.value?.eventKind === kind ? scanResult.value.queueNumber : null
-                const msg = humanizeErrorMessage(body?.message ?? 'Peserta sudah pernah scan.')
+                const kind = mapEnvelopeKind(body?.type);
+                const title = formatGlobalEventTitle(kind, body?.eventTitle ?? '');
+                const fallbackQueue = scanResult.value?.eventKind === kind ? scanResult.value.queueNumber : null;
+                const msg = humanizeErrorMessage(body?.message ?? 'Peserta sudah pernah scan.');
 
                 if (kind === 'oprec') {
-                    const identifier = body?.attendee?.registration_number?.trim() || '-'
-                    const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir'
+                    const identifier = body?.attendee?.registration_number?.trim() || '-';
+                    const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir';
                     pushResult({
                         name,
                         email: identifier,
@@ -585,14 +588,13 @@ export function useGlobalQrScanPage(
                         eventKind: kind,
                         eventTitle: title,
                         queueNumber: body?.attendee?.queue_number ?? fallbackQueue,
-                    })
+                    });
                     toast.warning(msg, {
                         description: `${name} · ${identifier}`,
-                    })
-                }
-                else {
-                    const email = body?.attendee?.email?.trim() || '-'
-                    const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir'
+                    });
+                } else {
+                    const email = body?.attendee?.email?.trim() || '-';
+                    const name = body?.attendee?.name?.trim() || 'Sudah terdaftar hadir';
                     pushResult({
                         name,
                         email,
@@ -602,17 +604,17 @@ export function useGlobalQrScanPage(
                         eventKind: kind,
                         eventTitle: title,
                         queueNumber: null,
-                    })
+                    });
                     toast.warning(msg, {
                         description: email !== '-' ? `${name} · ${email}` : name,
-                    })
+                    });
                 }
 
-                return true
+                return true;
             }
 
             if (status === 422) {
-                const msg = parseApiErrorMessage(body, 'Data tidak valid.', status)
+                const msg = parseApiErrorMessage(body, 'Data tidak valid.', status);
                 pushResult({
                     name: 'Tidak dapat diproses',
                     email: '-',
@@ -622,10 +624,10 @@ export function useGlobalQrScanPage(
                     eventKind: scanResult.value?.eventKind ?? 'event',
                     eventTitle: scanResult.value?.eventTitle ?? '-',
                     queueNumber: null,
-                })
-                showErrorToast(msg)
+                });
+                showErrorToast(msg);
 
-                return true
+                return true;
             }
 
             if (status === 429) {
@@ -638,27 +640,27 @@ export function useGlobalQrScanPage(
                     eventKind: scanResult.value?.eventKind ?? 'event',
                     eventTitle: scanResult.value?.eventTitle ?? '-',
                     queueNumber: null,
-                })
+                });
                 showErrorToast(
                     describeRequestError({ kind: 'rate_limited', status, retryAfterSeconds }) ?? 'Terlalu banyak scan',
-                    { description: 'Tunggu sebentar sebelum memindai lagi.' },
-                )
+                    { description: 'Tunggu sebentar sebelum memindai lagi.' }
+                );
 
-                return true
+                return true;
             }
 
-            return false
-        }
+            return false;
+        };
 
         try {
-            const selected = selectedTargetOption.value
-            const payload: Record<string, string> = { raw: trimmed, desk: deskId }
+            const selected = selectedTargetOption.value;
+            const payload: Record<string, string> = { raw: trimmed, desk: deskId };
             if (selected?.kind === 'oprec') {
-                payload.recruitment_session_id = selected.id
+                payload.recruitment_session_id = selected.id;
             }
 
-            const submitResult = await submitScan({ url: storeUrl, payload })
-            const envelope = submitResult.envelope
+            const submitResult = await submitScan({ url: storeUrl, payload });
+            const envelope = submitResult.envelope;
 
             if (submitResult.status >= 200 && submitResult.status < 300) {
                 if (envelope === null) {
@@ -671,23 +673,23 @@ export function useGlobalQrScanPage(
                         eventKind: scanResult.value?.eventKind ?? 'event',
                         eventTitle: scanResult.value?.eventTitle ?? '-',
                         queueNumber: null,
-                    })
+                    });
                     showErrorToast('Respons server tidak sesuai kontrak.', {
                         description: 'Coba lagi atau hubungi admin.',
-                    })
+                    });
 
-                    return
+                    return;
                 }
 
-                const data: IScanEnvelope = envelope
-                const kind = mapEnvelopeKind(data.type)
-                const title = formatGlobalEventTitle(kind, data.eventTitle ?? '')
+                const data: IScanEnvelope = envelope;
+                const kind = mapEnvelopeKind(data.type);
+                const title = formatGlobalEventTitle(kind, data.eventTitle ?? '');
 
-                let result: ScanResult
+                let result: IScanResult;
 
                 if (kind === 'oprec') {
-                    const identifier = data.attendee.registration_number?.trim() || '-'
-                    const queueNumber = null
+                    const identifier = data.attendee.registration_number?.trim() || '-';
+                    const queueNumber = null;
                     result = {
                         name: data.attendee.name?.trim() || 'Tanpa nama',
                         email: identifier,
@@ -697,14 +699,13 @@ export function useGlobalQrScanPage(
                         eventKind: kind,
                         eventTitle: title,
                         queueNumber,
-                    }
-                    const statusLabel = data.attendee.interview_status_label ?? 'ruang tunggu'
+                    };
+                    const statusLabel = data.attendee.interview_status_label ?? 'ruang tunggu';
                     toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                         description: `${statusLabel} — arahkan ke ruang tunggu`,
-                    })
-                }
-                else {
-                    const email = data.attendee.email?.trim() || '-'
+                    });
+                } else {
+                    const email = data.attendee.email?.trim() || '-';
                     result = {
                         name: data.attendee.name?.trim() || 'Tanpa nama',
                         email,
@@ -714,64 +715,56 @@ export function useGlobalQrScanPage(
                         eventKind: kind,
                         eventTitle: title,
                         queueNumber: null,
-                    }
+                    };
                     toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
                         description: 'Boleh masuk — tiket dikirim ke email',
-                    })
+                    });
                 }
 
-                pushResult(result)
+                pushResult(result);
 
                 if (source === 'manual') {
-                    registrationCodeInput.value = ''
+                    registrationCodeInput.value = '';
                 }
 
-                return
+                return;
             }
 
-            if (
-                handleScanStatusError(
-                    submitResult.status,
-                    submitResult.errorBody,
-                    submitResult.retryAfterSeconds,
-                )
-            ) {
-                return
+            if (handleScanStatusError(submitResult.status, submitResult.errorBody, submitResult.retryAfterSeconds)) {
+                return;
             }
 
-            pushFailureResult()
+            pushFailureResult();
             showFailureToast(
                 describeRequestError({
                     kind: toHttpErrorKind(submitResult.status),
                     status: submitResult.status,
                     retryAfterSeconds: submitResult.retryAfterSeconds,
-                }),
-            )
-        }
-        catch (error) {
-            pushGenericScanError(error)
-        }
-        finally {
-            scanBusy.value = false
+                })
+            );
+        } catch (error) {
+            pushGenericScanError(error);
+        } finally {
+            scanBusy.value = false;
         }
     }
 
     function clearShutterTimer(): void {
         if (shutterTimer !== null) {
-            clearTimeout(shutterTimer)
-            shutterTimer = null
+            clearTimeout(shutterTimer);
+            shutterTimer = null;
         }
     }
 
     function hideScannerNotice(): void {
-        const container = findElementById(scannerContainerId)
+        const container = findElementById(scannerContainerId);
         if (container === null) {
-            return
+            return;
         }
 
         container.querySelectorAll<HTMLDivElement>(':scope > div').forEach((notice) => {
-            notice.style.display = 'none'
-        })
+            notice.style.display = 'none';
+        });
     }
 
     /**
@@ -780,122 +773,119 @@ export function useGlobalQrScanPage(
      * `stop()` dan `clear()` dibungkus terpisah.
      */
     async function teardownScanner(): Promise<void> {
-        clearShutterTimer()
-        isShutterActive.value = false
-        pauseFailureNotified = false
+        clearShutterTimer();
+        isShutterActive.value = false;
+        pauseFailureNotified = false;
 
-        const active = scanner.value
+        const active = scanner.value;
         // Null sebelum await: pemanggil berikutnya tidak boleh menganggap instance ini
         // masih aktif, walau stop() menggantung.
-        scanner.value = null
-        isCameraReady.value = false
+        scanner.value = null;
+        isCameraReady.value = false;
 
         if (active === null) {
-            return
+            return;
         }
 
         await settleWithTimeout(async () => {
-            await active.stop()
-        }, SCANNER_TEARDOWN_TIMEOUT_MS)
+            await active.stop();
+        }, SCANNER_TEARDOWN_TIMEOUT_MS);
 
         await settleWithTimeout(async () => {
-            active.clear()
-        }, SCANNER_TEARDOWN_TIMEOUT_MS)
+            active.clear();
+        }, SCANNER_TEARDOWN_TIMEOUT_MS);
     }
 
     async function resumeScannerAfterShutter(): Promise<void> {
-        const active = scanner.value
+        const active = scanner.value;
         if (active === null || !isCameraReady.value) {
-            return
+            return;
         }
 
         try {
-            await active.resume()
-        }
-        catch {
+            await active.resume();
+        } catch {
             // Resume gagal berarti kamera berhenti; teardown nyata agar instance
             // tidak menggantung dan "Mulai kamera" bisa membuat sesi baru.
-            await teardownScanner()
-            toast.warning('Kamera terhenti. Klik "Mulai kamera" untuk melanjutkan.')
+            await teardownScanner();
+            toast.warning('Kamera terhenti. Klik "Mulai kamera" untuk melanjutkan.');
         }
     }
 
     function triggerShutter(): void {
-        const active = scanner.value
+        const active = scanner.value;
         if (active === null || !isCameraReady.value) {
-            return
+            return;
         }
 
-        isShutterActive.value = true
+        isShutterActive.value = true;
 
         try {
-            active.pause(true)
-            hideScannerNotice()
-        }
-        catch {
+            active.pause(true);
+            hideScannerNotice();
+        } catch {
             // Pause gagal bukan fatal: cooldown tetap berjalan. Beri tahu sekali per
             // sesi agar kegagalan tidak senyap tanpa membanjiri toast tiap scan.
             if (!pauseFailureNotified) {
-                pauseFailureNotified = true
-                toast.warning('Kamera tidak dapat dijeda sementara.')
+                pauseFailureNotified = true;
+                toast.warning('Kamera tidak dapat dijeda sementara.');
             }
         }
 
-        clearShutterTimer()
+        clearShutterTimer();
         shutterTimer = setTimeout(() => {
-            shutterTimer = null
-            isShutterActive.value = false
-            void resumeScannerAfterShutter()
-        }, SCAN_COOLDOWN_MS)
+            shutterTimer = null;
+            isShutterActive.value = false;
+            void resumeScannerAfterShutter();
+        }, SCAN_COOLDOWN_MS);
     }
 
     function processScan(decodedText: string, source: 'camera' | 'manual'): void {
         if (source === 'camera' && (!isCameraReady.value || isShutterActive.value)) {
-            return
+            return;
         }
 
-        const now = Date.now()
-        const key = decodedText.trim()
+        const now = Date.now();
+        const key = decodedText.trim();
         if (key.length > 0 && key === lastRaw.value && now - lastAt.value < SCAN_COOLDOWN_MS) {
-            return
+            return;
         }
 
-        lastRaw.value = key
-        lastAt.value = now
+        lastRaw.value = key;
+        lastAt.value = now;
 
         if (source === 'camera') {
-            triggerShutter()
+            triggerShutter();
         }
 
-        void submitScanPayload(key, source)
+        void submitScanPayload(key, source);
     }
 
     /** Mengisi daftar kamera yang tersedia; memuat html5-qrcode secara lazy. */
     async function loadCameras(): Promise<void> {
         try {
-            const Html5Qrcode = await loadHtml5Qrcode()
-            const discoveredCameras = await Html5Qrcode.getCameras()
+            const Html5Qrcode = await loadHtml5Qrcode();
+            const discoveredCameras = await Html5Qrcode.getCameras();
             cameras.value = discoveredCameras.map((camera, index) => ({
                 id: camera.id,
                 label: camera.label || `Camera ${index + 1}`,
-            }))
+            }));
 
             if (cameras.value.length > 0 && selectedCameraId.value.length === 0) {
-                selectedCameraId.value = cameras.value[0].id
+                selectedCameraId.value = cameras.value[0].id;
             }
 
-            permissionError.value = ''
-        }
-        catch (error) {
+            permissionError.value = '';
+        } catch (error) {
             permissionError.value = humanizeErrorMessage(
-                'Gagal membaca daftar kamera. Pastikan browser punya izin kamera.',
-            )
+                'Gagal membaca daftar kamera. Pastikan browser punya izin kamera.'
+            );
             showErrorToast('Kamera tidak tersedia', {
                 description:
                     error instanceof Error
                         ? humanizeErrorMessage(error.message)
                         : 'Terjadi kesalahan saat mengakses kamera.',
-            })
+            });
         }
     }
 
@@ -904,48 +894,48 @@ export function useGlobalQrScanPage(
      * `<video>` yatim bisa tetap memegang MediaStream. Hentikan track-nya best-effort.
      */
     function releaseStrayCameraStream(): void {
-        const container = findElementById(scannerContainerId)
-        const video = container?.querySelector('video')
+        const container = findElementById(scannerContainerId);
+        const video = container?.querySelector('video');
         if (!video) {
-            return
+            return;
         }
 
-        const stream = video.srcObject
+        const stream = video.srcObject;
         if (!(stream instanceof MediaStream)) {
-            return
+            return;
         }
 
         for (const track of stream.getTracks()) {
-            track.stop()
+            track.stop();
         }
-        video.srcObject = null
+        video.srcObject = null;
     }
 
     /** Memulai scanner kamera; html5-qrcode dimuat lazy pada titik ini. */
     async function startCameraScanner(): Promise<void> {
         if (isCameraReady.value || isStartingCamera.value) {
-            return
+            return;
         }
 
         if (!selectedCameraId.value) {
-            showErrorToast('Pilih kamera terlebih dahulu.')
+            showErrorToast('Pilih kamera terlebih dahulu.');
 
-            return
+            return;
         }
 
-        isStartingCamera.value = true
-        permissionError.value = ''
-        pauseFailureNotified = false
+        isStartingCamera.value = true;
+        permissionError.value = '';
+        pauseFailureNotified = false;
 
         if (scanner.value !== null) {
             // Instance lama (mis. setelah resume gagal) harus ditutup sebelum membuat baru.
-            await teardownScanner()
+            await teardownScanner();
         }
 
         try {
-            const Html5Qrcode = await loadHtml5Qrcode()
-            const instance = new Html5Qrcode(scannerContainerId)
-            scanner.value = instance
+            const Html5Qrcode = await loadHtml5Qrcode();
+            const instance = new Html5Qrcode(scannerContainerId);
+            scanner.value = instance;
             await instance.start(
                 selectedCameraId.value,
                 {
@@ -957,97 +947,94 @@ export function useGlobalQrScanPage(
                     aspectRatio: 1,
                 },
                 (decodedText) => processScan(decodedText, 'camera'),
-                () => {
-                },
-            )
+                () => {}
+            );
 
             if (scanner.value !== instance) {
                 // Unmount/switch menutup instance ini saat start() masih pending:
                 // tutup lagi agar track kamera tidak hidup tanpa handle.
                 await settleWithTimeout(async () => {
-                    await instance.stop()
-                }, SCANNER_TEARDOWN_TIMEOUT_MS)
+                    await instance.stop();
+                }, SCANNER_TEARDOWN_TIMEOUT_MS);
                 await settleWithTimeout(async () => {
-                    instance.clear()
-                }, SCANNER_TEARDOWN_TIMEOUT_MS)
+                    instance.clear();
+                }, SCANNER_TEARDOWN_TIMEOUT_MS);
 
-                return
+                return;
             }
 
-            isCameraReady.value = true
+            isCameraReady.value = true;
             toast.success('Kamera aktif', {
                 description: 'Arahkan QR ke area scanner untuk check-in otomatis.',
-            })
-        }
-        catch (error) {
-            await teardownScanner()
-            releaseStrayCameraStream()
+            });
+        } catch (error) {
+            await teardownScanner();
+            releaseStrayCameraStream();
             permissionError.value = humanizeErrorMessage(
-                'Izin kamera ditolak atau kamera sedang digunakan aplikasi lain.',
-            )
+                'Izin kamera ditolak atau kamera sedang digunakan aplikasi lain.'
+            );
             showErrorToast('Tidak bisa memulai kamera', {
                 description:
                     error instanceof Error
                         ? humanizeErrorMessage(error.message)
                         : 'Coba pilih kamera lain atau muat ulang halaman.',
-            })
-        }
-        finally {
-            isStartingCamera.value = false
+            });
+        } finally {
+            isStartingCamera.value = false;
         }
     }
 
     async function stopCameraScanner(): Promise<void> {
-        await teardownScanner()
+        await teardownScanner();
     }
 
     async function switchCamera(nextCameraId: string | undefined): Promise<void> {
         if (nextCameraId === undefined) {
-            return
+            return;
         }
 
-        selectedCameraId.value = nextCameraId
+        selectedCameraId.value = nextCameraId;
 
         if (!nextCameraId) {
-            return
+            return;
         }
 
         if (!isCameraReady.value) {
-            return
+            return;
         }
 
-        await stopCameraScanner()
-        await startCameraScanner()
+        await stopCameraScanner();
+        await startCameraScanner();
     }
 
     function submitManualCode(): void {
-        const code = registrationCodeInput.value.trim()
+        const code = registrationCodeInput.value.trim();
 
         if (code.length === 0) {
-            showErrorToast('Isi kode registrasi terlebih dahulu.')
+            showErrorToast('Isi kode registrasi terlebih dahulu.');
 
-            return
+            return;
         }
 
-        void submitScanPayload(code, 'manual')
+        void submitScanPayload(code, 'manual');
     }
 
     function selectTarget(id: string): void {
-        selectedTarget.value = id
+        selectedTarget.value = id;
     }
 
     function clearHistory(): void {
-        scanHistory.value = []
-        scanEntryEpochMs.clear()
-        rawCodeByEntryId.clear()
-        scanResult.value = null
-        toast('Riwayat scan dibersihkan')
+        scanHistory.value = [];
+        scanEntryEpochMs.clear();
+        rawCodeByEntryId.clear();
+        scanResult.value = null;
+        toast('Riwayat scan dibersihkan');
     }
 
-    onMounted(loadCameras)
-    onMounted(startFeedPolling)
-    onBeforeUnmount(stopCameraScanner)
-    onBeforeUnmount(stopFeedPolling)
+    onMounted(loadCameras);
+    onMounted(startFeedPolling);
+    onBeforeUnmount(stopCameraScanner);
+    onBeforeUnmount(stopFeedPolling);
 
     return {
         scannerContainerId,
@@ -1084,5 +1071,5 @@ export function useGlobalQrScanPage(
         switchCamera,
         submitManualCode,
         clearHistory,
-    }
+    };
 }

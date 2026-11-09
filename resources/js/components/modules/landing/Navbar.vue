@@ -143,11 +143,11 @@ function isLinkActive(href: string): boolean {
 <template>
     <header
         :class="[
- 'fixed inset-x-0 top-0 z-50 transition-all duration-300',
- scrolled
- ? 'border-border/50 bg-background/85 border-b shadow-[0_1px_3px_rgb(0_0_0/0.04)] backdrop-blur-xl'
- : 'bg-transparent',
- ]"
+            'fixed inset-x-0 top-0 z-50 transition-all duration-300',
+            scrolled
+                ? 'border-border/50 bg-background/85 border-b shadow-[0_1px_3px_rgb(0_0_0/0.04)] backdrop-blur-xl'
+                : 'bg-transparent',
+        ]"
     >
         <div class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-10">
             <a :href="routes.home" class="group flex items-center gap-2.5">
@@ -166,9 +166,9 @@ function isLinkActive(href: string): boolean {
                     :key="link.href"
                     :href="link.href"
                     :class="[
- 'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150',
- isLinkActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
- ]"
+                        'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150',
+                        isLinkActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                    ]"
                 >
                     {{ link.label }}
                 </a>
@@ -220,7 +220,10 @@ function isLinkActive(href: string): boolean {
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem as-child>
-                            <Link :href="routes.dashboard.profile" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link
+                                :href="routes.dashboard.profile"
+                                class="flex w-full cursor-pointer items-center gap-2"
+                            >
                                 <UserRound class="text-muted-foreground size-4" />
                                 Profile
                             </Link>
@@ -271,11 +274,11 @@ function isLinkActive(href: string): boolean {
                             :key="link.href"
                             :href="link.href"
                             :class="[
- 'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
- isLinkActive(link.href)
- ? 'bg-primary/8 text-primary'
- : 'text-muted-foreground hover:bg-muted hover:text-foreground',
- ]"
+                                'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                                isLinkActive(link.href)
+                                    ? 'bg-primary/8 text-primary'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                            ]"
                             @click="mobileOpen = false"
                         >
                             {{ link.label }}

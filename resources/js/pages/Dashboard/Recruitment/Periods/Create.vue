@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { Head, useForm } from '@inertiajs/vue3'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker'
-import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue'
-import { routes } from '@/lib/routes'
-import { cn } from '@/lib/utils'
-import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
-import { setTopbar } from '@/hooks/useDashboardTopbar'
+import { computed, onMounted } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
+import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue';
+import { routes } from '@/lib/routes';
+import { cn } from '@/lib/utils';
+import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 /** Label field agar pesan validasi di toast mudah dicocokkan dengan form. */
 const errorFieldLabels: Record<string, string> = {
@@ -28,7 +28,7 @@ const errorFieldLabels: Record<string, string> = {
     whatsapp_group_url: 'Link grup WA',
     whatsapp_group_aa_url: 'Link grup WA AA',
     whatsapp_group_member_url: 'Link grup WA Member',
-}
+};
 
 const form = useForm({
     name: '',
@@ -42,48 +42,48 @@ const form = useForm({
     whatsapp_group_url: '',
     whatsapp_group_aa_url: '',
     whatsapp_group_member_url: '',
-})
+});
 
 /** Validasi ringan: link WA opsional, bila diisi wajib https:// (cermin backend). */
 const whatsappError = computed<string | null>(() => {
-    const value = form.whatsapp_group_url.trim()
-    if (!value) return null
-    return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.'
-})
+    const value = form.whatsapp_group_url.trim();
+    if (!value) return null;
+    return value.startsWith('https://') ? null : 'Link grup WA harus diawali https://.';
+});
 
 /** Validasi ringan: link grup WA AA opsional, bila diisi wajib https://. */
 const whatsappAaError = computed<string | null>(() => {
-    const value = form.whatsapp_group_aa_url.trim()
-    if (!value) return null
-    return value.startsWith('https://') ? null : 'Link grup WA AA harus diawali https://.'
-})
+    const value = form.whatsapp_group_aa_url.trim();
+    if (!value) return null;
+    return value.startsWith('https://') ? null : 'Link grup WA AA harus diawali https://.';
+});
 
 /** Validasi ringan: link grup WA Member opsional, bila diisi wajib https://. */
 const whatsappMemberError = computed<string | null>(() => {
-    const value = form.whatsapp_group_member_url.trim()
-    if (!value) return null
-    return value.startsWith('https://') ? null : 'Link grup WA Member harus diawali https://.'
-})
+    const value = form.whatsapp_group_member_url.trim();
+    if (!value) return null;
+    return value.startsWith('https://') ? null : 'Link grup WA Member harus diawali https://.';
+});
 
 const dateErrorClass =
-    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10'
+    'border-destructive/70 bg-red-50 focus-visible:border-destructive focus-visible:ring-destructive/20 dark:bg-red-500/10';
 
 onMounted(() => {
-    setTopbar({ title: 'Periode baru', subtitle: 'Open Recruitment' })
-})
+    setTopbar({ title: 'Periode baru', subtitle: 'Open Recruitment' });
+});
 
 function submit() {
     if (whatsappError.value) {
-        showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' })
-        return
+        showErrorToast(whatsappError.value, { title: 'Link grup WA tidak valid' });
+        return;
     }
     if (whatsappAaError.value) {
-        showErrorToast(whatsappAaError.value, { title: 'Link grup WA AA tidak valid' })
-        return
+        showErrorToast(whatsappAaError.value, { title: 'Link grup WA AA tidak valid' });
+        return;
     }
     if (whatsappMemberError.value) {
-        showErrorToast(whatsappMemberError.value, { title: 'Link grup WA Member tidak valid' })
-        return
+        showErrorToast(whatsappMemberError.value, { title: 'Link grup WA Member tidak valid' });
+        return;
     }
     form.post(routes.admin.recruitment.periods.store, {
         forceFormData: true,
@@ -91,7 +91,7 @@ function submit() {
             handleInertiaFormErrors(errors, {
                 title: 'Gagal menyimpan periode',
                 fieldLabels: errorFieldLabels,
-            })
+            });
         },
         onSuccess: (page) => {
             // Server selalu mengalihkan ke halaman periode saat penyimpanan berhasil.
@@ -99,11 +99,11 @@ function submit() {
             // pesan (mis. sesi/CSRF kedaluwarsa sehingga backend membalas 302 tanpa pesan).
             if (page.component === 'Dashboard/Recruitment/Periods/Create') {
                 showErrorToast(
-                    'Periode gagal disimpan. Sesi Anda mungkin sudah berakhir — muat ulang halaman lalu coba lagi.',
-                )
+                    'Periode gagal disimpan. Sesi Anda mungkin sudah berakhir — muat ulang halaman lalu coba lagi.'
+                );
             }
         },
-    })
+    });
 }
 </script>
 
@@ -118,17 +118,12 @@ function submit() {
                 </h1>
                 <p class="text-muted-foreground mt-1.5 text-base">Open Recruitment</p>
             </div>
-            <Button
-                type="submit"
-                form="period-form"
-                :disabled="form.processing"
-                class="w-full shrink-0 sm:w-auto"
-            >
+            <Button type="submit" form="period-form" :disabled="form.processing" class="w-full shrink-0 sm:w-auto">
                 Simpan
             </Button>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="p-6">
                 <form id="period-form" class="space-y-4" @submit.prevent="submit">
                     <div class="space-y-2">
@@ -158,8 +153,7 @@ function submit() {
                             :aria-invalid="!!form.errors.whatsapp_group_url || !!whatsappError"
                         />
                         <p class="text-muted-foreground text-xs">
-                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
-                            kelulusan bila diisi.
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email kelulusan bila diisi.
                         </p>
                         <p v-if="whatsappError" class="text-destructive text-xs">{{ whatsappError }}</p>
                         <p v-if="form.errors.whatsapp_group_url" class="text-destructive text-xs">
@@ -178,8 +172,8 @@ function submit() {
                             :aria-invalid="!!form.errors.whatsapp_group_aa_url || !!whatsappAaError"
                         />
                         <p class="text-muted-foreground text-xs">
-                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
-                            penerimaan AA bila diisi.
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan AA bila
+                            diisi.
                         </p>
                         <p v-if="whatsappAaError" class="text-destructive text-xs">{{ whatsappAaError }}</p>
                         <p v-if="form.errors.whatsapp_group_aa_url" class="text-destructive text-xs">
@@ -198,8 +192,8 @@ function submit() {
                             :aria-invalid="!!form.errors.whatsapp_group_member_url || !!whatsappMemberError"
                         />
                         <p class="text-muted-foreground text-xs">
-                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email
-                            penerimaan Member bila diisi.
+                            Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan Member bila
+                            diisi.
                         </p>
                         <p v-if="whatsappMemberError" class="text-destructive text-xs">{{ whatsappMemberError }}</p>
                         <p v-if="form.errors.whatsapp_group_member_url" class="text-destructive text-xs">
@@ -207,11 +201,7 @@ function submit() {
                         </p>
                     </div>
 
-                    <PeriodBannerField
-                        v-model="form.banner"
-                        :error="form.errors.banner"
-                        :disabled="form.processing"
-                    />
+                    <PeriodBannerField v-model="form.banner" :error="form.errors.banner" :disabled="form.processing" />
 
                     <div class="grid items-start gap-4 sm:grid-cols-2">
                         <div class="flex flex-col gap-4">

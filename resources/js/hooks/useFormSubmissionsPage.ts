@@ -1,181 +1,185 @@
-import { computed, ref } from 'vue'
-import { router } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import { isHttpRequestError } from '@/adapters/http/httpError'
-import { reviewFormSubmission } from '@/adapters/http/forms'
-import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message'
-import {
-    answerPreview,
-    humanizeSubmissionKey,
-    submissionFileUrl,
-} from '@/lib/formSubmissionsUi'
-import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController'
+import { computed, ref } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
+import { isHttpRequestError } from '@/adapters/http/httpError';
+import { reviewFormSubmission } from '@/adapters/http/forms';
+import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message';
+import { answerPreview, humanizeSubmissionKey, submissionFileUrl } from '@/lib/formSubmissionsUi';
+import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 
 interface PaginationLink {
-    url: string | null
-    label: string
-    active: boolean
+    url: string | null;
+    label: string;
+    active: boolean;
 }
 
 interface SubmissionPaginator {
-    data?: IFormSubmission[]
-    current_page: number
-    last_page: number
-    per_page: number
-    total: number
-    links?: PaginationLink[]
+    data?: IFormSubmission[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links?: PaginationLink[];
 }
 
 interface BundleGroupPaginator {
-    data?: IBundleSubmissionGroup[]
-    current_page: number
-    last_page: number
-    per_page: number
-    total: number
-    links?: PaginationLink[]
+    data?: IBundleSubmissionGroup[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links?: PaginationLink[];
 }
 
 function submissionRows(paginator: SubmissionPaginator | undefined): IFormSubmission[] {
-    return paginator?.data ?? []
+    return paginator?.data ?? [];
 }
 
 function bundleGroupRows(paginator: BundleGroupPaginator | undefined): IBundleSubmissionGroup[] {
-    return paginator?.data ?? []
+    return paginator?.data ?? [];
 }
 
+/**
+ * State halaman review submission (single/bundle): pilihan detail, daftar key jawaban,
+ * dan aksi accept/reject. Aksi melakukan request PATCH, toast, dan reload Inertia parsial —
+ * semua efek samping terpusat di sini.
+ */
 export function useFormSubmissionsPage(props: {
-    event: { id: string; title: string }
-    form: { id: string; title: string; registration_mode?: 'single' | 'bundle' | 'team' }
-    fields?: IFormField[]
-    submissions?: SubmissionPaginator
-    bundleGroups?: BundleGroupPaginator
+    event: { id: string; title: string };
+    form: { id: string; title: string; registration_mode?: 'single' | 'bundle' | 'team' };
+    fields?: IFormField[];
+    submissions?: SubmissionPaginator;
+    bundleGroups?: BundleGroupPaginator;
 }) {
-    const formFields = computed(() => props.fields ?? [])
-    const selectedSubmission = ref<IFormSubmission | null>(null)
-    const isDetailOpen = ref(false)
-    const selectedGroup = ref<IBundleSubmissionGroup | null>(null)
-    const isGroupDetailOpen = ref(false)
-    const reviewingIds = ref<Set<string>>(new Set())
+    const formFields = computed(() => props.fields ?? []);
+    const selectedSubmission = ref<IFormSubmission | null>(null);
+    const isDetailOpen = ref(false);
+    const selectedGroup = ref<IBundleSubmissionGroup | null>(null);
+    const isGroupDetailOpen = ref(false);
+    const reviewingIds = ref<Set<string>>(new Set());
 
     const activeBundleGroup = computed(() => {
-        const rows = bundleGroupRows(props.bundleGroups)
+        const rows = bundleGroupRows(props.bundleGroups);
         if (rows.length === 0) {
-            return null
+            return null;
         }
 
         if (!selectedGroup.value) {
-            return rows[0]
+            return rows[0];
         }
 
-        return rows.find((g) => g.group_token === selectedGroup.value?.group_token) ?? rows[0]
-    })
+        return rows.find((g) => g.group_token === selectedGroup.value?.group_token) ?? rows[0];
+    });
 
     const fieldLabelMap = computed(() => {
-        const map: Record<string, string> = {}
+        const map: Record<string, string> = {};
         formFields.value.forEach((field) => {
-            map[field.name] = field.label
-        })
-        return map
-    })
+            map[field.name] = field.label;
+        });
+        return map;
+    });
 
     const answerKeys = computed(() => {
-        const keysFromFields = formFields.value.map((f) => f.name)
-        const keysInSubmissions = new Set<string>()
-        
+        const keysFromFields = formFields.value.map((f) => f.name);
+        const keysInSubmissions = new Set<string>();
+
         for (const submission of submissionRows(props.submissions)) {
-            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
         }
 
         for (const group of bundleGroupRows(props.bundleGroups)) {
-            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
             for (const member of group.members ?? []) {
-                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
             }
         }
-        
-        const allKeys = [...new Set([...keysFromFields, ...keysInSubmissions])]
-        return allKeys.slice(0, 4)
-    })
+
+        const allKeys = [...new Set([...keysFromFields, ...keysInSubmissions])];
+        return allKeys.slice(0, 4);
+    });
 
     const allAnswerKeys = computed(() => {
-        const keysFromFields = formFields.value.map((f) => f.name)
-        const keysInSubmissions = new Set<string>()
-        
+        const keysFromFields = formFields.value.map((f) => f.name);
+        const keysInSubmissions = new Set<string>();
+
         for (const submission of submissionRows(props.submissions)) {
-            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
         }
 
         for (const group of bundleGroupRows(props.bundleGroups)) {
-            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
             for (const member of group.members ?? []) {
-                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key))
+                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
             }
         }
-        
-        return [...new Set([...keysFromFields, ...keysInSubmissions])]
-    })
+
+        return [...new Set([...keysFromFields, ...keysInSubmissions])];
+    });
 
     function humanizeKey(value: string): string {
-        return humanizeSubmissionKey(fieldLabelMap.value, value)
+        return humanizeSubmissionKey(fieldLabelMap.value, value);
     }
 
     function fileUrl(value: unknown): string | null {
-        return submissionFileUrl(value)
+        return submissionFileUrl(value);
     }
 
     function openDetail(submission: IFormSubmission | IBundleSubmissionMember) {
         if ('can_open_detail' in submission && !submission.can_open_detail) {
-            return
+            return;
         }
 
-        isGroupDetailOpen.value = false
-        selectedSubmission.value = submission
-        isDetailOpen.value = true
+        isGroupDetailOpen.value = false;
+        selectedSubmission.value = submission;
+        isDetailOpen.value = true;
     }
 
     function openGroupDetail(group: IBundleSubmissionGroup) {
-        isDetailOpen.value = false
-        selectedSubmission.value = null
-        selectedGroup.value = group
-        isGroupDetailOpen.value = true
+        isDetailOpen.value = false;
+        selectedSubmission.value = null;
+        selectedGroup.value = group;
+        isGroupDetailOpen.value = true;
     }
 
     function closeGroupDetail() {
-        isGroupDetailOpen.value = false
+        isGroupDetailOpen.value = false;
     }
 
     function isSubmissionReviewing(submissionId: string): boolean {
-        return reviewingIds.value.has(submissionId)
+        return reviewingIds.value.has(submissionId);
     }
 
-    function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission | IBundleSubmissionMember) {
+    function submitSubmissionReview(
+        action: 'accept' | 'reject',
+        submission: IFormSubmission | IBundleSubmissionMember
+    ) {
         // Check can_review for bundle members
         if ('can_review' in submission && !submission.can_review) {
-            return
+            return;
         }
-        
-        const review_status = action === 'accept' ? 'accepted' : 'rejected'
-        const id = submission.id
-        const nextReviewing = new Set(reviewingIds.value)
-        nextReviewing.add(id)
-        reviewingIds.value = nextReviewing
+
+        const review_status = action === 'accept' ? 'accepted' : 'rejected';
+        const id = submission.id;
+        const nextReviewing = new Set(reviewingIds.value);
+        nextReviewing.add(id);
+        reviewingIds.value = nextReviewing;
 
         const { url } = FormAnswerReviewController.patch({
             event: props.event.id,
             form: props.form.id,
             formAnswer: submission.id,
-        })
+        });
 
         const clearReviewing = () => {
-            const s = new Set(reviewingIds.value)
-            s.delete(id)
-            reviewingIds.value = s
-        }
+            const s = new Set(reviewingIds.value);
+            s.delete(id);
+            reviewingIds.value = s;
+        };
 
         void (async () => {
             try {
-                const result = await reviewFormSubmission({ url, method: 'PATCH', reviewStatus: review_status })
-                const body = result.message ? { message: result.message } : {}
+                const result = await reviewFormSubmission({ url, method: 'PATCH', reviewStatus: review_status });
+                const body = result.message ? { message: result.message } : {};
 
                 if (result.status < 200 || result.status >= 300) {
                     showHttpErrorToast(result.status, body, {
@@ -183,58 +187,56 @@ export function useFormSubmissionsPage(props: {
                         422: parseApiErrorMessage(body, 'Status review tidak valid.'),
                         403: 'Anda tidak punya izin untuk mereview submission ini.',
                         404: 'Submission tidak ditemukan.',
-                    })
+                    });
                     if (result.status === 409 || result.status === 422) {
                         router.reload({
                             only: props.form.registration_mode === 'bundle' ? ['bundleGroups'] : ['submissions'],
-                        })
+                        });
                     }
-                    return
+                    return;
                 }
 
-                toast.success(action === 'accept' ? 'Submission diterima.' : 'Submission ditolak.')
+                toast.success(action === 'accept' ? 'Submission diterima.' : 'Submission ditolak.');
 
-                const reloadKeys = props.form.registration_mode === 'bundle' 
-                    ? ['bundleGroups'] 
-                    : ['submissions']
+                const reloadKeys = props.form.registration_mode === 'bundle' ? ['bundleGroups'] : ['submissions'];
 
                 router.reload({
                     only: reloadKeys,
                     onSuccess: () => {
                         if (selectedSubmission.value?.id === id) {
                             // Try to find updated submission in either submissions or bundleGroups
-                            let next: IFormSubmission | IBundleSubmissionMember | null = null
-                            
-                            next = submissionRows(props.submissions).find((s) => s.id === id) ?? null
+                            let next: IFormSubmission | IBundleSubmissionMember | null = null;
+
+                            next = submissionRows(props.submissions).find((s) => s.id === id) ?? null;
 
                             if (!next) {
                                 for (const group of bundleGroupRows(props.bundleGroups)) {
                                     if (group.leader.id === id) {
-                                        next = group.leader
-                                        break
+                                        next = group.leader;
+                                        break;
                                     }
-                                    const member = (group.members ?? []).find((m) => m.id === id)
+                                    const member = (group.members ?? []).find((m) => m.id === id);
                                     if (member) {
-                                        next = member
-                                        break
+                                        next = member;
+                                        break;
                                     }
                                 }
                             }
-                            
-                            if (next) selectedSubmission.value = next
+
+                            if (next) selectedSubmission.value = next;
                         }
                     },
-                })
+                });
             } catch (error) {
                 if (isHttpRequestError(error)) {
-                    showErrorToast('Tidak dapat menghubungi server. Coba lagi.')
-                    return
+                    showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
+                    return;
                 }
-                throw error
+                throw error;
             } finally {
-                clearReviewing()
+                clearReviewing();
             }
-        })()
+        })();
     }
 
     return {
@@ -254,5 +256,5 @@ export function useFormSubmissionsPage(props: {
         closeGroupDetail,
         submitSubmissionReview,
         isSubmissionReviewing,
-    }
+    };
 }

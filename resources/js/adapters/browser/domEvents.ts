@@ -7,7 +7,7 @@ import { readDocument, readWindow } from '@/adapters/browser/environment';
 export function onWindowEvent<K extends keyof WindowEventMap>(
     type: K,
     listener: (event: WindowEventMap[K]) => void,
-    options?: AddEventListenerOptions,
+    options?: AddEventListenerOptions
 ): () => void {
     const browserWindow = readWindow();
     if (browserWindow === null) return () => undefined;
@@ -21,7 +21,7 @@ export function onWindowEvent<K extends keyof WindowEventMap>(
 export function onDocumentEvent<K extends keyof DocumentEventMap>(
     type: K,
     listener: (event: DocumentEventMap[K]) => void,
-    options?: AddEventListenerOptions,
+    options?: AddEventListenerOptions
 ): () => void {
     const documentRef = readDocument();
     if (documentRef === null) return () => undefined;
@@ -35,7 +35,7 @@ export function onDocumentEvent<K extends keyof DocumentEventMap>(
 export function onDocumentCustomEvent(
     type: string,
     listener: (event: Event) => void,
-    options?: AddEventListenerOptions,
+    options?: AddEventListenerOptions
 ): () => void {
     const documentRef = readDocument();
     if (documentRef === null) return () => undefined;

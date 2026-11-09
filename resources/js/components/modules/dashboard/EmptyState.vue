@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import LocalLottie from '@/components/core/LocalLottie.vue'
-import type { LottieName } from '@/lib/lotties'
+import LocalLottie from '@/components/core/LocalLottie.vue';
+import type { TLottieName } from '@/lib/lotties';
 
 defineProps<{
-    title: string
-    description?: string
-    animationUrl?: string
-    animationName?: LottieName
-    size?: number
-}>()
+    title: string;
+    description?: string;
+    animationUrl?: string;
+    animationName?: TLottieName;
+    size?: number;
+}>();
 </script>
 
 <template>
@@ -21,8 +21,8 @@ defineProps<{
             :width="size ?? 180"
             class="mb-2"
         />
-        <p class="font-display text-base font-bold tracking-[-0.015em] text-foreground">{{ title }}</p>
-        <p v-if="description" class="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{{ description }}</p>
+        <p class="font-display text-foreground text-base font-bold tracking-[-0.015em]">{{ title }}</p>
+        <p v-if="description" class="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">{{ description }}</p>
         <div class="mt-5">
             <slot />
         </div>

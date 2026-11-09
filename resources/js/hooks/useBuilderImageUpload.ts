@@ -24,7 +24,7 @@ export const builderPendingUploads = ref(0);
 /** True bila ada upload gambar builder yang sedang berjalan. */
 export const isBuilderUploading = computed(() => builderPendingUploads.value > 0);
 
-export interface BuilderImageUploadResult {
+export interface IBuilderImageUploadResult {
     path: string;
     url: string;
 }
@@ -34,10 +34,12 @@ export function resolveBuilderImageUploadUrl(eventId: string | number, formId: s
     return `/admin/events/${eventId}/forms/${formId}/images`;
 }
 
+/** True bila string diawali skema `data:` (base64) — tidak boleh dipersist ke DB. */
 export function isDataUrl(value: unknown): boolean {
     return typeof value === 'string' && value.trimStart().startsWith('data:');
 }
 
+/** True bila string diawali skema `blob:` (object URL lokal sementara). */
 export function isBlobUrl(value: unknown): boolean {
     return typeof value === 'string' && value.trimStart().startsWith('blob:');
 }
@@ -96,13 +98,14 @@ export function createLocalImagePreviewUrl(file: File): string {
     return URL.createObjectURL(file);
 }
 
+/** Side effect: lepas object URL preview lokal; aman untuk `null`/non-blob (no-op). */
 export function revokeLocalImagePreviewUrl(url: string | null | undefined): void {
     if (typeof url === 'string' && url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
     }
 }
 
-export interface UseBuilderImageUploadOptions {
+export interface IUseBuilderImageUploadOptions {
     /** Bila kosong: preview lokal saja (tidak dipersist), tanpa request jaringan. */
     uploadUrl?: Ref<string | undefined> | (() => string | undefined) | string | undefined;
     /** Nama field multipart (default `file` mengikuti backend). */
@@ -110,7 +113,7 @@ export interface UseBuilderImageUploadOptions {
     onError?: (message: string) => void;
 }
 
-function resolveUploadUrl(source: UseBuilderImageUploadOptions['uploadUrl']): string {
+function resolveUploadUrl(source: IUseBuilderImageUploadOptions['uploadUrl']): string {
     if (typeof source === 'function') {
         const value = (source as () => string | undefined)();
         return typeof value === 'string' ? value.trim() : '';
@@ -154,11 +157,11 @@ function readUploadErrorMessage(error: unknown): string {
  * Upload satu file gambar ke endpoint `{form}/images`.
  * Menambah `builderPendingUploads` selama request agar autosave bisa skip/menunggu.
  */
-export function useBuilderImageUpload(opts: UseBuilderImageUploadOptions = {}) {
+export function useBuilderImageUpload(opts: IUseBuilderImageUploadOptions = {}) {
     const uploading = ref(false);
     const error = ref('');
 
-    async function uploadImage(file: File): Promise<BuilderImageUploadResult | null> {
+    async function uploadImage(file: File): Promise<IBuilderImageUploadResult | null> {
         const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']);
         if (validationError !== null) {
             error.value = validationError;

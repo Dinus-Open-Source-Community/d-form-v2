@@ -6,23 +6,23 @@ import { Label } from '@/components/ui/label';
 import { SplitDateTimeField } from '@/components/ui/date-picker';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { ChevronRight, ChevronDown, Search, Settings2 } from 'lucide-vue-next';
-import type { FormBuilderPaletteCategory } from '@/components/modules/builder/formBuilderPalette';
-import type { FormRegistrationMetadata, FormSiblingOption } from '@/types/form';
+import type { IFormBuilderPaletteCategory } from '@/components/modules/builder/formBuilderPalette';
+import type { IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
 
 const searchQuery = defineModel<string>('searchQuery', { required: true });
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
-const formMetadata = defineModel<FormRegistrationMetadata>('formMetadata', { required: true });
+const formMetadata = defineModel<IFormRegistrationMetadata>('formMetadata', { required: true });
 
 const props = withDefaults(
     defineProps<{
-        categories: FormBuilderPaletteCategory[];
+        categories: IFormBuilderPaletteCategory[];
         openCategoryName: string | null;
         formSettingsOpen: boolean;
         showFormSettings: boolean;
         fieldErrors: Partial<Record<'closed_at' | 'visible_for', string>>;
         visibilityOptions: readonly { value: string; label: string }[];
-        siblingForms?: FormSiblingOption[];
+        siblingForms?: IFormSiblingOption[];
     }>(),
     {
         siblingForms: () => [],
@@ -30,7 +30,7 @@ const props = withDefaults(
 );
 
 defineEmits<{
-    toggleCategory: [cat: FormBuilderPaletteCategory];
+    toggleCategory: [cat: IFormBuilderPaletteCategory];
     toggleFormSettings: [];
     toggleVisibility: [value: string, checked: boolean];
 }>();
@@ -79,8 +79,10 @@ function onRequiresFormChange(value: string): void {
 }
 
 function onRegistrationModeChange(value: string): void {
-    const mode: FormRegistrationMetadata['registration_mode'] =
-        value === noSelectionSentinel || value === '' ? null : (value as FormRegistrationMetadata['registration_mode']);
+    const mode: IFormRegistrationMetadata['registration_mode'] =
+        value === noSelectionSentinel || value === ''
+            ? null
+            : (value as IFormRegistrationMetadata['registration_mode']);
     const keepSizes = mode === 'team' || mode === 'bundle';
     formMetadata.value = {
         ...formMetadata.value,
@@ -253,9 +255,7 @@ function isCategoryExpanded(name: string): boolean {
                                 </div>
 
                                 <div v-if="isRegistrationPurpose" class="flex flex-col gap-1.5">
-                                    <Label for="l-registration-mode" class="text-xs font-medium"
-                                        >Mode registrasi</Label
-                                    >
+                                    <Label for="l-registration-mode" class="text-xs font-medium">Mode registrasi</Label>
                                     <SimpleSelect
                                         :model-value="formMetadata.registration_mode ?? noSelectionSentinel"
                                         :options="registrationModeOptions"

@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Covering index untuk SUM(registered_count) di dashboard: menghindari
  * full table scan pada tabel `events`.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table): void {

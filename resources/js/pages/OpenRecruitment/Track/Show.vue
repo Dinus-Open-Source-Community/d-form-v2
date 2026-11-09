@@ -317,7 +317,10 @@ function submitCorrection() {
                         Check-in:
                         {{
                             tracking.attendance.checked_in_at
-                                ? formatDateTime({ value: tracking.attendance.checked_in_at, variant: 'date-time-numeric' })
+                                ? formatDateTime({
+                                      value: tracking.attendance.checked_in_at,
+                                      variant: 'date-time-numeric',
+                                  })
                                 : '—'
                         }}
                     </p>

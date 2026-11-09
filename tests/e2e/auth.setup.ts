@@ -1,19 +1,20 @@
 import { mkdir, rename, rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { expect, test as setup } from './support/fixtures';
-import { ADMIN_STATE_PATH, sessionCookieName } from './support/authGuard';
+import { resolveStatePath, sessionCookieName } from './support/authGuard';
 import { readEnvironment } from './support/environment';
 
 /**
- * Login satu kali sebagai admin seeder lalu simpan storageState ke `tests/e2e/.auth/admin.json`.
- * Kredensial hanya dibaca dari environment; file ditulis lewat temp + rename agar tidak setengah jadi.
+ * Login satu kali sebagai admin seeder lalu simpan storageState ke path per run
+ * (`tests/e2e/.auth/admin-<runId>.json`). Kredensial hanya dibaca dari environment;
+ * file ditulis lewat temp + rename agar tidak setengah jadi.
  */
 setup('H-auth-setup: login admin dan simpan storageState', async ({ page, context }): Promise<void> => {
     const environment = readEnvironment();
 
     if (environment.adminEmail === '' || environment.adminPassword === '') {
         throw new Error(
-            'E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD must both be set to the seeded admin credentials before running the setup project.',
+            'E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD must both be set to the seeded admin credentials before running the setup project.'
         );
     }
 
@@ -43,15 +44,12 @@ setup('H-auth-setup: login admin dan simpan storageState', async ({ page, contex
     expect(dashboardResponse === null ? 0 : dashboardResponse.status()).toBe(200);
 
     const sessionCookie = (await context.cookies()).find(
-        (cookie) => cookie.name === sessionCookieName() && cookie.value !== '',
+        (cookie) => cookie.name === sessionCookieName() && cookie.value !== ''
     );
 
-    expect(
-        sessionCookie,
-        `setup must end with a "${sessionCookieName()}" cookie`,
-    ).toBeTruthy();
+    expect(sessionCookie, `setup must end with a "${sessionCookieName()}" cookie`).toBeTruthy();
 
-    const statePath = resolve(process.cwd(), ADMIN_STATE_PATH);
+    const statePath = resolveStatePath();
     const tempPath = `${statePath}.${process.pid}.${Date.now()}.tmp`;
 
     await mkdir(dirname(statePath), { recursive: true });

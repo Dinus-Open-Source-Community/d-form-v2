@@ -12,7 +12,9 @@ class OprecFormDefinition
 {
     public const FORM_TITLE = 'Formulir Open Recruitment';
 
-    public function __construct(private readonly RecruitmentDivisionService $divisionService) {}
+    public function __construct(private readonly RecruitmentDivisionService $divisionService)
+    {
+    }
 
     /**
      * Future-compatible: utamakan form yang terhubung ke period bila kolom itu

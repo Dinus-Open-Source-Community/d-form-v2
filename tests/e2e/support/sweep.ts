@@ -38,7 +38,7 @@ export function sweepAbandonedRuns(graceHours: number = 24, budgetSeconds: numbe
             `--live=${liveRuns.join(',')}`,
             '--json',
         ],
-        { encoding: 'utf8', maxBuffer: MAX_BUFFER_BYTES },
+        { encoding: 'utf8', maxBuffer: MAX_BUFFER_BYTES }
     );
 
     if (result.error !== undefined || result.status !== 0) {

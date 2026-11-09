@@ -1,39 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head, useForm } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue'
-import { defaultFormBannerState, prependFormBannerToBackendPayload } from '@/components/modules/builder/formBanner'
-import { toBackendFields } from '@/components/modules/builder/fieldMapping'
-import { builderPendingUploads, cleanStoredImageUrl } from '@/hooks/useBuilderImageUpload'
-import type { BuilderField } from '@/types/form-builder'
-import type { CreateDashboardFormPayload, FormSiblingOption } from '@/types/form'
-import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/lib/formRegistrationMetadata'
-import { routes } from '@/lib/routes'
+import { ref } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
+import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
+import { defaultFormBannerState, prependFormBannerToBackendPayload } from '@/components/modules/builder/formBanner';
+import { toBackendFields } from '@/components/modules/builder/fieldMapping';
+import { builderPendingUploads, cleanStoredImageUrl } from '@/hooks/useBuilderImageUpload';
+import type { IBuilderField } from '@/types/form-builder';
+import type { ICreateDashboardFormPayload, IFormSiblingOption } from '@/types/form';
+import { emptyFormRegistrationMetadata, toFormMetadataPayload } from '@/lib/formRegistrationMetadata';
+import { routes } from '@/lib/routes';
 
-/** Inertia `FormDataType` cannot recurse `BackendField.metadata` (Record<string, unknown>); store fields loosely for typing only. */
-type CreateFormClientPayload = Omit<CreateDashboardFormPayload, 'fields'> & {
-    fields: object[]
-}
+/** Inertia `FormDataType` cannot recurse `IBackendField.metadata` (Record<string, unknown>); store fields loosely for typing only. */
+type CreateFormClientPayload = Omit<ICreateDashboardFormPayload, 'fields'> & {
+    fields: object[];
+};
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 const props = defineProps<{
-    event: { id: string; title: string }
-    siblingForms?: FormSiblingOption[]
-}>()
+    event: { id: string; title: string };
+    siblingForms?: IFormSiblingOption[];
+}>();
 
-const formTitle = ref<string>('')
-const formDescription = ref<string>('')
-const successContent = ref<string>('')
-const closedAt = ref<string>('')
-const visibleFor = ref<string[]>([])
-const bannerState = ref(defaultFormBannerState())
-const formFields = ref<BuilderField[]>([])
-const formMetadata = ref(emptyFormRegistrationMetadata())
-const isSaving = ref<boolean>(false)
+const formTitle = ref<string>('');
+const formDescription = ref<string>('');
+const successContent = ref<string>('');
+const closedAt = ref<string>('');
+const visibleFor = ref<string[]>([]);
+const bannerState = ref(defaultFormBannerState());
+const formFields = ref<IBuilderField[]>([]);
+const formMetadata = ref(emptyFormRegistrationMetadata());
+const isSaving = ref<boolean>(false);
 
 const createForm = useForm<CreateFormClientPayload>({
     title: '',
@@ -45,35 +45,35 @@ const createForm = useForm<CreateFormClientPayload>({
     banner_caption: '',
     metadata: null,
     fields: [],
-})
+});
 
 function onSave(): void {
     if (builderPendingUploads.value > 0) {
-        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.')
-        return
+        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
+        return;
     }
-    createForm.title = formTitle.value
-    createForm.description = formDescription.value
-    createForm.success_content = successContent.value
-    createForm.closed_at = closedAt.value
-    createForm.visible_for = visibleFor.value
-    createForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl)
-    createForm.banner_caption = bannerState.value.caption
-    createForm.metadata = toFormMetadataPayload(formMetadata.value)
+    createForm.title = formTitle.value;
+    createForm.description = formDescription.value;
+    createForm.success_content = successContent.value;
+    createForm.closed_at = closedAt.value;
+    createForm.visible_for = visibleFor.value;
+    createForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl);
+    createForm.banner_caption = bannerState.value.caption;
+    createForm.metadata = toFormMetadataPayload(formMetadata.value);
 
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value)
-    createForm.fields = toBackendFields(merged) as object[]
+    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
+    createForm.fields = toBackendFields(merged) as object[];
 
-    isSaving.value = true
+    isSaving.value = true;
     createForm.post(routes.admin.events.forms.store(props.event.id), {
         onSuccess: () => toast.success(humanizeErrorMessage('Form created successfully!')),
         onError: (errors) => {
-            handleInertiaFormErrors(errors, { title: 'Gagal membuat form' })
+            handleInertiaFormErrors(errors, { title: 'Gagal membuat form' });
         },
         onFinish: () => {
-            isSaving.value = false
+            isSaving.value = false;
         },
-    })
+    });
 }
 </script>
 

@@ -45,7 +45,7 @@ describe('auth adapter', () => {
             available: true,
         });
         await expect(
-            checkEmailAvailability(`${server.baseUrl}/availability-invalid`, 'a@x.test'),
+            checkEmailAvailability(`${server.baseUrl}/availability-invalid`, 'a@x.test')
         ).rejects.toMatchObject({ kind: 'invalid_response' });
     });
 

@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Head, Link } from '@inertiajs/vue3'
-import FormFillLayout from '@/layouts/FormFillLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
-import { copyTextToClipboard } from '@/adapters/browser/clipboard'
-import { CheckCircle2, Copy, Mail } from 'lucide-vue-next'
+import { computed } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { routes } from '@/lib/routes';
+import { copyTextToClipboard } from '@/adapters/browser/clipboard';
+import { CheckCircle2, Copy, Mail } from 'lucide-vue-next';
 
-defineOptions({ layout: FormFillLayout })
+defineOptions({ layout: FormFillLayout });
 
 const props = defineProps<{
-    registrationNumber: string
-    periodName: string | null
-    applicantName: string | null
-}>()
+    registrationNumber: string;
+    periodName: string | null;
+    applicantName: string | null;
+}>();
 
 const trackLoginUrl = computed(
-    () => `${routes.recruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`,
-)
+    () => `${routes.recruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`
+);
 
 async function copyRegistrationNumber(): Promise<void> {
-    await copyTextToClipboard(props.registrationNumber)
+    await copyTextToClipboard(props.registrationNumber);
 }
 </script>
 
@@ -29,10 +29,12 @@ async function copyRegistrationNumber(): Promise<void> {
     <Head title="Pendaftaran berhasil" />
 
     <div class="mx-auto max-w-md px-2 pb-8">
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="space-y-5 p-6">
                 <div class="text-center">
-                    <div class="bg-primary/10 text-primary mx-auto mb-3 flex size-12 items-center justify-center rounded-full">
+                    <div
+                        class="bg-primary/10 text-primary mx-auto mb-3 flex size-12 items-center justify-center rounded-full"
+                    >
                         <CheckCircle2 class="size-6" />
                     </div>
                     <h1 class="text-xl font-bold">Pendaftaran berhasil</h1>
@@ -41,7 +43,7 @@ async function copyRegistrationNumber(): Promise<void> {
                     </p>
                 </div>
 
-                <div class="rounded-xl border border-border/70 bg-muted/30 p-4 text-center">
+                <div class="border-border/70 bg-muted/30 rounded-xl border p-4 text-center">
                     <p class="text-muted-foreground text-xs tracking-wide uppercase">Nomor pendaftaran</p>
                     <p class="mt-1 font-mono text-lg font-semibold">{{ registrationNumber }}</p>
                     <Button variant="ghost" size="sm" class="mt-2 h-8 text-xs" @click="copyRegistrationNumber">
@@ -52,21 +54,33 @@ async function copyRegistrationNumber(): Promise<void> {
 
                 <ol class="space-y-3 text-sm">
                     <li class="flex gap-3">
-                        <span class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
+                        <span
+                            class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            >1</span
+                        >
                         <span class="text-muted-foreground">
-                            <strong class="text-foreground">Cek email</strong> — token tracking & konfirmasi dikirim ke email pribadi.
+                            <strong class="text-foreground">Cek email</strong> — token tracking & konfirmasi dikirim ke
+                            email pribadi.
                         </span>
                     </li>
                     <li class="flex gap-3">
-                        <span class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
+                        <span
+                            class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            >2</span
+                        >
                         <span class="text-muted-foreground">
-                            <strong class="text-foreground">Simpan email</strong> — token tidak ditampilkan ulang di halaman ini.
+                            <strong class="text-foreground">Simpan email</strong> — token tidak ditampilkan ulang di
+                            halaman ini.
                         </span>
                     </li>
                     <li class="flex gap-3">
-                        <span class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
+                        <span
+                            class="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            >3</span
+                        >
                         <span class="text-muted-foreground">
-                            <strong class="text-foreground">Pantau status</strong> — masuk portal kapan saja setelah email diterima.
+                            <strong class="text-foreground">Pantau status</strong> — masuk portal kapan saja setelah
+                            email diterima.
                         </span>
                     </li>
                 </ol>

@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
-import { Head } from '@inertiajs/vue3'
-import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import FormBuilderDemoPaletteSidebar from '@/components/modules/builder/FormBuilderDemoPaletteSidebar.vue'
-import FormBuilderDemoCanvas from '@/components/modules/builder/FormBuilderDemoCanvas.vue'
-import FormBuilderDemoPropertiesSidebar from '@/components/modules/builder/FormBuilderDemoPropertiesSidebar.vue'
-import { useFormBuilderDemoPage } from '@/hooks/useFormBuilderDemoPage'
+import { reactive } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
+import FormBuilderDemoPaletteSidebar from '@/components/modules/builder/FormBuilderDemoPaletteSidebar.vue';
+import FormBuilderDemoCanvas from '@/components/modules/builder/FormBuilderDemoCanvas.vue';
+import FormBuilderDemoPropertiesSidebar from '@/components/modules/builder/FormBuilderDemoPropertiesSidebar.vue';
+import { useFormBuilderDemoPage } from '@/hooks/useFormBuilderDemoPage';
 
-defineOptions({ layout: DashboardFocusLayout })
+defineOptions({ layout: DashboardFocusLayout });
 
-const d = reactive(useFormBuilderDemoPage())
+const d = reactive(useFormBuilderDemoPage());
 </script>
 
 <template>

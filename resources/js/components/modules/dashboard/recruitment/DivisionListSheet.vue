@@ -1,78 +1,78 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { router } from '@inertiajs/vue3'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { routes } from '@/lib/routes'
+import { computed, ref, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { routes } from '@/lib/routes';
 
-export interface DashboardDivision {
-    id: string
-    code: string
-    name: string
-    description: string | null
-    is_active: boolean
-    sort_order: number
-    interviewer_assignments_count: number
+export interface IDashboardDivision {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    sort_order: number;
+    interviewer_assignments_count: number;
 }
 
 const props = defineProps<{
-    open: boolean
-    divisions: DashboardDivision[]
-}>()
+    open: boolean;
+    divisions: IDashboardDivision[];
+}>();
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>();
 
 const sheetOpen = computed<boolean>({
     get: () => props.open,
     set: (value: boolean) => {
-        if (!value) emit('close')
+        if (!value) emit('close');
     },
-})
+});
 
-const editingId = ref<string | null>(null)
-const editName = ref<string>('')
-const editIsActive = ref<boolean>(true)
-const isSaving = ref<boolean>(false)
+const editingId = ref<string | null>(null);
+const editName = ref<string>('');
+const editIsActive = ref<boolean>(true);
+const isSaving = ref<boolean>(false);
 
 watch(
     () => props.open,
     (isOpen) => {
         if (!isOpen) {
-            editingId.value = null
-            isSaving.value = false
+            editingId.value = null;
+            isSaving.value = false;
         }
-    },
-)
+    }
+);
 
-function startEdit(division: DashboardDivision): void {
-    editingId.value = division.id
-    editName.value = division.name
-    editIsActive.value = division.is_active
+function startEdit(division: IDashboardDivision): void {
+    editingId.value = division.id;
+    editName.value = division.name;
+    editIsActive.value = division.is_active;
 }
 
 function cancelEdit(): void {
-    editingId.value = null
-    isSaving.value = false
+    editingId.value = null;
+    isSaving.value = false;
 }
 
-function saveDivision(division: DashboardDivision): void {
-    if (editName.value.trim() === '') return
-    isSaving.value = true
+function saveDivision(division: IDashboardDivision): void {
+    if (editName.value.trim() === '') return;
+    isSaving.value = true;
     router.put(
         routes.admin.recruitment.divisions.update(division.id),
         { name: editName.value.trim(), is_active: editIsActive.value },
         {
             preserveScroll: true,
             onSuccess: () => {
-                editingId.value = null
+                editingId.value = null;
             },
             onFinish: () => {
-                isSaving.value = false
+                isSaving.value = false;
             },
-        },
-    )
+        }
+    );
 }
 </script>
 
@@ -91,11 +91,7 @@ function saveDivision(division: DashboardDivision): void {
             </SheetHeader>
 
             <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-                <div
-                    v-for="division in divisions"
-                    :key="division.id"
-                    class="rounded-xl border border-border/60 p-4"
-                >
+                <div v-for="division in divisions" :key="division.id" class="border-border/60 rounded-xl border p-4">
                     <template v-if="editingId === division.id">
                         <form class="space-y-3" @submit.prevent="saveDivision(division)">
                             <div class="space-y-1.5">
@@ -121,9 +117,7 @@ function saveDivision(division: DashboardDivision): void {
                             {{ division.interviewer_assignments_count }} interviewer ·
                             {{ division.is_active ? 'Aktif' : 'Nonaktif' }}
                         </p>
-                        <Button size="sm" variant="outline" class="mt-3" @click="startEdit(division)">
-                            Edit
-                        </Button>
+                        <Button size="sm" variant="outline" class="mt-3" @click="startEdit(division)"> Edit </Button>
                     </template>
                 </div>
 

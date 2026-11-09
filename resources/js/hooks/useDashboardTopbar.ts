@@ -1,5 +1,5 @@
-import { ref } from 'vue'
-import type { Ref } from 'vue'
+import { ref } from 'vue';
+import type { Ref } from 'vue';
 
 /**
  * State judul/subjudul untuk DashboardTopbar.
@@ -9,23 +9,26 @@ import type { Ref } from 'vue'
  */
 
 interface TopbarState {
-    title: string | null
-    subtitle?: string | null
+    title: string | null;
+    subtitle?: string | null;
 }
 
-const title = ref<string | null>(null)
-const subtitle = ref<string | null>(null)
+const title = ref<string | null>(null);
+const subtitle = ref<string | null>(null);
 
+/** Side effect: set judul/subjudul topbar global; komponen halaman memanggilnya saat mount. */
 export function setTopbar(state: TopbarState): void {
-    title.value = state.title ?? null
-    subtitle.value = state.subtitle ?? null
+    title.value = state.title ?? null;
+    subtitle.value = state.subtitle ?? null;
 }
 
+/** Side effect: kosongkan state topbar; dipanggil layout saat komponen halaman berganti. */
 export function clearTopbar(): void {
-    title.value = null
-    subtitle.value = null
+    title.value = null;
+    subtitle.value = null;
 }
 
+/** Baca state topbar global (ref bersama di level modul). */
 export function useTopbar(): { title: Ref<string | null>; subtitle: Ref<string | null> } {
-    return { title, subtitle }
+    return { title, subtitle };
 }

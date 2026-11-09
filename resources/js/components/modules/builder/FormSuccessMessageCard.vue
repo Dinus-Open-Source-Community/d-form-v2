@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { MessageSquareCheck } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
-import DeferredRender from '@/components/core/DeferredRender.vue'
-import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors'
+import { computed } from 'vue';
+import { MessageSquareCheck } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import DeferredRender from '@/components/core/DeferredRender.vue';
+import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors';
 
 /**
  * Zona konfirmasi "Pesan setelah submit" ala Google Forms — segmen terakhir dari
@@ -12,28 +12,31 @@ import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors'
  * bermakna (mis. form tersimpan dimuat kembali). Tombol "Hapus" mengosongkan
  * konten + menyembunyikan zona via emit `remove`.
  */
-const successContent = defineModel<string>('successContent', { required: true })
+const successContent = defineModel<string>('successContent', { required: true });
 
 const props = defineProps<{
-    show: boolean
-}>()
+    show: boolean;
+}>();
 
 defineEmits<{
-    remove: []
-}>()
+    remove: [];
+}>();
 
 function hasMeaningfulContent(html: string): boolean {
-    if (!html) return false
-    const text = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim()
-    return text !== ''
+    if (!html) return false;
+    const text = html
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .trim();
+    return text !== '';
 }
 
-const visible = computed(() => props.show || hasMeaningfulContent(successContent.value))
+const visible = computed(() => props.show || hasMeaningfulContent(successContent.value));
 </script>
 
 <template>
     <div v-if="visible" class="border-border/70 border-t">
-        <div class="flex items-center gap-2 border-b border-border/70 px-5 py-3.5 sm:px-7">
+        <div class="border-border/70 flex items-center gap-2 border-b px-5 py-3.5 sm:px-7">
             <MessageSquareCheck class="text-muted-foreground size-4" aria-hidden="true" />
             <h2 class="text-foreground text-sm font-semibold tracking-[-0.01em]">Pesan setelah submit</h2>
             <div class="ml-auto">

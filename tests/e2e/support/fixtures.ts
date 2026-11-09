@@ -106,7 +106,7 @@ export function defaultFixtureRequest(
     identity: IOwnerIdentity,
     formCount: number,
     fieldCount: number,
-    submissionCount: number,
+    submissionCount: number
 ): IFixtureRequest {
     const fields = Array.from({ length: Math.max(1, fieldCount) }, (_, index: number): IFixtureFieldRequest => ({
         label: `Field ${index + 1}`,
@@ -237,12 +237,12 @@ export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAut
     fixtureForm: async (
         { fixtureOwner, fixtureFormCount, fixtureFieldCount, fixtureSubmissionCount },
         use: (forms: IFixtureForms) => Promise<void>,
-        testInfo: TestInfo,
+        testInfo: TestInfo
     ): Promise<void> => {
         const identity = ownerIdentityForTest(testInfo);
         const forms = createFormsFixture(
             fixtureOwner,
-            defaultFixtureRequest(identity, fixtureFormCount, fixtureFieldCount, fixtureSubmissionCount),
+            defaultFixtureRequest(identity, fixtureFormCount, fixtureFieldCount, fixtureSubmissionCount)
         );
         const primary = forms[0];
 
@@ -255,7 +255,7 @@ export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAut
 
     fixtureSubmissions: async (
         { fixtureForm },
-        use: (submissions: { formId: string; submissionIds: string[] }) => Promise<void>,
+        use: (submissions: { formId: string; submissionIds: string[] }) => Promise<void>
     ): Promise<void> => {
         await use({ formId: fixtureForm.primary.formId, submissionIds: fixtureForm.primary.submissionIds });
     },

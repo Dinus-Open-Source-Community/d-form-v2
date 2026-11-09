@@ -59,13 +59,17 @@ npm run test:e2e
 
 | Script                     | Fungsi                                                  |
 | -------------------------- | ------------------------------------------------------- |
-| `npm run test:e2e`         | Seluruh project (setup + desktop + mobile)              |
-| `npm run test:e2e:setup`   | Login admin sekali, simpan `tests/e2e/.auth/admin.json` |
-| `npm run test:e2e:desktop` | Hanya project `chromium-desktop` (1440×900)             |
-| `npm run test:e2e:mobile`  | Hanya project `chromium-mobile` (Pixel 7)               |
-| `npm run test:e2e:types`   | Typecheck spec (`tsconfig.e2e.json`)                    |
+| `npm run test:e2e`         | Seluruh project (setup + desktop + mobile)                                 |
+| `npm run test:e2e:setup`   | Login admin sekali, simpan `tests/e2e/.auth/admin-<runId>.json`            |
+| `npm run test:e2e:desktop` | Hanya project `chromium-desktop` (1440×900)                                |
+| `npm run test:e2e:mobile`  | Hanya project `chromium-mobile` (Pixel 7)                                  |
+| `npm run test:e2e:types`   | Typecheck spec (`tsconfig.e2e.json`)                                       |
 
-Variabel environment: `E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (wajib), `E2E_ARTISAN` (default `podman exec -i -w /app d_form_app php artisan`), `E2E_SESSION_COOKIE` bila nama cookie sesi berubah, `E2E_ADMIN_STATE` (default `tests/e2e/.auth/admin.json`; pakai path lain untuk run paralel/server berbeda), dan `E2E_FEATURE_BROADCAST=true` hanya bila server dijalankan dengan `FEATURE_BROADCAST=true`. Spec memakai fixture ber-marker dan membersihkan barisnya; artefak kegagalan (trace/screenshot) ditulis ke `test-results/`.
+Variabel environment: `E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (wajib), `E2E_ARTISAN` (default `podman exec -i -w /app d_form_app php artisan`), `E2E_SESSION_COOKIE` bila nama cookie sesi berubah, `E2E_ADMIN_STATE` untuk override path storageState, `E2E_BASE_URL_TIMEOUT_MS` (default 5000) untuk batas probe HEAD/GET, dan `E2E_FEATURE_BROADCAST=true` hanya bila server dijalankan dengan `FEATURE_BROADCAST=true`. Spec memakai fixture ber-marker dan membersihkan barisnya; artefak kegagalan (trace/screenshot) ditulis ke `test-results/`.
+
+StorageState default mengikuti run: `tests/e2e/.auth/admin-<runId>.json` (runId dari `E2E_RUN_ID`), sehingga setup dan spec selalu membaca file yang sama tanpa saling menimpa. File run lain yang lebih tua dari 24 jam dibersihkan saat global setup. Isi `E2E_ADMIN_STATE` hanya bila butuh path tetap (mis. `tests/e2e/.auth/admin-8020.json` untuk server terpisah).
+
+**Batasan session driver Redis:** `Cache::flush()` yang dipanggil sebagian spec ikut menghapus session store Redis, sehingga sesi admin mati untuk spec berikutnya. Server E2E dengan session driver `file` tidak terpengaruh (spec `session-isolation.desktop.spec.ts` hijau). Saat E2E dijalankan terhadap server Redis, set `E2E_SESSION_DRIVER=redis` agar regresi tersebut di-skip; jangan menjalankan dua spec berurutan yang mem-flush cache sebelum sesi dipulihkan.
 
 ## Daftar isi
 

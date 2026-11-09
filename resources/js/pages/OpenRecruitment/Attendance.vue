@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3'
-import FormFillLayout from '@/layouts/FormFillLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
-import { QrCode } from 'lucide-vue-next'
+import { Head, Link } from '@inertiajs/vue3';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { routes } from '@/lib/routes';
+import { QrCode } from 'lucide-vue-next';
 
-defineOptions({ layout: FormFillLayout })
+defineOptions({ layout: FormFillLayout });
 
 defineProps<{
-    trackingLoginUrl: string
-}>()
+    trackingLoginUrl: string;
+}>();
 </script>
 
 <template>
@@ -20,12 +20,10 @@ defineProps<{
         <div class="mb-6 space-y-2 text-center">
             <p class="text-primary text-xs font-semibold tracking-wide uppercase">OpenRecruitment DOSCOM</p>
             <h1 class="text-2xl font-bold tracking-tight">Absensi interview</h1>
-            <p class="text-muted-foreground text-sm">
-                Absensi dilakukan oleh panitia di lokasi interview.
-            </p>
+            <p class="text-muted-foreground text-sm">Absensi dilakukan oleh panitia di lokasi interview.</p>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-lg">
                     <QrCode class="size-5" />

@@ -8,11 +8,11 @@
  * Blank input yields `''`.
  */
 export function normalizePublicStorageUrl(raw: string): string {
-    const trimmed = raw.trim()
-    if (!trimmed) return ''
-    if (trimmed.startsWith('data:')) return trimmed
-    if (trimmed.startsWith('blob:')) return trimmed
-    if (/^https?:\/\//i.test(trimmed)) return trimmed
-    if (trimmed.startsWith('/')) return trimmed
-    return `/storage/${trimmed.replace(/^\/+/, '')}`
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('data:')) return trimmed;
+    if (trimmed.startsWith('blob:')) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith('/')) return trimmed;
+    return `/storage/${trimmed.replace(/^\/+/, '')}`;
 }

@@ -122,10 +122,7 @@ test.describe('admin navigation', () => {
         }
 
         await expectStatus(page, '/admin/recruitment', 200);
-        await expect(
-            page.locator('a[href="/admin/recruitment"]').first(),
-            'sidebar /admin/recruitment',
-        ).toBeVisible();
+        await expect(page.locator('a[href="/admin/recruitment"]').first(), 'sidebar /admin/recruitment').toBeVisible();
 
         expectNoDiagnostics(diagnostics);
     });

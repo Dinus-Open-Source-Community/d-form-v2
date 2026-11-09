@@ -11,11 +11,14 @@ const emit = defineEmits<{ detail: [submission: IFormSubmission] }>();
 </script>
 
 <template>
-    <ul data-testid="form-answer-mobile-list" class="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-card">
+    <ul
+        data-testid="form-answer-mobile-list"
+        class="divide-border/60 border-border/70 bg-card divide-y overflow-hidden rounded-2xl border"
+    >
         <li v-for="submission in submissions" :key="submission.id">
             <button
                 type="button"
-                class="flex min-h-[72px] w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                class="hover:bg-muted/30 focus-visible:ring-ring flex min-h-[72px] w-full items-center gap-3 px-3 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-inset"
                 :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
                 @click="emit('detail', submission)"
             >
@@ -26,13 +29,20 @@ const emit = defineEmits<{ detail: [submission: IFormSubmission] }>();
                     fallback-round-class="rounded-xl"
                 />
                 <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-semibold text-foreground">{{ submission.user?.name ?? 'Tanpa nama' }}</span>
-                    <span class="mt-1 block truncate text-[11px] text-muted-foreground">{{ formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' }) }}</span>
+                    <span class="text-foreground block truncate text-sm font-semibold">{{
+                        submission.user?.name ?? 'Tanpa nama'
+                    }}</span>
+                    <span class="text-muted-foreground mt-1 block truncate text-[11px]">{{
+                        formatDateTime({ value: submission.submitted_at, variant: 'date-time-medium' })
+                    }}</span>
                 </span>
-                <Badge variant="outline" :class="['shrink-0 text-[10px] font-medium', submissionReviewBadge(submission.review_status).class]">
+                <Badge
+                    variant="outline"
+                    :class="['shrink-0 text-[10px] font-medium', submissionReviewBadge(submission.review_status).class]"
+                >
                     {{ submissionReviewBadge(submission.review_status).label }}
                 </Badge>
-                <ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <ChevronRight class="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
             </button>
         </li>
     </ul>

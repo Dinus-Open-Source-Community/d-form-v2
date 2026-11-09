@@ -3,6 +3,7 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\EmailLogStatus;
+use App\Enums\EmailNotificationType;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Jobs\Recruitment\SendRecruitmentApplicationConfirmationJob;
 use App\Jobs\Recruitment\SendRecruitmentCorrectionRequestStaffJob;
@@ -10,6 +11,7 @@ use App\Jobs\Recruitment\SendRecruitmentInterviewerNotificationJob;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentActivityLog;
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentInterview;
 use Illuminate\Support\Facades\Hash;
@@ -114,17 +116,49 @@ final class RecruitmentEmailResendService
         SendRecruitmentInterviewerNotificationJob::dispatch($interview->id);
     }
 
+    /**
+     * Template key notifikasi terkirim terbaru yang bisa dikirim ulang, atau `null`.
+     *
+     * Satu-satunya sumber aturan "replayable": log terbaru boleh non-resendable (mis.
+     * konfirmasi setelah resend), jadi pencarian melewatinya dan berhenti di log pertama
+     * yang tipenya ada di allowlist. Template interview tetap butuh interview yang ada.
+     *
+     * @param  bool|null  $hasInterview  Hasil query pemanggil; `null` berarti helper yang mencari.
+     */
+    public function latestReplayableNotification(RecruitmentApplication $application, ?bool $hasInterview = null): ?string
+    {
+        $types = EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('status', EmailLogStatus::Sent)
+            ->whereIn('notification_type', array_keys(self::RESENDABLE_TEMPLATES))
+            ->orderByDesc('created_at')
+            ->pluck('notification_type');
+
+        foreach ($types as $type) {
+            $value = $type instanceof EmailNotificationType ? $type->value : (string) $type;
+            $templateKey = self::RESENDABLE_TEMPLATES[$value];
+
+            if (! in_array($templateKey, ['interview_scheduled', 'interview_rescheduled'], true)) {
+                return $templateKey;
+            }
+
+            $hasInterview ??= RecruitmentInterview::query()
+                ->where('recruitment_application_id', $application->id)
+                ->whereNotNull('interviewer_id')
+                ->exists();
+
+            if ($hasInterview) {
+                return $templateKey;
+            }
+        }
+
+        return null;
+    }
+
     /** Kirim ulang notifikasi terakhir yang terkirim untuk applicant. */
     private function resendNotification(EmailResendCommand $command): void
     {
-        $lastSent = EmailLog::query()
-            ->where('recruitment_application_id', $command->application->id)
-            ->where('status', EmailLogStatus::Sent)
-            ->orderByDesc('created_at')
-            ->first();
-
-        $lastType = $lastSent?->notification_type?->value;
-        $templateKey = is_string($lastType) ? (self::RESENDABLE_TEMPLATES[$lastType] ?? null) : null;
+        $templateKey = $this->latestReplayableNotification($command->application);
 
         if ($templateKey === null) {
             throw ValidationException::withMessages([

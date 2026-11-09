@@ -16,22 +16,22 @@ import {
     Plus,
     PlusCircle,
 } from 'lucide-vue-next';
-import type { BuilderField, IFormBuilderSection } from '@/types/form-builder';
+import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
 import FormBuilderBannerBlock from './FormBuilderBannerBlock.vue';
 import FormSuccessMessageCard from './FormSuccessMessageCard.vue';
-import type { FormBannerState } from './formBanner';
+import type { IFormBannerState } from './formBanner';
 
 const formTitle = defineModel<string>('formTitle', { required: true });
 const formDescription = defineModel<string>('formDescription', { required: true });
 const successContent = defineModel<string>('successContent', { required: true });
-const banner = defineModel<FormBannerState>('banner', { required: true });
+const banner = defineModel<IFormBannerState>('banner', { required: true });
 
 const props = defineProps<{
     hideOnMobileSettings: boolean;
     bannerPreviewSrc: string;
     isEmpty: boolean;
     isDraggingOverCanvas: boolean;
-    formFields: BuilderField[];
+    formFields: IBuilderField[];
     sections: IFormBuilderSection[];
     currentSectionIndex: number;
     selectedFieldId: string | null;
@@ -47,10 +47,10 @@ defineEmits<{
     canvasDragLeave: [e: DragEvent];
     canvasDrop: [e: DragEvent];
     gapDragEnter: [index: number];
-    canvasDragStart: [e: DragEvent, field: BuilderField, index: number];
+    canvasDragStart: [e: DragEvent, field: IBuilderField, index: number];
     dragEnd: [];
     selectField: [id: string, isMobile?: boolean];
-    updateField: [field: BuilderField];
+    updateField: [field: IBuilderField];
     manageField: [id: string];
     deleteField: [id: string];
     duplicateField: [id: string];
@@ -83,7 +83,6 @@ function onSubtitleInput(e: Event): void {
     el.value = capInput(el.value, SUBTITLE_MAX);
     formDescription.value = el.value;
 }
-
 
 function gapActive(globalIdx: number): boolean {
     return props.dropIndicatorIndex === globalIdx;
@@ -146,9 +145,7 @@ const showDropChrome = computed(
                                     >{{ titleLength }}/{{ TITLE_MAX }}</span
                                 >
                             </div>
-                            <div
-                                class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5"
-                            >
+                            <div class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5">
                                 <input
                                     id="f-title"
                                     :value="formTitle"
@@ -168,9 +165,7 @@ const showDropChrome = computed(
                                     >{{ subtitleLength }}/{{ SUBTITLE_MAX }}</span
                                 >
                             </div>
-                            <div
-                                class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5"
-                            >
+                            <div class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5">
                                 <textarea
                                     id="f-description"
                                     :value="formDescription"
@@ -198,7 +193,7 @@ const showDropChrome = computed(
                             class="flex flex-col items-center justify-center py-8 text-center"
                         >
                             <div
-                                class="empty-state-float text-muted-foreground/70 mb-4 grid size-14 place-items-center rounded-2xl border border-dashed border-border bg-muted/40 shadow-sm"
+                                class="empty-state-float text-muted-foreground/70 border-border bg-muted/40 mb-4 grid size-14 place-items-center rounded-2xl border border-dashed shadow-sm"
                                 aria-hidden="true"
                             >
                                 <svg
@@ -261,17 +256,9 @@ const showDropChrome = computed(
                         </div>
 
                         <div class="flex min-h-0 flex-col">
-                            <div
-                                v-if="!isEmpty"
-                                data-testid="form-builder-fields-scroll"
-                                class="pr-0.5"
-                            >
+                            <div v-if="!isEmpty" data-testid="form-builder-fields-scroll" class="pr-0.5">
                                 <TransitionGroup name="fb-field" tag="div" class="flex flex-col gap-3 lg:gap-4">
-                                    <div
-                                        v-for="(field, localIdx) in formFields"
-                                        :key="field.id"
-                                        class="fb-field-row"
-                                    >
+                                    <div v-for="(field, localIdx) in formFields" :key="field.id" class="fb-field-row">
                                         <!-- Zona drop: area besar + chip saat aktif -->
                                         <div
                                             class="relative z-10 -my-1 hidden min-h-5 w-full py-1 lg:block"
@@ -280,13 +267,7 @@ const showDropChrome = computed(
                                         >
                                             <div
                                                 class="flex min-h-[1.25rem] w-full items-center justify-center transition-all duration-200"
-                                                :class="
-                                                    gapActive(localIdx)
-                                                        ? 'py-1'
-                                                        : showDropChrome
-                                                          ? 'py-0.5'
-                                                          : ''
-                                                "
+                                                :class="gapActive(localIdx) ? 'py-1' : showDropChrome ? 'py-0.5' : ''"
                                             >
                                                 <div
                                                     v-if="gapActive(localIdx)"
@@ -318,9 +299,7 @@ const showDropChrome = computed(
                                                     class="border-border bg-card text-muted-foreground hover:border-primary/45 hover:bg-primary/8 hover:text-primary ring-border/60 hover:ring-primary/25 grid size-10 cursor-grab place-items-center rounded-full border-2 border-transparent shadow-sm ring-1 transition-all duration-200 active:cursor-grabbing"
                                                     draggable="true"
                                                     title="Seret untuk memindahkan urutan — atau pakai tombol naik/turun"
-                                                    @dragstart="
-                                                        $emit('canvasDragStart', $event, field, localIdx)
-                                                    "
+                                                    @dragstart="$emit('canvasDragStart', $event, field, localIdx)"
                                                     @dragend="$emit('dragEnd')"
                                                 >
                                                     <GripVertical class="size-4" />
@@ -444,7 +423,7 @@ const showDropChrome = computed(
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    class="h-10 w-full gap-2 border-dashed bg-background px-4 text-sm font-semibold sm:w-auto"
+                                    class="bg-background h-10 w-full gap-2 border-dashed px-4 text-sm font-semibold sm:w-auto"
                                     aria-label="Tambah bagian setelah ini"
                                     @click="$emit('addSection')"
                                 >
@@ -502,7 +481,6 @@ const showDropChrome = computed(
                     @remove="$emit('remove')"
                 />
             </section>
-
         </div>
     </div>
 </template>

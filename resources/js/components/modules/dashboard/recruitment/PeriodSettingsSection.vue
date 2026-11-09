@@ -189,7 +189,8 @@ function submit(): void {
                         :aria-invalid="!!form.errors.whatsapp_group_member_url || !!whatsappMemberError"
                     />
                     <p class="text-muted-foreground text-xs">
-                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan Member bila diisi.
+                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan Member bila
+                        diisi.
                     </p>
                     <p v-if="whatsappMemberError" class="text-destructive text-xs">{{ whatsappMemberError }}</p>
                     <p v-if="form.errors.whatsapp_group_member_url" class="text-destructive text-xs">

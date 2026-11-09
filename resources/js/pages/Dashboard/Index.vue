@@ -14,9 +14,7 @@ import { routes } from '@/lib/routes';
 defineOptions({ layout: DashboardLayout });
 
 // Chart.js + vue-chartjs hanya diunduh saat bagian analitik mendekati viewport.
-const RegistrationChart = defineAsyncComponent(
-    () => import('@/components/modules/dashboard/RegistrationChart.vue'),
-);
+const RegistrationChart = defineAsyncComponent(() => import('@/components/modules/dashboard/RegistrationChart.vue'));
 const CategoryChart = defineAsyncComponent(() => import('@/components/modules/dashboard/CategoryChart.vue'));
 
 const props = defineProps<{
@@ -35,7 +33,7 @@ const props = defineProps<{
 
 const events = computed(() => props.recentEvents);
 const registrationPoints = computed(
-    () => props.adminCharts?.registrationTrend.map(({ label, count }) => ({ label, count })) ?? [],
+    () => props.adminCharts?.registrationTrend.map(({ label, count }) => ({ label, count })) ?? []
 );
 const categoryBreakdown = computed(() => props.adminCharts?.categoryBreakdown ?? []);
 
@@ -54,7 +52,7 @@ onMounted(() => {
 
     <div class="flex flex-col gap-10 md:gap-12">
         <section class="space-y-4">
-            <h2 class="font-display text-base font-bold tracking-tight text-foreground">Metrik utama</h2>
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Metrik utama</h2>
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard label="Total acara" :value="totalEvents" :icon="CalendarDays" color="primary" />
                 <KpiCard label="Acara aktif" :value="activeEvents" :icon="Zap" color="warning" />
@@ -64,17 +62,12 @@ onMounted(() => {
                     :icon="Users"
                     color="success"
                 />
-                <KpiCard
-                    label="Tingkat isi kuota"
-                    :value="completionRate + '%'"
-                    :icon="TrendingUp"
-                    color="primary"
-                />
+                <KpiCard label="Tingkat isi kuota" :value="completionRate + '%'" :icon="TrendingUp" color="primary" />
             </div>
         </section>
 
         <section class="space-y-4">
-            <h2 class="font-display text-base font-bold tracking-tight text-foreground">Aktivitas & kalender</h2>
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Aktivitas & kalender</h2>
             <div class="grid gap-5 lg:grid-cols-3 lg:items-start">
                 <div class="lg:col-span-2">
                     <RecentEventsCard
@@ -88,7 +81,7 @@ onMounted(() => {
         </section>
 
         <section v-if="adminCharts" class="space-y-4">
-            <h2 class="font-display text-base font-bold tracking-tight text-foreground">Analitik singkat</h2>
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Analitik singkat</h2>
             <DeferredRender min-height="20rem">
                 <div class="grid gap-5 lg:grid-cols-2">
                     <RegistrationChart :points="registrationPoints" />
@@ -98,7 +91,7 @@ onMounted(() => {
         </section>
 
         <section class="space-y-4">
-            <h2 class="font-display text-base font-bold tracking-tight text-foreground">Linimasa acara</h2>
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Linimasa acara</h2>
             <EventCalendar />
         </section>
     </div>

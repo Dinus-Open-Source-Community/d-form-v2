@@ -158,14 +158,14 @@ describe('parseApiErrorMessage', () => {
             parseApiErrorMessage(
                 { message: 'The raw field is required.', errors: { raw: ['The raw field is required.'] } },
                 'Data tidak valid.',
-                422,
-            ),
+                422
+            )
         ).toBe('Raw wajib diisi.');
     });
 
     it('tetap memakai message yang bisa di-humanize saat 422 tanpa errors', () => {
         expect(parseApiErrorMessage({ message: 'Form deleted.' }, 'Data tidak valid.', 422)).toBe(
-            'Form berhasil dihapus.',
+            'Form berhasil dihapus.'
         );
     });
 
@@ -174,7 +174,7 @@ describe('parseApiErrorMessage', () => {
             parseApiErrorMessage({
                 message: 'Form deleted.',
                 errors: { name: ['The name field is required.'] },
-            }),
+            })
         ).toBe('Form berhasil dihapus.');
     });
 });
@@ -198,37 +198,37 @@ describe('describeRequestError', () => {
 
     it('memakai pesan koneksi untuk kegagalan network', () => {
         expect(describeRequestError({ kind: 'network', status: null })).toBe(
-            'Gagal terhubung ke server. Periksa koneksi internet, lalu coba lagi.',
+            'Gagal terhubung ke server. Periksa koneksi internet, lalu coba lagi.'
         );
     });
 
     it('memakai pesan batas waktu untuk timeout', () => {
         expect(describeRequestError({ kind: 'timeout', status: null })).toBe(
-            'Server tidak merespons tepat waktu. Coba lagi.',
+            'Server tidak merespons tepat waktu. Coba lagi.'
         );
     });
 
     it('menghormati Retry-After saat rate limited', () => {
         expect(describeRequestError({ kind: 'rate_limited', status: 429, retryAfterSeconds: 45 })).toBe(
-            'Terlalu banyak percobaan. Coba lagi dalam 45 detik.',
+            'Terlalu banyak percobaan. Coba lagi dalam 45 detik.'
         );
     });
 
     it('memakai pesan 429 default saat Retry-After tidak ada', () => {
         expect(describeRequestError({ kind: 'rate_limited', status: 429 })).toBe(
-            'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.',
+            'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.'
         );
     });
 
     it('memakai pesan server generik untuk kegagalan 5xx', () => {
         expect(describeRequestError({ kind: 'server', status: 500 })).toBe(
-            'Terjadi kesalahan server. Coba lagi beberapa saat lagi.',
+            'Terjadi kesalahan server. Coba lagi beberapa saat lagi.'
         );
     });
 
     it('memakai pesan respons tidak valid untuk invalid_response', () => {
         expect(describeRequestError({ kind: 'invalid_response', status: 200 })).toBe(
-            'Server mengirim respons yang tidak valid. Coba lagi beberapa saat lagi.',
+            'Server mengirim respons yang tidak valid. Coba lagi beberapa saat lagi.'
         );
     });
 

@@ -1,75 +1,78 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import AppPagination from '@/components/core/AppPagination.vue'
-import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next'
-import { findCursorUrls } from '@/lib/pagination'
-import { routes } from '@/lib/routes'
-import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect'
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
-import { useEventSearch } from '@/hooks/useEventSearch'
-import { formatDateTime } from '@/lib/dateTime'
-import { findElementById } from '@/adapters/browser/domQuery'
+import { ref, onMounted, computed } from 'vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import AppPagination from '@/components/core/AppPagination.vue';
+import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next';
+import { findCursorUrls } from '@/lib/pagination';
+import { routes } from '@/lib/routes';
+import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect';
+import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import { useEventSearch } from '@/hooks/useEventSearch';
+import { formatDateTime } from '@/lib/dateTime';
+import { findElementById } from '@/adapters/browser/domQuery';
 
 interface IEventPaginationLink {
-    url: string | null
-    label: string
-    active: boolean
+    url: string | null;
+    label: string;
+    active: boolean;
 }
 
 interface IEventPagination {
-    links: IEventPaginationLink[]
-    currentPage?: number | null
-    hasMore: boolean
+    links: IEventPaginationLink[];
+    currentPage?: number | null;
+    hasMore: boolean;
 }
 
 interface IEventFilters {
-    q: string | null
+    q: string | null;
 }
 
 const props = defineProps<{
-    events: IEvent[]
-    pagination?: IEventPagination
-    filters?: IEventFilters
-    searchError?: string | null
-}>()
+    events: IEvent[];
+    pagination?: IEventPagination;
+    filters?: IEventFilters;
+    searchError?: string | null;
+}>();
 
-const visible = ref(false)
-const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSearch } = useEventSearch(
-    props.filters,
-)
+const visible = ref(false);
+const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSearch } = useEventSearch(props.filters);
 
-const activeQuery = computed((): string => props.filters?.q?.trim() ?? '')
+const activeQuery = computed((): string => props.filters?.q?.trim() ?? '');
 
 /** Cursor pagination: navigasi hanya lewat URL prev/next dari server. */
 const cursorUrls = computed<{ previous: string | null; next: string | null }>(() =>
-    findCursorUrls(props.pagination?.links ?? []),
-)
+    findCursorUrls(props.pagination?.links ?? [])
+);
 
 onMounted(() => {
     const obs = new IntersectionObserver(
-        ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
-        { threshold: 0.05 },
-    )
-    const el = findElementById('event-list')
-    if (el !== null) obs.observe(el)
-})
+        ([e]) => {
+            if (e?.isIntersecting) {
+                visible.value = true;
+                obs.disconnect();
+            }
+        },
+        { threshold: 0.05 }
+    );
+    const el = findElementById('event-list');
+    if (el !== null) obs.observe(el);
+});
 
 const statusLabel = (s: string) => {
-    if (s === 'open') return 'Dibuka'
-    if (s === 'full') return 'Penuh'
-    if (s === 'closed') return 'Ditutup'
-    return 'Segera'
-}
+    if (s === 'open') return 'Dibuka';
+    if (s === 'full') return 'Penuh';
+    if (s === 'closed') return 'Ditutup';
+    return 'Segera';
+};
 
 const statusVariant = (s: string) =>
     s === 'open'
         ? 'border-green-500/20 bg-green-500/10 text-green-600'
         : s === 'full'
           ? 'border-amber-500/20 bg-amber-500/10 text-amber-600'
-          : 'border-border bg-muted text-muted-foreground'
+          : 'border-border bg-muted text-muted-foreground';
 </script>
 
 <template>
@@ -77,20 +80,22 @@ const statusVariant = (s: string) =>
         <div class="mx-auto max-w-7xl px-6 lg:px-10">
             <div
                 :class="[
- 'mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between transition-all duration-500',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                    'mb-10 flex flex-col gap-6 transition-all duration-500 sm:flex-row sm:items-end sm:justify-between',
+                    visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                ]"
             >
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Semua Acara</p>
-                    <h2 class="mt-3 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                    <p class="text-primary text-xs font-semibold tracking-[0.2em] uppercase">Semua Acara</p>
+                    <h2 class="font-display text-foreground mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
                         Daftar lengkap acara
                     </h2>
                 </div>
 
                 <div class="w-full max-w-xs">
                     <div class="relative">
-                        <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search
+                            class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+                        />
                         <Input
                             v-model="query"
                             placeholder="Cari acara..."
@@ -99,17 +104,14 @@ const statusVariant = (s: string) =>
                             @input="requestDebouncedSearch"
                         />
                     </div>
-                    <p
-                        v-if="isCoolingDown"
-                        class="mt-2 text-balance text-xs text-amber-600 sm:text-right"
-                    >
+                    <p v-if="isCoolingDown" class="mt-2 text-xs text-balance text-amber-600 sm:text-right">
                         Terlalu banyak pencarian. Coba lagi dalam {{ cooldownSeconds }} detik.
                     </p>
                 </div>
             </div>
 
-            <div v-if="searchError" class="rounded-2xl border border-border/40 bg-card p-10 text-center">
-                <p class="text-sm text-muted-foreground">{{ searchError }}</p>
+            <div v-if="searchError" class="border-border/40 bg-card rounded-2xl border p-10 text-center">
+                <p class="text-muted-foreground text-sm">{{ searchError }}</p>
                 <Button variant="outline" size="sm" class="mt-4 h-9 text-xs" @click="resetSearch">
                     Reset Pencarian
                 </Button>
@@ -121,9 +123,9 @@ const statusVariant = (s: string) =>
                     :key="ev.id"
                     :href="routes.landing.events.show(ev.slug)"
                     :class="[
- 'group block rounded-xl border border-border/40 bg-card transition-all duration-400 hover:border-primary/20 hover:shadow-sm',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                        'group border-border/40 bg-card hover:border-primary/20 block rounded-xl border transition-all duration-400 hover:shadow-sm',
+                        visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                    ]"
                     :style="{ transitionDelay: `${60 + i * 30}ms` }"
                 >
                     <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
@@ -135,7 +137,9 @@ const statusVariant = (s: string) =>
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-start gap-3">
-                                <h3 class="flex-1 truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                                <h3
+                                    class="text-foreground group-hover:text-primary flex-1 truncate text-sm font-semibold transition-colors"
+                                >
                                     {{ ev.title }}
                                 </h3>
                                 <Badge
@@ -146,14 +150,19 @@ const statusVariant = (s: string) =>
                                 </Badge>
                             </div>
 
-                            <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            <div
+                                class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+                            >
                                 <span v-if="ev.location" class="flex items-center gap-1">
                                     <MapPin class="size-3" />
                                     {{ ev.location }}
                                 </span>
                                 <span v-if="ev.start_date" class="flex items-center gap-1">
                                     <Calendar class="size-3" />
-                                    {{ formatDateTime({ value: ev.start_date, variant: 'date-medium' }) || ev.start_date }}
+                                    {{
+                                        formatDateTime({ value: ev.start_date, variant: 'date-medium' }) ||
+                                        ev.start_date
+                                    }}
                                 </span>
                                 <span class="flex items-center gap-1">
                                     <Users class="size-3" />
@@ -162,22 +171,25 @@ const statusVariant = (s: string) =>
                             </div>
                         </div>
 
-                        <ArrowRight class="hidden size-4 shrink-0 text-muted-foreground group-hover:text-primary sm:block" />
+                        <ArrowRight
+                            class="text-muted-foreground group-hover:text-primary hidden size-4 shrink-0 sm:block"
+                        />
                     </div>
                 </a>
             </div>
 
-            <div v-else-if="activeQuery" class="rounded-2xl border border-border/40 bg-card p-10 text-center">
-                <p class="text-sm text-muted-foreground">
-                    Tidak ada acara yang cocok dengan "<span class="font-medium text-foreground">{{ activeQuery }}</span>".
+            <div v-else-if="activeQuery" class="border-border/40 bg-card rounded-2xl border p-10 text-center">
+                <p class="text-muted-foreground text-sm">
+                    Tidak ada acara yang cocok dengan "<span class="text-foreground font-medium">{{ activeQuery }}</span
+                    >".
                 </p>
                 <Button variant="outline" size="sm" class="mt-4 h-9 text-xs" @click="resetSearch">
                     Reset Pencarian
                 </Button>
             </div>
 
-            <div v-else class="rounded-2xl border border-border/40 bg-card p-10 text-center">
-                <p class="text-sm text-muted-foreground">Belum ada acara yang tersedia saat ini.</p>
+            <div v-else class="border-border/40 bg-card rounded-2xl border p-10 text-center">
+                <p class="text-muted-foreground text-sm">Belum ada acara yang tersedia saat ini.</p>
                 <Button as-child variant="outline" size="sm" class="mt-4 h-9 text-xs">
                     <a :href="routes.home">Kembali ke beranda</a>
                 </Button>

@@ -21,7 +21,7 @@ const props = withDefaults(
     defineProps<{
         points?: { label: string; count: number }[];
     }>(),
-    { points: () => [] },
+    { points: () => [] }
 );
 
 const isDark = ref(false);
@@ -123,12 +123,14 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
 <template>
     <Card
-        class="overflow-hidden rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
+        class="border-border/70 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
     >
-        <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-border/50 bg-muted/10 px-5 py-4 sm:px-6">
+        <CardHeader
+            class="border-border/50 bg-muted/10 flex flex-row flex-wrap items-center justify-between gap-4 border-b px-5 py-4 sm:px-6"
+        >
             <div class="flex min-w-0 items-center gap-3">
                 <div
-                    class="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary shadow-inner"
+                    class="bg-primary/12 text-primary flex size-11 shrink-0 items-center justify-center rounded-full shadow-inner"
                 >
                     <TrendingUp class="size-5" />
                 </div>
@@ -136,7 +138,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
                     <CardTitle class="font-display text-lg font-bold tracking-[-0.02em] md:text-xl">
                         Tren pengajuan
                     </CardTitle>
-                    <p class="text-muted-foreground font-display mt-0.5 text-2xl font-bold tabular-nums tracking-tight">
+                    <p class="text-muted-foreground font-display mt-0.5 text-2xl font-bold tracking-tight tabular-nums">
                         {{ total.toLocaleString('id-ID') }}
                     </p>
                 </div>
@@ -145,11 +147,11 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         <CardContent class="p-4 sm:p-5">
             <div
                 v-if="points.length === 0 || total === 0"
-                class="text-muted-foreground/90 flex min-h-[15rem] items-center justify-center rounded-xl bg-muted/20 text-sm font-medium"
+                class="text-muted-foreground/90 bg-muted/20 flex min-h-[15rem] items-center justify-center rounded-xl text-sm font-medium"
             >
                 Tidak ada data
             </div>
-            <div v-else class="rounded-xl bg-gradient-to-b from-muted/25 to-transparent p-2 sm:min-h-[16rem]">
+            <div v-else class="from-muted/25 rounded-xl bg-gradient-to-b to-transparent p-2 sm:min-h-[16rem]">
                 <Line :key="String(isDark)" :data="chartData" :options="chartOptions" />
             </div>
         </CardContent>

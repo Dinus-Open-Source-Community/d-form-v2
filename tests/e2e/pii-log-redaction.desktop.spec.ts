@@ -46,7 +46,8 @@ function otpJobLinesFor(pendingId: string): string[] {
         .filter(
             (line: string): boolean =>
                 line.includes(pendingId) &&
-                (line.includes('[SendRegistrationOtpJob]') || line.includes('Gagal mengirim kode verifikasi OTP registrasi.')),
+                (line.includes('[SendRegistrationOtpJob]') ||
+                    line.includes('Gagal mengirim kode verifikasi OTP registrasi.'))
         );
 }
 
@@ -56,7 +57,7 @@ function pendingRegistrationsFor(email: string): number {
             'tinker',
             '--execute',
             `echo (string) App\\Models\\PendingRegistration::query()->where('email', '${email}')->count();`,
-        ]),
+        ])
     );
 }
 
@@ -75,7 +76,7 @@ function usersFor(email: string): number {
             'tinker',
             '--execute',
             `echo (string) App\\Models\\User::query()->where('email', '${email}')->count();`,
-        ]),
+        ])
     );
 }
 
@@ -176,7 +177,7 @@ test.describe('AUDIT-P2-006 PII and raw exception redaction', () => {
 
                     return jobLines.length;
                 },
-                { timeout: 60_000, intervals: [1_000] },
+                { timeout: 60_000, intervals: [1_000] }
             )
             .toBeGreaterThan(0);
 
@@ -193,7 +194,7 @@ test.describe('AUDIT-P2-006 PII and raw exception redaction', () => {
 
         test.skip(
             !failFastTransport,
-            `Requires a fail-fast SMTP transport (mailer="${config.mailer}", host="${config.host}", port=${config.port}).`,
+            `Requires a fail-fast SMTP transport (mailer="${config.mailer}", host="${config.host}", port=${config.port}).`
         );
 
         const email = markerEmail('fail');
@@ -210,12 +211,12 @@ test.describe('AUDIT-P2-006 PII and raw exception redaction', () => {
             .poll(
                 () => {
                     failureLines = markerLines(laravelLogTail(), failureMarker).filter((line: string): boolean =>
-                        line.includes(pendingId),
+                        line.includes(pendingId)
                     );
 
                     return failureLines.length;
                 },
-                { timeout: 120_000, intervals: [2_000] },
+                { timeout: 120_000, intervals: [2_000] }
             )
             .toBeGreaterThan(0);
 
@@ -297,7 +298,7 @@ test.describe('AUDIT-P2-006 PII and raw exception redaction', () => {
 
                     return otpJobLines.length;
                 },
-                { timeout: 60_000, intervals: [1_000] },
+                { timeout: 60_000, intervals: [1_000] }
             )
             .toBeGreaterThan(0);
 

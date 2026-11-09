@@ -1,17 +1,8 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-    HttpRequestError,
-    isHttpRequestError,
-    readValidationErrors,
-} from '@/adapters/http/httpError';
-import {
-    probePageUrl,
-    requestBlob,
-    requestJson,
-    requestJsonWithStatus,
-} from '@/adapters/http/httpClient';
+import { HttpRequestError, isHttpRequestError, readValidationErrors } from '@/adapters/http/httpError';
+import { probePageUrl, requestBlob, requestJson, requestJsonWithStatus } from '@/adapters/http/httpClient';
 
 interface IServerHandle {
     baseUrl: string;
@@ -135,7 +126,7 @@ describe('httpClient', () => {
 
     it('maps 422 into a validation error with the error bag', async () => {
         const error: unknown = await requestJson({ url: `${handle.baseUrl}/validation` }, parseRecord).catch(
-            (thrown: unknown) => thrown,
+            (thrown: unknown) => thrown
         );
 
         expect(isHttpRequestError(error)).toBe(true);
@@ -149,7 +140,7 @@ describe('httpClient', () => {
 
     it('maps 500 and non-JSON bodies into a server error', async () => {
         const error: unknown = await requestJson({ url: `${handle.baseUrl}/server-error` }, parseRecord).catch(
-            (thrown: unknown) => thrown,
+            (thrown: unknown) => thrown
         );
 
         expect(isHttpRequestError(error)).toBe(true);
@@ -162,7 +153,7 @@ describe('httpClient', () => {
 
     it('surfaces Retry-After for rate limiting', async () => {
         const error: unknown = await requestJson({ url: `${handle.baseUrl}/rate-limited` }, parseRecord).catch(
-            (thrown: unknown) => thrown,
+            (thrown: unknown) => thrown
         );
 
         expect(isHttpRequestError(error)).toBe(true);
@@ -194,7 +185,7 @@ describe('httpClient', () => {
 
     it('marks unreachable hosts as network errors', async () => {
         const error: unknown = await requestJson({ url: 'http://127.0.0.1:1/ok' }, parseRecord).catch(
-            (thrown: unknown) => thrown,
+            (thrown: unknown) => thrown
         );
 
         expect(error instanceof HttpRequestError).toBe(true);

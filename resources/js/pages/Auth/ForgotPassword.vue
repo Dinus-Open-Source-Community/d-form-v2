@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import AuthLayout from '@/layouts/AuthLayout.vue'
-import AuthForgotPasswordForm from '@/components/modules/auth/AuthForgotPasswordForm.vue'
-import SeoHead from '@/components/seo/SeoHead.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue';
+import AuthForgotPasswordForm from '@/components/modules/auth/AuthForgotPasswordForm.vue';
+import SeoHead from '@/components/seo/SeoHead.vue';
 </script>
 
 <template>

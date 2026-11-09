@@ -64,10 +64,10 @@ test.describe('marker identity', () => {
 
     test('retry menghasilkan ownerKey dan marker yang sama sekali berbeda', (): void => {
         const first = createOwnerKey(
-            createOwnerId({ project: 'chromium-desktop', specSlug: 'a.spec', testSlug: 'judul', retry: 0 }),
+            createOwnerId({ project: 'chromium-desktop', specSlug: 'a.spec', testSlug: 'judul', retry: 0 })
         );
         const retry = createOwnerKey(
-            createOwnerId({ project: 'chromium-desktop', specSlug: 'a.spec', testSlug: 'judul', retry: 1 }),
+            createOwnerId({ project: 'chromium-desktop', specSlug: 'a.spec', testSlug: 'judul', retry: 1 })
         );
 
         expect(first).not.toBe(retry);
@@ -115,10 +115,10 @@ test.describe('admin state guard', () => {
 test.describe('environment fail-fast', () => {
     test('H-env-base-url: base URL tak terjangkau menyebut E2E_BASE_URL lebih dulu, bukan E2E_ARTISAN', async (): Promise<void> => {
         await expect(
-            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } }),
+            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } })
         ).rejects.toThrow(/E2E_BASE_URL/);
         await expect(
-            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } }),
+            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } })
         ).rejects.not.toThrow(/E2E_ARTISAN/);
     });
 
@@ -132,7 +132,7 @@ test.describe('environment fail-fast', () => {
                     E2E_ADMIN_PASSWORD: 'secret',
                 },
                 probeBaseUrl: false,
-            }),
+            })
         ).rejects.toThrow(/E2E_ARTISAN.*definitely-not-a-command artisan/);
     });
 
@@ -146,7 +146,7 @@ test.describe('environment fail-fast', () => {
                     E2E_ADMIN_PASSWORD: '',
                 },
                 probeBaseUrl: false,
-            }),
+            })
         ).rejects.toThrow('E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD');
     });
 });
@@ -248,25 +248,25 @@ test.describe('fixture lifecycle', () => {
         // Event di luar scope marker menahan `DELETE users` lewat FK restrictOnDelete, sehingga
         // cleanup harus gagal keras (bukan diam-diam) dan sisa barisnya kelihatan.
         tinker(
-            "\\Illuminate\\Support\\Facades\\DB::table('events')->insert(["
-                + "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid(),"
-                + "'title'=>'E2E blocker',"
-                + `'slug'=>'${blockerSlug}',`
-                + "'description'=>'blocker','start_date'=>now()->toDateString(),"
-                + "'end_date'=>now()->addDay()->toDateString(),"
-                + "'registration_start'=>now()->subDay(),'registration_end'=>now()->addDay(),"
-                + "'location'=>'blocker','quota'=>1,'registered_count'=>0,"
-                + "'banner'=>'events/banners/placeholder.jpg','price'=>0,'session'=>'general',"
-                + "'status'=>'draft','category'=>'etc',"
-                + `'created_by'=>'${created.userId}',`
-                + "'created_at'=>now(),'updated_at'=>now()]);",
+            "\\Illuminate\\Support\\Facades\\DB::table('events')->insert([" +
+                "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid()," +
+                "'title'=>'E2E blocker'," +
+                `'slug'=>'${blockerSlug}',` +
+                "'description'=>'blocker','start_date'=>now()->toDateString()," +
+                "'end_date'=>now()->addDay()->toDateString()," +
+                "'registration_start'=>now()->subDay(),'registration_end'=>now()->addDay()," +
+                "'location'=>'blocker','quota'=>1,'registered_count'=>0," +
+                "'banner'=>'events/banners/placeholder.jpg','price'=>0,'session'=>'general'," +
+                "'status'=>'draft','category'=>'etc'," +
+                `'created_by'=>'${created.userId}',` +
+                "'created_at'=>now(),'updated_at'=>now()]);"
         );
 
         try {
             expect((): void => cleanupOwnerFixture(identity)).toThrow(/e2e cleanup failed on table users/);
 
             expect((): string => runArtisanCommand(['check:row-ownership', `--run-id=${runId}`, '--json'])).toThrow(
-                /"leftoverTotal":2/,
+                /"leftoverTotal":2/
             );
         } finally {
             tinker(`\\Illuminate\\Support\\Facades\\DB::table('events')->where('slug','${blockerSlug}')->delete();`);
@@ -295,7 +295,7 @@ test.describe('fixture lifecycle', () => {
                     `--marker-prefix=e2e+${runId}+`,
                     `--slug-prefix=${foreignSlugPrefix}`,
                     '--json',
-                ]),
+                ])
             ).toThrow(/slug prefix must equal markerToSlug/);
 
             expect(countFixtureRows(identity.marker).counts.events).toBe(1);
@@ -319,13 +319,13 @@ test.describe('ownership ledger', () => {
         const illegalEmail = 'e2e+broken-marker@e2e.invalid';
         const insertIllegal = (createdAt: string): void => {
             tinker(
-                "\\Illuminate\\Support\\Facades\\DB::table('users')->insert(["
-                    + "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid(),"
-                    + "'name'=>'E2E illegal marker',"
-                    + `'email'=>'${illegalEmail}',`
-                    + "'email_verified_at'=>now(),"
-                    + "'password'=>'e2e-illegal',"
-                    + `'created_at'=>${createdAt},'updated_at'=>${createdAt}]);`,
+                "\\Illuminate\\Support\\Facades\\DB::table('users')->insert([" +
+                    "'id'=>(string) \\Illuminate\\Support\\Str::orderedUuid()," +
+                    "'name'=>'E2E illegal marker'," +
+                    `'email'=>'${illegalEmail}',` +
+                    "'email_verified_at'=>now()," +
+                    "'password'=>'e2e-illegal'," +
+                    `'created_at'=>${createdAt},'updated_at'=>${createdAt}]);`
             );
         };
         const check = (): string => runArtisanCommand(['check:row-ownership', `--run-id=${runId}`, '--json']);
@@ -340,8 +340,8 @@ test.describe('ownership ledger', () => {
 
             // Dibuat sebelum window: bukti bahwa yang diuji scoping, bukan "ada baris aneh".
             tinker(
-                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${illegalEmail}')`
-                    + "->update(['created_at'=>now()->subDays(2)]);",
+                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${illegalEmail}')` +
+                    "->update(['created_at'=>now()->subDays(2)]);"
             );
 
             expect(check()).toContain('"ok":true');
@@ -372,8 +372,12 @@ test.describe('ownership ledger', () => {
             slug: ownerB.slug,
             title: 'Cross B',
             forms: [
-                { title: 'Form B', fields: [{ label: 'Field', name: 'field_1', input_type: 'input', required: true }], submissions: 0 },
-                ],
+                {
+                    title: 'Form B',
+                    fields: [{ label: 'Field', name: 'field_1', input_type: 'input', required: true }],
+                    submissions: 0,
+                },
+            ],
         });
         const foreignForm = fixtureB.forms[0];
 
@@ -383,8 +387,8 @@ test.describe('ownership ledger', () => {
 
         // Form milik run B dipindah ke event run A: satu-satunya jalan masuknya adalah klausa induk.
         tinker(
-            "\\Illuminate\\Support\\Facades\\DB::table('forms')"
-                + `->where('id','${foreignForm.formId}')->update(['event_id'=>'${fixtureA.eventId}']);`,
+            "\\Illuminate\\Support\\Facades\\DB::table('forms')" +
+                `->where('id','${foreignForm.formId}')->update(['event_id'=>'${fixtureA.eventId}']);`
         );
 
         try {
@@ -397,7 +401,7 @@ test.describe('ownership ledger', () => {
 
             // Form + field run B ikut terhapus (perilaku lama tetap), tetapi audit wajib melaporkannya.
             expect((): string => runArtisanCommand(['check:row-ownership', `--run-id=${runA}`, '--json'])).toThrow(
-                /"crossRun":\{"violations":2,"tables":\{"form_fields":1,"forms":1\}\}/,
+                /"crossRun":\{"violations":2,"tables":\{"form_fields":1,"forms":1\}\}/
             );
         } finally {
             cleanupOwnerFixture(ownerB);
@@ -474,8 +478,8 @@ test.describe('heartbeat lifecycle', () => {
             // Domain diganti ke example.com: run ini tidak lagi memenuhi syarat pemilik e2e.invalid,
             // jadi sweep tidak boleh menyentuhnya meski slug/markernya sah dan barisnya sudah tua.
             tinker(
-                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${identity.marker}@e2e.invalid')`
-                    + `->update(['email'=>'${alienEmail}','created_at'=>now()->subHours(30)]);`,
+                `\\Illuminate\\Support\\Facades\\DB::table('users')->where('email','${identity.marker}@e2e.invalid')` +
+                    `->update(['email'=>'${alienEmail}','created_at'=>now()->subHours(30)]);`
             );
 
             runArtisanCommand(['e2e:sweep', '--grace-hours=24', '--budget=120', '--json']);

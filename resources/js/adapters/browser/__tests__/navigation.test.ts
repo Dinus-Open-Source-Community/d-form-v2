@@ -103,7 +103,7 @@ describe('navigation adapter', () => {
         expect(fakeWindow.history.pushState).toHaveBeenCalledWith(
             null,
             '',
-            'https://example.test/dashboard?tab=interview',
+            'https://example.test/dashboard?tab=interview'
         );
         expect(fakeWindow.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
     });
@@ -119,7 +119,7 @@ describe('navigation adapter', () => {
         expect(fakeWindow.history.pushState).toHaveBeenCalledWith(
             { page: { url: '/auth/login' }, authTab: 'register' },
             '',
-            '/auth/register',
+            '/auth/register'
         );
     });
 

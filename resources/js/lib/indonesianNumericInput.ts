@@ -46,7 +46,10 @@ export function sanitizeQuotaTyping(raw: string): string {
  * Desimal dibatasi 2 digit & tidak dikelompokkan.
  */
 export function formatPriceTyping(raw: string): string {
-    const cleaned = raw.replace(/[^\d,]/g, '').replace(/(,.*?),/g, '$1').slice(0, 20);
+    const cleaned = raw
+        .replace(/[^\d,]/g, '')
+        .replace(/(,.*?),/g, '$1')
+        .slice(0, 20);
     if (cleaned === '') return '';
     const [intPart, decPart = ''] = cleaned.split(',');
     const intDigits = intPart.replace(/\D/g, '');

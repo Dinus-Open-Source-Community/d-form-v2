@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { usePage } from '@inertiajs/vue3'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import ApplicantDetailContent from './ApplicantDetailContent.vue'
-import type { IApplicationDetail } from '@/types/recruitment'
-import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
-import { useAuth } from '@/hooks/useAuth'
-import { CheckCircle2, Mail, RefreshCw, Star, TriangleAlert, UserPlus, XCircle } from 'lucide-vue-next'
+import { computed, ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import ApplicantDetailContent from './ApplicantDetailContent.vue';
+import type { IApplicationDetail } from '@/types/recruitment';
+import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities';
+import { useAuth } from '@/hooks/useAuth';
+import { CheckCircle2, Mail, RefreshCw, Star, TriangleAlert, UserPlus, XCircle } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
-        application: IApplicationDetail | null
-        loading: boolean
+        application: IApplicationDetail | null;
+        loading: boolean;
         /** Pesan gagal muat detail; panel tetap terbuka agar penyebabnya terlihat. */
-        errorMessage?: string
-        reasonOptions?: { value: string; label: string }[]
-        divisionOptions?: { id: string; name: string; code: string }[]
-        membershipTypeOptions?: { value: string; label: string }[]
-        editable?: boolean
-        whatsappGroupUrl?: string | null
-        whatsappGroupAaUrl?: string | null
-        whatsappGroupMemberUrl?: string | null
+        errorMessage?: string;
+        reasonOptions?: { value: string; label: string }[];
+        divisionOptions?: { id: string; name: string; code: string }[];
+        membershipTypeOptions?: { value: string; label: string }[];
+        editable?: boolean;
+        whatsappGroupUrl?: string | null;
+        whatsappGroupAaUrl?: string | null;
+        whatsappGroupMemberUrl?: string | null;
     }>(),
     {
         errorMessage: '',
@@ -33,74 +33,74 @@ const props = withDefaults(
         whatsappGroupUrl: null,
         whatsappGroupAaUrl: null,
         whatsappGroupMemberUrl: null,
-    },
-)
+    }
+);
 
-const emit = defineEmits<{ close: []; submitted: []; retry: [] }>()
+const emit = defineEmits<{ close: []; submitted: []; retry: [] }>();
 
-const page = usePage()
-const user = useAuth(page.props)
+const page = usePage();
+const user = useAuth(page.props);
 const canScreen = computed(
-    () => (props.application?.can_screen ?? false) && user.value?.can_screen_recruitment_applications === true,
-)
+    () => (props.application?.can_screen ?? false) && user.value?.can_screen_recruitment_applications === true
+);
 const canVerify = computed(
-    () => (props.application?.can_verify ?? false) && user.value?.can_screen_recruitment_applications === true,
-)
+    () => (props.application?.can_verify ?? false) && user.value?.can_screen_recruitment_applications === true
+);
 const canResendTracking = computed(() => {
-    const application = props.application
+    const application = props.application;
     if (!application) {
-        return false
+        return false;
     }
 
-    return applicantAllowsTrackingResend(application) && userAllowsTrackingResend(user.value)
-})
+    return applicantAllowsTrackingResend(application) && userAllowsTrackingResend(user.value);
+});
 
 const canDecideFinal = computed<boolean>(() => {
-    const application = props.application
-    if (!application) return false
-    if (!application.can_decide_final) return false
-    if (application.final_decision) return false
-    if (application.stage === 'completed') return false
+    const application = props.application;
+    if (!application) return false;
+    if (!application.can_decide_final) return false;
+    if (application.final_decision) return false;
+    if (application.stage === 'completed') return false;
 
-    return user.value?.can_decide_recruitment_final === true
-})
+    return user.value?.can_decide_recruitment_final === true;
+});
 
-const contentRef = ref<InstanceType<typeof ApplicantDetailContent> | null>(null)
+const contentRef = ref<InstanceType<typeof ApplicantDetailContent> | null>(null);
 
 const sheetOpen = computed<boolean>({
     get: () => props.application !== null || props.errorMessage !== '',
     set: (value: boolean) => {
-        if (!value) emit('close')
+        if (!value) emit('close');
     },
-})
+});
 
 function openScreening(action: 'revision' | 'reject') {
-    contentRef.value?.openScreeningModal(action)
+    contentRef.value?.openScreeningModal(action);
 }
 
 function verifyRegistration() {
-    contentRef.value?.requestConfirm('verify')
+    contentRef.value?.requestConfirm('verify');
 }
 
 function passScreening() {
-    contentRef.value?.requestConfirm('pass')
+    contentRef.value?.requestConfirm('pass');
 }
 
 function resendTracking() {
-    contentRef.value?.requestResendTracking()
+    contentRef.value?.requestResendTracking();
 }
 
 function rejectFinal() {
-    contentRef.value?.openFinalReject()
+    contentRef.value?.openFinalReject();
 }
 
 function acceptFinalCross(membership: 'aa' | 'member'): void {
-    contentRef.value?.openFinalAcceptCross(membership)
+    contentRef.value?.openFinalAcceptCross(membership);
 }
 
 function handleSubmitted() {
-    emit('submitted')
-    emit('close')
+    emit('submitted');
+    emit('close');
 }
 </script>
 
@@ -111,7 +111,7 @@ function handleSubmitted() {
             overlay-class="bg-black/60 backdrop-blur-sm"
             class="inset-y-0 right-0 h-full w-full gap-0 p-0 sm:inset-y-3 sm:right-3 sm:h-[calc(100%-1.5rem)] sm:w-[52rem] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-2xl sm:border sm:shadow-xl"
         >
-            <SheetHeader class="border-border/70 shrink-0 space-y-1 border-b py-4 pl-4 pr-12 text-left">
+            <SheetHeader class="border-border/70 shrink-0 space-y-1 border-b py-4 pr-12 pl-4 text-left">
                 <SheetTitle class="truncate text-base">
                     {{ application?.full_name ?? (errorMessage ? 'Detail peserta gagal dimuat' : 'Detail peserta') }}
                 </SheetTitle>
@@ -127,12 +127,7 @@ function handleSubmitted() {
                         <Badge variant="outline">{{ application.result_label }}</Badge>
                     </div>
                     <div v-if="editable" class="flex flex-wrap items-center gap-2">
-                        <Button
-                            v-if="canResendTracking"
-                            size="sm"
-                            variant="outline"
-                            @click="resendTracking"
-                        >
+                        <Button v-if="canResendTracking" size="sm" variant="outline" @click="resendTracking">
                             <Mail class="mr-2 size-4" />
                             Kirim ulang tracking
                         </Button>

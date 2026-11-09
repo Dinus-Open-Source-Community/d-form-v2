@@ -14,10 +14,10 @@ export { useAuthTabs } from './useAuthTabs';
 
 export { useAutosaveSync } from './useAutosaveSync';
 export type {
-    AutosaveStatus,
-    AutosaveStorage,
-    UseAutosaveSyncOptions,
-    UseAutosaveSyncResult,
+    TAutosaveStatus,
+    IAutosaveStorage,
+    IUseAutosaveSyncOptions,
+    IUseAutosaveSyncResult,
 } from './useAutosaveSync';
 
 export {
@@ -34,35 +34,28 @@ export {
     stripLocalImageUrlsDeep,
     useBuilderImageUpload,
 } from './useBuilderImageUpload';
-export type {
-    BuilderImageUploadResult,
-    UseBuilderImageUploadOptions,
-} from './useBuilderImageUpload';
+export type { IBuilderImageUploadResult, IUseBuilderImageUploadOptions } from './useBuilderImageUpload';
 
 export { useDashboardEventShowPage } from './useDashboardEventShowPage';
 export { clearTopbar, setTopbar, useTopbar } from './useDashboardTopbar';
 export { useEmailAvailability } from './useEmailAvailability';
 export { useEventRegistrantsPage } from './useEventRegistrantsPage';
-export type { RegistrantsStatCardModel } from './useEventRegistrantsPage';
+export type { IRegistrantsStatCardModel } from './useEventRegistrantsPage';
 export { useEventSearch } from './useEventSearch';
 export { useFormAnswerMobileView } from './useFormAnswerMobileView';
 export { useFormBuilderDemoPage } from './useFormBuilderDemoPage';
 export { useFormBuilderWorkspace } from './useFormBuilderWorkspace';
 export type {
-    FormBuilderInspectorMode,
-    FormBuilderMobileTab,
-    FormBuilderValidationIssue,
-    FormBuilderWorkspaceModels,
+    TFormBuilderInspectorMode,
+    TFormBuilderMobileTab,
+    IFormBuilderValidationIssue,
+    IFormBuilderWorkspaceModels,
 } from './useFormBuilderWorkspace';
 export { useFormFillPage } from './useFormFillPage';
 export { useFormSubmissionsPage } from './useFormSubmissionsPage';
 export { useGlobalHttpStatusToast } from './useGlobalHttpStatusToast';
 export { useGlobalQrScanPage } from './useGlobalQrScanPage';
-export type {
-    IGlobalScanSummary,
-    IGlobalScanTargetOption,
-    IGlobalScanTargets,
-} from './useGlobalQrScanPage';
+export type { IGlobalScanSummary, IGlobalScanTargetOption, IGlobalScanTargets } from './useGlobalQrScanPage';
 export { useHttpErrorToast } from './useHttpErrorToast';
 export { useOtpCodeInput } from './useOtpCodeInput';
 export { useOtpCountdown } from './useOtpCountdown';

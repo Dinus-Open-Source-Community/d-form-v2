@@ -4,17 +4,17 @@
  * aktif; `links[]` hanya dipakai untuk navigasi cursor (prev/next).
  */
 export interface IPaginatorLink {
-    url: string | null
-    label: string
-    active: boolean
+    url: string | null;
+    label: string;
+    active: boolean;
 }
 
 export interface IPaginatorMeta {
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
-    from?: number | null
-    to?: number | null
-    links: IPaginatorLink[]
+    current_page: number;
+    last_page: number;
+    total: number;
+    per_page?: number;
+    from?: number | null;
+    to?: number | null;
+    links: IPaginatorLink[];
 }

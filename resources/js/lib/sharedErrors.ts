@@ -1,9 +1,9 @@
 /** Bag error Inertia bersama: satu field bisa punya satu pesan atau daftar pesan. */
-type TSharedErrorBag = Record<string, string | string[]>
+type TSharedErrorBag = Record<string, string | string[]>;
 
 /** Guard bag error dari props Inertia; nilai non-objek dianggap tidak ada. */
 function isSharedErrorBag(value: unknown): value is TSharedErrorBag {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -12,10 +12,10 @@ function isSharedErrorBag(value: unknown): value is TSharedErrorBag {
  */
 export function readSharedError(props: { errors?: unknown }, key: string): string | undefined {
     if (!isSharedErrorBag(props.errors)) {
-        return undefined
+        return undefined;
     }
 
-    const message = props.errors[key]
+    const message = props.errors[key];
 
-    return typeof message === 'string' ? message : undefined
+    return typeof message === 'string' ? message : undefined;
 }

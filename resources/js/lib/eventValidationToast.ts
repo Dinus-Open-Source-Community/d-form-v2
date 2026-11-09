@@ -1,1 +1,1 @@
-export { showEventValidationToast } from '@/lib/error-message'
+export { showEventValidationToast } from '@/lib/error-message';

@@ -32,7 +32,7 @@ describe('readValidationErrors', () => {
                     title: 'Wajib diisi',
                     ignored: { nested: true },
                 },
-            }),
+            })
         ).toEqual({ email: ['Sudah dipakai'], title: 'Wajib diisi' });
     });
 

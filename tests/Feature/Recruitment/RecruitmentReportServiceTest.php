@@ -9,6 +9,8 @@ use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Services\Recruitment\RecruitmentReportService;
+use Database\Factories\Recruitment\RecruitmentInterviewFactory;
+use Database\Factories\Recruitment\RecruitmentInterviewSessionFactory;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -199,15 +201,9 @@ class RecruitmentReportServiceTest extends TestCase
 
     private function makeSession(RecruitmentPeriod $period, RecruitmentDivision $division): RecruitmentInterviewSession
     {
-        return RecruitmentInterviewSession::query()->create([
+        return RecruitmentInterviewSessionFactory::new()->create([
             'recruitment_period_id' => $period->id,
             'recruitment_division_id' => $division->id,
-            'session_date' => now()->toDateString(),
-            'starts_at' => '09:00:00',
-            'ends_at' => '12:00:00',
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
-            'is_active' => true,
         ]);
     }
 
@@ -217,14 +213,10 @@ class RecruitmentReportServiceTest extends TestCase
         InterviewStatus $status,
         string $kind = RecruitmentInterview::KIND_PRIMARY,
     ): RecruitmentInterview {
-        return RecruitmentInterview::query()->create([
+        return RecruitmentInterviewFactory::new()->create([
             'recruitment_application_id' => $application->id,
             'recruitment_interview_session_id' => $session->id,
             'interview_kind' => $kind,
-            'interviewer_id' => null,
-            'scheduled_at' => now()->subHour(),
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
             'status' => $status,
         ]);
     }

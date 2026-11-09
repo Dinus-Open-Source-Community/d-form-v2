@@ -181,7 +181,11 @@ function handleDeleteConfirm(): void {
             variant="destructive"
             @confirm="handleDeleteConfirm"
             @cancel="cancelDelete"
-            @update:open="(v) => { deleteDialogOpen = v }"
+            @update:open="
+                (v) => {
+                    deleteDialogOpen = v;
+                }
+            "
         />
 
         <EmptyState

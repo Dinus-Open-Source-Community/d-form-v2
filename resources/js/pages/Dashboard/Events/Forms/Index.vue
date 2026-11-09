@@ -1,57 +1,57 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import { toast } from 'vue-sonner'
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message'
-import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Plus, FileText, Pencil, Trash2, Inbox, CalendarClock, Users } from 'lucide-vue-next'
-import { formatDateTime } from '@/lib/dateTime'
-import FormSubmissionsController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormSubmissionsController'
-import { routes } from '@/lib/routes'
-import { setTopbar } from '@/hooks/useDashboardTopbar'
+import { ref, onMounted } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
+import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
+import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus, FileText, Pencil, Trash2, Inbox, CalendarClock, Users } from 'lucide-vue-next';
+import { formatDateTime } from '@/lib/dateTime';
+import FormSubmissionsController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormSubmissionsController';
+import { routes } from '@/lib/routes';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardFocusLayout })
+defineOptions({ layout: DashboardFocusLayout });
 
 const props = defineProps<{
-    event: { id: string; title: string }
-    forms: IForm[]
-}>()
+    event: { id: string; title: string };
+    forms: IForm[];
+}>();
 
 onMounted(() => {
-    setTopbar({ title: props.event.title, subtitle: 'Kelola formulir pendaftaran' })
-})
+    setTopbar({ title: props.event.title, subtitle: 'Kelola formulir pendaftaran' });
+});
 
-const showDeleteModal = ref(false)
-const deleteTarget = ref<IForm | null>(null)
+const showDeleteModal = ref(false);
+const deleteTarget = ref<IForm | null>(null);
 
 function startDelete(form: IForm) {
-    deleteTarget.value = form
-    showDeleteModal.value = true
+    deleteTarget.value = form;
+    showDeleteModal.value = true;
 }
 
 function confirmDelete() {
-    if (!deleteTarget.value) return
-    const id = deleteTarget.value.id
+    if (!deleteTarget.value) return;
+    const id = deleteTarget.value.id;
     router.delete(routes.admin.events.forms.destroy(props.event.id, id), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success(humanizeErrorMessage('Form deleted.'))
-            showDeleteModal.value = false
-            deleteTarget.value = null
+            toast.success(humanizeErrorMessage('Form deleted.'));
+            showDeleteModal.value = false;
+            deleteTarget.value = null;
         },
         onError: (errors) => {
-            handleInertiaFormErrors(errors, { title: 'Gagal menghapus form' })
+            handleInertiaFormErrors(errors, { title: 'Gagal menghapus form' });
         },
-    })
+    });
 }
 
 function submissionsHref(formId: string): string {
-    return FormSubmissionsController.url({ event: props.event.id, form: formId })
+    return FormSubmissionsController.url({ event: props.event.id, form: formId });
 }
 </script>
 
@@ -60,9 +60,7 @@ function submissionsHref(formId: string): string {
 
     <div class="flex min-w-0 flex-col gap-5 sm:gap-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-muted-foreground text-sm">
-                {{ forms.length }} formulir untuk {{ event.title }}
-            </p>
+            <p class="text-muted-foreground text-sm">{{ forms.length }} formulir untuk {{ event.title }}</p>
             <Button as-child class="h-10 w-full md:h-9 md:w-auto">
                 <Link
                     :href="routes.admin.events.forms.create(event.id)"
@@ -78,35 +76,32 @@ function submissionsHref(formId: string): string {
             <Card
                 v-for="form in forms"
                 :key="form.id"
-                class="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/25 hover:shadow-md"
+                class="group border-border/70 bg-card hover:border-primary/25 overflow-hidden rounded-2xl border shadow-sm transition-[border-color,box-shadow] duration-200 hover:shadow-md"
             >
                 <CardContent class="flex h-full flex-col p-0">
                     <div class="flex min-w-0 flex-1 items-start gap-3 p-4 sm:p-5">
                         <div
-                            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/10"
+                            class="bg-primary/10 text-primary ring-primary/10 flex size-10 shrink-0 items-center justify-center rounded-full ring-1"
                         >
                             <FileText class="size-4.5" />
                         </div>
 
                         <div class="min-w-0 flex-1">
-                            <h3 class="line-clamp-2 text-sm font-semibold leading-snug tracking-tight text-foreground">
+                            <h3 class="text-foreground line-clamp-2 text-sm leading-snug font-semibold tracking-tight">
                                 {{ form.title }}
                             </h3>
                             <p
                                 v-if="form.description"
-                                class="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
+                                class="text-muted-foreground mt-1.5 line-clamp-2 text-xs leading-relaxed"
                             >
                                 {{ form.description }}
                             </p>
-                            <p v-else class="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                            <p v-else class="text-muted-foreground mt-1.5 text-xs leading-relaxed">
                                 Tidak ada deskripsi form.
                             </p>
 
                             <div class="mt-3 flex flex-wrap gap-1.5">
-                                <Badge
-                                    variant="outline"
-                                    class="px-2 text-[10px] font-medium"
-                                >
+                                <Badge variant="outline" class="px-2 text-[10px] font-medium">
                                     {{
                                         form.purpose === 'other' || form.metadata?.purpose === 'other'
                                             ? 'Lainnya'
@@ -125,19 +120,23 @@ function submissionsHref(formId: string): string {
                         </div>
                     </div>
 
-                    <div class="border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
-                        <div class="grid gap-2 text-xs text-muted-foreground">
+                    <div class="border-border/60 bg-muted/20 border-t px-4 py-3 sm:px-5">
+                        <div class="text-muted-foreground grid gap-2 text-xs">
                             <div class="flex min-w-0 items-center gap-2">
-                                <CalendarClock class="size-3.5 shrink-0 text-muted-foreground/70" />
+                                <CalendarClock class="text-muted-foreground/70 size-3.5 shrink-0" />
                                 <span class="shrink-0">Tutup</span>
-                                <span class="min-w-0 truncate font-medium text-foreground">
-                                    {{ form.closed_at ? formatDateTime({ value: form.closed_at, variant: 'date-time' }) : 'Belum diatur' }}
+                                <span class="text-foreground min-w-0 truncate font-medium">
+                                    {{
+                                        form.closed_at
+                                            ? formatDateTime({ value: form.closed_at, variant: 'date-time' })
+                                            : 'Belum diatur'
+                                    }}
                                 </span>
                             </div>
                             <div class="flex min-w-0 items-center gap-2">
-                                <Users class="size-3.5 shrink-0 text-muted-foreground/70" />
+                                <Users class="text-muted-foreground/70 size-3.5 shrink-0" />
                                 <span class="shrink-0">Akses</span>
-                                <span class="min-w-0 truncate font-medium text-foreground">
+                                <span class="text-foreground min-w-0 truncate font-medium">
                                     {{
                                         (form.visible_for?.length ?? 0)
                                             ? (form.visible_for ?? []).join(', ')
@@ -151,7 +150,7 @@ function submissionsHref(formId: string): string {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                class="h-11 w-full border-border/80 bg-background/80 px-3 text-xs font-medium text-primary hover:text-primary sm:h-9 sm:min-w-0"
+                                class="border-border/80 bg-background/80 text-primary hover:text-primary h-11 w-full px-3 text-xs font-medium sm:h-9 sm:min-w-0"
                                 as-child
                             >
                                 <Link
@@ -167,7 +166,7 @@ function submissionsHref(formId: string): string {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                class="h-11 w-full border-border/80 bg-background/80 px-3 text-xs font-medium sm:h-9 sm:min-w-0"
+                                class="border-border/80 bg-background/80 h-11 w-full px-3 text-xs font-medium sm:h-9 sm:min-w-0"
                                 as-child
                             >
                                 <Link
@@ -183,7 +182,7 @@ function submissionsHref(formId: string): string {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                class="inline-flex h-11 w-full items-center justify-center gap-1.5 border-destructive/25 bg-background/80 px-3 text-xs font-medium text-destructive hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive sm:h-9 sm:min-w-0"
+                                class="border-destructive/25 bg-background/80 text-destructive hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive inline-flex h-11 w-full items-center justify-center gap-1.5 px-3 text-xs font-medium sm:h-9 sm:min-w-0"
                                 @click="startDelete(form)"
                             >
                                 <Trash2 class="size-3.5 shrink-0" aria-hidden="true" />

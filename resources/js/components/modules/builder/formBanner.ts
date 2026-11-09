@@ -1,77 +1,75 @@
-import type { BuilderField } from '@/components/modules/builder/fieldMapping'
+import type { IBuilderField } from '@/components/modules/builder/fieldMapping';
 
-export interface FormBannerState {
-    id: string | null
-    bannerUrl: string
-    bannerFileName: string
-    caption: string
+export interface IFormBannerState {
+    id: string | null;
+    bannerUrl: string;
+    bannerFileName: string;
+    caption: string;
 }
 
 function recordMetadata(field: IFormField): Record<string, unknown> {
-    return field.metadata && typeof field.metadata === 'object' ? field.metadata : {}
+    return field.metadata && typeof field.metadata === 'object' ? field.metadata : {};
 }
 
 function builderApiType(field: IFormField): string {
-    const m = recordMetadata(field)
-    const bt = m.builderType
-    return typeof bt === 'string' ? bt : field.type
+    const m = recordMetadata(field);
+    const bt = m.builderType;
+    return typeof bt === 'string' ? bt : field.type;
 }
 
-export function defaultFormBannerState(): FormBannerState {
+export function defaultFormBannerState(): IFormBannerState {
     return {
         id: null,
         bannerUrl: '',
         bannerFileName: '',
         caption: '',
-    }
+    };
 }
 
-export function extractFormBannerFromBuilderFields(rows: BuilderField[]): {
-    banner: FormBannerState
-    canvasFields: BuilderField[]
+export function extractFormBannerFromBuilderFields(rows: IBuilderField[]): {
+    banner: IFormBannerState;
+    canvasFields: IBuilderField[];
 } {
     const idxFlag = rows.findIndex(
-        (f) =>
-            f.type === 'banner' &&
-            Boolean((f.metadata as Record<string, unknown> | undefined)?.formBanner),
-    )
-    const idxLegacy = idxFlag === -1 ? rows.findIndex((f) => f.type === 'banner') : -1
-    const idx = idxFlag >= 0 ? idxFlag : idxLegacy
+        (f) => f.type === 'banner' && Boolean((f.metadata as Record<string, unknown> | undefined)?.formBanner)
+    );
+    const idxLegacy = idxFlag === -1 ? rows.findIndex((f) => f.type === 'banner') : -1;
+    const idx = idxFlag >= 0 ? idxFlag : idxLegacy;
 
     if (idx === -1) {
-        return { banner: defaultFormBannerState(), canvasFields: [...rows] }
+        return { banner: defaultFormBannerState(), canvasFields: [...rows] };
     }
 
-    const bf = rows[idx]
-    const meta = bf.metadata ?? {}
-    const banner: FormBannerState = {
+    const bf = rows[idx];
+    const meta = bf.metadata ?? {};
+    const banner: IFormBannerState = {
         id: bf.id,
         bannerUrl: typeof meta.bannerUrl === 'string' ? meta.bannerUrl : '',
         bannerFileName: typeof meta.bannerFileName === 'string' ? meta.bannerFileName : '',
         caption: typeof meta.content === 'string' ? meta.content : '',
-    }
-    const canvasFields = rows.filter((_, i) => i !== idx)
-    return { banner, canvasFields }
+    };
+    const canvasFields = rows.filter((_, i) => i !== idx);
+    return { banner, canvasFields };
 }
 
-const FORM_BANNER_NAME = 'form_banner'
+const FORM_BANNER_NAME = 'form_banner';
 
-export function buildFormBannerBuilderField(state: FormBannerState): BuilderField | null {
-    const trimmedUrl = state.bannerUrl.trim()
-    const trimmedCaption = state.caption.trim()
-    const previousId = typeof state.id === 'string' && state.id !== '' ? state.id : null
-    const hadPrevious = previousId !== null
-    const hasPayload = trimmedUrl !== '' || trimmedCaption !== ''
+export function buildFormBannerBuilderField(state: IFormBannerState): IBuilderField | null {
+    const trimmedUrl = state.bannerUrl.trim();
+    const trimmedCaption = state.caption.trim();
+    const previousId = typeof state.id === 'string' && state.id !== '' ? state.id : null;
+    const hadPrevious = previousId !== null;
+    const hasPayload = trimmedUrl !== '' || trimmedCaption !== '';
 
     if (!hasPayload && !hadPrevious) {
-        return null
+        return null;
     }
 
     if (!hasPayload && hadPrevious) {
-        return null
+        return null;
     }
 
-    const id = previousId ?? crypto.randomUUID()
+    const id = previousId ?? crypto.randomUUID();
 
     return {
         id,
@@ -89,29 +87,29 @@ export function buildFormBannerBuilderField(state: FormBannerState): BuilderFiel
             content: trimmedCaption,
             formBanner: true,
         },
-    }
+    };
 }
 
 export function prependFormBannerToBackendPayload(
-    canvasFields: BuilderField[],
-    banner: FormBannerState,
-): BuilderField[] {
-    const synth = buildFormBannerBuilderField(banner)
+    canvasFields: IBuilderField[],
+    banner: IFormBannerState
+): IBuilderField[] {
+    const synth = buildFormBannerBuilderField(banner);
     if (!synth) {
-        return canvasFields
+        return canvasFields;
     }
-    return [synth, ...canvasFields]
+    return [synth, ...canvasFields];
 }
 
 export function pickFormBannerField(fields: readonly IFormField[]): IFormField | null {
-    const flagged = [...fields].filter((f) => builderApiType(f) === 'banner' && recordMetadata(f).formBanner === true)
+    const flagged = [...fields].filter((f) => builderApiType(f) === 'banner' && recordMetadata(f).formBanner === true);
     if (flagged.length > 0) {
-        return flagged.sort((a, b) => a.order - b.order)[0] ?? null
+        return flagged.sort((a, b) => a.order - b.order)[0] ?? null;
     }
-    const legacy = [...fields].filter((f) => builderApiType(f) === 'banner')
-    return legacy.sort((a, b) => a.order - b.order)[0] ?? null
+    const legacy = [...fields].filter((f) => builderApiType(f) === 'banner');
+    return legacy.sort((a, b) => a.order - b.order)[0] ?? null;
 }
 
 export function filterBodyFields(fields: readonly IFormField[]): IFormField[] {
-    return fields.filter((f) => builderApiType(f) !== 'banner')
+    return fields.filter((f) => builderApiType(f) !== 'banner');
 }

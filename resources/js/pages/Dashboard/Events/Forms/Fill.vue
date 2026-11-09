@@ -1,39 +1,35 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
-import { Head } from '@inertiajs/vue3'
-import FormFillLayout from '@/layouts/FormFillLayout.vue'
-import FormFillHeaderBlock from '@/components/modules/dashboard/FormFillHeaderBlock.vue'
-import FormFillBlockedCard from '@/components/modules/dashboard/FormFillBlockedCard.vue'
-import FormFillFieldsList from '@/components/modules/dashboard/FormFillFieldsList.vue'
-import { useFormFillPage } from '@/hooks/useFormFillPage'
-import type {
-    FormAccessStatus,
-    FormFillPageEvent,
-    FormFillPageForm,
-} from '@/types/form'
-import type { IFormBuilderSection } from '@/types/form-builder'
+import { reactive } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
+import FormFillHeaderBlock from '@/components/modules/dashboard/FormFillHeaderBlock.vue';
+import FormFillBlockedCard from '@/components/modules/dashboard/FormFillBlockedCard.vue';
+import FormFillFieldsList from '@/components/modules/dashboard/FormFillFieldsList.vue';
+import { useFormFillPage } from '@/hooks/useFormFillPage';
+import type { TFormAccessStatus, IFormFillPageEvent, IFormFillPageForm } from '@/types/form';
+import type { IFormBuilderSection } from '@/types/form-builder';
 
-defineOptions({ layout: FormFillLayout })
+defineOptions({ layout: FormFillLayout });
 
 const props = withDefaults(
     defineProps<{
-        event: FormFillPageEvent
-        form: FormFillPageForm
-        fields: IFormField[]
-        submitUrl: string
-        accessStatus: FormAccessStatus
-        accessMessage: string
-        sections: IFormBuilderSection[]
-        registrationMode?: string
-        memberSlots?: number
-        pendingInvitationUrl?: string | null
+        event: IFormFillPageEvent;
+        form: IFormFillPageForm;
+        fields: IFormField[];
+        submitUrl: string;
+        accessStatus: TFormAccessStatus;
+        accessMessage: string;
+        sections: IFormBuilderSection[];
+        registrationMode?: string;
+        memberSlots?: number;
+        pendingInvitationUrl?: string | null;
     }>(),
     {
         registrationMode: 'single',
         memberSlots: 0,
         pendingInvitationUrl: null,
-    },
-)
+    }
+);
 
 const ctx = reactive(
     useFormFillPage({
@@ -45,13 +41,13 @@ const ctx = reactive(
         accessMessage: props.accessMessage,
         memberSlots: props.memberSlots,
         registrationMode: props.registrationMode,
-    }),
-)
+    })
+);
 
 const invitationActionHref =
     props.accessStatus === 'pending_team_confirmation' && props.pendingInvitationUrl
         ? props.pendingInvitationUrl
-        : undefined
+        : undefined;
 </script>
 
 <template>

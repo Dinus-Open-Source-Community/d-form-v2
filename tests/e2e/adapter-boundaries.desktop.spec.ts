@@ -29,7 +29,7 @@ test.describe('FE-AUDIT-004 adapter boundary', () => {
     test('forgot password mengirim JSON dengan header adapter dan menampilkan pesan sukses', async ({ page }) => {
         const emailInput = await openForgotPassword(page);
         const requestPromise = page.waitForRequest(
-            (request) => request.url().includes(PASSWORD_RESET_LINK_PATH) && request.method() === 'POST',
+            (request) => request.url().includes(PASSWORD_RESET_LINK_PATH) && request.method() === 'POST'
         );
 
         await emailInput.fill(`e2e-adapter-${Date.now()}@example.test`);
@@ -46,15 +46,14 @@ test.describe('FE-AUDIT-004 adapter boundary', () => {
         expect(body).toMatchObject({ email: expect.stringContaining('@example.test') });
 
         await expect(
-            page.getByText(/Jika akun dengan email tersebut ada, kami telah mengirim tautan reset kata sandi/i),
+            page.getByText(/Jika akun dengan email tersebut ada, kami telah mengirim tautan reset kata sandi/i)
         ).toBeVisible();
     });
 
     test('anomali email tidak valid di server dipetakan 422 ke error field, bukan toast generik', async ({ page }) => {
         const emailInput = await openForgotPassword(page);
         const responsePromise = page.waitForResponse(
-            (response) =>
-                response.url().includes(PASSWORD_RESET_LINK_PATH) && response.request().method() === 'POST',
+            (response) => response.url().includes(PASSWORD_RESET_LINK_PATH) && response.request().method() === 'POST'
         );
 
         // Isi nilai yang ditolak rule `email` server, lalu kirim lewat event submit
@@ -91,8 +90,7 @@ test.describe('FE-AUDIT-004 adapter boundary', () => {
         });
 
         const responsePromise = page.waitForResponse(
-            (response) =>
-                response.url().includes(PASSWORD_RESET_LINK_PATH) && response.request().method() === 'POST',
+            (response) => response.url().includes(PASSWORD_RESET_LINK_PATH) && response.request().method() === 'POST'
         );
 
         await emailInput.fill(`e2e-double-${Date.now()}@example.test`);

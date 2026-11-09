@@ -1,18 +1,18 @@
 <script setup lang="ts">
 defineProps<{
-    formTitle: string
-    formDescription: string
-    formHasDescription: boolean
-    formBannerImageSrc: string
-    formBannerCaption: string
-}>()
+    formTitle: string;
+    formDescription: string;
+    formHasDescription: boolean;
+    formBannerImageSrc: string;
+    formBannerCaption: string;
+}>();
 </script>
 
 <template>
     <div>
         <div
             v-if="formBannerImageSrc || formBannerCaption"
-            class="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+            class="border-border bg-card mb-5 overflow-hidden rounded-2xl border shadow-sm"
         >
             <img
                 v-if="formBannerImageSrc"
@@ -22,15 +22,19 @@ defineProps<{
             />
             <p
                 v-if="formBannerCaption"
-                class="border-t border-border px-5 py-4 text-sm leading-relaxed text-muted-foreground"
+                class="border-border text-muted-foreground border-t px-5 py-4 text-sm leading-relaxed"
             >
                 {{ formBannerCaption }}
             </p>
         </div>
 
-        <div class="mb-5 rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
-            <h1 class="font-display text-balance text-4xl font-bold tracking-[-0.035em] text-foreground">{{ formTitle }}</h1>
-            <p v-if="formHasDescription" class="mt-3 text-sm leading-relaxed text-muted-foreground">{{ formDescription }}</p>
+        <div class="border-border bg-card mb-5 rounded-2xl border p-4 text-center shadow-sm">
+            <h1 class="font-display text-foreground text-4xl font-bold tracking-[-0.035em] text-balance">
+                {{ formTitle }}
+            </h1>
+            <p v-if="formHasDescription" class="text-muted-foreground mt-3 text-sm leading-relaxed">
+                {{ formDescription }}
+            </p>
         </div>
     </div>
 </template>

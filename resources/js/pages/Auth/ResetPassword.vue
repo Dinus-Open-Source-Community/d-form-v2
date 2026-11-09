@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import AuthLayout from '@/layouts/AuthLayout.vue'
-import AuthResetPasswordForm from '@/components/modules/auth/AuthResetPasswordForm.vue'
-import SeoHead from '@/components/seo/SeoHead.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue';
+import AuthResetPasswordForm from '@/components/modules/auth/AuthResetPasswordForm.vue';
+import SeoHead from '@/components/seo/SeoHead.vue';
 
 defineProps<{
-    token: string
-    email: string
-}>()
+    token: string;
+    email: string;
+}>();
 </script>
 
 <template>

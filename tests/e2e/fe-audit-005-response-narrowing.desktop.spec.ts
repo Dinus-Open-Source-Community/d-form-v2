@@ -119,7 +119,9 @@ test.describe('FE-AUDIT-005 response narrowing', () => {
         }
     });
 
-    test('anomali: review 200 dengan body tidak sesuai kontrak menjadi error feedback, bukan sukses', async ({ page }) => {
+    test('anomali: review 200 dengan body tidak sesuai kontrak menjadi error feedback, bukan sukses', async ({
+        page,
+    }) => {
         const fixture = createReviewFixture();
         const pageErrors: string[] = [];
         page.on('pageerror', (error: Error): void => {
@@ -132,16 +134,17 @@ test.describe('FE-AUDIT-005 response narrowing', () => {
                     status: 200,
                     contentType: 'application/json',
                     body: JSON.stringify({ unexpected: true }),
-                }),
+                })
             );
 
             await page.goto(`${fixture.showPath}?tab=jawaban`);
-            await page.getByRole('button', { name: /Terima jawaban dari/i }).first().click();
+            await page
+                .getByRole('button', { name: /Terima jawaban dari/i })
+                .first()
+                .click();
 
             await expect(
-                page
-                    .locator('[data-sonner-toast]')
-                    .filter({ hasText: 'Tidak dapat menghubungi server. Coba lagi.' }),
+                page.locator('[data-sonner-toast]').filter({ hasText: 'Tidak dapat menghubungi server. Coba lagi.' })
             ).toBeVisible();
             await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Jawaban diterima/i })).toHaveCount(0);
             expect(readReviewStatus(fixture.answerId)).toBe('pending');
@@ -220,7 +223,7 @@ test.describe('FE-AUDIT-005 response narrowing', () => {
         await page.getByRole('button', { name: /Proses check-in/i }).click();
 
         await expect(
-            page.locator('[data-sonner-toast]').filter({ hasText: 'Respons server tidak sesuai kontrak.' }),
+            page.locator('[data-sonner-toast]').filter({ hasText: 'Respons server tidak sesuai kontrak.' })
         ).toBeVisible();
         await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Check-in berhasil/i })).toHaveCount(0);
         await expect(page.getByText('Respons tidak valid').first()).toBeVisible();

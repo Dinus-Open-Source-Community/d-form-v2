@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Recruitment;
 
-use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Jobs\Recruitment\SendRecruitmentCorrectionRequestStaffJob;

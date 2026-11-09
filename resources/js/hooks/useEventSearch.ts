@@ -58,7 +58,7 @@ export function useEventSearch(filters?: IEventSearchFilters | null): IEventSear
     let lastSentTerm: string | null = initialTerm === '' ? null : initialTerm;
 
     const cooldownSeconds = computed<number>(() =>
-        Math.max(0, Math.ceil((cooldownUntil.value - currentTime.value) / 1000)),
+        Math.max(0, Math.ceil((cooldownUntil.value - currentTime.value) / 1000))
     );
     const isCoolingDown = computed<boolean>(() => cooldownSeconds.value > 0);
 

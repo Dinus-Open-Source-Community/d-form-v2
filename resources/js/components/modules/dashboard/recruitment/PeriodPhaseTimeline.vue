@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
-import { formatIdDateLabel, formatIdDateTimeLabel } from '@/lib/shadcnDateFormat'
-import { parsePeriodDate, type PeriodPhaseInput, type PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
+import { computed } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { formatIdDateLabel, formatIdDateTimeLabel } from '@/lib/shadcnDateFormat';
+import { parsePeriodDate, type IPeriodPhaseInput, type TPeriodStatusValue } from '@/lib/recruitmentPeriodPhase';
 
-type NodeState = 'done' | 'current' | 'upcoming' | 'unscheduled' | 'past'
+type NodeState = 'done' | 'current' | 'upcoming' | 'unscheduled' | 'past';
 
 interface TimelineNode {
-    key: string
-    label: string
-    value: string | null
-    withTime: boolean
-    state: NodeState
+    key: string;
+    label: string;
+    value: string | null;
+    withTime: boolean;
+    state: NodeState;
 }
 
-const props = defineProps<{ period: PeriodPhaseInput; status: PeriodStatusValue }>()
+const props = defineProps<{ period: IPeriodPhaseInput; status: TPeriodStatusValue }>();
 
 const nodeStateClasses: Record<NodeState, string> = {
     done: 'border-success/30 bg-success/10 text-success',
@@ -23,7 +23,7 @@ const nodeStateClasses: Record<NodeState, string> = {
     upcoming: 'border-border bg-background text-muted-foreground',
     unscheduled: 'border-dashed border-border bg-background text-muted-foreground',
     past: 'border-border bg-muted text-muted-foreground',
-}
+};
 
 const nodeStateLabels: Record<NodeState, string> = {
     done: 'selesai',
@@ -31,10 +31,10 @@ const nodeStateLabels: Record<NodeState, string> = {
     upcoming: 'akan datang',
     past: 'sudah lewat',
     unscheduled: 'belum dijadwalkan',
-}
+};
 
 const nodes = computed<TimelineNode[]>(() => {
-    const now = new Date()
+    const now = new Date();
     const raw: Omit<TimelineNode, 'state'>[] = [
         {
             key: 'registration-open',
@@ -56,36 +56,36 @@ const nodes = computed<TimelineNode[]>(() => {
             value: props.period.finalizationDeadlineAt,
             withTime: false,
         },
-    ]
+    ];
 
-    const isOpen = props.status === 'open'
-    let currentAssigned = false
+    const isOpen = props.status === 'open';
+    let currentAssigned = false;
 
     return raw.map((node) => {
-        if (!node.value) return { ...node, state: 'unscheduled' }
+        if (!node.value) return { ...node, state: 'unscheduled' };
 
-        const when = parsePeriodDate(node.value)
-        if (!when) return { ...node, state: 'unscheduled' }
-        if (when.getTime() <= now.getTime()) return { ...node, state: isOpen ? 'done' : 'past' }
-        if (!isOpen) return { ...node, state: 'upcoming' }
+        const when = parsePeriodDate(node.value);
+        if (!when) return { ...node, state: 'unscheduled' };
+        if (when.getTime() <= now.getTime()) return { ...node, state: isOpen ? 'done' : 'past' };
+        if (!isOpen) return { ...node, state: 'upcoming' };
         if (!currentAssigned) {
-            currentAssigned = true
-            return { ...node, state: 'current' }
+            currentAssigned = true;
+            return { ...node, state: 'current' };
         }
 
-        return { ...node, state: 'upcoming' }
-    })
-})
+        return { ...node, state: 'upcoming' };
+    });
+});
 
 function displayValue(node: TimelineNode): string {
-    if (!node.value) return 'Belum ditentukan'
-    if (!parsePeriodDate(node.value)) return 'Belum ditentukan'
-    return node.withTime ? formatIdDateTimeLabel(node.value) : formatIdDateLabel(node.value)
+    if (!node.value) return 'Belum ditentukan';
+    if (!parsePeriodDate(node.value)) return 'Belum ditentukan';
+    return node.withTime ? formatIdDateTimeLabel(node.value) : formatIdDateLabel(node.value);
 }
 </script>
 
 <template>
-    <Card class="rounded-2xl border-border/70 shadow-sm">
+    <Card class="border-border/70 rounded-2xl shadow-sm">
         <CardHeader class="pb-2">
             <CardTitle class="text-base font-medium">Jadwal periode</CardTitle>
         </CardHeader>
@@ -98,10 +98,12 @@ function displayValue(node: TimelineNode): string {
                 >
                     <div class="flex items-center gap-3 lg:w-full">
                         <span
-                            :class="cn(
-                                'flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
-                                nodeStateClasses[node.state],
-                            )"
+                            :class="
+                                cn(
+                                    'flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
+                                    nodeStateClasses[node.state]
+                                )
+                            "
                             aria-hidden="true"
                         >
                             {{ index + 1 }}

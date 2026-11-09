@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import LocalLottie from '@/components/core/LocalLottie.vue'
-import type { LottieName } from '@/lib/lotties'
-import { CalendarPlus, PenTool, Rocket } from 'lucide-vue-next'
-import type { Component } from 'vue'
-import { findElementById } from '@/adapters/browser/domQuery'
+import { ref, onMounted } from 'vue';
+import LocalLottie from '@/components/core/LocalLottie.vue';
+import type { TLottieName } from '@/lib/lotties';
+import { CalendarPlus, PenTool, Rocket } from 'lucide-vue-next';
+import type { Component } from 'vue';
+import { findElementById } from '@/adapters/browser/domQuery';
 
 interface Step {
-    num: string
-    title: string
-    desc: string
-    detail: string
-    lottie: LottieName
-    icon: Component
+    num: string;
+    title: string;
+    desc: string;
+    detail: string;
+    lottie: TLottieName;
+    icon: Component;
 }
 
 const steps: Step[] = [
@@ -40,17 +40,22 @@ const steps: Step[] = [
         lottie: 'landingStepMonitor',
         icon: Rocket,
     },
-]
+];
 
-const visible = ref(false)
+const visible = ref(false);
 onMounted(() => {
     const obs = new IntersectionObserver(
-        ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
-        { threshold: 0.12 },
-    )
-    const el = findElementById('features-how')
-    if (el !== null) obs.observe(el)
-})
+        ([e]) => {
+            if (e?.isIntersecting) {
+                visible.value = true;
+                obs.disconnect();
+            }
+        },
+        { threshold: 0.12 }
+    );
+    const el = findElementById('features-how');
+    if (el !== null) obs.observe(el);
+});
 </script>
 
 <template>
@@ -58,15 +63,15 @@ onMounted(() => {
         <div class="mx-auto max-w-7xl px-6 lg:px-10">
             <div
                 :class="[
- 'mx-auto mb-16 max-w-2xl text-center transition-all duration-500',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                    'mx-auto mb-16 max-w-2xl text-center transition-all duration-500',
+                    visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                ]"
             >
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Cara Kerja</p>
-                <h2 class="mt-3 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                <p class="text-primary text-xs font-semibold tracking-[0.2em] uppercase">Cara Kerja</p>
+                <h2 class="font-display text-foreground mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
                     Dari nol sampai siap terima pendaftar
                 </h2>
-                <p class="mt-3 mx-auto max-w-lg text-base leading-relaxed text-muted-foreground">
+                <p class="text-muted-foreground mx-auto mt-3 max-w-lg text-base leading-relaxed">
                     Ikuti tiga langkah sederhana ini dan acara Anda langsung bisa menerima pendaftaran.
                 </p>
             </div>
@@ -76,14 +81,16 @@ onMounted(() => {
                     v-for="(step, i) in steps"
                     :key="step.num"
                     :class="[
- 'grid items-center gap-10 lg:grid-cols-2 lg:gap-16 transition-all duration-600',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
- ]"
+                        'grid items-center gap-10 transition-all duration-600 lg:grid-cols-2 lg:gap-16',
+                        visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
+                    ]"
                     :style="{ transitionDelay: `${100 + i * 120}ms` }"
                 >
                     <!-- Lottie card — alternates position -->
                     <div :class="['order-2', i % 2 === 0 ? 'lg:order-2' : 'lg:order-1']">
-                        <div class="overflow-hidden rounded-2xl border border-border/30 bg-background/80 p-6 shadow-sm sm:p-8">
+                        <div
+                            class="border-border/30 bg-background/80 overflow-hidden rounded-2xl border p-6 shadow-sm sm:p-8"
+                        >
                             <LocalLottie :name="step.lottie" :height="200" width="100%" />
                         </div>
                     </div>
@@ -91,15 +98,17 @@ onMounted(() => {
                     <!-- Text content -->
                     <div :class="['order-1', i % 2 === 0 ? 'lg:order-1' : 'lg:order-2']">
                         <div class="mb-4 flex items-center gap-3">
-                            <div class="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <div
+                                class="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full"
+                            >
                                 <component :is="step.icon" class="size-5" />
                             </div>
-                            <span class="text-sm font-bold tracking-wider text-primary/40">LANGKAH {{ step.num }}</span>
+                            <span class="text-primary/40 text-sm font-bold tracking-wider">LANGKAH {{ step.num }}</span>
                         </div>
 
-                        <h3 class="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{{ step.title }}</h3>
-                        <p class="mt-2 text-sm font-medium text-muted-foreground">{{ step.desc }}</p>
-                        <p class="mt-4 text-sm leading-relaxed text-muted-foreground">{{ step.detail }}</p>
+                        <h3 class="text-foreground text-xl font-bold tracking-tight sm:text-2xl">{{ step.title }}</h3>
+                        <p class="text-muted-foreground mt-2 text-sm font-medium">{{ step.desc }}</p>
+                        <p class="text-muted-foreground mt-4 text-sm leading-relaxed">{{ step.detail }}</p>
                     </div>
                 </div>
             </div>

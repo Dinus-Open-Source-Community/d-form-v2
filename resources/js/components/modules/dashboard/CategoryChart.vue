@@ -2,14 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bar } from 'vue-chartjs';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Tooltip,
-    type ChartOptions,
-} from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, type ChartOptions } from 'chart.js';
 import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
 import { LayoutGrid } from 'lucide-vue-next';
 import { observeThemeAttribute, readThemeAttribute } from '@/adapters/browser/documentState';
@@ -20,7 +13,7 @@ const props = withDefaults(
     defineProps<{
         breakdown?: { token: string; count: number }[];
     }>(),
-    { breakdown: () => [] },
+    { breakdown: () => [] }
 );
 
 const isDark = ref(false);
@@ -39,7 +32,9 @@ onUnmounted(() => releaseTheme());
 const labels = computed(() => props.breakdown.map((d) => categoryLabelMap[d.token] ?? d.token));
 
 const barColors = computed(() =>
-    props.breakdown.map((d) => categoryColorMap[d.token] ?? (isDark.value ? 'oklch(0.55 0.12 255)' : 'oklch(0.52 0.16 255)')),
+    props.breakdown.map(
+        (d) => categoryColorMap[d.token] ?? (isDark.value ? 'oklch(0.55 0.12 255)' : 'oklch(0.52 0.16 255)')
+    )
 );
 
 const totalInChart = computed(() => props.breakdown.reduce((s, d) => s + d.count, 0));
@@ -118,12 +113,14 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
 
 <template>
     <Card
-        class="overflow-hidden rounded-2xl border-border/70 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
+        class="border-border/70 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]"
     >
-        <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-border/50 bg-muted/10 px-5 py-4 sm:px-6">
+        <CardHeader
+            class="border-border/50 bg-muted/10 flex flex-row flex-wrap items-center justify-between gap-4 border-b px-5 py-4 sm:px-6"
+        >
             <div class="flex min-w-0 items-center gap-3">
                 <div
-                    class="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary shadow-inner"
+                    class="bg-primary/12 text-primary flex size-11 shrink-0 items-center justify-center rounded-full shadow-inner"
                 >
                     <LayoutGrid class="size-5" />
                 </div>
@@ -131,7 +128,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
                     <CardTitle class="font-display text-lg font-bold tracking-[-0.02em] md:text-xl">
                         Acara per kategori
                     </CardTitle>
-                    <p class="text-muted-foreground font-display mt-0.5 text-2xl font-bold tabular-nums tracking-tight">
+                    <p class="text-muted-foreground font-display mt-0.5 text-2xl font-bold tracking-tight tabular-nums">
                         {{ totalInChart.toLocaleString('id-ID') }}
                     </p>
                 </div>
@@ -140,19 +137,19 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => {
         <CardContent class="space-y-4 p-4 sm:p-5">
             <div
                 v-if="breakdown.length === 0"
-                class="text-muted-foreground/90 flex min-h-[15rem] items-center justify-center rounded-xl bg-muted/20 text-sm font-medium"
+                class="text-muted-foreground/90 bg-muted/20 flex min-h-[15rem] items-center justify-center rounded-xl text-sm font-medium"
             >
                 Tidak ada data
             </div>
             <template v-else>
-                <div class="rounded-xl bg-gradient-to-b from-muted/25 to-transparent p-2 sm:min-h-[18rem]">
+                <div class="from-muted/25 rounded-xl bg-gradient-to-b to-transparent p-2 sm:min-h-[18rem]">
                     <Bar :key="String(isDark)" :data="chartData" :options="chartOptions" />
                 </div>
                 <ul class="flex flex-wrap gap-2">
                     <li
                         v-for="row in breakdown"
                         :key="row.token"
-                        class="border-border/60 inline-flex items-center gap-2 rounded-full border bg-card/90 px-3 py-1 text-xs font-medium shadow-xs"
+                        class="border-border/60 bg-card/90 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium shadow-xs"
                     >
                         <span
                             class="size-2.5 shrink-0 rounded-full shadow-sm"

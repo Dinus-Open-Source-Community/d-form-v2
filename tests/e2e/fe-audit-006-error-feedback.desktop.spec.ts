@@ -142,10 +142,7 @@ echo json_encode([
 ]);
 `;
 
-    const record = parseJsonRecord(
-        runArtisanCommand(['tinker', '--execute', script]),
-        'fixture applicant',
-    );
+    const record = parseJsonRecord(runArtisanCommand(['tinker', '--execute', script]), 'fixture applicant');
 
     return {
         periodId: requireString(record, 'period_id', 'fixture applicant'),
@@ -288,10 +285,10 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
             await fullNameInput.fill(`Pendaftar ${identity.ownerKey}`);
 
             await expect(
-                page.getByText('Draft tidak tersimpan di perangkat ini — isian tetap bisa dikirim.'),
+                page.getByText('Draft tidak tersimpan di perangkat ini — isian tetap bisa dikirim.')
             ).toBeVisible();
             await expect(page.getByRole('status').filter({ hasText: 'Draft tidak tersimpan' })).toContainText(
-                'File tidak ikut tersimpan',
+                'File tidak ikut tersimpan'
             );
             await expect(page.getByText(/Draft tersimpan otomatis/)).toHaveCount(0);
         } finally {
@@ -319,7 +316,7 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
 
             const failedDetail = page.waitForResponse(
                 (response: Response): boolean =>
-                    response.url().includes('/applications/') && response.request().method() === 'GET',
+                    response.url().includes('/applications/') && response.request().method() === 'GET'
             );
 
             await applicantRows(page).first().click();
@@ -334,7 +331,7 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
             const failureAlert = dialog.getByRole('alert');
             await expect(failureAlert).toBeVisible();
             await expect(failureAlert).toContainText(
-                /Sistem sedang bermasalah|gangguan di server|Coba lagi beberapa saat/i,
+                /Sistem sedang bermasalah|gangguan di server|Coba lagi beberapa saat/i
             );
             // Pesan mentah server tidak boleh bocor ke panel.
             await expect(dialog).not.toContainText('Internal Server Error');
@@ -346,7 +343,7 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
 
             const recoveredDetail = page.waitForResponse(
                 (response: Response): boolean =>
-                    response.url().includes('/applications/') && response.request().method() === 'GET',
+                    response.url().includes('/applications/') && response.request().method() === 'GET'
             );
 
             await retryButton.click();
@@ -392,7 +389,7 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
         // Cursor = timestamp baris terakhir; `null` sah saat tidak ada baris baru.
         const cursor: unknown = feedBody['cursor'];
         expect(cursor === null || typeof cursor === 'string', 'feed harus mengembalikan cursor string atau null').toBe(
-            true,
+            true
         );
         expectPublicSafe(feedText, 'respons feed anomali');
     });
@@ -400,25 +397,22 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
 
 /** Kirim body JSON lewat boundary browser agar CSRF memakai token sesi yang sedang aktif. */
 async function postScanJson(page: Page, payload: Record<string, unknown>): Promise<IScanPostResult> {
-    return page.evaluate(
-        async (input: Record<string, unknown>): Promise<IScanPostResult> => {
-            const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-            const token = decodeURIComponent(match?.[1] ?? '');
-            const response = await fetch('/admin/scan', {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-XSRF-TOKEN': token,
-                },
-                body: JSON.stringify(input),
-            });
+    return page.evaluate(async (input: Record<string, unknown>): Promise<IScanPostResult> => {
+        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+        const token = decodeURIComponent(match?.[1] ?? '');
+        const response = await fetch('/admin/scan', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': token,
+            },
+            body: JSON.stringify(input),
+        });
 
-            return { status: response.status, bodyText: await response.text() };
-        },
-        payload,
-    );
+        return { status: response.status, bodyText: await response.text() };
+    }, payload);
 }
 
 /** Response error harus publik-safe: tanpa stack trace, SQLSTATE, atau dump HTML framework. */

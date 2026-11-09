@@ -36,7 +36,7 @@ test.describe('FE-AUDIT-003 composable migration', () => {
         await manualInput.fill('TIDAK-VALID-000X');
 
         const submitResponse = page.waitForResponse(
-            (res) => res.request().method() === 'POST' && new URL(res.url()).pathname === '/admin/scan',
+            (res) => res.request().method() === 'POST' && new URL(res.url()).pathname === '/admin/scan'
         );
 
         await page.getByRole('button', { name: 'Proses check-in' }).click();

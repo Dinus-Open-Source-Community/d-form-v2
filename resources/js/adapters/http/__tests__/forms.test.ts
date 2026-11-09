@@ -30,7 +30,9 @@ describe('forms adapter', () => {
             '/fields-invalid-ack': { body: JSON.stringify({ ok: false, message: 'gagal' }) },
             '/form': { body: JSON.stringify({ ok: true }) },
             '/builder-upload': { body: JSON.stringify({ path: 'form-images/a.png', url: '/storage/a.png' }) },
-            '/builder-upload-data': { body: JSON.stringify({ path: 'form-images/a.png', url: 'data:image/png;base64,x' }) },
+            '/builder-upload-data': {
+                body: JSON.stringify({ path: 'form-images/a.png', url: 'data:image/png;base64,x' }),
+            },
             '/builder-upload-only-data': { body: JSON.stringify({ url: 'data:image/png;base64,x' }) },
             '/broadcast-upload': { body: JSON.stringify({ url: '/storage/b.png' }) },
             '/broadcast-upload-data': { body: JSON.stringify({ url: 'data:image/png;base64,x' }) },
@@ -149,17 +151,21 @@ describe('forms adapter', () => {
     });
 
     it('rejects a 200 lookup without exists as invalid_response', async () => {
-        await expect(lookupRegisteredUser({ url: `${server.baseUrl}/check-email-empty-record` })).rejects.toMatchObject({
-            kind: 'invalid_response',
-            status: 200,
-        });
+        await expect(lookupRegisteredUser({ url: `${server.baseUrl}/check-email-empty-record` })).rejects.toMatchObject(
+            {
+                kind: 'invalid_response',
+                status: 200,
+            }
+        );
     });
 
     it('rejects a 200 exists:true lookup without a usable user', async () => {
-        await expect(lookupRegisteredUser({ url: `${server.baseUrl}/check-email-missing-user` })).rejects.toMatchObject({
-            kind: 'invalid_response',
-            status: 200,
-        });
+        await expect(lookupRegisteredUser({ url: `${server.baseUrl}/check-email-missing-user` })).rejects.toMatchObject(
+            {
+                kind: 'invalid_response',
+                status: 200,
+            }
+        );
     });
 
     it('keeps a not-found lookup as data with status 404', async () => {

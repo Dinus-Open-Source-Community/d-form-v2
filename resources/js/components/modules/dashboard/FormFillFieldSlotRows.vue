@@ -1,99 +1,98 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { StyledSelect } from '@/components/ui/styled-select'
-import type { UnwrapNestedRefs } from 'vue'
-import { Star, ImagePlus, Upload, X } from 'lucide-vue-next'
-import type { FormFillPageContext } from '@/hooks/useFormFillPage'
-import { formatParagraphContentToHtml } from '@/lib/formParagraphContent'
+import { computed } from 'vue';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { StyledSelect } from '@/components/ui/styled-select';
+import type { UnwrapNestedRefs } from 'vue';
+import { Star, ImagePlus, Upload, X } from 'lucide-vue-next';
+import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
+import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
 
 const props = withDefaults(
     defineProps<{
-        ctx: UnwrapNestedRefs<FormFillPageContext>
-        field: IFormField
-        participationSlot: { slotIndex: number | null; title: string }
-        storageKey: string
+        ctx: UnwrapNestedRefs<TFormFillPageContext>;
+        field: IFormField;
+        participationSlot: { slotIndex: number | null; title: string };
+        storageKey: string;
         /** 'linear' = legacy one field / card; 'bundleParticipant' = stacked in per-person card */
-        variant: 'linear' | 'bundleParticipant'
-        stackIndex?: number
-        imageUploadFillReadyFn: (key: string) => boolean
+        variant: 'linear' | 'bundleParticipant';
+        stackIndex?: number;
+        imageUploadFillReadyFn: (key: string) => boolean;
     }>(),
-    { stackIndex: 0 },
-)
+    { stackIndex: 0 }
+);
 
 const emit = defineEmits<{
-    openLightbox: [src: string | undefined, title: string]
-}>()
+    openLightbox: [src: string | undefined, title: string];
+}>();
 
 function textAnswer(name: string): string {
-    const v = props.ctx.answerForm[name]
-    return typeof v === 'string' ? v : ''
+    const v = props.ctx.answerForm[name];
+    return typeof v === 'string' ? v : '';
 }
 
 function setTextAnswer(name: string, value: string | number): void {
-    props.ctx.setAnswer(name, String(value))
+    props.ctx.setAnswer(name, String(value));
 }
 
-const showSubtitle = computed(() => props.variant === 'linear' && Boolean(props.participationSlot.title))
+const showSubtitle = computed(() => props.variant === 'linear' && Boolean(props.participationSlot.title));
 
 const headerBorderClass = computed(() => {
     if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'border-t border-border' : ''
+        return props.stackIndex > 0 ? 'border-t border-border' : '';
     }
-    return ''
-})
+    return '';
+});
 
 /** Tighter vertical rhythm when multiple fields stack in one participant card */
 const cardHeaderSpacingClass = computed(() => {
     if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'gap-0.5 pt-2 pb-0.5' : 'gap-0.5 pt-2.5 pb-0.5'
+        return props.stackIndex > 0 ? 'gap-0.5 pt-2 pb-0.5' : 'gap-0.5 pt-2.5 pb-0.5';
     }
-    return 'gap-1 pb-1.5 pt-3'
-})
+    return 'gap-1 pb-1.5 pt-3';
+});
 
 const cardContentSpacingClass = computed(() => {
     if (props.variant === 'bundleParticipant') {
-        return 'pb-2 pt-0'
+        return 'pb-2 pt-0';
     }
-    return 'pb-3 pt-0'
-})
+    return 'pb-3 pt-0';
+});
 
-const fieldErrorSpacingClass = computed(() =>
-    props.variant === 'bundleParticipant' ? 'mt-1' : 'mt-1.5',
-)
+const fieldErrorSpacingClass = computed(() => (props.variant === 'bundleParticipant' ? 'mt-1' : 'mt-1.5'));
 
 const showDescription = computed(() => {
-    if (!props.field.description) return false
-    if (props.variant === 'bundleParticipant') return true
-    return props.participationSlot.slotIndex === null
-})
+    if (!props.field.description) return false;
+    if (props.variant === 'bundleParticipant') return true;
+    return props.participationSlot.slotIndex === null;
+});
 
 const descriptionHtml = computed(() =>
-    props.field.description ? formatParagraphContentToHtml(props.field.description) : '',
-)
+    props.field.description ? formatParagraphContentToHtml(props.field.description) : ''
+);
 
 function fillReady(): boolean {
-    return props.imageUploadFillReadyFn(props.storageKey)
+    return props.imageUploadFillReadyFn(props.storageKey);
 }
-
 </script>
 
 <template>
     <CardHeader :class="[headerBorderClass, cardHeaderSpacingClass]">
-        <CardTitle class="flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em] text-foreground">
+        <CardTitle class="text-foreground flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em]">
             <span class="flex items-start gap-1">
                 {{ field.label }}
                 <span v-if="ctx.isRequired(field)" class="text-destructive">*</span>
             </span>
-            <span v-if="showSubtitle" class="text-xs font-normal text-muted-foreground">{{ participationSlot.title }}</span>
+            <span v-if="showSubtitle" class="text-muted-foreground text-xs font-normal">{{
+                participationSlot.title
+            }}</span>
         </CardTitle>
         <p
             v-if="showDescription"
-            class="text-xs text-muted-foreground"
+            class="text-muted-foreground text-xs"
             :class="variant === 'bundleParticipant' ? 'mt-0 leading-snug' : 'leading-relaxed'"
             v-html="descriptionHtml"
         />
@@ -115,7 +114,7 @@ function fillReady(): boolean {
             />
             <p
                 v-if="ctx.maxLengthForField(field)"
-                class="mt-1 text-right text-[10px] tabular-nums text-muted-foreground"
+                class="text-muted-foreground mt-1 text-right text-[10px] tabular-nums"
             >
                 {{ textAnswer(storageKey).length }} / {{ ctx.maxLengthForField(field) }}
             </p>
@@ -127,25 +126,27 @@ function fillReady(): boolean {
                     v-for="rating in Number(ctx.metadata(field).maxStars ?? 5)"
                     :key="rating"
                     type="button"
-                    class=" p-1"
+                    class="p-1"
                     @click="ctx.setAnswer(storageKey, String(rating))"
                 >
                     <Star
                         class="size-7 transition-colors"
                         :class="
- Number(ctx.answerForm[storageKey] || 0) >= rating
- ? 'fill-amber-400 text-amber-400'
- : 'text-muted-foreground/50'
- "
+                            Number(ctx.answerForm[storageKey] || 0) >= rating
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-muted-foreground/50'
+                        "
                     />
                 </button>
             </div>
-            <p class="text-xs text-muted-foreground">Choose one rating.</p>
+            <p class="text-muted-foreground text-xs">Choose one rating.</p>
         </div>
 
         <template
             v-else-if="
-                ctx.builderType(field) === 'long_text' || ctx.builderType(field) === 'address' || field.type === 'textarea'
+                ctx.builderType(field) === 'long_text' ||
+                ctx.builderType(field) === 'address' ||
+                field.type === 'textarea'
             "
         >
             <Textarea
@@ -158,7 +159,7 @@ function fillReady(): boolean {
             />
             <p
                 v-if="ctx.maxLengthForField(field)"
-                class="mt-1 text-right text-[10px] tabular-nums text-muted-foreground"
+                class="text-muted-foreground mt-1 text-right text-[10px] tabular-nums"
             >
                 {{ textAnswer(storageKey).length }} / {{ ctx.maxLengthForField(field) }}
             </p>
@@ -176,7 +177,7 @@ function fillReady(): boolean {
             <label
                 v-for="row in ctx.getOptionRows(field)"
                 :key="row.label"
-                class="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/30 hover:bg-muted/40"
+                class="border-border bg-card text-foreground hover:border-primary/30 hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
                 <Checkbox
                     :id="`${storageKey}-${row.label}`"
@@ -186,7 +187,10 @@ function fillReady(): boolean {
                             ctx.onCheckboxToggle(storageKey, row.label, value === true)
                     "
                 />
-                <div v-if="row.type === 'image' && row.imageSrc" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
+                <div
+                    v-if="row.type === 'image' && row.imageSrc"
+                    class="border-border size-16 shrink-0 overflow-hidden rounded-md border"
+                >
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />
                 </div>
                 <span v-else>{{ row.label }}</span>
@@ -197,17 +201,20 @@ function fillReady(): boolean {
             <label
                 v-for="row in ctx.getOptionRows(field)"
                 :key="row.label"
-                class="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/30 hover:bg-muted/40"
+                class="border-border bg-card text-foreground hover:border-primary/30 hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
                 <input
                     type="radio"
                     :name="`${field.name}-${participationSlot.slotIndex ?? 'lead'}`"
                     :value="row.label"
                     :checked="(ctx.answerForm[storageKey] as string) === row.label"
-                    class="size-4 accent-primary"
+                    class="accent-primary size-4"
                     @change="() => ctx.setAnswer(storageKey, row.label)"
                 />
-                <div v-if="row.type === 'image' && row.imageSrc" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
+                <div
+                    v-if="row.type === 'image' && row.imageSrc"
+                    class="border-border size-16 shrink-0 overflow-hidden rounded-md border"
+                >
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />
                 </div>
                 <span v-else>{{ row.label }}</span>
@@ -222,25 +229,27 @@ function fillReady(): boolean {
             :model-value="textAnswer(storageKey)"
             :options="ctx.getOptionRows(field)"
             :placeholder="ctx.getPlaceholder(field) || 'Select an option'"
-            class="min-h-11 h-11"
+            class="h-11 min-h-11"
             @update:model-value="setTextAnswer(storageKey, $event)"
         />
 
         <div
             v-else-if="['file_upload', 'image_upload', 'fileUpload'].includes(ctx.builderType(field))"
-            class="relative overflow-hidden rounded-xl border border-dashed border-border bg-muted/20 transition-colors hover:border-primary/30"
-            :class="fillReady() ? 'p-0' : variant === 'bundleParticipant' ? 'p-4 text-center hover:bg-muted/30' : 'p-6 text-center hover:bg-muted/30'"
+            class="border-border bg-muted/20 hover:border-primary/30 relative overflow-hidden rounded-xl border border-dashed transition-colors"
+            :class="
+                fillReady()
+                    ? 'p-0'
+                    : variant === 'bundleParticipant'
+                      ? 'hover:bg-muted/30 p-4 text-center'
+                      : 'hover:bg-muted/30 p-6 text-center'
+            "
         >
-            <div v-if="fillReady()" class="relative aspect-video w-full bg-muted/30 sm:aspect-[4/3]">
+            <div v-if="fillReady()" class="bg-muted/30 relative aspect-video w-full sm:aspect-[4/3]">
                 <button
                     type="button"
-                    class="absolute inset-0 z-10 flex w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    class="focus-visible:ring-ring focus-visible:ring-offset-background absolute inset-0 z-10 flex w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                     @click="
-                        emit(
-                            'openLightbox',
-                            ctx.filePreviewUrls[storageKey],
-                            (ctx.answerForm[storageKey] as File).name,
-                        )
+                        emit('openLightbox', ctx.filePreviewUrls[storageKey], (ctx.answerForm[storageKey] as File).name)
                     "
                 >
                     <img
@@ -252,17 +261,17 @@ function fillReady(): boolean {
                 </button>
                 <button
                     type="button"
-                    class="absolute right-2 top-2 z-20 grid size-9 place-items-center border border-border/80 bg-background/95 text-destructive shadow-md backdrop-blur-sm"
+                    class="border-border/80 bg-background/95 text-destructive absolute top-2 right-2 z-20 grid size-9 place-items-center border shadow-md backdrop-blur-sm"
                     :aria-label="`Remove ${(ctx.answerForm[storageKey] as File).name}`"
                     @click.stop="ctx.clearFileUpload(storageKey)"
                 >
                     <X class="size-4" />
                 </button>
                 <div
-                    class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-1 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-3 pb-3 pt-14 text-center"
+                    class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-1 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-3 pt-14 pb-3 text-center"
                 >
                     <label
-                        class="pointer-events-auto cursor-pointer border border-white/20 bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+                        class="bg-background/95 text-foreground hover:bg-background pointer-events-auto cursor-pointer border border-white/20 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm transition-colors"
                     >
                         Choose another file
                         <input
@@ -278,15 +287,15 @@ function fillReady(): boolean {
             </div>
 
             <div v-else class="flex flex-col items-center gap-2">
-                <div class="grid size-12 place-items-center rounded-full border border-border bg-card shadow-xs">
+                <div class="border-border bg-card grid size-12 place-items-center rounded-full border shadow-xs">
                     <component
                         :is="ctx.builderType(field) === 'image_upload' ? ImagePlus : Upload"
-                        class="size-5 text-muted-foreground"
+                        class="text-muted-foreground size-5"
                     />
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-foreground">Click to upload</p>
-                    <p class="mt-0.5 text-[10px] text-muted-foreground">{{ ctx.fileHint(field) }}</p>
+                    <p class="text-foreground text-sm font-semibold">Click to upload</p>
+                    <p class="text-muted-foreground mt-0.5 text-[10px]">{{ ctx.fileHint(field) }}</p>
                 </div>
                 <input
                     type="file"
@@ -298,22 +307,18 @@ function fillReady(): boolean {
 
             <div
                 v-if="ctx.answerForm[storageKey] && !fillReady()"
-                class="relative z-10 mt-4 flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 shadow-xs"
+                class="border-border bg-card relative z-10 mt-4 flex items-center justify-center gap-2 rounded-xl border p-3 shadow-xs"
             >
-                <span class="max-w-[200px] truncate text-xs font-medium text-foreground">{{
+                <span class="text-foreground max-w-[200px] truncate text-xs font-medium">{{
                     (ctx.answerForm[storageKey] as File).name
                 }}</span>
-                <button
-                    type="button"
-                    class="text-destructive"
-                    @click="ctx.clearFileUpload(storageKey)"
-                >
+                <button type="button" class="text-destructive" @click="ctx.clearFileUpload(storageKey)">
                     <X class="size-4" />
                 </button>
             </div>
         </div>
 
-        <p v-if="ctx.fieldError(storageKey)" :class="[fieldErrorSpacingClass, 'text-xs font-medium text-destructive']">
+        <p v-if="ctx.fieldError(storageKey)" :class="[fieldErrorSpacingClass, 'text-destructive text-xs font-medium']">
             {{ ctx.fieldError(storageKey) }}
         </p>
     </CardContent>

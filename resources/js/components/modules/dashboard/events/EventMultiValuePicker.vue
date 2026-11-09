@@ -3,14 +3,14 @@ import { computed } from 'vue';
 import { Label } from '@/components/ui/label';
 import ComboboxTagInput from '@/components/modules/dashboard/events/ComboboxTagInput.vue';
 
-export interface MultiValueOption {
+export interface IMultiValueOption {
     value: string;
     label: string;
 }
 
 const props = withDefaults(
     defineProps<{
-        options: MultiValueOption[];
+        options: IMultiValueOption[];
         label: string;
         description?: string;
         error?: string;
@@ -28,7 +28,7 @@ const props = withDefaults(
         placeholder: 'Cari atau ketik lalu Enter',
         required: false,
         shaking: false,
-    },
+    }
 );
 
 const model = defineModel<string>({ default: '' });
@@ -37,12 +37,7 @@ const maxTagsEff = computed(() => props.maxTags ?? Number.POSITIVE_INFINITY);
 </script>
 
 <template>
-    <div
-        :class="[
-            'flex flex-col gap-2',
-            shaking ? 'animate-shake' : '',
-        ]"
-    >
+    <div :class="['flex flex-col gap-2', shaking ? 'animate-shake' : '']">
         <div class="space-y-1">
             <Label :for="id" class="text-sm font-medium">
                 {{ label }}<span v-if="required" class="text-destructive"> *</span>

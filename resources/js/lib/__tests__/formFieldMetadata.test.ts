@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FormFieldMetadataBag } from '@/types/form';
+import type { TFormFieldMetadataBag } from '@/types/form';
 import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata';
 
 function makeField(overrides: Partial<IFormField> = {}): IFormField {
@@ -21,7 +21,7 @@ function makeFieldWithRuntimeMetadata(metadata: unknown): IFormField {
     };
 }
 
-function meta(value: unknown): FormFieldMetadataBag {
+function meta(value: unknown): TFormFieldMetadataBag {
     return { flag: value };
 }
 
@@ -44,7 +44,7 @@ describe('readMetaBoolean', () => {
 
 describe('readFieldMetadata', () => {
     it('returns an object bag untouched', () => {
-        const bag: FormFieldMetadataBag = { placeholder: 'Nama' };
+        const bag: TFormFieldMetadataBag = { placeholder: 'Nama' };
 
         expect(readFieldMetadata(makeField({ metadata: bag }))).toBe(bag);
     });

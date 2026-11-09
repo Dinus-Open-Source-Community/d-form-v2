@@ -1,11 +1,71 @@
-import { readFileSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
+
+/** Opsi resolusi storageState; `runId` eksplisit dipakai `playwright.config.ts` sebelum env diset. */
+export interface IAdminStateOptions {
+    env?: NodeJS.ProcessEnv;
+    runId?: string;
+}
+
+const AUTH_DIRECTORY = 'tests/e2e/.auth';
+const STALE_STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const STATE_FILE_PATTERN = /^admin-(\d{8}T\d{6}-[0-9a-f]{6})\.json$/;
 
 /**
- * Lokasi storageState admin, relatif terhadap root proyek Playwright.
- * `E2E_ADMIN_STATE` memisahkan state saat beberapa run memakai server berbeda.
+ * Path storageState admin untuk satu run.
+ *
+ * Default diturunkan dari `E2E_RUN_ID` agar dua run tidak saling menimpa;
+ * `E2E_ADMIN_STATE` tetap menjadi override eksplisit (mis. untuk server terpisah).
  */
-export const ADMIN_STATE_PATH = (process.env.E2E_ADMIN_STATE ?? '').trim() || 'tests/e2e/.auth/admin.json';
+export function adminStatePath(options: IAdminStateOptions = {}): string {
+    const env = options.env ?? process.env;
+    const override = (env.E2E_ADMIN_STATE ?? '').trim();
+
+    if (override !== '') {
+        return override;
+    }
+
+    const runId = (options.runId ?? env.E2E_RUN_ID ?? '').trim();
+
+    if (runId === '') {
+        throw new Error('E2E_RUN_ID must be set before resolving the admin storageState path.');
+    }
+
+    return `${AUTH_DIRECTORY}/admin-${runId}.json`;
+}
+
+/**
+ * Hapus file state run lain yang lebih tua dari 24 jam (sisa run yang crash).
+ * File run yang sedang berjalan selalu dipertahankan.
+ */
+export function pruneStaleAdminStates(currentRunId: string, now: number = Date.now()): string[] {
+    const directory = resolve(process.cwd(), AUTH_DIRECTORY);
+
+    if (!existsSync(directory)) {
+        return [];
+    }
+
+    const removed: string[] = [];
+
+    for (const name of readdirSync(directory)) {
+        const match = STATE_FILE_PATTERN.exec(name);
+
+        if (match === null || match[1] === currentRunId) {
+            continue;
+        }
+
+        const filePath = join(directory, name);
+
+        if (now - statSync(filePath).mtimeMs <= STALE_STATE_MAX_AGE_MS) {
+            continue;
+        }
+
+        rmSync(filePath, { force: true });
+        removed.push(name);
+    }
+
+    return removed;
+}
 
 // Laravel menamai cookie sesi `Str::slug(APP_NAME).'-session'`; APP_NAME proyek ini "DForm".
 // Terverifikasi lewat `php artisan tinker --execute="echo config('session.cookie');"`.
@@ -32,7 +92,7 @@ export function sessionCookieName(env: NodeJS.ProcessEnv = process.env): string 
 }
 
 /** Resolusi path state terhadap cwd proyek; path absolut dibiarkan apa adanya. */
-export function resolveStatePath(statePath: string = ADMIN_STATE_PATH): string {
+export function resolveStatePath(statePath: string = adminStatePath()): string {
     return isAbsolute(statePath) ? statePath : resolve(process.cwd(), statePath);
 }
 
@@ -40,7 +100,7 @@ export function resolveStatePath(statePath: string = ADMIN_STATE_PATH): string {
  * Baca dan validasi file storageState admin.
  * Melempar error (bukan skip) bila file hilang, rusak, atau tanpa cookie sesi.
  */
-export function assertAdminState(statePath: string = ADMIN_STATE_PATH): IAdminStorageState {
+export function assertAdminState(statePath: string = adminStatePath()): IAdminStorageState {
     const resolved = resolveStatePath(statePath);
     let raw: string;
 
@@ -63,9 +123,7 @@ export function assertAdminState(statePath: string = ADMIN_STATE_PATH): IAdminSt
     }
 
     if (!hasSessionCookie(parsed)) {
-        throw new Error(
-            `Admin storage state at "${resolved}" has no "${sessionCookieName()}" cookie. ${SETUP_HINT}`,
-        );
+        throw new Error(`Admin storage state at "${resolved}" has no "${sessionCookieName()}" cookie. ${SETUP_HINT}`);
     }
 
     return parsed;
@@ -75,10 +133,7 @@ export function assertAdminState(statePath: string = ADMIN_STATE_PATH): IAdminSt
  * Apakah state memuat cookie sesi Laravel yang membuat request dianggap terautentikasi.
  * `cookieName` diambil dari `sessionCookieName()` supaya spec tidak menebak nama cookie.
  */
-export function hasSessionCookie(
-    state: IAdminStorageState,
-    cookieName: string = sessionCookieName(),
-): boolean {
+export function hasSessionCookie(state: IAdminStorageState, cookieName: string = sessionCookieName()): boolean {
     return state.cookies.some((cookie) => cookie.name === cookieName && cookie.value !== '');
 }
 

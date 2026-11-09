@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Agregat harian registrasi untuk chart dashboard: satu baris per tanggal,
  * sehingga chart tidak perlu menjalankan join 1 juta baris tiap cache dingin.
  */
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::create('event_daily_registrations', function (Blueprint $table): void {

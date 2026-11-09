@@ -1,7 +1,8 @@
 import { computed, ComputedRef } from 'vue';
 
-export function useAuth(props: Props): ComputedRef<User | null> {
-    const user = computed<User | null>(() => props.auth.user);
+/** User terautentikasi dari shared props Inertia sebagai computed read-only. */
+export function useAuth(props: IProps): ComputedRef<IUser | null> {
+    const user = computed<IUser | null>(() => props.auth.user);
 
     return user;
 }

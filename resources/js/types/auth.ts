@@ -1,13 +1,13 @@
-export type AuthToastType = 'success' | 'error'
+export type TAuthToastType = 'success' | 'error';
 
-export interface AuthToastPayload {
-    readonly type: AuthToastType
-    readonly message: string
+export interface IAuthToastPayload {
+    readonly type: TAuthToastType;
+    readonly message: string;
 }
 
-export interface PasswordRule {
-    readonly label: string
-    readonly met: boolean
+export interface IPasswordRule {
+    readonly label: string;
+    readonly met: boolean;
 }
 
-export type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong'
+export type TPasswordStrength = 'weak' | 'fair' | 'good' | 'strong';

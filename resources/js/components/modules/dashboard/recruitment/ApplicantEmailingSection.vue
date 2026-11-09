@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { computed } from 'vue';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     RECRUITMENT_EMAIL_RESEND_DAILY_LIMIT,
     RECRUITMENT_EMAIL_RESEND_OPTIONS,
@@ -11,20 +11,20 @@ import {
     type IEmailResendPrereq,
     type IEmailResendTypeStatus,
     type TRecruitmentEmailResendType,
-} from '@/lib/recruitmentEmailResend'
-import { useApplicantEmailing } from '@/hooks/useApplicantEmailing'
-import { ExternalLink, MessageCircle, Send } from 'lucide-vue-next'
+} from '@/lib/recruitmentEmailResend';
+import { useApplicantEmailing } from '@/hooks/useApplicantEmailing';
+import { ExternalLink, MessageCircle, Send } from 'lucide-vue-next';
 
 const props = defineProps<{
-    applicationId: string
-    applicantName: string
-    statusMap?: Partial<Record<TRecruitmentEmailResendType, IEmailResendTypeStatus>> | null
-    prereq?: IEmailResendPrereq | null
-    canResend: boolean
-    whatsappGroupUrl?: string | null
-}>()
+    applicationId: string;
+    applicantName: string;
+    statusMap?: Partial<Record<TRecruitmentEmailResendType, IEmailResendTypeStatus>> | null;
+    prereq?: IEmailResendPrereq | null;
+    canResend: boolean;
+    whatsappGroupUrl?: string | null;
+}>();
 
-const emit = defineEmits<{ resent: [] }>()
+const emit = defineEmits<{ resent: [] }>();
 
 const emailing = useApplicantEmailing({
     applicationId: props.applicationId,
@@ -33,16 +33,16 @@ const emailing = useApplicantEmailing({
     prereq: props.prereq ?? null,
     canResend: props.canResend,
     onSent: () => emit('resent'),
-})
+});
 
 const pendingLabel = computed<string>(() =>
-    emailing.pendingType.value ? emailResendLabelOf(emailing.pendingType.value) : '',
-)
+    emailing.pendingType.value ? emailResendLabelOf(emailing.pendingType.value) : ''
+);
 
 function attemptLineOf(type: TRecruitmentEmailResendType): string {
-    const status = emailing.statusOf(type)
-    const count = status?.count_24h ?? 0
-    return `Terakhir dicoba: ${formatEmailResendAttempt(status?.last_attempt_at ?? null)} · ${count}/${RECRUITMENT_EMAIL_RESEND_DAILY_LIMIT} per 24 jam`
+    const status = emailing.statusOf(type);
+    const count = status?.count_24h ?? 0;
+    return `Terakhir dicoba: ${formatEmailResendAttempt(status?.last_attempt_at ?? null)} · ${count}/${RECRUITMENT_EMAIL_RESEND_DAILY_LIMIT} per 24 jam`;
 }
 </script>
 
@@ -68,24 +68,20 @@ function attemptLineOf(type: TRecruitmentEmailResendType): string {
             </div>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="space-y-3 p-4 sm:p-5">
                 <div
                     v-for="option in RECRUITMENT_EMAIL_RESEND_OPTIONS"
                     :key="option.type"
-                    class="flex flex-col gap-2 rounded-xl border border-border/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    class="border-border/60 flex flex-col gap-2 rounded-xl border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                     <div class="min-w-0">
                         <p class="text-sm font-medium">{{ option.label }}</p>
-                        <p class="mt-0.5 text-xs text-muted-foreground">{{ option.description }}</p>
-                        <p class="mt-1 text-xs tabular-nums text-muted-foreground">
+                        <p class="text-muted-foreground mt-0.5 text-xs">{{ option.description }}</p>
+                        <p class="text-muted-foreground mt-1 text-xs tabular-nums">
                             {{ attemptLineOf(option.type) }}
                         </p>
-                        <p
-                            v-if="emailing.reasonOf(option.type)"
-                            role="note"
-                            class="mt-1 text-xs text-muted-foreground"
-                        >
+                        <p v-if="emailing.reasonOf(option.type)" role="note" class="text-muted-foreground mt-1 text-xs">
                             {{ emailing.reasonOf(option.type) }}
                         </p>
                     </div>
@@ -113,7 +109,11 @@ function attemptLineOf(type: TRecruitmentEmailResendType): string {
             :loading="emailing.isSending.value"
             @confirm="emailing.confirmSend"
             @cancel="emailing.cancelSend"
-            @update:open="(v: boolean) => { emailing.confirmOpen.value = v }"
+            @update:open="
+                (v: boolean) => {
+                    emailing.confirmOpen.value = v;
+                }
+            "
         />
     </div>
 </template>

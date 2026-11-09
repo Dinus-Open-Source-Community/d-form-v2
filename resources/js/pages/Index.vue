@@ -9,11 +9,11 @@ import HomeFAQ from '@/components/modules/landing/home/HomeFAQ.vue';
 import HomeCTA from '@/components/modules/landing/home/HomeCTA.vue';
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import type { SharedSeoProps } from '@/types/seo';
+import type { ISharedSeoProps } from '@/types/seo';
 import { routes } from '@/lib/routes';
 
 const page = usePage();
-const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
+const seo = computed(() => (page.props as { seo: ISharedSeoProps }).seo);
 
 const jsonLd = computed<Record<string, unknown>[]>(() => {
     const base = seo.value.siteUrl;
@@ -41,11 +41,7 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
 
 <template>
     <LandingLayout>
-        <SeoHead
-            title="Kelola acara & formulir pendaftaran"
-            :canonical-path="routes.home"
-            :json-ld="jsonLd"
-        />
+        <SeoHead title="Kelola acara & formulir pendaftaran" :canonical-path="routes.home" :json-ld="jsonLd" />
         <HomeHero />
         <HomeSteps />
         <HomeFeatures />

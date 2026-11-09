@@ -111,7 +111,7 @@ describe('useEmailAvailability', () => {
                 new Promise<IEmailAvailabilityResult>((resolve, reject) => {
                     signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
                     void deferred.promise.then(resolve, reject);
-                }),
+                })
         );
 
         const email = ref(VALID_EMAIL);
@@ -210,13 +210,13 @@ describe('useEmailAvailability', () => {
         const state = useEmailAvailability({ email, debounceMs: DEBOUNCE_MS });
 
         checkEmailAvailabilityMock.mockRejectedValueOnce(
-            new HttpRequestError({ kind: 'server', status: 500, message: 'boom' }),
+            new HttpRequestError({ kind: 'server', status: 500, message: 'boom' })
         );
         await advanceDebounce();
         expect(state.status.value).toBe('error');
 
         checkEmailAvailabilityMock.mockRejectedValueOnce(
-            new HttpRequestError({ kind: 'validation', status: 422, message: 'invalid' }),
+            new HttpRequestError({ kind: 'validation', status: 422, message: 'invalid' })
         );
         email.value = 'validasi@example.test';
         await nextTick();

@@ -15,7 +15,12 @@ export interface IRequestLog {
     responseStatuses: (pattern: string | RegExp) => number[];
     /** Status >= 500, opsional difilter URL; pengganti listener 5xx ad-hoc di spec. */
     serverErrorStatuses: (pattern?: string | RegExp) => number[];
-    waitForRequestCount: (method: string, pattern: string | RegExp, expected: number, timeoutMs?: number) => Promise<void>;
+    waitForRequestCount: (
+        method: string,
+        pattern: string | RegExp,
+        expected: number,
+        timeoutMs?: number
+    ) => Promise<void>;
     stop: () => void;
 }
 
@@ -55,8 +60,7 @@ export function startRequestLog(page: Page): IRequestLog {
 
     const requestCount = (method: string, pattern: string | RegExp): number =>
         requests.filter(
-            (entry: ILoggedRequest): boolean =>
-                entry.method === method.toUpperCase() && matches(entry.url, pattern),
+            (entry: ILoggedRequest): boolean => entry.method === method.toUpperCase() && matches(entry.url, pattern)
         ).length;
 
     return {
@@ -69,14 +73,14 @@ export function startRequestLog(page: Page): IRequestLog {
             responses
                 .filter(
                     (entry: ILoggedResponse): boolean =>
-                        entry.status >= 500 && (pattern === undefined || matches(entry.url, pattern)),
+                        entry.status >= 500 && (pattern === undefined || matches(entry.url, pattern))
                 )
                 .map((entry: ILoggedResponse): number => entry.status),
         waitForRequestCount: async (
             method: string,
             pattern: string | RegExp,
             expected: number,
-            timeoutMs: number = 10_000,
+            timeoutMs: number = 10_000
         ): Promise<void> => {
             const deadline = Date.now() + timeoutMs;
 
@@ -91,7 +95,7 @@ export function startRequestLog(page: Page): IRequestLog {
             }
 
             throw new Error(
-                `Timed out waiting for ${expected} ${method.toUpperCase()} request(s) matching ${String(pattern)}; saw ${requestCount(method, pattern)}.`,
+                `Timed out waiting for ${expected} ${method.toUpperCase()} request(s) matching ${String(pattern)}; saw ${requestCount(method, pattern)}.`
             );
         },
         stop: (): void => {
@@ -102,11 +106,7 @@ export function startRequestLog(page: Page): IRequestLog {
 }
 
 /** Stub satu URL dengan response deterministik (5xx, HTML 200, redirect tak dikenal, timeout). */
-export async function stubStoreResponse(
-    page: Page,
-    url: string | RegExp,
-    response: IStubResponse,
-): Promise<void> {
+export async function stubStoreResponse(page: Page, url: string | RegExp, response: IStubResponse): Promise<void> {
     await page.route(url, async (route): Promise<void> => {
         if (response.delayMs !== undefined && response.delayMs > 0) {
             await new Promise<void>((done: () => void): void => {
@@ -139,7 +139,7 @@ export async function readInertiaPage(page: Page): Promise<IInertiaPage> {
 
         if (!samePath(reloaded.url, page.url())) {
             throw new Error(
-                `Inertia payload URL "${reloaded.url}" still does not match page URL "${page.url()}" after reload.`,
+                `Inertia payload URL "${reloaded.url}" still does not match page URL "${page.url()}" after reload.`
             );
         }
 
@@ -157,9 +157,7 @@ export async function readPageProps<TProps>(page: Page): Promise<TProps> {
 async function readInertiaPayload(page: Page): Promise<IInertiaPage> {
     const script = page.locator('script[data-page="app"][type="application/json"]').first();
     const raw =
-        (await script.count()) > 0
-            ? await script.textContent()
-            : await page.locator('#app').getAttribute('data-page');
+        (await script.count()) > 0 ? await script.textContent() : await page.locator('#app').getAttribute('data-page');
 
     if (raw === null) {
         throw new Error('Inertia page payload is missing from script[data-page="app"] and #app[data-page].');

@@ -9,11 +9,15 @@ use Illuminate\Support\Facades\Schema;
  * Satu-satunya pembaca/pemilik baris fixture e2e.
  *
  * Semua penghapusan memakai id hasil resolusi (predikat exact), bukan wildcard pada DELETE.
- * Urutan anak→induk: attendance, answer, field, form, event, user.
+ * Urutan anak→induk: email log, attendance, answer, field, form, event, user.
+ *
+ * `email_logs` wajib lebih dulu: review submission membuat log email yang
+ * mereferensikan event/form_answer/user dengan `restrictOnDelete`.
  */
 final class FixtureScope
 {
     public const DELETE_ORDER = [
+        'email_logs',
         'event_attendances',
         'form_answers',
         'form_fields',
@@ -164,7 +168,16 @@ final class FixtureScope
             'form_fields' => DB::table('form_fields')->where('label', 'like', $suffixLike)->pluck('id')->all(),
             'form_answers' => [],
             'event_attendances' => [],
+            'email_logs' => [],
         ];
+
+        $own['email_logs'] = DB::table('email_logs')
+            ->where(function ($query) use ($own): void {
+                $query->whereIn('event_id', $own['events'])
+                    ->orWhereIn('user_id', $own['users']);
+            })
+            ->pluck('id')
+            ->all();
 
         $expression = DB::connection()->getDriverName() === 'pgsql'
             ? "meta->>'marker'"
@@ -296,6 +309,16 @@ final class FixtureScope
             ->pluck('id')
             ->all();
 
+        $emailLogIds = DB::table('email_logs')
+            ->select('id')
+            ->where(function ($query) use ($eventIds, $answerIds, $userIds): void {
+                $query->whereIn('event_id', $eventIds)
+                    ->orWhereIn('form_answer_id', $answerIds)
+                    ->orWhereIn('user_id', $userIds);
+            })
+            ->pluck('id')
+            ->all();
+
         return [
             'users' => $userIds,
             'events' => $eventIds,
@@ -303,6 +326,7 @@ final class FixtureScope
             'form_fields' => $fieldIds,
             'form_answers' => $answerIds,
             'event_attendances' => $attendanceIds,
+            'email_logs' => $emailLogIds,
         ];
     }
 

@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head } from '@inertiajs/vue3'
-import { Card, CardContent } from '@/components/ui/card'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { setTopbar } from '@/hooks/useDashboardTopbar'
+import { onMounted } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { Card, CardContent } from '@/components/ui/card';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
-defineProps<{ datasets: { data: Array<{ id: string; name: string; source_type: string; recipients_count: number }> } }>()
+defineProps<{
+    datasets: { data: Array<{ id: string; name: string; source_type: string; recipients_count: number }> };
+}>();
 
 onMounted(() => {
-    setTopbar({ title: 'Custom Datasets', subtitle: 'Kelola dataset manual/CSV untuk broadcast' })
-})
+    setTopbar({ title: 'Custom Datasets', subtitle: 'Kelola dataset manual/CSV untuk broadcast' });
+});
 </script>
 
 <template>
@@ -21,8 +23,8 @@ onMounted(() => {
         <Card class="rounded-2xl">
             <CardContent class="p-4 text-sm">
                 <p class="text-muted-foreground">
-                    Custom dataset dibuat saat Generate Snapshot (manual + CSV). Daftar reusable menyusul;
-                    untuk v1.0 gunakan snapshot per broadcast sebagai source of truth.
+                    Custom dataset dibuat saat Generate Snapshot (manual + CSV). Daftar reusable menyusul; untuk v1.0
+                    gunakan snapshot per broadcast sebagai source of truth.
                 </p>
                 <ul class="mt-3 flex flex-col gap-1">
                     <li v-for="d in datasets.data" :key="d.id" class="flex justify-between border-b py-1">

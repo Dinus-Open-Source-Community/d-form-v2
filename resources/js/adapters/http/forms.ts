@@ -56,11 +56,7 @@ function parseReviewSuccess(payload: Record<string, unknown>): IFormReviewSucces
     if (reviewStatus !== 'accepted' && reviewStatus !== 'rejected') return null;
     if (typeof reviewedAt !== 'string' || reviewedAt.length === 0) return null;
     if (typeof reviewedBy !== 'string' || reviewedBy.length === 0) return null;
-    if (
-        typeof cascadedRejections !== 'number'
-        || !Number.isInteger(cascadedRejections)
-        || cascadedRejections < 0
-    ) {
+    if (typeof cascadedRejections !== 'number' || !Number.isInteger(cascadedRejections) || cascadedRejections < 0) {
         return null;
     }
 
@@ -82,8 +78,7 @@ function parseReviewSuccess(payload: Record<string, unknown>): IFormReviewSucces
 
 /** Varian payload review yang bisa dibedakan tanpa melihat status HTTP. */
 type TReviewPayload =
-    | { kind: 'success'; data: IFormReviewSuccessResponse }
-    | { kind: 'error'; body: IFormReviewErrorBody; raw: unknown };
+    { kind: 'success'; data: IFormReviewSuccessResponse } | { kind: 'error'; body: IFormReviewErrorBody; raw: unknown };
 
 /**
  * Parser payload review: body yang bukan kontrak sukses dianggap body error,
@@ -130,7 +125,7 @@ export async function updateFormSettings(url: string, payload: Record<string, un
 export async function uploadBuilderImage(
     url: string,
     file: File,
-    fieldName = 'file',
+    fieldName = 'file'
 ): Promise<IBuilderImageUploadResult> {
     const formData = new FormData();
     formData.append(fieldName, file);
@@ -156,7 +151,7 @@ export async function reviewFormSubmission(options: {
 }): Promise<IFormReviewResult> {
     const result = await requestJsonWithStatus(
         { url: options.url, method: options.method, body: { review_status: options.reviewStatus } },
-        parseReviewPayload,
+        parseReviewPayload
     );
 
     const isSuccess = result.status >= 200 && result.status < 300;
@@ -202,7 +197,7 @@ export async function lookupRegisteredUser(options: {
             if (exists === null && message === '') return null;
 
             return { exists, message, user };
-        },
+        }
     );
     const data = result.data;
     const isSuccess = result.status >= 200 && result.status < 300;

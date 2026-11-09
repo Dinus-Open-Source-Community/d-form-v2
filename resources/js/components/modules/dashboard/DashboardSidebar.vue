@@ -50,14 +50,14 @@ const canScheduleRecruitmentInterviews = computed(() => user.value?.can_schedule
 const canViewMyRecruitmentInterviews = computed(() => user.value?.can_view_my_recruitment_interviews === true);
 const canViewRecruitmentActivity = computed(() => user.value?.can_view_recruitment_activity === true);
 const isInterviewerOnly = computed(() => user.value?.is_recruitment_interviewer_only === true);
-const canScanGlobal = computed(() => user.value?.can_manage_events === true || user.value?.can_scan_recruitment_attendance === true);
+const canScanGlobal = computed(
+    () => user.value?.can_manage_events === true || user.value?.can_scan_recruitment_attendance === true
+);
 
 const currentPath = computed(() => page.url);
 
 /** Beranda penyelenggara vs portal peserta — URL terpisah, sama-sama “Beranda” di UI. */
-const mainNavItems = computed(() => [
-    { label: 'Beranda', href: routes.dashboard.index, icon: LayoutDashboard },
-]);
+const mainNavItems = computed(() => [{ label: 'Beranda', href: routes.dashboard.index, icon: LayoutDashboard }]);
 
 const managementItems = computed(() => {
     const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
@@ -79,7 +79,11 @@ const managementItems = computed(() => {
     }
 
     if (canAccessRecruitment.value && isInterviewerOnly.value) {
-        items.push({ label: 'Interview OpRec', href: routes.admin.recruitment.myInterviews.index, icon: ClipboardCheck });
+        items.push({
+            label: 'Interview OpRec',
+            href: routes.admin.recruitment.myInterviews.index,
+            icon: ClipboardCheck,
+        });
     }
     // Rekrutmen untuk non-interviewer dirender sebagai parent collapsible
     // di bawah (showRecruitmentParent), bukan flat item di sini.
@@ -87,12 +91,12 @@ const managementItems = computed(() => {
     if (!canManageEvents.value && !canAccessRecruitment.value) {
         items.push(
             { label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
-            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass },
+            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
         );
     } else if (!canManageEvents.value && canAccessRecruitment.value) {
         items.push(
             { label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
-            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass },
+            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
         );
     }
 
@@ -131,9 +135,7 @@ const recruitmentSettingsItems = computed(() => {
 const showRecruitmentSettings = computed(() => recruitmentSettingsItems.value.length > 0);
 /** FLATTEN: gabung ops + settings jadi satu level sublist di bawah parent Rekrutmen. */
 const recruitmentSubItems = computed(() => [...recruitmentOpsItems.value, ...recruitmentSettingsItems.value]);
-const showRecruitmentParent = computed(
-    () => recruitmentOpsItems.value.length > 0 || showRecruitmentSettings.value,
-);
+const showRecruitmentParent = computed(() => recruitmentOpsItems.value.length > 0 || showRecruitmentSettings.value);
 
 const recruitmentOpen = ref(false);
 
@@ -156,7 +158,7 @@ watch(
             recruitmentOpen.value = true;
         }
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 function closeMobileIfNeeded() {
@@ -169,7 +171,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
 
 <template>
     <Sidebar collapsible="icon" variant="sidebar" class="border-sidebar-border bg-sidebar overflow-x-hidden border-r">
-        <SidebarHeader class="gap-0 overflow-hidden border-b border-sidebar-border/50 p-0">
+        <SidebarHeader class="border-sidebar-border/50 gap-0 overflow-hidden border-b p-0">
             <Link
                 :href="routes.dashboard.index"
                 class="hover:bg-sidebar-accent/25 flex w-full min-w-0 items-center overflow-hidden px-4 py-3.5 transition-colors"
@@ -178,14 +180,14 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
                 <img
                     :src="sidebarLogoSrc"
                     alt="DForm"
-                    class="h-auto max-h-9 w-full max-w-full object-contain object-center select-none group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:max-h-8 group-data-[collapsible=icon]:max-w-8 group-data-[collapsible=icon]:object-contain"
+                    class="h-auto max-h-9 w-full max-w-full object-contain object-center select-none group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:max-h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:max-w-8 group-data-[collapsible=icon]:object-contain"
                     width="160"
                     height="40"
                 />
             </Link>
         </SidebarHeader>
 
-        <SidebarContent class="flex-1 overflow-x-hidden px-2.5 pb-3 pt-3">
+        <SidebarContent class="flex-1 overflow-x-hidden px-2.5 pt-3 pb-3">
             <SidebarGroup class="p-0">
                 <SidebarGroupLabel
                     class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
@@ -272,9 +274,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
                     </SidebarMenu>
                 </SidebarGroupContent>
             </SidebarGroup>
-
         </SidebarContent>
-
 
         <SidebarRail />
     </Sidebar>

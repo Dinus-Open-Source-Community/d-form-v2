@@ -3,21 +3,23 @@ name: Quality
 # Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
 # dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
 #
-# BLOCKING : ESLint, unit test backend (PHPUnit), unit test frontend (Vitest),
-#            E2E typecheck, E2E runtime subset, dan bundle budget. Baseline
-#            terakhir: ESLint 0 error, PHPUnit 61 passed, Vitest suite green,
-#            entry 15,33 kB gzip dan chunk page terbesar 145,58 kB gzip. E2E
-#            runtime hijau pada server/SQLite ekuivalen lokal; eksekusi runner
-#            GitHub pertama masih Needs verification.
-# REPORT   : Pint dan Prettier. Baseline terukur 27-10-2026 masih kotor:
-#            - Prettier: 429 file resources/js/**/*.{ts,vue} belum terformat
-#            - Pint: 24 file (tiket mencatat 19; baseline bertambah sebelum tiket dikerjakan)
-#            Keduanya baru dijadikan blocking setelah baseline dibersihkan di tiket
-#            terpisah. Gate yang merah sejak hari pertama akan diabaikan orang.
-# TYPECHECK: typecheck proyek (`npm run typecheck` / vue-tsc) belum dijalankan di
-#            workflow ini; job `frontend-unit` hanya memeriksa subset unit test
-#            lewat `tsconfig.vitest.json`. Menjadikan typecheck proyek sebagai
-#            gate adalah scope tiket CI terpisah.
+# BLOCKING : ESLint, typecheck proyek (vue-tsc), unit test backend (PHPUnit Unit
+#            + Feature), unit test frontend (Vitest), E2E typecheck, composer
+#            audit, migration smoke, bundle budget, Laravel Pint, dan Prettier.
+#            Baseline terakhir: ESLint 0 error, typecheck 0 error, PHPUnit Feature
+#            1005 passed/16 skipped, Vitest suite green, entry 15,33 kB gzip dan
+#            chunk page terbesar 145,58 kB gzip, Pint 694 file bersih, Prettier
+#            0 file (AUDIT-P2-001, 09-11-2026).
+# REPORT   : E2E runtime. Report-only sampai hijau satu kali di runner GitHub.
+#
+# Cakupan format: `resources/js/components/ui` (vendored shadcn-vue, dilarang
+# diedit langsung per AGENTS.md) dan direktori generated Wayfinder dikecualikan
+# lewat `.prettierignore`, sehingga lokal dan CI memakai set file yang sama.
+# PHP      : Platform composer dipin ke PHP 8.4.27 (config.platform), minor yang
+#            sama dengan image produksi `dunglas/frankenphp:1-php8.4-alpine`.
+#            setup-php di Linux hanya menerima versi minor, jadi runner memakai
+#            `8.4`; job `test` memverifikasi minor, batas bawah patch, dan
+#            `require.php` konsisten dengan pin tersebut.
 #
 # Job formatting menggantikan .github/workflows/code_formatting.yml yang dihapus:
 # isinya sama, tetapi dipindahkan ke sini agar implementasi hanya berjalan sekali
@@ -68,14 +70,16 @@ jobs:
     test:
         name: PHPUnit Unit (blocking)
         runs-on: ubuntu-latest
+        timeout-minutes: 20
 
         steps:
             - name: Checkout Code
               uses: actions/checkout@v4
 
-            # PHP 8.4, bukan 8.3: composer.lock mengunci paket yang mensyaratkan
-            # ^8.4 (endroid/qr-code, openspout) walau composer.json menulis ^8.2.
-            # Memakai 8.3 akan menggagalkan composer install sejak awal.
+            # PHP 8.4 menyamai platform produksi (Dockerfile.prod memakai
+            # FrankenPHP 1-php8.4-alpine). Lock mengunci paket yang mensyaratkan
+            # ^8.4 (endroid/qr-code, openspout); memakai 8.3 akan menggagalkan
+            # composer install sejak awal.
             # Tidak perlu service MySQL: phpunit.xml memakai sqlite :memory:.
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
@@ -89,6 +93,17 @@ jobs:
             - name: Install Composer Dependencies
               run: composer install --prefer-dist --no-progress --no-interaction
 
+            # setup-php di Linux hanya bisa memilih versi minor (8.4), sehingga
+            # patch runner tidak dapat di-hardcode. Guard ini menolak runtime yang
+            # minor-nya beda, runtime lebih rendah dari pin, dan manifest yang
+            # require.php tidak sejalan dengan pin `config.platform.php`.
+            - name: Verify PHP Runtime Matches Platform Pin
+              run: |
+                  php -r '$c = json_decode(file_get_contents("composer.json"), true); $pin = $c["config"]["platform"]["php"] ?? null; $require = $c["require"]["php"] ?? ""; $minor = $pin === null ? "" : substr($pin, 0, 3); if ($pin === null) { fwrite(STDERR, "config.platform.php is missing\n"); exit(1); } if (substr(PHP_VERSION, 0, 3) !== $minor) { fwrite(STDERR, "PHP ".PHP_VERSION." minor does not match pinned platform ".$pin."\n"); exit(1); } if (version_compare(PHP_VERSION, $pin, "<")) { fwrite(STDERR, "PHP ".PHP_VERSION." is lower than the pinned platform ".$pin."\n"); exit(1); } if (!str_starts_with($require, "^".$minor)) { fwrite(STDERR, "composer.json require.php ".var_export($require, true)." does not match pinned minor ".$minor."\n"); exit(1); }'
+
+            - name: Verify Platform Requirements
+              run: composer check-platform-reqs
+
             - name: Prepare Environment
               run: |
                   cp .env.example .env
@@ -96,6 +111,110 @@ jobs:
 
             - name: Run Unit Tests
               run: php artisan test --testsuite=Unit
+
+    # Feature suite memakai SQLite. phpunit.xml memasang `<server>` (DB
+    # :memory:, queue sync, cache array), jadi env job ini adalah jaring pengaman
+    # untuk proses yang berjalan di luar PHPUnit dan menjaga driver tetap sama
+    # dengan runtime uji lain.
+    # phpunit.xml memasang `<server>` untuk seluruh suite: DB sqlite :memory:,
+    # CACHE_STORE array, QUEUE_CONNECTION sync, MAIL_MAILER array, BCRYPT_ROUNDS 4.
+    # Nilai itu mengalahkan env proses, jadi job ini sengaja tidak menyetel env DB
+    # dan tidak membuat file sqlite (file-backed migration diuji di
+    # `migration-smoke`). Menambah env di sini hanya memberi rasa aman palsu.
+    feature-tests:
+        name: PHPUnit Feature (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Run Feature Tests
+              run: php artisan test --testsuite=Feature
+
+    # Audit membaca composer.lock langsung, jadi tidak perlu vendor. `--strict`
+    # menolak warning (mis. lock hash basi terhadap composer.json). Gate gagal
+    # bila ada advisory. Paket abandoned tetap dilaporkan tetapi tidak memblokir
+    # (`--abandoned=report`); daftar itu terbatas pada 3 dependency dev-only dari
+    # rantai laravel-lang. Paket abandoned baru wajib direview dulu (hapus/ganti
+    # atau catat waiver), jangan diterima diam-diam.
+    composer-audit:
+        name: Composer audit (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  coverage: none
+
+            - name: Validate Composer Manifest and Lock
+              run: composer validate --no-interaction --strict
+
+            - name: Audit Locked Dependencies
+              run: composer audit --locked --no-interaction --abandoned=report
+
+    # Smoke test migration pada database SQLite baru: memastikan seluruh migration
+    # dapat dijalankan dari nol dan tercatat `Ran` tanpa bergantung pada data dummy.
+    migration-smoke:
+        name: Migration smoke (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        env:
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/migrate-smoke.sqlite
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            MAIL_MAILER: log
+            BCRYPT_ROUNDS: '4'
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/migrate-smoke.sqlite
+
+            - name: Run Migrations
+              run: php artisan migrate --force --no-interaction
+
+            - name: Show Migration Status
+              run: php artisan migrate:status
 
     frontend-unit:
         name: Frontend unit (blocking)
@@ -139,12 +258,14 @@ jobs:
               run: npm run test:unit
 
             # Typecheck subset unit test (tsconfig.vitest.json). Typecheck proyek
-            # penuh (`vue-tsc`) belum menjadi gate workflow ini.
+            # penuh dijalankan job `typecheck`.
             - name: Typecheck Unit Tests
               run: npm run typecheck:unit
 
-    formatting:
-        name: Formatting (report only)
+    # vue-tsc membutuhkan output Wayfinder yang gitignored, jadi PHP + Composer
+    # + `.env` + generate harus siap sebelum `npm run typecheck`.
+    typecheck:
+        name: Typecheck (blocking)
         runs-on: ubuntu-latest
 
         steps:
@@ -161,9 +282,13 @@ jobs:
             - name: Install Composer Dependencies
               run: composer install --prefer-dist --no-progress --no-interaction
 
-            - name: Run Laravel Pint (report only)
-              run: ./vendor/bin/pint --test
-              continue-on-error: true
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Generate Wayfinder Routes
+              run: php artisan wayfinder:generate
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -174,9 +299,44 @@ jobs:
             - name: Install NPM Dependencies
               run: npm ci
 
-            - name: Run Prettier (report only)
-              run: npx prettier --check "resources/js/**/*.{ts,vue}"
-              continue-on-error: true
+            - name: Run Project Typecheck
+              run: npm run typecheck
+
+    formatting:
+        name: Formatting (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Run Laravel Pint
+              run: ./vendor/bin/pint --test
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            # .prettierignore mengecualikan components/ui (vendored shadcn-vue)
+            # dan direktori generated Wayfinder, jadi glob literal ini identik
+            # dengan set file lokal. `vite.config.js` sengaja tidak disertakan.
+            - name: Run Prettier
+              run: npx prettier --check "resources/js/**/*.{ts,vue,js}" "tests/e2e/**/*.ts" playwright.config.ts eslint.config.js "scripts/**/*.{js,mjs,ts}"
 
     bundle-budget:
         name: Bundle budget (blocking)
@@ -332,7 +492,14 @@ jobs:
             - name: Run Focused E2E
               shell: bash
               run: |
-                  set -euo pipefail
+                  set -uo pipefail
+
+                  # Satu runId untuk seluruh step: `test:e2e:setup` dan setiap
+                  # `playwright test --no-deps` adalah proses terpisah, dan tanpa
+                  # nilai eksplisit masing-masing membuat id sendiri sehingga
+                  # storageState admin yang ditulis setup tidak ditemukan spec.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
                   php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
                     > storage/logs/serve.log 2>&1 &
                   SERVER_PID=$!
@@ -352,7 +519,11 @@ jobs:
                     exit 1
                   fi
 
-                  npm run test:e2e:setup
+                  # Semua grup dijalankan walau ada yang gagal, supaya satu run
+                  # memperlihatkan seluruh regresi, bukan hanya grup pertama.
+                  status=0
+
+                  npm run test:e2e:setup || status=1
 
                   # retries=0: flake harus terlihat di gate, bukan ditutupi retry.
                   npx playwright test --project=chromium-desktop --no-deps --retries=0 \
@@ -360,14 +531,19 @@ jobs:
                     qr-scan.desktop.spec.ts \
                     recruitment-tracking-portal.desktop.spec.ts \
                     email-job-idempotency.desktop.spec.ts \
-                    broadcast-gated.spec.ts
+                    broadcast-gated.spec.ts \
+                    session-isolation.desktop.spec.ts \
+                    environment-probe.desktop.spec.ts \
+                    auth-guard.spec.ts || status=1
 
                   npx playwright test --project=chromium-desktop --no-deps --retries=0 \
                     form-submission-boundary.desktop.spec.ts \
-                    --grep '(single registration submits|empty single registration)'
+                    --grep '(single registration submits|empty single registration)' || status=1
 
                   npx playwright test --project=chromium-mobile --no-deps --retries=0 \
-                    broadcast-gated.spec.ts
+                    broadcast-gated.spec.ts || status=1
+
+                  exit "$status"
 
             - name: Upload Playwright Artefacts
               if: failure()

@@ -75,7 +75,7 @@ class DatabasePreparedStatementsTest extends TestCase
         $connectionOptions = config('database.connections.mysql.options');
         $this->assertIsArray($connectionOptions);
 
-        $options = (new MySqlConnector)->getOptions(['options' => $connectionOptions]);
+        $options = (new MySqlConnector())->getOptions(['options' => $connectionOptions]);
         $emulatePrepares = $options[PDO::ATTR_EMULATE_PREPARES] ?? null;
 
         $this->assertIsBool($emulatePrepares);

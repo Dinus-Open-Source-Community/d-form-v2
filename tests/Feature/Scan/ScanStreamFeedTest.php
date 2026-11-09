@@ -21,7 +21,6 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\AttendanceService;
 use App\Services\Scan\ScanStreamFeed;
-use App\Support\RecruitmentQrPayload;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;

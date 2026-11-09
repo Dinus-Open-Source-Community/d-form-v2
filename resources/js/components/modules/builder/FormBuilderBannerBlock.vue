@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { ImageUp, Loader2, RefreshCw, X } from 'lucide-vue-next';
-import type { FormBannerState } from './formBanner';
+import type { IFormBannerState } from './formBanner';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import {
     createLocalImagePreviewUrl,
@@ -10,7 +10,7 @@ import {
     useBuilderImageUpload,
 } from '@/hooks/useBuilderImageUpload';
 
-const banner = defineModel<FormBannerState>('banner', { required: true });
+const banner = defineModel<IFormBannerState>('banner', { required: true });
 
 /** `frame` = kartu mandiri (border + shadow sendiri); `plain` = panel di dalam section induk */
 const props = withDefaults(
@@ -24,7 +24,7 @@ const props = withDefaults(
         variant: 'frame',
         bannerPreviewSrc: '',
         uploadUrl: '',
-    },
+    }
 );
 
 const isDragging = ref(false);
@@ -41,12 +41,12 @@ const { uploading: bannerUploading, uploadImage } = useBuilderImageUpload({
 });
 
 const previewSrc = computed(
-    () => localPreviewUrl.value || props.bannerPreviewSrc || normalizePublicStorageUrl(banner.value.bannerUrl),
+    () => localPreviewUrl.value || props.bannerPreviewSrc || normalizePublicStorageUrl(banner.value.bannerUrl)
 );
 const hasImage = computed(() => previewSrc.value !== '');
 const isUploading = computed(() => bannerUploading.value);
 
-function patch(partial: Partial<FormBannerState>): void {
+function patch(partial: Partial<IFormBannerState>): void {
     Object.assign(banner.value, partial);
 }
 

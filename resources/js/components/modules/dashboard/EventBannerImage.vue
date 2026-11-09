@@ -44,7 +44,7 @@ const resolvedSrc = computed(() => {
 </script>
 
 <template>
-    <div class="relative size-full overflow-hidden bg-muted">
+    <div class="bg-muted relative size-full overflow-hidden">
         <img
             v-if="showImg"
             :src="resolvedSrc"

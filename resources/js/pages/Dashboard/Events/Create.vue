@@ -24,7 +24,7 @@ import {
     resolveBuilderImageUploadUrl,
     sanitizeBuilderSnapshot,
 } from '@/hooks/useBuilderImageUpload';
-import { fromBackendField, toBackendFields, type BackendField } from '@/components/modules/builder/fieldMapping';
+import { fromBackendField, toBackendFields, type IBackendField } from '@/components/modules/builder/fieldMapping';
 import {
     defaultFormBannerState,
     prependFormBannerToBackendPayload,
@@ -35,7 +35,7 @@ import {
     parseFormRegistrationMetadata,
     toFormMetadataPayload,
 } from '@/lib/formRegistrationMetadata';
-import type { BuilderField } from '@/types/form-builder';
+import type { IBuilderField } from '@/types/form-builder';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardFocusLayout });
@@ -50,7 +50,7 @@ interface WizardDraftForm {
     banner_url: string | null;
     banner_caption: string | null;
     metadata: unknown;
-    fields: BackendField[];
+    fields: IBackendField[];
 }
 
 interface WizardDraftEvent extends IEvent {
@@ -102,7 +102,7 @@ const successContent = ref<string>('');
 const closedAt = ref<string>('');
 const visibleFor = ref<string[]>([]);
 const bannerState = ref(defaultFormBannerState());
-const formFields = ref<BuilderField[]>([]);
+const formFields = ref<IBuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
 function hydrateBuilder(): void {
@@ -115,7 +115,7 @@ function hydrateBuilder(): void {
     visibleFor.value = [...(f.visible_for ?? [])];
     formMetadata.value = parseFormRegistrationMetadata(f.metadata);
 
-    const raw: BackendField[] = JSON.parse(JSON.stringify(f.fields ?? []));
+    const raw: IBackendField[] = JSON.parse(JSON.stringify(f.fields ?? []));
     raw.sort((a, b) => a.order - b.order);
     const mapped = raw.map((bf) => fromBackendField(bf));
     const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
@@ -147,7 +147,7 @@ function buildBuilderSnapshot(): string {
             closedAt: closedAt.value,
             visibleFor: visibleFor.value,
             metadata: formMetadata.value,
-        }),
+        })
     );
 }
 
@@ -290,7 +290,6 @@ const steps = [
     { key: 'forms', label: 'Formulir pendaftaran' },
 ];
 const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
-
 </script>
 
 <template>

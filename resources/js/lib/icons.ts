@@ -4,7 +4,7 @@
  * Rule: only re-export icons used for actual *actions* and *navigation*.
  * Decorative illustrations should use Lottie via `LocalLottie`.
  *
- * Adding a new icon: import it here AND add the key to `CuratedIconName`
+ * Adding a new icon: import it here AND add the key to `TCuratedIconName`
  * in `@/types/icons.ts`. Avoid importing lucide directly elsewhere.
  */
 import {
@@ -59,9 +59,9 @@ import {
     Star,
     Send,
     GripVertical,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
-import type { CuratedIconName, IconComponent } from '@/types/icons'
+import type { TCuratedIconName, TIconComponent } from '@/types/icons';
 
 export const icons = {
     arrowRight: ArrowRight,
@@ -115,6 +115,6 @@ export const icons = {
     star: Star,
     send: Send,
     grip: GripVertical,
-} as const satisfies Record<CuratedIconName, IconComponent>
+} as const satisfies Record<TCuratedIconName, TIconComponent>;
 
-export type { CuratedIconName, IconComponent }
+export type { TCuratedIconName, TIconComponent };

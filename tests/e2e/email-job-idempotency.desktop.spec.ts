@@ -199,7 +199,7 @@ test.describe('AUDIT-P1-007 email delivery idempotency', () => {
             await page.getByRole('button', { name: /Kirim Pendaftaran/i }).click();
 
             await expect(
-                page.locator('#app').getByText(/Divisi cadangan tidak boleh sama dengan divisi utama/i),
+                page.locator('#app').getByText(/Divisi cadangan tidak boleh sama dengan divisi utama/i)
             ).toBeVisible({ timeout: 20_000 });
             await expect(page).not.toHaveURL(/\/recruitment\/success/);
             expect(applicationIdForNim(nim)).toBeNull();

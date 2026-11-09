@@ -2,10 +2,8 @@
 
 namespace App\Services\Recruitment;
 
-use App\Enums\EmailLogStatus;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
-use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -20,6 +18,10 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class RecruitmentApplicationService
 {
+    public function __construct(private readonly RecruitmentEmailResendService $resendService)
+    {
+    }
+
     /**
      * Kolom yang dibutuhkan `toListArray()` + foreign key relasi; `SELECT *`
      * menghidrasi kolom berat seperti phone/personal_email tanpa dipakai.
@@ -525,28 +527,15 @@ final class RecruitmentApplicationService
         ];
     }
 
-    /** Ada notifikasi terkirim yang bisa diputar ulang (cermin aturan resend). */
+    /**
+     * Ada notifikasi terkirim yang bisa diputar ulang (cermin aturan resend).
+     *
+     * Cermin persis `RecruitmentEmailResendService::latestReplayableNotification()`:
+     * prasyarat UI dan aksi POST tidak boleh berbeda arti.
+     */
     private function hasReplayableNotification(RecruitmentApplication $application, bool $hasInterview): bool
     {
-        $lastType = EmailLog::query()
-            ->where('recruitment_application_id', $application->id)
-            ->where('status', EmailLogStatus::Sent)
-            ->orderByDesc('created_at')
-            ->first()?->notification_type?->value;
-
-        $templateKey = is_string($lastType)
-            ? (RecruitmentEmailResendService::RESENDABLE_TEMPLATES[$lastType] ?? null)
-            : null;
-
-        if ($templateKey === null) {
-            return false;
-        }
-
-        if (in_array($templateKey, ['interview_scheduled', 'interview_rescheduled'], true)) {
-            return $hasInterview;
-        }
-
-        return true;
+        return $this->resendService->latestReplayableNotification($application, $hasInterview) !== null;
     }
 
     private function canDecideFinal(RecruitmentApplication $application): bool

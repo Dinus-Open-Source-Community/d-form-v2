@@ -109,7 +109,7 @@ function primeFormClosedAt(formId: string): void {
     }
 
     runArtisan(
-        `\\App\\Models\\Form::whereKey('${formId}')->update(['closed_at' => \\Illuminate\\Support\\Carbon::now()->addDay()]);`,
+        `\\App\\Models\\Form::whereKey('${formId}')->update(['closed_at' => \\Illuminate\\Support\\Carbon::now()->addDay()]);`
     );
 }
 
@@ -119,14 +119,20 @@ async function openShowEditor(page: Page, eventId: string, formId: string): Prom
     const status = response?.status() ?? 0;
 
     if (status !== 200) {
-        const body = await page.locator('body').innerText().catch((): string => '');
+        const body = await page
+            .locator('body')
+            .innerText()
+            .catch((): string => '');
         throw new Error(`Show form returned HTTP ${status}: ${body.slice(0, 300)}`);
     }
 
     try {
         await expect(page.locator('#f-title')).toBeVisible({ timeout: 20_000 });
     } catch (error) {
-        const body = await page.locator('body').innerText().catch((): string => '');
+        const body = await page
+            .locator('body')
+            .innerText()
+            .catch((): string => '');
         throw new Error(`#f-title missing at ${page.url()}: ${body.slice(0, 500)}; cause: ${String(error)}`);
     }
 }
@@ -289,9 +295,7 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
         }
     });
 
-    test('judul kosong memicu 422 lalu judul valid tersimpan tanpa menyimpan nilai kosong', async ({
-        page,
-    }) => {
+    test('judul kosong memicu 422 lalu judul valid tersimpan tanpa menyimpan nilai kosong', async ({ page }) => {
         const fixture = createAdminOwnedForm(test.info());
         primeFormClosedAt(fixture.formId);
 
@@ -319,9 +323,7 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
         }
     });
 
-    test('manual save saat autosave berjalan tidak overlap dan respons terakhir menang', async ({
-        page,
-    }) => {
+    test('manual save saat autosave berjalan tidak overlap dan respons terakhir menang', async ({ page }) => {
         const fixture = createAdminOwnedForm(test.info());
         primeFormClosedAt(fixture.formId);
 
@@ -348,11 +350,11 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
             await page.locator('#f-title').fill(title);
 
             await expect
-                .poll((): number =>
-                    monitor.events.filter(
-                        (entry: IWriteEvent): boolean =>
-                            entry.kind === 'fields-post' && entry.phase === 'start',
-                    ).length,
+                .poll(
+                    (): number =>
+                        monitor.events.filter(
+                            (entry: IWriteEvent): boolean => entry.kind === 'fields-post' && entry.phase === 'start'
+                        ).length
                 )
                 .toBeGreaterThanOrEqual(1);
 
@@ -364,38 +366,32 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
                 .poll(
                     (): number => {
                         const starts = monitor.events.filter(
-                            (entry: IWriteEvent): boolean => entry.phase === 'start',
+                            (entry: IWriteEvent): boolean => entry.phase === 'start'
                         ).length;
                         const ends = monitor.events.filter(
-                            (entry: IWriteEvent): boolean => entry.phase === 'end',
+                            (entry: IWriteEvent): boolean => entry.phase === 'end'
                         ).length;
                         const putStarts = monitor.events.filter(
-                            (entry: IWriteEvent): boolean =>
-                                entry.kind === 'form-put' && entry.phase === 'start',
+                            (entry: IWriteEvent): boolean => entry.kind === 'form-put' && entry.phase === 'start'
                         ).length;
 
                         return starts === ends && putStarts >= 2 ? ends : -1;
                     },
-                    { timeout: 15_000 },
+                    { timeout: 15_000 }
                 )
                 .toBeGreaterThanOrEqual(3);
 
             expect(monitor.openCount()).toBe(0);
             expect(monitor.maxConcurrent(), describeWriteEvents(monitor.events)).toBe(1);
-            await expect(
-                page.getByTestId('autosave-status').getByText('Tersimpan'),
-            ).toBeVisible();
+            await expect(page.getByTestId('autosave-status').getByText('Tersimpan')).toBeVisible();
 
             const putStarts = monitor.events.filter(
-                (entry: IWriteEvent): boolean => entry.kind === 'form-put' && entry.phase === 'start',
+                (entry: IWriteEvent): boolean => entry.kind === 'form-put' && entry.phase === 'start'
             );
             const putEndsById = new Map<number, number>(
                 monitor.events
-                    .filter(
-                        (entry: IWriteEvent): boolean =>
-                            entry.kind === 'form-put' && entry.phase === 'end',
-                    )
-                    .map((entry: IWriteEvent): [number, number] => [entry.id, entry.at]),
+                    .filter((entry: IWriteEvent): boolean => entry.kind === 'form-put' && entry.phase === 'end')
+                    .map((entry: IWriteEvent): [number, number] => [entry.id, entry.at])
             );
 
             expect(putStarts.length).toBeGreaterThanOrEqual(2);

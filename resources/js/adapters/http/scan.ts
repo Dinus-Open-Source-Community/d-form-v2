@@ -148,7 +148,7 @@ export async function fetchScanFeed(options: {
             signal: options.signal,
             timeoutMs: options.timeoutMs,
         },
-        parseFeedPayload,
+        parseFeedPayload
     );
 }
 
@@ -169,7 +169,7 @@ export async function submitScan(options: {
 }): Promise<IScanSubmitResult> {
     const result = await requestJsonWithStatus(
         { url: options.url, method: 'POST', body: options.payload },
-        parseScanPayload,
+        parseScanPayload
     );
     const isSuccess = result.status >= 200 && result.status < 300;
 

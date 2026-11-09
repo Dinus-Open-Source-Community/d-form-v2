@@ -1,23 +1,25 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import { redirectToGithub, redirectToGoogle } from '@/actions/App/Http/Controllers/Auth/OAuthController'
-import { assignUrl } from '@/adapters/browser/navigation'
+import { Button } from '@/components/ui/button';
+import { redirectToGithub, redirectToGoogle } from '@/actions/App/Http/Controllers/Auth/OAuthController';
+import { assignUrl } from '@/adapters/browser/navigation';
 
 function goToGoogle() {
-    assignUrl(redirectToGoogle.url())
+    assignUrl(redirectToGoogle.url());
 }
 
 function goToGithub() {
-    assignUrl(redirectToGithub.url())
+    assignUrl(redirectToGithub.url());
 }
 </script>
 
 <template>
     <div>
         <div class="my-6 flex items-center gap-3">
-            <span class="h-px flex-1 bg-border"></span>
-            <span class="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">atau lanjutkan dengan</span>
-            <span class="h-px flex-1 bg-border"></span>
+            <span class="bg-border h-px flex-1"></span>
+            <span class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase"
+                >atau lanjutkan dengan</span
+            >
+            <span class="bg-border h-px flex-1"></span>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
