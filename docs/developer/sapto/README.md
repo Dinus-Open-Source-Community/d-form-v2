@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges09-11-2026-DFORM-BE-P2-004.md](./saptoChanges09-11-2026-DFORM-BE-P2-004.md) | Cascade soft-delete/restore event jadi dua bulk `UPDATE` dalam transaksi + retry: 123 → 4 query pada 10 form × 10 field, 553 → 4 pada 500 field, deadlock ABBA dengan autosave dihilangkan di MySQL 9 dan MariaDB 10.11; query-count regression test + E2E browser/anomali (BE-P2-004).
 - [saptoChanges08-11-2026-DFORM-BE-P2-002.md](./saptoChanges08-11-2026-DFORM-BE-P2-002.md) | Export CSV interview memakai keyset pagination + index komposit `(period, registration_number)`: 1.046 → 425 query, 6.169.310 → 186.821 baris dibaca, 1.347 → 32,9 s pada 20.000 baris, kontrak CSV identik (BE-P2-002).
 - [saptoChanges08-11-2026-DFORM-BE-P2-001.md](./saptoChanges08-11-2026-DFORM-BE-P2-001.md) | Daftar pelamar recruitment: tiga index komposit (period + sort + filter) menghapus filesort 5,2 s → 47 ms rata-rata, `SELECT *` diganti kolom eksplisit; FULLTEXT ditolak setelah diukur lebih lambat untuk awalan NIM dan tidak online di MariaDB (BE-P2-001).
 - [saptoChanges08-11-2026-DFORM-SEC-P3-012.md](./saptoChanges08-11-2026-DFORM-SEC-P3-012.md) | Allowlist `Host`/`X-Forwarded-Host` (`APP_URL` + `TRUSTED_HOSTS`, exact host, pattern ter-anchor) lewat middleware always-on; host asing ditolak `400` sebelum routing, unit/feature/E2E browser + anomali (SEC-P3-012).

@@ -7,8 +7,20 @@ use App\Services\Event\EventCategoryCounter;
 use App\Services\Event\EventCategoryOptionService;
 use App\Services\Event\EventSessionOptionService;
 use App\Models\Form;
+use App\Models\FormField;
 use App\Services\Event\EventCache;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Side effect event: cascade form/field, cache, dan agregat kategori.
+ *
+ * Cascade delete/restore memakai `DB::transaction($callback, 3)`. Retry Laravel mencakup
+ * deadlock 1213 dan lock-wait timeout 1205 — `ConcurrencyErrorDetector` mencocokkan pesan
+ * "Lock wait timeout exceeded; try restarting transaction". Retry bersifat inert bila
+ * observer berjalan di dalam transaksi milik pemanggil (`transactions > 1`): Laravel
+ * melempar `DeadlockException`, bukan mengulang. Saat ini tidak ada pemanggil yang
+ * membungkus delete/restore event dalam transaksi luar.
+ */
 class EventObserver
 {
     public function __construct(private readonly EventCategoryCounter $categoryCounter)
@@ -72,15 +84,27 @@ class EventObserver
     /**
      * Cascade soft-delete to child forms (and their fields) so an event draft
      * removal (wizard Cancel) does not leave orphaned forms behind.
+     *
+     * Bulk `UPDATE` (bukan delete per model) menjaga jumlah query konstan. Form dan
+     * FormField tidak punya observer/listener, jadi tidak ada side effect model yang
+     * terlewat; `updated_at` diisi otomatis oleh Eloquent Builder::update().
+     *
+     * Form di-update lebih dulu, baru field: subquery field memakai `withTrashed()`
+     * sehingga form yang baru saja di-soft-delete tetap cocok. Urutan ini menghindari
+     * lock S->X pada `forms` dan ABBA dengan `FormController::update` (forms lalu fields);
+     * `DB::transaction(..., 3)` menangani deadlock 1213 yang tersisa.
      */
     public function deleting(Event $event): void
     {
-        $event->forms()->withTrashed()->get()->each(function (Form $form): void {
-            $form->formFields()->withTrashed()->get()->each(function ($field): void {
-                $field->delete();
-            });
-            $form->delete();
-        });
+        DB::transaction(function () use ($event): void {
+            Form::withTrashed()
+                ->where('event_id', $event->id)
+                ->update(['deleted_at' => now()]);
+
+            FormField::withTrashed()
+                ->whereIn('form_id', Form::withTrashed()->select('id')->where('event_id', $event->id))
+                ->update(['deleted_at' => now()]);
+        }, 3);
     }
 
     /**
@@ -88,15 +112,22 @@ class EventObserver
      *
      * Hitungan kategori tidak disentuh di sini: `restore()` memicu `updated` dengan
      * deleted_at berubah, dan delta di `updated` sudah menambahkannya kembali.
+     *
+     * `onlyTrashed()` meniru perilaku `restore()` per model: baris yang masih aktif
+     * adalah no-op, sehingga form yang diarsipkan terpisah tetap ikut dikembalikan.
+     * Urutan form-lalu-field dan retry deadlock sama dengan {@see deleting()}.
      */
     public function restored(Event $event): void
     {
-        $event->forms()->withTrashed()->get()->each(function (Form $form): void {
-            $form->formFields()->withTrashed()->get()->each(function ($field): void {
-                $field->restore();
-            });
-            $form->restore();
-        });
+        DB::transaction(function () use ($event): void {
+            Form::onlyTrashed()
+                ->where('event_id', $event->id)
+                ->update(['deleted_at' => null]);
+
+            FormField::onlyTrashed()
+                ->whereIn('form_id', Form::withTrashed()->select('id')->where('event_id', $event->id))
+                ->update(['deleted_at' => null]);
+        }, 3);
 
         $this->invalidateEventCache(true);
     }
