@@ -201,4 +201,46 @@ class RecruitmentApplicationQueueCountsTest extends TestCase
             $this->assertSame($counts[$queue], $total, "Badge {$queue} tidak sama dengan filter daftar.");
         }
     }
+
+    /**
+     * BE-P2-027/BE-P3-020: applicant batal bukan pekerjaan antrean. Badge dan
+     * filter harus sama-sama mengabaikannya, sementara `all` (daftar tanpa
+     * filter) tetap menghitungnya.
+     */
+    public function test_cancelled_applications_are_excluded_from_queues_but_not_from_all(): void
+    {
+        $active = $this->application($this->period);
+        $cancelledScreening = $this->application($this->period, ['cancelled_at' => now()]);
+        $cancelledInterview = $this->application($this->period, [
+            'stage' => ApplicationStage::Interview,
+            'cancelled_at' => now(),
+        ]);
+
+        $counts = $this->service()->queueCounts($this->period->id);
+
+        $this->assertSame(3, $counts['all']);
+        $this->assertSame(1, $counts['screening']);
+        $this->assertSame(0, $counts['interview']);
+
+        $screeningIds = $this->service()
+            ->paginate(['period_id' => $this->period->id, 'queue' => 'screening'])
+            ->getCollection()
+            ->pluck('id')
+            ->all();
+
+        $interviewIds = $this->service()
+            ->paginate(['period_id' => $this->period->id, 'queue' => 'interview'])
+            ->getCollection()
+            ->pluck('id')
+            ->all();
+
+        $this->assertSame([$active->id], $screeningIds);
+        $this->assertNotContains($cancelledScreening->id, $screeningIds);
+        $this->assertNotContains($cancelledInterview->id, $interviewIds);
+        $this->assertContains($cancelledInterview->id, $this->service()
+            ->paginate(['period_id' => $this->period->id])
+            ->getCollection()
+            ->pluck('id')
+            ->all());
+    }
 }

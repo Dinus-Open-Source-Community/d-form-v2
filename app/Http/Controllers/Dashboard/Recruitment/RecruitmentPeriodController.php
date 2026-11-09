@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard\Recruitment;
 
+use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\MembershipType;
@@ -27,9 +28,13 @@ use App\Services\Recruitment\RecruitmentQrEligibilityQuery;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
 use App\Services\Recruitment\RecruitmentReportService;
+use App\Support\LogRedaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -98,8 +103,80 @@ class RecruitmentPeriodController extends Controller
             ->where('recruitment_period_id', $period->id)
             ->whereNull('cancelled_at')
             ->where('result', '!=', ApplicationResult::Rejected->value)
-            ->whereHas('screenings', fn ($query) => $query->where('decision', ScreeningDecision::Pass->value))
+            ->whereHas('screenings', function ($query): void {
+                if (self::hasScreeningDecisionIndex()) {
+                    // Tanpa hint, optimizer memilih `rec_screenings_app_acted_idx` (tidak
+                    // covering untuk decision) sehingga EXISTS membaca baris tabel.
+                    // Index (decision, application_id) menjadikan probe point-lookup.
+                    $query->useIndex('rec_screenings_decision_app_idx');
+                }
+
+                $query->where('decision', ScreeningDecision::Pass->value);
+            })
             ->count();
+    }
+
+    /**
+     * Apakah index pendukung decision sudah ada. Dicek sekali per proses agar hint
+     * tidak pernah menunjuk index yang hilang (MySQL error 1176) dan tidak menambah
+     * query information_schema pada setiap render.
+     */
+    private static function hasScreeningDecisionIndex(): bool
+    {
+        static $hasIndex = null;
+
+        if ($hasIndex === null) {
+            $hasIndex = DB::connection()->getDriverName() === 'mysql'
+                && Schema::hasIndex('recruitment_screenings', 'rec_screenings_decision_app_idx');
+        }
+
+        return $hasIndex;
+    }
+
+    /**
+     * Agregat per periode yang mahal (queue badge, QR count, eligible link grup,
+     * opsi semester), di-cache 60 detik.
+     *
+     * Kunci:
+     * - `recruitment.period.aggregates.{periodId}` TTL 60 detik untuk queue badge,
+     *   QR count, dan opsi semester (berubah saat staff bekerja);
+     * - `recruitment.period.group-link-eligible.{periodId}` TTL 300 detik di dalamnya,
+     *   karena angka ini hanya berubah saat keputusan screening berubah. Cold-nya
+     *   ~0,85-1,75 detik (20.000 probe index screenings pada buffer pool 128 MB),
+     *   jadi TTL lebih panjang menghindari biaya itu tiap menit.
+     *
+     * Invalidasi: hanya TTL. Badge bisa tertinggal <=60 detik (queue/QR/semester)
+     * atau <=300 detik (eligible link grup) setelah aksi staff; trade-off yang
+     * disepakati untuk halaman 20.000 applicant. Tidak ada `Cache::forget` di jalur
+     * tulis supaya service EP-02 tidak ikut disentuh.
+     *
+     * Tanpa cache, `groupLinkEligibleCount` memindai satu periode (terukur
+     * ~0,85-1,75 detik pada buffer pool 128 MB) dan `qrEligibilityQuery::counts`
+     * ~0,5-0,8 detik; keduanya dipanggil pada setiap render halaman periode.
+     *
+     * @return array{
+     *     queue_counts: array<string, int>,
+     *     qr_counts: array{eligible: int, sent: int},
+     *     group_link_eligible: int,
+     *     semester_options: list<array{value: string, label: string}>
+     * }
+     */
+    private function periodAggregates(RecruitmentPeriod $period): array
+    {
+        return Cache::remember(
+            "recruitment.period.aggregates.{$period->id}",
+            now()->addSeconds(60),
+            fn (): array => [
+                'queue_counts' => $this->applicationService->queueCounts($period->id),
+                'qr_counts' => $this->qrEligibilityQuery->counts($period),
+                'group_link_eligible' => Cache::remember(
+                    "recruitment.period.group-link-eligible.{$period->id}",
+                    now()->addSeconds(300),
+                    fn (): int => $this->groupLinkEligibleCount($period),
+                ),
+                'semester_options' => $this->applicationService->semesterOptions($period->id),
+            ],
+        );
     }
 
     /** Status QR terakhir per applicant (1 query, tanpa N+1). */
@@ -114,13 +191,14 @@ class RecruitmentPeriodController extends Controller
             ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get(['recruitment_application_id', 'status', 'error_message']);
+            ->get(['recruitment_application_id', 'status']);
 
         $map = [];
         foreach ($latest as $log) {
             $map[$log->recruitment_application_id] ??= [
                 'status' => $log->status->value,
-                'error' => $log->error_message,
+                'error' => $log->status === EmailLogStatus::Failed ? LogRedaction::MAIL_DELIVERY_FAILURE_MESSAGE : null,
+                'error_category' => $log->status === EmailLogStatus::Failed ? LogRedaction::MAIL_DELIVERY_FAILURE_CATEGORY : null,
             ];
         }
 
@@ -130,7 +208,7 @@ class RecruitmentPeriodController extends Controller
     /**
      * Agregat status kirim QR satu periode (log terbaru per applicant).
      *
-     * @return array{sent:int,failed:int,queued:int,recipients:list<array{application_id:string,full_name:string,registration_number:string,status:string,error:?string,sent_at:?string}>}
+     * @return array{sent:int,failed:int,queued:int,recipients:list<array{application_id:string,full_name:string,registration_number:string,status:string,error:?string,error_category:?string,sent_at:?string}>}
      */
     private function qrStatusForPeriod(RecruitmentPeriod $period): array
     {
@@ -148,7 +226,7 @@ class RecruitmentPeriodController extends Controller
             ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get();
+            ->get(['id', 'recruitment_application_id', 'status', 'sent_at']);
 
         $byApplication = [];
         foreach ($latest as $log) {
@@ -171,17 +249,52 @@ class RecruitmentPeriodController extends Controller
                 $summary[$status]++;
             }
 
+            $isFailed = $status === EmailLogStatus::Failed->value;
             $recipients[] = [
                 'application_id' => $application->id,
                 'full_name' => $application->full_name,
                 'registration_number' => $application->registration_number,
                 'status' => $status,
-                'error' => $log->error_message,
+                'error' => $isFailed ? LogRedaction::MAIL_DELIVERY_FAILURE_MESSAGE : null,
+                'error_category' => $isFailed ? LogRedaction::MAIL_DELIVERY_FAILURE_CATEGORY : null,
                 'sent_at' => $log->sent_at?->toIso8601String(),
             ];
         }
 
         return [...$summary, 'recipients' => $recipients];
+    }
+
+    /**
+     * Ringkasan status QR (hitungan saja) untuk props halaman.
+     *
+     * Log terbaru per applicant diambil lewat window function di SQL, sehingga
+     * 20.000 applicant tidak perlu dimuat ke PHP seperti `qrStatusForPeriod()`
+     * (yang tetap dipakai endpoint JSON karena butuh daftar `recipients`).
+     * Nilai dan bentuknya sama: sent/failed/queued per applicant dengan log
+     * `recruitment_interview_scheduled` terakhir.
+     *
+     * @return array{sent:int,failed:int,queued:int}
+     */
+    private function qrStatusSummary(RecruitmentPeriod $period): array
+    {
+        $rows = DB::select(
+            'SELECT status, COUNT(*) as total FROM ('
+            .' SELECT e.status, ROW_NUMBER() OVER (PARTITION BY e.recruitment_application_id ORDER BY e.created_at DESC, e.id DESC) as row_position'
+            .' FROM email_logs e JOIN recruitment_applications a ON a.id = e.recruitment_application_id'
+            .' WHERE a.recruitment_period_id = ? AND e.notification_type = ?'
+            .') as latest WHERE row_position = 1 GROUP BY status',
+            [$period->id, EmailNotificationType::RecruitmentInterviewScheduled->value],
+        );
+
+        $summary = ['sent' => 0, 'failed' => 0, 'queued' => 0];
+
+        foreach ($rows as $row) {
+            if (array_key_exists($row->status, $summary)) {
+                $summary[$row->status] = (int) $row->total;
+            }
+        }
+
+        return $summary;
     }
 
     /**
@@ -217,6 +330,7 @@ class RecruitmentPeriodController extends Controller
         $this->authorize('view', $period);
 
         $period->loadCount('applications');
+        $aggregates = $this->periodAggregates($period);
 
         $validated = $request->validated();
         $tab = $validated['tab'] ?? 'peserta';
@@ -269,16 +383,17 @@ class RecruitmentPeriodController extends Controller
                             'group_link_status' => $groupLinkStatuses[$application->id] ?? null,
                             'qr_status' => $qrStatuses[$application->id]['status'] ?? null,
                             'qr_error' => $qrStatuses[$application->id]['error'] ?? null,
+                            'qr_error_category' => $qrStatuses[$application->id]['error_category'] ?? null,
                         ]
                     )
                 );
 
                 $applications = $applicationPaginator->withQueryString();
 
-                $queueCounts = $this->applicationService->queueCounts($period->id);
+                $queueCounts = $aggregates['queue_counts'];
                 $screeningReasonOptions = ScreeningReason::options();
                 $divisionOptions = $this->applicationService->divisionOptions();
-                $semesterOptions = $this->applicationService->semesterOptions($period->id);
+                $semesterOptions = $aggregates['semester_options'];
 
                 $applicationId = $validated['application'] ?? null;
 
@@ -319,7 +434,7 @@ class RecruitmentPeriodController extends Controller
             );
 
             $sessions = $sessionPaginator;
-            $queueCounts = $this->applicationService->queueCounts($period->id);
+            $queueCounts = $aggregates['queue_counts'];
         }
 
         if ($tab === 'laporan') {
@@ -362,15 +477,10 @@ class RecruitmentPeriodController extends Controller
         $qrStatusSummary = null;
 
         if ($this->shouldComputeQrStatusSummary($request, $tab)) {
-            $qrStatus = $this->qrStatusForPeriod($period);
-            $qrStatusSummary = [
-                'sent' => $qrStatus['sent'],
-                'failed' => $qrStatus['failed'],
-                'queued' => $qrStatus['queued'],
-            ];
+            $qrStatusSummary = $this->qrStatusSummary($period);
         }
 
-        $qrCounts = $this->qrEligibilityQuery->counts($period);
+        $qrCounts = $aggregates['qr_counts'];
 
         $props = [
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
@@ -383,7 +493,7 @@ class RecruitmentPeriodController extends Controller
                 ->values()
                 ->all(),
             'query' => $validated,
-            'group_link_eligible_count' => $this->groupLinkEligibleCount($period),
+            'group_link_eligible_count' => $aggregates['group_link_eligible'],
             'qr_eligible_count' => $qrCounts['eligible'],
             'qr_sent_count' => $qrCounts['sent'],
         ];

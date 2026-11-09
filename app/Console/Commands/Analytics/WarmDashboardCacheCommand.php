@@ -4,21 +4,35 @@ namespace App\Console\Commands\Analytics;
 
 use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik
  * event, jumlah pendaftar, breakdown kategori). Request tetap bisa menghitung sendiri saat
  * cache kosong; command ini dipakai setelah deploy/seed agar pengunjung pertama tidak menunggu.
  * Kunci yang masih terisi dilewati kecuali `--force`.
+ *
+ * Bila tabel agregat harian masih kosong, agregat diisi ulang dari sumber lebih dulu agar
+ * chart tren tidak pernah memakai fallback 1 juta baris pada request path.
  */
 class WarmDashboardCacheCommand extends Command
 {
-    protected $signature = 'dashboard:warm {--force : Hitung ulang walau cache masih terisi}';
+    protected $signature = 'dashboard:warm
+        {--force : Hitung ulang walau cache masih terisi}
+        {--rebuild-trend : Paksa hitung ulang agregat harian dari sumber}';
 
     protected $description = 'Hitung ulang cache dashboard (statistik, pendaftar, kategori) tanpa membebani request';
 
     public function handle(EventReportingQuery $reportingQuery): int
     {
+        $shouldRebuildTrend = (bool) $this->option('rebuild-trend')
+            || ! DB::table('event_daily_registrations')->exists();
+
+        if ($shouldRebuildTrend) {
+            $result = $reportingQuery->rebuildDailyRegistrationAggregate();
+            $this->line("agregat harian registrasi: {$result['total']} registrasi, {$result['days']} tanggal");
+        }
+
         $steps = $reportingQuery->warmDashboardCache((bool) $this->option('force'));
 
         foreach ($steps as $step) {

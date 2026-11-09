@@ -394,11 +394,39 @@ async function openApplicantList(page: Page, periodPath: string): Promise<void> 
     await expect(page.locator('[data-applicant-list]')).toBeVisible();
 }
 
-/** Pilih satu opsi pada SimpleSelect shadcn berdasarkan aria-label trigger. */
+/**
+ * Pilih satu opsi pada SimpleSelect shadcn berdasarkan aria-label trigger.
+ *
+ * Race: memilih filter memicu partial reload Inertia yang mengganti opsi di DOM,
+ * jadi klik opsi bisa gagal "detached" bila navigasi sebelumnya belum selesai.
+ * Helper ini menunggu daftar stabil dulu, lalu mengklik opsi bersamaan dengan
+ * menunggu response GET periode + daftar ter-render kembali.
+ */
 async function selectFilter(page: Page, label: string, option: string | RegExp): Promise<void> {
+    await expect(page.locator('[data-applicant-list]')).toBeVisible();
     await page.getByRole('combobox', { name: label }).click();
     // Popover yang tertutup tetap ada di DOM, jadi opsi dicari hanya di popover terbuka.
-    await page.locator('[data-state="open"]').getByRole('option', { name: option }).click();
+    const optionLocator = page.locator('[data-state="open"]').getByRole('option', { name: option });
+    await expect(optionLocator).toBeVisible();
+
+    await Promise.all([
+        page.waitForResponse((response) => {
+            if (response.request().method() !== 'GET') {
+                return false;
+            }
+
+            const url = new URL(response.url());
+
+            return (
+                /^\/admin\/recruitment\/periods\/[0-9a-f-]+$/.test(url.pathname) &&
+                response.request().headers()['x-inertia'] === 'true' &&
+                response.status() < 400
+            );
+        }),
+        optionLocator.click(),
+    ]);
+
+    await expect(page.locator('[data-applicant-list]')).toBeVisible();
 }
 
 /**
@@ -441,6 +469,9 @@ test.describe('BE-P2-008 badge jumlah antrean periode recruitment', () => {
     });
 
     test.beforeEach(async ({ page }): Promise<void> => {
+        // Rate limiter `recruitment-application-search` (60/menit) memakai cache file server
+        // E2E; bersihkan agar spec ini tidak 429 saat dijalankan bersama spec lain.
+        runArtisanCommand(['cache:clear']);
         // Skrip analitik pihak ketiga menggantungkan event load dan tidak relevan bagi test.
         await page.route('**/seeyu.doscom.org/**', (route) => route.abort());
     });

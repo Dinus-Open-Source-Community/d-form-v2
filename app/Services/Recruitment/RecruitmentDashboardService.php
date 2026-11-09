@@ -51,36 +51,72 @@ final class RecruitmentDashboardService
             ], $this->periodsPayload($periodFilters, $periodPage, $periodPerPage, $user));
         }
 
-        $applications = RecruitmentApplication::query()
-            ->where('recruitment_period_id', $activePeriod->id);
+        $stats = $this->applicationStats($activePeriod->id);
 
         $report = $this->reportService->build($activePeriod->id);
         $queueCounts = $this->applicationService->queueCounts($activePeriod->id);
 
         return array_merge([
             'active_period' => app(RecruitmentPeriodService::class)->toInertiaArray($activePeriod),
-            'stats' => [
-                'total_applicants' => (clone $applications)->count(),
-                'pending_screening' => (clone $applications)->where('stage', ApplicationStage::Submitted)->count(),
-                'in_screening' => (clone $applications)->where('stage', ApplicationStage::Screening)->count(),
-                'passed_screening' => (clone $applications)->whereIn('stage', [
-                    ApplicationStage::Interview,
-                    ApplicationStage::FinalReview,
-                ])->count(),
-                'rejected_applicants' => (clone $applications)->where('result', ApplicationResult::Rejected)->count(),
-                'in_interview' => (clone $applications)->where('stage', ApplicationStage::Interview)->count(),
-                'final_review' => (clone $applications)->where('stage', ApplicationStage::FinalReview)->count(),
-                'completed' => (clone $applications)->where('stage', ApplicationStage::Completed)->count(),
-            ],
+            'stats' => $stats['stats'],
             'funnel' => $report['funnel'],
             'interview_stats' => $report['interview_stats'],
             'feedback' => $report['feedback'],
-            'accepted_count' => (clone $applications)
-                ->where('result', ApplicationResult::Accepted)
-                ->count(),
+            'accepted_count' => $stats['accepted_count'],
             'action_queues' => $this->buildActionQueues($queueCounts),
             'today_sessions' => $this->sessionService->todaySessions($activePeriod->id),
         ], $this->periodsPayload($periodFilters, $periodPage, $periodPerPage, $user));
+    }
+
+    /**
+     * Delapan angka statistik + accepted_count dalam satu query agregat
+     * kondisional (sebelumnya 9 COUNT terpisah pada periode yang sama).
+     *
+     * @return array{stats: array<string, int>, accepted_count: int}
+     */
+    private function applicationStats(string $periodId): array
+    {
+        /** @var array<string, int|string|null> $row SUM bisa kembali string di driver tertentu. */
+        $row = (array) RecruitmentApplication::query()
+            ->where('recruitment_period_id', $periodId)
+            ->toBase()
+            ->selectRaw(
+                'COUNT(*) as total_applicants,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as pending_screening,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as in_screening,'
+                .' SUM(CASE WHEN stage IN (?, ?) THEN 1 ELSE 0 END) as passed_screening,'
+                .' SUM(CASE WHEN result = ? THEN 1 ELSE 0 END) as rejected_applicants,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as in_interview,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as final_review,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as completed,'
+                .' SUM(CASE WHEN result = ? THEN 1 ELSE 0 END) as accepted_count',
+                [
+                    ApplicationStage::Submitted->value,
+                    ApplicationStage::Screening->value,
+                    ApplicationStage::Interview->value,
+                    ApplicationStage::FinalReview->value,
+                    ApplicationResult::Rejected->value,
+                    ApplicationStage::Interview->value,
+                    ApplicationStage::FinalReview->value,
+                    ApplicationStage::Completed->value,
+                    ApplicationResult::Accepted->value,
+                ],
+            )
+            ->first();
+
+        return [
+            'stats' => [
+                'total_applicants' => (int) ($row['total_applicants'] ?? 0),
+                'pending_screening' => (int) ($row['pending_screening'] ?? 0),
+                'in_screening' => (int) ($row['in_screening'] ?? 0),
+                'passed_screening' => (int) ($row['passed_screening'] ?? 0),
+                'rejected_applicants' => (int) ($row['rejected_applicants'] ?? 0),
+                'in_interview' => (int) ($row['in_interview'] ?? 0),
+                'final_review' => (int) ($row['final_review'] ?? 0),
+                'completed' => (int) ($row['completed'] ?? 0),
+            ],
+            'accepted_count' => (int) ($row['accepted_count'] ?? 0),
+        ];
     }
 
     /**

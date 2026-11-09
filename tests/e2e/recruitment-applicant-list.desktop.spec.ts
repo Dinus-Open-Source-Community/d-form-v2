@@ -31,9 +31,8 @@ const SEMESTER_FIVE_ROW_INDEX = APPLICANT_COUNT;
 /** Batas atas waktu navigasi; generik agar tidak flaky pada cache dingin (bukan gate performa). */
 const NAVIGATION_BUDGET_MS = 10_000;
 /**
- * Pencarian `LIKE` tidak bisa memakai index, dan paginator tetap menghitung COUNT
- * seluruh periode (20.000 baris pada dataset stress), jadi respons bisa jauh lebih
- * lama dari batas default Playwright pada cache dingin.
+ * Pencarian `LIKE %kata%` tidak bisa range-scan index, jadi respons bisa lebih
+ * lambat dari batas default Playwright pada cache dingin.
  */
 const SEARCH_RESPONSE_TIMEOUT_MS = 30_000;
 
@@ -335,6 +334,9 @@ test.describe('BE-P2-001 daftar applicant periode recruitment', () => {
     });
 
     test.beforeEach(async ({ page }): Promise<void> => {
+        // Rate limiter `recruitment-application-search` (60/menit) memakai cache file server
+        // E2E; bersihkan agar spec ini tidak 429 saat dijalankan bersama spec lain.
+        runArtisanCommand(['cache:clear']);
         // Skrip analitik pihak ketiga menggantungkan event load dan tidak relevan bagi test.
         await page.route('**/seeyu.doscom.org/**', (route) => route.abort());
     });

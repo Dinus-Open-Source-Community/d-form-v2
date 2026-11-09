@@ -17,7 +17,7 @@ final class RecruitmentReportService
      */
     public function build(?string $periodId = null): array
     {
-        $period = $this->resolvePeriod($periodId);
+        $period = $this->findReportPeriod($periodId);
 
         if ($period === null) {
             return [
@@ -83,7 +83,17 @@ final class RecruitmentReportService
         return $funnel;
     }
 
-    private function resolvePeriod(?string $periodId): ?RecruitmentPeriod
+    /**
+     * Resolve the period that a report section would use without building the
+     * full report. Explicit id wins; otherwise the newest open period, falling
+     * back to the newest period.
+     */
+    public function resolvePeriodModel(?string $periodId = null): ?RecruitmentPeriod
+    {
+        return $this->findReportPeriod($periodId);
+    }
+
+    private function findReportPeriod(?string $periodId): ?RecruitmentPeriod
     {
         if ($periodId !== null) {
             return RecruitmentPeriod::query()->find($periodId);
@@ -165,26 +175,36 @@ final class RecruitmentReportService
     }
 
     /**
+     * One aggregate query replaces the previous count + five separate AVG
+     * queries. Averages are aliased because the model casts the rating
+     * columns to integer and would truncate an AVG value.
+     *
      * @return array<string, mixed>
      */
     private function buildFeedbackStats(string $periodId): array
     {
-        $feedbacks = RecruitmentFeedback::query()->where('recruitment_period_id', $periodId);
+        $row = RecruitmentFeedback::query()
+            ->where('recruitment_period_id', $periodId)
+            ->selectRaw('COUNT(*) as feedback_count')
+            ->selectRaw('AVG(rating_registration_ease) as avg_registration_ease')
+            ->selectRaw('AVG(rating_info_clarity) as avg_info_clarity')
+            ->selectRaw('AVG(rating_tracking_ease) as avg_tracking_ease')
+            ->selectRaw('AVG(rating_interview_experience) as avg_interview_experience')
+            ->selectRaw('AVG(rating_staff_service) as avg_staff_service')
+            ->first();
 
-        $count = (clone $feedbacks)->count();
-
-        if ($count === 0) {
+        if ($row === null || (int) $row->feedback_count === 0) {
             return $this->emptyFeedbackStats();
         }
 
         return [
-            'count' => $count,
+            'count' => (int) $row->feedback_count,
             'averages' => [
-                'registration_ease' => round((float) (clone $feedbacks)->avg('rating_registration_ease'), 2),
-                'info_clarity' => round((float) (clone $feedbacks)->avg('rating_info_clarity'), 2),
-                'tracking_ease' => round((float) (clone $feedbacks)->avg('rating_tracking_ease'), 2),
-                'interview_experience' => round((float) (clone $feedbacks)->avg('rating_interview_experience'), 2),
-                'staff_service' => round((float) (clone $feedbacks)->avg('rating_staff_service'), 2),
+                'registration_ease' => round((float) $row->avg_registration_ease, 2),
+                'info_clarity' => round((float) $row->avg_info_clarity, 2),
+                'tracking_ease' => round((float) $row->avg_tracking_ease, 2),
+                'interview_experience' => round((float) $row->avg_interview_experience, 2),
+                'staff_service' => round((float) $row->avg_staff_service, 2),
             ],
         ];
     }

@@ -27,7 +27,11 @@ final class RecruitmentPeriodService
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20, ?User $user = null): LengthAwarePaginator
     {
-        $query = RecruitmentPeriod::query()->with('creator')->orderByDesc('created_at')->orderByDesc('id');
+        $query = RecruitmentPeriod::query()
+            ->with('creator')
+            ->withCount('applications')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);

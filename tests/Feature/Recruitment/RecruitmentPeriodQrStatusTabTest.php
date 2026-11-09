@@ -14,6 +14,7 @@ use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -86,10 +87,10 @@ class RecruitmentPeriodQrStatusTabTest extends TestCase
     }
 
     /**
-     * Query berat `qrStatusForPeriod()` selalu memakai
-     * `whereIn('recruitment_application_id', ...)` pada tabel `email_logs`.
-     * Predikat `email_logs` + ` in (` sengaja dipakai karena subquery eligibility
-     * memakai EXISTS/NOT EXISTS, bukan `whereIn`, sehingga tidak ikut terhitung.
+     * Query berat `qrStatusForPeriod()` adalah daftar id: `whereIn('recruitment_application_id', ...)`
+     * pada tabel `email_logs`. Filter sengaja menyasar bentuk daftar itu, bukan setiap
+     * ` in (`: subquery eligibility memakai EXISTS dengan `status IN (...)` yang bukan
+     * query berat dan tidak boleh ikut terhitung.
      *
      * @return list<string>
      */
@@ -97,7 +98,9 @@ class RecruitmentPeriodQrStatusTabTest extends TestCase
     {
         return collect(DB::getQueryLog())
             ->pluck('query')
-            ->filter(fn (string $query): bool => str_contains($query, 'email_logs') && str_contains($query, ' in ('))
+            ->filter(fn (string $query): bool => str_contains($query, 'email_logs')
+                && (str_contains($query, 'recruitment_application_id" in (')
+                    || str_contains($query, 'recruitment_application_id` in (')))
             ->values()
             ->all();
     }
@@ -279,10 +282,74 @@ class RecruitmentPeriodQrStatusTabTest extends TestCase
                 ->where('qr_status_summary.queued', 1));
     }
 
+    public function test_endpoint_json_qr_status_forbids_staff_and_interviewer_without_period_view(): void
+    {
+        $periodWithoutCreator = RecruitmentPeriod::factory()->create(['created_by' => null]);
+
+        foreach (['recruitment-staff', 'recruitment-interviewer'] as $role) {
+            $user = User::factory()->create();
+            $user->assignRole($role);
+
+            self::assertTrue($user->can('recruitment.dashboard.view'));
+            self::assertFalse($user->can('recruitment.periods.view'));
+
+            $this->actingAs($user)
+                ->getJson(route('dashboard.recruitment.periods.qr-status', $periodWithoutCreator))
+                ->assertForbidden();
+        }
+    }
+
+    public function test_endpoint_json_qr_status_forbids_period_owner_without_application_list_permission(): void
+    {
+        $owner = User::factory()->create();
+        $owner->assignRole('recruitment-interviewer');
+        $this->period->update(['created_by' => $owner->id]);
+
+        self::assertTrue($owner->can('recruitment.dashboard.view'));
+        self::assertTrue($owner->can('view', $this->period));
+        self::assertFalse($owner->can('recruitment.applications.list'));
+
+        $this->actingAs($owner)
+            ->getJson(route('dashboard.recruitment.periods.qr-status', $this->period))
+            ->assertForbidden();
+    }
+
+    public function test_endpoint_json_qr_status_forbids_viewer_without_application_list_permission(): void
+    {
+        $viewer = User::factory()->create();
+        $viewer->assignRole('recruitment-interviewer');
+        $viewer->givePermissionTo('recruitment.periods.view');
+        $period = RecruitmentPeriod::factory()->create(['created_by' => null]);
+
+        self::assertTrue($viewer->can('recruitment.dashboard.view'));
+        self::assertTrue($viewer->can('view', $period));
+        self::assertFalse($viewer->can('recruitment.applications.list'));
+
+        $this->actingAs($viewer)
+            ->getJson(route('dashboard.recruitment.periods.qr-status', $period))
+            ->assertForbidden();
+    }
+
+    public function test_endpoint_json_qr_status_remains_allowed_for_super_admin_without_application_list_permission(): void
+    {
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super-admin');
+        Role::findByName('super-admin', 'web')
+            ->revokePermissionTo('recruitment.applications.list');
+
+        self::assertFalse($superAdmin->can('recruitment.applications.list'));
+
+        $this->actingAs($superAdmin)
+            ->getJson(route('dashboard.recruitment.periods.qr-status', $this->period))
+            ->assertOk()
+            ->assertJsonCount(3, 'recipients');
+    }
+
     public function test_endpoint_json_qr_status_tetap_mengembalikan_summary_dan_recipients(): void
     {
         $response = $this->actingAs($this->admin([
             'recruitment.periods.view',
+            'recruitment.applications.list',
         ]))
             ->getJson(route('dashboard.recruitment.periods.qr-status', $this->period->id))
             ->assertOk()
@@ -297,9 +364,62 @@ class RecruitmentPeriodQrStatusTabTest extends TestCase
         foreach ($recipients as $recipient) {
             self::assertIsArray($recipient);
             self::assertSame(
-                ['application_id', 'full_name', 'registration_number', 'status', 'error', 'sent_at'],
+                ['application_id', 'full_name', 'registration_number', 'status', 'error', 'error_category', 'sent_at'],
                 array_keys($recipient),
             );
         }
+    }
+
+    public function test_qr_dashboard_projections_hide_stored_transport_details(): void
+    {
+        $division = RecruitmentDivision::query()->where('code', 'programming')->firstOrFail();
+        $period = RecruitmentPeriod::factory()->open()->create([
+            'interview_starts_at' => today()->subDay()->toDateString(),
+            'interview_ends_at' => today()->addMonth()->toDateString(),
+        ]);
+        $application = RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $period->id,
+            'primary_division_id' => $division->id,
+            'stage' => ApplicationStage::Interview,
+        ]);
+        $transportError = 'SMTP transport at smtp.private.test rejected private-recipient@example.test password=transport-secret';
+
+        EmailLog::query()->create([
+            'recruitment_application_id' => $application->id,
+            'event_id' => null,
+            'user_id' => null,
+            'recipient_email' => (string) $application->personal_email,
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::RecruitmentInterviewScheduled,
+            'error_message' => $transportError,
+            'sent_at' => null,
+        ]);
+
+        $admin = $this->admin([
+            'recruitment.periods.view',
+            'recruitment.applications.list',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.recruitment.periods.show', [
+                'period' => $period->id,
+                'tab' => 'peserta',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications.data.0.qr_error', 'Pengiriman email gagal.')
+                ->where('applications.data.0.qr_error_category', 'mail_delivery_failed'))
+            ->assertDontSee($transportError)
+            ->assertDontSee('private-recipient@example.test')
+            ->assertDontSee('transport-secret');
+
+        $this->actingAs($admin)
+            ->getJson(route('dashboard.recruitment.periods.qr-status', $period->id))
+            ->assertOk()
+            ->assertJsonPath('recipients.0.error', 'Pengiriman email gagal.')
+            ->assertJsonPath('recipients.0.error_category', 'mail_delivery_failed')
+            ->assertDontSee($transportError)
+            ->assertDontSee('private-recipient@example.test')
+            ->assertDontSee('transport-secret');
     }
 }

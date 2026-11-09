@@ -37,6 +37,16 @@ final class EventReportingQuery
 
     private const DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS = 21600;
 
+    /** Cache fallback sumber: hanya dipakai sebelum agregat harian diisi. */
+    public const REGISTRATION_TREND_SOURCE_KEY = 'reporting:registration-trend-source';
+
+    public const BUSTER_REGISTRATION_TREND_SOURCE = 'reporting:registration-trend-source:buster';
+
+    private const REGISTRATION_TREND_SOURCE_TTL_SECONDS = 21600;
+
+    /** Jumlah baris agregat per statement INSERT saat rebuild (tabel kecil, aman untuk MariaDB). */
+    private const REBUILD_INSERT_CHUNK_SIZE = 500;
+
     /**
      * Registration submissions per calendar month over the last N months.
      * Dibaca dari agregat harian `event_daily_registrations` (SUM(count)); sumber
@@ -93,30 +103,98 @@ final class EventReportingQuery
 
     /**
      * Fallback: hitung langsung dari form_answers (hanya bila agregat kosong).
+     * Hasilnya di-cache per jumlah bulan agar cache dingin tidak memindai 1 juta
+     * baris pada setiap request; `analytics:rebuild-daily-registrations` menaikkan
+     * buster ini setelah agregat diisi.
      *
      * @return \Illuminate\Support\Collection<string, int>
      */
     private function registrationCountsFromSource(int $months)
     {
+        $cached = EventCache::remember(
+            self::REGISTRATION_TREND_SOURCE_KEY.':'.$months,
+            self::REGISTRATION_TREND_SOURCE_TTL_SECONDS,
+            fn (): array => $this->computeRegistrationCountsFromSource($months)->all(),
+            self::BUSTER_REGISTRATION_TREND_SOURCE,
+        );
+
+        return collect($cached);
+    }
+
+    /**
+     * Scan sumber dibatasi index `form_answers_created_at_index`. Join `forms`/`events`
+     * sengaja dihindari: optimizer memilih full scan `forms` (960k) + 1 juta lookup UUID
+     * (>300 s di data stress). Definisi hitungannya sama dengan FormAnswerObserver
+     * (semua submisi), jadi agregat hasil rebuild identik dengan fallback.
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    private function computeRegistrationCountsFromSource(int $months)
+    {
         $start = now()->startOfMonth()->subMonths($months - 1);
 
-        $driver = DB::connection()->getDriverName();
-        $monthExpr = match ($driver) {
-            'sqlite' => "strftime('%Y-%m', form_answers.created_at)",
-            default => "DATE_FORMAT(form_answers.created_at, '%Y-%m')",
-        };
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', form_answers.created_at)"
+            : "DATE_FORMAT(form_answers.created_at, '%Y-%m')";
 
-        return FormAnswer::query()
-            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
-            ->join('events', 'forms.event_id', '=', 'events.id')
-            ->whereNull('events.deleted_at')
-            ->whereNull('forms.deleted_at')
+        return DB::table('form_answers')
             ->where('form_answers.created_at', '>=', $start)
             ->selectRaw("{$monthExpr} as ym")
             ->selectRaw('COUNT(*) as c')
             ->groupBy('ym')
             ->orderBy('ym')
             ->pluck('c', 'ym');
+    }
+
+    /**
+     * Isi ulang `event_daily_registrations` dari sumber. Idempoten: seluruh isi tabel
+     * dihapus lalu ditulis per chunk dalam satu transaksi, sehingga aman dijalankan
+     * berulang. Hanya untuk di luar request path (±2 s per 1 juta `form_answers`).
+     *
+     * @return array{total: int, days: int}
+     */
+    public function rebuildDailyRegistrationAggregate(): array
+    {
+        $rows = $this->dailyCountsFromSource();
+
+        DB::transaction(function () use ($rows): void {
+            DB::table('event_daily_registrations')->delete();
+
+            foreach (array_chunk($rows, self::REBUILD_INSERT_CHUNK_SIZE) as $chunk) {
+                DB::table('event_daily_registrations')->insert($chunk);
+            }
+        });
+
+        EventCache::bump(self::BUSTER_REGISTRATION_TREND_SOURCE);
+
+        return [
+            'total' => array_sum(array_column($rows, 'count')),
+            'days' => count($rows),
+        ];
+    }
+
+    /**
+     * Satu baris per tanggal submisi untuk seluruh riwayat.
+     *
+     * @return list<array{registration_date: string, count: int}>
+     */
+    private function dailyCountsFromSource(): array
+    {
+        $dateExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m-%d', form_answers.created_at)"
+            : 'DATE(form_answers.created_at)';
+
+        return DB::table('form_answers')
+            ->selectRaw("{$dateExpr} as registration_date")
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('registration_date')
+            ->orderBy('registration_date')
+            ->get()
+            ->map(static fn (object $row): array => [
+                'registration_date' => (string) $row->registration_date,
+                'count' => (int) $row->c,
+            ])
+            ->all();
     }
 
     /**

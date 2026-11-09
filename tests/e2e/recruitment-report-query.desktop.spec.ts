@@ -386,6 +386,9 @@ test.describe('BE-P2-007 query agregat laporan recruitment', () => {
     });
 
     test.beforeEach(async ({ page }): Promise<void> => {
+        // EP-02 memasang `throttle:recruitment-export` (10/menit) pada endpoint export;
+        // spec ini juga memanggil endpoint export, jadi limiter direset per test.
+        runArtisanCommand(['cache:clear']);
         // Skrip analitik pihak ketiga menggantungkan event load dan tidak relevan bagi test.
         await page.route('**/seeyu.doscom.org/**', (route) => route.abort());
     });
@@ -450,17 +453,23 @@ test.describe('BE-P2-007 query agregat laporan recruitment', () => {
             );
         }
 
-        // UUID valid tetapi tidak ada: CSV header saja, tanpa 500 dan tanpa baris data.
+        // UUID valid tetapi tidak ada: 404 (fail closed), bukan CSV kosong.
         const missingPeriod = await page.request.get(
             `/admin/recruitment/reports/export/applicants.csv?period_id=${NONEXISTENT_PERIOD_ID}`,
             { failOnStatusCode: false, maxRedirects: 0 }
         );
 
-        expect(missingPeriod.status()).toBe(200);
-        expect(missingPeriod.headers()['content-type'] ?? '').toContain('text/csv');
+        expect(missingPeriod.status()).toBe(404);
 
-        const missingRows = csvRows(await missingPeriod.text());
-        expect(missingRows).toEqual([APPLICANT_CSV_HEADER]);
+        // Periode fixture tetap menghasilkan CSV utuh (header tidak berubah).
+        const validPeriod = await page.request.get(
+            `/admin/recruitment/reports/export/applicants.csv?period_id=${periodId}`,
+            { failOnStatusCode: false, maxRedirects: 0 }
+        );
+
+        expect(validPeriod.status()).toBe(200);
+        expect(validPeriod.headers()['content-type'] ?? '').toContain('text/csv');
+        expect(csvRows(await validPeriod.text())[0]).toEqual(APPLICANT_CSV_HEADER);
 
         // Tanpa sesi: middleware recruitment.access mengalihkan ke login, bukan 500.
         const environment = readEnvironment();

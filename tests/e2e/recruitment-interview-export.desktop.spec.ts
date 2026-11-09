@@ -706,6 +706,9 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
     });
 
     test.beforeEach(async ({ page }): Promise<void> => {
+        // EP-02 memasang `throttle:recruitment-export` (10/menit) pada endpoint export;
+        // spec ini membuat lebih dari 10 request export, jadi limiter direset per test.
+        runArtisanCommand(['cache:clear']);
         // Skrip analitik pihak ketiga menggantungkan event load dan tidak relevan bagi test.
         await page.route('**/seeyu.doscom.org/**', (route) => route.abort());
     });

@@ -159,8 +159,8 @@ final class FixtureScope
         $own = [
             'users' => self::stringIds(DB::table('users')->where('email', 'like', $markerPrefix.'%')->pluck('id')),
             'events' => self::stringIds(DB::table('events')->where('slug', 'like', $slugPrefix.'%')->pluck('id')),
-            'forms' => self::stringIds(DB::table('forms')->where('title', 'like', $suffixLike)->pluck('id')),
-            'form_fields' => self::stringIds(DB::table('form_fields')->where('label', 'like', $suffixLike)->pluck('id')),
+            'forms' => [],
+            'form_fields' => [],
             'form_answers' => [],
             'event_attendances' => [],
             'email_logs' => [],
@@ -174,6 +174,11 @@ final class FixtureScope
                 DB::table('email_datasets')->where('name', 'like', $suffixLike)->pluck('id'),
             ),
         ];
+
+        // Form/field diturunkan dari event/form milik run; LIKE hanya fallback saat induknya
+        // sudah tidak ada, supaya tabel `forms` (1 juta baris) tidak dipindai penuh.
+        $own['forms'] = self::resolveFormIds($own['events'], $own['users'], $suffixLike);
+        $own['form_fields'] = self::resolveFieldIds($own['forms'], $suffixLike);
 
         // Answer/attendance tidak punya kolom marker; kepemilikan diturunkan dari induk fixture,
         // memakai predikat yang sama dengan resolve() agar audit tidak menuduh baris sendiri.
@@ -289,6 +294,61 @@ final class FixtureScope
     }
 
     /**
+     * ID form milik marker: event marker ATAU dibuat user marker, lalu fallback LIKE.
+     *
+     * Bentuk lama `event_id IN (...) OR title LIKE '% [marker]'` tidak bisa memakai index
+     * `forms_event_id_foreign` (OR lintas kolom + wildcard awalan) dan memindai seluruh tabel
+     * `forms` (±9,2 detik pada 1 juta baris). Fixture selalu menempelkan form ke event run dan
+     * `created_by` selalu user run, jadi dua kolom ber-index itu sudah exact: `EXPLAIN` memakai
+     * index_merge `forms_event_id_foreign` + `forms_created_by_foreign` (±22 ms). LIKE tetap
+     * dijalankan hanya saat kedua induk tidak ditemukan (sisa cleanup parsial), supaya baris
+     * ber-marker yang induknya sudah terhapus tidak tertinggal.
+     *
+     * @param  list<string>  $eventIds
+     * @param  list<string>  $userIds
+     * @return list<string>
+     */
+    private static function resolveFormIds(array $eventIds, array $userIds, string $markerLike): array
+    {
+        if ($eventIds === [] && $userIds === []) {
+            return self::stringIds(
+                DB::table('forms')->select('id')->where('title', 'like', $markerLike)->pluck('id'),
+            );
+        }
+
+        return self::stringIds(
+            DB::table('forms')
+                ->select('id')
+                ->where(function ($query) use ($eventIds, $userIds): void {
+                    $query->whereIn('event_id', $eventIds)->orWhereIn('created_by', $userIds);
+                })
+                ->pluck('id'),
+        );
+    }
+
+    /**
+     * ID field milik form marker; LIKE hanya dipakai saat form-nya sudah tidak ada.
+     *
+     * Field selalu anak dari form run, sehingga `form_id` (ber-index) sudah exact. Fallback
+     * label dipakai untuk sisa cleanup parsial ketika baris form sudah lebih dulu terhapus.
+     *
+     * @param  list<string>  $formIds
+     * @return list<string>
+     */
+    private static function resolveFieldIds(array $formIds, string $markerLike): array
+    {
+        if ($formIds === []) {
+            return self::stringIds(
+                DB::table('form_fields')->select('id')->where('label', 'like', $markerLike)->pluck('id'),
+            );
+        }
+
+        return self::stringIds(
+            DB::table('form_fields')->select('id')->whereIn('form_id', $formIds)->pluck('id'),
+        );
+    }
+
+    /**
      * Jumlah baris satu run tanpa menghapus; dipakai `check:row-ownership`.
      *
      * @return array<string, int>
@@ -352,23 +412,8 @@ final class FixtureScope
             ->pluck('id')
             ->all();
 
-        $formIds = DB::table('forms')
-            ->select('id')
-            ->where(function ($query) use ($eventIds, $markerLike): void {
-                $query->whereIn('event_id', $eventIds)
-                    ->orWhere('title', 'like', $markerLike);
-            })
-            ->pluck('id')
-            ->all();
-
-        $fieldIds = DB::table('form_fields')
-            ->select('id')
-            ->where(function ($query) use ($formIds, $markerLike): void {
-                $query->whereIn('form_id', $formIds)
-                    ->orWhere('label', 'like', $markerLike);
-            })
-            ->pluck('id')
-            ->all();
+        $formIds = self::resolveFormIds($eventIds, $userIds, $markerLike);
+        $fieldIds = self::resolveFieldIds($formIds, $markerLike);
 
         $answerIds = DB::table('form_answers')
             ->select('id')

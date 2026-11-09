@@ -186,7 +186,7 @@ class RecruitmentApplicationListQueryTest extends TestCase
         $this->assertSame([$secondary->id], $paginator->getCollection()->pluck('id')->all());
     }
 
-    public function test_search_matches_name_and_nim_substring_with_like(): void
+    public function test_be_p2_015_search_matches_name_and_nim_substring_with_like(): void
     {
         $budi = $this->application(['full_name' => 'Budi Santoso', 'nim' => 'A11.2021.00001']);
         $this->application(['full_name' => 'Siti Aminah', 'nim' => 'A11.2022.00002']);
@@ -207,6 +207,63 @@ class RecruitmentApplicationListQueryTest extends TestCase
 
         $this->assertSame(1, $byNim->total());
         $this->assertSame([$budi->id], $byNim->getCollection()->pluck('id')->all());
+    }
+
+    public function test_be_p2_015_search_wildcards_are_literal(): void
+    {
+        $percent = $this->application(['full_name' => '%Applicant 100 percent']);
+        $underscore = $this->application(['full_name' => '_Applicant under review']);
+        $escape = $this->application(['full_name' => '!Applicant with escape prefix']);
+        $this->application(['full_name' => 'Applicant without search symbols']);
+
+        $percentResults = $this->service()->paginate([
+            'period_id' => $this->period->id,
+            'search' => '%',
+        ]);
+        $underscoreResults = $this->service()->paginate([
+            'period_id' => $this->period->id,
+            'search' => '_',
+        ]);
+        $escapeResults = $this->service()->paginate([
+            'period_id' => $this->period->id,
+            'search' => '!',
+        ]);
+
+        $this->assertSame([$percent->id], $percentResults->getCollection()->pluck('id')->all());
+        $this->assertSame([$underscore->id], $underscoreResults->getCollection()->pluck('id')->all());
+        $this->assertSame([$escape->id], $escapeResults->getCollection()->pluck('id')->all());
+    }
+
+    public function test_search_keeps_user_input_bound_and_uses_fixed_columns(): void
+    {
+        $searchTerm = "' OR 1=1 --";
+        $queries = [];
+
+        DB::listen(static function (QueryExecuted $query) use (&$queries): void {
+            if (str_contains($query->sql, ' LIKE ? ESCAPE ')) {
+                $queries[] = ['sql' => $query->sql, 'bindings' => $query->bindings];
+            }
+        });
+
+        $this->service()->paginate([
+            'period_id' => $this->period->id,
+            'search' => $searchTerm,
+        ]);
+
+        $this->assertNotEmpty($queries, 'Search SQL must use a bound LIKE pattern.');
+
+        $searchSql = implode("\n", array_column($queries, 'sql'));
+        $this->assertStringNotContainsString($searchTerm, $searchSql);
+
+        foreach (['full_name', 'nim', 'registration_number'] as $column) {
+            $this->assertStringContainsString($column.' LIKE ?', $searchSql);
+        }
+
+        $searchBindings = array_merge([], ...array_map(
+            static fn (array $query): array => $query['bindings'],
+            $queries,
+        ));
+        $this->assertContains('%'.$searchTerm.'%', $searchBindings);
     }
 
     public function test_pagination_is_deterministic_when_submitted_at_ties(): void
