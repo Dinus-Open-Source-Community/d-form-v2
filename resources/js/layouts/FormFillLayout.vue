@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import { usePageFlashToast } from '@/hooks/usePageFlashToast'
+import { goBack } from '@/adapters/browser/navigation'
 
 const page = usePage()
 usePageFlashToast()
@@ -21,11 +22,8 @@ const fallbackBackHref = computed((): string => {
 /** URL wordmark publik (WebP) — satu sumber di `lib/brand`. */
 const formFillLogoSrc = DFORM_WORDMARK_SRC
 
-function goBack(): void {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-        return
-    }
+function goBackToPreviousPage(): void {
+    if (goBack()) return
     router.visit(fallbackBackHref.value)
 }
 </script>
@@ -39,7 +37,7 @@ function goBack(): void {
                     size="sm"
                     class="h-9 gap-2 px-2.5 text-muted-foreground hover:text-foreground"
                     type="button"
-                    @click="goBack"
+                    @click="goBackToPreviousPage"
                 >
                     <ArrowLeft class="size-4" aria-hidden="true" />
                     <span>Kembali</span>

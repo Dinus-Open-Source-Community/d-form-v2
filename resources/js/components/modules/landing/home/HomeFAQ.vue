@@ -6,6 +6,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from '@/components/ui/accordion'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 const faqs = [
     {
@@ -52,8 +53,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.08 },
     )
-    const el = document.getElementById('section-faq')
-    if (el) obs.observe(el)
+    const el = findElementById('section-faq')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

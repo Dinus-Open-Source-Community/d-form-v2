@@ -5,6 +5,7 @@ import FormFillLayout from '@/layouts/FormFillLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { routes } from '@/lib/routes'
+import { copyTextToClipboard } from '@/adapters/browser/clipboard'
 import { CheckCircle2, Copy, Mail } from 'lucide-vue-next'
 
 defineOptions({ layout: FormFillLayout })
@@ -19,12 +20,8 @@ const trackLoginUrl = computed(
     () => `${routes.recruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`,
 )
 
-async function copyRegistrationNumber() {
-    try {
-        await navigator.clipboard.writeText(props.registrationNumber)
-    } catch {
-        // clipboard may be unavailable
-    }
+async function copyRegistrationNumber(): Promise<void> {
+    await copyTextToClipboard(props.registrationNumber)
 }
 </script>
 

@@ -3,6 +3,7 @@ import { nextTick, onMounted, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Link } from '@inertiajs/vue3'
 import { ArrowLeft, Eye } from 'lucide-vue-next'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 const props = withDefaults(
     defineProps<{
@@ -29,8 +30,8 @@ const canTeleport = ref(false)
 
 onMounted(() => {
     void nextTick(() => {
-        const left = document.getElementById('dashboard-fb-nav-left')
-        const right = document.getElementById('dashboard-fb-nav-right')
+        const left = findElementById('dashboard-fb-nav-left')
+        const right = findElementById('dashboard-fb-nav-right')
         if (left && right) canTeleport.value = true
     })
 })

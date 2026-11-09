@@ -5,6 +5,7 @@ import LocalLottie from '@/components/core/LocalLottie.vue'
 import { Button } from '@/components/ui/button'
 import type { LottieName } from '@/lib/lotties'
 import { routes } from '@/lib/routes'
+import { goBack as goBackInHistory } from '@/adapters/browser/navigation'
 
 const props = defineProps<{
     status: number
@@ -49,10 +50,7 @@ const description = computed(() => {
 const headTitle = computed(() => `${props.status} · ${title.value}`)
 
 function goBack(): void {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-        return
-    }
+    if (goBackInHistory()) return
     router.visit(routes.home)
 }
 </script>

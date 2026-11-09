@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
 import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import {
     createLocalImagePreviewUrl,
     revokeLocalImagePreviewUrl,
@@ -175,12 +175,12 @@ function setOptionImageUrlById(optionId: string, url: string) {
 }
 
 function optionPreviewSrc(opt: FieldOptionEntry): string {
-    return opt.imageUrl ? normalizeBannerSrc(opt.imageUrl) : ''
+    return opt.imageUrl ? normalizePublicStorageUrl(opt.imageUrl) : ''
 }
 
 function imageBlockSrc(): string {
     const raw = props.field.metadata?.imageUrl
-    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : ''
 }
 
 async function onImageBlockFile(event: Event): Promise<void> {

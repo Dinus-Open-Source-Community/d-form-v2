@@ -2,6 +2,25 @@ import type { Component } from 'vue'
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-vue-next'
 import { formatDateTime } from '@/lib/dateTime'
 
+/** Interval dasar polling feed scan lintas meja (ms). */
+export const FEED_POLL_MS = 2000
+
+const FEED_BACKOFF_CAP_MS = 30_000
+
+/**
+ * Jeda sebelum percobaan feed berikutnya; exponential 2s/4s/8s/16s, cap 30s.
+ * `0` kegagalan = FEED_POLL_MS. Nilai negatif/NaN diperlakukan sebagai tanpa kegagalan.
+ */
+export function nextFeedDelayMs(consecutiveFailures: number): number {
+    if (!Number.isFinite(consecutiveFailures) || consecutiveFailures <= 0) {
+        return FEED_POLL_MS
+    }
+
+    const exponent = Math.floor(consecutiveFailures) - 1
+
+    return Math.min(FEED_POLL_MS * 2 ** exponent, FEED_BACKOFF_CAP_MS)
+}
+
 export type ScanStatus = 'success' | 'already' | 'invalid'
 
 export const SCAN_STATUS_THEME: Record<
@@ -71,111 +90,3 @@ export function createScanHistoryEntry(result: ScanResult): ScanEntry {
     }
 }
 
-export interface GlobalScanFeedRow {
-    id: string
-    ts: string
-    type: 'recruitment' | 'event'
-    eventTitle: string
-    name: string
-    identifier: string
-    queueNumber: number | null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function toUnknownArray(value: unknown): unknown[] {
-    if (!Array.isArray(value)) {
-        return []
-    }
-
-    const items: unknown[] = []
-    for (let index = 0; index < value.length; index += 1) {
-        const item: unknown = value[index]
-        items.push(item)
-    }
-
-    return items
-}
-
-function readString(record: Record<string, unknown>, key: string): string {
-    const value = record[key]
-
-    return typeof value === 'string' ? value : ''
-}
-
-function readQueueNumber(record: Record<string, unknown>, key: string): number | null {
-    const value = record[key]
-
-    return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-export function isGlobalScanFeedPayload(payload: unknown): boolean {
-    if (!isRecord(payload)) {
-        return false
-    }
-
-    return Array.isArray(payload.rows)
-}
-
-export function parseGlobalScanFeedRows(payload: unknown): GlobalScanFeedRow[] {
-    if (!isRecord(payload)) {
-        return []
-    }
-
-    const rows: GlobalScanFeedRow[] = []
-    for (const item of toUnknownArray(payload.rows)) {
-        if (!isRecord(item)) {
-            continue
-        }
-
-        const id = readString(item, 'id')
-        if (id.length === 0) {
-            continue
-        }
-
-        rows.push({
-            id,
-            ts: readString(item, 'ts'),
-            type: readString(item, 'type') === 'recruitment' ? 'recruitment' : 'event',
-            eventTitle: readString(item, 'eventTitle'),
-            name: readString(item, 'name'),
-            identifier: readString(item, 'identifier'),
-            queueNumber: readQueueNumber(item, 'queueNumber'),
-        })
-    }
-
-    return rows
-}
-
-export function parseGlobalScanCursor(payload: unknown): string {
-    if (!isRecord(payload)) {
-        return ''
-    }
-
-    return readString(payload, 'cursor')
-}
-
-export function playScanBeep(status: ScanStatus): void {
-    try {
-        const ctx = new AudioContext()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.frequency.value = status === 'success' ? 880 : status === 'already' ? 440 : 200
-        osc.start()
-        const ms = status === 'already' ? 320 : 160
-        window.setTimeout(() => {
-            osc.stop()
-            void ctx.close()
-        }, ms)
-        if (navigator.vibrate) {
-            navigator.vibrate(50)
-        }
-    }
-    catch {
-        return
-    }
-}

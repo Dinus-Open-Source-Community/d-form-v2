@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { onWindowEvent } from '@/adapters/browser/domEvents'
+import { openUrlInNewTab, saveBlobAsFile } from '@/adapters/browser/fileDownload'
+import { currentOrigin } from '@/adapters/browser/navigation'
+import { downloadFormAnswerFile } from '@/adapters/http/forms'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import { Button } from '@/components/ui/button'
 import { getFormFieldOptionRows, formFieldApiType, formFieldBuilderType } from '@/lib/formFieldOptions'
 import { readFieldMetadata } from '@/lib/formFieldMetadata'
@@ -37,16 +41,18 @@ function openLightbox(url: string): void {
     lightboxUrl.value = url
 }
 
+let removeEscapeListener: (() => void) | null = null
+
 watch(lightboxUrl, (v) => {
+    removeEscapeListener?.()
+    removeEscapeListener = null
     if (v) {
-        window.addEventListener('keydown', onEscapeClose)
-    } else {
-        window.removeEventListener('keydown', onEscapeClose)
+        removeEscapeListener = onWindowEvent('keydown', onEscapeClose)
     }
 })
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', onEscapeClose)
+    removeEscapeListener?.()
 })
 
 function plainText(): string {
@@ -68,7 +74,7 @@ const publicFileUrl = computed((): string | null => {
     if (!t) {
         return null
     }
-    const norm = normalizeBannerSrc(t)
+    const norm = normalizePublicStorageUrl(t)
     if (!norm) {
         return null
     }
@@ -90,7 +96,7 @@ function basenameFromHref(href: string | null): string {
         return 'berkas'
     }
     try {
-        const path = new URL(href, window.location.origin).pathname
+        const path = new URL(href, currentOrigin()).pathname
         const last = path.split('/').filter(Boolean).pop() ?? 'berkas'
         return decodeURIComponent(last) || 'berkas'
     } catch {
@@ -152,7 +158,7 @@ const attachmentToolbarClass = cn(
 )
 
 function openFileInNewTab(url: string): void {
-    window.open(url, '_blank', 'noopener,noreferrer')
+    openUrlInNewTab(url)
 }
 
 const isMultipleChoice = computed((): boolean => {
@@ -202,28 +208,12 @@ const showChoiceMedia = computed(
 async function downloadStoredFile(url: string, suggestedName: string): Promise<void> {
     const name = suggestedName || basenameFromHref(url)
     try {
-        const res = await fetch(url, { credentials: 'same-origin' })
-        if (!res.ok) {
-            throw new Error('fetch failed')
+        const blob = await downloadFormAnswerFile(url)
+        if (!saveBlobAsFile(blob, name)) {
+            openUrlInNewTab(url, name)
         }
-        const blob = await res.blob()
-        const href = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = href
-        a.download = name
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(href)
     } catch {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = name
-        a.target = '_blank'
-        a.rel = 'noopener noreferrer'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
+        openUrlInNewTab(url, name)
     }
 }
 

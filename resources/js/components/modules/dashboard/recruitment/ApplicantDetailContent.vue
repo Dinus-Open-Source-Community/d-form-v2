@@ -22,11 +22,7 @@ import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/r
 import { isHttpUrl } from '@/lib/isHttpUrl'
 import { formatDateTime } from '@/lib/dateTime'
 import ApplicantEmailingSection from './ApplicantEmailingSection.vue'
-import type {
-    IEmailResendPrereq,
-    IEmailResendTypeStatus,
-    TRecruitmentEmailResendType,
-} from '@/lib/recruitmentEmailResend'
+import type { IApplicationDetail } from '@/types/recruitment'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
@@ -53,120 +49,10 @@ import {
 
 type ScreeningAction = 'revision' | 'reject' | null
 
-interface ScreeningRow {
-    id: string
-    decision: string
-    decision_label: string
-    reason: string | null
-    reason_label: string | null
-    notes: string | null
-    acted_at: string | null
-    actor: { id: string; name: string } | null
-}
-
-interface ActivityRow {
-    id: string
-    action: string
-    old_values: Record<string, unknown> | null
-    new_values: Record<string, unknown> | null
-    created_at: string | null
-    actor: { id: string; name: string } | null
-}
-
-interface CorrectionRow {
-    id: string
-    status: string
-    status_label: string
-    request_message: string
-    review_notes: string | null
-    reviewed_at: string | null
-    completed_at: string | null
-    reviewer: { id: string; name: string } | null
-}
-
-interface EvaluationDetail {
-    speaking_score: number
-    technical_score: number
-    attitude_score: number
-    recommendation: string
-    recommendation_label: string
-    notes: string | null
-    is_locked: boolean
-    evaluated_at: string | null
-    evaluator: { id: string; name: string } | null
-    division?: string | null
-    division_id?: string | null
-    save_count?: number
-    saves_remaining?: number
-}
-
-interface FinalDecisionDetail {
-    membership_type: string | null
-    membership_type_label: string | null
-    final_division: { id: string; name: string; code: string } | null
-    internal_reason: string | null
-    public_message: string | null
-    decided_at: string | null
-    decider: { id: string; name: string } | null
-}
-
-export interface ApplicationDetail {
-    id: string
-    registration_number: string
-    full_name: string
-    nim: string
-    semester: number
-    phone: string
-    personal_email: string
-    student_email: string
-    instagram_username: string
-    stage: string
-    stage_label: string
-    result: string
-    result_label: string
-    is_verified: boolean
-    revision_required: boolean
-    submitted_at: string | null
-    period: { id: string; name: string } | null
-    primary_division: { id: string; name: string; code: string } | null
-    secondary_division: { id: string; name: string; code: string } | null
-    document: {
-        cv_original_name: string
-        cv_mime: string
-        cv_size_bytes: number
-        portfolio_type: string
-        portfolio_url: string | null
-        portfolio_original_name: string | null
-        portfolio_mime: string | null
-        portfolio_size_bytes: number | null
-        instagram_follow_original_name: string | null
-        instagram_follow_mime: string | null
-        instagram_follow_size_bytes: number | null
-        twibbon_url: string | null
-        has_cv_file: boolean
-        has_portfolio_file: boolean
-        has_instagram_follow_file: boolean
-    } | null
-    screenings: ScreeningRow[]
-    activity_logs: ActivityRow[]
-    correction_requests: CorrectionRow[]
-    evaluation: EvaluationDetail | null
-    evaluations: {
-        primary: EvaluationDetail | null
-        secondary: EvaluationDetail | null
-    }
-    final_decision: FinalDecisionDetail | null
-    can_screen: boolean
-    can_verify: boolean
-    can_decide_final: boolean
-    can_resend_tracking: boolean
-    email_resend_status?: Partial<Record<TRecruitmentEmailResendType, IEmailResendTypeStatus>> | null
-    email_resend_prereq?: IEmailResendPrereq | null
-}
 
 const props = withDefaults(
     defineProps<{
-        application: ApplicationDetail
+        application: IApplicationDetail
         screeningReasonOptions?: { value: string; label: string }[]
         divisionOptions?: { id: string; name: string; code: string }[]
         membershipTypeOptions?: { value: string; label: string }[]
@@ -868,16 +754,16 @@ const instagramHandle = computed<string>(() =>
 const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`)
 
 const portfolioExternalUrl = computed<string | null>(() => {
-    const document = props.application.document
-    if (document === null) return null
-    const raw: string | null = document.portfolio_url
+    const applicationDocument = props.application.document
+    if (applicationDocument === null) return null
+    const raw: string | null = applicationDocument.portfolio_url
     return raw !== null && isHttpUrl(raw) ? raw : null
 })
 
 const twibbonExternalUrl = computed<string | null>(() => {
-    const document = props.application.document
-    if (document === null) return null
-    const raw: string | null = document.twibbon_url
+    const applicationDocument = props.application.document
+    if (applicationDocument === null) return null
+    const raw: string | null = applicationDocument.twibbon_url
     return raw !== null && isHttpUrl(raw) ? raw : null
 })
 

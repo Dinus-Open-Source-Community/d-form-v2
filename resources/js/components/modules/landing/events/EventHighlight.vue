@@ -7,6 +7,7 @@ import { MapPin, Users, ArrowRight } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
 import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 const props = defineProps<{
     events: IEvent[]
@@ -18,8 +19,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.1 },
     )
-    const el = document.getElementById('event-highlight')
-    if (el) obs.observe(el)
+    const el = findElementById('event-highlight')
+    if (el !== null) obs.observe(el)
 })
 
 const featured = computed(() => props.events.slice(0, 3))

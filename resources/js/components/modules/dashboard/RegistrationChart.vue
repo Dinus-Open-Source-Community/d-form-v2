@@ -13,6 +13,7 @@ import {
     type ChartOptions,
 } from 'chart.js';
 import { TrendingUp } from 'lucide-vue-next';
+import { observeThemeAttribute, readThemeAttribute } from '@/adapters/browser/documentState';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
@@ -25,15 +26,16 @@ const props = withDefaults(
 
 const isDark = ref(false);
 
+let releaseTheme: () => void = () => undefined;
+
 onMounted(() => {
-    const sync = () => {
-        isDark.value = document.documentElement.getAttribute('data-theme') === 'dark';
-    };
-    sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    onUnmounted(() => mo.disconnect());
+    isDark.value = readThemeAttribute() === 'dark';
+    releaseTheme = observeThemeAttribute((theme) => {
+        isDark.value = theme === 'dark';
+    });
 });
+
+onUnmounted(() => releaseTheme());
 
 const total = computed(() => props.points.reduce((s, d) => s + d.count, 0));
 

@@ -12,7 +12,12 @@ import { readFieldRules } from '@/lib/formFieldMetadata';
 import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';
 import { routes } from '@/lib/routes';
 import { formatDateTime } from '@/lib/dateTime';
-import { CircleAlert } from 'lucide-vue-next';
+import { CircleAlert, TriangleAlert } from 'lucide-vue-next';
+import { currentHref, currentSearchParam, pushUrl, replaceUrl } from '@/adapters/browser/navigation';
+import { focusElementById } from '@/adapters/browser/domQuery';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
+import { readStorage, removeStorage, writeStorage } from '@/adapters/browser/storage';
+import { openUrlInNewTab } from '@/adapters/browser/fileDownload';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -41,12 +46,22 @@ const ctx = reactive(useFormFillPage({
 }));
 
 const DRAFT_KEY = 'oprec-apply-draft-v1';
+const DRAFT_STORAGE_UNAVAILABLE_MESSAGE = 'Penyimpanan browser tidak tersedia.';
+const DRAFT_CORRUPT_NOTICE = 'Draft lokal rusak dan dibersihkan. Isian baru bisa dikirim seperti biasa.';
+const DRAFT_CORRUPT_NOTICE_UNDELETED =
+    'Draft lokal rusak dan tidak bisa dibersihkan otomatis. Hapus data situs ini dari pengaturan browser.';
 const TOTAL_STEPS = 3;
 const STEP_LIST = [1, 2, 3];
 const currentStep = ref<number>(1);
 const clientErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const savedAt = ref<Date | null>(null);
+/** Pesan kegagalan tulis draft; kosong lagi setelah draft berhasil tersimpan. */
+const draftError = ref<string>('');
+/** Notice sekali jalan saat draft lokal yang tersimpan ternyata tidak bisa dibaca. */
+const draftCorruptNotice = ref<string>('');
+/** False sampai probe mount selesai; klaim "tersimpan otomatis" menunggu bukti storage bisa ditulis. */
+const draftStorageReady = ref<boolean>(false);
 
 function stepOf(field: IFormField): number {
     return typeof field.metadata.step === 'number' ? field.metadata.step : 0;
@@ -119,19 +134,15 @@ function cardErrorClass(field: IFormField): string {
 function focusFirstInvalidField(step: number): void {
     const target = stepFields(step).find((field) => fieldHasError(field));
     if (!target) return;
-    const control = document.getElementById(target.name);
-    if (control instanceof HTMLElement) {
-        control.focus();
-        return;
-    }
-    document.getElementById(fieldCardId(target))?.focus();
+    if (focusElementById(target.name)) return;
+    focusElementById(fieldCardId(target));
 }
 
 function syncStepToUrl(step: number, replace: boolean): void {
-    const url = new URL(window.location.href);
+    const url = new URL(currentHref());
     url.searchParams.set('step', String(step));
-    if (replace) window.history.replaceState({}, '', url);
-    else window.history.pushState({}, '', url);
+    if (replace) replaceUrl(url);
+    else pushUrl(url);
 }
 
 function goToStep(step: number): void {
@@ -145,7 +156,7 @@ function goToStep(step: number): void {
 }
 
 function onPopState(): void {
-    const step = Number(new URL(window.location.href).searchParams.get('step') || '1');
+    const step = Number(currentSearchParam('step') || '1');
     if (step >= 1 && step <= TOTAL_STEPS) {
         currentStep.value = step;
         clientErrors.value = {};
@@ -169,15 +180,27 @@ const {
     debounceMs: 800,
     storageKey: DRAFT_KEY,
     storage: {
-        read: (key: string): string | null => window.localStorage.getItem(key),
-        write: (key: string, value: string): void => window.localStorage.setItem(key, value),
-        remove: (key: string): void => window.localStorage.removeItem(key),
+        read: (key: string): string | null => readStorage({ area: 'local', key }),
+        write: (key: string, value: string): void => {
+            if (!writeStorage({ area: 'local', key, value })) {
+                throw new Error(DRAFT_STORAGE_UNAVAILABLE_MESSAGE);
+            }
+            // Tulis berhasil = draft kembali tersimpan, jadi status gagal dicabut di sini.
+            draftError.value = '';
+        },
+        remove: (key: string): void => {
+            removeStorage({ area: 'local', key });
+        },
     },
-    onError: () => {},
+    onError: (message: string): void => {
+        draftError.value = message;
+    },
 });
 
 watch(draftStatus, (value: AutosaveStatusType): void => {
-    if (value === 'saved') savedAt.value = new Date();
+    if (value !== 'saved') return;
+    savedAt.value = new Date();
+    draftCorruptNotice.value = '';
 });
 
 /** Hapus pesan error begitu isian sudah diperbaiki, agar card-nya tidak tetap merah. */
@@ -207,16 +230,36 @@ function isDraftShape(value: unknown): value is { step?: unknown; values?: unkno
     return typeof value === 'object' && value !== null;
 }
 
+/** Probe sekali saat mount: klaim "tersimpan otomatis" tidak boleh muncul sebelum storage terbukti bisa ditulis. */
+function probeDraftStorage(): void {
+    const probeKey = `${DRAFT_KEY}::probe`;
+    const writable = writeStorage({ area: 'local', key: probeKey, value: '1' });
+    removeStorage({ area: 'local', key: probeKey });
+
+    if (!writable) draftError.value = DRAFT_STORAGE_UNAVAILABLE_MESSAGE;
+    draftStorageReady.value = true;
+}
+
+/** Buang draft yang tidak bisa dibaca; notice hanya mengklaim bersih bila penghapusan benar-benar berhasil. */
+function discardCorruptDraft(): void {
+    const cleared = removeStorage({ area: 'local', key: DRAFT_KEY });
+    draftCorruptNotice.value = cleared ? DRAFT_CORRUPT_NOTICE : DRAFT_CORRUPT_NOTICE_UNDELETED;
+}
+
 function restoreDraft(): void {
-    const raw = window.localStorage.getItem(DRAFT_KEY);
+    const raw = readStorage({ area: 'local', key: DRAFT_KEY });
     if (!raw) return;
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
     } catch {
+        discardCorruptDraft();
         return;
     }
-    if (!isDraftShape(parsed)) return;
+    if (!isDraftShape(parsed)) {
+        discardCorruptDraft();
+        return;
+    }
     if (typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= TOTAL_STEPS) {
         currentStep.value = parsed.step;
     }
@@ -257,7 +300,12 @@ async function submitStep(): Promise<void> {
     await flushDraft();
     ctx.answerForm.post(props.submitUrl, {
         forceFormData: true,
-        onSuccess: () => window.localStorage.removeItem(DRAFT_KEY),
+        onSuccess: () => {
+            const cleared = removeStorage({ area: 'local', key: DRAFT_KEY });
+            draftError.value = '';
+            // Halaman berpindah ke halaman sukses; notice hanya dihapus bila key benar-benar hilang.
+            if (cleared) draftCorruptNotice.value = '';
+        },
         onError: () => {
             isSubmitting.value = false;
             const step = firstStepWithErrors();
@@ -269,7 +317,7 @@ async function submitStep(): Promise<void> {
 }
 
 function openUploadLightbox(src: string | undefined): void {
-    if (src) window.open(src, '_blank', 'noopener');
+    if (src) openUrlInNewTab(src);
 }
 
 const reviewRows = computed((): Array<{ label: string; value: string }> => {
@@ -297,16 +345,19 @@ const reviewRows = computed((): Array<{ label: string; value: string }> => {
     ];
 });
 
+let releasePopState = (): void => undefined;
+
 onMounted(() => {
-    const fromUrl = Number(new URL(window.location.href).searchParams.get('step') || '1');
+    const fromUrl = Number(currentSearchParam('step') || '1');
     if (fromUrl >= 1 && fromUrl <= TOTAL_STEPS) currentStep.value = fromUrl;
+    probeDraftStorage();
     restoreDraft();
     syncStepToUrl(currentStep.value, true);
-    window.addEventListener('popstate', onPopState);
+    releasePopState = onWindowEvent('popstate', onPopState);
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener('popstate', onPopState);
+    releasePopState();
     cancelDraft();
 });
 
@@ -334,7 +385,38 @@ const periodName = computed((): string => {
             <h1 class="text-2xl font-bold tracking-tight">Formulir Pendaftaran</h1>
             <p v-if="period" class="text-muted-foreground text-sm">{{ periodName }}</p>
 
-            <AutosaveStatus :status="draftStatus" :saved-text="draftStatusText" variant="block" />
+            <AutosaveStatus
+                :status="draftError ? 'idle' : draftStatus"
+                :saved-text="draftStatusText"
+                variant="block"
+            />
+
+            <div
+                v-if="draftError || draftCorruptNotice"
+                role="status"
+                aria-live="polite"
+                class="border-warning/50 bg-warning/10 mt-2 flex items-start gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm"
+            >
+                <span
+                    class="border-warning/30 bg-warning/15 text-warning-foreground mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border"
+                >
+                    <TriangleAlert class="size-4" aria-hidden="true" />
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-foreground text-sm font-medium">
+                        <template v-if="draftError">
+                            Draft tidak tersimpan di perangkat ini — isian tetap bisa dikirim.
+                        </template>
+                        <template v-else>{{ draftCorruptNotice }}</template>
+                    </p>
+                    <p v-if="draftError" class="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                        {{ draftError }}
+                    </p>
+                    <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                        File tidak ikut tersimpan — pilih ulang CV dan file portfolio sebelum submit.
+                    </p>
+                </div>
+            </div>
         </div>
 
         <Card v-if="isBlocked" class="border-border/70 rounded-2xl">
@@ -394,14 +476,13 @@ const periodName = computed((): string => {
                 </div>
             </nav>
 
-            <div
-                class="border-border/70 bg-muted/40 mb-4 rounded-xl border border-dashed px-4 py-3 text-xs leading-relaxed"
+            <p
+                v-if="draftStorageReady && !draftError && !draftCorruptNotice"
+                class="text-muted-foreground mb-4 px-1 text-center text-xs leading-relaxed"
             >
-                <p class="text-foreground font-medium">Draft tersimpan otomatis di browser ini</p>
-                <p class="text-muted-foreground mt-0.5">
-                    File tidak ikut tersimpan — pilih ulang CV dan file portfolio sebelum submit.
-                </p>
-            </div>
+                Draft tersimpan otomatis di browser ini. File tidak ikut tersimpan — pilih ulang CV dan file
+                portfolio sebelum submit.
+            </p>
 
             <template v-for="step in STEP_LIST" :key="step">
                 <div v-show="currentStep === step" class="flex flex-col gap-4">

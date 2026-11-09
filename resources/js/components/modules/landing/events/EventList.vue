@@ -11,6 +11,7 @@ import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect'
 import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue'
 import { useEventSearch } from '@/hooks/useEventSearch'
 import { formatDateTime } from '@/lib/dateTime'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface IEventPaginationLink {
     url: string | null
@@ -52,8 +53,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.05 },
     )
-    const el = document.getElementById('event-list')
-    if (el) obs.observe(el)
+    const el = findElementById('event-list')
+    if (el !== null) obs.observe(el)
 })
 
 const statusLabel = (s: string) => {

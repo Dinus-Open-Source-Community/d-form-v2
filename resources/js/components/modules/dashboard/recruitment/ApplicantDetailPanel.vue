@@ -4,15 +4,18 @@ import { usePage } from '@inertiajs/vue3'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import ApplicantDetailContent, { type ApplicationDetail } from './ApplicantDetailContent.vue'
+import ApplicantDetailContent from './ApplicantDetailContent.vue'
+import type { IApplicationDetail } from '@/types/recruitment'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
 import { useAuth } from '@/hooks/useAuth'
-import { CheckCircle2, Mail, Star, UserPlus, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, Mail, RefreshCw, Star, TriangleAlert, UserPlus, XCircle } from 'lucide-vue-next'
 
 const props = withDefaults(
     defineProps<{
-        application: ApplicationDetail | null
+        application: IApplicationDetail | null
         loading: boolean
+        /** Pesan gagal muat detail; panel tetap terbuka agar penyebabnya terlihat. */
+        errorMessage?: string
         reasonOptions?: { value: string; label: string }[]
         divisionOptions?: { id: string; name: string; code: string }[]
         membershipTypeOptions?: { value: string; label: string }[]
@@ -22,6 +25,7 @@ const props = withDefaults(
         whatsappGroupMemberUrl?: string | null
     }>(),
     {
+        errorMessage: '',
         reasonOptions: () => [],
         divisionOptions: () => [],
         membershipTypeOptions: () => [],
@@ -32,7 +36,7 @@ const props = withDefaults(
     },
 )
 
-const emit = defineEmits<{ close: []; submitted: [] }>()
+const emit = defineEmits<{ close: []; submitted: []; retry: [] }>()
 
 const page = usePage()
 const user = useAuth(page.props)
@@ -64,7 +68,7 @@ const canDecideFinal = computed<boolean>(() => {
 const contentRef = ref<InstanceType<typeof ApplicantDetailContent> | null>(null)
 
 const sheetOpen = computed<boolean>({
-    get: () => props.application !== null,
+    get: () => props.application !== null || props.errorMessage !== '',
     set: (value: boolean) => {
         if (!value) emit('close')
     },
@@ -109,10 +113,13 @@ function handleSubmitted() {
         >
             <SheetHeader class="border-border/70 shrink-0 space-y-1 border-b py-4 pl-4 pr-12 text-left">
                 <SheetTitle class="truncate text-base">
-                    {{ application?.full_name ?? 'Detail peserta' }}
+                    {{ application?.full_name ?? (errorMessage ? 'Detail peserta gagal dimuat' : 'Detail peserta') }}
                 </SheetTitle>
-                <SheetDescription class="text-muted-foreground truncate text-xs">
-                    {{ application?.registration_number }} · {{ application?.nim }}
+                <SheetDescription v-if="application" class="text-muted-foreground truncate text-xs">
+                    {{ application.registration_number }} · {{ application.nim }}
+                </SheetDescription>
+                <SheetDescription v-else-if="errorMessage" class="text-muted-foreground text-xs">
+                    Daftar peserta di belakang panel tidak berubah.
                 </SheetDescription>
                 <div v-if="application" class="flex flex-wrap items-center justify-between gap-2 pt-1.5">
                     <div class="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -175,6 +182,23 @@ function handleSubmitted() {
                     </div>
                 </div>
             </SheetHeader>
+
+            <div
+                v-if="!application && errorMessage"
+                role="alert"
+                class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center"
+            >
+                <span
+                    class="border-warning/30 bg-warning/15 text-warning-foreground flex size-12 shrink-0 items-center justify-center rounded-full border"
+                >
+                    <TriangleAlert class="size-5" aria-hidden="true" />
+                </span>
+                <p class="text-muted-foreground max-w-md text-sm leading-relaxed">{{ errorMessage }}</p>
+                <Button size="sm" variant="outline" :disabled="loading" @click="emit('retry')">
+                    <RefreshCw class="mr-2 size-4" :class="loading && 'animate-spin'" aria-hidden="true" />
+                    {{ loading ? 'Mencoba lagi…' : 'Coba lagi' }}
+                </Button>
+            </div>
 
             <div
                 v-if="application"

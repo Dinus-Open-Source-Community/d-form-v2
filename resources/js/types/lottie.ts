@@ -3,7 +3,29 @@ export interface LottieRegistryEntry {
     readonly label: string
 }
 
-export type LottieRegistry = Readonly<Record<string, LottieRegistryEntry>>
+/**
+ * Keys of the runtime registry in `lib/lotties.ts`. Declared here so `types/**`
+ * never imports `lib/**`; the registry is compiled against this list.
+ */
+export type LottieName =
+    | 'builderEmpty'
+    | 'fieldSelected'
+    | 'errorState'
+    | 'error404Page'
+    | 'emptyData'
+    | 'registrantsWaiting'
+    | 'landingHero'
+    | 'landingStepCreate'
+    | 'landingStepBuild'
+    | 'landingStepMonitor'
+    | 'landingShowcase'
+    | 'landingCta'
+    | 'featuresHero'
+    | 'featuresIntegrations'
+    | 'eventsHero'
+
+/** Registry shape derived from the declared name list; entry type is reused, not duplicated. */
+export type LottieRegistry = Readonly<Record<LottieName, LottieRegistryEntry>>
 
 export interface LocalLottieProps {
     readonly name?: string

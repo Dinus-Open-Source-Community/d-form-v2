@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Head, router, useForm, usePage } from '@inertiajs/vue3'
-import axios from 'axios'
+import { fetchApplicantDetail } from '@/adapters/http/recruitment'
+import { isHttpRequestError } from '@/adapters/http/httpError'
+import { replaceUrl, currentSearchParam } from '@/adapters/browser/navigation'
+import { onWindowEvent } from '@/adapters/browser/domEvents'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import PeriodApplicantSection from '@/components/modules/dashboard/recruitment/PeriodApplicantSection.vue'
 import PeriodSettingsSection from '@/components/modules/dashboard/recruitment/PeriodSettingsSection.vue'
 import PeriodInterviewSection from '@/components/modules/dashboard/recruitment/PeriodInterviewSection.vue'
 import PeriodReportSection from '@/components/modules/dashboard/recruitment/PeriodReportSection.vue'
 import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/ApplicantDetailPanel.vue'
-import { type ApplicationDetail } from '@/components/modules/dashboard/recruitment/ApplicantDetailContent.vue'
+import type { IApplicationDetail } from '@/types/recruitment'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import InterviewerCreateSheet from '@/components/modules/dashboard/recruitment/InterviewerCreateSheet.vue'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -25,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BarChart3, CalendarClock, Plus, QrCode, RefreshCw, Send, Settings, Trash2, UserCheck, Users } from 'lucide-vue-next'
 import { showErrorToast } from '@/lib/error-message'
+import { describeRequestError } from '@/lib/requestErrorText'
 import { toast } from 'vue-sonner'
 import { routes } from '@/lib/routes'
 import type { PeriodStatusValue } from '@/lib/recruitmentPeriodPhase'
@@ -168,7 +172,7 @@ const props = withDefaults(
         sessions?: SessionPaginator | null
         interview_division_options?: { id: string; name: string; code: string }[]
         report?: ReportPayload | null
-        applicant_detail?: ApplicationDetail | null
+        applicant_detail?: IApplicationDetail | null
         /** Jumlah eligible kirim link grup (lolos, bukan rejected). */
         group_link_eligible_count?: number
         /** Jumlah eligible kirim QR (tahap interview, belum absen, belum terkirim). */
@@ -575,7 +579,7 @@ function normalizeTab(value: string): TabValue {
 
 /** Deep-link ?tab=settings dibaca dari URL karena backend menormalkan tab asing ke peserta. */
 function initialTab(): TabValue {
-    const fromUrl = new URLSearchParams(window.location.search).get('tab') ?? ''
+    const fromUrl = currentSearchParam('tab') ?? ''
     if ((validTabs as readonly string[]).includes(fromUrl)) return normalizeTab(fromUrl)
     return normalizeTab(props.tab)
 }
@@ -670,40 +674,110 @@ function onTabChange(value: string | number): void {
 function onSettingsSaved(): void {
     expectTab.value = null
     activeTab.value = 'settings'
-    window.history.replaceState(null, '', settingsUrl())
+    replaceUrl(settingsUrl())
 }
 
-const selectedApplication = ref<ApplicationDetail | null>(null)
+const selectedApplication = ref<IApplicationDetail | null>(null)
 const detailLoading = ref<boolean>(false)
-const detailCache = new Map<string, ApplicationDetail>()
+/** Pesan kegagalan muat detail; panel tetap terbuka agar penyebabnya terlihat. */
+const detailError = ref<string>('')
+/** Applicant yang gagal dimuat, dipakai tombol "Coba lagi" di panel. */
+const detailFailedId = ref<string | null>(null)
+const detailCache = new Map<string, IApplicationDetail>()
+/** Urutan request detail; hanya request terbaru yang boleh menulis state panel. */
+let detailRequestSeq = 0
+/** Baris tabel yang tetap tersorot saat panel menampilkan error, bukan detail. */
+const panelApplicantId = computed<string | null>(
+    () => selectedApplication.value?.id ?? detailFailedId.value,
+)
 
 function detailUrl(id: string): string {
     return `${routes.admin.recruitment.periods.show(props.period.id)}/applications/${id}`
 }
 
-async function selectApplicant(id: string): Promise<void> {
-    if (selectedApplication.value?.id === id) return
-    const cached: ApplicationDetail | undefined = detailCache.get(id)
-    if (cached && 'can_resend_tracking' in cached) {
-        selectedApplication.value = cached
-        return
+/**
+ * Terjemahkan kegagalan muat detail ke kalimat sebab + tindakan, tanpa pesan mentah.
+ * Sumber string tunggal ada di `describeRequestError`; hanya `not_found` yang
+ * memakai kalimat kontekstual halaman ini.
+ */
+function detailErrorMessage(error: unknown): string {
+    if (!isHttpRequestError(error)) {
+        return describeRequestError({ kind: 'unknown', status: null }) ?? ''
     }
+
+    if (error.kind === 'not_found') {
+        return 'Data peserta ini tidak ditemukan. Muat ulang daftar peserta, lalu pilih lagi.'
+    }
+
+    return (
+        describeRequestError({
+            kind: error.kind,
+            status: error.status,
+            retryAfterSeconds: error.retryAfterSeconds,
+        }) ?? ''
+    )
+}
+
+/** Muat detail satu applicant; error lama dibiarkan oleh pemanggil (retry menjaga target). */
+async function loadApplicantDetail(id: string): Promise<void> {
+    const seq = ++detailRequestSeq
     detailLoading.value = true
     try {
-        const { data } = await axios.get<{ application: ApplicationDetail }>(detailUrl(id), {
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        })
-        detailCache.set(id, data.application)
-        selectedApplication.value = data.application
-    } catch {
+        const application = await fetchApplicantDetail(detailUrl(id))
+        if (seq !== detailRequestSeq) return
+        detailCache.set(id, application)
+        selectedApplication.value = application
+        detailError.value = ''
+        detailFailedId.value = null
+    } catch (error) {
+        if (seq !== detailRequestSeq) return
         selectedApplication.value = null
+        detailError.value = detailErrorMessage(error)
+        detailFailedId.value = id
     } finally {
-        detailLoading.value = false
+        if (seq === detailRequestSeq) {
+            detailLoading.value = false
+        }
     }
 }
 
+async function selectApplicant(id: string): Promise<void> {
+    if (selectedApplication.value?.id === id) return
+    const cached: IApplicationDetail | undefined = detailCache.get(id)
+    if (cached && 'can_resend_tracking' in cached) {
+        // Cache dipilih langsung: request detail yang masih jalan tidak boleh menimpa.
+        detailRequestSeq += 1
+        detailLoading.value = false
+        selectedApplication.value = cached
+        detailError.value = ''
+        detailFailedId.value = null
+        return
+    }
+    // Klik ulang applicant yang gagal = retry; panel tidak boleh kehilangan target.
+    if (id === detailFailedId.value) {
+        await loadApplicantDetail(id)
+        return
+    }
+    // Error applicant sebelumnya tidak boleh tampil selama applicant baru dimuat.
+    detailError.value = ''
+    detailFailedId.value = null
+    await loadApplicantDetail(id)
+}
+
+/** Ulangi pemuatan applicant yang gagal tanpa menutup panel error. */
+function retryApplicantDetail(): void {
+    const failedId = detailFailedId.value
+    if (failedId === null) return
+    void loadApplicantDetail(failedId)
+}
+
 function closePanel(): void {
+    // Invalidasi load in-flight agar panel tidak terbuka sendiri setelah ditutup.
+    detailRequestSeq += 1
+    detailLoading.value = false
     selectedApplication.value = null
+    detailError.value = ''
+    detailFailedId.value = null
 }
 
 function refreshList(): void {
@@ -719,12 +793,15 @@ function onGlobalKeydown(event: KeyboardEvent): void {
     closePanel()
 }
 
+let releaseGlobalKeydown: (() => void) | null = null
+
 onMounted(() => {
-    window.addEventListener('keydown', onGlobalKeydown)
+    releaseGlobalKeydown = onWindowEvent('keydown', onGlobalKeydown)
 })
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', onGlobalKeydown)
+    releaseGlobalKeydown?.()
+    releaseGlobalKeydown = null
     stopQrPolling()
 })
 
@@ -1057,7 +1134,7 @@ function closePeriod(): void {
                         :period-id="period.id"
                         :tab="activeTab"
                         :can-screen="canScreenApplications"
-                        :selected-id="selectedApplication?.id ?? null"
+                        :selected-id="panelApplicantId"
                         :applications="applications ?? null"
                         :queue-counts="queue_counts"
                         :division-options="divisionOptions"
@@ -1073,6 +1150,7 @@ function closePeriod(): void {
                     <ApplicantDetailPanel
                         :application="selectedApplication"
                         :loading="detailLoading"
+                        :error-message="detailError"
                         :reason-options="screening_reason_options"
                         :division-options="division_options"
                         :membership-type-options="membership_type_options"
@@ -1082,6 +1160,7 @@ function closePeriod(): void {
                         :whatsapp-group-member-url="period.whatsapp_group_member_url ?? null"
                         @close="closePanel"
                         @submitted="refreshList"
+                        @retry="retryApplicantDetail"
                     />
                 </div>
             </TabsContent>

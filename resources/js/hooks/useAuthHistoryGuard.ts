@@ -1,7 +1,13 @@
 import { router } from '@inertiajs/vue3';
+import {
+    assignUrl,
+    currentHref,
+    currentOrigin,
+    currentPathname,
+} from '@/adapters/browser/navigation';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const AUTH_PATH_PATTERN = /^\/auth(?:\/|$)/;
-
 let registered = false;
 let validationInFlight = false;
 
@@ -10,29 +16,32 @@ function isAuthPath(pathname: string): boolean {
     return AUTH_PATH_PATTERN.test(pathname);
 }
 
-/** Revalidate a restored auth snapshot and leave it when the session is active. */
+/**
+ * Revalidate a restored auth snapshot and leave it when the session is active.
+ * Adapter HTTP dimuat dinamis agar axios tidak masuk entry chunk; guard hanya
+ * berjalan di halaman `/auth*`.
+ */
 function validateRestoredAuthPage(): void {
-    if (isAuthPath(window.location.pathname) === false || validationInFlight) return;
+    if (isAuthPath(currentPathname()) === false || validationInFlight) return;
 
     validationInFlight = true;
 
-    void fetch(window.location.href, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'text/html' },
-        redirect: 'follow',
-    })
-        .then((response: Response): void => {
-            const resolvedPath = new URL(response.url, window.location.origin).pathname;
+    void (async (): Promise<void> => {
+        try {
+            const { probePageUrl } = await import('@/adapters/http/httpClient');
+            const finalUrl = await probePageUrl(currentHref());
+            const resolvedPath = new URL(finalUrl, currentOrigin()).pathname;
 
-            if (isAuthPath(window.location.pathname) && resolvedPath === '/') {
-                window.location.replace('/');
+            if (isAuthPath(currentPathname()) && resolvedPath === '/') {
+                assignUrl('/');
             }
-        })
-        .catch((): undefined => undefined)
-        .finally((): void => {
+        } catch {
+            // Probe bersifat best-effort: kegagalan jaringan/chunk tidak boleh
+            // memunculkan unhandled rejection saat guard global berjalan.
+        } finally {
             validationInFlight = false;
-        });
+        }
+    })();
 }
 
 /** Guard auth history restores caused by Inertia navigation and browser BFCache. */
@@ -44,11 +53,11 @@ export function useAuthHistoryGuard(): void {
         validateRestoredAuthPage();
     });
 
-    window.addEventListener('popstate', (): void => {
+    onWindowEvent('popstate', (): void => {
         validateRestoredAuthPage();
     });
 
-    window.addEventListener('pageshow', (event: PageTransitionEvent): void => {
+    onWindowEvent('pageshow', (event: PageTransitionEvent): void => {
         if (event.persisted) validateRestoredAuthPage();
     });
 }

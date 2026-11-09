@@ -1,4 +1,4 @@
-import type { ApplicationDetail } from '@/components/modules/dashboard/recruitment/ApplicantDetailContent.vue'
+import type { IApplicationDetail } from '@/types/recruitment'
 
 type RecruitmentAuthUser = {
     roles?: string[]
@@ -6,7 +6,7 @@ type RecruitmentAuthUser = {
     can_screen_recruitment_applications?: boolean
 }
 
-export function applicantAllowsTrackingResend(application: ApplicationDetail): boolean {
+export function applicantAllowsTrackingResend(application: IApplicationDetail): boolean {
     if (application.can_resend_tracking === true) {
         return true
     }

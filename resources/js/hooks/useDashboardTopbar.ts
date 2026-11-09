@@ -4,7 +4,7 @@ import type { Ref } from 'vue'
 /**
  * State judul/subjudul untuk DashboardTopbar.
  * Halaman dashboard memanggil setTopbar() (biasanya di setup/onMounted) agar
- * topbar menampilkan judul halaman yang eksplisit, bukan parsing document.title.
+ * topbar menampilkan judul halaman yang eksplisit, bukan parsing judul dokumen.
  * State di-reset oleh layout saat komponen halaman berganti (watch page.component).
  */
 

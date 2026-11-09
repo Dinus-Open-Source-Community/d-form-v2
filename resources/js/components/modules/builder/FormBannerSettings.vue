@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-vue-next'
 import type { FormBannerState } from '@/components/modules/builder/formBanner'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import {
     createLocalImagePreviewUrl,
     revokeLocalImagePreviewUrl,
@@ -83,7 +83,7 @@ function clearImage() {
 }
 
 const previewSrc = computed(
-    () => localPreviewUrl.value || normalizeBannerSrc(props.modelValue.bannerUrl),
+    () => localPreviewUrl.value || normalizePublicStorageUrl(props.modelValue.bannerUrl),
 )
 const isUploading = computed(() => bannerUploading.value)
 

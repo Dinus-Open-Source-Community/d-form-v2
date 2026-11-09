@@ -14,7 +14,7 @@ import FormParagraphContent from '@/components/modules/dashboard/FormParagraphCo
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
 import { getFormFieldOptionRows, formFieldBuilderType } from '@/lib/formFieldOptions'
 import { validateUploadFile } from '@/lib/uploadValidation'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue'
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -230,7 +230,7 @@ function submitDeclineFromDialog() {
                     >
                         <img
                             v-if="trimText(metadata(field).bannerUrl)"
-                            :src="normalizeBannerSrc(trimText(metadata(field).bannerUrl))"
+                            :src="normalizePublicStorageUrl(trimText(metadata(field).bannerUrl))"
                             alt=""
                             class="aspect-video w-full object-cover sm:aspect-[3/1]"
                             loading="lazy"

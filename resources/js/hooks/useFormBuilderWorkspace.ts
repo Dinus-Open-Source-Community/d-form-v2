@@ -1,7 +1,8 @@
 import { ref, computed, nextTick, watch, type Ref } from 'vue'
 import { showErrorToast } from '@/lib/error-message'
 import { DEFAULT_FORM_SECTION_ID, defaultFormBuilderSections } from '@/lib/formRegistrationMetadata'
-import { normalizeBannerSrc, type FormBannerState } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
+import type { FormBannerState } from '@/components/modules/builder/formBanner'
 import {
     cloneFormBuilderPalette,
     type FormBuilderPaletteCategory,
@@ -179,7 +180,7 @@ export function useFormBuilderWorkspace(
 
     const isEmpty = computed<boolean>(() => models.formFields.value.length === 0)
     const isCurrentSectionEmpty = computed<boolean>(() => currentSectionFields.value.length === 0)
-    const bannerPreviewSrc = computed<string>(() => normalizeBannerSrc(models.banner.value.bannerUrl))
+    const bannerPreviewSrc = computed<string>(() => normalizePublicStorageUrl(models.banner.value.bannerUrl))
 
     const validationIssues = computed<FormBuilderValidationIssue[]>(() => {
         const issues: FormBuilderValidationIssue[] = []

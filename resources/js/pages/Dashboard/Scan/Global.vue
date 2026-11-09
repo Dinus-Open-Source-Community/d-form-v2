@@ -16,6 +16,8 @@ import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { useGlobalQrScanPage } from '@/hooks/useGlobalQrScanPage';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { downloadUrl } from '@/adapters/browser/fileDownload';
+import type { IScanTargetEvent, IScanTargetSession } from '@/types/scan';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -24,8 +26,8 @@ const EXPORT_DOWNLOAD_STAGGER_MS = 400;
 
 const props = defineProps<{
     targets: {
-        sessions: Array<{ id: string } & Record<string, unknown>>;
-        events: Array<{ id: string | number } & Record<string, unknown>>;
+        sessions: IScanTargetSession[];
+        events: IScanTargetEvent[];
     };
     globalScanStoreUrl: string;
     globalScanFeedUrl?: string;
@@ -63,14 +65,7 @@ const exportFormat = ref<ScanExportFormat>('xlsx');
 const isExporting = ref(false);
 
 function triggerBrowserDownload(url: string): void {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = '';
-    link.rel = 'noopener';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    window.setTimeout(() => link.remove(), 1500);
+    downloadUrl(url);
 }
 
 function downloadScanExports(targets: ScanExportTarget[], format: ScanExportFormat): void {
@@ -81,7 +76,7 @@ function downloadScanExports(targets: ScanExportTarget[], format: ScanExportForm
     isExporting.value = true;
 
     targets.forEach((target, index) => {
-        window.setTimeout(() => {
+        setTimeout(() => {
             triggerBrowserDownload(routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
 
             if (index === targets.length - 1) {
@@ -216,6 +211,8 @@ onMounted(() => {
                 :scan-busy="s.scanBusy"
                 :log-expanded="s.logExpanded"
                 :log-query="s.logQuery"
+                :feed-stale="s.feedState === 'stale'"
+                :feed-failure-count="s.feedFailureCount"
                 @toggle-log="toggleLog"
                 @update:logQuery="handleLogQuery"
                 @clear-history="s.clearHistory"

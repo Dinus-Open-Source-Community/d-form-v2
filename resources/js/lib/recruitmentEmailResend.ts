@@ -1,35 +1,17 @@
 import { formatIdDateTimeLabel } from '@/lib/shadcnDateFormat'
+import type {
+    IEmailResendGate,
+    IEmailResendOption,
+    TRecruitmentEmailResendType,
+} from '@/types/recruitmentEmailResend'
 
-/** Jenis resend email applicant (verbatim kontrak 5a). */
-export type TRecruitmentEmailResendType =
-    | 'qr'
-    | 'final'
-    | 'tracking'
-    | 'confirmation'
-    | 'correction'
-    | 'interviewer'
-    | 'notification'
-
-/** Status kirim-ulang per jenis (attempt, bukan delivery). */
-export interface IEmailResendTypeStatus {
-    last_attempt_at: string | null
-    count_24h: number
-}
-
-/** Prasyarat resend (cermin aturan backend 5a). */
-export interface IEmailResendPrereq {
-    has_correction: boolean
-    has_interview: boolean
-    has_replayable_notification: boolean
-    has_final_decision?: boolean
-}
-
-/** Meta tampilan satu opsi resend. */
-export interface IEmailResendOption {
-    type: TRecruitmentEmailResendType
-    label: string
-    description: string
-}
+export type {
+    IEmailResendGate,
+    IEmailResendOption,
+    IEmailResendPrereq,
+    IEmailResendTypeStatus,
+    TRecruitmentEmailResendType,
+} from '@/types/recruitmentEmailResend'
 
 /** Batas kirim per 24 jam per applicant per jenis (verbatim throttle backend). */
 export const RECRUITMENT_EMAIL_RESEND_DAILY_LIMIT = 3
@@ -54,14 +36,6 @@ export function emailResendLabelOf(type: TRecruitmentEmailResendType): string {
 export function formatEmailResendAttempt(lastAttemptAt: string | null): string {
     if (!lastAttemptAt) return 'Belum pernah'
     return formatIdDateTimeLabel(lastAttemptAt)
-}
-
-/** Masukan gerbang tombol resend (izin + status + prasyarat). */
-export interface IEmailResendGate {
-    type: TRecruitmentEmailResendType
-    status: IEmailResendTypeStatus | null
-    prereq: IEmailResendPrereq | null
-    canResend: boolean
 }
 
 /** Alasan tombol nonaktif (null bila boleh kirim). */

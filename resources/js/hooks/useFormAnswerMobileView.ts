@@ -1,8 +1,11 @@
 import { onMounted, onUnmounted, ref, type Ref } from 'vue';
 
 import type { TFormAnswerMobileView } from '@/types/formAnswerMobileView';
+import { matchesMediaQuery, onMediaQueryChange } from '@/adapters/browser/mediaQuery';
+import { readStorage, writeStorage } from '@/adapters/browser/storage';
 
 const STORAGE_KEY = 'd-form:form-answers:mobile-view';
+const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
 
 /** Loads the saved mobile answer presentation, falling back to cards when storage is unavailable. */
 export function useFormAnswerMobileView(): {
@@ -14,29 +17,22 @@ export function useFormAnswerMobileView(): {
     const initialIsDesktop = false;
     const view = ref<TFormAnswerMobileView>('card');
     const isDesktop = ref(initialIsDesktop);
-    let breakpoint: MediaQueryList | null = null;
-    const syncBreakpoint = (event: MediaQueryList | MediaQueryListEvent): void => {
-        isDesktop.value = event.matches;
-    };
+    let releaseMediaQuery: () => void = () => undefined;
 
     onMounted(() => {
-        try {
-            view.value = window.localStorage.getItem(STORAGE_KEY) === 'list' ? 'list' : 'card';
-        } catch {
-            view.value = 'card';
-        }
-        breakpoint = window.matchMedia('(min-width: 768px)');
-        syncBreakpoint(breakpoint);
-        breakpoint.addEventListener('change', syncBreakpoint);
+        view.value = readStorage({ area: 'local', key: STORAGE_KEY }) === 'list' ? 'list' : 'card';
+        isDesktop.value = matchesMediaQuery(DESKTOP_MEDIA_QUERY);
+        releaseMediaQuery = onMediaQueryChange(DESKTOP_MEDIA_QUERY, (matches: boolean): void => {
+            isDesktop.value = matches;
+        });
     });
-    onUnmounted(() => breakpoint?.removeEventListener('change', syncBreakpoint));
+
+    onUnmounted(() => releaseMediaQuery());
+
     const setView = (nextView: TFormAnswerMobileView): void => {
         view.value = nextView;
-        try {
-            window.localStorage.setItem(STORAGE_KEY, nextView);
-        } catch {
-            // Keep the in-memory preference when browser storage is unavailable.
-        }
+        // Keep the in-memory preference when browser storage is unavailable.
+        writeStorage({ area: 'local', key: STORAGE_KEY, value: nextView });
     };
 
     return { view, isDesktop, setView };

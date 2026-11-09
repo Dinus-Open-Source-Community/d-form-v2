@@ -19,15 +19,17 @@ import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
 import { LayoutDashboard, UserRound, LogOut, ChevronsUpDown } from 'lucide-vue-next';
+import { findElement } from '@/adapters/browser/domQuery';
+import { matchesMediaQuery } from '@/adapters/browser/mediaQuery';
+import { currentPathname, readScrollY } from '@/adapters/browser/navigation';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const page = usePage();
 const user = useAuth(page.props);
 
 const scrolled = ref(false);
 const mobileOpen = ref(false);
-const currentPath = computed(() =>
-    typeof window === 'undefined' ? '/' : window.location.pathname
-);
+const currentPath = computed(() => currentPathname() || '/');
 
 const accountMenuOpen = ref(false);
 let accountCloseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,7 +42,7 @@ const HOVER_CLOSE_MS = 320;
 const accountTriggerEl = useTemplateRef<HTMLButtonElement>('accountTriggerEl');
 
 function accountDropdownContentEl(): Element | null {
-    return document.querySelector('[data-slot="dropdown-menu-content"]');
+    return findElement('[data-slot="dropdown-menu-content"]');
 }
 
 function isInsideAccountDropdown(target: EventTarget | null): boolean {
@@ -108,17 +110,20 @@ function signOut() {
 }
 
 const onScroll = () => {
-    scrolled.value = window.scrollY > 10;
+    scrolled.value = readScrollY() > 10;
 };
 
+let releaseScroll: (() => void) | null = null;
+
 onMounted(() => {
-    window.addEventListener('scroll', onScroll, { passive: true });
+    releaseScroll = onWindowEvent('scroll', onScroll, { passive: true });
     onScroll();
-    hoverMenusEnabled.value = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    hoverMenusEnabled.value = matchesMediaQuery('(hover: hover) and (pointer: fine)');
 });
 
 onUnmounted(() => {
-    window.removeEventListener('scroll', onScroll);
+    releaseScroll?.();
+    releaseScroll = null;
     clearAccountCloseTimer();
 });
 

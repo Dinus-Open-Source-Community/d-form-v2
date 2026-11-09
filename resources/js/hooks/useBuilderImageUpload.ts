@@ -1,5 +1,7 @@
 import { computed, ref, type Ref } from 'vue';
-import axios from 'axios';
+import { uploadBuilderImage } from '@/adapters/http/forms';
+import { isHttpRequestError, readPublicMessage } from '@/adapters/http/httpError';
+import type { TValidationErrorBag } from '@/types/http';
 import { validateUploadFile } from '@/lib/uploadValidation';
 
 /**
@@ -30,12 +32,6 @@ export interface BuilderImageUploadResult {
 /** Default URL endpoint upload bila backend mengikuti konvensi `{form}/images`. */
 export function resolveBuilderImageUploadUrl(eventId: string | number, formId: string | number): string {
     return `/admin/events/${eventId}/forms/${formId}/images`;
-}
-
-function readXsrfToken(): string | null {
-    if (typeof document === 'undefined') return null;
-    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
 export function isDataUrl(value: unknown): boolean {
@@ -126,25 +122,31 @@ function resolveUploadUrl(source: UseBuilderImageUploadOptions['uploadUrl']): st
     return '';
 }
 
-/** Pesan error API (validasi 422 dsb.) → string ramah untuk toast/inline. */
-function readApiErrorMessage(err: unknown): string {
-    if (err && typeof err === 'object') {
-        const response = (err as { response?: { data?: unknown; status?: number } }).response;
-        const data = response?.data;
-        if (data && typeof data === 'object') {
-            const bag = data as Record<string, unknown>;
-            if (typeof bag.message === 'string' && bag.message.trim() !== '') return bag.message.trim();
-            const errors = bag.errors;
-            if (errors && typeof errors === 'object') {
-                for (const entry of Object.values(errors as Record<string, unknown>)) {
-                    if (Array.isArray(entry) && typeof entry[0] === 'string') return entry[0];
-                    if (typeof entry === 'string' && entry.trim() !== '') return entry;
-                }
-            }
+/** Pesan validasi pertama dari bag error Laravel. */
+function readFirstValidationMessage(errors: TValidationErrorBag | null): string {
+    if (errors === null) return '';
+    for (const entry of Object.values(errors)) {
+        if (Array.isArray(entry)) {
+            const first = entry.find((item) => item.trim() !== '');
+            if (first !== undefined) return first.trim();
+            continue;
         }
-        if (response?.status === 413) return 'Ukuran gambar terlalu besar.';
+        if (entry.trim() !== '') return entry.trim();
     }
-    if (err instanceof Error && err.message.trim() !== '') return err.message;
+    return '';
+}
+
+/** Pesan error upload dari kontrak `HttpRequestError` (validasi 422, 413, transport). */
+function readUploadErrorMessage(error: unknown): string {
+    if (!isHttpRequestError(error)) {
+        return error instanceof Error && error.message.trim() !== '' ? error.message : 'Gagal mengunggah gambar.';
+    }
+    const bodyMessage = readPublicMessage(error.body);
+    if (bodyMessage !== null) return bodyMessage;
+    const validationMessage = readFirstValidationMessage(error.validationErrors);
+    if (validationMessage !== '') return validationMessage;
+    if (error.kind === 'invalid_response') return 'Respons upload tidak membawa path/url gambar.';
+    if (error.status === 413) return 'Ukuran gambar terlalu besar.';
     return 'Gagal mengunggah gambar.';
 }
 
@@ -171,26 +173,16 @@ export function useBuilderImageUpload(opts: UseBuilderImageUploadOptions = {}) {
         uploading.value = true;
         builderPendingUploads.value += 1;
         try {
-            const payload = new FormData();
-            payload.append(opts.fieldName?.trim() || 'file', file);
-            const token = readXsrfToken();
-            const res = await axios.post(url, payload, {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(token ? { 'X-XSRF-TOKEN': token } : {}),
-                },
-            });
-            const body = (res.data ?? {}) as { path?: unknown; url?: unknown; ok?: unknown };
-            const path = typeof body.path === 'string' ? body.path : '';
-            const remoteUrl = typeof body.url === 'string' ? body.url : '';
+            const uploadResult = await uploadBuilderImage(url, file, opts.fieldName?.trim() || 'file');
+            const path = uploadResult.path;
+            const remoteUrl = uploadResult.url;
             const stored = cleanStoredImageUrl(remoteUrl) !== '' ? remoteUrl : path;
             if (stored.trim() === '') {
                 throw new Error('Respons upload tidak membawa path/url gambar.');
             }
             return { path, url: stored };
         } catch (err) {
-            const message = readApiErrorMessage(err);
+            const message = readUploadErrorMessage(err);
             error.value = message;
             (opts.onError ?? (() => {}))(message);
             return null;

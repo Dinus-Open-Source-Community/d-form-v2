@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
-/** Lokasi storageState admin, relatif terhadap root proyek Playwright. */
-export const ADMIN_STATE_PATH = 'tests/e2e/.auth/admin.json';
+/**
+ * Lokasi storageState admin, relatif terhadap root proyek Playwright.
+ * `E2E_ADMIN_STATE` memisahkan state saat beberapa run memakai server berbeda.
+ */
+export const ADMIN_STATE_PATH = (process.env.E2E_ADMIN_STATE ?? '').trim() || 'tests/e2e/.auth/admin.json';
 
 // Laravel menamai cookie sesi `Str::slug(APP_NAME).'-session'`; APP_NAME proyek ini "DForm".
 // Terverifikasi lewat `php artisan tinker --execute="echo config('session.cookie');"`.

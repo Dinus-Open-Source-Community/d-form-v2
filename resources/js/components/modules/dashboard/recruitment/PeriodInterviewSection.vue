@@ -24,6 +24,7 @@ import InterviewSessionEditSheet, {
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import { routes } from '@/lib/routes'
 import { toast } from 'vue-sonner'
+import { assignUrl } from '@/adapters/browser/navigation'
 
 interface SessionRow {
     id: string
@@ -222,7 +223,7 @@ function submitExport(): void {
     }
     toast.info('Mengekspor…')
     exportOpen.value = false
-    window.location.href = `${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`
+    assignUrl(`${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`)
 }
 </script>
 

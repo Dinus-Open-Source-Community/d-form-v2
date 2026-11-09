@@ -8,7 +8,7 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue'
 import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue'
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import { Send } from 'lucide-vue-next'
 import type { FormFillPageContext } from '@/hooks/useFormFillPage'
 import { routes } from '@/lib/routes'
@@ -101,7 +101,7 @@ function imageUploadFillReadyForField(
 /** Display-only image block src (storage path / URL / blob preview). */
 function fillImageSrc(field: IFormField): string {
     const raw = props.ctx.metadata(field).imageUrl
-    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : ''
 }
 
 function fillImageText(field: IFormField, key: 'caption' | 'alt'): string {

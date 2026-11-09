@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/vue3';
 import type { HttpExceptionResponse } from '@inertiajs/core';
+import { toast } from 'vue-sonner';
 import { formatRetryAfterMessage, parseRetryAfterSeconds } from '@/lib/http-retry-after';
 
 const SERVER_ERROR_MESSAGE =
@@ -65,6 +66,10 @@ export function useGlobalHttpStatusToast(): void {
 
         const message: string | null = resolveStatusMessage(status, readRetryAfterHeader(response));
 
-        void showStatusToast(status, message);
+        void showStatusToast(status, message).catch((error: unknown): void => {
+            // Chunk pesan gagal dimuat; beri umpan balik dengan modul statis dan jangan melempar ulang.
+            console.error('Gagal memuat modul pesan status HTTP', error);
+            toast.error(message ?? SERVER_ERROR_MESSAGE);
+        });
     });
 }

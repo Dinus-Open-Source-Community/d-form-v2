@@ -1,4 +1,5 @@
 import { toast } from 'vue-sonner'
+import { isRecord } from '@/lib/isRecord'
 
 export type ValidationErrors = Record<string, string | string[] | undefined>
 
@@ -324,25 +325,51 @@ export function handleInertiaFormErrors(
     showValidationErrorToast(errors, ctx)
 }
 
-export function parseApiErrorMessage(body: unknown, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
-    if (!body || typeof body !== 'object') return fallback
+/**
+ * Ambil pesan pertama dari bag `errors`, sudah di-humanize dengan label field.
+ * `undefined` bila bag tidak ada atau tidak berisi string.
+ */
+function readFirstValidationMessage(body: Record<string, unknown>): string | undefined {
+    if (!isRecord(body.errors)) return undefined
 
-    const record = body as Record<string, unknown>
+    const first = Object.entries(body.errors)[0]
+    if (first === undefined) return undefined
 
-    if (typeof record.message === 'string' && record.message.trim()) {
-        return humanizeErrorMessage(record.message)
+    const message = readErrorText(first[1])
+    if (message === undefined) return undefined
+
+    return humanizeErrorMessage(message, first[0]) || undefined
+}
+
+/**
+ * Pesan publik dari body error API. Untuk `status === 422`, bag `errors` diprioritaskan
+ * agar aturan validasi Laravel berbahasa Inggris tidak bocor mentah ke UI.
+ */
+export function parseApiErrorMessage(
+    body: unknown,
+    fallback = 'Terjadi kesalahan. Coba lagi.',
+    status?: number | null,
+): string {
+    if (!isRecord(body)) return fallback
+
+    const validationMessage = readFirstValidationMessage(body)
+    if (status === 422 && validationMessage !== undefined) return validationMessage
+
+    if (typeof body.message === 'string' && body.message.trim()) {
+        return humanizeErrorMessage(body.message)
     }
 
-    if (record.errors && typeof record.errors === 'object') {
-        const firstKey = Object.keys(record.errors as ValidationErrors)[0]
-        if (firstKey) {
-            const firstValue = (record.errors as ValidationErrors)[firstKey]
-            const parsed = humanizeErrorMessage(firstValue, firstKey)
-            if (parsed) return parsed
-        }
-    }
+    if (validationMessage !== undefined) return validationMessage
 
     return fallback
+}
+
+/** Ambil teks error pertama yang berupa string atau bagian dari array string. */
+function readErrorText(value: unknown): string | undefined {
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) return value.find((item): item is string => typeof item === 'string')
+
+    return undefined
 }
 
 export function showHttpErrorToast(
@@ -362,7 +389,7 @@ export function showHttpErrorToast(
         ...overrides,
     }
 
-    const fromBody = body ? parseApiErrorMessage(body, '') : ''
+    const fromBody = body ? parseApiErrorMessage(body, '', status) : ''
     if (fromBody) {
         toast.error(fromBody)
         return

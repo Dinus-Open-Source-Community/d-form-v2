@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { ADMIN_STATE_PATH } from './tests/e2e/support/authGuard'
 import { readEnvironment } from './tests/e2e/support/environment'
 import { createRunId } from './tests/e2e/support/marker'
 
@@ -10,7 +11,7 @@ const environment = readEnvironment()
 const runId = createRunId()
 process.env.E2E_RUN_ID = runId
 
-const ADMIN_STATE = 'tests/e2e/.auth/admin.json'
+const ADMIN_STATE = ADMIN_STATE_PATH
 
 export default defineConfig({
     testDir: './tests/e2e',

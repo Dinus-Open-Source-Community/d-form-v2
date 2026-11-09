@@ -1,5 +1,5 @@
 import type { IconComponent } from '@/types/icons'
-import type { LottieName } from '@/lib/lotties'
+import type { LottieName } from '@/types/lottie'
 
 export interface FeatureItem {
     readonly icon: IconComponent

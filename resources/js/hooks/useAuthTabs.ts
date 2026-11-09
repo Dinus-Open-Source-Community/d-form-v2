@@ -2,6 +2,8 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { Ref } from 'vue';
 import { getAuthTab, resolveAuthTabFromPath } from '@/lib/authTabs';
 import type { TAuthTab } from '@/lib/authTabs';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
+import { currentPathname, pushHistoryState } from '@/adapters/browser/navigation';
 
 export interface IUseAuthTabsOptions {
     /** Tab yang ditampilkan saat halaman pertama kali dimuat (mengikuti URL deep link). */
@@ -22,7 +24,7 @@ export function useAuthTabs(options: IUseAuthTabsOptions): IUseAuthTabsState {
 
     /** Samakan tab dengan pathname saat ini (untuk back/forward dan deep link). */
     function syncTabWithLocation(): void {
-        const tab = resolveAuthTabFromPath(window.location.pathname);
+        const tab = resolveAuthTabFromPath(currentPathname());
         if (tab !== null) activeTab.value = tab;
     }
 
@@ -31,16 +33,18 @@ export function useAuthTabs(options: IUseAuthTabsOptions): IUseAuthTabsState {
         if (tab === activeTab.value) return;
 
         activeTab.value = tab;
-        window.history.pushState({ authTab: tab }, '', getAuthTab(tab).path);
+        pushHistoryState({ authTab: tab }, getAuthTab(tab).path);
     }
+
+    let releasePopState: () => void = () => undefined;
 
     onMounted(() => {
         syncTabWithLocation();
-        window.addEventListener('popstate', syncTabWithLocation);
+        releasePopState = onWindowEvent('popstate', syncTabWithLocation);
     });
 
     onBeforeUnmount(() => {
-        window.removeEventListener('popstate', syncTabWithLocation);
+        releasePopState();
     });
 
     return { activeTab, setActiveTab };

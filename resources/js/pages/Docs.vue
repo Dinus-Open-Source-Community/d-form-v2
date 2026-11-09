@@ -13,6 +13,9 @@ import SeoHead from '@/components/seo/SeoHead.vue'
 import { usePage } from '@inertiajs/vue3'
 import type { SharedSeoProps } from '@/types/seo'
 import { routes } from '@/lib/routes'
+import { findElements, scrollToElementById } from '@/adapters/browser/domQuery'
+import { currentHash, readScrollY, scrollToTop } from '@/adapters/browser/navigation'
+import { onWindowEvent } from '@/adapters/browser/domEvents'
 
 const page = usePage()
 const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo)
@@ -96,13 +99,12 @@ const navSections: { group: string; items: NavItem[] }[] = [
 function scrollToSection(id: string) {
     activeSection.value = id
     mobileNavOpen.value = false
-    const el = document.getElementById(id)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollToElementById(id)
 }
 
 function onScroll() {
-    showScrollTop.value = window.scrollY > 600
-    const sections = document.querySelectorAll<HTMLElement>('[data-doc-section]')
+    showScrollTop.value = readScrollY() > 600
+    const sections = findElements('[data-doc-section]')
     let current = 'introduction'
     for (const sec of sections) {
         if (sec.getBoundingClientRect().top <= 120) current = sec.id
@@ -110,18 +112,20 @@ function onScroll() {
     activeSection.value = current
 }
 
-function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+let releaseScroll: (() => void) | null = null
 
 onMounted(() => {
-    window.addEventListener('scroll', onScroll, { passive: true })
-    if (window.location.hash) {
-        const id = window.location.hash.slice(1)
+    releaseScroll = onWindowEvent('scroll', onScroll, { passive: true })
+    const hash = currentHash()
+    if (hash) {
+        const id = hash.slice(1)
         nextTick(() => scrollToSection(id))
     }
 })
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
+onUnmounted(() => {
+    releaseScroll?.()
+    releaseScroll = null
+})
 </script>
 
 <template>

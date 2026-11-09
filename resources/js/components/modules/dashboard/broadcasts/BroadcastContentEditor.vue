@@ -23,6 +23,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { uploadBroadcastImage } from '@/adapters/http/broadcast'
+import { isHttpRequestError, readPublicMessage } from '@/adapters/http/httpError'
+import type { TValidationErrorBag } from '@/types/http'
 import { validateUploadFile } from '@/lib/uploadValidation'
 import {
     Bold,
@@ -60,25 +63,32 @@ const props = defineProps<{ modelValue?: string; uploadUrl: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 
-function readXsrfToken(): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)
-    return match?.[1] ? decodeURIComponent(match[1]) : null
+function readFirstValidationMessage(errors: TValidationErrorBag | null): string {
+    if (errors === null) return ''
+    for (const entry of Object.values(errors)) {
+        if (Array.isArray(entry)) {
+            const first = entry.find((item) => item.trim() !== '')
+            if (first !== undefined) return first.trim()
+            continue
+        }
+        if (entry.trim() !== '') return entry.trim()
+    }
+    return ''
 }
 
-function readApiErrorMessage(body: unknown, status: number): string {
-    if (body && typeof body === 'object') {
-        const bag = body as Record<string, unknown>
-        if (typeof bag.message === 'string' && bag.message.trim() !== '') return bag.message.trim()
-        const errors = bag.errors
-        if (errors && typeof errors === 'object') {
-            for (const entry of Object.values(errors as Record<string, unknown>)) {
-                if (Array.isArray(entry) && typeof entry[0] === 'string') return entry[0]
-                if (typeof entry === 'string' && entry.trim() !== '') return entry
-            }
-        }
-    }
-    if (status === 413) return 'Ukuran gambar terlalu besar (maks 5 MB).'
+function readUploadErrorMessage(error: unknown): string {
+    if (!isHttpRequestError(error)) return 'Gagal mengunggah gambar. Periksa koneksi lalu coba lagi.'
+
+    const bodyMessage = readPublicMessage(error.body)
+    if (bodyMessage !== null) return bodyMessage
+
+    const validationMessage = readFirstValidationMessage(error.validationErrors)
+    if (validationMessage !== '') return validationMessage
+
+    if (error.kind === 'invalid_response') return 'Respons upload tidak membawa URL gambar yang valid.'
+
+    if (error.status === 413) return 'Ukuran gambar terlalu besar (maks 5 MB).'
+
     return 'Gagal mengunggah gambar.'
 }
 
@@ -180,39 +190,16 @@ async function uploadImageFile(file: File): Promise<string | null> {
         uploadError.value = 'Endpoint unggah gambar belum dikonfigurasi.'
         return null
     }
-    const payload = new FormData()
-    payload.append('file', file)
-    const token = readXsrfToken()
     uploadingCount.value += 1
     try {
-        const res = await fetch(target, {
-            method: 'POST',
-            body: payload,
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                ...(token ? { 'X-XSRF-TOKEN': token } : {}),
-            },
-        })
-        let body: unknown = null
-        try {
-            body = await res.json()
-        } catch {
-            body = null
-        }
-        if (!res.ok) {
-            uploadError.value = readApiErrorMessage(body, res.status)
-            return null
-        }
-        const url = (body as { url?: unknown } | null)?.url
-        if (typeof url !== 'string' || url.trim() === '' || url.startsWith('data:')) {
+        const url = await uploadBroadcastImage(target, file)
+        if (url.trim() === '') {
             uploadError.value = 'Respons upload tidak membawa URL gambar yang valid.'
             return null
         }
         return url
-    } catch {
-        uploadError.value = 'Gagal mengunggah gambar. Periksa koneksi lalu coba lagi.'
+    } catch (error) {
+        uploadError.value = readUploadErrorMessage(error)
         return null
     } finally {
         uploadingCount.value = Math.max(0, uploadingCount.value - 1)

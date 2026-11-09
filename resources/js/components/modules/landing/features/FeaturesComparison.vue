@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Check, X, Minus } from 'lucide-vue-next'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface Row {
     feature: string
@@ -28,8 +29,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.08 },
     )
-    const el = document.getElementById('features-compare')
-    if (el) obs.observe(el)
+    const el = findElementById('features-compare')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

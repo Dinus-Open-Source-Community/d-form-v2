@@ -1,7 +1,8 @@
 import { computed, onBeforeUnmount, reactive } from 'vue'
 import { useForm, usePage } from '@inertiajs/vue3'
-import { normalizeBannerSrc, pickFormBannerField } from '@/components/modules/builder/formBanner'
+import { pickFormBannerField } from '@/components/modules/builder/formBanner'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import { validateUploadFile } from '@/lib/uploadValidation'
 import {
     buildFieldLabelMap,
@@ -64,7 +65,7 @@ export function useFormFillPage(props: {
         const meta = fb ? metadata(fb) : {}
         const url = (meta.bannerUrl as string) || props.form.banner_url
         if (!url) return ''
-        return normalizeBannerSrc(url)
+        return normalizePublicStorageUrl(url)
     })
 
     const formBannerCaption = computed(() => {

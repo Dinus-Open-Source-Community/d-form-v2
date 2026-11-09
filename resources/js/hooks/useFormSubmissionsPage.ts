@@ -1,6 +1,8 @@
 import { computed, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { toast } from 'vue-sonner'
+import { isHttpRequestError } from '@/adapters/http/httpError'
+import { reviewFormSubmission } from '@/adapters/http/forms'
 import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message'
 import {
     answerPreview,
@@ -31,11 +33,6 @@ interface BundleGroupPaginator {
     per_page: number
     total: number
     links?: PaginationLink[]
-}
-
-function readXsrfToken(): string | null {
-    const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)
-    return m?.[1] ? decodeURIComponent(m[1]) : null
 }
 
 function submissionRows(paginator: SubmissionPaginator | undefined): IFormSubmission[] {
@@ -163,7 +160,7 @@ export function useFormSubmissionsPage(props: {
         nextReviewing.add(id)
         reviewingIds.value = nextReviewing
 
-        const { url, method } = FormAnswerReviewController.patch({
+        const { url } = FormAnswerReviewController.patch({
             event: props.event.id,
             form: props.form.id,
             formAnswer: submission.id,
@@ -177,28 +174,17 @@ export function useFormSubmissionsPage(props: {
 
         void (async () => {
             try {
-                const token = readXsrfToken()
-                const res = await fetch(url, {
-                    method: method.toUpperCase(),
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'X-XSRF-TOKEN': token } : {}),
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ review_status }),
-                })
+                const result = await reviewFormSubmission({ url, method: 'PATCH', reviewStatus: review_status })
+                const body = result.message ? { message: result.message } : {}
 
-                const body = (await res.json().catch(() => ({}))) as { message?: string }
-
-                if (!res.ok) {
-                    showHttpErrorToast(res.status, body, {
+                if (result.status < 200 || result.status >= 300) {
+                    showHttpErrorToast(result.status, body, {
                         409: parseApiErrorMessage(body, 'Submission ini sudah pernah direview.'),
                         422: parseApiErrorMessage(body, 'Status review tidak valid.'),
                         403: 'Anda tidak punya izin untuk mereview submission ini.',
                         404: 'Submission tidak ditemukan.',
                     })
-                    if (res.status === 409 || res.status === 422) {
+                    if (result.status === 409 || result.status === 422) {
                         router.reload({
                             only: props.form.registration_mode === 'bundle' ? ['bundleGroups'] : ['submissions'],
                         })
@@ -239,8 +225,12 @@ export function useFormSubmissionsPage(props: {
                         }
                     },
                 })
-            } catch {
-                showErrorToast('Tidak dapat menghubungi server. Coba lagi.')
+            } catch (error) {
+                if (isHttpRequestError(error)) {
+                    showErrorToast('Tidak dapat menghubungi server. Coba lagi.')
+                    return
+                }
+                throw error
             } finally {
                 clearReviewing()
             }

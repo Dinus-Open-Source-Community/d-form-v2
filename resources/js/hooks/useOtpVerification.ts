@@ -1,6 +1,8 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import type { ComponentPublicInstance, ComputedRef, Ref } from 'vue';
-import axios from 'axios';
+import { verifyOtpCode } from '@/adapters/http/auth';
+import type { IOtpVerificationResult } from '@/adapters/http/auth';
+import { isFocusOnBody } from '@/adapters/browser/documentState';
 import { router, usePage } from '@inertiajs/vue3';
 import { resend as resendOtp, verify as verifyOtp } from '@/actions/App/Http/Controllers/Auth/VerifyOtpController';
 import CancelPendingRegistrationController from '@/actions/App/Http/Controllers/Auth/CancelPendingRegistrationController';
@@ -44,37 +46,6 @@ export interface IUseOtpVerificationState {
     submit: () => Promise<void>;
     resend: () => void;
     useAnotherEmail: () => void;
-}
-
-interface IVerifySuccessPayload {
-    redirect: string;
-}
-
-/** Ambil `message` dari body JSON error; undefined bila bentuknya tidak dikenal. */
-function readMessage(payload: unknown): string | undefined {
-    if (typeof payload !== 'object' || payload === null || !('message' in payload)) return undefined;
-
-    const { message } = payload;
-
-    return typeof message === 'string' && message.trim() !== '' ? message : undefined;
-}
-
-/** Cek body sukses verifikasi; `redirect` wajib path internal agar tidak bisa dipakai open redirect. */
-function isVerifySuccessPayload(payload: unknown): payload is IVerifySuccessPayload {
-    if (typeof payload !== 'object' || payload === null || !('verified' in payload) || !('redirect' in payload)) {
-        return false;
-    }
-
-    return payload.verified === true && typeof payload.redirect === 'string' && payload.redirect.startsWith('/');
-}
-
-/** Sisa detik dari header `Retry-After`; undefined bila kosong atau bukan angka. */
-function readRetryAfterSeconds(raw: unknown): number | undefined {
-    if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
-
-    const seconds = Number(raw);
-
-    return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : undefined;
 }
 
 /**
@@ -122,21 +93,22 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     function scheduleDashboardVisit(redirect: string): void {
         isVerified.value = true;
 
-        window.setTimeout(() => {
+        setTimeout(() => {
             router.visit(redirect);
         }, VERIFY_REDIRECT_DELAY_MS);
     }
 
-    /** Tangani balasan JSON verifikasi: 200 hijau, 422 merah, 429 pesan tunggu, sisanya pesan umum. */
-    function handleVerifyResponse(status: number, payload: unknown, retryAfterRaw: unknown): void {
-        if (status === 200 && isVerifySuccessPayload(payload)) {
-            scheduleDashboardVisit(payload.redirect);
+    /** Tangani hasil verifikasi: 200 hijau, 422 merah, 429 pesan tunggu, sisanya pesan umum. */
+    function handleVerifyResponse(result: IOtpVerificationResult): void {
+        if (result.status === 200 && result.verifiedRedirect !== null && result.verifiedRedirect.startsWith('/')) {
+            scheduleDashboardVisit(result.verifiedRedirect);
 
             return;
         }
 
-        if (status === 422) {
-            codeError.value = readMessage(payload) ?? 'Kode verifikasi salah. Periksa kembali atau kirim ulang kode.';
+        if (result.status === 422) {
+            codeError.value =
+                result.message ?? 'Kode verifikasi salah. Periksa kembali atau kirim ulang kode.';
             // Kode yang ditolak tidak berguna lagi; kotak mengosongkan diri dan fokus kembali ke kotak pertama.
             code.value = '';
             // Server bisa mengosongkan kode setelah percobaan habis; segarkan props agar status ikut.
@@ -146,19 +118,19 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
             return;
         }
 
-        if (status === 429) {
-            // Pesan throttle bawaan Laravel berbahasa Inggris; pakai copy produk + sisa waktu dari header.
-            const retryAfter = readRetryAfterSeconds(retryAfterRaw);
+        if (result.status === 429) {
+            // Pesan throttle bawaan Laravel berbahasa Inggris; pakai copy produk + sisa waktu dari adapter.
+            const retryAfter = result.retryAfterSeconds;
 
             submitNotice.value =
-                retryAfter === undefined
+                retryAfter === null
                     ? 'Terlalu banyak percobaan. Coba lagi nanti.'
                     : `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.`;
 
             return;
         }
 
-        submitNotice.value = readMessage(payload) ?? 'Verifikasi gagal. Coba lagi.';
+        submitNotice.value = result.message ?? 'Verifikasi gagal. Coba lagi.';
     }
 
     async function submit(): Promise<void> {
@@ -169,13 +141,9 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
         submitNotice.value = undefined;
 
         try {
-            const response = await axios.post<unknown>(
-                verifyOtp.url(),
-                { code: code.value },
-                { headers: { Accept: 'application/json' }, validateStatus: () => true },
-            );
+            const result = await verifyOtpCode(verifyOtp.url(), code.value);
 
-            handleVerifyResponse(response.status, response.data, response.headers['retry-after']);
+            handleVerifyResponse(result);
         } catch {
             submitNotice.value = 'Tidak dapat menghubungi server. Periksa koneksi lalu coba lagi.';
         } finally {
@@ -212,9 +180,7 @@ export function useOtpVerification(options: IUseOtpVerificationOptions): IUseOtp
     /** Tombol kirim ulang didisable selama request; kembalikan fokus bila jatuh ke body. */
     function restoreFocusAfterResend(): void {
         void nextTick(() => {
-            const active = document.activeElement;
-
-            if (active !== null && active !== document.body) return;
+            if (!isFocusOnBody()) return;
 
             focusActionableControl();
         });

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination'
+import { currentPathname, currentSearch } from '@/adapters/browser/navigation'
 
 interface IAppPaginationProps {
     currentPage: number
@@ -81,11 +82,11 @@ const isNextDisabled = computed<boolean>(() =>
 
 /** URL tujuan dari query aktif, agar filter, tab, dan pencarian tidak hilang saat pindah halaman. */
 function pageUrl(page: number, perPage: number): string {
-    const params = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(currentSearch())
     params.set(props.pageParam, String(page))
     if (showPerPageSelector.value) params.set(props.perPageParam, String(perPage))
     params.delete('cursor')
-    return `${window.location.pathname}?${params.toString()}`
+    return `${currentPathname()}?${params.toString()}`
 }
 
 /** Pindah ke nomor halaman tertentu, mempertahankan seluruh query filter. */

@@ -3,8 +3,7 @@
  * Keep page components thin — import from here instead of inlining large `type` blocks.
  */
 
-import type { BackendField } from '@/components/modules/builder/fieldMapping'
-import type { IFormBuilderSection } from '@/types/form-builder'
+import type { BackendField, IFormBuilderSection } from '@/types/form-builder'
 
 /** Access gate for the public form fill route */
 export type FormAccessStatus =

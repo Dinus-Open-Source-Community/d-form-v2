@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, useId } from 'vue'
+import { ref, computed, watch, nextTick, useId, onUnmounted } from 'vue'
 import { X, ChevronDown, Plus } from 'lucide-vue-next'
+import { onDocumentEvent } from '@/adapters/browser/domEvents'
 
 export interface TagSuggestion {
     value: string
@@ -214,13 +215,17 @@ watch(query, () => {
     if (query.value && !open.value) open.value = true
 })
 
+let releasePointerDown: () => void = () => undefined
+
 watch(open, val => {
+    releasePointerDown()
+    releasePointerDown = () => undefined
     if (val) {
-        document.addEventListener('pointerdown', handleClickOutside)
-    } else {
-        document.removeEventListener('pointerdown', handleClickOutside)
+        releasePointerDown = onDocumentEvent('pointerdown', handleClickOutside)
     }
 })
+
+onUnmounted(() => releasePointerDown())
 </script>
 
 <template>

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
 import { redirectToGithub, redirectToGoogle } from '@/actions/App/Http/Controllers/Auth/OAuthController'
+import { assignUrl } from '@/adapters/browser/navigation'
 
 function goToGoogle() {
-    window.location.href = redirectToGoogle.url()
+    assignUrl(redirectToGoogle.url())
 }
 
 function goToGithub() {
-    window.location.href = redirectToGithub.url()
+    assignUrl(redirectToGithub.url())
 }
 </script>
 

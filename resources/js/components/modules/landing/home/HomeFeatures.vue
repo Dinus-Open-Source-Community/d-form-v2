@@ -12,6 +12,7 @@ import {
     Users,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface Feature {
     title: string
@@ -75,8 +76,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.08 },
     )
-    const el = document.getElementById('section-features')
-    if (el) obs.observe(el)
+    const el = findElementById('section-features')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping'
 import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import type { BuilderField, FieldOptionEntry } from '@/types/form-builder'
 import {
     Type,
@@ -112,13 +112,13 @@ const choiceOptions = computed((): FieldOptionEntry[] => {
 
 function choiceImageSrc(entry: FieldOptionEntry): string | undefined {
     const u = optionImageUrl(entry)
-    return u ? normalizeBannerSrc(u) : undefined
+    return u ? normalizePublicStorageUrl(u) : undefined
 }
 
 /** Display-only image block: storage path / URL / blob preview → <img> src. */
 function builderImageSrc(f: BuilderField): string {
     const raw = f.metadata?.imageUrl
-    return typeof raw === 'string' ? normalizeBannerSrc(raw) : ''
+    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : ''
 }
 
 function builderImageCaption(f: BuilderField): string {

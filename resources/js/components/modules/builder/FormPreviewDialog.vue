@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { X, Star, Upload, ImagePlus, Send } from 'lucide-vue-next'
 import { optionLabel, optionImageUrl, type FieldOptionEntry } from '@/components/modules/builder/fieldMapping'
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import PageHeader from '@/components/modules/dashboard/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -97,7 +97,7 @@ function dropdownOptions(field: FormPreviewField): SimpleSelectOption[] {
 }
 
 function choiceThumb(url: string | undefined): string {
-    return url ? normalizeBannerSrc(url) : ''
+    return url ? normalizePublicStorageUrl(url) : ''
 }
 
 function optKey(opt: FieldOptionEntry, i: number): string {

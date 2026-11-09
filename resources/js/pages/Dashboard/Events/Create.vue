@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
+import { saveFormFields, updateFormSettings } from '@/adapters/http/forms';
+import { removeStorage } from '@/adapters/browser/storage';
 import { handleInertiaFormErrors } from '@/lib/error-message';
-import { toast } from 'vue-sonner';
+import { notifyAutosaveFailure } from '@/lib/autosaveFailureToast';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import EventDashboardForm from '@/components/modules/dashboard/events/EventDashboardForm.vue';
 import EventWizardStepper from '@/components/modules/dashboard/events/EventWizardStepper.vue';
@@ -165,27 +166,19 @@ async function saveBuilderSnapshot(): Promise<void> {
     const eventId = draftEvent.value?.id;
     if (!formId || !eventId) return;
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
-    const backend = toBackendFields(merged) as unknown as Record<string, unknown>[];
-    await axios.post(
-        postFields({ event: eventId, form: formId }).url,
-        { fields: backend },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
+    const backend = toBackendFields(merged);
+    await saveFormFields(postFields({ event: eventId, form: formId }).url, backend);
     if (!isHeaderComplete()) return;
-    await axios.put(
-        updateForm({ event: eventId, form: formId }).url,
-        {
-            title: formTitle.value,
-            description: formDescription.value,
-            success_content: successContent.value,
-            closed_at: closedAt.value,
-            visible_for: visibleFor.value,
-            banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
-            banner_caption: bannerState.value.caption || null,
-            metadata: toFormMetadataPayload(formMetadata.value),
-        },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
+    await updateFormSettings(updateForm({ event: eventId, form: formId }).url, {
+        title: formTitle.value,
+        description: formDescription.value,
+        success_content: successContent.value,
+        closed_at: closedAt.value,
+        visible_for: visibleFor.value,
+        banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
+        banner_caption: bannerState.value.caption || null,
+        metadata: toFormMetadataPayload(formMetadata.value),
+    });
 }
 
 const autosaveEnabled = computed(() => step.value === 'forms' && !!draftForm.value?.id);
@@ -193,7 +186,7 @@ const autosave = useAutosaveSync(buildBuilderSnapshot, saveBuilderSnapshot, {
     debounceMs: 800,
     enabled: autosaveEnabled,
     isBlocked: () => builderPendingUploads.value > 0,
-    onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
+    onError: (message) => notifyAutosaveFailure(message, () => void autosave.retry()),
 });
 /** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
 const builderImageUploadUrl = computed(() => {
@@ -238,11 +231,7 @@ function goToForms(): void {
 function clearDraftCache(): void {
     const id = draftEvent.value?.id;
     if (!id) return;
-    try {
-        localStorage.removeItem(`dform:draft:form:${id}`);
-    } catch {
-        /* localStorage tidak tersedia */
-    }
+    removeStorage({ area: 'local', key: `dform:draft:form:${id}` });
 }
 
 // ── Selesai ─────────────────────────────────────────────────────
@@ -341,7 +330,7 @@ const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div class="flex min-w-0 items-center gap-4">
                     <EventWizardStepper :steps="steps" :active-index="currentIndex" />
-                    <AutosaveStatus :status="saveState" variant="inline" />
+                    <AutosaveStatus :status="saveState" variant="inline" @retry="autosave.retry" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <Button variant="outline" @click="goBackToEvent">Kembali ke event</Button>

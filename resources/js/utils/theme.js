@@ -1,7 +1,10 @@
+import { writeThemeAttribute } from '@/adapters/browser/documentState'
+import { readStorage, writeStorage } from '@/adapters/browser/storage'
+
 export function initTheme() {
     let theme = getTheme();
 
-    document.documentElement.setAttribute('data-theme', theme);
+    writeThemeAttribute(theme);
 }
 
 export function setTheme(theme) {
@@ -9,13 +12,13 @@ export function setTheme(theme) {
         theme = 'light';
     }
 
-    localStorage.setItem('theme', theme);
+    writeStorage({ area: 'local', key: 'theme', value: theme });
 
-    document.documentElement.setAttribute('data-theme', theme);
+    writeThemeAttribute(theme);
 }
 
 export function getTheme() {
-    let theme = localStorage.getItem('theme');
+    let theme = readStorage({ area: 'local', key: 'theme' });
 
     if (!theme || !['light', 'dark'].includes(theme)) {
         theme = setTheme('light');

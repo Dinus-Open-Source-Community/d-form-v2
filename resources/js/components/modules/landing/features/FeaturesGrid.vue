@@ -15,6 +15,7 @@ import {
     FileText,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface Feature {
     title: string
@@ -93,8 +94,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.06 },
     )
-    const el = document.getElementById('features-grid')
-    if (el) obs.observe(el)
+    const el = findElementById('features-grid')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

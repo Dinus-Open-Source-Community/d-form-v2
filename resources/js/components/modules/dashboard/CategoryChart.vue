@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
 import { LayoutGrid } from 'lucide-vue-next';
+import { observeThemeAttribute, readThemeAttribute } from '@/adapters/browser/documentState';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -24,15 +25,16 @@ const props = withDefaults(
 
 const isDark = ref(false);
 
+let releaseTheme: () => void = () => undefined;
+
 onMounted(() => {
-    const sync = () => {
-        isDark.value = document.documentElement.getAttribute('data-theme') === 'dark';
-    };
-    sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    onUnmounted(() => mo.disconnect());
+    isDark.value = readThemeAttribute() === 'dark';
+    releaseTheme = observeThemeAttribute((theme) => {
+        isDark.value = theme === 'dark';
+    });
 });
+
+onUnmounted(() => releaseTheme());
 
 const labels = computed(() => props.breakdown.map((d) => categoryLabelMap[d.token] ?? d.token));
 

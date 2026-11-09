@@ -4,6 +4,7 @@ import LocalLottie from '@/components/core/LocalLottie.vue'
 import type { LottieName } from '@/lib/lotties'
 import { CalendarPlus, PenTool, Rocket } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface Step {
     num: string
@@ -43,8 +44,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.15 },
     )
-    const el = document.getElementById('section-steps')
-    if (el) obs.observe(el)
+    const el = findElementById('section-steps')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

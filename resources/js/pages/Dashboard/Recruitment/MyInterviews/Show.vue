@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { setTopbar } from '@/hooks/useDashboardTopbar'
 import { isHttpUrl } from '@/lib/isHttpUrl'
 import { formatDateTime } from '@/lib/dateTime'
+import { focusElementById } from '@/adapters/browser/domQuery'
 import {
     Check,
     CheckCircle2,
@@ -403,7 +404,7 @@ function submit(): void {
     if (form.notes.trim().length < NOTES_MIN_LENGTH) {
         notesClientError.value =
             'Catatan wajib diisi (min. 10 karakter) — jelaskan alasan rekomendasi untuk divisi yang di-interview.'
-        document.getElementById('notes')?.focus()
+        focusElementById('notes')
         return
     }
     notesClientError.value = null

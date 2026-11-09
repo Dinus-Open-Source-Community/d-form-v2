@@ -2,7 +2,7 @@ export function humanizeSubmissionKey(fieldLabelMap: Record<string, string>, val
     return fieldLabelMap[value] || value.replace(/^field_/, '').replace(/_/g, ' ');
 }
 
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 
 export function answerPreview(value: unknown): string {
     if (Array.isArray(value)) return value.map(String).join(', ');
@@ -20,7 +20,7 @@ export function submissionFileUrl(value: unknown): string | null {
     if (!t) {
         return null;
     }
-    return normalizeBannerSrc(t);
+    return normalizePublicStorageUrl(t);
 }
 
 /** True when admin must not accept until the member confirms (team / bundle). */

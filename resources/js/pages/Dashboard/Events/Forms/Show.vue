@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
 import { toast } from 'vue-sonner';
+import { saveFormFields, updateFormSettings, reviewFormSubmission } from '@/adapters/http/forms';
+import { currentOrigin } from '@/adapters/browser/navigation';
 import { useAutosaveSync } from '@/hooks/useAutosaveSync';
 import {
     builderPendingUploads,
@@ -11,6 +12,7 @@ import {
     sanitizeBuilderSnapshot,
 } from '@/hooks/useBuilderImageUpload';
 import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { notifyAutosaveFailure } from '@/lib/autosaveFailureToast';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
 import FormSettingsPanel from '@/components/modules/builder/FormSettingsPanel.vue';
@@ -53,7 +55,6 @@ import {
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi';
 import {
-    parseApiErrorMessage,
     showErrorToast,
     showHttpErrorToast,
 } from '@/lib/error-message';
@@ -93,7 +94,7 @@ const activeTab = ref<TShowTab>(tabFromQuery());
 
 /** Sinkronkan tab ke query string (?tab=jawaban) agar deep-link tetap bertahan saat refresh. */
 watch(activeTab, (tab) => {
-    const url = new URL(page.url, window.location.origin);
+    const url = new URL(page.url, currentOrigin());
     url.searchParams.set('tab', tab);
     router.visit(`${url.pathname}${url.search}`, {
         preserveState: true,
@@ -140,26 +141,18 @@ const builderImageUploadUrl = computed(() => resolveBuilderImageUploadUrl(props.
 async function saveShowSnapshot(): Promise<void> {
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
     const backendFields = toBackendFields(merged);
-    await axios.post(
-        props.saveFieldsUrl,
-        { fields: backendFields },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
-    await axios.put(
-        props.updateFormUrl,
-        {
-            title: settingsForm.title,
-            description: settingsForm.description,
-            success_content: settingsForm.success_content ?? '',
-            closed_at: settingsForm.closed_at ?? '',
-            visible_for: settingsForm.visible_for,
-            banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
-            banner_caption: bannerState.value.caption || null,
-            fields: backendFields,
-            metadata: toFormMetadataPayload(formMetadata.value),
-        },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
+    await saveFormFields(props.saveFieldsUrl, backendFields);
+    await updateFormSettings(props.updateFormUrl, {
+        title: settingsForm.title,
+        description: settingsForm.description,
+        success_content: settingsForm.success_content ?? '',
+        closed_at: settingsForm.closed_at ?? '',
+        visible_for: settingsForm.visible_for,
+        banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
+        banner_caption: bannerState.value.caption || null,
+        fields: backendFields,
+        metadata: toFormMetadataPayload(formMetadata.value),
+    });
 }
 
 /** Ref ke FormBuilderWorkspace untuk memicu preview/save dari bar aksi inline (toolbar disembunyikan). */
@@ -254,38 +247,64 @@ watch(
 const showAutosave = useAutosaveSync(buildShowSnapshot, saveShowSnapshot, {
     debounceMs: 800,
     isBlocked: () => builderPendingUploads.value > 0,
-    onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
+    onError: (message) => notifyAutosaveFailure(message, () => void showAutosave.retry()),
 });
 const showSaveState = showAutosave.status;
+const manualSaving = ref(false);
 
 onUnmounted(() => {
     void showAutosave.flush();
 });
 
-function onSave(): void {
+/** Manual save: blokir autosave, tunggu save aktif selesai, lalu PUT dengan state terbaru. */
+async function onSave(): Promise<void> {
+    if (settingsForm.processing || manualSaving.value) return;
     if (builderPendingUploads.value > 0) {
         toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
         return;
     }
-    settingsForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl);
-    settingsForm.banner_caption = bannerState.value.caption;
 
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
-    const backendFields = toBackendFields(merged);
+    manualSaving.value = true;
 
-    settingsForm
-        .transform((data) => ({
-            ...data,
-            fields: backendFields,
-            metadata: toFormMetadataPayload(formMetadata.value),
-        }))
-        .put(props.updateFormUrl, {
-            preserveScroll: true,
-            onSuccess: () => toast.success(humanizeErrorMessage('Form and fields saved successfully.')),
-            onError: (errors) => {
-                handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });
-            },
-        });
+    try {
+        // Suspend dulu: debounce batal dan tidak ada save remote baru. waitForIdle hanya
+        // menunggu request yang sudah berjalan agar manual PUT tidak overlap.
+        showAutosave.suspend();
+        await showAutosave.waitForIdle();
+
+        settingsForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl);
+        settingsForm.banner_caption = bannerState.value.caption;
+
+        const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
+        const backendFields = toBackendFields(merged);
+
+        settingsForm
+            .transform((data) => ({
+                ...data,
+                fields: backendFields,
+                metadata: toFormMetadataPayload(formMetadata.value),
+            }))
+            .put(props.updateFormUrl, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    // Manual PUT menyimpan seluruh state; error autosave sebelumnya
+                    // tidak lagi berlaku.
+                    showAutosave.markSaved();
+                    toast.success(humanizeErrorMessage('Form and fields saved successfully.'));
+                },
+                onError: (errors) => {
+                    handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });
+                },
+                onFinish: () => {
+                    showAutosave.resume();
+                    manualSaving.value = false;
+                },
+            });
+    } catch {
+        showAutosave.resume();
+        manualSaving.value = false;
+        showErrorToast('Gagal menyimpan form.');
+    }
 }
 
 /** Jawaban terurut mengikuti urutan field di builder; sisa key (legacy) di akhir. */
@@ -370,7 +389,7 @@ function fileNameOf(value: unknown): string {
     const raw = typeof value === 'string' ? value.trim() : '';
     if (!raw) return 'Lampiran';
     try {
-        const path = new URL(raw, window.location.origin).pathname;
+        const path = new URL(raw, currentOrigin()).pathname;
         const last = path.split('/').filter(Boolean).pop() ?? '';
         return decodeURIComponent(last) || 'Lampiran';
     } catch {
@@ -406,15 +425,10 @@ function openSubmissionDetail(submission: IFormSubmission): void {
     isDetailOpen.value = true;
 }
 
-function readXsrfToken(): string | null {
-    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
-
 function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission): void {
     if (!formSubmissionReviewIsPending(submission) || isSubmissionReviewing(submission.id)) return;
 
-    const review_status = action === 'accept' ? 'accepted' : 'rejected';
+    const reviewStatus = action === 'accept' ? 'accepted' : 'rejected';
     const id = submission.id;
     reviewingIds.value = new Set(reviewingIds.value).add(id);
 
@@ -424,7 +438,7 @@ function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSu
         reviewingIds.value = next;
     };
 
-    const { url, method } = FormAnswerReviewController.patch({
+    const { url } = FormAnswerReviewController.patch({
         event: props.event.id,
         form: props.form.id,
         formAnswer: submission.id,
@@ -432,28 +446,22 @@ function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSu
 
     void (async () => {
         try {
-            const token = readXsrfToken();
-            const res = await fetch(url, {
-                method: method.toUpperCase(),
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'X-XSRF-TOKEN': token } : {}),
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ review_status }),
-            });
+            const result = await reviewFormSubmission({ url, method: 'PATCH', reviewStatus });
 
-            const body = (await res.json().catch(() => ({}))) as { message?: string };
+            const isSuccess = result.status >= 200 && result.status < 300;
 
-            if (!res.ok) {
-                showHttpErrorToast(res.status, body, {
-                    409: parseApiErrorMessage(body, 'Jawaban ini sudah pernah direview.'),
-                    422: parseApiErrorMessage(body, 'Status review tidak valid.'),
-                    403: 'Anda tidak punya izin untuk mereview jawaban ini.',
-                    404: 'Jawaban tidak ditemukan.',
-                });
-                if (res.status === 409 || res.status === 422) {
+            if (!isSuccess) {
+                showHttpErrorToast(
+                    result.status,
+                    result.message ? { message: humanizeErrorMessage(result.message) } : {},
+                    {
+                        409: 'Jawaban ini sudah pernah direview.',
+                        422: 'Status review tidak valid.',
+                        403: 'Anda tidak punya izin untuk mereview jawaban ini.',
+                        404: 'Jawaban tidak ditemukan.',
+                    },
+                );
+                if (result.status === 409 || result.status === 422) {
                     router.reload({ only: ['submissions'] });
                 }
                 return;
@@ -541,7 +549,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         :view="mobileAnswerView.view.value"
                         @change="mobileAnswerView.setView"
                     />
-                    <AutosaveStatus :status="showSaveState" variant="inline" />
+                    <AutosaveStatus :status="showSaveState" variant="inline" @retry="showAutosave.retry" />
                 </div>
 
                 <div class="flex shrink-0 items-center gap-2">
@@ -559,7 +567,7 @@ function rejectLabel(submission: IFormSubmission): string {
                     <Button
                         size="sm"
                         class="hidden px-3 text-sm font-medium shadow-sm sm:inline-flex sm:px-4"
-                        :disabled="settingsForm.processing"
+                        :disabled="settingsForm.processing || manualSaving"
                         @click="requestSaveAll"
                     >
                         <span class="sm:hidden">Simpan</span>
@@ -586,7 +594,7 @@ function rejectLabel(submission: IFormSubmission): string {
                     form-settings-placement="tab"
                     save-label="Save All"
                     hide-toolbar
-                    :processing="settingsForm.processing"
+                    :processing="settingsForm.processing || manualSaving"
                     :field-errors="fieldErrors"
                     @save="onSave"
                     @open-settings="activeTab = 'settings'"

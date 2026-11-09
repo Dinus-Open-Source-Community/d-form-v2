@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
+import { matchesMediaQuery } from '@/adapters/browser/mediaQuery'
 
 const RICKROLL_EMBED_SRC =
     'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=0&loop=1&playlist=dQw4w9WgXcQ&controls=1&playsinline=1&rel=0&modestbranding=1'
@@ -9,9 +10,7 @@ type Phase = 'intro' | 'rickroll'
 
 const phase = ref<Phase>('intro')
 let autoTimer: ReturnType<typeof setTimeout> | null = null
-const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+const prefersReducedMotion = matchesMediaQuery('(prefers-reduced-motion: reduce)')
 
 function goRickroll(): void {
     phase.value = 'rickroll'

@@ -59,9 +59,9 @@ export { useFormSubmissionsPage } from './useFormSubmissionsPage';
 export { useGlobalHttpStatusToast } from './useGlobalHttpStatusToast';
 export { useGlobalQrScanPage } from './useGlobalQrScanPage';
 export type {
-    GlobalScanSummary,
-    GlobalScanTargetOption,
-    GlobalScanTargets,
+    IGlobalScanSummary,
+    IGlobalScanTargetOption,
+    IGlobalScanTargets,
 } from './useGlobalQrScanPage';
 export { useHttpErrorToast } from './useHttpErrorToast';
 export { useOtpCodeInput } from './useOtpCodeInput';

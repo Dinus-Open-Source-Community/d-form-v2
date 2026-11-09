@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { CheckCircle2, TrendingUp, Globe, Lock } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 const visible = ref(false)
 onMounted(() => {
@@ -10,8 +11,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.12 },
     )
-    const el = document.getElementById('section-showcase')
-    if (el) obs.observe(el)
+    const el = findElementById('section-showcase')
+    if (el !== null) obs.observe(el)
 })
 
 interface Advantage {

@@ -1,5 +1,6 @@
 import { computed, ref, reactive } from 'vue'
-import { defaultFormBannerState, normalizeBannerSrc, type FormBannerState } from '@/components/modules/builder/formBanner'
+import { defaultFormBannerState, type FormBannerState } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import {
     cloneFormBuilderPalette,
     ALL_FORM_BUILDER_FIELD_TEMPLATES,
@@ -45,7 +46,7 @@ export function useFormBuilderDemoPage() {
     })
 
     const isEmpty = computed(() => formFields.value.length === 0)
-    const bannerPreviewSrc = computed(() => normalizeBannerSrc(formBanner.bannerUrl))
+    const bannerPreviewSrc = computed(() => normalizePublicStorageUrl(formBanner.bannerUrl))
 
     function createField(type: string, label: string): IFormField {
         const defaults: Record<string, Partial<IFormField>> = {

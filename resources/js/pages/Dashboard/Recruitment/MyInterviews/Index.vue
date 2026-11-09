@@ -24,6 +24,7 @@ import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { setTopbar } from '@/hooks/useDashboardTopbar'
 import { formatDateTime } from '@/lib/dateTime'
+import { isDocumentHidden, onVisibilityChange } from '@/adapters/browser/documentState'
 import {
     ChevronRight,
     RotateCcw,
@@ -167,6 +168,7 @@ const isNavigating = ref<boolean>(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let taskPollTimer: ReturnType<typeof setInterval> | null = null
 let skipFilterRun = false
+let releaseVisibility: () => void = () => undefined
 
 function clearSearchTimer(): void {
     if (searchTimer !== null) {
@@ -265,7 +267,7 @@ function stopTaskPolling(): void {
 }
 
 function refreshTaskList(): void {
-    if (document.hidden) return
+    if (isDocumentHidden()) return
     if (activeTab.value !== 'in_progress' && activeTab.value !== 'waiting') return
     if (searchTimer !== null) return
     if (isNavigating.value) return
@@ -283,8 +285,8 @@ function startTaskPolling(): void {
     }, TASK_POLL_MS)
 }
 
-function handleVisibilityChange(): void {
-    if (document.hidden) {
+function handleVisibilityChange(hidden: boolean): void {
+    if (hidden) {
         stopTaskPolling()
         return
     }
@@ -300,12 +302,12 @@ watch(activeTab, (): void => {
 onBeforeUnmount((): void => {
     clearSearchTimer()
     stopTaskPolling()
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    releaseVisibility()
 })
 
 onMounted((): void => {
     setTopbar({ title: 'Interview Saya', subtitle: 'Penugasan & penilaian Open Recruitment' })
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    releaseVisibility = onVisibilityChange(handleVisibilityChange)
     startTaskPolling()
 })
 

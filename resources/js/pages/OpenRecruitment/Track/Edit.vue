@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { routes } from '@/lib/routes';
 import { readSharedError } from '@/lib/sharedErrors';
 import { validateUploadFile } from '@/lib/uploadValidation';
+import { focusElementById } from '@/adapters/browser/domQuery';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -128,7 +129,7 @@ function submit() {
         if (firstEmpty === null) firstEmpty = 'primary_division_id';
     }
     if (firstEmpty !== null) {
-        document.getElementById(firstEmpty)?.focus();
+        focusElementById(firstEmpty);
         return;
     }
     form.put(props.updateUrl, {

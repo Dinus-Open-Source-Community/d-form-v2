@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, type UnwrapNestedRefs } from 'vue'
 import { usePage } from '@inertiajs/vue3'
+import { isHttpRequestError } from '@/adapters/http/httpError'
+import { lookupRegisteredUser } from '@/adapters/http/forms'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -173,46 +175,38 @@ async function runEmailCheck(slot: number) {
 
     try {
         const url = `${CHECK_EMAIL_URL}?${new URLSearchParams({ email: raw }).toString()}`
-        const res = await fetch(url, {
-            credentials: 'same-origin',
-            signal: controller.signal,
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        const body = (await res.json()) as {
-            exists?: boolean
-            message?: string
-            data?: FoundUser
-        }
+        const lookup = await lookupRegisteredUser({ url, signal: controller.signal })
 
         if (controller.signal.aborted) {
             return
         }
 
-        if (!res.ok) {
+        if (lookup.status >= 400) {
             setCheckState(
                 slot,
                 'error',
                 undefined,
-                humanizeErrorMessage((body.message as string | undefined) || 'Could not verify this email.'),
+                humanizeErrorMessage(lookup.message || 'Could not verify this email.'),
             )
-            return
-        }
-
-        if (body.exists && body.data) {
-            setCheckState(slot, 'found', body.data, humanizeErrorMessage(body.message ?? ''))
-        } else {
+        } else if (lookup.exists && lookup.user !== null) {
+            setCheckState(slot, 'found', lookup.user, humanizeErrorMessage(lookup.message))
+        } else if (!lookup.exists) {
             setCheckState(
                 slot,
                 'not_found',
                 undefined,
-                humanizeErrorMessage(body.message ?? 'No account exists for this email.'),
+                humanizeErrorMessage(lookup.message || 'No account exists for this email.'),
+            )
+        } else {
+            setCheckState(
+                slot,
+                'error',
+                undefined,
+                humanizeErrorMessage(lookup.message || 'Could not verify this email.'),
             )
         }
-    } catch (e) {
-        if ((e as Error).name === 'AbortError') {
+    } catch (error) {
+        if (isHttpRequestError(error) && error.kind === 'aborted') {
             return
         }
         setCheckState(slot, 'error', undefined, humanizeErrorMessage('Could not verify this email. Try again.'))

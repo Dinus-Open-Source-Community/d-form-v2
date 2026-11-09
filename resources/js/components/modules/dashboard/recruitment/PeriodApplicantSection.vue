@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
 import { routes } from '@/lib/routes'
+import { findElement, focusElement } from '@/adapters/browser/domQuery'
 
 interface ApplicationRow {
     id: string
@@ -126,7 +127,7 @@ watch(
         if (target) {
             target.focus()
         } else {
-            ;(document.querySelector('[data-applicant-list]') as HTMLElement | null)?.focus()
+            focusElement(findElement('[data-applicant-list]'))
         }
         lastSelectedId = null
     },

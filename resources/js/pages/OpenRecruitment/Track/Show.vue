@@ -18,6 +18,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { routes } from '@/lib/routes';
+import { scrollToElementById } from '@/adapters/browser/domQuery';
 import { formatDateTime } from '@/lib/dateTime';
 import {
     ArrowRight,
@@ -166,7 +167,7 @@ function handleHeroAction() {
     if (action === 'feedback') {
         feedbackExpanded.value = true;
         nextTick(() => {
-            document.getElementById('feedback-section')?.scrollIntoView({ behavior: 'smooth' });
+            scrollToElementById('feedback-section');
         });
         return;
     }

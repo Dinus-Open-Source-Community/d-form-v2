@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
-import axios from 'axios'
 import { ref } from 'vue'
+import { requestPasswordResetLink } from '@/adapters/http/auth'
+import { isHttpRequestError } from '@/adapters/http/httpError'
+import type { TValidationErrorBag } from '@/types/http'
 import { AuthField } from '@/components/core/field'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -30,17 +32,13 @@ async function submit(): Promise<void> {
     processing.value = true
 
     try {
-        const { data } = await axios.post<{ message: string }>(PASSWORD_RESET_LINK_URL, {
-            email: email.value,
-        })
-        toast.success(humanizeErrorMessage(data.message))
+        const { message } = await requestPasswordResetLink(PASSWORD_RESET_LINK_URL, email.value)
+        toast.success(humanizeErrorMessage(message))
     } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 422) {
-            const errors = error.response.data?.errors as Record<string, string[]> | undefined
-            if (errors) {
-                handleInertiaFormErrors(errors, { title: 'Gagal mengirim tautan reset' })
-                emailError.value = getFieldError(errors, 'email')
-            }
+        if (isHttpRequestError(error) && error.kind === 'validation') {
+            const errors: TValidationErrorBag = error.validationErrors ?? {}
+            handleInertiaFormErrors(errors, { title: 'Gagal mengirim tautan reset' })
+            emailError.value = getFieldError(errors, 'email')
             return
         }
 

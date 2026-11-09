@@ -1,4 +1,4 @@
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner'
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl'
 import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata'
 import type { FormFillOptionRow } from '@/types/form'
 
@@ -187,7 +187,7 @@ function parseOptionChoicesRows(value: unknown, builderType: string): FormFillOp
         rows.push({
             type: rowType,
             label: resolvedLabel,
-            imageSrc: rowType === 'image' && rawUrl ? normalizeBannerSrc(rawUrl) : undefined,
+            imageSrc: rowType === 'image' && rawUrl ? normalizePublicStorageUrl(rawUrl) : undefined,
         })
     }
     return rows

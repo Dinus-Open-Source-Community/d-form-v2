@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { FileSpreadsheet, Bell, Webhook, Code2, Link2, Share2 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 interface Integration {
     icon: Component
@@ -49,8 +50,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.1 },
     )
-    const el = document.getElementById('features-integrations')
-    if (el) obs.observe(el)
+    const el = findElementById('features-integrations')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

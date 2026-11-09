@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import LocalLottie from '@/components/core/LocalLottie.vue'
 import { ArrowRight } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
+import { findElementById } from '@/adapters/browser/domQuery'
 
 const visible = ref(false)
 onMounted(() => {
@@ -11,8 +12,8 @@ onMounted(() => {
         ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
         { threshold: 0.2 },
     )
-    const el = document.getElementById('section-cta')
-    if (el) obs.observe(el)
+    const el = findElementById('section-cta')
+    if (el !== null) obs.observe(el)
 })
 </script>
 

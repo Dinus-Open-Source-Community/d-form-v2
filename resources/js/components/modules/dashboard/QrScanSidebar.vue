@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Clock3, QrCode } from 'lucide-vue-next';
+import { Clock3, QrCode, TriangleAlert } from 'lucide-vue-next';
 import { SCAN_STATUS_THEME, type ScanEntry, type ScanResult } from '@/lib/qrScanUi';
 
 const props = withDefaults(
@@ -16,12 +16,18 @@ const props = withDefaults(
         scanBusy?: boolean;
         logExpanded?: boolean;
         logQuery?: string;
+        /** Feed lintas meja sedang gagal diperbarui; data lama tetap tampil. */
+        feedStale?: boolean;
+        /** Jumlah kegagalan feed berturut-turut, dipakai agar status tidak terlihat diam. */
+        feedFailureCount?: number;
     }>(),
     {
         heroEmptyMessage: 'Belum ada scan. Mulai kamera atau gunakan input manual.',
         scanBusy: false,
         logExpanded: false,
         logQuery: '',
+        feedStale: false,
+        feedFailureCount: 0,
     },
 );
 
@@ -114,6 +120,26 @@ function onLogQueryInput(value: string | number): void {
     emit('update:logQuery', String(value));
 }
 
+/**
+ * Satu live region persisten (selalu ada di DOM) supaya screen reader mengumumkan
+ * transisi stale dan pulih; teks tidak berubah selama siklus backoff berjalan.
+ */
+const feedAnnouncement = ref<string>('');
+
+watch(
+    () => props.feedStale,
+    (stale: boolean, previous: boolean | undefined): void => {
+        if (stale) {
+            feedAnnouncement.value = 'Feed scan tertunda. Data lama tetap tampil; sistem mencoba lagi otomatis.';
+
+            return;
+        }
+
+        feedAnnouncement.value = previous === true ? 'Feed scan tersambung kembali.' : '';
+    },
+    { immediate: true },
+);
+
 function onToggleLog(): void {
     emit('toggle-log');
 }
@@ -130,6 +156,37 @@ function onSubmitManual(): void {
 
 <template>
     <div class="flex flex-col gap-5">
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ feedAnnouncement }}</p>
+
+        <div
+            v-if="feedStale"
+            class="border-warning/50 bg-warning/10 rounded-2xl border shadow-sm"
+        >
+            <div class="flex items-start gap-3 px-4 py-3">
+                <span
+                    class="border-warning/30 bg-warning/15 text-warning-foreground mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border"
+                >
+                    <TriangleAlert class="size-4" aria-hidden="true" />
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-foreground text-sm font-medium">Feed scan tertunda</p>
+                    <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                        Data lama tetap tampil. Sistem mencoba lagi otomatis.
+                    </p>
+                    <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                        Scan dari perangkat ini tetap tercatat; daftar dari meja lain bisa belum muncul.
+                    </p>
+                </div>
+            </div>
+            <!-- Angka percobaan di luar live region persisten agar tidak diumumkan ulang saat backoff. -->
+            <p
+                v-if="feedFailureCount >= 2"
+                class="text-muted-foreground pr-4 pb-3 pl-[3.75rem] text-[11px] leading-relaxed"
+            >
+                Sudah {{ feedFailureCount }} kali gagal menyegarkan.
+            </p>
+        </div>
+
         <Card class="border-border/70 rounded-2xl border">
             <CardHeader class="pb-3">
                 <CardTitle class="text-base font-semibold">Input Manual</CardTitle>

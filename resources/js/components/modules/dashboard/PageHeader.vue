@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-vue-next'
 import { router } from '@inertiajs/vue3'
+import { goBack as navigateBack } from '@/adapters/browser/navigation'
 
 defineProps<{
     title: string
@@ -10,10 +11,7 @@ defineProps<{
 }>()
 
 function goBack(fallbackHref?: string): void {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-        return
-    }
+    if (navigateBack()) return
 
     if (fallbackHref) {
         router.visit(fallbackHref)

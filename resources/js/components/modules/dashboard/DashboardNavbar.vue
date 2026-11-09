@@ -19,6 +19,7 @@ import { User as UserIcon, LogOut, Settings, ChevronsUpDown, ArrowLeft } from 'l
 import { useAuth } from '@/hooks/useAuth'
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController'
 import { resolveNavbarFallbackBackHref, routes } from '@/lib/routes'
+import { goBack as navigateBack } from '@/adapters/browser/navigation'
 
 const page = usePage()
 const user = useAuth(page.props)
@@ -33,10 +34,7 @@ const greeting = computed(() => {
 const fallbackBackHref = computed(() => resolveNavbarFallbackBackHref(page.url))
 
 function goBack(): void {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back()
-        return
-    }
+    if (navigateBack()) return
     router.visit(fallbackBackHref.value)
 }
 </script>
