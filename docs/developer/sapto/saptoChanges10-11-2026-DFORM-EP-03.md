@@ -16,7 +16,7 @@ EP-03 menutup tiket performance recruitment/dashboard/reporting pada dataset
 
 | Issue | Commit |
 | ----- | ------ |
-| EP-03 (`BE-P2-012`, `BE-P2-013`, `BE-P2-014`, `BE-P2-016`, `BE-P2-021`, `BE-P2-022`, `BE-P2-023`, `BE-P2-026`, `BE-P2-027`, `BE-P2-028`, `BE-P2-029`, `BE-P3-020`, `HYG-002`, `HYG-004`, `HYG-005`) | `PENDING` |
+| EP-03 (`BE-P2-012`, `BE-P2-013`, `BE-P2-014`, `BE-P2-016`, `BE-P2-021`, `BE-P2-022`, `BE-P2-023`, `BE-P2-026`, `BE-P2-027`, `BE-P2-028`, `BE-P2-029`, `BE-P3-020`, `HYG-002`, `HYG-004`, `HYG-005`) | `2fa0b9c` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/EP-03/patching-ticket.md`.
 
