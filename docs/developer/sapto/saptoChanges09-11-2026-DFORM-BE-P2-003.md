@@ -26,7 +26,7 @@ lihat §Waiver. Dengan pool ≥ 1 GB query yang sama terukur 27–47 ms.
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-003 | `PENDING` — `perf: index and deduplicate QR eligibility query` |
+| BE-P2-003 | `15e9f97` — `perf: index and deduplicate QR eligibility query` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-003.md`.
 
