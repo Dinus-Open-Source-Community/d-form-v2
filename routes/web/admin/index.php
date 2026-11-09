@@ -31,7 +31,7 @@ use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
-Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'));
+Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'))->name('admin.index');
 
 /** Dasbor utama — admin → organizer overview, member → member overview. */
 Route::middleware('auth')->get('/dashboard', function () {
