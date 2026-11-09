@@ -15,6 +15,7 @@ hijau penuh (**1014 passed, 8 skipped, 0 failed**).
 | Issue | Commit |
 | ----- | ------ |
 | EP-01 (`AUDIT-P1-016`, `AUDIT-P2-001`, `AUDIT-P2-002`, `AUDIT-P3-001`, `AUDIT-P3-002`, `AUDIT-P3-008`, `FE-AUDIT-004-F4`, `FE-AUDIT-004-F5`, `FE-AUDIT-015`, `BE-P2-024`, `HYG-003`, `HYG-006`, `HYG-007`, `INFRA-P3-023`, `BE-P2-018`) | `cbef4a9` |
+| `AUDIT-P1-015-F1..F6` | `bd8a7ac` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/EP-01/patching-ticket.md`.
 
