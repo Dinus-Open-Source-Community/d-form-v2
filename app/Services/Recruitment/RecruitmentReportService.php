@@ -6,11 +6,9 @@ use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentFeedback;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
-use Illuminate\Support\Collection;
 
 final class RecruitmentReportService
 {
@@ -32,17 +30,12 @@ final class RecruitmentReportService
             ];
         }
 
-        $applications = RecruitmentApplication::query()
-            ->where('recruitment_period_id', $period->id);
-
-        $applicationIds = (clone $applications)->pluck('id');
-
         return [
             'period' => app(RecruitmentPeriodService::class)->toInertiaArray($period),
             'funnel' => $this->buildFunnel($period->id),
             'by_division' => $this->buildByDivision($period->id),
             'by_semester' => $this->buildBySemester($period->id),
-            'interview_stats' => $this->buildInterviewStats($applicationIds),
+            'interview_stats' => $this->buildInterviewStats($period->id),
             'feedback' => $this->buildFeedbackStats($period->id),
         ];
     }
@@ -141,25 +134,34 @@ final class RecruitmentReportService
     }
 
     /**
-     * @param  Collection<int, string>  $applicationIds
+     * Counts interviews of a period with one aggregate query so no application
+     * ID list is materialised in PHP. `total` sums every grouped status, which
+     * preserves the previous count(*) semantics for unknown status values.
+     *
      * @return array<string, int>
      */
-    private function buildInterviewStats(Collection $applicationIds): array
+    private function buildInterviewStats(string $periodId): array
     {
-        if ($applicationIds->isEmpty()) {
-            return $this->emptyInterviewStats();
+        $statusTotals = RecruitmentInterview::query()
+            ->whereIn(
+                'recruitment_application_id',
+                RecruitmentApplication::query()
+                    ->select('id')
+                    ->where('recruitment_period_id', $periodId)
+            )
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $stats = $this->emptyInterviewStats();
+
+        foreach (InterviewStatus::cases() as $status) {
+            $stats[$status->value] = (int) ($statusTotals[$status->value] ?? 0);
         }
 
-        $interviews = RecruitmentInterview::query()
-            ->whereIn('recruitment_application_id', $applicationIds);
+        $stats['total'] = (int) $statusTotals->sum();
 
-        return [
-            'waiting' => (clone $interviews)->where('status', InterviewStatus::Waiting)->count(),
-            'in_progress' => (clone $interviews)->where('status', InterviewStatus::InProgress)->count(),
-            'completed' => (clone $interviews)->where('status', InterviewStatus::Completed)->count(),
-            'cancelled' => (clone $interviews)->where('status', InterviewStatus::Cancelled)->count(),
-            'total' => (clone $interviews)->count(),
-        ];
+        return $stats;
     }
 
     /**
