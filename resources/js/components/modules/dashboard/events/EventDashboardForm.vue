@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
 import DeferredRender from '@/components/core/DeferredRender.vue';
-import { LazyTipTapEditor } from '@/lib/lazyRichTextEditors';
+import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors';
 import EventMultiValuePicker from '@/components/modules/dashboard/events/EventMultiValuePicker.vue';
 import {
     FileText,

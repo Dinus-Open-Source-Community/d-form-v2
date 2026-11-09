@@ -63,7 +63,8 @@ Tidak ada perubahan backend, migration, dependency, tampilan, atau
 | E2E terisolasi (`:8020`, super-admin) | **14 passed, exit 0**: builder 3, dashboard+scan 2, recruitment applicant list 8, setup 1 |
 
 Anomali: input manual scan tidak valid → `422`, UI “Tidak dapat diproses”,
-tanpa `pageerror` dan tanpa 5xx.
+tanpa `pageerror` dan tanpa 5xx. Spec baru lalu diperkuat (judul topbar dari
+`useDashboardTopbar`) dan dijalankan ulang: 3 passed (setup + 2 test).
 
 ## Dampak & risiko
 
@@ -74,6 +75,19 @@ tanpa `pageerror` dan tanpa 5xx.
 - Unit test hook belum ada karena runner Vitest adalah scope `FE-AUDIT-002`
   (Open) dan tidak dipasang pada tiket ini.
 - Rollback: revert satu commit; tidak ada migration/data.
+
+## Perbaikan lanjutan
+
+Commit migrasi awal meninggalkan tiga import basi yang hanya terlihat saat
+`vue-tsc` dijalankan pada tree hasil commit (worktree sudah memuat perbaikannya):
+`FormSuccessMessageCard.vue`, `EventDashboardForm.vue`, dan
+`pages/Dashboard/Broadcasts/Show.vue` masih mengimpor `@/lib/lazyRichTextEditors`.
+
+- Dua file pertama diarahkan ke `@/components/core/lazyRichTextEditors`.
+- `Show.vue` memakai `LazyBroadcastContentEditor`, export yang tidak lagi ada di
+  modul core (modul core hanya mengekspor `LazyTipTapEditor`). Penggantinya
+  `defineAsyncComponent(() => import('@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue'))`
+  sehingga vendor Tiptap tetap dimuat sebagai chunk async.
 
 ## Temuan di luar scope
 

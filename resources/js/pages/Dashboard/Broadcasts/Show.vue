@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,12 +8,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DeferredRender from '@/components/core/DeferredRender.vue'
-import { LazyBroadcastContentEditor } from '@/lib/lazyRichTextEditors'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { validateUploadFile } from '@/lib/uploadValidation'
 import { setTopbar } from '@/hooks/useDashboardTopbar'
+
+/** Editor broadcast (Tiptap + upload gambar) tetap async agar vendor Tiptap tidak masuk chunk page ini. */
+const LazyBroadcastContentEditor = defineAsyncComponent(
+    () => import('@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue'),
+)
 
 defineOptions({ layout: DashboardLayout })
 
