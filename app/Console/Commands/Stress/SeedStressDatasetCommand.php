@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Stress;
 
+use App\Support\Stress\StressDatasetScale;
 use Database\Seeders\Stress\StressBroadcastSeeder;
 use Database\Seeders\Stress\StressDatasetSeeder;
 use Database\Seeders\Stress\StressEventDomainSeeder;
@@ -55,7 +56,7 @@ final class SeedStressDatasetCommand extends Command
     ];
 
     protected $signature = 'stress:seed
-        {--scale='.StressDatasetSeeder::DEFAULT_SCALE.' : Jumlah baris per tabel domain}
+        {--scale='.StressDatasetScale::DEFAULT_SCALE.' : Jumlah baris per tabel domain}
         {--force : Hapus isi tabel domain + recruitment lebih dulu (destruktif, non-produksi)}
         {--no-tune : Lewati tuning MySQL sementara (flush=2, sync_binlog=0, FK/unique check off)}';
 
