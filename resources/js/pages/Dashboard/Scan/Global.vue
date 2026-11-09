@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
-import { useGlobalQrScanPage } from '@/utils/composables/useGlobalQrScanPage';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { useGlobalQrScanPage } from '@/hooks/useGlobalQrScanPage';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });
 

@@ -38,8 +38,8 @@ import {
 } from '@/lib/recruitmentPeriodPhase'
 import { formatIdDateLabel, formatIdDateTimeLabel } from '@/lib/shadcnDateFormat'
 import { cn } from '@/lib/utils'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import useAuth from '@/utils/composables/useAuth'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
+import { useAuth } from '@/hooks/useAuth'
 
 defineOptions({ layout: DashboardLayout })
 

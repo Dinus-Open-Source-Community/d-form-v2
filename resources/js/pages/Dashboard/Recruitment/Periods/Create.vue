@@ -11,7 +11,7 @@ import PeriodBannerField from '@/components/modules/dashboard/recruitment/Period
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 

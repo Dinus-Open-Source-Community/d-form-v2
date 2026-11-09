@@ -30,7 +30,7 @@ import type {
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers'
-import useAuth from '@/utils/composables/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import {
     CalendarClock,
     CheckCircle2,

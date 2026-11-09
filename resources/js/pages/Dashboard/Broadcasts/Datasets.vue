@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import { Card, CardContent } from '@/components/ui/card'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 

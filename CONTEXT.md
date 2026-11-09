@@ -114,15 +114,15 @@ Lapisan yang **tidak ada**: `app/Events`, `app/Listeners` kosong; tidak ada even
 | `components/core/`                  | wrapper tipis: auth input/button, modal konfirmasi, pagination, deferred render, lottie                                     |
 | `components/modules/`               | komponen per fitur: `auth/`, `builder/`, `dashboard/`, `landing/`, `open-recruitment/`, `user/`                            |
 | `components/seo/`                   | `SeoHead.vue` untuk title, description, canonical URL, dan JSON-LD pada page yang membutuhkannya                           |
-| `hooks/`                            | 10 composable `useXxx`; dua guard global dipanggil langsung dari `app.js`, hook lain dipakai page/component              |
-| `utils/composables/`                | 17 composable legacy `useXxx` yang masih dipakai oleh alur yang belum dimigrasikan                                       |
+| `hooks/`                            | 23 composable `useXxx` + barrel `index.ts`; dua guard global dipanggil langsung dari `app.js`, hook lain dipakai page/component |
+| `utils/composables/`                | **dihapus** pada `FE-AUDIT-003`; `utils/` hanya menyisakan `stripHtml.ts` dan `theme.js` legacy                          |
 | `lib/`                              | 37 file: 36 fungsi murni + `routes.ts` (jalur URL manual, 75 import)                                                       |
 | `types/`                            | kontrak TS: `global.d.ts`, `form.ts`, `form-builder.ts`, `event.d.ts`, `seo.d.ts`, …                                       |
 | `routes/`, `actions/`, `wayfinder/` | **generated** oleh Wayfinder — jangan diedit manual                                                                        |
 
 ### 4.3 Drift yang harus diketahui
 
-`dev-zapp` sudah memiliki `resources/js/hooks/` dengan 10 file dan menggunakannya dari `app.js`, page, serta component. `utils/composables/` juga masih ada dengan 17 composable legacy yang dipakai sebagian alur. `autosaveGuard.ts` dan `dirtyFields.ts` belum ada di branch ini. Aturan `AGENTS.md` tetap menjadi target struktur; jangan memindahkan composable secara massal tanpa instruksi.
+`dev-zapp` memiliki `resources/js/hooks/` dengan 23 composable + barrel `index.ts` dan menggunakannya dari `app.js`, page, serta component. `utils/composables/` sudah dihapus pada `FE-AUDIT-003`; `utils/` hanya menyisakan `stripHtml.ts` dan `theme.js`. `autosaveGuard.ts` dan `dirtyFields.ts` belum ada di branch ini. Aturan `AGENTS.md` tetap menjadi target struktur.
 
 ---
 
@@ -288,7 +288,7 @@ sequenceDiagram
     Note over U,A: tidak ada endpoint autosave khusus,<br/>memakai route CRUD yang sama
 ```
 
-- Sumber state tunggal: `useFormBuilderWorkspace` (`resources/js/utils/composables/useFormBuilderWorkspace.ts`).
+- Sumber state tunggal: `useFormBuilderWorkspace` (`resources/js/hooks/useFormBuilderWorkspace.ts`).
 - 17 tipe builder dipetakan ke 7 `input_type` backend (`components/modules/builder/fieldMapping.ts`); metadata menyimpan `builderType`, `rules`, `placeholder`, `content`.
 - Banner disimpan sebagai **field sintetis** `form_banner` (`formBanner.ts`), bukan kolom form.
 - Tipe display-only (`heading`, `paragraph`, `divider`, `banner`, `image`) tidak ikut answer key.
@@ -525,7 +525,7 @@ Batas upload yang berlaku: banner `max:10240` (10 MB), avatar `max:2048` (2 MB),
 ```mermaid
 flowchart TD
     P["pages/**/*.vue<br/>UI-only"] --> L["layouts/*<br/>shell + sidebar/toast"]
-    P --> H["hooks/useXxx + utils/composables/useXxx<br/>state & efek"]
+    P --> H["hooks/useXxx<br/>state & efek"]
     P --> C["components/core, modules, ui<br/>komponen"]
     H --> X["lib/*<br/>fungsi murni"]
     H --> A["axios / Inertia router / useForm"]
@@ -540,7 +540,7 @@ Aturan yang **berlaku di kode sekarang**:
 - Ada **dua sumber URL**: `lib/routes.ts` (75 import, manual) dan Wayfinder `actions/` (24 import di 19 file, generated). Belum ada aturan tunggal; jangan menambah sumber ketiga.
 - Tidak ada Pinia/Vuex. State global = module-level `ref` di composable (`useDashboardTopbar` dipakai 31 file) + `usePage()` untuk shared props.
 - Inertia `useForm` untuk form; `axios` untuk autosave/aksi parsial (`withXSRFToken` di `bootstrap.js`).
-- `resources/js/hooks/` berisi 10 composable dan sudah dipakai oleh `app.js`, page, serta component; `utils/composables/` tetap menjadi area legacy yang belum seluruhnya dimigrasikan.
+- `resources/js/hooks/` berisi 23 composable + barrel `index.ts` dan dipakai oleh `app.js`, page, serta component; `utils/composables/` sudah dihapus pada `FE-AUDIT-003`.
 - Dark mode: `utils/theme.js` menyetel `data-theme` + `localStorage['theme']`; token ada di `resources/css/app.css`.
 - daisyui ada di `devDependencies` tetapi tidak pernah diimpor — jangan dipakai.
 

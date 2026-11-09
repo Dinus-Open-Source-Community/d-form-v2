@@ -10,8 +10,8 @@ import FormBundleGroupDetailSheet from '@/components/modules/dashboard/FormBundl
 import AppPagination from '@/components/core/AppPagination.vue';
 import FormSubmissionDetailSheet from '@/components/modules/dashboard/FormSubmissionDetailSheet.vue';
 import { Download, ListFilter } from 'lucide-vue-next';
-import { useFormSubmissionsPage } from '@/utils/composables/useFormSubmissionsPage';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { useFormSubmissionsPage } from '@/hooks/useFormSubmissionsPage';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });
 

@@ -5,7 +5,7 @@
 
 import type { BackendField, BuilderField, FieldOptionEntry } from '@/types/form-builder'
 import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata'
-import { cleanStoredImageUrl } from '@/utils/composables/useBuilderImageUpload'
+import { cleanStoredImageUrl } from '@/hooks/useBuilderImageUpload'
 
 export type { BackendField, BuilderField, FieldOptionEntry }
 

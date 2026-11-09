@@ -5,7 +5,7 @@ import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue'
 import FormBuilderDemoPaletteSidebar from '@/components/modules/builder/FormBuilderDemoPaletteSidebar.vue'
 import FormBuilderDemoCanvas from '@/components/modules/builder/FormBuilderDemoCanvas.vue'
 import FormBuilderDemoPropertiesSidebar from '@/components/modules/builder/FormBuilderDemoPropertiesSidebar.vue'
-import { useFormBuilderDemoPage } from '@/utils/composables/useFormBuilderDemoPage'
+import { useFormBuilderDemoPage } from '@/hooks/useFormBuilderDemoPage'
 
 defineOptions({ layout: DashboardFocusLayout })
 

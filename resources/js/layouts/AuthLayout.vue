@@ -3,7 +3,7 @@ import 'vue-sonner/style.css';
 import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { Toaster } from '@/components/ui/sonner';
 import { routes } from '@/lib/routes';
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast';
+import { usePageFlashToast } from '@/hooks/usePageFlashToast';
 
 usePageFlashToast();
 </script>

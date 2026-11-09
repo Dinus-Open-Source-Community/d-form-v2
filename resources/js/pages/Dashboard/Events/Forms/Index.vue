@@ -13,7 +13,7 @@ import { Plus, FileText, Pencil, Trash2, Inbox, CalendarClock, Users } from 'luc
 import { formatDateTime } from '@/lib/dateTime'
 import FormSubmissionsController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormSubmissionsController'
 import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 

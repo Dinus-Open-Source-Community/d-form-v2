@@ -13,7 +13,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import { routes } from '@/lib/routes'
 import { showErrorToast } from '@/lib/error-message'
 import { validateUploadFile } from '@/lib/uploadValidation'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 

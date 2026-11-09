@@ -14,8 +14,8 @@ import {
     destroy as destroyEvent,
 } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
-import useAuth from '@/utils/composables/useAuth';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { useAuth } from '@/hooks/useAuth';
 
 defineOptions({ layout: DashboardLayout });
 

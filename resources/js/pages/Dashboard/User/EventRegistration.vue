@@ -11,7 +11,7 @@ import { CalendarDays, MapPin } from 'lucide-vue-next'
 import { statusColorMap } from '@/lib/dummyData'
 import { formatDateTime } from '@/lib/dateTime'
 import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 

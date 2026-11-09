@@ -9,8 +9,8 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast';
-import { clearTopbar } from '@/utils/composables/useDashboardTopbar';
+import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { clearTopbar } from '@/hooks/useDashboardTopbar';
 
 usePageFlashToast();
 import {
@@ -24,7 +24,7 @@ import {
 import { LogOut, Settings } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
-import useAuth from '@/utils/composables/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 const page = usePage();
 const user = useAuth(page.props);

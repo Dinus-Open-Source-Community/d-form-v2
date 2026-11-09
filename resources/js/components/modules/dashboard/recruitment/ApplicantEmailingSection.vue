@@ -12,7 +12,7 @@ import {
     type IEmailResendTypeStatus,
     type TRecruitmentEmailResendType,
 } from '@/lib/recruitmentEmailResend'
-import { useApplicantEmailing } from '@/utils/composables/useApplicantEmailing'
+import { useApplicantEmailing } from '@/hooks/useApplicantEmailing'
 import { ExternalLink, MessageCircle, Send } from 'lucide-vue-next'
 
 const props = defineProps<{

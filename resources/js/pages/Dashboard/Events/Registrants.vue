@@ -12,9 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { CalendarDays, FileStack, Users } from 'lucide-vue-next'
 import { formatDateTime } from '@/lib/dateTime'
-import { useEventRegistrantsPage } from '@/utils/composables/useEventRegistrantsPage'
+import { useEventRegistrantsPage } from '@/hooks/useEventRegistrantsPage'
 import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardFocusLayout })
 

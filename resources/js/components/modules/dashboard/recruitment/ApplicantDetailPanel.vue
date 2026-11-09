@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import ApplicantDetailContent, { type ApplicationDetail } from './ApplicantDetailContent.vue'
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities'
-import useAuth from '@/utils/composables/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import { CheckCircle2, Mail, Star, UserPlus, XCircle } from 'lucide-vue-next'
 
 const props = withDefaults(

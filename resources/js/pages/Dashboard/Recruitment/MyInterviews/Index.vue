@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import AppPagination from '@/components/core/AppPagination.vue'
 import { routes } from '@/lib/routes'
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 import { formatDateTime } from '@/lib/dateTime'
 import {
     ChevronRight,

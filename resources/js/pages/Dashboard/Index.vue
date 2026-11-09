@@ -8,7 +8,7 @@ import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vu
 import MiniCalendar from '@/components/modules/dashboard/MiniCalendar.vue';
 import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue';
 import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardLayout });

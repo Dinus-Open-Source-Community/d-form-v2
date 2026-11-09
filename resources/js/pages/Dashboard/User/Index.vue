@@ -13,7 +13,7 @@ import { formatDateTime } from '@/lib/dateTime'
 import { toCategoryList } from '@/lib/eventCategories'
 import { routes } from '@/lib/routes'
 import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { setTopbar } from '@/hooks/useDashboardTopbar'
 
 defineOptions({ layout: DashboardLayout })
 

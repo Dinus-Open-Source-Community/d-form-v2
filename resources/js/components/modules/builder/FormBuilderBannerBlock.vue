@@ -8,7 +8,7 @@ import {
     createLocalImagePreviewUrl,
     revokeLocalImagePreviewUrl,
     useBuilderImageUpload,
-} from '@/utils/composables/useBuilderImageUpload';
+} from '@/hooks/useBuilderImageUpload';
 
 const banner = defineModel<FormBannerState>('banner', { required: true });
 

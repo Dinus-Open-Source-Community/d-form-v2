@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
-import type { AutosaveStatus } from '@/utils/composables/useAutosaveSync';
+import type { AutosaveStatus } from '@/hooks/useAutosaveSync';
 
 export type TAutosaveStatusVariant = 'inline' | 'block';
 

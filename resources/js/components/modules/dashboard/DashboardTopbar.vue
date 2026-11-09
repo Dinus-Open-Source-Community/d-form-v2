@@ -12,8 +12,8 @@ import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
-import useAuth from '@/utils/composables/useAuth';
-import { useTopbar } from '@/utils/composables/useDashboardTopbar';
+import { useAuth } from '@/hooks/useAuth';
+import { useTopbar } from '@/hooks/useDashboardTopbar';
 
 const page = usePage();
 const user = useAuth(page.props);

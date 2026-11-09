@@ -10,7 +10,7 @@ import {
     createLocalImagePreviewUrl,
     revokeLocalImagePreviewUrl,
     useBuilderImageUpload,
-} from '@/utils/composables/useBuilderImageUpload'
+} from '@/hooks/useBuilderImageUpload'
 
 const props = withDefaults(
     defineProps<{

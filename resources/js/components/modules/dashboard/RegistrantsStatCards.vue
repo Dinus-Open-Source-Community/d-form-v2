@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Card, CardContent } from '@/components/ui/card'
-import type { RegistrantsStatCardModel } from '@/utils/composables/useEventRegistrantsPage'
+import type { RegistrantsStatCardModel } from '@/hooks/useEventRegistrantsPage'
 import { cn } from '@/lib/utils'
 
 defineProps<{

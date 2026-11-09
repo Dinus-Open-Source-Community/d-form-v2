@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-vue-next'
 import { routes } from '@/lib/routes'
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast'
+import { usePageFlashToast } from '@/hooks/usePageFlashToast'
 
 const page = usePage()
 usePageFlashToast()

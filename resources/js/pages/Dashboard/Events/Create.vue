@@ -12,17 +12,17 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import { Loader2 } from 'lucide-vue-next';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { destroy as destroyEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { update as updateForm } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormController';
 import { __invoke as postFields } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FieldOperationController';
-import { useAutosaveSync } from '@/utils/composables/useAutosaveSync';
+import { useAutosaveSync } from '@/hooks/useAutosaveSync';
 import {
     builderPendingUploads,
     cleanStoredImageUrl,
     resolveBuilderImageUploadUrl,
     sanitizeBuilderSnapshot,
-} from '@/utils/composables/useBuilderImageUpload';
+} from '@/hooks/useBuilderImageUpload';
 import { fromBackendField, toBackendFields, type BackendField } from '@/components/modules/builder/fieldMapping';
 import {
     defaultFormBannerState,

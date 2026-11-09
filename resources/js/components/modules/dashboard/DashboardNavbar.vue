@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { User as UserIcon, LogOut, Settings, ChevronsUpDown, ArrowLeft } from 'lucide-vue-next'
-import useAuth from '@/utils/composables/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController'
 import { resolveNavbarFallbackBackHref, routes } from '@/lib/routes'
 

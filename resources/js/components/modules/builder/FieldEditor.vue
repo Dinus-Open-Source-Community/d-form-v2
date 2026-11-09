@@ -6,7 +6,7 @@ import {
     createLocalImagePreviewUrl,
     revokeLocalImagePreviewUrl,
     useBuilderImageUpload,
-} from '@/utils/composables/useBuilderImageUpload'
+} from '@/hooks/useBuilderImageUpload'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

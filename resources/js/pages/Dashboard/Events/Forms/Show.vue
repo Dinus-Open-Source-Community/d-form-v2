@@ -3,13 +3,13 @@ import { ref, watch, computed, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
-import { useAutosaveSync } from '@/utils/composables/useAutosaveSync';
+import { useAutosaveSync } from '@/hooks/useAutosaveSync';
 import {
     builderPendingUploads,
     cleanStoredImageUrl,
     resolveBuilderImageUploadUrl,
     sanitizeBuilderSnapshot,
-} from '@/utils/composables/useBuilderImageUpload';
+} from '@/hooks/useBuilderImageUpload';
 import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';

@@ -6,7 +6,7 @@ import type { FormBannerState } from '@/components/modules/builder/formBanner';
 import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import type { BuilderField } from '@/types/form-builder';
 import type { FormRegistrationMetadata, FormSiblingOption } from '@/types/form';
-import { useFormBuilderWorkspace } from '@/utils/composables/useFormBuilderWorkspace';
+import { useFormBuilderWorkspace } from '@/hooks/useFormBuilderWorkspace';
 import FormBuilderToolbar from './FormBuilderToolbar.vue';
 import FormBuilderMobileTabBar from './FormBuilderMobileTabBar.vue';
 import FormBuilderPalettePanel from './FormBuilderPalettePanel.vue';

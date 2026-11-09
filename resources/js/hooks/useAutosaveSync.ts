@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue';
-import { sanitizeBuilderSnapshot } from '@/utils/composables/useBuilderImageUpload';
+import { sanitizeBuilderSnapshot } from '@/hooks/useBuilderImageUpload';
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'uploading';
 
