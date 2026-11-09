@@ -19,7 +19,7 @@ perubahan kode.
 
 | Issue | Commit |
 | ----- | ------ |
-| BE-P2-006 | lihat commit tiket ini di riwayat `dev-zapp` |
+| BE-P2-006 | `e8c7d0f` |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/BE-P2-006.md`.
 
