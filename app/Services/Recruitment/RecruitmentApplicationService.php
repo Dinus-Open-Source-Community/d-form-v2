@@ -40,6 +40,27 @@ final class RecruitmentApplicationService
     ];
 
     /**
+     * Satu-satunya definisi aturan antrean: dipakai bersama oleh badge
+     * `queueCounts()` dan filter daftar `applyQueueFilter()` supaya keduanya
+     * tidak bisa berbeda arti.
+     *
+     * Data aturan ada di sini; translasi ke predikat ada di `queueCasePredicate()` (SQL) dan `applyQueueFilter()` (Eloquent), keduanya wajib ditambah bersama saat bentuk aturan baru masuk (mis. `cancelled_at`, `result IN`).
+     *
+     * @var array<string, array{stages?: list<ApplicationStage>, stage?: ApplicationStage, result?: ApplicationResult, revision_required?: bool}>
+     */
+    private const QUEUE_RULES = [
+        'screening' => [
+            'stages' => [ApplicationStage::Submitted, ApplicationStage::Screening],
+            'result' => ApplicationResult::Pending,
+            'revision_required' => false,
+        ],
+        'revision' => ['revision_required' => true],
+        'interview' => ['stage' => ApplicationStage::Interview],
+        'final' => ['stage' => ApplicationStage::FinalReview],
+        'done' => ['stage' => ApplicationStage::Completed],
+    ];
+
+    /**
      * @param  array<string, mixed>  $filters
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
@@ -86,37 +107,84 @@ final class RecruitmentApplicationService
     }
 
     /**
+     * Enam angka antrean dihitung dari satu query agregat kondisional, koreksi
+     * pending dari tabel lain dengan satu query terpisah.
+     *
      * @return array<string, int>
      */
     public function queueCounts(?string $periodId = null): array
     {
-        $query = RecruitmentApplication::query();
+        $hasPeriod = $periodId !== null && $periodId !== '';
 
-        if ($periodId !== null && $periodId !== '') {
-            $query->where('recruitment_period_id', $periodId);
+        $selects = ['COUNT(*) as aggregate_all'];
+        $bindings = [];
+
+        foreach (self::QUEUE_RULES as $queue => $rule) {
+            [$predicate, $ruleBindings] = self::queueCasePredicate($rule);
+            $selects[] = "SUM(CASE WHEN {$predicate} THEN 1 ELSE 0 END) as aggregate_{$queue}";
+            $bindings = [...$bindings, ...$ruleBindings];
         }
 
-        $base = clone $query;
+        /** @var array<string, int|string|null> $row SUM/COUNT bisa kembali string di driver tertentu. */
+        $row = (array) RecruitmentApplication::query()
+            ->when($hasPeriod, fn ($query) => $query->where('recruitment_period_id', $periodId))
+            ->toBase()
+            ->selectRaw(implode(', ', $selects), $bindings)
+            ->first();
 
-        return [
-            'all' => (clone $base)->count(),
-            'screening' => (clone $base)
-                ->whereIn('stage', [ApplicationStage::Submitted, ApplicationStage::Screening])
-                ->where('result', ApplicationResult::Pending)
-                ->where('revision_required', false)
-                ->count(),
-            'revision' => (clone $base)->where('revision_required', true)->count(),
-            'interview' => (clone $base)->where('stage', ApplicationStage::Interview)->count(),
-            'final' => (clone $base)->where('stage', ApplicationStage::FinalReview)->count(),
-            'done' => (clone $base)->where('stage', ApplicationStage::Completed)->count(),
-            'corrections_pending' => RecruitmentCorrectionRequest::query()
-                ->where('status', CorrectionRequestStatus::Pending)
-                ->when($periodId, fn ($q) => $q->whereHas(
-                    'application',
-                    fn ($app) => $app->where('recruitment_period_id', $periodId),
-                ))
-                ->count(),
-        ];
+        $counts = [];
+
+        foreach (['all', ...array_keys(self::QUEUE_RULES)] as $key) {
+            $counts[$key] = (int) ($row['aggregate_'.$key] ?? 0);
+        }
+
+        $counts['corrections_pending'] = RecruitmentCorrectionRequest::query()
+            ->where('status', CorrectionRequestStatus::Pending)
+            ->when($hasPeriod, fn ($query) => $query->whereHas(
+                'application',
+                fn ($application) => $application->where('recruitment_period_id', $periodId),
+            ))
+            ->count();
+
+        return $counts;
+    }
+
+    /**
+     * Predikat SQL untuk satu aturan `QUEUE_RULES`, memakai binding parameter.
+     *
+     * @param  array{stages?: list<ApplicationStage>, stage?: ApplicationStage, result?: ApplicationResult, revision_required?: bool}  $rule
+     * @return array{0: string, 1: list<string|int|bool>}
+     */
+    private static function queueCasePredicate(array $rule): array
+    {
+        $conditions = [];
+        $bindings = [];
+
+        if (isset($rule['stages'])) {
+            $placeholders = implode(', ', array_fill(0, count($rule['stages']), '?'));
+            $conditions[] = "stage IN ({$placeholders})";
+
+            foreach ($rule['stages'] as $stage) {
+                $bindings[] = $stage->value;
+            }
+        }
+
+        if (isset($rule['stage'])) {
+            $conditions[] = 'stage = ?';
+            $bindings[] = $rule['stage']->value;
+        }
+
+        if (isset($rule['result'])) {
+            $conditions[] = 'result = ?';
+            $bindings[] = $rule['result']->value;
+        }
+
+        if (array_key_exists('revision_required', $rule)) {
+            $conditions[] = 'revision_required = ?';
+            $bindings[] = $rule['revision_required'];
+        }
+
+        return [implode(' AND ', $conditions), $bindings];
     }
 
     /**
@@ -124,17 +192,27 @@ final class RecruitmentApplicationService
      */
     private function applyQueueFilter($query, string $queue): void
     {
-        match ($queue) {
-            'screening' => $query
-                ->whereIn('stage', [ApplicationStage::Submitted, ApplicationStage::Screening])
-                ->where('result', ApplicationResult::Pending)
-                ->where('revision_required', false),
-            'revision' => $query->where('revision_required', true),
-            'interview' => $query->where('stage', ApplicationStage::Interview),
-            'final' => $query->where('stage', ApplicationStage::FinalReview),
-            'done' => $query->where('stage', ApplicationStage::Completed),
-            default => null,
-        };
+        $rule = self::QUEUE_RULES[$queue] ?? null;
+
+        if ($rule === null) {
+            return;
+        }
+
+        if (isset($rule['stages'])) {
+            $query->whereIn('stage', $rule['stages']);
+        }
+
+        if (isset($rule['stage'])) {
+            $query->where('stage', $rule['stage']);
+        }
+
+        if (isset($rule['result'])) {
+            $query->where('result', $rule['result']);
+        }
+
+        if (array_key_exists('revision_required', $rule)) {
+            $query->where('revision_required', $rule['revision_required']);
+        }
     }
 
     /**
