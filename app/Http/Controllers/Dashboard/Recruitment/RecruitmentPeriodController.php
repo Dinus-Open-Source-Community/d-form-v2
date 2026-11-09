@@ -220,6 +220,34 @@ class RecruitmentPeriodController extends Controller
         return [...$summary, 'recipients' => $recipients];
     }
 
+    /**
+     * Ringkasan QR hanya dibutuhkan tab peserta dan partial reload eksplisit
+     * (refresh/polling header meminta `qr_status_summary` lewat X-Inertia-Partial-Data).
+     *
+     * Inertia mengizinkan permintaan child prop bertitik (`qr_status_summary.sent`),
+     * jadi child tersebut juga harus dihitung agar tidak diam-diam menjadi 0.
+     */
+    private function shouldComputeQrStatusSummary(Request $request, string $tab): bool
+    {
+        if ($tab === 'peserta') {
+            return true;
+        }
+
+        $partialProps = $request->header('X-Inertia-Partial-Data');
+
+        if (! is_string($partialProps) || $partialProps === '') {
+            return false;
+        }
+
+        foreach (array_map('trim', explode(',', $partialProps)) as $prop) {
+            if ($prop === 'qr_status_summary' || str_starts_with($prop, 'qr_status_summary.')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function show(ShowRecruitmentPeriodApplicationsRequest $request, RecruitmentPeriod $period): Response
     {
         $this->authorize('view', $period);
@@ -367,7 +395,16 @@ class RecruitmentPeriodController extends Controller
                 ->all();
         }
 
-        $qrStatus = $this->qrStatusForPeriod($period);
+        $qrStatusSummary = null;
+
+        if ($this->shouldComputeQrStatusSummary($request, $tab)) {
+            $qrStatus = $this->qrStatusForPeriod($period);
+            $qrStatusSummary = [
+                'sent' => $qrStatus['sent'],
+                'failed' => $qrStatus['failed'],
+                'queued' => $qrStatus['queued'],
+            ];
+        }
 
         $props = [
             'period' => $this->periodService->toInertiaArray($period, $request->user()),
@@ -383,8 +420,11 @@ class RecruitmentPeriodController extends Controller
             'group_link_eligible_count' => $this->groupLinkEligibleCount($period),
             'qr_eligible_count' => $this->qrEligibleCount($period),
             'qr_sent_count' => $this->qrSentCount($period),
-            'qr_status_summary' => ['sent' => $qrStatus['sent'], 'failed' => $qrStatus['failed'], 'queued' => $qrStatus['queued']],
         ];
+
+        if ($qrStatusSummary !== null) {
+            $props['qr_status_summary'] = $qrStatusSummary;
+        }
 
         if ($tab === 'peserta') {
             $props['applications'] = $applications;
