@@ -92,17 +92,7 @@ final class BundleRegistrationSubmitter
                 ]);
             }
 
-            foreach ($memberEmails as $i => $email) {
-                try {
-                    $this->duplicateChecker->assertEmailAvailableForForm(
-                        $form,
-                        $email,
-                        "team_member_emails.{$i}",
-                    );
-                } catch (ValidationException $e) {
-                    throw $e;
-                }
-            }
+            $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
 
             $this->registrationCounter->assertCanReserve($lockedEvent, $teamSize, $adminExemptFromQuota);
 

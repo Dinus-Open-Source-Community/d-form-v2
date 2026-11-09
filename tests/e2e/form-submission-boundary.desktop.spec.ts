@@ -1,6 +1,10 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { expect as baseExpect, test, type BrowserContext, type Page } from '@playwright/test';
 import { readEnvironment } from './support/environment';
 import { runArtisanCommand } from './support/artisan';
+
+// Konfirmasi/invitation email berjalan sinkron di queue E2E dengan jitter 5-10 detik per job,
+// sehingga redirect registrasi bisa melewati timeout assertion default 10 detik.
+const expect = baseExpect.configure({ timeout: 60_000 });
 
 const environment = readEnvironment();
 
@@ -189,6 +193,42 @@ function seedRegisteredGuest(formId: string, email: string): void {
             `'answers'=>['full_name'=>'Existing Guest']` +
             `]);`,
     ]);
+}
+
+interface IAnswerRowMeta {
+    userId: string | null;
+    role: string | null;
+    groupToken: string | null;
+}
+
+/** Baris FormAnswer (user, peran, group token) untuk asersi DB; urutan tidak andalkan. */
+function readAnswerRows(formId: string): IAnswerRowMeta[] {
+    const command =
+        `echo json_encode(App\\Models\\FormAnswer::where('form_id',${phpString(formId)})` +
+        `->get(['user_id','registration_role','group_token'])->map(function($a){` +
+        `return ['userId'=>$a->user_id,'role'=>$a->registration_role===null?null:$a->registration_role->value,'groupToken'=>$a->group_token];` +
+        `})->values()->all());`;
+
+    return JSON.parse(runArtisanCommand(['tinker', '--execute', command])) as IAnswerRowMeta[];
+}
+
+/** FormAnswer aktif milik user tertentu; dipakai membuktikan guard duplikat. */
+function seedRegisteredUserAnswer(formId: string, userId: string): void {
+    runArtisanCommand([
+        'tinker',
+        '--execute',
+        `App\\Models\\FormAnswer::create(['form_id'=>${phpString(formId)},'user_id'=>${phpString(userId)},'answers'=>['full_name'=>'Existing Person']]);`,
+    ]);
+}
+
+/** User nyata + FormAnswer aktif dengan email tertentu, untuk anomali bundle. */
+function createRegisteredUserAnswer(formId: string, email: string): IFixtureUser {
+    const command =
+        `$user=App\\Models\\User::factory()->create(['name'=>'E2E Existing Bundle User','email'=>${phpString(email)}]);` +
+        `App\\Models\\FormAnswer::create(['form_id'=>${phpString(formId)},'user_id'=>$user->id,'answers'=>['full_name'=>'Existing Bundle User']]);` +
+        `echo json_encode(['id'=>$user->id,'email'=>$user->email]);`;
+
+    return JSON.parse(runArtisanCommand(['tinker', '--execute', command])) as IFixtureUser;
 }
 
 function firstUser(fixture: IFixture): IFixtureUser {
@@ -523,6 +563,101 @@ test.describe('AUDIT-P1-004 form submission request boundary', () => {
             expect(result.status).toBe(302);
             expect(result.locationPath).toBe(fixture.fillPath);
             expect(answerCount(fixture.formId)).toBe(0);
+        } finally {
+            cleanupFixture(fixture);
+        }
+    });
+
+    test('team registration submits leader and member rows', async ({ page }) => {
+        test.setTimeout(120_000);
+        const fixture = createFixture('team');
+        const mate = firstUser(fixture);
+
+        try {
+            await page.goto(fixture.fillPath);
+            await page.locator('#full_name').fill('Team Leader');
+            await page.locator('#team_member_emails_1').fill(mate.email);
+            await submitForm(page);
+
+            await expect(page).toHaveURL(/\/admin\/events\//);
+            expect(answerCount(fixture.formId)).toBe(2);
+
+            const rows = readAnswerRows(fixture.formId);
+            const leaderRow = rows.find((row) => row.userId === fixture.ownerId);
+            const memberRow = rows.find((row) => row.userId === mate.id);
+
+            expect(leaderRow?.role).toBe('leader');
+            expect(memberRow?.role).toBe('member');
+        } finally {
+            cleanupFixture(fixture);
+        }
+    });
+
+    test('anomaly: team registration rejects a teammate already registered on the form', async ({ page }) => {
+        const fixture = createFixture('team');
+        const mate = firstUser(fixture);
+
+        try {
+            seedRegisteredUserAnswer(fixture.formId, mate.id);
+            await page.goto(fixture.fillPath);
+
+            const result = await postSubmitFollowingRedirect(page.context(), fixture.submitPath, [
+                ['full_name', 'Team Leader'],
+                ['team_member_emails[0]', mate.email],
+            ]);
+
+            expect(result.status).toBe(200);
+            expect(result.body).toMatch(/already registered/i);
+            expect(answerCount(fixture.formId)).toBe(1);
+        } finally {
+            cleanupFixture(fixture);
+        }
+    });
+
+    test('bundle registration submits leader and participant under one group token', async ({ page }) => {
+        test.setTimeout(120_000);
+        const fixture = createFixture('bundle');
+        const guestEmail = `e2e-bundle-happy-${fixture.token}@example.test`;
+
+        try {
+            await page.goto(fixture.fillPath);
+            await page.locator('#full_name').fill('Lead Participant');
+            await page.locator('#bundle__full_name__0').fill('Second Participant');
+            await page.locator('#team_member_emails_1').fill(guestEmail);
+            await submitForm(page);
+
+            await expect(page).toHaveURL(/\/admin\/events\//);
+            expect(answerCount(fixture.formId)).toBe(2);
+
+            const tokens = readAnswerRows(fixture.formId).map((row) => row.groupToken);
+
+            expect(tokens).toHaveLength(2);
+            expect(tokens[0]).not.toBeNull();
+            expect(tokens[0]).toBe(tokens[1]);
+        } finally {
+            cleanupFixture(fixture);
+        }
+    });
+
+    test('anomaly: bundle registration rejects a member account already registered on the form', async ({ page }) => {
+        const fixture = createFixture('bundle');
+        const guestEmail = `e2e-bundle-registered-${fixture.token}@example.test`;
+
+        try {
+            const registeredUser = createRegisteredUserAnswer(fixture.formId, guestEmail);
+            fixture.users.push(registeredUser);
+
+            await page.goto(fixture.fillPath);
+
+            const result = await postSubmitFollowingRedirect(page.context(), fixture.submitPath, [
+                ['full_name', 'Lead Participant'],
+                ['bundle__full_name__0', 'Second Participant'],
+                ['team_member_emails[0]', guestEmail],
+            ]);
+
+            expect(result.status).toBe(200);
+            expect(result.body).toMatch(/already registered/i);
+            expect(answerCount(fixture.formId)).toBe(1);
         } finally {
             cleanupFixture(fixture);
         }

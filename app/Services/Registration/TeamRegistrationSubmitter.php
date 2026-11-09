@@ -92,17 +92,19 @@ final class TeamRegistrationSubmitter
             }
 
             $participants = array_merge([$leaderUser], $memberUsers);
-            foreach ($participants as $participant) {
-                if (FormAnswer::query()
-                    ->where('form_id', $form->id)
-                    ->where('user_id', $participant->id)
-                    ->excludeRejectedSubmissions()
-                    ->lockForUpdate()
-                    ->exists()) {
-                    throw ValidationException::withMessages([
-                        'team_member_emails' => __('A participant is already registered for this form.'),
-                    ]);
-                }
+            $participantIds = array_map(static fn (User $participant): string => (string) $participant->id, $participants);
+
+            $alreadyRegistered = FormAnswer::query()
+                ->where('form_id', $form->id)
+                ->whereIn('user_id', $participantIds)
+                ->excludeRejectedSubmissions()
+                ->lockForUpdate()
+                ->pluck('user_id');
+
+            if ($alreadyRegistered->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'team_member_emails' => __('A participant is already registered for this form.'),
+                ]);
             }
 
             $this->registrationCounter->assertCanReserve($lockedEvent, $teamSize, $adminExemptFromQuota);

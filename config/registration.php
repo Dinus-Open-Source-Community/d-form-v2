@@ -36,4 +36,15 @@ return [
     */
     'email_jitter_min_seconds' => (int) env('REGISTRATION_EMAIL_JITTER_MIN_SECONDS', 5),
     'email_jitter_max_seconds' => (int) env('REGISTRATION_EMAIL_JITTER_MAX_SECONDS', 10),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ukuran halaman keyset pagination export CSV registrasi event
+    |--------------------------------------------------------------------------
+    |
+    | Naikkan untuk mengurangi jumlah query, turunkan bila memori per halaman
+    | menjadi masalah. Controller membatasi nilai efektif ke 1..2000.
+    |
+    */
+    'event_export_page_size' => (int) env('REGISTRATION_EVENT_EXPORT_PAGE_SIZE', 250),
 ];

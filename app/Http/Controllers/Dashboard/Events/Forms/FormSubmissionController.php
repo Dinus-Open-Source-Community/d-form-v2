@@ -92,7 +92,7 @@ class FormSubmissionController extends Controller
             }
 
             if ($mode === FormSubmissionMode::Bundle) {
-                $this->assertBundleGuestsAvailable($participantEmails, $form);
+                $this->bundleGuestDuplicateChecker->assertEmailsAvailableForForm($form, $participantEmails);
                 $answers = $this->formAnswerInputMapper->map($validated, $fields, $form, $teamSize - 1);
             }
 
@@ -285,24 +285,6 @@ class FormSubmissionController extends Controller
         ]);
 
         return $this->successRedirect($leaderUser, $event, $form);
-    }
-
-    /**
-     * Bundle guests must not be registered for the same form already.
-     *
-     * @param  array<array-key, string>  $emails
-     *
-     * @throws ValidationException
-     */
-    private function assertBundleGuestsAvailable(array $emails, Form $form): void
-    {
-        foreach ($emails as $index => $email) {
-            $this->bundleGuestDuplicateChecker->assertEmailAvailableForForm(
-                $form,
-                $email,
-                "team_member_emails.{$index}",
-            );
-        }
     }
 
     private function fillRedirect(Event $event, Form $form): RedirectResponse
