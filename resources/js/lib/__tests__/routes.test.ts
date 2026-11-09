@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { routes } from '@/lib/routes';
+import { isSidebarNavActive, pathWithoutQuery, resolveNavbarFallbackBackHref, routes } from '@/lib/routes';
 
 describe('routes builders', () => {
     it('builds a public event show path from a slug', () => {
@@ -52,10 +52,26 @@ describe('routes builders', () => {
         const eventId = 'e-1';
 
         const cases: Array<[string, string, string]> = [
-            ['period open', routes.admin.recruitment.periods.open(periodId), `/admin/recruitment/periods/${periodId}/open`],
-            ['period close', routes.admin.recruitment.periods.close(periodId), `/admin/recruitment/periods/${periodId}/close`],
-            ['period update', routes.admin.recruitment.periods.update(periodId), `/admin/recruitment/periods/${periodId}`],
-            ['period destroy', routes.admin.recruitment.periods.destroy(periodId), `/admin/recruitment/periods/${periodId}`],
+            [
+                'period open',
+                routes.admin.recruitment.periods.open(periodId),
+                `/admin/recruitment/periods/${periodId}/open`,
+            ],
+            [
+                'period close',
+                routes.admin.recruitment.periods.close(periodId),
+                `/admin/recruitment/periods/${periodId}/close`,
+            ],
+            [
+                'period update',
+                routes.admin.recruitment.periods.update(periodId),
+                `/admin/recruitment/periods/${periodId}`,
+            ],
+            [
+                'period destroy',
+                routes.admin.recruitment.periods.destroy(periodId),
+                `/admin/recruitment/periods/${periodId}`,
+            ],
             [
                 'screening pass',
                 routes.admin.recruitment.applications.screening.pass(applicationId),
@@ -98,5 +114,34 @@ describe('routes builders', () => {
         for (const [label, actual, expected] of cases) {
             expect(actual, label).toBe(expected);
         }
+    });
+
+    it('separates admin and dashboard active state', () => {
+        expect(isSidebarNavActive(routes.admin.index, '/admin')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.index, '/dashboard')).toBe(false);
+        expect(isSidebarNavActive(routes.dashboard.index, '/admin')).toBe(false);
+        expect(isSidebarNavActive(routes.dashboard.index, '/dashboard')).toBe(true);
+    });
+
+    it('keeps recruitment sub-pages under the recruitment active item', () => {
+        expect(isSidebarNavActive(routes.admin.recruitment.index, '/admin/recruitment')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.recruitment.index, '/admin/recruitment/periods/p-1')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.recruitment.index, '/admin/events')).toBe(false);
+        expect(isSidebarNavActive(routes.admin.scan.index, '/admin/scan?desk=1')).toBe(true);
+        expect(isSidebarNavActive(routes.member.joined, '/joined')).toBe(true);
+    });
+
+    it('strips query strings before comparing paths', () => {
+        expect(pathWithoutQuery('/admin/events?page=2')).toBe('/admin/events');
+        expect(pathWithoutQuery('/admin/events')).toBe('/admin/events');
+    });
+
+    it('resolves navbar back targets per domain', () => {
+        expect(resolveNavbarFallbackBackHref('/admin/events/e-1')).toBe('/admin/events');
+        expect(resolveNavbarFallbackBackHref('/admin/users/u-1')).toBe('/dashboard');
+        expect(resolveNavbarFallbackBackHref('/profile')).toBe('/dashboard');
+        expect(resolveNavbarFallbackBackHref('/browse')).toBe('/joined');
+        expect(resolveNavbarFallbackBackHref('/joined/e-1')).toBe('/joined');
+        expect(resolveNavbarFallbackBackHref('/')).toBe('/');
     });
 });

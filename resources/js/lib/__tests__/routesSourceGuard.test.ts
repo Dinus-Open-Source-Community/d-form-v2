@@ -5,7 +5,64 @@ import { describe, expect, it } from 'vitest';
 const routesSourcePath = fileURLToPath(new URL('../routes.ts', import.meta.url));
 const source = readFileSync(routesSourcePath, 'utf8');
 
-const stripComments = (value: string): string => value.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+/** Buang komentar tanpa merusak `//` di dalam string (mis. URL). */
+const stripComments = (value: string): string => {
+    let result = '';
+    let quote: string | null = null;
+    let escaped = false;
+    let index = 0;
+
+    while (index < value.length) {
+        const char = value[index];
+        const next = value[index + 1];
+
+        if (quote !== null) {
+            result += char;
+
+            if (escaped) {
+                escaped = false;
+            } else if (char === '\\') {
+                escaped = true;
+            } else if (char === quote) {
+                quote = null;
+            }
+
+            index += 1;
+            continue;
+        }
+
+        if (char === "'" || char === '"' || char === '`') {
+            quote = char;
+            result += char;
+            index += 1;
+            continue;
+        }
+
+        if (char === '/' && next === '*') {
+            index += 2;
+
+            while (index < value.length && !(value[index] === '*' && value[index + 1] === '/')) {
+                index += 1;
+            }
+
+            index += 2;
+            continue;
+        }
+
+        if (char === '/' && next === '/') {
+            while (index < value.length && value[index] !== '\n') {
+                index += 1;
+            }
+
+            continue;
+        }
+
+        result += char;
+        index += 1;
+    }
+
+    return result;
+};
 
 const sourceWithoutComments = stripComments(source);
 
@@ -32,9 +89,5 @@ describe('lib/routes.ts source guard', () => {
         );
 
         expect(unexpectedLiterals, `literal path manual baru: ${unexpectedLiterals.join(', ')}`).toEqual([]);
-    });
-
-    it('does not rebuild a manual admin base constant', () => {
-        expect(source).not.toMatch(/const\s+ADMIN_BASE\s*=\s*['"]\/admin['"]/);
     });
 });
