@@ -3,17 +3,20 @@ name: Quality
 # Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
 # dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
 #
-# BLOCKING : ESLint, unit test, dan bundle budget. Semuanya hijau saat gate ini
-#            dipasang (ESLint 0 error, unit test 61 passed, entry 26,5 kB gzip dan
-#            chunk terbesar 143,8 kB gzip), jadi kegagalan berarti regresi.
+# BLOCKING : ESLint, unit test backend (PHPUnit), unit test frontend (Vitest),
+#            E2E typecheck, E2E runtime subset, dan bundle budget. Semuanya hijau
+#            saat gate ini dipasang (ESLint 0 error, PHPUnit 61 passed, Vitest suite
+#            green, entry 26,5 kB gzip dan chunk terbesar 143,8 kB gzip), jadi
+#            kegagalan berarti regresi.
 # REPORT   : Pint dan Prettier. Baseline terukur 27-10-2026 masih kotor:
 #            - Prettier: 429 file resources/js/**/*.{ts,vue} belum terformat
 #            - Pint: 24 file (tiket mencatat 19; baseline bertambah sebelum tiket dikerjakan)
 #            Keduanya baru dijadikan blocking setelah baseline dibersihkan di tiket
 #            terpisah. Gate yang merah sejak hari pertama akan diabaikan orang.
-# TYPECHECK: belum dijalankan. `tsc --noEmit` memerlukan vue-tsc untuk memahami
-#            modul *.vue; tanpa itu muncul 164 error palsu TS2307. Instalasi
-#            vue-tsc butuh persetujuan user (di luar tiket ini).
+# TYPECHECK: typecheck proyek (`npm run typecheck` / vue-tsc) belum dijalankan di
+#            workflow ini; job `frontend-unit` hanya memeriksa subset unit test
+#            lewat `tsconfig.vitest.json`. Menjadikan typecheck proyek sebagai
+#            gate adalah scope tiket CI terpisah.
 #
 # Job formatting menggantikan .github/workflows/code_formatting.yml yang dihapus:
 # isinya sama, tetapi dipindahkan ke sini agar implementasi hanya berjalan sekali
@@ -93,6 +96,52 @@ jobs:
             - name: Run Unit Tests
               run: php artisan test --testsuite=Unit
 
+    frontend-unit:
+        name: Frontend unit (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            # Adapter `lib/routes.ts` mengimpor output Wayfinder yang gitignored
+            # (`.gitignore:47-49`), sehingga generated harus dibuat sebelum
+            # Vitest/tsc berjalan di clean checkout.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Generate Wayfinder Routes
+              run: php artisan wayfinder:generate
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run Unit Tests
+              run: npm run test:unit
+
+            # Typecheck subset unit test (tsconfig.vitest.json). Typecheck proyek
+            # penuh (`vue-tsc`) belum menjadi gate workflow ini.
+            - name: Typecheck Unit Tests
+              run: npm run typecheck:unit
+
     formatting:
         name: Formatting (report only)
         runs-on: ubuntu-latest
@@ -167,3 +216,156 @@ jobs:
 
             - name: Check Bundle Budget
               run: node scripts/build/check-bundle-budget.mjs
+
+    # Typecheck E2E tidak membutuhkan PHP: tsconfig.e2e.json hanya memuat
+    # tests/e2e/**/*.ts + playwright.config.ts dan satu modul TS murni.
+    e2e-types:
+        name: E2E typecheck (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run E2E Typecheck
+              run: npm run test:e2e:types
+
+    # Runtime memakai server + SQLite file + driver file/sync, tanpa Redis.
+    # Subset fokus: flow yang ditutup AUDIT-P1-015 + flow form submission
+    # existing; suite penuh belum stabil di CI (lihat AUDIT-P1-015 di
+    # docs/big-changes/patching.md).
+    e2e-runtime:
+        name: E2E runtime subset (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            # `log` (bukan array) dibutuhkan email-job-idempotency; tidak ada SMTP nyata.
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            # Super-admin: fixture event dimiliki user marker, jadi policy update
+            # hanya lolos lewat bypass super-admin.
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            E2E_SESSION_COOKIE: dform-session
+            PHP_CLI_SERVER_WORKERS: '4'
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentDivisionSeeder --force --no-interaction
+                  php artisan db:seed --class=OprecFormSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentPeriodSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Focused E2E
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  npm run test:e2e:setup
+
+                  npx playwright test --project=chromium-desktop --no-deps \
+                    create-p0-save.desktop.spec.ts \
+                    builder-autosave.desktop.spec.ts \
+                    qr-scan.desktop.spec.ts \
+                    recruitment-tracking-portal.desktop.spec.ts \
+                    email-job-idempotency.desktop.spec.ts \
+                    broadcast-gated.spec.ts
+
+                  npx playwright test --project=chromium-desktop --no-deps \
+                    form-submission-boundary.desktop.spec.ts \
+                    --grep '(single registration submits|empty single registration)'
+
+                  npx playwright test --project=chromium-mobile --no-deps \
+                    broadcast-gated.spec.ts
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e
+                  path: test-results
+                  retention-days: 7

@@ -75,3 +75,28 @@ Tidak ada perubahan route, policy, schema, migration, atau perilaku `stress:seed
 - Nilai default tetap 1.000.000; tidak ada perubahan perilaku seed.
 - Class baru berada di `app/Support/`, namespace `App\Support\Stress`, sehingga
   ikut PSR-4 `App\` dan tidak memerlukan registrasi service provider.
+
+## Workflow 7 job (`PRG-00-04`)
+
+`.github/workflows/quality.yml` sekarang menjalankan:
+
+| Job | Blocking | Isi |
+| --- | --- | --- |
+| `lint` | ya | ESLint |
+| `test` | ya | PHPUnit Unit |
+| `frontend-unit` | ya | generate Wayfinder → Vitest → `tsc -p tsconfig.vitest.json` |
+| `formatting` | tidak | Pint + Prettier (report-only sampai baseline bersih) |
+| `bundle-budget` | ya | build + `check-bundle-budget.mjs` |
+| `e2e-types` | ya | `tsc -p tsconfig.e2e.json` |
+| `e2e-runtime` | ya | SQLite + server + subset Playwright desktop/mobile |
+
+`frontend-unit` men-generate Wayfinder lebih dulu karena `lib/routes.ts`
+mengimpor output generated yang gitignored. `e2e-runtime` memakai subset fokus:
+autosave/builder, QR scan, tracking OpRec, email idempotency, broadcast gate-off,
+dan dua flow submission; suite penuh menunggu `FE-AUDIT-004-F4/F5` dan
+`INFRA-P3-023`.
+
+**Status validasi:** `Needs verification` — `gh run list` memerlukan push ke
+GitHub, dan push belum diotorisasi. Validasi lokal yang sudah dilakukan: YAML
+parse sukses (7 job), semua spec yang dirujuk ada, dan gate non-E2E hijau di
+worktree.
