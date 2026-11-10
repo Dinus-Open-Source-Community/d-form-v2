@@ -63,6 +63,23 @@ class EventListCacheTest extends TestCase
         $this->assertSame(1, $runCount);
     }
 
+    public function test_halaman_daftar_event_tidak_mengulang_baris_saat_sort_ties(): void
+    {
+        $user = $this->superAdmin();
+        Event::factory()->count(5)->create(['title' => 'Judul Sama']);
+
+        $service = app(EventService::class);
+        $first = $service->paginateForAdminIndex($this->listInput(['per_page' => 2]), 1, $user);
+        $second = $service->paginateForAdminIndex($this->listInput(['per_page' => 2]), 2, $user);
+
+        $firstIds = $first->pluck('id')->all();
+        $secondIds = $second->pluck('id')->all();
+
+        $this->assertCount(2, $firstIds);
+        $this->assertCount(2, $secondIds);
+        $this->assertSame([], array_values(array_intersect($firstIds, $secondIds)));
+    }
+
     private function superAdmin(): User
     {
         $user = User::factory()->create();

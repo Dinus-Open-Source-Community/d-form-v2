@@ -4,9 +4,20 @@ namespace App\Services\Registration;
 
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use Illuminate\Database\Eloquent\Collection;
 
 final class RegistrationAnswersSummarizer
 {
+    /**
+     * Field definitions memoized per form id for the lifetime of this instance.
+     *
+     * The summarizer is resolved once per request/export, so one export of N
+     * submissions reads `form_fields` once per distinct form instead of N times.
+     *
+     * @var array<string, Collection<int, FormField>>
+     */
+    private array $fieldsByForm = [];
+
     public function __construct(private readonly FormAnswerFileStorage $files)
     {
     }
@@ -39,10 +50,7 @@ final class RegistrationAnswersSummarizer
     {
         $answers = is_array($submission->answers) ? $submission->answers : [];
 
-        $fields = FormField::query()
-            ->where('form_id', $submission->form_id)
-            ->orderBy('order')
-            ->get(['name', 'label', 'input_type', 'metadata']);
+        $fields = $this->fieldsFor((string) $submission->form_id);
 
         $lines = [];
         foreach ($fields as $field) {
@@ -76,6 +84,20 @@ final class RegistrationAnswersSummarizer
         }
 
         return $lines;
+    }
+
+    /**
+     * Field definitions are immutable for the lifetime of one summarizer
+     * instance, so they are memoized per `form_id`.
+     *
+     * @return Collection<int, FormField>
+     */
+    private function fieldsFor(string $formId): Collection
+    {
+        return $this->fieldsByForm[$formId] ??= FormField::query()
+            ->where('form_id', $formId)
+            ->orderBy('order')
+            ->get(['name', 'label', 'input_type', 'metadata']);
     }
 
     private function fileFieldSummary(

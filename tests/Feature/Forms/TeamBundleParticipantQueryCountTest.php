@@ -160,13 +160,17 @@ class TeamBundleParticipantQueryCountTest extends TestCase
 
         $submitter->submit($form, $event, $leader, ['full_name' => 'Leader'], $memberRows, $memberEmails, false);
 
-        $emailQueries    = $this->countQueriesMatching('/\blower\s*\(\s*"?email"?\s*\)\s+in\s*\(/i');
-        $invitedQueries  = $this->countQueriesMatching('/\blower\s*\(\s*"?invited_email"?\s*\)\s+in\s*\(/i');
+        $emailQueries    = $this->countQueriesMatching('/["`]?email_normalized["`]?\s+in\s*\(/i');
+        $legacyEmail     = $this->countQueriesMatching('/\blower\s*\(\s*"?email"?\s*\)/i');
+        $invitedQueries  = $this->countQueriesMatching('/["`]?invited_email["`]?\s+in\s*\(/i');
+        $legacyInvited   = $this->countQueriesMatching('/\blower\s*\(\s*["`]?invited_email/i');
 
         DB::disableQueryLog();
 
         $this->assertSame(1, $emailQueries, 'Expected one batched user-email lookup.');
+        $this->assertSame(0, $legacyEmail, 'The insert loop must not resolve users one by one.');
         $this->assertSame(1, $invitedQueries, 'Expected one batched invited-email match.');
+        $this->assertSame(0, $legacyInvited, 'LOWER(invited_email) must not defeat the index.');
         $this->assertSame(11, FormAnswer::query()->where('form_id', $form->id)->where('is_active', 1)->count());
     }
 

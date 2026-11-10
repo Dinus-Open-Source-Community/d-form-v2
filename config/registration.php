@@ -47,4 +47,16 @@ return [
     |
     */
     'event_export_page_size' => (int) env('REGISTRATION_EVENT_EXPORT_PAGE_SIZE', 250),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ukuran halaman keyset pagination export CSV kehadiran event
+    |--------------------------------------------------------------------------
+    |
+    | Export memakai keyset `(scanned_at, id)`, jadi nilai ini hanya menentukan
+    | jumlah baris per query (bukan OFFSET). Controller membatasi nilai efektif
+    | ke 1..2000.
+    |
+    */
+    'attendance_export_page_size' => (int) env('REGISTRATION_ATTENDANCE_EXPORT_PAGE_SIZE', 500),
 ];

@@ -9,6 +9,8 @@ use App\Models\FormAnswer;
 use App\Services\Event\EventCache;
 use App\Services\Event\EventCategoryCounter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\DB;
 
 final class EventReportingQuery
@@ -446,18 +448,31 @@ final class EventReportingQuery
     }
 
     /**
+     * Log kehadiran event, urut `scanned_at DESC, id DESC`.
+     *
+     * `scanned_at` hanya presisi detik: tie-breaker `id` (uuid) membuat urutan
+     * deterministik, sehingga dua halaman tidak tumpang tindih atau melewatkan
+     * baris saat banyak baris berbagi `scanned_at` yang sama.
+     *
+     * Halaman di luar `lastPage()` (`?page=999999`) di-clamp **sebelum** query
+     * daftar dijalankan: total dihitung sekali, `lastPage` diturunkan dari total,
+     * lalu satu query `LIMIT`/`OFFSET` memakai halaman hasil clamp. Tanpa ini,
+     * nilai `page` raksasa memaksa MySQL berjalan sejauh OFFSET itu (dua kali)
+     * pada setiap request.
+     *
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
     public function paginateAttendanceLog(Event $event, int $perPage = 20): LengthAwarePaginator
     {
-        return EventAttendance::query()
-            ->where('event_id', $event->id)
-            ->with([
-                'formAnswer.user:id,name,email',
-                'scannedBy:id,name,email',
-            ])
-            ->orderByDesc('scanned_at')
-            ->paginate($perPage)
+        $perPage = max(1, $perPage);
+
+        $total = $this->attendanceLogQuery($event)->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = max(1, min(Paginator::resolveCurrentPage(), $lastPage));
+
+        // `$total` diteruskan agar paginate() tidak menjalankan COUNT kedua.
+        return $this->attendanceLogQuery($event)
+            ->paginate($perPage, ['*'], 'page', $page, $total)
             ->through(function (EventAttendance $row): array {
                 $user = $row->formAnswer?->user;
                 $scanner = $row->scannedBy;
@@ -474,5 +489,23 @@ final class EventReportingQuery
                         : null,
                 ];
             });
+    }
+
+    /**
+     * Query dasar log kehadiran: filter, eager load, dan urutan di satu tempat
+     * agar COUNT dan SELECT tidak bisa drift.
+     *
+     * @return Builder<EventAttendance>
+     */
+    private function attendanceLogQuery(Event $event): Builder
+    {
+        return EventAttendance::query()
+            ->where('event_id', $event->id)
+            ->with([
+                'formAnswer.user:id,name,email',
+                'scannedBy:id,name,email',
+            ])
+            ->orderByDesc('scanned_at')
+            ->orderByDesc('id');
     }
 }

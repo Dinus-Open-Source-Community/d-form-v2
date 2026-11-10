@@ -57,6 +57,14 @@ const DESK_STORAGE_KEY = 'scan-desk-id';
 const SCAN_COOLDOWN_MS = 2000;
 const FEED_POLL_TIMEOUT_MS = 8000;
 /**
+ * Jumlah id baris feed terakhir yang disimpan untuk dedupe. Server memakai
+ * kursor keyset sehingga tidak pernah mengirim ulang baris yang sudah terkirim;
+ * dedupe ini hanya menutup pengiriman ganda di sisi client (respons poll yang
+ * sama diproses dua kali setelah retry/timeout), jadi satu halaman feed terbaru
+ * sudah cukup dan Set tidak perlu tumbuh sepanjang sesi meja.
+ */
+const FEED_SEEN_ID_LIMIT = 500;
+/**
  * Batas tunggu `stop()`/`clear()` html5-qrcode saat teardown. Library bisa menggantung
  * bila transaksi state tidak pernah settle (mis. `start()` masih pending saat unmount);
  * tanpa batas ini `isStartingCamera` bisa tertahan `true` selamanya.
@@ -222,6 +230,7 @@ export function useGlobalQrScanPage(
     const rawCodeByEntryId = new Map<string, string>();
     const localEntryIdentities = new Set<string>();
     const seenFeedIds = new Set<string>();
+    const seenFeedIdOrder: string[] = [];
     let feedCursor = '';
     let pollTimer: number | null = null;
     let pollAbort: AbortController | null = null;
@@ -376,7 +385,17 @@ export function useGlobalQrScanPage(
         if (seenFeedIds.has(row.id)) {
             return;
         }
+
         seenFeedIds.add(row.id);
+        seenFeedIdOrder.push(row.id);
+
+        if (seenFeedIdOrder.length > FEED_SEEN_ID_LIMIT) {
+            const expired = seenFeedIdOrder.shift();
+
+            if (expired !== undefined) {
+                seenFeedIds.delete(expired);
+            }
+        }
 
         const kind: 'event' | 'oprec' = row.type === 'recruitment' ? 'oprec' : 'event';
         const name = row.name.trim().length > 0 ? row.name.trim() : 'Tanpa nama';

@@ -13,6 +13,8 @@ use Inertia\Response;
 
 class BroadcastDatasetController extends Controller
 {
+    private const PREVIEW_SAMPLE_SIZE = 5;
+
     public function index(): Response
     {
         $this->authorize('viewAny', \App\Models\EmailBroadcast::class);
@@ -20,6 +22,7 @@ class BroadcastDatasetController extends Controller
         $datasets = EmailDataset::query()
             ->withCount('recipients')
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(15);
 
         return Inertia::render('Dashboard/Broadcasts/Datasets', [
@@ -67,17 +70,35 @@ class BroadcastDatasetController extends Controller
         $datasetId = $request->input('dataset_id');
 
         $rows = match ($type) {
-            'event_participants' => $resolver->eventParticipants($eventId ?: null),
-            'recruitment_applicants' => $resolver->recruitmentApplicants($periodId ?: null),
-            'users' => $resolver->users(),
-            'custom' => $datasetId ? $resolver->customDataset((string) $datasetId) : [],
-            default => [],
+            'event_participants' => $resolver->streamEventParticipants($eventId ?: null),
+            'recruitment_applicants' => $resolver->streamRecruitmentApplicants($periodId ?: null),
+            'users' => $resolver->streamUsers(),
+            'custom' => $datasetId ? $resolver->streamCustomDataset((string) $datasetId) : $this->emptyRows(),
+            default => $this->emptyRows(),
         };
 
+        // Single streaming pass: count everything, keep only the preview sample.
+        $total = 0;
+        $sample = [];
+
+        foreach ($rows as $row) {
+            $total++;
+
+            if (count($sample) < self::PREVIEW_SAMPLE_SIZE) {
+                $sample[] = $row;
+            }
+        }
+
         return response()->json([
-            'total' => count($rows),
-            'sample' => array_slice($rows, 0, 5),
+            'total' => $total,
+            'sample' => $sample,
         ]);
+    }
+
+    /** @return \Generator<int, array{name:string|null, email:string}> */
+    private function emptyRows(): \Generator
+    {
+        yield from [];
     }
 
     /** @return array{valid:array<int,array{name:string|null,email:string}>} */

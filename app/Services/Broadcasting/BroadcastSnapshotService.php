@@ -5,6 +5,7 @@ namespace App\Services\Broadcasting;
 use App\Enums\EmailBroadcastRecipientStatus;
 use App\Enums\EmailBroadcastStatus;
 use App\Models\EmailBroadcast;
+use Generator;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,75 +14,71 @@ use Illuminate\Support\Facades\DB;
  */
 class BroadcastSnapshotService
 {
+    private const INSERT_BATCH_SIZE = 500;
+
+    /** Duplicate email list is a UI sample, never the full set. */
+    private const DUPLICATE_SAMPLE_LIMIT = 50;
+
     public function __construct(
         private readonly BroadcastDatasetResolver $resolver,
     ) {
     }
 
     /**
+     * Stream resolved + extra rows into bounded batches instead of merging the
+     * whole dataset in memory. Row order (datasets first, then extras) and the
+     * resulting recipient rows are unchanged.
+     *
+     * All counts come from aggregate SQL over the rows just inserted, so memory
+     * stays constant regardless of dataset size and `generate()` can never
+     * disagree with {@see self::duplicateSummary()}.
+     *
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @param  array<int, array{name?:string|null, email:string}>  $extraRows manual/CSV yang sudah tervalidasi
      * @return array{total:int, unique:int, duplicates:int, duplicate_emails:array<int,string>}
      */
     public function generate(EmailBroadcast $broadcast, array $datasets, array $extraRows = []): array
     {
-        $resolved = $this->resolver->resolve($datasets);
-
-        $merged = array_merge(
-            array_map(fn ($r) => ['name' => $r['name'] ?? null, 'email' => $r['email']], $resolved),
-            array_map(fn ($r) => [
-                'name' => $r['name'] ?? null,
-                'email' => strtolower(trim((string) ($r['email'] ?? ''))),
-            ], $extraRows),
-        );
-
-        // Filter email valid saja; invalid sudah ditolak di request layer.
-        $merged = array_values(array_filter(
-            $merged,
-            fn ($r) => $r['email'] !== '' && filter_var($r['email'], FILTER_VALIDATE_EMAIL) !== false
-        ));
-
-        $summary = $this->resolver->duplicateSummary(array_column($merged, 'email'));
-
-        DB::transaction(function () use ($broadcast, $datasets, $merged): void {
+        return DB::transaction(function () use ($broadcast, $datasets, $extraRows): array {
             // Hapus snapshot lama hanya saat masih draft (PRD: scheduled tidak boleh ubah recipient).
             $broadcast->recipients()->delete();
 
-            $now = now();
-            $chunks = array_chunk($merged, 500);
+            $this->insertRecipients($broadcast, $datasets, $extraRows, now());
 
-            foreach ($chunks as $chunk) {
-                $rows = array_map(fn ($r) => [
-                    'id' => (string) \Illuminate\Support\Str::uuid(),
-                    'broadcast_id' => $broadcast->id,
-                    'name' => $r['name'],
-                    'email' => $r['email'],
-                    'status' => EmailBroadcastRecipientStatus::Pending->value,
-                    'attempts' => 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ], $chunk);
-
-                $broadcast->recipients()->insert($rows);
-            }
+            $summary = $this->duplicateSummary($broadcast);
 
             $broadcast->forceFill([
                 'datasets' => array_values($datasets),
-                'total_recipients' => count($merged),
+                'total_recipients' => $summary['total'],
                 'total_sent' => 0,
                 'total_failed' => 0,
             ])->save();
-        });
 
-        return $summary;
+            return $summary;
+        });
     }
 
     /** @return array{total:int, unique:int, duplicates:int, duplicate_emails:array<int,string>} */
     public function duplicateSummary(EmailBroadcast $broadcast): array
     {
-        $emails = $broadcast->recipients()->pluck('email')->all();
+        $total = $broadcast->recipients()->count();
+        $unique = $broadcast->recipients()->distinct()->count('email');
 
-        return $this->resolver->duplicateSummary($emails);
+        $duplicateEmails = $broadcast->recipients()
+            ->select('email')
+            ->groupBy('email')
+            ->havingRaw('COUNT(*) > 1')
+            ->orderBy('email')
+            ->limit(self::DUPLICATE_SAMPLE_LIMIT)
+            ->pluck('email')
+            ->all();
+
+        return [
+            'total' => $total,
+            'unique' => $unique,
+            'duplicates' => $total - $unique,
+            'duplicate_emails' => $duplicateEmails,
+        ];
     }
 
     public function refreshCounters(EmailBroadcast $broadcast): void
@@ -96,5 +93,67 @@ class BroadcastSnapshotService
     public function assertEditable(EmailBroadcast $broadcast): void
     {
         abort_unless($broadcast->status === EmailBroadcastStatus::Draft, 422, 'Snapshot hanya dapat diubah saat broadcast masih draft.');
+    }
+
+    /**
+     * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
+     * @param  array<int, array{name?:string|null, email:string}>  $extraRows
+     */
+    private function insertRecipients(EmailBroadcast $broadcast, array $datasets, array $extraRows, \DateTimeInterface $now): void
+    {
+        $batch = [];
+
+        foreach ($this->mergedRows($datasets, $extraRows) as $row) {
+            $batch[] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'broadcast_id' => $broadcast->id,
+                'name' => $row['name'],
+                'email' => $row['email'],
+                'status' => EmailBroadcastRecipientStatus::Pending->value,
+                'attempts' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            if (count($batch) === self::INSERT_BATCH_SIZE) {
+                $broadcast->recipients()->insert($batch);
+                $batch = [];
+            }
+        }
+
+        if ($batch !== []) {
+            $broadcast->recipients()->insert($batch);
+        }
+    }
+
+    /**
+     * Merge resolver stream and extra rows in the historical order, dropping
+     * invalid emails exactly like the previous array_merge + array_filter.
+     *
+     * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
+     * @param  array<int, array{name?:string|null, email:string}>  $extraRows
+     * @return Generator<int, array{name:string|null, email:string}>
+     */
+    private function mergedRows(array $datasets, array $extraRows): Generator
+    {
+        foreach ($this->resolver->stream($datasets) as $row) {
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+
+            if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                continue;
+            }
+
+            yield ['name' => $row['name'] ?? null, 'email' => $email];
+        }
+
+        foreach ($extraRows as $row) {
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+
+            if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                continue;
+            }
+
+            yield ['name' => $row['name'] ?? null, 'email' => $email];
+        }
     }
 }

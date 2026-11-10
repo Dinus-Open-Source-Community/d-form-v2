@@ -30,7 +30,15 @@ class EventAttendanceLogPaginationTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const INDEX_NAME = 'event_attendances_event_id_scanned_at_index';
+    private const INDEX_NAME = 'event_attendances_event_id_scanned_at_id_index';
+
+    /**
+     * Index 2 kolom BE-P2-006 tetap ada (drop-nya butuh approval terpisah);
+     * BE-P2-025 hanya menambah index 3 kolom sebagai tie-breaker `id`.
+     */
+    private const LEGACY_INDEX_NAME = 'event_attendances_event_id_scanned_at_index';
+
+    private const INDEX_PREFIX = 'event_attendances_event_id_scanned_at';
 
     /**
      * Event dan form pendaftaran minimal untuk membuat baris kehadiran.
@@ -49,7 +57,8 @@ class EventAttendanceLogPaginationTest extends TestCase
     }
 
     /**
-     * Baris kehadiran berurutan: `scanned_at` naik satu menit per baris.
+     * Baris kehadiran berurutan: `scanned_at` naik `minutesBetweenRows` per baris.
+     * Nilai 0 membuat seluruh baris berbagi `scanned_at` identik (kasus tie).
      *
      * @return list<EventAttendance>
      */
@@ -59,6 +68,7 @@ class EventAttendanceLogPaginationTest extends TestCase
         int $count,
         CarbonInterface $base,
         ?User $scanner,
+        int $minutesBetweenRows = 1,
     ): array {
         $rows = [];
 
@@ -73,7 +83,7 @@ class EventAttendanceLogPaginationTest extends TestCase
                 'event_id' => $event->id,
                 'form_answer_id' => $answer->id,
                 'scanned_by_user_id' => $scanner?->id,
-                'scanned_at' => $base->copy()->addMinutes($index),
+                'scanned_at' => $base->copy()->addMinutes($index * $minutesBetweenRows),
             ]);
         }
 
@@ -111,8 +121,11 @@ class EventAttendanceLogPaginationTest extends TestCase
     {
         $indexes = collect(Schema::getIndexes('event_attendances'))->keyBy('name');
 
+        $this->assertArrayHasKey(self::LEGACY_INDEX_NAME, $indexes->all());
+        $this->assertSame(['event_id', 'scanned_at'], $indexes[self::LEGACY_INDEX_NAME]['columns']);
+
         $this->assertArrayHasKey(self::INDEX_NAME, $indexes->all());
-        $this->assertSame(['event_id', 'scanned_at'], $indexes[self::INDEX_NAME]['columns']);
+        $this->assertSame(['event_id', 'scanned_at', 'id'], $indexes[self::INDEX_NAME]['columns']);
     }
 
     public function test_log_page_returns_ordered_rows_with_expected_payload_shape(): void
@@ -222,6 +235,175 @@ class EventAttendanceLogPaginationTest extends TestCase
         $this->assertSame($expectedIds, $collectedIds);
     }
 
+    /**
+     * BE-P2-025: seluruh baris berbagi `scanned_at` identik (presisi detik). Tanpa
+     * tie-breaker `id`, urutan di antara tie bebas dan OFFSET bisa menulis ulang
+     * atau melewatkan baris.
+     */
+    public function test_two_pages_with_identical_scanned_at_partition_rows_exactly_once(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $scanner = User::factory()->create();
+        $base = now()->startOfSecond()->subDay();
+
+        $this->createAttendanceRows($event, $form, 45, $base, $scanner, 0);
+
+        // Ekspektasi dari urutan DB sendiri: collation `id` di MySQL tidak perlu
+        // diasumsikan sama dengan SQLite.
+        $expectedIds = EventAttendance::query()
+            ->where('event_id', $event->id)
+            ->orderByDesc('scanned_at')
+            ->orderByDesc('id')
+            ->pluck('id')
+            ->all();
+
+        $service = $this->reportingQuery();
+        $previousResolver = $this->currentPageResolverValue();
+        $pages = [];
+
+        try {
+            foreach ([1, 2, 3] as $pageNumber) {
+                Paginator::currentPageResolver(static fn (): int => $pageNumber);
+                $pages[] = $service->paginateAttendanceLog($event, 20);
+            }
+        } finally {
+            $this->restoreCurrentPageResolver($previousResolver);
+        }
+
+        $collectedIds = [];
+        $collectedScannedAt = [];
+
+        foreach ($pages as $page) {
+            foreach ($page->items() as $item) {
+                $collectedIds[] = $item['id'];
+                $collectedScannedAt[] = $item['scanned_at'];
+            }
+        }
+
+        $this->assertCount(45, $collectedIds);
+        $this->assertCount(45, array_unique($collectedIds));
+        $this->assertSame($expectedIds, $collectedIds);
+        $this->assertSame(array_fill(0, 45, $base->toIso8601String()), $collectedScannedAt);
+    }
+
+    /**
+     * BE-P3-019: halaman di luar `last_page` di-clamp ke halaman terakhir, bukan
+     * mengembalikan data kosong dengan label rentang mustahil.
+     */
+    public function test_page_beyond_last_page_clamps_to_last_page(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $this->createAttendanceRows($event, $form, 45, now()->startOfSecond()->subDay(), null);
+
+        $previousResolver = $this->currentPageResolverValue();
+
+        try {
+            Paginator::currentPageResolver(static fn (): int => 999999);
+            $page = $this->reportingQuery()->paginateAttendanceLog($event, 20);
+        } finally {
+            $this->restoreCurrentPageResolver($previousResolver);
+        }
+
+        $this->assertSame(3, $page->currentPage());
+        $this->assertSame(3, $page->lastPage());
+        $this->assertSame(45, $page->total());
+        $this->assertSame(20, $page->perPage());
+        $this->assertCount(5, $page->items());
+    }
+
+    public function test_page_beyond_last_page_on_empty_event_resolves_to_first_page(): void
+    {
+        $event = Event::factory()->create();
+
+        $previousResolver = $this->currentPageResolverValue();
+
+        try {
+            Paginator::currentPageResolver(static fn (): int => 999999);
+            $page = $this->reportingQuery()->paginateAttendanceLog($event, 20);
+        } finally {
+            $this->restoreCurrentPageResolver($previousResolver);
+        }
+
+        $this->assertSame(1, $page->currentPage());
+        $this->assertSame(1, $page->lastPage());
+        $this->assertSame(0, $page->total());
+        $this->assertSame([], $page->items());
+    }
+
+    /**
+     * M-1: halaman liar di-clamp SEBELUM query daftar, sehingga OFFSET tetap
+     * `(lastPage-1)*perPage` dan jumlah query sama dengan halaman in-range
+     * (1 COUNT + 1 SELECT), bukan dua kali paginate.
+     */
+    public function test_out_of_range_page_is_clamped_before_querying_with_bounded_offset(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $this->createAttendanceRows($event, $form, 45, now()->startOfSecond()->subDay(), null);
+
+        $queries = [];
+        DB::listen(static function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = str_replace(['"', '`'], '', $query->sql);
+        });
+
+        $previousResolver = $this->currentPageResolverValue();
+
+        try {
+            Paginator::currentPageResolver(static fn (): int => 999999999);
+            $page = $this->reportingQuery()->paginateAttendanceLog($event, 20);
+        } finally {
+            $this->restoreCurrentPageResolver($previousResolver);
+        }
+
+        $this->assertSame(3, $page->currentPage());
+        $this->assertSame(3, $page->lastPage());
+        $this->assertCount(5, $page->items());
+
+        $attendanceQueries = array_values(array_filter(
+            $queries,
+            static fn (string $sql): bool => str_contains($sql, 'from event_attendances'),
+        ));
+
+        // 1 COUNT + 1 SELECT untuk event_attendances.
+        $this->assertCount(2, $attendanceQueries);
+        $this->assertStringStartsWith('select count(*) as aggregate from event_attendances', $attendanceQueries[0]);
+        $this->assertStringContainsString('limit 20 offset 40', strtolower($attendanceQueries[1]));
+    }
+
+    /**
+     * Halaman in-range tetap 1 COUNT + 1 SELECT (contract paginator tidak berubah).
+     */
+    public function test_in_range_page_runs_one_count_and_one_select(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $this->createAttendanceRows($event, $form, 45, now()->startOfSecond()->subDay(), null);
+
+        $queries = [];
+        DB::listen(static function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = str_replace(['"', '`'], '', $query->sql);
+        });
+
+        $previousResolver = $this->currentPageResolverValue();
+
+        try {
+            Paginator::currentPageResolver(static fn (): int => 2);
+            $page = $this->reportingQuery()->paginateAttendanceLog($event, 20);
+        } finally {
+            $this->restoreCurrentPageResolver($previousResolver);
+        }
+
+        $this->assertSame(2, $page->currentPage());
+        $this->assertSame(45, $page->total());
+
+        $attendanceQueries = array_values(array_filter(
+            $queries,
+            static fn (string $sql): bool => str_contains($sql, 'from event_attendances'),
+        ));
+
+        $this->assertCount(2, $attendanceQueries);
+        $this->assertStringStartsWith('select count(*) as aggregate from event_attendances', $attendanceQueries[0]);
+        $this->assertStringContainsString('limit 20 offset 20', strtolower($attendanceQueries[1]));
+    }
+
     public function test_log_page_eager_loads_every_relation(): void
     {
         [$event, $form] = $this->eventWithForm();
@@ -313,24 +495,26 @@ class EventAttendanceLogPaginationTest extends TestCase
                 }
             }
 
-            // Pakai event dengan baris kehadiran terbanyak agar plan yang diuji
-            // mewakili dataset production-like, bukan satu baris kebetulan.
-            $selected = $connection->selectOne(
-                'SELECT ea.event_id, COUNT(*) AS total
+            // Pakai event nyata dari tabel kehadiran. Pemilihan sengaja index-only
+            // (`ORDER BY event_id LIMIT 1`) supaya probe tidak memicu agregasi 1 juta
+            // baris; ukuran dataset dicatat agar keterbatasan plan terlihat.
+            $eventId = $connection->scalar(
+                'SELECT ea.event_id
                  FROM event_attendances ea
                  INNER JOIN events e ON e.id = ea.event_id
                  WHERE e.deleted_at IS NULL
-                 GROUP BY ea.event_id
-                 ORDER BY total DESC
+                 ORDER BY ea.event_id
                  LIMIT 1'
             );
-
-            $eventId = $selected?->event_id;
-            $selectedRowCount = $selected === null ? 0 : (int) $selected->total;
 
             if (! is_string($eventId)) {
                 $this->markTestSkipped('Tidak ada event_attendances dengan event aktif di MySQL.');
             }
+
+            $selectedRowCount = (int) $connection->scalar(
+                'SELECT COUNT(*) FROM event_attendances WHERE event_id = ?',
+                [$eventId]
+            );
 
             // Catat ukuran dataset yang benar-benar diuji (1 baris/event pada
             // dataset stress, jadi event terpilih bisa tetap kecil).
@@ -369,8 +553,12 @@ class EventAttendanceLogPaginationTest extends TestCase
             $this->assertIsArray($step, 'EXPLAIN tidak memuat baris event_attendances.');
 
             $extra = (string) ($step['Extra'] ?? $step['extra'] ?? '');
+            $index = (string) ($step['key'] ?? $step['Key'] ?? '');
 
-            $this->assertSame(self::INDEX_NAME, $step['key'] ?? $step['Key'] ?? null);
+            // Optimizer boleh memilih index 2 kolom (warisan BE-P2-006) atau 3 kolom
+            // (BE-P2-025); keduanya sama-sama melayani prefix `event_id, scanned_at`.
+            // Yang dikunci di sini: index komposit dipakai dan tidak ada filesort.
+            $this->assertStringStartsWith(self::INDEX_PREFIX, $index);
             $this->assertStringNotContainsStringIgnoringCase('using filesort', $extra);
         } finally {
             DB::setDefaultConnection($previousDefault);

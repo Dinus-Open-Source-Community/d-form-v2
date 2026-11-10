@@ -6,7 +6,6 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class BundleGuestDuplicateChecker
@@ -14,15 +13,19 @@ final class BundleGuestDuplicateChecker
     /**
      * Reject member emails already registered (active) on the form.
      *
-     * Uses two queries regardless of member count: one user lookup by lowercased
+     * Uses two queries regardless of member count: one user lookup by normalized
      * email and one active form-answer match on invited_email or user_id.
      * Throws on the first offending index in the caller's order.
      *
+     * Returns the resolved account ids so callers can reuse them without another
+     * lookup (normalized email => first matching user id).
+     *
      * @param  array<array-key, string>  $emails
+     * @return array<string, string>
      *
      * @throws ValidationException
      */
-    public function assertEmailsAvailableForForm(Form $form, array $emails): void
+    public function assertEmailsAvailableForForm(Form $form, array $emails): array
     {
         $normalized = [];
 
@@ -37,7 +40,7 @@ final class BundleGuestDuplicateChecker
         }
 
         if ($normalized === []) {
-            return;
+            return [];
         }
 
         $uniqueEmails = array_values(array_unique($normalized));
@@ -45,15 +48,10 @@ final class BundleGuestDuplicateChecker
         $userIdsByEmail = [];
         $userIds = [];
 
-        foreach (User::query()->whereIn(DB::raw('LOWER(email)'), $uniqueEmails)->get(['id', 'email']) as $user) {
-            $normalizedEmail = mb_strtolower(trim((string) $user->email));
-
+        foreach (User::resolveByNormalizedEmails($normalized) as $email => $user) {
             // Mirror the old User::...->first() semantics: keep the first user id
-            // per normalized email, but still pass every id to the user_id branch.
-            if (! isset($userIdsByEmail[$normalizedEmail])) {
-                $userIdsByEmail[$normalizedEmail] = (string) $user->id;
-            }
-
+            // per input email, but still pass every resolved id to the user_id branch.
+            $userIdsByEmail[$email] = (string) $user->id;
             $userIds[] = (string) $user->id;
         }
 
@@ -64,7 +62,11 @@ final class BundleGuestDuplicateChecker
             ->where('form_id', $form->id)
             ->excludeRejectedSubmissions()
             ->where(fn (Builder $query) => $query
-                ->whereIn(DB::raw('LOWER(invited_email)'), $uniqueEmails)
+                // `invited_email` is `utf8mb4_unicode_ci` (case/accent-insensitive)
+                // on the production engines and the bundle write path stores it
+                // lowercased, so the plain predicate is equivalent to the old
+                // LOWER(invited_email) form while staying index-usable.
+                ->whereIn('invited_email', $uniqueEmails)
                 ->when($userIds !== [], fn (Builder $query) => $query->orWhereIn('user_id', $userIds)))
             ->get(['invited_email', 'user_id']);
 
@@ -90,5 +92,7 @@ final class BundleGuestDuplicateChecker
                 ]);
             }
         }
+
+        return $userIdsByEmail;
     }
 }

@@ -21,6 +21,7 @@ class BroadcastController extends Controller
             ->with(['event:id,title'])
             ->withCount('recipients')
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(15)
             ->through(fn (EmailBroadcast $b) => [
                 'id' => $b->id,

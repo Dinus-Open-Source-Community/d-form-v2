@@ -451,7 +451,32 @@ final class MigrationRollbackTest extends TestCase
             return true;
         }
 
+        // Driver-specific raw DDL hides drops from the fluent checks above.
+        if (preg_match('/DB::statement\s*\((?:[^()]|\([^()]*\))*?DROP\s+(?:COLUMN|TABLE|INDEX)\b/is', $contents) === 1) {
+            return true;
+        }
+
         return $this->tablesDroppedOutsideTheirCreateMigration($contents) !== [];
+    }
+
+    /**
+     * Raw `DB::statement()` drops are invisible to the fluent detector, so a
+     * regression here would let an index/column drop reach production without a
+     * runbook entry. The new generated-column migration is the canonical case;
+     * comment-only mentions must not be flagged.
+     */
+    public function test_raw_ddl_drop_is_classified_as_destructive(): void
+    {
+        $destructive = $this->destructiveMigrationFiles();
+
+        $this->assertContains('2026_11_10_000008_users_email_lookup_index', $destructive);
+        $this->assertNotContains('2026_11_10_000004_drop_redundant_recruitment_indexes', $destructive);
+
+        $documented = $this->documentedMigrationFiles((string) file_get_contents(
+            base_path('docs/runbook/database-migrations.md')
+        ));
+
+        $this->assertContains('2026_11_10_000008_users_email_lookup_index', $documented);
     }
 
     /**

@@ -247,13 +247,14 @@ class FormSubmissionController extends Controller
         bool $isAdmin,
     ): RedirectResponse {
         $memberUsers = [];
+        $usersByEmail = User::resolveByNormalizedEmails($memberEmails);
 
-        foreach ($memberEmails as $i => $email) {
-            $memberUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        foreach ($memberEmails as $index => $email) {
+            $memberUser = $usersByEmail[$email] ?? null;
 
             if ($memberUser === null) {
                 return $this->fillRedirect($event, $form)
-                    ->withErrors(["team_member_emails.{$i}" => __('No account exists for this email. The teammate must register first.')])
+                    ->withErrors(["team_member_emails.{$index}" => __('No account exists for this email. The teammate must register first.')])
                     ->withInput();
             }
 

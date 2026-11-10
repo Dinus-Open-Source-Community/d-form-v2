@@ -50,9 +50,7 @@ final class OAuthAccountLinker
             return null;
         }
 
-        $existing = User::query()
-            ->whereRaw('LOWER(email) = ?', [$verifiedEmail])
-            ->first();
+        $existing = User::resolveByNormalizedEmails([$verifiedEmail])[$verifiedEmail] ?? null;
 
         if ($existing !== null) {
             $existingProviderId = $existing->getAttribute($providerColumn);
@@ -68,7 +66,7 @@ final class OAuthAccountLinker
             return $existing;
         }
 
-        if (User::withTrashed()->whereRaw('LOWER(email) = ?', [$verifiedEmail])->exists()) {
+        if (User::resolveByNormalizedEmails([$verifiedEmail], true) !== []) {
             return null;
         }
 

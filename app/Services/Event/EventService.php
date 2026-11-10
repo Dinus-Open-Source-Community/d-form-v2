@@ -242,6 +242,7 @@ class EventService
 
                 return $query
                     ->orderBy($sortBy, $sortOrder)
+                    ->orderBy('id', $sortOrder)
                     ->paginate($perPage, ['*'], 'page', $page);
             }
         );

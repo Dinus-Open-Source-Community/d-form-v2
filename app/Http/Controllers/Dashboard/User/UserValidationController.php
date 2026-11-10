@@ -18,11 +18,10 @@ class UserValidationController extends Controller
      */
     public function checkEmail(CheckEmailRequest $request): JsonResponse
     {
-        $email = $request->validated('email');
+        $email = (string) $request->validated('email');
+        $normalizedEmail = mb_strtolower(trim($email));
 
-        $user = User::query()
-            ->whereRaw('LOWER(email) = ?', [strtolower($email)])
-            ->first();
+        $user = User::resolveByNormalizedEmails([$normalizedEmail])[$normalizedEmail] ?? null;
 
         if ($user === null) {
             return response()->json([

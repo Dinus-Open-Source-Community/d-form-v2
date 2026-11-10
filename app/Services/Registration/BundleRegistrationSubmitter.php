@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -92,7 +93,7 @@ final class BundleRegistrationSubmitter
                 ]);
             }
 
-            $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
+            $userIdsByEmail = $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
 
             $this->registrationCounter->assertCanReserve($lockedEvent, $teamSize, $adminExemptFromQuota);
 
@@ -115,29 +116,30 @@ final class BundleRegistrationSubmitter
             $memberRows = [];
 
             foreach ($memberEmails as $i => $email) {
-                $linkedUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+                $userId = $userIdsByEmail[mb_strtolower(trim($email))] ?? null;
 
-                $memberRows[] = $this->formAnswerWriter->create([
-                    'answers' => $memberAnswerRows[$i],
-                    'form_id' => $form->id,
-                    'user_id' => $linkedUser !== null ? (string) $linkedUser->id : null,
-                    'leader_form_answer_id' => $leader->id,
-                    'registration_role' => RegistrationRole::Member,
-                    'member_confirmation_status' => MemberConfirmationStatus::Accepted,
-                    'member_confirmed_at' => now(),
-                    'invitation_token' => null,
-                    'group_token' => $groupToken,
-                    'invited_email' => $email,
-                    'invitation_expired_at' => null,
-                ]);
+                try {
+                    $memberRows[] = $this->formAnswerWriter->create([
+                        'answers' => $memberAnswerRows[$i],
+                        'form_id' => $form->id,
+                        'user_id' => $userId,
+                        'leader_form_answer_id' => $leader->id,
+                        'registration_role' => RegistrationRole::Member,
+                        'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+                        'member_confirmed_at' => now(),
+                        'invitation_token' => null,
+                        'group_token' => $groupToken,
+                        'invited_email' => $email,
+                        'invitation_expired_at' => null,
+                    ]);
+                } catch (QueryException $exception) {
+                    TeamRegistrationSubmitter::rethrowParticipantWriteFailure($exception, (int) $i);
+                }
             }
 
             $this->registrationCounter->reserveLocked($lockedEvent, $teamSize);
 
-            return [
-                'leader' => $leader->fresh(),
-                'members' => array_map(fn (FormAnswer $r) => $r->fresh(), $memberRows),
-            ];
+            return TeamRegistrationSubmitter::reloadSubmissionGroup($leader, $memberRows);
         });
     }
 

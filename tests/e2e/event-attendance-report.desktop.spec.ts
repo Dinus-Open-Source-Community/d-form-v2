@@ -11,6 +11,7 @@ import {
 } from './support/fixtures';
 import type { IOwnerIdentity } from './support/marker';
 import { readEnvironment } from './support/environment';
+import { assertBrowserContextAuthenticatedAs, loginE2eUser } from './support/authentication';
 
 /**
  * E2E BE-P2-006: halaman laporan kehadiran event (`dashboard.events.laporan`).
@@ -22,10 +23,11 @@ import { readEnvironment } from './support/environment';
  * Happy path membuktikan paginator 20/halaman lewat UI: 20 baris di halaman 1, 5 di
  * halaman 2, total 25. Input anomali `page`/`per_page` wajib tetap render laporan,
  * bukan 500. Otorisasi diuji pada event milik user lain (403) dan guest (redirect
- * login). Fixture dibersihkan di `finally`; user admin tidak pernah dihapus.
+ * login). Test 403 memakai admin seeded non-super-admin; fixture dibersihkan di
+ * `finally`, sedangkan user admin seeded tidak pernah dihapus.
  *
- * Precondition: test 403 mengasumsikan admin E2E BUKAN `super-admin`, karena
- * `EventPolicy` melewati cek kepemilikan untuk super-admin.
+ * `EventPolicy` melewati cek kepemilikan untuk super-admin, jadi aktor 403 harus
+ * dibuktikan lewat sesi admin non-super-admin yang terisolasi dari state project.
  */
 
 const ATTENDANCE_RECORDS = 25;
@@ -38,6 +40,8 @@ interface IAnomalyCase {
     expectedRows: number;
     /** `true` berarti nilai tidak valid harus resolve ke halaman 1. */
     expectsFirstPage: boolean;
+    /** `true` berarti halaman di luar rentang harus di-clamp ke halaman terakhir. */
+    expectsLastPage?: boolean;
 }
 
 /** Semua nilai liar harus menghasilkan 200 + shell laporan, bukan error. */
@@ -46,11 +50,21 @@ const ANOMALY_CASES: IAnomalyCase[] = [
     { label: 'page=-5', query: 'page=-5', expectedRows: PER_PAGE, expectsFirstPage: true },
     { label: 'page=abc', query: 'page=abc', expectedRows: PER_PAGE, expectsFirstPage: true },
     { label: 'page=1 OR 1=1', query: 'page=1%20OR%201=1', expectedRows: PER_PAGE, expectsFirstPage: true },
-    // BE-P3-019: paginator belum di-clamp; halaman di luar rentang menghasilkan empty state.
-    { label: 'page=999999', query: 'page=999999', expectedRows: 0, expectsFirstPage: false },
-    // BE-P3-018: controller mengabaikan `per_page`; kasus ini mengunci perilaku saat ini.
-    { label: 'per_page=999999', query: 'per_page=999999', expectedRows: PER_PAGE, expectsFirstPage: true },
+    // BE-P3-019: halaman di luar rentang di-clamp ke halaman terakhir.
+    {
+        label: 'page=999999',
+        query: 'page=999999',
+        expectedRows: SECOND_PAGE_ROWS,
+        expectsFirstPage: false,
+        expectsLastPage: true,
+    },
+    // BE-P3-018: `per_page` di luar allowlist jatuh ke 20.
+    { label: 'per_page=99999', query: 'per_page=99999', expectedRows: PER_PAGE, expectsFirstPage: true },
+    { label: 'per_page=abc', query: 'per_page=abc', expectedRows: PER_PAGE, expectsFirstPage: true },
     { label: 'per_page=0', query: 'per_page=0', expectedRows: PER_PAGE, expectsFirstPage: true },
+    // BE-P3-018: nilai allowlist benar-benar dipakai.
+    { label: 'per_page=8', query: 'per_page=8', expectedRows: 8, expectsFirstPage: true },
+    { label: 'per_page=100', query: 'per_page=100', expectedRows: ATTENDANCE_RECORDS, expectsFirstPage: false },
 ];
 
 function laporanPath(eventId: string, query = ''): string {
@@ -116,7 +130,9 @@ test.describe('BE-P2-006 laporan kehadiran event', () => {
                 new RegExp(`/admin/events/${owner.eventId}/exports/attendance\\.csv$`)
             );
 
-            // Identitas/urutan baris lintas halaman didefer ke BE-P2-025 (scanned_at identik).
+            // BE-P2-025: tie-breaker `id` membuat dua halaman tidak berbagi baris.
+            const firstPageSubmissions = await attendanceRows(page).locator('td:nth-child(3)').allInnerTexts();
+
             await page
                 .getByRole('navigation', { name: 'pagination' })
                 .getByRole('button', { name: 'Halaman berikutnya' })
@@ -124,6 +140,16 @@ test.describe('BE-P2-006 laporan kehadiran event', () => {
 
             await expect(page).toHaveURL(/[?&]page=2(?:&|$)/);
             await expect(attendanceRows(page)).toHaveCount(SECOND_PAGE_ROWS);
+
+            const secondPageSubmissions = await attendanceRows(page).locator('td:nth-child(3)').allInnerTexts();
+
+            expect(firstPageSubmissions).toHaveLength(PER_PAGE);
+            expect(secondPageSubmissions).toHaveLength(SECOND_PAGE_ROWS);
+            expect(
+                secondPageSubmissions.filter((submissionId: string): boolean =>
+                    firstPageSubmissions.includes(submissionId)
+                )
+            ).toEqual([]);
         } finally {
             cleanupOwnerFixture(identity);
         }
@@ -158,19 +184,36 @@ test.describe('BE-P2-006 laporan kehadiran event', () => {
                         `${anomaly.label}: harus resolve ke halaman 1`
                     ).toHaveAttribute('aria-current', 'page');
                 }
+
+                if (anomaly.expectsLastPage === true) {
+                    await expect(
+                        page.getByRole('button', { name: 'Halaman 2', exact: true }),
+                        `${anomaly.label}: harus resolve ke halaman terakhir`
+                    ).toHaveAttribute('aria-current', 'page');
+                }
             }
         } finally {
             cleanupOwnerFixture(identity);
         }
     });
 
-    test('admin bukan pemilik event mendapat 403 pada laporan', async ({ page, fixtureEvent }) => {
+    test('admin non-super-admin bukan pemilik event mendapat 403 pada laporan', async ({ browser, fixtureEvent }) => {
         test.setTimeout(120_000);
 
-        const response = await page.goto(laporanPath(fixtureEvent.eventId), { waitUntil: 'domcontentloaded' });
+        const environment = readEnvironment();
+        const state = await loginE2eUser(environment.nonAdminEmail, environment.nonAdminPassword);
+        const context = await browser.newContext({ baseURL: environment.baseUrl, storageState: state });
 
-        expect(response?.status()).toBe(403);
-        await expect(page.getByRole('heading', { name: 'Attendance log' })).toHaveCount(0);
+        try {
+            await assertBrowserContextAuthenticatedAs(context, environment.nonAdminEmail);
+            const page = await context.newPage();
+            const response = await page.goto(laporanPath(fixtureEvent.eventId), { waitUntil: 'domcontentloaded' });
+
+            expect(response?.status()).toBe(403);
+            await expect(page.getByRole('heading', { name: 'Attendance log' })).toHaveCount(0);
+        } finally {
+            await context.close();
+        }
     });
 
     test('guest tanpa sesi diarahkan ke halaman login', async ({ browser }) => {
