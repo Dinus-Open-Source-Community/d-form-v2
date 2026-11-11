@@ -267,6 +267,50 @@ final class MigrationRollbackTest extends TestCase
         }
     }
 
+    public function test_email_log_recruitment_column_round_trip_preserves_nullable_event_rows_AUDIT_P2_013(): void
+    {
+        $this->useSqliteScratchDatabase();
+
+        try {
+            $this->assertSame(0, $this->artisanOn(self::SQLITE_CONNECTION, 'migrate'), $this->artisanOutput());
+
+            $connection = DB::connection(self::SQLITE_CONNECTION);
+            $applicationId = (string) Str::uuid();
+            $this->seedEmailLogRoundTripData($applicationId);
+
+            $this->assertTrue($this->schemaOf(self::SQLITE_CONNECTION)->hasColumn('email_logs', 'recruitment_application_id'));
+            $this->assertNotNull(
+                $connection->table('email_logs')->where('id', 'email-log-round-trip')->value('recruitment_application_id')
+            );
+
+            $steps = $this->stepsBackTo('2026_09_07_100000');
+            $this->assertGreaterThan(0, $steps, 'The email-log recruitment migration is not applied in the scratch database.');
+
+            $rollbackExit = $this->artisanOn(self::SQLITE_CONNECTION, 'migrate:rollback', ['--step' => $steps]);
+            $this->assertSame(0, $rollbackExit, 'Email-log recruitment rollback failed: '.$this->artisanOutput());
+
+            $schema = $this->schemaOf(self::SQLITE_CONNECTION);
+            $this->assertFalse($schema->hasColumn('email_logs', 'recruitment_application_id'));
+            $this->assertFalse($schema->hasIndex('email_logs', 'email_logs_rec_app_idx'));
+
+            $foreignKeyColumns = collect($schema->getForeignKeys('email_logs'))
+                ->pluck('columns')
+                ->flatten()
+                ->all();
+            $this->assertNotContains('recruitment_application_id', $foreignKeyColumns);
+
+            $eventColumn = collect($schema->getColumns('email_logs'))->firstWhere('name', 'event_id');
+            $this->assertNotNull($eventColumn);
+            $this->assertTrue((bool) data_get($eventColumn, 'nullable'));
+
+            $row = $connection->table('email_logs')->where('id', 'email-log-round-trip')->first();
+            $this->assertNotNull($row);
+            $this->assertNull($row->event_id);
+        } finally {
+            DB::purge(self::SQLITE_CONNECTION);
+        }
+    }
+
 
     /**
      * The ticket's root cause was a FK dropped and never restored. `form_answers`
@@ -358,6 +402,67 @@ final class MigrationRollbackTest extends TestCase
             'created_at' => now()->toDateTimeString(),
             'updated_at' => now()->toDateTimeString(),
         ];
+    }
+
+    private function seedEmailLogRoundTripData(string $applicationId): void
+    {
+        $connection = DB::connection(self::SQLITE_CONNECTION);
+        $periodId = (string) Str::uuid();
+        $divisionId = (string) Str::uuid();
+        $now = now()->toDateTimeString();
+
+        $connection->table('recruitment_periods')->insert([
+            'id' => $periodId,
+            'name' => 'Rollback probe',
+            'slug' => 'rollback-probe',
+            'status' => 'draft',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $connection->table('recruitment_divisions')->insert([
+            'id' => $divisionId,
+            'code' => 'ROLLBACK',
+            'name' => 'Rollback probe',
+            'is_active' => true,
+            'sort_order' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $connection->table('recruitment_applications')->insert([
+            'id' => $applicationId,
+            'recruitment_period_id' => $periodId,
+            'registration_number' => 'RB-000001',
+            'tracking_token_hash' => hash('sha256', 'rollback-probe'),
+            'full_name' => 'Rollback Probe',
+            'nim' => 'RB000001',
+            'semester' => 1,
+            'phone' => '081234567890',
+            'personal_email' => 'rollback-probe@example.test',
+            'student_email' => 'rollback-probe@student.example.test',
+            'instagram_username' => 'rollback_probe',
+            'primary_division_id' => $divisionId,
+            'stage' => 'submitted',
+            'result' => 'pending',
+            'is_verified' => false,
+            'revision_required' => false,
+            'submitted_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $connection->table('email_logs')->insert([
+            'id' => 'email-log-round-trip',
+            'form_answer_id' => null,
+            'event_id' => null,
+            'user_id' => null,
+            'recipient_email' => 'rollback-probe@example.test',
+            'status' => 'queued',
+            'error_message' => null,
+            'sent_at' => null,
+            'notification_type' => 'recruitment_probe',
+            'recruitment_application_id' => $applicationId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function schemaOf(string $connection): \Illuminate\Database\Schema\Builder
