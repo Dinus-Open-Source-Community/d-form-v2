@@ -1,5 +1,7 @@
 import { computed, ref, reactive } from 'vue';
 import { defaultFormBannerState, type IFormBannerState } from '@/components/modules/builder/formBanner';
+import { createDemoBuilderField } from '@/lib/formBuilderDemoFieldFactory';
+import { createFormBuilderFieldList, parseFormBuilderDragPayload } from '@/lib/formBuilderFieldList';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import {
     cloneFormBuilderPalette,
@@ -10,7 +12,8 @@ import {
 
 /**
  * State form builder versi demo (tanpa backend): palette, drag-and-drop, dan edit field.
- * Semua mutasi memakai operasi array immutable-kecuali-splice pada `formFields`.
+ * Mutasi daftar field memakai `createFormBuilderFieldList` yang sama dengan
+ * entry point production; perbedaan demo hanya pada factory field dan suffix duplikat.
  */
 export function useFormBuilderDemoPage() {
     const categories = ref<IFormBuilderPaletteCategory[]>(cloneFormBuilderPalette());
@@ -26,6 +29,20 @@ export function useFormBuilderDemoPage() {
     const dragSourceId = ref<string | null>(null);
     const mobileFieldType = ref('');
     const allFieldTypes = ALL_FORM_BUILDER_FIELD_TEMPLATES;
+
+    const fieldList = createFormBuilderFieldList<IFormField>({
+        store: {
+            read: (): IFormField[] => formFields.value,
+            commit: (next: IFormField[]): void => {
+                formFields.value = next;
+            },
+        },
+        createField: createDemoBuilderField,
+        decorateDuplicate: (copy: IFormField, original: IFormField): IFormField => ({
+            ...copy,
+            label: `${original.label} (copy)`,
+        }),
+    });
 
     const filteredCategories = computed(() => {
         const q = searchQuery.value.toLowerCase().trim();
@@ -52,40 +69,11 @@ export function useFormBuilderDemoPage() {
     const isEmpty = computed(() => formFields.value.length === 0);
     const bannerPreviewSrc = computed(() => normalizePublicStorageUrl(formBanner.bannerUrl));
 
-    function createField(type: string, label: string): IFormField {
-        const defaults: Record<string, Partial<IFormField>> = {
-            short_text: { metadata: { placeholder: '' } },
-            long_text: { metadata: { placeholder: '' } },
-            email: { metadata: { placeholder: '' } },
-            phone: { metadata: { placeholder: '' } },
-            number: { metadata: { placeholder: '' } },
-            dropdown: { metadata: { options: 'Option 1, Option 2' } },
-            checkbox: { metadata: { options: 'Choice A, Choice B, Choice C' } },
-            radio: { metadata: { options: 'Option 1, Option 2, Option 3' } },
-            image_upload: { metadata: { accepts: 'png, jpg, jpeg' } },
-            file_upload: { metadata: { accepts: 'pdf, doc, xls' } },
-            rating: { metadata: { maxStars: 5 } },
-            heading: { metadata: { content: 'Section Heading' } },
-            paragraph: { metadata: { content: '' } },
-        };
-        return {
-            id: crypto.randomUUID(),
-            type: type as IFormField['type'],
-            label: label || 'Untitled Field',
-            name: `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
-            description: '',
-            order: 0,
-            metadata: {},
-            ...(defaults[type] || {}),
-        } as IFormField;
-    }
-
     function addFieldFromPicker(): void {
         const picked = allFieldTypes.find((field) => field.type === mobileFieldType.value);
         if (!picked) return;
-        const nf = createField(picked.type, picked.label);
-        formFields.value.push(nf);
-        selectedFieldId.value = nf.id;
+        const field = fieldList.appendField(picked.type, picked.label);
+        selectedFieldId.value = field.id;
         mobileFieldType.value = '';
     }
 
@@ -139,21 +127,20 @@ export function useFormBuilderDemoPage() {
         const raw = e.dataTransfer?.getData('application/json');
         if (!raw) return;
 
-        const data = JSON.parse(raw);
-        let insertAt = dropIndicatorIndex.value;
-        if (insertAt < 0) insertAt = formFields.value.length;
+        const payload = parseFormBuilderDragPayload(raw);
+        if (payload === null) return;
 
-        if (data.isNew) {
-            const newField = createField(data.type, data.label);
-            formFields.value.splice(insertAt, 0, newField);
-            selectedFieldId.value = newField.id;
-        } else {
-            const fromIndex = formFields.value.findIndex((f) => f.id === data.id);
+        const insertAt = dropIndicatorIndex.value < 0 ? formFields.value.length : dropIndicatorIndex.value;
+
+        if (payload.isNew) {
+            if (payload.type === undefined || payload.label === undefined || payload.label === '') return;
+            const field = fieldList.insertNewField(payload.type, payload.label, insertAt);
+            selectedFieldId.value = field.id;
+        } else if (payload.id !== undefined) {
+            const fromIndex = fieldList.indexOf(payload.id);
             if (fromIndex === -1) return;
-            const [moved] = formFields.value.splice(fromIndex, 1);
-            const adjustedInsert = insertAt > fromIndex ? insertAt - 1 : insertAt;
-            formFields.value.splice(adjustedInsert, 0, moved);
-            selectedFieldId.value = moved.id;
+            fieldList.moveFieldToIndex(fromIndex, insertAt);
+            selectedFieldId.value = payload.id;
         }
 
         dropIndicatorIndex.value = -1;
@@ -172,29 +159,18 @@ export function useFormBuilderDemoPage() {
     }
 
     function deleteField(id: string): void {
-        formFields.value = formFields.value.filter((f) => f.id !== id);
-        if (selectedFieldId.value === id) selectedFieldId.value = null;
+        const wasSelected = selectedFieldId.value === id;
+        if (!fieldList.deleteField(id)) return;
+        if (wasSelected) selectedFieldId.value = null;
     }
 
     function duplicateField(id: string): void {
-        const index = formFields.value.findIndex((f) => f.id === id);
-        if (index === -1) return;
-        const original = formFields.value[index];
-        const copy: IFormField = {
-            ...JSON.parse(JSON.stringify(original)),
-            id: crypto.randomUUID(),
-            label: `${original.label} (copy)`,
-            name: `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
-        };
-        formFields.value.splice(index + 1, 0, copy);
-        selectedFieldId.value = copy.id;
+        const copy = fieldList.duplicateField(id);
+        if (copy !== null) selectedFieldId.value = copy.id;
     }
 
     function updateField(updatedField: IFormField): void {
-        const index = formFields.value.findIndex((f) => f.id === updatedField.id);
-        if (index !== -1) {
-            formFields.value[index] = updatedField;
-        }
+        fieldList.updateField(updatedField);
     }
 
     function toggleCategory(index: number): void {

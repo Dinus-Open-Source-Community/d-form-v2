@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, ref, watch, type UnwrapNestedRefs } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,13 +7,13 @@ import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
 import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue';
-import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { formFieldImageSrc, formFieldMetadataText } from '@/lib/formFillFields';
+import { useFormFillFieldsList } from '@/hooks/useFormFillFieldsList';
 import { Send } from 'lucide-vue-next';
+import type { UnwrapNestedRefs } from 'vue';
 import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
 import { routes } from '@/lib/routes';
 import type { IFormBuilderSection } from '@/types/form-builder';
-
-type FormSegment = { type: 'linear'; fields: IFormField[] } | { type: 'bundleGroup'; fields: IFormField[] };
 
 const props = defineProps<{
     fields: IFormField[];
@@ -27,122 +26,34 @@ const emit = defineEmits<{
     submit: [];
 }>();
 
-const currentSectionIndex = ref(0);
-
-const currentSectionId = computed(() => props.sections[currentSectionIndex.value]?.id ?? 'section-1');
-
-function sectionIdForField(field: IFormField): string {
-    const raw = props.ctx.metadata(field).sectionId;
-    if (typeof raw === 'string' && raw !== '' && props.sections.some((section) => section.id === raw)) {
-        return raw;
-    }
-    return props.sections[0]?.id ?? 'section-1';
-}
-
-const currentSectionFields = computed(() =>
-    props.fields.filter((field) => sectionIdForField(field) === currentSectionId.value)
-);
-
-const formSegments = computed((): FormSegment[] => {
-    const list = currentSectionFields.value;
-    const out: FormSegment[] = [];
-    let i = 0;
-    while (i < list.length) {
-        if (props.ctx.isBundleDuplicatableField(list[i])) {
-            const dup: IFormField[] = [];
-            while (i < list.length && props.ctx.isBundleDuplicatableField(list[i])) {
-                dup.push(list[i]);
-                i++;
-            }
-            out.push({ type: 'bundleGroup', fields: dup });
-        } else {
-            const linear: IFormField[] = [];
-            while (i < list.length && !props.ctx.isBundleDuplicatableField(list[i])) {
-                linear.push(list[i]);
-                i++;
-            }
-            out.push({ type: 'linear', fields: linear });
-        }
-    }
-    return out;
+const {
+    currentSectionIndex,
+    formSegments,
+    previousSection,
+    nextSection,
+    storageKeyFor,
+    imageUploadFillReady,
+    uploadLightboxOpen,
+    uploadLightboxSrc,
+    uploadLightboxTitle,
+    openUploadLightbox,
+    submitConfirmOpen,
+    submitConfirmDescription,
+    requestSubmitConfirm,
+    closeSubmitConfirm,
+} = useFormFillFieldsList({
+    fields: () => props.fields,
+    sections: () => props.sections,
+    registrationMode: props.ctx.registrationMode,
+    answerForm: props.ctx.answerForm,
+    filePreviewUrls: props.ctx.filePreviewUrls,
+    validateSection: props.ctx.validateSection,
+    isBundleDuplicatable: props.ctx.isBundleDuplicatableField,
+    isBlocked: () => props.ctx.isBlocked,
 });
 
-function previousSection(): void {
-    currentSectionIndex.value = Math.max(0, currentSectionIndex.value - 1);
-}
-
-function nextSection(): void {
-    if (!props.ctx.validateSection(currentSectionFields.value)) return;
-    currentSectionIndex.value = Math.min(props.sections.length - 1, currentSectionIndex.value + 1);
-}
-
-function slotStorageKey(
-    ctx: UnwrapNestedRefs<TFormFillPageContext>,
-    field: IFormField,
-    slot: { slotIndex: number | null }
-): string {
-    return ctx.answerKeyForSlot(field, slot.slotIndex);
-}
-
-function imageUploadFillReadyForField(
-    ctx: UnwrapNestedRefs<TFormFillPageContext>,
-    field: IFormField,
-    storageKey: string
-): boolean {
-    return (
-        ctx.builderType(field) === 'image_upload' && !!ctx.answerForm[storageKey] && !!ctx.filePreviewUrls[storageKey]
-    );
-}
-
-/** Display-only image block src (storage path / URL / blob preview). */
-function fillImageSrc(field: IFormField): string {
-    const raw = props.ctx.metadata(field).imageUrl;
-    return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : '';
-}
-
-function fillImageText(field: IFormField, key: 'caption' | 'alt'): string {
-    const raw = props.ctx.metadata(field)[key];
-    return typeof raw === 'string' ? raw : '';
-}
-
-const uploadLightboxOpen = ref(false);
-const uploadLightboxSrc = ref<string | null>(null);
-const uploadLightboxTitle = ref('');
-
-function openUploadLightbox(src: string | undefined, title: string) {
-    if (!src) return;
-    uploadLightboxSrc.value = src;
-    uploadLightboxTitle.value = title;
-    uploadLightboxOpen.value = true;
-}
-
-watch(uploadLightboxOpen, (open) => {
-    if (!open) {
-        uploadLightboxSrc.value = null;
-        uploadLightboxTitle.value = '';
-    }
-});
-
-const submitConfirmOpen = ref(false);
-
-const submitConfirmDescription = computed(() => {
-    const mode = props.ctx.registrationMode;
-    if (mode === 'team') {
-        return 'Your answers will be sent. Invitations will be emailed to the team members you listed where required.';
-    }
-    if (mode === 'bundle') {
-        return 'All bundled entries in this registration will be submitted together.';
-    }
-    return 'Please review your answers. After submitting, changes may not be possible.';
-});
-
-function requestSubmitConfirm() {
-    if (props.ctx.isBlocked) return;
-    submitConfirmOpen.value = true;
-}
-
-function confirmSubmit() {
-    submitConfirmOpen.value = false;
+function confirmSubmit(): void {
+    closeSubmitConfirm();
     emit('submit');
 }
 </script>
@@ -196,16 +107,20 @@ function confirmSubmit() {
                         class="border-border bg-card overflow-hidden rounded-2xl border shadow-xs"
                     >
                         <img
-                            v-if="fillImageSrc(field)"
-                            :src="fillImageSrc(field)"
-                            :alt="fillImageText(field, 'alt') || fillImageText(field, 'caption') || field.label"
+                            v-if="formFieldImageSrc(field)"
+                            :src="formFieldImageSrc(field)"
+                            :alt="
+                                formFieldMetadataText(field, 'alt') ||
+                                formFieldMetadataText(field, 'caption') ||
+                                field.label
+                            "
                             class="w-full object-cover"
                         />
                         <p
-                            v-if="fillImageText(field, 'caption').trim()"
+                            v-if="formFieldMetadataText(field, 'caption').trim()"
                             class="border-border text-muted-foreground border-t px-5 py-3 text-sm leading-relaxed"
                         >
-                            {{ fillImageText(field, 'caption') }}
+                            {{ formFieldMetadataText(field, 'caption') }}
                         </p>
                     </div>
 
@@ -230,10 +145,10 @@ function confirmSubmit() {
                                 :ctx="ctx"
                                 :field="field"
                                 :participation-slot="slot"
-                                :storage-key="slotStorageKey(ctx, field, slot)"
+                                :storage-key="storageKeyFor(field, slot)"
                                 variant="linear"
                                 :stack-index="0"
-                                :image-upload-fill-ready-fn="(k) => imageUploadFillReadyForField(ctx, field, k)"
+                                :image-upload-fill-ready-fn="(k) => imageUploadFillReady(field, k)"
                                 @open-lightbox="
                                     (src, title) => {
                                         openUploadLightbox(src, title);
@@ -272,10 +187,10 @@ function confirmSubmit() {
                         :ctx="ctx"
                         :field="field"
                         :participation-slot="slot"
-                        :storage-key="slotStorageKey(ctx, field, slot)"
+                        :storage-key="storageKeyFor(field, slot)"
                         variant="bundleParticipant"
                         :stack-index="fi"
-                        :image-upload-fill-ready-fn="(k) => imageUploadFillReadyForField(ctx, field, k)"
+                        :image-upload-fill-ready-fn="(k) => imageUploadFillReady(field, k)"
                         @open-lightbox="
                             (src, title) => {
                                 openUploadLightbox(src, title);

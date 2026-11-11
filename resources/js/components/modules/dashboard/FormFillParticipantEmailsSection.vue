@@ -82,7 +82,6 @@ const debouncedEmailCheck = createPerSlotTrailingDebounce(DEBOUNCE_MS, (slot) =>
 
 const abortBySlot = new Map<number, AbortController>();
 
-const memberSlots = computed(() => props.ctx.memberSlots);
 const registrationMode = computed(() => props.ctx.registrationMode);
 const isBundleMode = computed(() => registrationMode.value === 'bundle');
 
@@ -95,7 +94,7 @@ const sectionHint = computed(() =>
 );
 
 watch(
-    memberSlots,
+    () => props.ctx.memberSlots,
     (n) => {
         const next = { ...expandedBySlot.value };
         for (let s = 1; s <= n; s++) {
@@ -113,7 +112,7 @@ function isExpanded(slot: number): boolean {
     if (v !== undefined) {
         return v;
     }
-    return memberSlots.value <= 1 || slot === 1;
+    return props.ctx.memberSlots <= 1 || slot === 1;
 }
 
 function toggleSlot(slot: number) {
@@ -125,7 +124,7 @@ function emailAt(slot: number): string {
 }
 
 function setTeamEmail(slot: number, value: string) {
-    const n = memberSlots.value;
+    const n = props.ctx.memberSlots;
     const arr = [...((props.ctx.answerForm.team_member_emails as string[]) ?? [])];
     while (arr.length < n) {
         arr.push('');
@@ -302,7 +301,7 @@ onBeforeUnmount(() => {
 
         <div class="flex flex-col gap-3 p-3 sm:gap-3.5 sm:p-4">
             <div
-                v-for="slot in memberSlots"
+                v-for="slot in props.ctx.memberSlots"
                 :key="slot"
                 :class="
                     cn(

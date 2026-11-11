@@ -49,6 +49,43 @@ export type TFormFillAnswerMap = Record<string, TFormFillAnswerValue>;
 /** One row in checkbox / radio / dropdown image+label choices on the fill page */
 export type TFormFillOptionRow = { type: 'text' | 'image'; label: string; imageSrc?: string };
 
+/** One participation slot for a fill field: `null` = the leader/primary answer, `>= 0` = bundle participant. */
+export interface IFormFieldParticipationSlot {
+    slotIndex: number | null;
+    title: string;
+}
+
+/** Access-block card copy for the fill page; `success` marks an informational (not error) block. */
+export interface IFormFillBlockCopy {
+    title: string;
+    body: string;
+    success?: boolean;
+}
+
+/** Field run rendered on the fill page: plain list or a bundle participant group. */
+export type TFormFillSegment = { type: 'linear'; fields: IFormField[] } | { type: 'bundleGroup'; fields: IFormField[] };
+
+/** Layout variant for one fill field card row. */
+export type TFormFillSlotVariant = 'linear' | 'bundleParticipant';
+
+export interface IFormFillSlotUiInput {
+    variant: TFormFillSlotVariant;
+    stackIndex: number;
+    fieldHasDescription: boolean;
+    slotHasTitle: boolean;
+    slotIndex: number | null;
+}
+
+/** Resolved presentation flags/classes for one fill field card row. */
+export interface IFormFillSlotUi {
+    showSubtitle: boolean;
+    showDescription: boolean;
+    headerBorderClass: string;
+    cardHeaderSpacingClass: string;
+    cardContentSpacingClass: string;
+    errorSpacingClass: string;
+}
+
 /** Validation rules nested under `metadata.rules` on API fields */
 export type TFormFieldRules = {
     required?: boolean;

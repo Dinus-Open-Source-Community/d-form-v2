@@ -1,24 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type UnwrapNestedRefs } from 'vue';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StyledSelect } from '@/components/ui/styled-select';
-import type { UnwrapNestedRefs } from 'vue';
 import { Star, ImagePlus, Upload, X } from 'lucide-vue-next';
-import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
+import { formFillSlotUi } from '@/lib/formFillSlotUi';
+import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
+import type { IFormFieldParticipationSlot, TFormFillSlotVariant } from '@/types/form';
 
 const props = withDefaults(
     defineProps<{
         ctx: UnwrapNestedRefs<TFormFillPageContext>;
         field: IFormField;
-        participationSlot: { slotIndex: number | null; title: string };
+        participationSlot: IFormFieldParticipationSlot;
         storageKey: string;
         /** 'linear' = legacy one field / card; 'bundleParticipant' = stacked in per-person card */
-        variant: 'linear' | 'bundleParticipant';
+        variant: TFormFillSlotVariant;
         stackIndex?: number;
         imageUploadFillReadyFn: (key: string) => boolean;
     }>(),
@@ -29,75 +30,57 @@ const emit = defineEmits<{
     openLightbox: [src: string | undefined, title: string];
 }>();
 
+const ui = computed(() =>
+    formFillSlotUi({
+        variant: props.variant,
+        stackIndex: props.stackIndex,
+        fieldHasDescription: Boolean(props.field.description),
+        slotHasTitle: Boolean(props.participationSlot.title),
+        slotIndex: props.participationSlot.slotIndex,
+    })
+);
+
+const descriptionHtml = computed(() =>
+    props.field.description ? formatParagraphContentToHtml(props.field.description) : ''
+);
+
 function textAnswer(name: string): string {
-    const v = props.ctx.answerForm[name];
-    return typeof v === 'string' ? v : '';
+    const value = props.ctx.answerForm[name];
+    return typeof value === 'string' ? value : '';
 }
 
 function setTextAnswer(name: string, value: string | number): void {
     props.ctx.setAnswer(name, String(value));
 }
 
-const showSubtitle = computed(() => props.variant === 'linear' && Boolean(props.participationSlot.title));
-
-const headerBorderClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'border-t border-border' : '';
-    }
-    return '';
-});
-
-/** Tighter vertical rhythm when multiple fields stack in one participant card */
-const cardHeaderSpacingClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'gap-0.5 pt-2 pb-0.5' : 'gap-0.5 pt-2.5 pb-0.5';
-    }
-    return 'gap-1 pb-1.5 pt-3';
-});
-
-const cardContentSpacingClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return 'pb-2 pt-0';
-    }
-    return 'pb-3 pt-0';
-});
-
-const fieldErrorSpacingClass = computed(() => (props.variant === 'bundleParticipant' ? 'mt-1' : 'mt-1.5'));
-
-const showDescription = computed(() => {
-    if (!props.field.description) return false;
-    if (props.variant === 'bundleParticipant') return true;
-    return props.participationSlot.slotIndex === null;
-});
-
-const descriptionHtml = computed(() =>
-    props.field.description ? formatParagraphContentToHtml(props.field.description) : ''
-);
-
 function fillReady(): boolean {
     return props.imageUploadFillReadyFn(props.storageKey);
+}
+
+function openLightbox(): void {
+    emit('openLightbox', props.ctx.filePreviewUrls[props.storageKey], props.ctx.fileAnswerName(props.storageKey));
 }
 </script>
 
 <template>
-    <CardHeader :class="[headerBorderClass, cardHeaderSpacingClass]">
+    <CardHeader :class="[ui.headerBorderClass, ui.cardHeaderSpacingClass]">
         <CardTitle class="text-foreground flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em]">
             <span class="flex items-start gap-1">
                 {{ field.label }}
                 <span v-if="ctx.isRequired(field)" class="text-destructive">*</span>
             </span>
-            <span v-if="showSubtitle" class="text-muted-foreground text-xs font-normal">{{
+            <span v-if="ui.showSubtitle" class="text-muted-foreground text-xs font-normal">{{
                 participationSlot.title
             }}</span>
         </CardTitle>
         <p
-            v-if="showDescription"
+            v-if="ui.showDescription"
             class="text-muted-foreground text-xs"
             :class="variant === 'bundleParticipant' ? 'mt-0 leading-snug' : 'leading-relaxed'"
             v-html="descriptionHtml"
         />
     </CardHeader>
-    <CardContent :class="cardContentSpacingClass">
+    <CardContent :class="ui.cardContentSpacingClass">
         <template
             v-if="
                 ['short_text', 'email', 'phone', 'number', 'time', 'input'].includes(ctx.builderType(field)) &&
@@ -207,7 +190,7 @@ function fillReady(): boolean {
                     type="radio"
                     :name="`${field.name}-${participationSlot.slotIndex ?? 'lead'}`"
                     :value="row.label"
-                    :checked="(ctx.answerForm[storageKey] as string) === row.label"
+                    :checked="textAnswer(storageKey) === row.label"
                     class="accent-primary size-4"
                     @change="() => ctx.setAnswer(storageKey, row.label)"
                 />
@@ -248,13 +231,11 @@ function fillReady(): boolean {
                 <button
                     type="button"
                     class="focus-visible:ring-ring focus-visible:ring-offset-background absolute inset-0 z-10 flex w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    @click="
-                        emit('openLightbox', ctx.filePreviewUrls[storageKey], (ctx.answerForm[storageKey] as File).name)
-                    "
+                    @click="openLightbox"
                 >
                     <img
                         :src="ctx.filePreviewUrls[storageKey]"
-                        :alt="(ctx.answerForm[storageKey] as File).name"
+                        :alt="ctx.fileAnswerName(storageKey)"
                         class="h-full w-full object-cover"
                     />
                     <span class="sr-only">View full size</span>
@@ -262,7 +243,7 @@ function fillReady(): boolean {
                 <button
                     type="button"
                     class="border-border/80 bg-background/95 text-destructive absolute top-2 right-2 z-20 grid size-9 place-items-center border shadow-md backdrop-blur-sm"
-                    :aria-label="`Remove ${(ctx.answerForm[storageKey] as File).name}`"
+                    :aria-label="`Remove ${ctx.fileAnswerName(storageKey)}`"
                     @click.stop="ctx.clearFileUpload(storageKey)"
                 >
                     <X class="size-4" />
@@ -310,7 +291,7 @@ function fillReady(): boolean {
                 class="border-border bg-card relative z-10 mt-4 flex items-center justify-center gap-2 rounded-xl border p-3 shadow-xs"
             >
                 <span class="text-foreground max-w-[200px] truncate text-xs font-medium">{{
-                    (ctx.answerForm[storageKey] as File).name
+                    ctx.fileAnswerName(storageKey)
                 }}</span>
                 <button type="button" class="text-destructive" @click="ctx.clearFileUpload(storageKey)">
                     <X class="size-4" />
@@ -318,7 +299,7 @@ function fillReady(): boolean {
             </div>
         </div>
 
-        <p v-if="ctx.fieldError(storageKey)" :class="[fieldErrorSpacingClass, 'text-destructive text-xs font-medium']">
+        <p v-if="ctx.fieldError(storageKey)" :class="[ui.errorSpacingClass, 'text-destructive text-xs font-medium']">
             {{ ctx.fieldError(storageKey) }}
         </p>
     </CardContent>

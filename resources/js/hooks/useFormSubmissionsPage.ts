@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner';
 import { isHttpRequestError } from '@/adapters/http/httpError';
 import { reviewFormSubmission } from '@/adapters/http/forms';
 import { parseApiErrorMessage, showErrorToast, showHttpErrorToast } from '@/lib/error-message';
+import { collectSubmissionAnswerKeys, SUBMISSION_ANSWER_KEY_PREVIEW_LIMIT } from '@/lib/formSubmissionAnswerKeys';
 import { answerPreview, humanizeSubmissionKey, submissionFileUrl } from '@/lib/formSubmissionsUi';
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 
@@ -79,42 +80,20 @@ export function useFormSubmissionsPage(props: {
         return map;
     });
 
-    const answerKeys = computed(() => {
-        const keysFromFields = formFields.value.map((f) => f.name);
-        const keysInSubmissions = new Set<string>();
+    const answerKeySources = computed(() => ({
+        fieldNames: formFields.value.map((field) => field.name),
+        submissions: submissionRows(props.submissions),
+        groups: bundleGroupRows(props.bundleGroups),
+    }));
 
-        for (const submission of submissionRows(props.submissions)) {
-            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-        }
+    const answerKeys = computed(() =>
+        collectSubmissionAnswerKeys({
+            ...answerKeySources.value,
+            limit: SUBMISSION_ANSWER_KEY_PREVIEW_LIMIT,
+        })
+    );
 
-        for (const group of bundleGroupRows(props.bundleGroups)) {
-            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-            for (const member of group.members ?? []) {
-                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-            }
-        }
-
-        const allKeys = [...new Set([...keysFromFields, ...keysInSubmissions])];
-        return allKeys.slice(0, 4);
-    });
-
-    const allAnswerKeys = computed(() => {
-        const keysFromFields = formFields.value.map((f) => f.name);
-        const keysInSubmissions = new Set<string>();
-
-        for (const submission of submissionRows(props.submissions)) {
-            Object.keys(submission.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-        }
-
-        for (const group of bundleGroupRows(props.bundleGroups)) {
-            Object.keys(group.leader?.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-            for (const member of group.members ?? []) {
-                Object.keys(member.answers ?? {}).forEach((key) => keysInSubmissions.add(key));
-            }
-        }
-
-        return [...new Set([...keysFromFields, ...keysInSubmissions])];
-    });
+    const allAnswerKeys = computed(() => collectSubmissionAnswerKeys(answerKeySources.value));
 
     function humanizeKey(value: string): string {
         return humanizeSubmissionKey(fieldLabelMap.value, value);

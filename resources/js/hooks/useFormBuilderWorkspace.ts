@@ -9,6 +9,7 @@ import {
     type IFormBuilderPaletteField,
 } from '@/components/modules/builder/formBuilderPalette';
 import { createFormBuilderField } from '@/components/modules/builder/formBuilderFieldFactory';
+import { createFormBuilderFieldList, parseFormBuilderDragPayload } from '@/lib/formBuilderFieldList';
 import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
 import type { IFormRegistrationMetadata } from '@/types/form';
 
@@ -209,6 +210,18 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         if (models.successContent) models.successContent.value = '';
     }
 
+    const fieldList = createFormBuilderFieldList<IBuilderField>({
+        store: {
+            read: (): IBuilderField[] => models.formFields.value,
+            commit: (next: IBuilderField[]): void => {
+                models.formFields.value = next;
+            },
+        },
+        createField: createFormBuilderField,
+        finalizeCreatedField: (field: IBuilderField): IBuilderField =>
+            assignFieldToSection(field, activeSectionId.value),
+    });
+
     function addField(template: IFormBuilderPaletteField, openEditorAfter = false): void {
         // Item palette "Pesan setelah submit" = trigger zona konfirmasi, bukan IBuilderField.
         if (template.type === 'confirmation') {
@@ -217,8 +230,7 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
             if (openEditorAfter) showMobileEditor.value = true;
             return;
         }
-        const nf = createFormBuilderField(template.type, template.label);
-        models.formFields.value = [...models.formFields.value, assignFieldToSection(nf, activeSectionId.value)];
+        const nf = fieldList.appendField(template.type, template.label);
         selectedFieldId.value = nf.id;
         inspectorMode.value = 'field';
         showAddSheet.value = false;
@@ -237,12 +249,12 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     }
 
     function deleteField(id: string): void {
-        models.formFields.value = models.formFields.value.filter((f) => f.id !== id);
-        if (selectedFieldId.value === id) {
-            selectedFieldId.value = null;
-            inspectorMode.value = 'settings';
-            showMobileEditor.value = false;
-        }
+        const wasSelected = selectedFieldId.value === id;
+        if (!fieldList.deleteField(id)) return;
+        if (!wasSelected) return;
+        selectedFieldId.value = null;
+        inspectorMode.value = 'settings';
+        showMobileEditor.value = false;
     }
 
     /** Buka sheet kelola opsi / pengaturan field dari aksi kartu — jangan toggle-off bila sudah terpilih. */
@@ -253,38 +265,24 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     }
 
     function duplicateField(id: string): void {
-        const i = models.formFields.value.findIndex((f) => f.id === id);
-        if (i === -1) return;
-        const copy = JSON.parse(JSON.stringify(models.formFields.value[i])) as IBuilderField;
-        copy.id = crypto.randomUUID();
-        copy.name = `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
-        const next = [...models.formFields.value];
-        next.splice(i + 1, 0, copy);
-        models.formFields.value = next;
+        const copy = fieldList.duplicateField(id);
+        if (copy === null) return;
         selectedFieldId.value = copy.id;
         inspectorMode.value = 'field';
     }
 
     function updateField(updated: IBuilderField): void {
-        const i = models.formFields.value.findIndex((f) => f.id === updated.id);
-        if (i === -1) return;
-        const next = [...models.formFields.value];
-        next[i] = updated;
-        models.formFields.value = next;
+        fieldList.updateField(updated);
     }
 
     function moveField(id: string, direction: -1 | 1): void {
         const indexes = sectionFieldIndexes(activeSectionId.value);
         const localIndex = currentSectionFields.value.findIndex((field) => field.id === id);
         if (localIndex === -1) return;
-        const targetLocalIndex = localIndex + direction;
-        const target = indexes[targetLocalIndex];
         const source = indexes[localIndex];
+        const target = indexes[localIndex + direction];
         if (source === undefined || target === undefined) return;
-        const next = [...models.formFields.value];
-        const [moved] = next.splice(source, 1);
-        next.splice(target > source ? target - 1 : target, 0, moved);
-        models.formFields.value = next;
+        fieldList.moveFieldToIndex(source, target);
     }
 
     function toggleVisibility(value: string, checked: boolean): void {
@@ -328,7 +326,8 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         e.preventDefault();
         const raw = e.dataTransfer?.getData('application/json');
         if (!raw) return;
-        const data = JSON.parse(raw) as { isNew?: boolean; type?: string; label?: string; id?: string };
+        const data = parseFormBuilderDragPayload(raw);
+        if (data === null) return;
         // Drop item "Pesan setelah submit" = trigger zona konfirmasi di akhir canvas, bukan IBuilderField.
         if (data.isNew && data.type === 'confirmation') {
             showSuccessZone.value = true;
@@ -341,23 +340,16 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
             dropIndicatorIndex.value < 0
                 ? globalInsertIndex(activeSectionId.value, currentSectionFields.value.length)
                 : globalInsertIndex(activeSectionId.value, dropIndicatorIndex.value);
-        const list = [...models.formFields.value];
-        if (data.isNew && data.type && data.label) {
-            const nf = assignFieldToSection(
-                createFormBuilderField(data.type as TFormBuilderType, data.label),
-                activeSectionId.value
-            );
-            list.splice(insertAt, 0, nf);
-            models.formFields.value = list;
+        if (data.isNew) {
+            if (data.type === undefined || data.label === undefined || data.label === '') return;
+            const nf = fieldList.insertNewField(data.type, data.label, insertAt);
             selectedFieldId.value = nf.id;
             inspectorMode.value = 'field';
-        } else if (data.id) {
-            const from = list.findIndex((f) => f.id === data.id);
+        } else if (data.id !== undefined) {
+            const from = fieldList.indexOf(data.id);
             if (from === -1) return;
-            const [moved] = list.splice(from, 1);
-            list.splice(insertAt > from ? insertAt - 1 : insertAt, 0, moved);
-            models.formFields.value = list;
-            selectedFieldId.value = moved.id;
+            fieldList.moveFieldToIndex(from, insertAt);
+            selectedFieldId.value = data.id;
             inspectorMode.value = 'field';
         }
         dropIndicatorIndex.value = -1;

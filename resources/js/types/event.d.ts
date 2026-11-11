@@ -1,3 +1,10 @@
+import type {
+    TBundleGroupReviewStatus,
+    TFormAnswerReviewStatus,
+    TMemberConfirmationStatus,
+    TRegistrantStatus,
+} from '@/types/registrationStatus';
+
 declare global {
     interface IEvent {
         id: string;
@@ -111,7 +118,7 @@ declare global {
             avatar: string | null;
         };
         event_id: string;
-        status: 'pending' | 'accepted' | 'rejected';
+        status: TRegistrantStatus;
         submitted_at: string;
         answers: Record<string, string>;
         registration_code?: string | null;
@@ -123,12 +130,12 @@ declare global {
         user: { id: string; name: string; email: string; avatar?: string | null } | null;
         answers: Record<string, unknown>;
         submitted_at: string;
-        review_status?: 'pending' | 'accepted' | 'rejected' | null;
+        review_status?: TFormAnswerReviewStatus | null;
         reviewed_at?: string | null;
         reviewed_by?: string | null;
         reviewer?: { id: string; name: string; email: string } | null;
         registration_role?: 'leader' | 'member' | null;
-        member_confirmation_status?: 'pending' | 'accepted' | 'rejected' | 'expired' | null;
+        member_confirmation_status?: TMemberConfirmationStatus | null;
         group_token?: string | null;
     }
 
@@ -156,7 +163,7 @@ declare global {
         pending_count: number;
         rejected_count: number;
         expired_count: number;
-        group_review_status: 'pending' | 'partial' | 'accepted' | 'rejected';
+        group_review_status: TBundleGroupReviewStatus;
         submitted_at: string;
     }
 }

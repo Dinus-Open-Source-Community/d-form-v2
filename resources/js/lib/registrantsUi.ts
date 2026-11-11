@@ -1,4 +1,5 @@
 import { formatDateTime } from '@/lib/dateTime';
+import { registrantStatusBadge } from '@/lib/registrationStatusUi';
 
 export const REGISTRANTS_TAB_ITEMS: {
     value: 'all' | 'pending' | 'accepted' | 'rejected';
@@ -43,16 +44,12 @@ export const REGISTRANTS_TONE_STYLES: Record<
 
 /** Kelas ring/warna badge status pendaftar; `pending` menjadi fallback. */
 export function registrantStatusBadgeClass(s: IRegistrant['status']): string {
-    if (s === 'accepted') return 'bg-success/10 text-success ring-success/15';
-    if (s === 'rejected') return 'bg-destructive/10 text-destructive ring-destructive/15';
-    return 'bg-warning/15 text-warning-foreground ring-warning/20';
+    return registrantStatusBadge(s).class;
 }
 
 /** Label status untuk UI (Bahasa Indonesia) */
 export function registrantStatusLabel(s: IRegistrant['status']): string {
-    if (s === 'accepted') return 'Disetujui';
-    if (s === 'rejected') return 'Ditolak';
-    return 'Menunggu';
+    return registrantStatusBadge(s).label;
 }
 
 /**

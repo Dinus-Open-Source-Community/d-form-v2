@@ -20,20 +20,7 @@ export type {
     IUseAutosaveSyncResult,
 } from './useAutosaveSync';
 
-export {
-    builderPendingUploads,
-    cleanStoredImageUrl,
-    createLocalImagePreviewUrl,
-    isBlobUrl,
-    isBuilderUploading,
-    isDataUrl,
-    isLocalOnlyImageUrl,
-    resolveBuilderImageUploadUrl,
-    revokeLocalImagePreviewUrl,
-    sanitizeBuilderSnapshot,
-    stripLocalImageUrlsDeep,
-    useBuilderImageUpload,
-} from './useBuilderImageUpload';
+export { builderPendingUploads, isBuilderUploading, useBuilderImageUpload } from './useBuilderImageUpload';
 export type { IBuilderImageUploadResult, IUseBuilderImageUploadOptions } from './useBuilderImageUpload';
 
 export { useDashboardEventShowPage } from './useDashboardEventShowPage';
@@ -52,6 +39,7 @@ export type {
     IFormBuilderWorkspaceModels,
 } from './useFormBuilderWorkspace';
 export { useFormFillPage } from './useFormFillPage';
+export type { IFormFillPageOptions, TFormFillPageContext } from './useFormFillPage';
 export { useFormSubmissionsPage } from './useFormSubmissionsPage';
 export { useGlobalHttpStatusToast } from './useGlobalHttpStatusToast';
 export { useGlobalQrScanPage } from './useGlobalQrScanPage';
