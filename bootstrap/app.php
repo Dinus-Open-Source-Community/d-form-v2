@@ -1,7 +1,9 @@
 <?php
 
+use App\Console\Commands\DispatchRecruitmentQrOutboxCommand;
 use App\Exceptions\QuotaExceededException;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\SafeExceptionReporter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,10 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([DispatchRecruitmentQrOutboxCommand::class])
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
+        $schedule->command('recruitment:dispatch-qr-outbox')->everyMinute();
         $schedule->command('broadcast:dispatch-scheduled')->everyMinute();
         $schedule->command('otp:prune')->hourly();
+        $schedule->command('queue:prune-failed --hours='.(int) config('queue.failed.retention_hours'))->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Prepended so the response phase runs after every other global middleware:
@@ -55,6 +60,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(static function (\Throwable $exception): bool {
+            return SafeExceptionReporter::report($exception);
+        });
+
         // Inertia membuang header rate limit; salin ulang agar klien tahu kapan boleh mencoba lagi.
         $copyThrottleHeaders = static function (Response $source, Response $target): Response {
             $headers = ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'];

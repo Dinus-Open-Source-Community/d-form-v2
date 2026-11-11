@@ -24,6 +24,7 @@ use App\Services\Recruitment\RecruitmentApplicationService;
 use App\Services\Recruitment\RecruitmentDivisionService;
 use App\Services\Recruitment\RecruitmentGroupLinkService;
 use App\Services\Recruitment\RecruitmentQrBulkService;
+use App\Services\Recruitment\RecruitmentQrDispatchRecovery;
 use App\Services\Recruitment\RecruitmentQrEligibilityQuery;
 use App\Services\Recruitment\RecruitmentPeriodService;
 use App\Services\Recruitment\InterviewSessionService;
@@ -50,6 +51,7 @@ class RecruitmentPeriodController extends Controller
         private readonly RecruitmentGroupLinkService $groupLinkService,
         private readonly RecruitmentQrBulkService $qrBulkService,
         private readonly RecruitmentQrEligibilityQuery $qrEligibilityQuery,
+        private readonly RecruitmentQrDispatchRecovery $qrDispatchRecovery,
     ) {
     }
 
@@ -145,10 +147,9 @@ class RecruitmentPeriodController extends Controller
      *   ~0,85-1,75 detik (20.000 probe index screenings pada buffer pool 128 MB),
      *   jadi TTL lebih panjang menghindari biaya itu tiap menit.
      *
-     * Invalidasi: hanya TTL. Badge bisa tertinggal <=60 detik (queue/QR/semester)
-     * atau <=300 detik (eligible link grup) setelah aksi staff; trade-off yang
-     * disepakati untuk halaman 20.000 applicant. Tidak ada `Cache::forget` di jalur
-     * tulis supaya service EP-02 tidak ikut disentuh.
+     * Cache aggregate periode dihapus setelah bulk-send QR agar `qr_counts`
+     * mencerminkan reservasi yang baru dibuat. Perubahan delivery oleh worker tetap
+     * memakai TTL <=60 detik; eligible link grup memakai TTL <=300 detik.
      *
      * Tanpa cache, `groupLinkEligibleCount` memindai satu periode (terukur
      * ~0,85-1,75 detik pada buffer pool 128 MB) dan `qrEligibilityQuery::counts`
@@ -477,6 +478,9 @@ class RecruitmentPeriodController extends Controller
         $qrStatusSummary = null;
 
         if ($this->shouldComputeQrStatusSummary($request, $tab)) {
+            // No scheduler runs in this repo (CONTEXT.md §3), so the QR view drives the bounded
+            // recovery net: pending intents and lost `queued` jobs from earlier requests.
+            $this->qrDispatchRecovery->recoverOpportunistically();
             $qrStatusSummary = $this->qrStatusSummary($period);
         }
 
@@ -614,18 +618,20 @@ class RecruitmentPeriodController extends Controller
             (bool) ($validated['include_sent'] ?? false)
         );
 
-        $dispatched = (int) ($result['dispatched'] ?? 0);
+        Cache::forget("recruitment.period.aggregates.{$period->id}");
+
+        $scheduled = (int) ($result['scheduled'] ?? 0);
 
         Inertia::flash('toast', [
-            'message' => $dispatched > 0
-                ? "QR dikirim ke {$dispatched} applicant tahap interview."
-                : 'Tidak ada applicant yang perlu dikirimi QR.',
-            'type' => $dispatched > 0 ? 'success' : 'warning',
+            'message' => $scheduled > 0
+                ? "QR dijadwalkan untuk {$scheduled} applicant tahap interview."
+                : 'Tidak ada applicant yang perlu dijadwalkan untuk QR.',
+            'type' => $scheduled > 0 ? 'success' : 'warning',
         ]);
 
         return redirect()
             ->back()
-            ->with('message', "QR dikirim ke {$dispatched} applicant tahap interview.");
+            ->with('message', "QR dijadwalkan untuk {$scheduled} applicant tahap interview.");
     }
 
     public function close(RecruitmentPeriod $period): RedirectResponse

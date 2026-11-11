@@ -3,7 +3,6 @@
 namespace Tests\Unit\Exceptions;
 
 use App\Exceptions\RedactedMailDeliveryException;
-use App\Support\LogRedaction;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -11,7 +10,7 @@ use Tests\TestCase;
 
 class RedactedMailDeliveryExceptionTest extends TestCase
 {
-    private const RAW_MESSAGE = 'SMTP rejected applicant@example.com password=hunter2';
+    private const RAW_MESSAGE = 'SMTP rejected applicant@example.com; applicant=Synthetic Person; nim=EP02-NIM-482915; phone=+62 812-3456-7890 password=hunter2';
 
     public function test_from_throwable_redacts_the_message_and_keeps_the_original_chained(): void
     {
@@ -20,9 +19,12 @@ class RedactedMailDeliveryExceptionTest extends TestCase
         $wrapped = RedactedMailDeliveryException::fromThrowable($original);
 
         self::assertSame(RedactedMailDeliveryException::class, $wrapped::class);
-        self::assertSame(LogRedaction::exception($original, 1000), $wrapped->getMessage());
-        self::assertStringContainsString('[email]', $wrapped->getMessage());
-        self::assertStringContainsString('password=[redacted]', $wrapped->getMessage());
+        self::assertSame(RuntimeException::class.': [message redacted]', $wrapped->getMessage());
+        self::assertStringNotContainsString('Synthetic Person', $wrapped->getMessage());
+        self::assertStringNotContainsString('EP02-NIM-482915', $wrapped->getMessage());
+        self::assertStringNotContainsString('+62 812-3456-7890', $wrapped->getMessage());
+        self::assertStringNotContainsString('applicant@example.com', $wrapped->getMessage());
+        self::assertStringNotContainsString('hunter2', $wrapped->getMessage());
         self::assertSame($original, $wrapped->getPrevious());
     }
 
@@ -68,6 +70,9 @@ class RedactedMailDeliveryExceptionTest extends TestCase
                 return ($context['exception_class'] ?? null) === RedactedMailDeliveryException::class
                     && ($context['original_class'] ?? null) === RuntimeException::class
                     && ! str_contains($encoded, 'applicant@example.com')
+                    && ! str_contains($encoded, 'Synthetic Person')
+                    && ! str_contains($encoded, 'EP02-NIM-482915')
+                    && ! str_contains($encoded, '+62 812-3456-7890')
                     && ! str_contains($encoded, 'hunter2')
                     && ! str_contains($encoded, self::RAW_MESSAGE);
             }
@@ -90,6 +95,9 @@ class RedactedMailDeliveryExceptionTest extends TestCase
                 return ! array_key_exists('exception', $context)
                     && ($context['original_class'] ?? null) === RuntimeException::class
                     && ! str_contains($encoded, 'applicant@example.com')
+                    && ! str_contains($encoded, 'Synthetic Person')
+                    && ! str_contains($encoded, 'EP02-NIM-482915')
+                    && ! str_contains($encoded, '+62 812-3456-7890')
                     && ! str_contains($encoded, 'hunter2')
                     && ! str_contains($encoded, 'Next ')
                     && ! str_contains($encoded, self::RAW_MESSAGE);

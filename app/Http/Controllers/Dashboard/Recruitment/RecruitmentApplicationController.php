@@ -9,7 +9,6 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\ApplicationVerificationService;
 use App\Services\Recruitment\EmailResendCommand;
 use App\Services\Recruitment\RecruitmentEmailResendService;
-use App\Services\Recruitment\RecruitmentTrackingResendService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,7 +18,6 @@ class RecruitmentApplicationController extends Controller
 {
     public function __construct(
         private readonly ApplicationVerificationService $verificationService,
-        private readonly RecruitmentTrackingResendService $trackingResendService,
         private readonly RecruitmentEmailResendService $emailResendService,
     ) {
     }
@@ -107,9 +105,15 @@ class RecruitmentApplicationController extends Controller
             ->with('message', 'Pendaftaran berhasil diverifikasi.');
     }
 
+    /** Reuse the per-type resend policy after this route's request authorization succeeds. */
     public function resendTracking(ResendRecruitmentTrackingRequest $request, RecruitmentApplication $application): RedirectResponse
     {
-        $this->trackingResendService->resend($request->user(), $application, $request);
+        $this->emailResendService->resend(new EmailResendCommand(
+            actor: $request->user(),
+            application: $application,
+            type: 'tracking',
+            request: $request,
+        ));
 
         return redirect()
             ->back()

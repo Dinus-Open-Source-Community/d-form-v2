@@ -83,7 +83,7 @@ class SendRegistrationOtpJob implements ShouldQueue
                 'job_id' => $this->job?->getJobId(),
                 'attempt' => $this->attempts(),
                 'exception_class' => $exception::class,
-                'error' => LogRedaction::text($exception->getMessage()),
+                'error' => LogRedaction::exception($exception, 1000),
             ]);
 
             throw RedactedMailDeliveryException::fromThrowable($exception);

@@ -113,27 +113,39 @@ test.describe('admin state guard', () => {
 });
 
 test.describe('environment fail-fast', () => {
-    test('H-env-base-url: base URL tak terjangkau menyebut E2E_BASE_URL lebih dulu, bukan E2E_ARTISAN', async (): Promise<void> => {
-        await expect(
-            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } })
-        ).rejects.toThrow(/E2E_BASE_URL/);
-        await expect(
-            assertEnvironment({ env: { E2E_BASE_URL: 'http://127.0.0.1:1', E2E_ARTISAN: 'tidak-ada-command-xyz' } })
-        ).rejects.not.toThrow(/E2E_ARTISAN/);
+    test('H-env-base-url: missing E2E_ARTISAN fails before probing the base URL', async (): Promise<void> => {
+        const methods: string[] = [];
+        let failure: unknown;
+
+        try {
+            await assertEnvironment({
+                env: { E2E_BASE_URL: 'http://example.test', E2E_ARTISAN: '' },
+                fetchImpl: async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+                    methods.push(init?.method ?? 'GET');
+
+                    return new Response(null, { status: 200 });
+                },
+            });
+        } catch (error: unknown) {
+            failure = error;
+        }
+
+        expect(failure instanceof Error && failure.message.includes('E2E_ARTISAN')).toBe(true);
+        expect(methods).toEqual([]);
     });
 
-    test('H-env-artisan: token pertama E2E_ARTISAN yang tidak ada menyebut E2E_ARTISAN dan command lengkap', async (): Promise<void> => {
+    test('H-env-artisan: invalid command errors identify E2E_ARTISAN safely', async (): Promise<void> => {
         await expect(
             assertEnvironment({
                 env: {
                     E2E_BASE_URL: 'http://example.test',
                     E2E_ARTISAN: 'definitely-not-a-command artisan',
                     E2E_ADMIN_EMAIL: 'admin@example.test',
-                    E2E_ADMIN_PASSWORD: 'secret',
+                    E2E_ADMIN_PASSWORD: 'not-a-real-password',
                 },
                 probeBaseUrl: false,
             })
-        ).rejects.toThrow(/E2E_ARTISAN.*definitely-not-a-command artisan/);
+        ).rejects.toThrow(/E2E_ARTISAN/);
     });
 
     test('kredensial kosong dua-duanya disebut bersama', async (): Promise<void> => {
@@ -307,7 +319,7 @@ test.describe('fixture lifecycle', () => {
 
 test.describe('ownership ledger', () => {
     test('H-ownership-window: marker ilegal hanya dihitung bila dibuat di dalam window run', (): void => {
-        const runId = '20000101T000008-abcdef';
+        const runId = process.env.E2E_RUN_ID ?? createRunId();
         const identity = createOwnerIdentity(runId, {
             project: 'chromium-desktop',
             specSlug: 'harness.spec',

@@ -75,23 +75,25 @@ class LogRedactionTest extends TestCase
         self::assertStringNotContainsString(str_repeat('a', 21), $result);
     }
 
-    public function test_exception_format_includes_class_and_redacted_message(): void
+    public function test_exception_summary_omits_free_text_that_may_contain_unrecognized_pii(): void
     {
-        $result = LogRedaction::exception(new RuntimeException('failed for applicant@example.com password=hunter2'));
+        $result = LogRedaction::exception(new RuntimeException(
+            'failed for Synthetic Person; nim=EP02-NIM-482915; phone=+62 812-3456-7890; applicant@example.com password=hunter2',
+        ));
 
-        self::assertStringStartsWith(RuntimeException::class.': ', $result);
-        self::assertStringContainsString('[email]', $result);
-        self::assertStringContainsString('password=[redacted]', $result);
+        self::assertSame(RuntimeException::class.': [message redacted]', $result);
+        self::assertStringNotContainsString('Synthetic Person', $result);
+        self::assertStringNotContainsString('EP02-NIM-482915', $result);
+        self::assertStringNotContainsString('+62 812-3456-7890', $result);
         self::assertStringNotContainsString('applicant@example.com', $result);
         self::assertStringNotContainsString('hunter2', $result);
     }
 
-    public function test_exception_is_truncated_to_the_limit(): void
+    public function test_exception_summary_respects_a_short_limit(): void
     {
-        $result = LogRedaction::exception(new RuntimeException(str_repeat('b', 600)), 40);
+        $result = LogRedaction::exception(new RuntimeException(str_repeat('b', 600)), 10);
 
-        self::assertLessThanOrEqual(43, mb_strlen($result));
-        self::assertStringEndsWith('...', $result);
-        self::assertStringStartsWith(RuntimeException::class.': ', $result);
+        self::assertSame('RuntimeExc...', $result);
+        self::assertLessThanOrEqual(13, mb_strlen($result));
     }
 }

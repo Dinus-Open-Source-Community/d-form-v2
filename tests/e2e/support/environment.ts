@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
 
-/** Nilai environment yang dipakai seluruh harness e2e, sudah diberi default aman. */
+/** Nilai environment eksplisit yang dipakai seluruh harness E2E tanpa fallback credential. */
 export interface IEnvironment {
     baseUrl: string;
     artisan: string;
     adminEmail: string;
     adminPassword: string;
-    /** Admin seeded dengan role `admin`; dipakai proof 403 non-super-admin. */
+    /** Admin seeded dengan role `admin`; wajib hanya untuk proof 403 non-super-admin. */
     nonAdminEmail: string;
     nonAdminPassword: string;
 }
@@ -17,6 +17,8 @@ export interface IEnvironmentOptions {
     probeBaseUrl?: boolean;
     baseUrlTimeoutMs?: number;
     fetchImpl?: typeof fetch;
+    /** Spec 403 membutuhkan akun `admin`; suite lain cukup kredensial admin saja. */
+    requireNonAdmin?: boolean;
 }
 
 /** Kegagalan environment yang selalu menyebut nama variabel penyebabnya. */
@@ -30,12 +32,6 @@ export class E2eEnvironmentError extends Error {
     }
 }
 
-const DEFAULT_BASE_URL = 'http://localhost:8000';
-const DEFAULT_ARTISAN = 'podman exec -i -w /app d_form_app php artisan';
-// Nilai seeded `UserSeeder`; role `admin`, bukan super-admin. Aman di repo karena
-// kredensial ini juga tertulis di seeder dan bukan secret produksi.
-const DEFAULT_NON_ADMIN_EMAIL = 'admin@gmail.com';
-const DEFAULT_NON_ADMIN_PASSWORD = 'admin password';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Timeout probe default > 2000 ms agar cold start `php -S`/Octane tidak dianggap mati. */
@@ -44,15 +40,15 @@ export const DEFAULT_BASE_URL_TIMEOUT_MS = 5000;
 const PROBE_ATTEMPTS = 2;
 const HEAD_METHOD_NOT_ALLOWED = 405;
 
-/** Baca konfigurasi environment tanpa validasi; aman dipanggil saat modul config dievaluasi. */
+/** Baca konfigurasi tanpa validasi; dipakai aman saat modul config dievaluasi. */
 export function readEnvironment(env: NodeJS.ProcessEnv = process.env): IEnvironment {
     return {
-        baseUrl: (env.E2E_BASE_URL ?? '').trim() || DEFAULT_BASE_URL,
-        artisan: (env.E2E_ARTISAN ?? '').trim() || DEFAULT_ARTISAN,
+        baseUrl: (env.E2E_BASE_URL ?? '').trim(),
+        artisan: (env.E2E_ARTISAN ?? '').trim(),
         adminEmail: (env.E2E_ADMIN_EMAIL ?? '').trim(),
         adminPassword: env.E2E_ADMIN_PASSWORD ?? '',
-        nonAdminEmail: (env.E2E_NON_ADMIN_EMAIL ?? '').trim() || DEFAULT_NON_ADMIN_EMAIL,
-        nonAdminPassword: env.E2E_NON_ADMIN_PASSWORD ?? DEFAULT_NON_ADMIN_PASSWORD,
+        nonAdminEmail: (env.E2E_NON_ADMIN_EMAIL ?? '').trim(),
+        nonAdminPassword: env.E2E_NON_ADMIN_PASSWORD ?? '',
     };
 }
 
@@ -100,18 +96,22 @@ export function splitCommandLine(command: string): string[] {
 
 /**
  * Validasi environment dengan urutan tetap lalu hentikan suite pada kegagalan pertama.
- * Urutan: `E2E_BASE_URL` → `E2E_ARTISAN` → `E2E_ADMIN_EMAIL` → `E2E_ADMIN_PASSWORD`
- * → `E2E_NON_ADMIN_EMAIL` → `E2E_NON_ADMIN_PASSWORD`.
+ * Urutan: `E2E_ARTISAN` → `E2E_BASE_URL` → `E2E_ADMIN_EMAIL` → `E2E_ADMIN_PASSWORD`.
+ * Kredensial `E2E_NON_ADMIN_*` hanya wajib saat `requireNonAdmin` (spec 403), tetapi
+ * nilai yang diisi tetap divalidasi formatnya agar typo tidak lolos diam-diam.
  */
 export async function assertEnvironment(options: IEnvironmentOptions = {}): Promise<IEnvironment> {
     const environment = readEnvironment(options.env);
 
-    await assertBaseUrl(environment.baseUrl, options);
     assertArtisanCommand(environment.artisan);
+    await assertBaseUrl(environment.baseUrl, options);
     assertAdminEmail(environment.adminEmail, environment.adminPassword);
     assertAdminPassword(environment.adminPassword);
-    assertNonAdminEmail(environment.nonAdminEmail, environment.nonAdminPassword);
-    assertNonAdminPassword(environment.nonAdminPassword);
+    assertNonAdminCredentials(
+        environment.nonAdminEmail,
+        environment.nonAdminPassword,
+        options.requireNonAdmin === true
+    );
 
     return environment;
 }
@@ -223,7 +223,7 @@ function assertArtisanCommand(artisan: string): void {
     if (probe.status !== 0) {
         throw new E2eEnvironmentError(
             'E2E_ARTISAN',
-            `first token "${executable}" is not an executable found on PATH (resolved command: "${artisan}").`
+            'must be an explicit command whose executable is available on PATH.'
         );
     }
 }
@@ -254,9 +254,25 @@ function assertAdminPassword(password: string): void {
 }
 
 /**
- * Validasi admin non-super-admin. Default-nya kredensial seeded, jadi yang benar-benar
- * diperiksa adalah override yang salah bentuk; pesan error menyebut variabelnya sendiri
- * agar tidak tertukar dengan `E2E_ADMIN_*`.
+ * Kredensial non-super-admin opsional untuk suite yang hanya memakai akun admin.
+ * Saat diwajibkan (spec 403) keduanya harus terisi; saat tidak, email yang diisi
+ * tetap harus berformat valid.
+ */
+function assertNonAdminCredentials(email: string, password: string, required: boolean): void {
+    if (required) {
+        assertNonAdminEmail(email, password);
+        assertNonAdminPassword(password);
+
+        return;
+    }
+
+    if (email !== '' && !EMAIL_PATTERN.test(email)) {
+        throw new E2eEnvironmentError('E2E_NON_ADMIN_EMAIL', `"${email}" is not a valid email address.`);
+    }
+}
+
+/**
+ * Validasi kredensial non-super-admin yang wajib diberikan eksplisit untuk spec 403.
  */
 function assertNonAdminEmail(email: string, password: string): void {
     if (email === '' && password === '') {

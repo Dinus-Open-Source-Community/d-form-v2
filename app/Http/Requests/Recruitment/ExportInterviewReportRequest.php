@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Recruitment;
 
+use App\Models\Recruitment\RecruitmentPeriod;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Routing\Route;
 
 /**
  * Filter export CSV interview satu periode; daftar kolom sah disimpan di sini
@@ -45,7 +47,15 @@ class ExportInterviewReportRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user()?->can('recruitment.interviews.schedule') ?? false;
+        $user = $this->user();
+        $route = $this->route();
+        $period = $route instanceof Route ? $route->parameter('period') : null;
+
+        return $user !== null
+            && $period instanceof RecruitmentPeriod
+            && $user->can('recruitment.interviews.schedule')
+            && $user->can('recruitment.applications.export')
+            && $user->can('view', $period);
     }
 
     /**

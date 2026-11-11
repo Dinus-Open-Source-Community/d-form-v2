@@ -52,12 +52,16 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['registration.email_send_delay_seconds' => 0]);
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
 
         $this->staff = User::factory()->create();
         $this->staff->assignRole('recruitment-staff');
+
+        // Aksi tulis periode (sendQr/sendGroupLink) membutuhkan permission, bukan ownership.
+        $this->staff->givePermissionTo('recruitment.periods.edit');
 
         $this->period = RecruitmentPeriod::factory()->create(['created_by' => $this->staff->id]);
         $this->otherPeriod = RecruitmentPeriod::factory()->create(['created_by' => $this->staff->id]);
@@ -90,13 +94,13 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
         );
     }
 
-    public function test_count_eligible_matches_bulk_service_dispatched(): void
+    public function test_be_p2_019_count_eligible_matches_bulk_service_dispatched(): void
     {
         Queue::fake();
         $matrix = $this->seedEligibilityMatrix();
 
         $expectedOrder = collect($matrix)
-            ->only(['eligible_first', 'eligible_queued', 'eligible_other_type', 'eligible_failed'])
+            ->only(['eligible_first', 'eligible_other_type', 'eligible_failed'])
             ->sortBy('submitted_at')
             ->pluck('id')
             ->values()
@@ -105,53 +109,62 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
         $before = $this->eligibilityQuery()->countEligible($this->period);
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
 
-        $this->assertSame(4, $before);
-        $this->assertSame($before, $result['dispatched']);
+        $this->assertSame(3, $before);
+        $this->assertSame($before, $result['scheduled']);
         $this->assertSame(
             $expectedOrder,
             Queue::pushed(SendRecruitmentNotificationJob::class)->pluck('applicationId')->values()->all(),
             'Recipients must stay ordered by submitted_at.',
         );
 
-        // Queued rows dari pengiriman ini belum Sent, jadi kandidat tetap eligible.
-        $this->assertSame(4, $this->eligibilityQuery()->countEligible($this->period));
+        // Semua kandidat yang baru dijadwalkan kini in-flight hingga job selesai.
+        $this->assertSame(0, $this->eligibilityQuery()->countEligible($this->period));
     }
 
-    public function test_count_already_sent_matches_bulk_service_skipped(): void
+    public function test_be_p2_019_count_in_flight_matches_bulk_service_skipped(): void
     {
         Queue::fake();
         $matrix = $this->seedEligibilityMatrix();
 
-        $before = $this->eligibilityQuery()->countAlreadySent($this->period);
+        $before = $this->eligibilityQuery()->countInFlight($this->period);
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
 
-        $this->assertSame(2, $before);
+        $this->assertSame(3, $before);
         $this->assertSame($before, $result['skipped']);
         $this->assertEqualsCanonicalizing(
-            [$matrix['already_sent']->id, $matrix['sent_then_queued']->id],
-            $this->eligibilityQuery()->alreadySent($this->period)->pluck('id')->all(),
-            'Pool kirim ulang = applicant yang pernah terkirim dan masih di base pool.',
+            [
+                $matrix['eligible_queued']->id,
+                $matrix['already_sent']->id,
+                $matrix['sent_then_queued']->id,
+                $matrix['eligible_first']->id,
+                $matrix['eligible_other_type']->id,
+                $matrix['eligible_failed']->id,
+            ],
+            $this->eligibilityQuery()->inFlight($this->period)->pluck('id')->all(),
+            'Queued and sent QR emails are in-flight and excluded from another default send.',
         );
+        $this->assertSame(2, $this->eligibilityQuery()->countAlreadySent($this->period));
 
-        // include_sent=true memakai base(): 4 kandidat + 2 pernah terkirim.
+        // Explicit resend keeps the sent-only applicant eligible but skips all queued QR rows.
         $resend = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period, true);
-        $this->assertSame(['dispatched' => 6, 'skipped' => 0], $resend);
+        $this->assertSame(['scheduled' => 1, 'skipped' => 0], $resend);
     }
 
-    public function test_counts_returns_literals_and_matches_component_queries(): void
+    public function test_be_p2_019_counts_keeps_queued_separate_from_sent(): void
     {
         $this->seedEligibilityMatrix();
 
         $query = $this->eligibilityQuery();
 
-        $this->assertSame(['eligible' => 4, 'sent' => 2], $query->counts($this->period));
-        // eligible = base - sent; base memuat 4 kandidat + 2 pernah terkirim.
+        $this->assertSame(['eligible' => 3, 'sent' => 2], $query->counts($this->period));
+        // eligible = base - in-flight; queued is in-flight but is not counted as sent.
         $this->assertSame(6, $query->base($this->period)->count());
+        $this->assertSame(3, $query->countInFlight($this->period));
         $this->assertSame(2, $query->countAlreadySent($this->period));
-        $this->assertSame(4, $query->countEligible($this->period));
+        $this->assertSame(3, $query->countEligible($this->period));
     }
 
-    public function test_period_show_props_match_query_class(): void
+    public function test_be_p2_019_period_show_props_match_query_class(): void
     {
         $this->seedEligibilityMatrix();
 
@@ -162,25 +175,39 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
             ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'peserta']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('qr_eligible_count', 4)
+                ->where('qr_eligible_count', 3)
                 ->where('qr_sent_count', 2));
+    }
+
+    public function test_mysql_query_plan_requires_explicit_opt_in_testing_environment_and_disposable_database(): void
+    {
+        $this->assertFalse(self::isSafeMysqlQueryPlanTarget('', 'testing', 'd_form_test'));
+        $this->assertFalse(self::isSafeMysqlQueryPlanTarget('1', 'local', 'd_form_test'));
+        $this->assertFalse(self::isSafeMysqlQueryPlanTarget('1', 'testing', 'd_form_app'));
+        $this->assertFalse(self::isSafeMysqlQueryPlanTarget('1', 'testing', 'd_form'));
+        $this->assertTrue(self::isSafeMysqlQueryPlanTarget('1', 'testing', 'd_form_test'));
     }
 
     /**
      * Penjaga performa: SQL asli dari `counts()` harus memakai index komposit
      * (covering) di kedua tabel. Read-only untuk data aplikasi; menulis baris
      * `email_logs` sementara bertanda unik untuk memberi optimizer dataset yang
-     * representatif, lalu menghapusnya di `finally`. Dilewati bila koneksi/index
-     * MySQL tidak tersedia (CI).
+     * representatif, lalu menghapusnya di `finally`. Hanya berjalan dengan opt-in
+     * eksplisit, `APP_ENV=testing`, dan database bernama disposable; kegagalan
+     * koneksi dilaporkan tanpa detail exception.
      */
-    public function test_count_query_uses_both_composite_indexes_on_mysql(): void
+    public function test_be_p2_019_count_query_uses_both_composite_indexes_on_mysql(): void
     {
-        // phpunit.xml memaksa DB_DATABASE=:memory: untuk koneksi default (SQLite);
-        // koneksi `mysql` tetap memakai nama database asli dari environment proses.
-        $database = getenv('DB_DATABASE');
+        $database = config('database.connections.mysql.database');
 
-        if (! is_string($database) || $database === '' || $database === ':memory:') {
-            $this->markTestSkipped('Nama database MySQL tidak tersedia di environment.');
+        if (! self::isSafeMysqlQueryPlanTarget(
+            getenv('RUN_MYSQL_QUERY_PLAN_TESTS'),
+            app()->environment(),
+            $database,
+        )) {
+            $this->markTestSkipped(
+                'MySQL query-plan test requires RUN_MYSQL_QUERY_PLAN_TESTS=1, APP_ENV=testing, and a disposable database name.',
+            );
         }
 
         $originalDatabase = config('database.connections.mysql.database');
@@ -193,8 +220,8 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
             try {
                 $connection = DB::connection('mysql');
                 $connection->getPdo();
-            } catch (\Throwable $exception) {
-                $this->markTestSkipped('Koneksi MySQL tidak tersedia: '.$exception->getMessage());
+            } catch (\Throwable) {
+                $this->markTestSkipped('MySQL query-plan connection is unavailable.');
             }
 
             foreach (['recruitment_applications', 'email_logs', 'recruitment_periods'] as $table) {
@@ -288,11 +315,19 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
             $existsQuery = collect($captured)->first(
                 static fn (array $query): bool => str_starts_with($query['sql'], 'select count(')
                     && str_contains($query['sql'], 'exists')
-                    && str_contains($query['sql'], 'email_logs'),
+                    && str_contains($query['sql'], 'email_logs')
+                    && ! str_contains(strtolower($query['sql']), ' in '),
+            );
+            $inFlightQuery = collect($captured)->first(
+                static fn (array $query): bool => str_starts_with($query['sql'], 'select count(')
+                    && str_contains($query['sql'], 'exists')
+                    && str_contains($query['sql'], 'email_logs')
+                    && str_contains(strtolower($query['sql']), ' in '),
             );
 
             $this->assertIsArray($baseQuery, 'Query base count tidak tertangkap dari counts().');
-            $this->assertIsArray($existsQuery, 'Query EXISTS count tidak tertangkap dari counts().');
+            $this->assertIsArray($existsQuery, 'Query EXISTS sent tidak tertangkap dari counts().');
+            $this->assertIsArray($inFlightQuery, 'Query EXISTS in-flight tidak tertangkap dari counts().');
 
             $explainStep = function (array $query, string $table) use ($connection): array {
                 $sql = $connection->getQueryGrammar()
@@ -305,6 +340,7 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
 
             $baseApplicationStep = $explainStep($baseQuery, 'recruitment_applications');
             $existsEmailLogStep = $explainStep($existsQuery, 'email_logs');
+            $inFlightEmailLogStep = $explainStep($inFlightQuery, 'email_logs');
 
             $this->assertSame(
                 'rec_apps_period_stage_cancelled_idx',
@@ -345,6 +381,26 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
                     'Plan semi-join tetap harus memakai index email_logs, bukan scan tanpa index.',
                 );
             }
+
+            $inFlightKey = $inFlightEmailLogStep['key'] ?? $inFlightEmailLogStep['Key'] ?? null;
+            $inFlightExtra = (string) ($inFlightEmailLogStep['Extra'] ?? $inFlightEmailLogStep['extra'] ?? '');
+            $inFlightType = (string) ($inFlightEmailLogStep['type'] ?? $inFlightEmailLogStep['Type'] ?? '');
+
+            if ($inFlightKey === 'email_logs_rec_app_type_status_idx') {
+                $this->assertStringContainsStringIgnoringCase(
+                    'using index',
+                    $inFlightExtra,
+                    'The in-flight status probe must be covering when the composite index is selected.',
+                );
+            } else {
+                $this->assertStringContainsStringIgnoringCase(
+                    'start temporary',
+                    $inFlightExtra,
+                    'The in-flight semi-join must be driven by an indexed email_logs lookup.',
+                );
+                $this->assertNotSame('ALL', strtoupper($inFlightType));
+                $this->assertNotNull($inFlightKey);
+            }
         } finally {
             if ($seededLogIds !== []) {
                 DB::connection('mysql')->table('email_logs')->whereIn('id', $seededLogIds)->delete();
@@ -353,6 +409,15 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
             config(['database.connections.mysql.database' => $originalDatabase]);
             DB::purge('mysql');
         }
+    }
+
+    private static function isSafeMysqlQueryPlanTarget(string|false $optIn, string $appEnvironment, mixed $database): bool
+    {
+        if ($optIn !== '1' || $appEnvironment !== 'testing' || ! is_string($database)) {
+            return false;
+        }
+
+        return preg_match('/\\A[a-z0-9]+(?:_[a-z0-9]+)*_(?:test|testing|e2e)\\z/i', $database) === 1;
     }
 
     /**
@@ -406,6 +471,57 @@ class RecruitmentQrEligibilityQueryTest extends TestCase
     /**
      * @param  array<string, mixed>  $overrides
      */
+
+    /**
+     * BE-P2-020: intent yang sudah `queued` harus dihitung in-flight di props halaman dan
+     * `qr_status_summary`, sehingga tombol Kirim QR tidak menawarkan pengiriman duplikat.
+     */
+    public function test_be_p2_020_queued_intents_are_in_flight_in_page_props_and_status_summary(): void
+    {
+        Queue::fake();
+        config(['recruitment.qr_send_rate_limit_per_minute' => 5]);
+
+        foreach (range(1, 3) as $_sequence) {
+            $this->applicant();
+        }
+
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'peserta']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('qr_eligible_count', 3)
+                ->where('qr_sent_count', 0)
+                ->where('qr_status_summary.queued', 0));
+
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.send-qr', $this->period))
+            ->assertRedirect();
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 3);
+        self::assertSame(['eligible' => 0, 'sent' => 0], $this->eligibilityQuery()->counts($this->period));
+
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.show', ['period' => $this->period->id, 'tab' => 'peserta']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('qr_eligible_count', 0)
+                ->where('qr_sent_count', 0)
+                ->where('qr_status_summary.queued', 3)
+                ->where('qr_status_summary.sent', 0)
+                ->where('qr_status_summary.failed', 0));
+
+        // POST kedua selama intent masih queued tidak membuat email log/job baru.
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.send-qr', $this->period))
+            ->assertRedirect()
+            ->assertSessionHas('message', 'QR dijadwalkan untuk 0 applicant tahap interview.');
+
+        self::assertSame(3, EmailLog::query()
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled)
+            ->count());
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 3);
+    }
+
     private function applicant(array $overrides = []): RecruitmentApplication
     {
         return RecruitmentApplication::factory()->create(array_merge([

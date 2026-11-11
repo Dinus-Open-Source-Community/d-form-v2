@@ -9,12 +9,13 @@ use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Mail\RegistrationRejectedMail;
 use App\Models\FormAnswer;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue
+class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue, ShouldBeEncrypted
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;

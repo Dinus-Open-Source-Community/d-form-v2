@@ -14,6 +14,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -158,6 +159,9 @@ class RecruitmentReportExportQueryTest extends TestCase
 
         self::assertSame($this->admin->id, $audit->actor_id);
         self::assertSame($this->period->id, $audit->recruitment_period_id);
+        self::assertSame('recruitment_export', $audit->entity_type);
+        // `entity_id` is a UUID column: the scope belongs in `new_values` only.
+        self::assertNull($audit->entity_id);
         self::assertSame([
             'scope' => 'applicants',
             'rows_generated' => 1,
@@ -168,6 +172,70 @@ class RecruitmentReportExportQueryTest extends TestCase
         self::assertStringNotContainsString($application->full_name, $auditPayload);
         self::assertStringNotContainsString($application->nim, $auditPayload);
         self::assertStringNotContainsString($application->personal_email, $auditPayload);
+    }
+
+    /**
+     * AUDIT-P2-019: kegagalan generator di tengah stream tetap meninggalkan tepat
+     * satu audit PII-free dengan jumlah baris yang benar-benar sudah ditulis.
+     */
+    public function test_export_applicants_audits_partial_output_when_the_row_generator_throws(): void
+    {
+        for ($index = 1; $index <= 501; $index++) {
+            $attributes = [
+                'registration_number' => sprintf('OPREC-2026-%05d', $index),
+                'nim' => sprintf('A11.2026.%05d', $index),
+            ];
+
+            if ($index === 1) {
+                $attributes['full_name'] = 'Sensitive Applicant Name';
+                $attributes['personal_email'] = 'sensitive.applicant@example.test';
+            }
+
+            $this->makeApplication(ApplicationStage::Submitted, ApplicationResult::Pending, null, $attributes);
+        }
+
+        // Halaman kedua (keyset `registration_number > ...`) gagal setelah 500 baris
+        // halaman pertama tertulis: mensimulasikan koneksi putus / error DB.
+        DB::listen(static function (QueryExecuted $query): void {
+            $sql = str_replace(['`', '"'], '', strtolower($query->sql));
+
+            if (str_contains($sql, 'from recruitment_applications') && str_contains($sql, 'registration_number >')) {
+                throw new RuntimeException('applicant stream exploded');
+            }
+        });
+
+        $bufferLevel = ob_get_level();
+
+        try {
+            $this->getExport('dashboard.recruitment.reports.export.applicants');
+            self::fail('Kegagalan generator harus diteruskan ke pemanggil.');
+        } catch (RuntimeException $exception) {
+            self::assertSame('applicant stream exploded', $exception->getMessage());
+        } finally {
+            // `streamedContent()` tidak menutup buffer-nya saat callback melempar.
+            while (ob_get_level() > $bufferLevel) {
+                ob_end_clean();
+            }
+        }
+
+        $audits = RecruitmentActivityLog::query()
+            ->where('action', 'export.generated')
+            ->where('entity_type', 'recruitment_export')
+            ->get();
+
+        self::assertCount(1, $audits);
+        self::assertSame($this->admin->id, $audits->first()->actor_id);
+        self::assertSame($this->period->id, $audits->first()->recruitment_period_id);
+        self::assertNull($audits->first()->entity_id);
+        self::assertSame([
+            'scope' => 'applicants',
+            'rows_generated' => 500,
+        ], $audits->first()->new_values);
+
+        $auditPayload = json_encode($audits->first()->getAttributes(), JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('Sensitive Applicant Name', $auditPayload);
+        self::assertStringNotContainsString('A11.2026.00001', $auditPayload);
+        self::assertStringNotContainsString('sensitive.applicant@example.test', $auditPayload);
     }
 
     public function test_export_applicants_memakai_keyset_tanpa_offset(): void
@@ -220,11 +288,14 @@ class RecruitmentReportExportQueryTest extends TestCase
         foreach ($applicantStatements as $statement) {
             $this->assertStringNotContainsString(' offset ', $statement['sql']);
             $this->assertStringContainsString('limit 500', $statement['sql']);
-            $this->assertStringContainsString('registration_number > ?', $statement['sql']);
             $this->assertStringContainsString('deleted_at is null', $statement['sql']);
         }
 
-        $this->assertSame('', $applicantStatements[0]['bindings'][1]);
+        // Halaman pertama tidak membawa predikat kursor (seam hanya menambahkannya
+        // mulai halaman kedua); halaman kedua memakai keyset `>` terhadap
+        // `registration_number` terakhir halaman pertama.
+        $this->assertStringNotContainsString('registration_number > ?', $applicantStatements[0]['sql']);
+        $this->assertStringContainsString('registration_number > ?', $applicantStatements[1]['sql']);
         $this->assertSame('OPREC-2026-00500', $applicantStatements[1]['bindings'][1]);
     }
 

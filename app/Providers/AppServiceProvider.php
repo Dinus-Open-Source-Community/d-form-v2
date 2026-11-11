@@ -5,18 +5,28 @@ namespace App\Providers;
 use App\Http\Middleware\StressBypassThrottle;
 use App\Services\Recruitment\RecruitmentTrackingSession;
 use App\Support\PendingRegistrationSession;
+use App\Support\RedactedDatabaseUuidFailedJobProvider;
+use App\Support\RedactedFailedJobProvider;
+use App\Support\RedactedPrunableFailedJobProvider;
 use App\Support\Security\ProductionSecurityPolicy;
 use App\Support\Security\SecurityEnvironment;
 use App\Support\Security\SessionCookieSettings;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application as ApplicationContract;
+use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Failed\DatabaseFailedJobProvider;
+use Illuminate\Queue\Failed\DatabaseUuidFailedJobProvider;
+use Illuminate\Queue\Failed\FailedJobProviderInterface;
+use Illuminate\Queue\Failed\PrunableFailedJobProvider;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,7 +37,44 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The binding resolves lazily, so this runs on the queue failure path rather than at boot.
+        // An unrecognised provider is kept instead of throwing: a broken failure handler would
+        // also hide the job error that is being recorded.
+        $this->app->extend('queue.failer', function (mixed $provider, ApplicationContract $app): mixed {
+            if (! $provider instanceof FailedJobProviderInterface) {
+                Log::warning('queue.failed_provider_not_redacted', [
+                    'provider' => is_object($provider) ? $provider::class : get_debug_type($provider),
+                ]);
+
+                return $provider;
+            }
+
+            // The resolved instance is replaced by an equivalent provider built from the same
+            // config keys, because the UUID adapter's insert cannot be redacted from outside.
+            if ($provider instanceof DatabaseUuidFailedJobProvider) {
+                return new RedactedDatabaseUuidFailedJobProvider(
+                    $app->make(ConnectionResolverInterface::class),
+                    (string) config('queue.failed.database'),
+                    (string) config('queue.failed.table'),
+                );
+            }
+
+            // The legacy driver never writes the NOT NULL failed_jobs.uuid column, so the insert
+            // would throw exactly when a job fails. Warning instead of throwing keeps that path
+            // recording, and surfaces the misconfiguration before the first incident.
+            if ($provider instanceof DatabaseFailedJobProvider) {
+                Log::warning('queue.failed_provider_legacy_database', [
+                    'provider' => $provider::class,
+                    'reason' => 'legacy database driver does not populate failed_jobs.uuid',
+                ]);
+            }
+
+            if ($provider instanceof PrunableFailedJobProvider) {
+                return new RedactedPrunableFailedJobProvider($provider);
+            }
+
+            return new RedactedFailedJobProvider($provider);
+        });
     }
 
     /**
@@ -35,6 +82,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Resolve the failer at deploy time when it is not the schema-compatible default, so a
+        // misconfigured failed-job driver warns during boot instead of on the first job failure.
+        if (config('queue.failed.driver') !== 'database-uuids') {
+            $this->app->make('queue.failer');
+        }
+
         $policy = new ProductionSecurityPolicy();
 
         $policy->assertProductionSafe(new SessionCookieSettings(
@@ -125,6 +178,30 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('event-search', function (Request $request) {
             return Limit::perMinute((int) config('events.search.rate_limit_per_minute', 60))
                 ->by($request->ip());
+        });
+
+        RateLimiter::for('recruitment-application-search', function (Request $request): Limit {
+            return Limit::perMinute((int) config('recruitment.application_search_rate_limit_per_minute', 60))
+                ->by($this->authenticatedUserOrIpKey($request));
+        });
+
+        RateLimiter::for('recruitment-export', function (Request $request): Limit {
+            return Limit::perMinute((int) config('recruitment.export_rate_limit_per_minute', 10))
+                ->by($this->authenticatedUserOrIpKey($request));
+        });
+
+        RateLimiter::for('broadcast-test', function (Request $request): Limit {
+            return Limit::perMinute((int) config('security.broadcast_test_rate_limit_per_minute', 5))
+                ->by($this->authenticatedUserOrIpKey($request));
+        });
+
+        RateLimiter::for('recruitment-send-qr', function (Request $request): Limit {
+            return Limit::perMinute((int) config('recruitment.qr_send_rate_limit_per_minute', 1))
+                ->by(sprintf(
+                    'recruitment-send-qr|%s|%s',
+                    $this->authenticatedUserOrIpKey($request),
+                    $this->routeParameterKey($request, 'period'),
+                ));
         });
 
         // Submit form dikunci per user + form: kuota satu peserta tidak memakan kuota
@@ -229,6 +306,16 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return strtolower(trim((string) $value));
+    }
+
+    /** Give each signed-in user a bucket and use IP only when no user is present. */
+    private function authenticatedUserOrIpKey(Request $request): string
+    {
+        $user = $request->user();
+
+        return $user !== null
+            ? 'user:'.$user->getAuthIdentifier()
+            : 'ip:'.($request->ip() ?? '');
     }
 
     /**

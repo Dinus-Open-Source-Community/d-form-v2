@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { APIRequestContext, Browser, BrowserContext, Download, Page } from '@playwright/test';
-import { request as playwrightRequest } from '@playwright/test';
+import type { Browser, BrowserContext, Download, Page } from '@playwright/test';
 import {
     cleanupOwnerFixture,
     createFormsFixture,
@@ -12,7 +11,11 @@ import {
 import { createOwnerIdentity, createRunId } from './support/marker';
 import { readEnvironment } from './support/environment';
 import { runArtisanCommand } from './support/artisan';
-import { sessionCookieName } from './support/authGuard';
+import {
+    assertBrowserContextAuthenticatedAs,
+    loginE2eUser,
+    type TPlaywrightStorageState,
+} from './support/authentication';
 
 /**
  * E2E BE-P2-009: export CSV pendaftaran event (`dashboard.events.exports.registrations-csv`).
@@ -97,6 +100,12 @@ interface IProbeResult {
     page_size: number;
     non_owner_admin_roles: string;
     member_roles: string;
+    event_owner_is_null: boolean;
+    non_owner_admin_owns_event: boolean;
+    non_owner_admin_is_super_admin: boolean;
+    member_is_super_admin: boolean;
+    member_can_list_events: boolean;
+    non_owner_admin_policy_allows_view: boolean;
 }
 
 /** Hasil probe fixture; satu sumber kebenaran untuk seluruh assertion. */
@@ -270,6 +279,8 @@ $ids = Illuminate\Support\Facades\DB::table('form_answers')
 $sample = App\Models\FormAnswer::query()->where('form_id', $form->id)->first();
 $nonOwnerAdmin = App\Models\User::withTrashed()->where('email', '${NON_OWNER_ADMIN_EMAIL}')->first();
 $member = App\Models\User::withTrashed()->where('email', '${MEMBER_EMAIL}')->first();
+$eventOwnerId = Illuminate\Support\Facades\DB::table('events')->where('id', $form->event_id)->value('created_by');
+$event = App\Models\Event::query()->find($form->event_id);
 echo json_encode([
     'rows' => count($ids),
     'event_id' => $form->event_id,
@@ -283,6 +294,14 @@ echo json_encode([
     'page_size' => (int) config('registration.event_export_page_size'),
     'non_owner_admin_roles' => $nonOwnerAdmin?->getRoleNames()->implode(',') ?? '',
     'member_roles' => $member?->getRoleNames()->implode(',') ?? '',
+    'event_owner_is_null' => $eventOwnerId === null,
+    'non_owner_admin_owns_event' => $eventOwnerId === $nonOwnerAdmin?->id,
+    'non_owner_admin_is_super_admin' => $nonOwnerAdmin?->hasRole('super-admin') ?? false,
+    'member_is_super_admin' => $member?->hasRole('super-admin') ?? false,
+    'member_can_list_events' => $member?->can('events.list') ?? false,
+    'non_owner_admin_policy_allows_view' => $nonOwnerAdmin !== null && $event !== null
+        ? Illuminate\Support\Facades\Gate::forUser($nonOwnerAdmin)->allows('view', $event)
+        : false,
 ]);
 `;
 
@@ -299,13 +318,32 @@ echo json_encode([
         probe.page_size <= 0 ||
         probe.event_id === undefined ||
         probe.form_id === undefined ||
-        probe.form_title === undefined
+        probe.form_title === undefined ||
+        probe.event_owner_is_null === undefined ||
+        probe.non_owner_admin_owns_event === undefined ||
+        probe.non_owner_admin_is_super_admin === undefined ||
+        probe.member_is_super_admin === undefined ||
+        probe.member_can_list_events === undefined ||
+        probe.non_owner_admin_policy_allows_view === undefined
     ) {
         throw new Error(`Fixture BE-P2-009 tidak sesuai rencana: ${output.slice(0, 500)}`);
     }
 
     if (probe.non_owner_admin_roles !== 'admin' || probe.member_roles !== 'member') {
         throw new Error(`User anomali fixture tidak memegang role yang diharapkan: ${output.slice(0, 500)}`);
+    }
+
+    if (
+        probe.event_owner_is_null ||
+        probe.non_owner_admin_owns_event ||
+        probe.non_owner_admin_is_super_admin ||
+        probe.member_is_super_admin ||
+        probe.member_can_list_events ||
+        probe.non_owner_admin_policy_allows_view
+    ) {
+        throw new Error(
+            'Fixture authorization harus memakai pemilik event berbeda dan aktor non-super-admin yang tidak memiliki events.list.'
+        );
     }
 
     return {
@@ -318,6 +356,12 @@ echo json_encode([
         page_size: probe.page_size,
         non_owner_admin_roles: probe.non_owner_admin_roles,
         member_roles: probe.member_roles,
+        event_owner_is_null: probe.event_owner_is_null,
+        non_owner_admin_owns_event: probe.non_owner_admin_owns_event,
+        non_owner_admin_is_super_admin: probe.non_owner_admin_is_super_admin,
+        member_is_super_admin: probe.member_is_super_admin,
+        member_can_list_events: probe.member_can_list_events,
+        non_owner_admin_policy_allows_view: probe.non_owner_admin_policy_allows_view,
     };
 }
 
@@ -338,7 +382,7 @@ echo 'ok';
 }
 
 /** Hasil login sekali di `beforeAll`, dipakai ulang semua test agar tidak kena throttle `auth-login`. */
-let adminState: Awaited<ReturnType<APIRequestContext['storageState']>> | null = null;
+let adminState: TPlaywrightStorageState | null = null;
 
 /** Context baru dengan sesi admin hasil `beforeAll`; test tidak perlu login ulang. */
 async function openAdminPage(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
@@ -360,43 +404,6 @@ async function openAdminPage(browser: Browser): Promise<{ context: BrowserContex
  * submit-nya bergantung pada round-trip yang bisa menggantung pada server tunggal ini.
  * `intended` tidak dibutuhkan: response redirect tidak diikuti (`maxRedirects: 0`).
  */
-async function loginState(
-    email: string,
-    password: string
-): Promise<Awaited<ReturnType<APIRequestContext['storageState']>>> {
-    const api = await playwrightRequest.newContext({ baseURL: readEnvironment().baseUrl });
-
-    try {
-        await api.get('/auth/login', { headers: { Accept: 'text/html' }, failOnStatusCode: false });
-
-        const cookies = (await api.storageState()).cookies;
-        const xsrfCookie = cookies.find((cookie) => cookie.name === 'XSRF-TOKEN');
-        const xsrfToken = xsrfCookie === undefined ? '' : decodeURIComponent(xsrfCookie.value);
-
-        const response = await api.post('/auth/login', {
-            form: { email, password },
-            headers: { 'X-XSRF-TOKEN': xsrfToken, Accept: 'text/html' },
-            maxRedirects: 0,
-            failOnStatusCode: false,
-        });
-
-        if (![200, 302].includes(response.status())) {
-            throw new Error(`Login API ${email} gagal: HTTP ${response.status()}`);
-        }
-
-        const state = await api.storageState();
-
-        if (!state.cookies.some((cookie) => cookie.name === sessionCookieName() && cookie.value !== '')) {
-            throw new Error(`Login API ${email} tidak menghasilkan cookie sesi.`);
-        }
-
-        return state;
-    } finally {
-        await api.dispose();
-    }
-}
-
-/** Buka halaman laporan, lalu unduh lewat anchor UI nyata "Registrations CSV". */
 async function downloadRegistrationsCsv(page: Page, eventId: string): Promise<ICsvDownload> {
     const response = await page.goto(laporanPath(eventId), { waitUntil: 'domcontentloaded' });
     expect(response?.status()).toBe(200);
@@ -436,7 +443,7 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
         fixture = probeFixture(form.formId);
 
         // Satu login admin untuk seluruh test: `auth-login` dibatasi 5 percobaan/menit per email+IP.
-        adminState = await loginState(env.adminEmail, env.adminPassword);
+        adminState = await loginE2eUser(env.adminEmail, env.adminPassword);
     });
 
     test.afterAll((): void => {
@@ -513,10 +520,12 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
         const env = readEnvironment();
         const context = await browser.newContext({
             baseURL: env.baseUrl,
-            storageState: await loginState(NON_OWNER_ADMIN_EMAIL, env.adminPassword),
+            storageState: await loginE2eUser(NON_OWNER_ADMIN_EMAIL, env.adminPassword),
         });
 
         try {
+            await assertBrowserContextAuthenticatedAs(context, NON_OWNER_ADMIN_EMAIL);
+
             const response = await context.request.get(exportPath(probe.event_id), { failOnStatusCode: false });
 
             expect(response.status()).toBe(403);
@@ -534,10 +543,12 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
         const env = readEnvironment();
         const context = await browser.newContext({
             baseURL: env.baseUrl,
-            storageState: await loginState(MEMBER_EMAIL, env.adminPassword),
+            storageState: await loginE2eUser(MEMBER_EMAIL, env.adminPassword),
         });
 
         try {
+            await assertBrowserContextAuthenticatedAs(context, MEMBER_EMAIL);
+
             const response = await context.request.get(exportPath(probe.event_id), {
                 failOnStatusCode: false,
                 maxRedirects: 0,

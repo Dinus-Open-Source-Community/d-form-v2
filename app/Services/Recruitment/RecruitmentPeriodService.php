@@ -155,8 +155,8 @@ final class RecruitmentPeriodService
             ] : null,
             'created_at' => $period->created_at?->toIso8601String(),
             'updated_at' => $period->updated_at?->toIso8601String(),
-            'can_edit' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.edit') || ($period->created_by !== null && (string) $period->created_by === (string) $user->id)),
-            'can_delete' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.delete')),
+            'can_edit' => $user !== null && $user->can('update', $period),
+            'can_delete' => $user !== null && $user->can('delete', $period),
         ];
     }
 }

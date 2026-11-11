@@ -181,13 +181,7 @@ final class ApplicationEditor
     private function snapshotApplication(RecruitmentApplication $application): array
     {
         return [
-            'full_name' => $application->full_name,
-            'nim' => $application->nim,
             'semester' => $application->semester,
-            'phone' => $application->phone,
-            'personal_email' => $application->personal_email,
-            'student_email' => $application->student_email,
-            'instagram_username' => $application->instagram_username,
             'primary_division_id' => $application->primary_division_id,
             'secondary_division_id' => $application->secondary_division_id,
             'stage' => $application->stage->value,

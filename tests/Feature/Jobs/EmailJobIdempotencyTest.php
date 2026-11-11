@@ -217,7 +217,7 @@ class EmailJobIdempotencyTest extends TestCase
 
         self::assertSame(EmailLogStatus::Failed, $log->status);
         self::assertStringNotContainsString('private-recipient@example.test', (string) $log->error_message);
-        self::assertStringContainsString('[email]', (string) $log->error_message);
+        self::assertStringContainsString('[message redacted]', (string) $log->error_message);
 
         Log::shouldHaveReceived('error')->once()->withArgs(
             fn (string $message, array $context = []): bool => ! str_contains(json_encode($context) ?: '', 'private-recipient@example.test')

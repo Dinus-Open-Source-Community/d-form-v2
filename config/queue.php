@@ -124,6 +124,7 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
+        'retention_hours' => max(1, (int) env('QUEUE_FAILED_RETENTION_HOURS', 168)),
     ],
 
 ];

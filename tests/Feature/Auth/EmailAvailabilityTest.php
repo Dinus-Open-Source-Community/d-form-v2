@@ -59,7 +59,7 @@ class EmailAvailabilityTest extends TestCase
             ->assertJsonValidationErrors('email');
     }
 
-    public function test_check_is_throttled_after_twenty_requests(): void
+    public function test_be_p1_007_check_is_throttled_after_twenty_requests(): void
     {
         for ($attempt = 1; $attempt <= 20; $attempt++) {
             $this->postJson(route('auth.email.availability'), [
@@ -70,6 +70,41 @@ class EmailAvailabilityTest extends TestCase
         $this->postJson(route('auth.email.availability'), ['email' => 'probe.21@example.test'])
             ->assertStatus(429)
             ->assertHeader('Retry-After');
+    }
+
+    public function test_be_p1_007_limit_is_scoped_to_the_client_address(): void
+    {
+        config(['auth_throttle.email_check.max_attempts' => 1]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.10'])
+            ->postJson(route('auth.email.availability'), ['email' => 'probe.one@example.test'])
+            ->assertOk();
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.10'])
+            ->postJson(route('auth.email.availability'), ['email' => 'probe.two@example.test'])
+            ->assertStatus(429);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.11'])
+            ->postJson(route('auth.email.availability'), ['email' => 'probe.three@example.test'])
+            ->assertOk();
+    }
+
+    public function test_be_p1_007_throttled_response_is_generic_and_does_not_echo_the_probed_address(): void
+    {
+        config(['auth_throttle.email_check.max_attempts' => 1]);
+
+        $this->postJson(route('auth.email.availability'), ['email' => 'first.probe@example.test'])
+            ->assertOk()
+            ->assertExactJson(['available' => true]);
+
+        $response = $this->postJson(route('auth.email.availability'), [
+            'email' => 'secret.enumeration.target@example.test',
+        ])
+            ->assertStatus(429)
+            ->assertHeader('Retry-After');
+
+        self::assertStringNotContainsString('secret.enumeration.target', (string) $response->getContent());
+        self::assertStringNotContainsString('secret.enumeration.target', (string) $response->headers->get('Retry-After'));
     }
 
     public function test_authenticated_user_is_redirected_by_guest_middleware(): void

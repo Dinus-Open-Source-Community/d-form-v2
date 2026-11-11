@@ -17,6 +17,11 @@ return [
     |
     */
 
+    'broadcast_test_rate_limit_per_minute' => max(
+        1,
+        (int) env('SECURITY_BROADCAST_TEST_RATE_LIMIT_PER_MINUTE', 5),
+    ),
+
     'headers' => [
         'x_content_type_options' => 'nosniff',
         // SAMEORIGIN, not DENY: same-origin PDF previews are embedded via iframe.

@@ -10,6 +10,8 @@ const VALID_ENV: NodeJS.ProcessEnv = {
     E2E_ARTISAN: 'sh',
     E2E_ADMIN_EMAIL: 'admin@example.test',
     E2E_ADMIN_PASSWORD: 'not-a-real-password',
+    E2E_NON_ADMIN_EMAIL: 'staff@example.test',
+    E2E_NON_ADMIN_PASSWORD: 'not-a-real-password',
 };
 
 type TProbeMethod = 'HEAD' | 'GET';
@@ -32,6 +34,93 @@ function createProbeFetch(respond: (method: TProbeMethod, call: number) => Promi
 }
 
 test.describe('H-environment-probe: HEAD dengan fallback GET dan retry', () => {
+    test('E2E_ARTISAN wajib eksplisit sebelum probe base URL', async (): Promise<void> => {
+        const methods: string[] = [];
+        let failure: unknown;
+
+        try {
+            await assertEnvironment({
+                env: { ...VALID_ENV, E2E_ARTISAN: '' },
+                fetchImpl: async (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+                    methods.push(init?.method ?? 'GET');
+
+                    return new Response(null, { status: 200 });
+                },
+            });
+        } catch (error: unknown) {
+            failure = error;
+        }
+
+        expect(failure instanceof Error).toBe(true);
+        expect(failure instanceof Error ? failure.message : '').toContain('E2E_ARTISAN');
+        expect(methods).toEqual([]);
+    });
+
+    test('E2E_BASE_URL must be explicit instead of targeting an implicit local port', async (): Promise<void> => {
+        const envWithoutBaseUrl = { ...VALID_ENV };
+        delete envWithoutBaseUrl.E2E_BASE_URL;
+
+        await expect(assertEnvironment({ env: envWithoutBaseUrl, probeBaseUrl: false })).rejects.toThrow(
+            /E2E_BASE_URL/
+        );
+    });
+
+    test('non-super-admin credentials must be explicit instead of using seeded defaults', async (): Promise<void> => {
+        const envWithoutNonAdmin = { ...VALID_ENV };
+        delete envWithoutNonAdmin.E2E_NON_ADMIN_EMAIL;
+        delete envWithoutNonAdmin.E2E_NON_ADMIN_PASSWORD;
+
+        await expect(
+            assertEnvironment({ env: envWithoutNonAdmin, probeBaseUrl: false, requireNonAdmin: true })
+        ).rejects.toThrow(/E2E_NON_ADMIN_EMAIL and E2E_NON_ADMIN_PASSWORD/);
+    });
+
+    test('non-super-admin credentials are optional when the suite only needs the admin account', async (): Promise<void> => {
+        const envWithoutNonAdmin = { ...VALID_ENV };
+        delete envWithoutNonAdmin.E2E_NON_ADMIN_EMAIL;
+        delete envWithoutNonAdmin.E2E_NON_ADMIN_PASSWORD;
+
+        const environment = await assertEnvironment({ env: envWithoutNonAdmin, probeBaseUrl: false });
+
+        expect(environment.nonAdminEmail).toBe('');
+        expect(environment.nonAdminPassword).toBe('');
+    });
+
+    test('provided non-super-admin email is still validated without requireNonAdmin', async (): Promise<void> => {
+        await expect(
+            assertEnvironment({
+                env: { ...VALID_ENV, E2E_NON_ADMIN_EMAIL: 'not-an-email' },
+                probeBaseUrl: false,
+            })
+        ).rejects.toThrow(/E2E_NON_ADMIN_EMAIL/);
+    });
+
+    test('invalid E2E_ARTISAN errors do not expose command text or arguments', async (): Promise<void> => {
+        let failure: unknown;
+
+        try {
+            await assertEnvironment({
+                env: {
+                    ...VALID_ENV,
+                    E2E_ARTISAN: 'definitely-not-a-command secret-token',
+                },
+                probeBaseUrl: false,
+            });
+        } catch (error: unknown) {
+            failure = error;
+        }
+
+        expect(failure instanceof Error).toBe(true);
+
+        if (!(failure instanceof Error)) {
+            return;
+        }
+
+        expect(failure.message.includes('E2E_ARTISAN')).toBe(true);
+        expect(failure.message.includes('definitely-not-a-command')).toBe(false);
+        expect(failure.message.includes('secret-token')).toBe(false);
+    });
+
     test('default timeout lebih panjang dari 2000 ms', (): void => {
         expect(DEFAULT_BASE_URL_TIMEOUT_MS).toBeGreaterThan(2000);
     });

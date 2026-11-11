@@ -38,6 +38,9 @@ class RecruitmentGroupLinkBroadcastTest extends TestCase
         $this->staff = User::factory()->create();
         $this->staff->assignRole('recruitment-staff');
 
+        // Aksi tulis periode (sendQr/sendGroupLink) membutuhkan permission, bukan ownership.
+        $this->staff->givePermissionTo('recruitment.periods.edit');
+
         $this->period = RecruitmentPeriod::factory()->create([
             'created_by' => $this->staff->id,
             'whatsapp_group_url' => self::WA_URL,

@@ -9,24 +9,32 @@ use App\Mail\Recruitment\RecruitmentApplicationConfirmationMail;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\RecruitmentEmailRenderer;
 use App\Services\Recruitment\RecruitmentTrackingPortalUrlBuilder;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
+class SendRecruitmentApplicationConfirmationJob implements ShouldQueue, ShouldBeEncrypted
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
     use TracksOutgoingEmail;
 
+    public ?int $trackingTokenGeneration = null;
+
     public function __construct(
         public string $applicationId,
         public string $trackingToken,
+        ?int $trackingTokenGeneration = null,
     ) {
+        $this->trackingTokenGeneration = $trackingTokenGeneration;
         $this->initializeEmailDelivery();
     }
 
+    /** Deliver the confirmation and activate only the latest resend generation. */
     public function handle(
         RecruitmentEmailRenderer $renderer,
         RecruitmentTrackingPortalUrlBuilder $portalUrlBuilder,
@@ -38,6 +46,17 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
         if ($application === null) {
             Log::warning('[SendRecruitmentApplicationConfirmationJob] Application not found.', [
                 'application_id' => $this->applicationId,
+            ]);
+
+            return;
+        }
+
+        if ($this->trackingTokenGeneration !== null
+            && (int) $application->tracking_token_generation !== $this->trackingTokenGeneration) {
+            Log::info('[SendRecruitmentApplicationConfirmationJob] Stale tracking resend skipped.', [
+                'application_id' => $application->id,
+                'requested_generation' => $this->trackingTokenGeneration,
+                'current_generation' => $application->tracking_token_generation,
             ]);
 
             return;
@@ -99,6 +118,25 @@ class SendRecruitmentApplicationConfirmationJob implements ShouldQueue
                 bodyText: $rendered['body_text'],
                 headline: 'Pendaftaran diterima',
             ));
+
+            // A late job must not replace the token requested by a newer resend.
+            if ($this->trackingTokenGeneration !== null) {
+                DB::transaction(function (): void {
+                    $currentApplication = RecruitmentApplication::query()
+                        ->whereKey($this->applicationId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($currentApplication === null
+                        || (int) $currentApplication->tracking_token_generation !== $this->trackingTokenGeneration) {
+                        return;
+                    }
+
+                    $currentApplication->forceFill([
+                        'tracking_token_hash' => Hash::make($this->trackingToken),
+                    ])->save();
+                });
+            }
 
             $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $exception) {

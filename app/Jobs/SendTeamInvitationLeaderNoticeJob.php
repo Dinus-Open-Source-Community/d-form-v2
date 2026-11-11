@@ -11,12 +11,13 @@ use App\Mail\RegistrationConfirmationMail;
 use App\Mail\RegistrationRejectedMail;
 use App\Models\FormAnswer;
 use App\Services\Registration\RegistrationAnswersSummarizer;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
+class SendTeamInvitationLeaderNoticeJob implements ShouldQueue, ShouldBeEncrypted
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;

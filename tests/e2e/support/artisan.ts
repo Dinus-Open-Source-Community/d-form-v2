@@ -18,7 +18,7 @@ function artisanFailure(args: string[], error: unknown): Error {
     });
 }
 
-/** Token perintah artisan dari `E2E_ARTISAN` (default podman exec ke container aplikasi). */
+/** Token perintah Artisan eksplisit dari `E2E_ARTISAN`; tidak ada fallback container. */
 export function artisanCommand(env: NodeJS.ProcessEnv = process.env): string[] {
     return splitCommandLine(readEnvironment(env).artisan);
 }

@@ -8,8 +8,11 @@ use App\Http\Requests\Recruitment\ExportInterviewReportRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
-use App\Support\CsvCellSanitizer;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\User;
+use App\Services\Recruitment\RecruitmentActivityLogger;
+use App\Support\Export\CsvStream;
+use App\Support\Export\KeysetPage;
+use App\Support\Export\KeysetPageIterator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentInterviewExportController extends Controller
@@ -54,8 +57,17 @@ class RecruitmentInterviewExportController extends Controller
         'membership_type' => 'Tipe Keanggotaan',
     ];
 
-    public function __invoke(ExportInterviewReportRequest $request, RecruitmentPeriod $period): StreamedResponse
-    {
+    public function __invoke(
+        ExportInterviewReportRequest $request,
+        RecruitmentPeriod $period,
+        RecruitmentActivityLogger $activityLogger,
+    ): StreamedResponse {
+        $actor = $request->user();
+
+        if (! ($actor instanceof User)) {
+            abort(403);
+        }
+
         $validated = $request->validated();
 
         $scope = (string) ($validated['scope'] ?? 'all');
@@ -69,93 +81,96 @@ class RecruitmentInterviewExportController extends Controller
 
         $fileName = 'interview-'.$period->slug.'-'.now()->format('Ymd').'.csv';
 
-        return response()->streamDownload(function () use ($period, $scope, $includeSecondary, $columns): void {
+        return response()->streamDownload(function () use (
+            $period,
+            $scope,
+            $includeSecondary,
+            $columns,
+            $activityLogger,
+            $actor,
+        ): void {
             $out = fopen('php://output', 'wb');
             if ($out === false) {
                 return;
             }
 
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), array_map(
-                fn (string $key): string => self::COLUMN_LABELS[$key],
-                $columns
-            )), ',', '"', '');
+            $auditScope = sprintf(
+                'interviews:%s:secondary=%s:columns=%d',
+                $scope,
+                $includeSecondary ? 'included' : 'excluded',
+                count($columns),
+            );
 
-            $this->streamRows($out, [
-                'period' => $period,
-                'scope' => $scope,
-                'includeSecondary' => $includeSecondary,
-                'columns' => $columns,
-            ]);
+            $rowsGenerated = 0;
 
-            fclose($out);
+            try {
+                CsvStream::write(
+                    $out,
+                    array_map(fn (string $key): string => self::COLUMN_LABELS[$key], $columns),
+                    $this->rows([
+                        'period' => $period,
+                        'scope' => $scope,
+                        'includeSecondary' => $includeSecondary,
+                        'columns' => $columns,
+                    ]),
+                    $rowsGenerated,
+                );
+            } finally {
+                fclose($out);
+
+                // Audit tetap jalan saat generator/DB gagal atau klien memutus
+                // stream: `$rowsGenerated` berisi baris yang benar-benar sudah ditulis.
+                $activityLogger->recordExport($actor, $period->id, $auditScope, $rowsGenerated);
+            }
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
-     * Menulis seluruh baris CSV per halaman aplikasi memakai keyset pagination.
+     * Baris CSV seluruh periode, dipaginasi keyset `registration_number`.
      *
-     * Offset chunking tidak dipakai karena query lama men-join
-     * `recruitment_applications` dan mengurutkan `registration_number`, sehingga
-     * OFFSET besar mematerialisasi ulang hasil terurut pada setiap chunk.
-     * `registration_number` unik global, jadi aman dipakai sebagai kursor tanpa
-     * tie-breaker dan urutan global tetap `(registration_number, interview_kind, id)`.
+     * Offset chunking tidak dipakai karena query ini menyaring satu periode lalu
+     * mengurutkan `registration_number`, sehingga OFFSET besar mematerialisasi ulang
+     * hasil terurut pada setiap chunk.
+     * `registration_number` unik global, jadi kolom yang sama dipakai sebagai sort
+     * key sekaligus tie-breaker dan urutan global tetap
+     * `(registration_number, interview_kind, id)`.
      *
-     * @param  resource  $out
+     * Interview diambil satu query per halaman aplikasi; kursor maju per aplikasi
+     * terakhir halaman, bukan per baris interview terakhir yang tertulis, sehingga
+     * halaman yang seluruh barisnya terfilter tetap maju.
+     *
      * @param  array{period: RecruitmentPeriod, scope: string, includeSecondary: bool, columns: list<string>}  $options
+     * @return \Generator<int, list<string>>
      */
-    private function streamRows($out, array $options): void
+    private function rows(array $options): \Generator
     {
         $pageSize = min(self::MAX_PAGE_SIZE, max(1, (int) config('recruitment.interview_export_page_size')));
-        $cursor = null;
 
-        do {
-            $applications = $this->applicationPage($options['period'], $cursor, $pageSize);
+        $applications = new KeysetPageIterator(
+            RecruitmentApplication::query()
+                ->select(['id', 'registration_number'])
+                ->where('recruitment_period_id', $options['period']->id)
+        );
 
-            if ($applications->isEmpty()) {
+        $page = new KeysetPage('registration_number', 'registration_number', pageSize: $pageSize);
+
+        foreach ($applications->pages($page) as $applicationPage) {
+            if ($applicationPage->isEmpty()) {
                 return;
             }
 
             $interviewsByApplication = $this->interviewsForPage(
-                $applications->modelKeys(),
+                $applicationPage->modelKeys(),
                 $options['scope'],
                 $options['includeSecondary']
             );
 
-            foreach ($applications as $application) {
-                // Kursor = aplikasi terakhir halaman, bukan baris terakhir yang
-                // tertulis: halaman yang seluruh barisnya terfilter tetap maju.
-                $cursor = (string) $application->registration_number;
-
+            foreach ($applicationPage as $application) {
                 foreach ($interviewsByApplication[$application->id] ?? [] as $interview) {
-                    fputcsv($out, self::row($interview, $options['columns']), ',', '"', '');
+                    yield self::row($interview, $options['columns']);
                 }
             }
-        } while ($applications->count() === $pageSize);
-    }
-
-    /**
-     * Satu halaman aplikasi pada periode, diurutkan dan dipaginasi dengan kursor.
-     *
-     * Hanya `id` dan `registration_number` yang dipilih agar index
-     * `(recruitment_period_id, registration_number)` dipakai sebagai covering index.
-     *
-     * @return Collection<int, RecruitmentApplication>
-     */
-    private function applicationPage(RecruitmentPeriod $period, ?string $cursor, int $pageSize): Collection
-    {
-        $query = RecruitmentApplication::query()
-            ->select(['id', 'registration_number'])
-            ->where('recruitment_period_id', $period->id);
-
-        if ($cursor !== null) {
-            $query->where('registration_number', '>', $cursor);
         }
-
-        return $query
-            ->orderBy('registration_number')
-            ->limit($pageSize)
-            ->get();
     }
 
     /**
@@ -255,7 +270,7 @@ class RecruitmentInterviewExportController extends Controller
         ];
 
         return array_map(
-            fn (string $key): string => CsvCellSanitizer::sanitize($values[$key] ?? ''),
+            fn (string $key): mixed => $values[$key] ?? '',
             $columns
         );
     }

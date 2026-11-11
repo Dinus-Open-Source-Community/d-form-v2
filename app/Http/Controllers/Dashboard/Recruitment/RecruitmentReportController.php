@@ -10,11 +10,30 @@ use App\Models\User;
 use App\Services\Recruitment\RecruitmentActivityLogger;
 use App\Services\Recruitment\RecruitmentReportService;
 use App\Support\CsvWriter;
+use App\Support\Export\CsvStream;
+use App\Support\Export\KeysetPage;
+use App\Support\Export\KeysetPageIterator;
 use Illuminate\Database\Query\JoinClause;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentReportController extends Controller
 {
+    /** Kontrak kolom roster pelamar; urutan tidak boleh berubah. */
+    private const APPLICANT_HEADER = [
+        'registration_number',
+        'full_name',
+        'nim',
+        'semester',
+        'primary_division',
+        'secondary_division',
+        'stage',
+        'result',
+        'submitted_at',
+    ];
+
+    /** Satu halaman roster; puncak memori dibatasi ke satu halaman model. */
+    private const APPLICANT_PAGE_SIZE = 500;
+
     public function __construct(
         private readonly RecruitmentReportService $reportService,
     ) {
@@ -68,89 +87,85 @@ class RecruitmentReportController extends Controller
 
         return response()->streamDownload(function () use ($resolvedPeriodId, $activityLogger, $actor): void {
             $out = fopen('php://output', 'wb');
-            if ($out === false) {
-                return;
-            }
-
-            fwrite($out, "\xEF\xBB\xBF");
-            CsvWriter::writeRow($out, [
-                'registration_number',
-                'full_name',
-                'nim',
-                'semester',
-                'primary_division',
-                'secondary_division',
-                'stage',
-                'result',
-                'submitted_at',
-            ]);
-
             $rowsGenerated = 0;
 
-            // Keyset loop (bukan OFFSET, bukan cursor()): PDO MySQL default tetap
-            // mem-buffer seluruh result set, sehingga cursor() pada 1.000.000 baris
-            // menambah ~116 MB; halaman 500 baris membatasi puncak memori ke satu
-            // halaman. `registration_number` unik, jadi `>` terhadap nilai terakhir
-            // tidak melewatkan atau menggandakan baris.
-            $pageSize = 500;
-            $lastRegistrationNumber = '';
-
-            while (true) {
-                $applications = RecruitmentApplication::query()
-                    ->leftJoin('recruitment_divisions as primary_division', function (JoinClause $join): void {
-                        $join->on('primary_division.id', '=', 'recruitment_applications.primary_division_id')
-                            ->whereNull('primary_division.deleted_at');
-                    })
-                    ->leftJoin('recruitment_divisions as secondary_division', function (JoinClause $join): void {
-                        $join->on('secondary_division.id', '=', 'recruitment_applications.secondary_division_id')
-                            ->whereNull('secondary_division.deleted_at');
-                    })
-                    ->where('recruitment_applications.recruitment_period_id', $resolvedPeriodId)
-                    ->where('recruitment_applications.registration_number', '>', $lastRegistrationNumber)
-                    ->orderBy('recruitment_applications.registration_number')
-                    ->limit($pageSize)
-                    ->select([
-                        'recruitment_applications.registration_number',
-                        'recruitment_applications.full_name',
-                        'recruitment_applications.nim',
-                        'recruitment_applications.semester',
-                        'primary_division.name as primary_division_name',
-                        'secondary_division.name as secondary_division_name',
-                        'recruitment_applications.stage',
-                        'recruitment_applications.result',
-                        'recruitment_applications.submitted_at',
-                    ])
-                    ->get();
-
-                if ($applications->isEmpty()) {
-                    break;
+            try {
+                if ($out === false) {
+                    return;
                 }
 
-                foreach ($applications as $application) {
-                    CsvWriter::writeRow($out, [
-                        $application->registration_number,
-                        $application->full_name,
-                        $application->nim,
-                        $application->semester,
-                        $application->primary_division_name ?? '',
-                        $application->secondary_division_name ?? '',
-                        $application->stage->value,
-                        $application->result->value,
-                        $application->submitted_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
-                    ]);
-                    $rowsGenerated++;
+                CsvStream::write(
+                    $out,
+                    self::APPLICANT_HEADER,
+                    $this->applicantRows($resolvedPeriodId),
+                    $rowsGenerated,
+                );
+            } finally {
+                if ($out !== false) {
+                    fclose($out);
                 }
 
-                $lastRegistrationNumber = (string) $applications->last()?->registration_number;
-
-                if ($applications->count() < $pageSize) {
-                    break;
-                }
+                // Audit tetap tercatat saat generator/DB gagal atau klien memutus
+                // stream: `$rowsGenerated` berisi baris yang benar-benar sudah ditulis.
+                $activityLogger->recordExport($actor, $resolvedPeriodId, 'applicants', $rowsGenerated);
             }
-
-            fclose($out);
-            $activityLogger->recordExport($actor, $resolvedPeriodId, 'applicants', $rowsGenerated);
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Baris roster pelamar per periode, keyset `registration_number` (unik global).
+     *
+     * Halaman 500 baris membatasi puncak memori ke satu halaman model: PDO MySQL
+     * default mem-buffer seluruh result set, jadi `cursor()` pada 1.000.000 baris
+     * menambah ~116 MB. Query hanya dijalankan per halaman, tanpa OFFSET.
+     *
+     * @return \Generator<int, list<string>>
+     */
+    private function applicantRows(string $periodId): \Generator
+    {
+        $applications = new KeysetPageIterator(
+            RecruitmentApplication::query()
+                ->leftJoin('recruitment_divisions as primary_division', function (JoinClause $join): void {
+                    $join->on('primary_division.id', '=', 'recruitment_applications.primary_division_id')
+                        ->whereNull('primary_division.deleted_at');
+                })
+                ->leftJoin('recruitment_divisions as secondary_division', function (JoinClause $join): void {
+                    $join->on('secondary_division.id', '=', 'recruitment_applications.secondary_division_id')
+                        ->whereNull('secondary_division.deleted_at');
+                })
+                ->where('recruitment_applications.recruitment_period_id', $periodId)
+                ->select([
+                    'recruitment_applications.registration_number',
+                    'recruitment_applications.full_name',
+                    'recruitment_applications.nim',
+                    'recruitment_applications.semester',
+                    'primary_division.name as primary_division_name',
+                    'secondary_division.name as secondary_division_name',
+                    'recruitment_applications.stage',
+                    'recruitment_applications.result',
+                    'recruitment_applications.submitted_at',
+                ])
+        );
+
+        $page = new KeysetPage(
+            'recruitment_applications.registration_number',
+            'recruitment_applications.registration_number',
+            pageSize: self::APPLICANT_PAGE_SIZE,
+        );
+
+        foreach ($applications->iterate($page) as $application) {
+            yield [
+                $application->registration_number,
+                $application->full_name,
+                $application->nim,
+                $application->semester,
+                $application->primary_division_name ?? '',
+                $application->secondary_division_name ?? '',
+                $application->stage->value,
+                $application->result->value,
+                $application->submitted_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
+            ];
+        }
     }
 
     /**

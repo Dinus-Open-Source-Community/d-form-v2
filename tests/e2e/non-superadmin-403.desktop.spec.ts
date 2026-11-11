@@ -1,6 +1,6 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { cleanupOwnerFixture, createOwnerFixture, expect, test } from './support/fixtures';
-import { readEnvironment } from './support/environment';
+import { E2eEnvironmentError, readEnvironment } from './support/environment';
 import { readInertiaPage, readXsrfToken } from './support/network';
 import { createOwnerIdentity, createRunId, type IOwnerIdentity } from './support/marker';
 
@@ -11,6 +11,8 @@ import { createOwnerIdentity, createRunId, type IOwnerIdentity } from './support
  * event ke `created_by` tanpa bypass super-admin.
  *
  * Kredensial dibaca lewat seam `readEnvironment()`; default-nya user seeded `UserSeeder`.
+ * `E2E_NON_ADMIN_*` sengaja tidak wajib untuk `global.setup.ts` (suite lain cukup akun
+ * admin), jadi spec ini yang menolak lebih awal dengan pesan variabel yang jelas.
  */
 const OWNED_EVENT_TEST_SLUG = 'admin-owned-event';
 
@@ -70,6 +72,19 @@ async function expectEventPageStatus(page: Page, eventId: string, expectedStatus
 test.describe('AUDIT-P1-015-F5 scoping event untuk admin non-super-admin', () => {
     // Project desktop memakai storageState super-admin; spec ini butuh sesi admin biasa.
     test.use({ storageState: { cookies: [], origins: [] } });
+
+    // Tanpa kredensial non-admin, login akan memakai string kosong dan 403 berikutnya
+    // tidak bermakna; gagalkan di hook dengan pesan yang menyebut kedua variabel.
+    test.beforeAll((): void => {
+        const environment = readEnvironment();
+
+        if (environment.nonAdminEmail === '' || environment.nonAdminPassword === '') {
+            throw new E2eEnvironmentError(
+                'E2E_NON_ADMIN_EMAIL and E2E_NON_ADMIN_PASSWORD',
+                'must both be set to the seeded non-super-admin (role `admin`) credentials for this spec.'
+            );
+        }
+    });
 
     test('403 pada event milik user lain dan 200 pada event sendiri', async ({ page, fixtureOwner }): Promise<void> => {
         test.setTimeout(90_000);

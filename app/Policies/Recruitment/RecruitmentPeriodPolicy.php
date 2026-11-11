@@ -14,7 +14,7 @@ class RecruitmentPeriodPolicy
 
     public function view(User $user, RecruitmentPeriod $period): bool
     {
-        if ($this->isOwner($user, $period) || $period->created_by === null) {
+        if ($this->isOwner($user, $period)) {
             return true;
         }
 
@@ -26,12 +26,13 @@ class RecruitmentPeriodPolicy
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.create');
     }
 
+    /**
+     * Aksi tulis periode (update/open/close/send-group-link/send-qr) selalu
+     * membutuhkan permission; kepemilikan tidak menggantikan permission yang
+     * sudah dicabut.
+     */
     public function update(User $user, RecruitmentPeriod $period): bool
     {
-        if ($this->isOwner($user, $period)) {
-            return true;
-        }
-
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.edit');
     }
 
@@ -62,7 +63,8 @@ class RecruitmentPeriodPolicy
 
     public function qrStatus(User $user, RecruitmentPeriod $period): bool
     {
-        return $this->view($user, $period);
+        return $this->isSuperAdmin($user)
+            || ($this->view($user, $period) && $user->can('recruitment.applications.list'));
     }
 
     private function isSuperAdmin(User $user): bool

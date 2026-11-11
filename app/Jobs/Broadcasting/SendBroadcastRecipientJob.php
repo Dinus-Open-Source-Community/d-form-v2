@@ -106,7 +106,7 @@ class SendBroadcastRecipientJob implements ShouldQueue
                 'job_id' => $this->job?->getJobId(),
                 'attempt' => $this->attempts(),
                 'exception_class' => $e::class,
-                'error' => LogRedaction::text($e->getMessage()),
+                'error' => LogRedaction::exception($e, 1000),
             ]);
 
             $recipient->forceFill([

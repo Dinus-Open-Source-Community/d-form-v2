@@ -18,11 +18,20 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\AttendanceService;
 use App\Enums\Recruitment\AttendanceMethod;
+use App\Exceptions\RedactedMailDeliveryException;
+use App\Jobs\Recruitment\SendRecruitmentApplicationConfirmationJob;
+use App\Services\Recruitment\RecruitmentEmailRenderer;
+use App\Services\Recruitment\RecruitmentTrackingAuthenticator;
+use App\Services\Recruitment\RecruitmentTrackingPortalUrlBuilder;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\TestCase;
 
 class RecruitmentEmailResendTest extends TestCase
@@ -80,6 +89,124 @@ class RecruitmentEmailResendTest extends TestCase
             'recruitment_application_id' => $this->application->id,
             'action' => 'email.resend',
         ]);
+    }
+
+    public function test_confirmation_resend_keeps_previous_token_when_queue_dispatch_fails(): void
+    {
+        $previousToken = 'OLDTOKEN';
+        $this->application->forceFill([
+            'tracking_token_hash' => Hash::make($previousToken),
+        ])->save();
+
+        Bus::shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new RuntimeException('Synthetic queue dispatch failure.'));
+
+        $this->withoutExceptionHandling();
+
+        try {
+            $this->actingAs($this->staff)
+                ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
+                    'type' => 'confirmation',
+                ]);
+            self::fail('A queue dispatch failure should be rethrown.');
+        } catch (RuntimeException $exception) {
+            self::assertSame('Synthetic queue dispatch failure.', $exception->getMessage());
+        }
+
+        $application = app(RecruitmentTrackingAuthenticator::class)->attempt(
+            $this->application->registration_number,
+            $previousToken,
+        );
+
+        $this->assertSame($this->application->id, $application?->id);
+    }
+
+    public function test_confirmation_resend_activates_new_token_only_after_delivery(): void
+    {
+        $previousToken = 'OLDTOKEN';
+        $this->application->forceFill([
+            'tracking_token_hash' => Hash::make($previousToken),
+        ])->save();
+
+        Queue::fake();
+        Mail::fake();
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
+                'type' => 'confirmation',
+            ])
+            ->assertRedirect();
+
+        $job = null;
+        Queue::assertPushed(SendRecruitmentApplicationConfirmationJob::class, function (SendRecruitmentApplicationConfirmationJob $queuedJob) use (&$job): bool {
+            $job = $queuedJob;
+
+            return $queuedJob->applicationId === $this->application->id;
+        });
+
+        if (! $job instanceof SendRecruitmentApplicationConfirmationJob) {
+            self::fail('Expected a confirmation resend job to be queued.');
+        }
+
+        $authenticator = app(RecruitmentTrackingAuthenticator::class);
+        $this->assertNotNull($authenticator->attempt($this->application->registration_number, $previousToken));
+        $this->assertNull($authenticator->attempt($this->application->registration_number, $job->trackingToken));
+
+        $job->handle(
+            app(RecruitmentEmailRenderer::class),
+            app(RecruitmentTrackingPortalUrlBuilder::class),
+        );
+
+        $this->assertNull($authenticator->attempt($this->application->registration_number, $previousToken));
+        $activatedApplication = $authenticator->attempt(
+            $this->application->registration_number,
+            $job->trackingToken,
+        );
+        $this->assertSame($this->application->id, $activatedApplication?->id);
+    }
+
+    public function test_confirmation_resend_keeps_previous_token_when_email_delivery_fails(): void
+    {
+        $previousToken = 'OLDTOKEN';
+        $this->application->forceFill([
+            'tracking_token_hash' => Hash::make($previousToken),
+        ])->save();
+
+        Queue::fake();
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.applications.resend-email', $this->application), [
+                'type' => 'confirmation',
+            ])
+            ->assertRedirect();
+
+        $queuedJob = null;
+        Queue::assertPushed(SendRecruitmentApplicationConfirmationJob::class, function (SendRecruitmentApplicationConfirmationJob $job) use (&$queuedJob): bool {
+            $queuedJob = $job;
+
+            return $job->applicationId === $this->application->id;
+        });
+
+        if (! $queuedJob instanceof SendRecruitmentApplicationConfirmationJob) {
+            self::fail('Expected a confirmation resend job to be queued.');
+        }
+
+        Mail::shouldReceive('to->send')
+            ->once()
+            ->andThrow(new RuntimeException('Synthetic mail transport failure.'));
+
+        try {
+            $queuedJob->handle(
+                app(RecruitmentEmailRenderer::class),
+                app(RecruitmentTrackingPortalUrlBuilder::class),
+            );
+            self::fail('A mail transport failure should be rethrown.');
+        } catch (RedactedMailDeliveryException) {
+            // The queue may retry, but the old tracking credential remains active.
+        }
+
+        $authenticator = app(RecruitmentTrackingAuthenticator::class);
+        $this->assertNotNull($authenticator->attempt($this->application->registration_number, $previousToken));
+        $this->assertNull($authenticator->attempt($this->application->registration_number, $queuedJob->trackingToken));
     }
 
     public function test_resend_correction_by_owner_returns_redirect_and_logs(): void

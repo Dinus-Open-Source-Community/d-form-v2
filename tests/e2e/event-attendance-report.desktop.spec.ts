@@ -10,7 +10,7 @@ import {
     type IFixtureOwner,
 } from './support/fixtures';
 import type { IOwnerIdentity } from './support/marker';
-import { readEnvironment } from './support/environment';
+import { E2eEnvironmentError, readEnvironment } from './support/environment';
 import { assertBrowserContextAuthenticatedAs, loginE2eUser } from './support/authentication';
 
 /**
@@ -108,6 +108,20 @@ async function expectReportShell(page: Page): Promise<void> {
 }
 
 test.describe('BE-P2-006 laporan kehadiran event', () => {
+    // Satu test memakai akun admin non-super-admin; `global.setup.ts` sengaja tidak
+    // mewajibkan `E2E_NON_ADMIN_*` untuk suite yang hanya butuh akun admin, jadi
+    // spec ini yang gagal cepat dengan pesan variabel yang jelas.
+    test.beforeAll((): void => {
+        const environment = readEnvironment();
+
+        if (environment.nonAdminEmail === '' || environment.nonAdminPassword === '') {
+            throw new E2eEnvironmentError(
+                'E2E_NON_ADMIN_EMAIL and E2E_NON_ADMIN_PASSWORD',
+                'must both be set to the seeded non-super-admin (role `admin`) credentials for this spec.'
+            );
+        }
+    });
+
     test('happy path: halaman 1 berisi 20 baris, halaman 2 berisi 5 baris, total 25', async ({ page }) => {
         test.setTimeout(120_000);
 

@@ -151,6 +151,7 @@ final class ScreeningService
                     'reason' => $reason->value,
                     'sections' => $sections,
                     'notes' => $notes,
+                    'notes_present' => $notes !== null && trim($notes) !== '',
                 ],
                 entityType: 'recruitment_screening',
                 entityId: $screening->id,

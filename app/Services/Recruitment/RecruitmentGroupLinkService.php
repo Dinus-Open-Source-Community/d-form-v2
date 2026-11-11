@@ -48,7 +48,6 @@ final class RecruitmentGroupLinkService
                 application: $application,
                 newValues: [
                     'template' => 'group_link',
-                    'recipient_email' => (string) $application->personal_email,
                 ],
             );
         }

@@ -16,7 +16,8 @@ import { isTinkerRecord, parseTinkerJsonRecord, requireTinkerString } from './su
  * 3. Detail applicant gagal 500 → panel tetap terbuka dengan tombol "Coba lagi",
  *    lalu memuat detail setelah route pulih.
  * Ditambah kontrak input anomali scan: body kosong tetap 422 dan response tidak
- * membocorkan exception, sedangkan `since` sampah tidak membuat feed crash.
+ * membocorkan exception, `since` sampah ditolak 422 tanpa memutar ulang feed,
+ * dan `limit`/`kind`/`format` tidak valid juga 4xx.
  *
  * Fixture dibuat lewat tinker dengan marker unik per test dan selalu dihapus lagi,
  * jadi tidak ada ketergantungan pada data stress/produksi.
@@ -348,18 +349,31 @@ test.describe('FE-AUDIT-006 umpan balik kegagalan', () => {
         expectPublicSafe(invalidScan.bodyText, 'respons scan anomali');
 
         const feedResponse = await page.request.get('/admin/scan/feed?since=bukan-timestamp');
-        expect(feedResponse.status(), 'since sampah harus tetap 200').toBe(200);
+        expect(feedResponse.status(), 'since sampah harus ditolak 422, bukan memutar ulang feed').toBe(422);
+        expectPublicSafe(await feedResponse.text(), 'respons feed anomali');
 
-        const feedText = await feedResponse.text();
+        const limitResponse = await page.request.get('/admin/scan/feed?limit=abc');
+        expect(limitResponse.status(), 'limit non-numerik harus ditolak 422').toBe(422);
+
+        const clampedLimit = await page.request.get('/admin/scan/feed?limit=999999');
+        expect(clampedLimit.status(), 'limit besar dipotong, bukan error').toBe(200);
+
+        const feedResponseValid = await page.request.get('/admin/scan/feed');
+        expect(feedResponseValid.status()).toBe(200);
+
+        const feedText = await feedResponseValid.text();
         const feedBody = parseTinkerJsonRecord(feedText, 'respons feed anomali');
 
         expect(Array.isArray(feedBody['rows']), 'feed harus mengembalikan rows array').toBe(true);
-        // Cursor = timestamp baris terakhir; `null` sah saat tidak ada baris baru.
+        // Cursor opaque baris terakhir; `null` sah saat tidak ada baris baru.
         const cursor: unknown = feedBody['cursor'];
         expect(cursor === null || typeof cursor === 'string', 'feed harus mengembalikan cursor string atau null').toBe(
             true
         );
         expectPublicSafe(feedText, 'respons feed anomali');
+
+        const exportResponse = await page.request.get('/admin/scan/export?kind=bogus&target=x&format=pdf');
+        expect(exportResponse.status(), 'kind/format tidak valid harus 422').toBe(422);
     });
 });
 

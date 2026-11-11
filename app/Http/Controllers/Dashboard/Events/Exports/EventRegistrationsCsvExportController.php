@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\FormAnswer;
 use App\Services\Registration\RegistrationAnswersSummarizer;
-use App\Support\CsvCellSanitizer;
+use App\Support\EventExportAuditLogger;
+use App\Support\Export\CsvStream;
+use App\Support\Export\KeysetMergeIterator;
+use App\Support\Export\KeysetPage;
+use App\Support\Export\KeysetPageIterator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventRegistrationsCsvExportController extends Controller
@@ -19,6 +22,23 @@ class EventRegistrationsCsvExportController extends Controller
      */
     private const MAX_PAGE_SIZE = 2000;
 
+    /** Kontrak kolom CSV export registrasi event; urutan tidak boleh berubah. */
+    private const COLUMN_HEADER = [
+        'submission_id',
+        'form_id',
+        'form_title',
+        'user_name',
+        'user_email',
+        'registration_code',
+        'review_status',
+        'group_token',
+        'registration_role',
+        'member_confirmation_status',
+        'leader_email',
+        'submitted_at',
+        'answers_summary',
+    ];
+
     public function __invoke(Event $event): StreamedResponse
     {
         $this->authorize('view', $event);
@@ -26,166 +46,125 @@ class EventRegistrationsCsvExportController extends Controller
         $summarizer = app(RegistrationAnswersSummarizer::class);
 
         $fileName = 'registrations-event-'.$event->id.'.csv';
+        $actorId = auth()->id();
+        $auditLogger = app(EventExportAuditLogger::class);
 
-        return response()->streamDownload(function () use ($event, $summarizer): void {
+        return response()->streamDownload(function () use ($event, $summarizer, $actorId, $auditLogger): void {
             $out = fopen('php://output', 'wb');
             if ($out === false) {
                 return;
             }
 
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, [
-                'submission_id',
-                'form_id',
-                'form_title',
-                'user_name',
-                'user_email',
-                'registration_code',
-                'review_status',
-                'group_token',
-                'registration_role',
-                'member_confirmation_status',
-                'leader_email',
-                'submitted_at',
-                'answers_summary',
-            ], ',', '"', '');
+            $rowCount = 0;
 
-            $this->streamRows($out, $event, $summarizer);
+            try {
+                CsvStream::write($out, self::COLUMN_HEADER, $this->rows($event, $summarizer), $rowCount);
+            } finally {
+                fclose($out);
 
-            fclose($out);
+                // Audit tetap jalan saat generator/DB gagal atau klien memutus
+                // stream: `$rowCount` berisi baris data yang benar-benar sudah ditulis.
+                $auditLogger->record($actorId, (string) $event->getKey(), 'registrations', $rowCount);
+            }
         }, $fileName, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
     /**
-     * Menulis seluruh baris CSV per halaman memakai keyset pagination
-     * `(form_answers.created_at DESC, form_answers.id DESC)`.
+     * Seluruh baris CSV berurutan `(created_at DESC, id DESC)`.
      *
-     * `created_at` hanya presisi detik dan tidak unik: tie lintas batas halaman
-     * membuat offset melewatkan atau menulis ulang baris, dan OFFSET besar
-     * mematerialisasi ulang hasil terurut pada setiap halaman. `id` (uuid) unik,
-     * jadi pasangan `(created_at, id)` deterministik. Tanpa filter snapshot:
-     * karena urutannya DESC, baris baru selalu berada sebelum kursor sehingga
-     * tidak pernah tertulis dua kali.
+     * `created_at` hanya presisi detik dan tidak unik, jadi `id` menjadi
+     * tie-breaker: keyset `(created_at, id)` deterministik tanpa OFFSET. Tanpa
+     * filter snapshot: karena urutannya DESC, baris baru selalu berada sebelum
+     * kursor sehingga tidak pernah tertulis dua kali.
      *
-     * Precondition: `created_at` tidak diubah selama export, dan form tidak
-     * di-soft-delete setelah kursor; baris yang memenuhi kondisi itu akan terlewat.
-     * Baris `created_at` NULL (kolom nullable) ditulis oleh tail pass terpisah
-     * karena NULL selalu berada di ekor urutan DESC dan tidak bisa dijangkau kursor.
+     * Snapshot yang diambil adalah daftar form + judulnya, sekali di awal export.
+     * Baris jawaban tetap dibaca live, jadi: form yang di-soft-delete setelah
+     * export mulai tetap ikut (tidak memotong stream di tengah), dan form yang
+     * ditambahkan setelah export mulai tidak ikut sama sekali — bukan muncul
+     * dengan `form_title` kosong. Baris `created_at` NULL berada di luar total
+     * order sehingga ditulis oleh tail pass `id DESC`.
      *
-     * @param  resource  $out
+     * @return \Generator<int, list<string>>
      */
-    private function streamRows($out, Event $event, RegistrationAnswersSummarizer $summarizer): void
+    private function rows(Event $event, RegistrationAnswersSummarizer $summarizer): \Generator
     {
         $pageSize = self::resolvePageSize();
-        $cursor = null;
 
-        do {
-            $answers = $this->answerPage($event, $cursor, $pageSize);
+        // Satu query kecil per export (bukan per halaman): id form mempartisi
+        // stream keyset, judulnya dipakai untuk kolom CSV tanpa join per halaman.
+        /** @var array<string, string|null> $formTitles */
+        $formTitles = $event->forms()->pluck('title', 'id')->all();
+        $formIds = array_keys($formTitles);
 
-            foreach ($answers as $answer) {
-                $this->writeRow($out, $answer, $summarizer);
-            }
-
-            $last = $answers->last();
-            if ($last instanceof FormAnswer) {
-                $cursor = [
-                    (string) $last->getRawOriginal('created_at'),
-                    (string) $last->getKey(),
-                ];
-            }
-        } while ($answers->count() === $pageSize);
-
-        $this->streamRowsWithoutCreatedAt($out, $event, $summarizer, $pageSize);
-    }
-
-    /**
-     * Tail pass untuk baris ber-`created_at` NULL, dipaginasi keyset `id DESC`.
-     *
-     * @param  resource  $out
-     */
-    private function streamRowsWithoutCreatedAt(
-        $out,
-        Event $event,
-        RegistrationAnswersSummarizer $summarizer,
-        int $pageSize,
-    ): void {
-        $cursorId = null;
-
-        do {
-            $answers = $this->answerPageWithoutCreatedAt($event, $cursorId, $pageSize);
-
-            foreach ($answers as $answer) {
-                $this->writeRow($out, $answer, $summarizer);
-            }
-
-            $last = $answers->last();
-            if ($last instanceof FormAnswer) {
-                $cursorId = (string) $last->getKey();
-            }
-        } while ($answers->count() === $pageSize);
-    }
-
-    /**
-     * Satu halaman submisi event, diurutkan `(created_at DESC, id DESC)` dengan kursor.
-     *
-     * @param  array{0: string, 1: string}|null  $cursor
-     * @return Collection<int, FormAnswer>
-     */
-    private function answerPage(Event $event, ?array $cursor, int $pageSize): Collection
-    {
-        $query = $this->baseAnswerQuery($event)->whereNotNull('form_answers.created_at');
-
-        if ($cursor !== null) {
-            [$cursorCreatedAt, $cursorId] = $cursor;
-
-            $query->where(function (Builder $boundary) use ($cursorCreatedAt, $cursorId): void {
-                $boundary->where('form_answers.created_at', '<', $cursorCreatedAt)
-                    ->orWhere(function (Builder $tie) use ($cursorCreatedAt, $cursorId): void {
-                        $tie->where('form_answers.created_at', $cursorCreatedAt)
-                            ->where('form_answers.id', '<', $cursorId);
-                    });
-            });
+        foreach ($this->datedAnswers($formIds, $pageSize) as $answer) {
+            yield $this->row($answer, $formTitles, $summarizer);
         }
 
-        return $query
-            ->orderByDesc('form_answers.created_at')
-            ->orderByDesc('form_answers.id')
-            ->limit($pageSize)
-            ->get();
+        $undated = new KeysetPageIterator(
+            $this->answerQuery($formIds)->whereNull('form_answers.created_at')
+        );
+
+        $undatedPage = new KeysetPage('form_answers.id', 'form_answers.id', descending: true, pageSize: $pageSize);
+
+        foreach ($undated->iterate($undatedPage) as $answer) {
+            yield $this->row($answer, $formTitles, $summarizer);
+        }
     }
 
     /**
-     * @return Collection<int, FormAnswer>
+     * Baris ber-`created_at` non-NULL: satu stream keyset per form, digabung
+     * k-way supaya urutan global `(created_at DESC, id DESC)` tetap terjaga.
+     *
+     * Satu stream per form wajib: `WHERE form_id IN (...)` membuat MySQL 9
+     * meninggalkan index `form_answers (form_id, created_at, id)` dan memindai
+     * `form_answers_created_at_index` (±26 s untuk 151k baris), sedangkan stream
+     * per form membaca index komposit sebagai `Backward index scan` tanpa sort.
+     *
+     * Ukuran halaman per stream dibagi jumlah stream supaya puncak memori tetap
+     * sebanding dengan satu halaman export (tiap stream menyimpan satu page model).
+     *
+     * @param  list<string>  $formIds
+     * @return \Generator<int, FormAnswer>
      */
-    private function answerPageWithoutCreatedAt(Event $event, ?string $cursorId, int $pageSize): Collection
+    private function datedAnswers(array $formIds, int $pageSize): \Generator
     {
-        $query = $this->baseAnswerQuery($event)->whereNull('form_answers.created_at');
+        $streams = [];
 
-        if ($cursorId !== null) {
-            $query->where('form_answers.id', '<', $cursorId);
+        foreach ($formIds as $formId) {
+            $streams[] = new KeysetPageIterator(
+                $this->answerQuery([$formId])->whereNotNull('form_answers.created_at')
+            );
         }
 
-        return $query
-            ->orderByDesc('form_answers.id')
-            ->limit($pageSize)
-            ->get();
+        $perStreamPageSize = max(1, (int) ceil($pageSize / max(1, count($streams))));
+
+        $page = new KeysetPage(
+            'form_answers.created_at',
+            'form_answers.id',
+            descending: true,
+            pageSize: $perStreamPageSize,
+        );
+
+        foreach ((new KeysetMergeIterator($page, $streams))->iterate() as $answer) {
+            yield $answer;
+        }
     }
 
     /**
-     * Query dasar kedua pass; `forms` sudah di-join sehingga judulnya diambil sebagai
-     * kolom agregat (bukan eager load tambahan satu query per halaman).
+     * Query dasar semua pass: hanya `form_id` (tanpa join `forms`), karena judul
+     * diambil dari snapshot form event dan `forms.deleted_at` sudah difilter saat
+     * snapshot dibentuk (`SoftDeletes` pada model `Form`).
+     *
+     * @param  list<string>  $formIds
      */
-    private function baseAnswerQuery(Event $event): Builder
+    private function answerQuery(array $formIds): Builder
     {
         return FormAnswer::query()
-            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
             ->select('form_answers.*')
-            ->addSelect('forms.title as form_title')
             ->with(['user:id,name,email', 'teamLeaderSubmission.user:id,email'])
-            ->whereNull('forms.deleted_at')
-            ->where('forms.event_id', $event->id);
+            ->whereIn('form_id', $formIds);
     }
 
     private static function resolvePageSize(): int
@@ -194,9 +173,10 @@ class EventRegistrationsCsvExportController extends Controller
     }
 
     /**
-     * @param  resource  $out
+     * @param  array<string, string|null>  $formTitles
+     * @return list<string>
      */
-    private function writeRow($out, FormAnswer $answer, RegistrationAnswersSummarizer $summarizer): void
+    private function row(FormAnswer $answer, array $formTitles, RegistrationAnswersSummarizer $summarizer): array
     {
         $user = $answer->user;
         $leaderEmail = $answer->teamLeaderSubmission?->user?->email ?? '';
@@ -208,10 +188,10 @@ class EventRegistrationsCsvExportController extends Controller
 
         $submittedAt = $answer->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '';
 
-        fputcsv($out, array_map(CsvCellSanitizer::sanitize(...), [
+        return [
             $answer->id,
             $answer->form_id,
-            (string) ($answer->form_title ?? ''),
+            (string) ($formTitles[(string) $answer->form_id] ?? ''),
             $user?->name ?? '',
             $user?->email ?? '',
             (string) ($answer->registration_code ?? ''),
@@ -222,6 +202,6 @@ class EventRegistrationsCsvExportController extends Controller
             $leaderEmail,
             $submittedAt,
             implode(' | ', $summaryParts),
-        ]), ',', '"', '');
+        ];
     }
 }

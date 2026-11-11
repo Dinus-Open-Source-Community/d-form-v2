@@ -5,22 +5,28 @@ namespace Tests\Feature\Scan;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
+use App\Enums\Recruitment\AttendanceMethod;
 use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\Recruitment\RecruitmentApplication;
+use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use RuntimeException;
 use Tests\TestCase;
 
 class GlobalScanExportTest extends TestCase
@@ -185,6 +191,46 @@ class GlobalScanExportTest extends TestCase
         ]))->assertNotFound();
     }
 
+    public function test_invalid_kind_format_and_target_are_rejected_with_client_errors(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'bogus',
+            'target' => (string) Str::uuid(),
+            'format' => 'csv',
+        ]))->assertStatus(422);
+
+        $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => (string) Str::uuid(),
+            'format' => 'pdf',
+        ]))->assertStatus(422);
+
+        // Target kosong / bukan uuid = parameter rusak (422), bukan 404:
+        // 404 hanya untuk uuid valid yang tidak ada di database.
+        $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => '',
+            'format' => 'csv',
+        ]))->assertStatus(422);
+    }
+
+    public function test_array_and_non_uuid_query_params_are_rejected_with_422(): void
+    {
+        $admin = $this->admin();
+
+        foreach ([
+            '/admin/scan/export?kind=event&format=csv&target[]=x',
+            '/admin/scan/export?kind[]=event&format=csv&target='.(string) Str::uuid(),
+            '/admin/scan/export?format=csv&target='.(string) Str::uuid(),
+            '/admin/scan/export?kind=event&format[]=csv&target='.(string) Str::uuid(),
+            '/admin/scan/export?kind=event&format=csv&target=not-a-uuid',
+        ] as $url) {
+            $this->actingAs($admin)->get($url)->assertStatus(422);
+        }
+    }
+
     public function test_event_csv_export_contains_expected_columns_and_values(): void
     {
         Carbon::setTestNow('2026-09-15 10:30:00');
@@ -316,6 +362,310 @@ class GlobalScanExportTest extends TestCase
 
         self::assertInstanceOf(StringCell::class, $row[1]);
         self::assertSame("'=HYPERLINK(\"http://x\")", $row[1]->getValue());
+    }
+
+    public function test_event_csv_export_records_pii_free_audit_with_row_count(): void
+    {
+        [$event, $admin] = $this->eventWithAttendance('Sensitive Attendee');
+
+        Log::spy();
+
+        $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'csv',
+        ]))->assertOk()->streamedContent();
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static function (string $message, array $context) use ($admin, $event): bool {
+                $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+                return $message === 'event_csv_export.generated'
+                    && $context === [
+                        'actor_id' => $admin->id,
+                        'event_id' => $event->id,
+                        'export_type' => 'scan_event_csv',
+                        'row_count' => 1,
+                    ]
+                    && ! str_contains($encoded, 'Sensitive Attendee')
+                    && ! str_contains($encoded, 'attendee1@example.test');
+            },
+        );
+    }
+
+    public function test_event_xlsx_export_records_audit_with_row_count(): void
+    {
+        [$event, $admin] = $this->eventWithAttendance();
+
+        Log::spy();
+
+        $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'xlsx',
+        ]))->assertOk()->streamedContent();
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static fn (string $message, array $context): bool => $message === 'event_csv_export.generated'
+                && $context === [
+                    'actor_id' => $admin->id,
+                    'event_id' => $event->id,
+                    'export_type' => 'scan_event_xlsx',
+                    'row_count' => 1,
+                ],
+        );
+    }
+
+    public function test_oprec_csv_export_records_pii_free_audit_with_row_count(): void
+    {
+        [$staff, $application, $session] = $this->scheduledRecruitmentApplication('1');
+
+        $this->actingAs($staff)->postJson(route('dashboard.scan.store'), [
+            'raw' => $application->registration_number,
+        ])->assertOk();
+
+        Log::spy();
+
+        $this->actingAs($staff)->get(route('dashboard.scan.export', [
+            'kind' => 'oprec',
+            'target' => $session->id,
+            'format' => 'csv',
+        ]))->assertOk()->streamedContent();
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static function (string $message, array $context) use ($staff, $application, $session): bool {
+                $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+                return $message === 'event_csv_export.generated'
+                    && $context === [
+                        'actor_id' => $staff->id,
+                        'event_id' => $session->id,
+                        'export_type' => 'scan_oprec_csv',
+                        'row_count' => 1,
+                    ]
+                    && ! str_contains($encoded, $application->full_name)
+                    && ! str_contains($encoded, $application->nim)
+                    && ! str_contains($encoded, $application->registration_number);
+            },
+        );
+    }
+
+    /**
+     * AUDIT-P2-019: generator yang melempar di tengah stream tetap meninggalkan
+     * tepat satu audit, dengan jumlah baris yang benar-benar sudah ditulis.
+     */
+    public function test_scan_export_audits_partial_output_when_the_stream_throws(): void
+    {
+        config(['scan.export_page_size' => 1]);
+
+        [$event, $admin] = $this->eventWithAttendance();
+
+        // Halaman kedua keyset (`scanned_at > kursor`) gagal setelah baris pertama
+        // tertulis: mensimulasikan koneksi putus / error DB di tengah stream.
+        DB::listen(static function (QueryExecuted $query): void {
+            $sql = str_replace(['`', '"'], '', strtolower($query->sql));
+
+            if (str_contains($sql, 'from event_attendances') && str_contains($sql, 'scanned_at >')) {
+                throw new RuntimeException('scan stream exploded');
+            }
+        });
+
+        Log::spy();
+
+        $response = $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'csv',
+        ]));
+
+        $response->assertOk();
+
+        $bufferLevel = ob_get_level();
+
+        try {
+            $response->streamedContent();
+            self::fail('Kegagalan generator harus diteruskan ke pemanggil.');
+        } catch (RuntimeException $exception) {
+            self::assertSame('scan stream exploded', $exception->getMessage());
+        } finally {
+            // `streamedContent()` tidak menutup buffer-nya saat callback melempar.
+            while (ob_get_level() > $bufferLevel) {
+                ob_end_clean();
+            }
+        }
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static fn (string $message, array $context): bool => $message === 'event_csv_export.generated'
+                && $context === [
+                    'actor_id' => $admin->id,
+                    'event_id' => $event->id,
+                    'export_type' => 'scan_event_csv',
+                    'row_count' => 1,
+                ],
+        );
+    }
+
+    public function test_scan_export_audit_failure_never_aborts_the_download(): void
+    {
+        [$event, $admin] = $this->eventWithAttendance();
+
+        Log::shouldReceive('info')->once()->andThrow(new RuntimeException('Logger unavailable'));
+        Log::shouldReceive('warning')->once()->withArgs(
+            static fn (string $message, array $context): bool => $message === 'event_csv_export_audit_failed'
+                && $context['actor_id'] === $admin->id
+                && $context['event_id'] === $event->id
+                && $context['export_type'] === 'scan_event_csv'
+                && $context['exception_class'] === RuntimeException::class,
+        );
+
+        $content = $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'csv',
+        ]))->assertOk()->streamedContent();
+
+        self::assertStringContainsString('Attendee One', $content);
+    }
+
+    public function test_event_export_keyset_pages_all_rows_sharing_one_timestamp_without_offset(): void
+    {
+        config(['scan.export_page_size' => 2]);
+
+        [$event, $admin] = $this->eventWithAttendance();
+
+        $scannedAt = Carbon::parse('2026-09-15 10:30:00');
+
+        for ($index = 2; $index <= 5; $index++) {
+            $participant = User::factory()->create([
+                'name' => 'Attendee '.$index,
+                'email' => 'attendee'.$index.'@example.test',
+            ]);
+            $answer = FormAnswer::factory()->create([
+                'form_id' => $event->forms()->firstOrFail()->id,
+                'user_id' => $participant->id,
+                'review_status' => FormAnswerReviewStatus::Accepted,
+            ]);
+            EventAttendance::query()->create([
+                'event_id' => $event->id,
+                'form_answer_id' => $answer->id,
+                'scanned_by_user_id' => $admin->id,
+                'scanned_at' => $scannedAt->copy(),
+            ]);
+        }
+
+        EventAttendance::query()->update(['scanned_at' => $scannedAt]);
+
+        $expected = EventAttendance::query()->count();
+        $this->assertSame(5, $expected);
+
+        DB::enableQueryLog();
+        $csv = $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'csv',
+        ]))->assertOk()->streamedContent();
+        $csvQueries = DB::getQueryLog();
+        DB::flushQueryLog();
+
+        $xlsx = $this->actingAs($admin)->get(route('dashboard.scan.export', [
+            'kind' => 'event',
+            'target' => $event->id,
+            'format' => 'xlsx',
+        ]))->assertOk()->streamedContent();
+        $xlsxQueries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertStringNotContainsStringIgnoringCase('offset', $this->joinQueries($csvQueries));
+        $this->assertStringNotContainsStringIgnoringCase('offset', $this->joinQueries($xlsxQueries));
+
+        $csvRows = array_filter(explode("\n", trim($csv)), static fn (string $line): bool => $line !== '');
+        $names = [];
+        foreach (array_slice($csvRows, 1) as $line) {
+            $names[] = str_getcsv($line)[1];
+        }
+
+        $this->assertCount($expected, $names, 'CSV must export every attendance row.');
+        $this->assertCount($expected, array_unique($names), 'No attendance row may be exported twice.');
+        $this->assertSame($expected, $this->countXlsxDataRows($xlsx));
+    }
+
+    public function test_oprec_export_keyset_pages_all_rows_sharing_one_timestamp_without_offset(): void
+    {
+        config(['scan.export_page_size' => 2]);
+
+        [$staff, $application, $session] = $this->scheduledRecruitmentApplication('9');
+
+        $checkedInAt = Carbon::parse('2026-09-15 10:30:00');
+
+        for ($index = 1; $index <= 3; $index++) {
+            $extra = RecruitmentApplication::factory()->create([
+                'recruitment_period_id' => $application->recruitment_period_id,
+                'primary_division_id' => $application->primary_division_id,
+                'registration_number' => 'OPREC-2026-EX0'.$index,
+                'stage' => ApplicationStage::Interview,
+                'result' => ApplicationResult::Pending,
+            ]);
+            RecruitmentAttendance::query()->create([
+                'recruitment_application_id' => $extra->id,
+                'recruitment_interview_session_id' => $session->id,
+                'method' => AttendanceMethod::Qr,
+                'checked_in_at' => $checkedInAt->copy(),
+                'checked_in_by' => $staff->id,
+            ]);
+        }
+
+        RecruitmentAttendance::query()->update(['checked_in_at' => $checkedInAt]);
+
+        $expected = RecruitmentAttendance::query()->count();
+        $this->assertSame(3, $expected);
+
+        DB::enableQueryLog();
+        $csv = $this->actingAs($staff)->get(route('dashboard.scan.export', [
+            'kind' => 'oprec',
+            'target' => $session->id,
+            'format' => 'csv',
+        ]))->assertOk()->streamedContent();
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertStringNotContainsStringIgnoringCase('offset', $this->joinQueries($queries));
+
+        $csvRows = array_filter(explode("\n", trim($csv)), static fn (string $line): bool => $line !== '');
+        $this->assertCount($expected, array_slice($csvRows, 1));
+    }
+
+    /**
+     * @param  list<array{query: string, bindings: array<int, mixed>, time: float}>  $queries
+     */
+    private function joinQueries(array $queries): string
+    {
+        return implode("\n", array_column($queries, 'query'));
+    }
+
+    private function countXlsxDataRows(string $binary): int
+    {
+        $path = tempnam(sys_get_temp_dir(), 'scan-export-rows-');
+
+        try {
+            file_put_contents($path, $binary);
+
+            $reader = new XlsxReader();
+            $reader->open($path);
+
+            $rows = 0;
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $ignored) {
+                    $rows++;
+                }
+                break;
+            }
+
+            $reader->close();
+
+            return $rows - 1;
+        } finally {
+            @unlink($path);
+        }
     }
 
     /**

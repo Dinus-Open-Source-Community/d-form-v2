@@ -16,6 +16,7 @@ use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class RecruitmentScreeningTest extends TestCase
@@ -189,6 +190,16 @@ class RecruitmentScreeningTest extends TestCase
 
     public function test_staff_can_view_application_json_detail_but_not_period_applicant_list(): void
     {
+        RecruitmentPeriod::query()
+            ->whereKey($this->application->recruitment_period_id)
+            ->update(['created_by' => $this->staff->id]);
+
+        // RoleSeeder grants this by default; remove it here to exercise the no-list permission path.
+        Role::findByName('recruitment-staff', 'web')
+            ->revokePermissionTo('recruitment.applications.list');
+
+        self::assertFalse($this->staff->can('recruitment.applications.list'));
+
         $this->actingAs($this->staff)
             ->getJson(route('dashboard.recruitment.periods.applications.show', [
                 'period' => $this->application->recruitment_period_id,
@@ -199,7 +210,10 @@ class RecruitmentScreeningTest extends TestCase
 
         $this->actingAs($this->staff)
             ->get(route('dashboard.recruitment.periods.show', $this->application->recruitment_period_id))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('applications', null)
+                ->missing('applications.data'));
     }
 
     public function test_pass_with_new_group_link_saves_period_and_queues_job_with_url(): void

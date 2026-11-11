@@ -279,8 +279,12 @@ Route::middleware(['auth', 'member_portal'])->get('/browse', function (Request $
 })->name('dashboard.user.events.browse');
 
 Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
-    Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
-    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
+    Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)
+        ->middleware('throttle:recruitment-export')
+        ->name('exports.registrations-csv');
+    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)
+        ->middleware('throttle:recruitment-export')
+        ->name('exports.attendance-csv');
     Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

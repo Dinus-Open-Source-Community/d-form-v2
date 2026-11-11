@@ -13,7 +13,9 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -61,6 +63,42 @@ class EventRegistrationExportOrderingTest extends TestCase
         self::assertSame($expectedIds, $exportedIds);
         self::assertCount(7, array_unique($exportedIds));
         self::assertSame('2026-01-02 10:00:00', $dataRows[0][11]);
+    }
+
+    /**
+     * Event dengan lebih dari satu form memakai bentuk join (bukan `form_id IN`),
+     * jadi judul per form wajib tetap diambil dari map form event, bukan kolom
+     * join yang sudah dilepas.
+     */
+    public function test_multi_form_event_exports_each_rows_own_form_title(): void
+    {
+        config(['registration.event_export_page_size' => 2]);
+
+        [$event, $firstForm] = $this->eventWithForm();
+        $secondForm = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Second form',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+
+        $firstAnswer = $this->makeAnswer($firstForm, '2026-01-01 10:00:00');
+        $secondAnswer = $this->makeAnswer($secondForm, '2026-01-02 10:00:00');
+        $thirdAnswer = $this->makeAnswer($secondForm, '2026-01-01 09:00:00');
+
+        $dataRows = array_slice($this->exportRows($event), 1);
+
+        self::assertCount(3, $dataRows);
+        self::assertCount(3, array_unique(array_map(fn (array $row): string => (string) $row[0], $dataRows)));
+
+        $titles = [];
+        foreach ($dataRows as $row) {
+            $titles[(string) $row[0]] = (string) $row[2];
+        }
+
+        self::assertSame('Registration', $titles[(string) $firstAnswer->getKey()]);
+        self::assertSame('Second form', $titles[(string) $secondAnswer->getKey()]);
+        self::assertSame('Second form', $titles[(string) $thirdAnswer->getKey()]);
     }
 
     public function test_rows_without_created_at_are_exported_once_after_the_keyset_pages(): void
@@ -166,6 +204,158 @@ class EventRegistrationExportOrderingTest extends TestCase
         // tidak ikut; yang dilarang adalah baris lama hilang atau tertulis dua kali.
         self::assertCount(5, $dataRows);
         self::assertCount(5, array_unique($exportedIds));
+    }
+
+    public function test_registration_export_audits_only_safe_metadata_and_counts_streamed_rows(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        $participantOne = User::factory()->create([
+            'name' => 'Private Participant One',
+            'email' => 'private.participant.one@example.test',
+        ]);
+        $participantTwo = User::factory()->create([
+            'name' => 'Private Participant Two',
+            'email' => 'private.participant.two@example.test',
+        ]);
+
+        foreach ([$participantOne, $participantTwo] as $participant) {
+            FormAnswer::factory()->create([
+                'form_id' => $form->id,
+                'user_id' => $participant->id,
+            ]);
+        }
+
+        $actor = $this->admin();
+        Log::spy();
+
+        $response = $this->actingAs($actor)
+            ->get(route('dashboard.events.exports.registrations-csv', $event));
+
+        $response->assertOk();
+        self::assertCount(3, $this->csvRows($response->streamedContent()));
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static function (string $message, array $context) use ($actor, $event, $participantOne, $participantTwo): bool {
+                $encodedContext = json_encode($context, JSON_THROW_ON_ERROR);
+
+                return $message === 'event_csv_export.generated'
+                    && $context === [
+                        'actor_id' => $actor->id,
+                        'event_id' => $event->id,
+                        'export_type' => 'registrations',
+                        'row_count' => 2,
+                    ]
+                    && ! str_contains($encodedContext, $participantOne->name)
+                    && ! str_contains($encodedContext, $participantOne->email)
+                    && ! str_contains($encodedContext, $participantTwo->name)
+                    && ! str_contains($encodedContext, $participantTwo->email);
+            },
+        );
+    }
+
+    /**
+     * L-3: kegagalan di tengah stream tetap meninggalkan tepat satu audit record,
+     * dengan jumlah baris data yang benar-benar sudah ditulis (header tidak dihitung).
+     */
+    public function test_registration_export_audits_partial_output_when_the_row_generator_throws(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+
+        foreach (range(1, 3) as $_) {
+            FormAnswer::factory()->create(['form_id' => $form->id]);
+        }
+
+        // Tail pass (`created_at IS NULL`) berjalan setelah ketiga baris ditulis:
+        // kegagalan di sini mensimulasikan error generator/DB di tengah stream.
+        DB::listen(static function (QueryExecuted $query): void {
+            if (str_contains(strtolower($query->sql), 'is null') && str_contains($query->sql, 'form_answers')) {
+                throw new RuntimeException('tail pass exploded');
+            }
+        });
+
+        $actor = $this->admin();
+        Log::spy();
+
+        $response = $this->actingAs($actor)
+            ->get(route('dashboard.events.exports.registrations-csv', $event));
+
+        $response->assertOk();
+
+        $bufferLevel = ob_get_level();
+
+        try {
+            $response->streamedContent();
+            self::fail('Kegagalan generator harus diteruskan ke pemanggil.');
+        } catch (RuntimeException $exception) {
+            self::assertSame('tail pass exploded', $exception->getMessage());
+        } finally {
+            // `streamedContent()` tidak menutup buffer-nya saat callback melempar.
+            while (ob_get_level() > $bufferLevel) {
+                ob_end_clean();
+            }
+        }
+
+        Log::shouldHaveReceived('info')->once()->withArgs(
+            static fn (string $message, array $context): bool => $message === 'event_csv_export.generated'
+                && $context === [
+                    'actor_id' => $actor->id,
+                    'event_id' => $event->id,
+                    'export_type' => 'registrations',
+                    'row_count' => 3,
+                ],
+        );
+    }
+
+    public function test_registration_export_audit_failure_does_not_abort_the_csv_stream(): void
+    {
+        [$event, $form] = $this->eventWithForm();
+        FormAnswer::factory()->create(['form_id' => $form->id]);
+        $actor = $this->admin();
+
+        Log::shouldReceive('info')->once()->andThrow(new RuntimeException('Logger unavailable'));
+        Log::shouldReceive('warning')->once()->withArgs(
+            static fn (string $message, array $context): bool => $message === 'event_csv_export_audit_failed'
+                && $context['actor_id'] === $actor->id
+                && $context['event_id'] === $event->id
+                && $context['export_type'] === 'registrations'
+                && $context['exception_class'] === RuntimeException::class,
+        );
+
+        $response = $this->actingAs($actor)
+            ->get(route('dashboard.events.exports.registrations-csv', $event));
+
+        $response->assertOk();
+        self::assertCount(2, $this->csvRows($response->streamedContent()));
+    }
+
+    public function test_both_event_exports_share_the_existing_recruitment_export_limiter_per_user(): void
+    {
+        config(['recruitment.export_rate_limit_per_minute' => 1]);
+        [$event] = $this->eventWithForm();
+
+        foreach ([
+            'dashboard.events.exports.registrations-csv',
+            'dashboard.events.exports.attendance-csv',
+        ] as $routeName) {
+            $route = app('router')->getRoutes()->getByName($routeName);
+            self::assertNotNull($route);
+            self::assertContains('throttle:recruitment-export', $route->gatherMiddleware());
+        }
+
+        $firstActor = $this->admin();
+        $secondActor = $this->admin();
+
+        $this->actingAs($firstActor)
+            ->get(route('dashboard.events.exports.registrations-csv', $event))
+            ->assertOk();
+
+        $this->actingAs($firstActor)
+            ->get(route('dashboard.events.exports.attendance-csv', $event))
+            ->assertTooManyRequests();
+
+        $this->actingAs($secondActor)
+            ->get(route('dashboard.events.exports.attendance-csv', $event))
+            ->assertOk();
     }
 
     public function test_member_cannot_export_registrations_csv_as_json(): void

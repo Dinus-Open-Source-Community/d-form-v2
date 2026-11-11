@@ -39,14 +39,25 @@ final class RecruitmentQrEligibilityQuery
     }
 
     /**
-     * Saring query ke applicant yang BELUM pernah menerima email QR interview.
+     * Saring query ke applicant yang tidak memiliki QR terkirim atau masih queued.
      *
      * @param  Builder<RecruitmentApplication>  $query
      * @return Builder<RecruitmentApplication>
      */
-    private function notSent(Builder $query): Builder
+    private function withoutInFlight(Builder $query): Builder
     {
-        return $query->whereNotExists($this->sentEmailExists());
+        return $query->whereNotExists($this->inFlightEmailExists());
+    }
+
+    /**
+     * Exclude applicants with a queued QR while leaving sent and failed applicants eligible for explicit resend.
+     *
+     * @param  Builder<RecruitmentApplication>  $query
+     * @return Builder<RecruitmentApplication>
+     */
+    private function withoutQueued(Builder $query): Builder
+    {
+        return $query->whereNotExists($this->queuedEmailExists());
     }
 
     /**
@@ -69,7 +80,17 @@ final class RecruitmentQrEligibilityQuery
      */
     public function eligible(RecruitmentPeriod $period): Builder
     {
-        return $this->notSent($this->base($period));
+        return $this->withoutInFlight($this->base($period));
+    }
+
+    /**
+     * Applicant di pool dasar yang tidak memiliki QR queued; sent dan failed tetap dapat dikirim ulang.
+     *
+     * @return Builder<RecruitmentApplication>
+     */
+    public function resendable(RecruitmentPeriod $period): Builder
+    {
+        return $this->withoutQueued($this->base($period));
     }
 
     /**
@@ -83,21 +104,28 @@ final class RecruitmentQrEligibilityQuery
     }
 
     /**
-     * Hitungan tab QR dalam satu pass setengah biaya.
+     * Applicant dengan QR terkirim atau masih queued dan belum absen.
      *
-     * `sent` memakai probe EXISTS; `eligible` = base - sent karena base
-     * (interview, belum absen, tidak dibatalkan) tepat terbagi menjadi "pernah
-     * terkirim" dan "belum terkirim". Menghindari NOT EXISTS kedua yang jauh
-     * lebih mahal (~1,3 s vs ~51 ms base count pada 1 juta baris).
+     * @return Builder<RecruitmentApplication>
+     */
+    public function inFlight(RecruitmentPeriod $period): Builder
+    {
+        return $this->inFlightQuery($this->base($period));
+    }
+
+    /**
+     * Hitungan tab QR menjaga status queued tetap terpisah dari email yang sukses.
+     * Eligible dihitung sebagai base dikurangi semua QR yang sedang in-flight.
      *
      * @return array{eligible:int,sent:int}
      */
     public function counts(RecruitmentPeriod $period): array
     {
         $sent = $this->countAlreadySent($period);
+        $inFlight = $this->countInFlight($period);
 
         return [
-            'eligible' => $this->base($period)->count() - $sent,
+            'eligible' => $this->base($period)->count() - $inFlight,
             'sent' => $sent,
         ];
     }
@@ -114,6 +142,23 @@ final class RecruitmentQrEligibilityQuery
         return $this->alreadySent($period)->count();
     }
 
+    /** Jumlah applicant yang QR-nya terkirim atau masih queued. */
+    public function countInFlight(RecruitmentPeriod $period): int
+    {
+        return $this->inFlight($period)->count();
+    }
+
+    /**
+     * Apply the matching QR email EXISTS predicate to an application query.
+     *
+     * @param  Builder<RecruitmentApplication>  $query
+     * @return Builder<RecruitmentApplication>
+     */
+    private function inFlightQuery(Builder $query): Builder
+    {
+        return $query->whereExists($this->inFlightEmailExists());
+    }
+
     /**
      * Subquery EXISTS email QR interview berstatus sent.
      *
@@ -121,12 +166,52 @@ final class RecruitmentQrEligibilityQuery
      */
     private function sentEmailExists(): Closure
     {
-        return static function (QueryBuilder $query): void {
+        return $this->emailLogExistsWithStatuses([EmailLogStatus::Sent->value]);
+    }
+
+    /**
+     * Subquery EXISTS for queued QR interview emails.
+     *
+     * @return Closure(QueryBuilder): void
+     */
+    private function queuedEmailExists(): Closure
+    {
+        return $this->emailLogExistsWithStatuses([EmailLogStatus::Queued->value]);
+    }
+
+    /**
+     * Subquery EXISTS for sent and queued QR interview emails.
+     *
+     * @return Closure(QueryBuilder): void
+     */
+    private function inFlightEmailExists(): Closure
+    {
+        return $this->emailLogExistsWithStatuses([
+            EmailLogStatus::Sent->value,
+            EmailLogStatus::Queued->value,
+        ]);
+    }
+
+
+    /**
+     * @param  non-empty-list<string>  $statuses
+     * @return Closure(QueryBuilder): void
+     */
+    private function emailLogExistsWithStatuses(array $statuses): Closure
+    {
+        return static function (QueryBuilder $query) use ($statuses): void {
             $query->selectRaw('1')
                 ->from('email_logs')
                 ->whereColumn('email_logs.recruitment_application_id', 'recruitment_applications.id')
-                ->where('email_logs.notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
-                ->where('email_logs.status', EmailLogStatus::Sent->value);
+                ->where('email_logs.notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value);
+
+            if (count($statuses) === 1) {
+                $query->where('email_logs.status', $statuses[0]);
+
+                return;
+            }
+
+            $query->whereIn('email_logs.status', $statuses);
         };
     }
 }

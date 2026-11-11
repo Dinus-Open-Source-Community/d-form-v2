@@ -13,6 +13,11 @@ use Throwable;
  */
 final class LogRedaction
 {
+    /** Stable, transport-agnostic category and copy for public mail error projections. */
+    public const MAIL_DELIVERY_FAILURE_CATEGORY = 'mail_delivery_failed';
+
+    public const MAIL_DELIVERY_FAILURE_MESSAGE = 'Pengiriman email gagal.';
+
     private const EMAIL_PATTERN = '/(?:"[^"]+"|[\p{L}0-9._%+\-]+)@[\p{L}0-9.\-]+\.[\p{L}]{2,}/iu';
 
     private const USERINFO_PATTERN = '~([a-z][a-z0-9+.\-]*://)?[^/\s:@]+:[^/\s]*@~i';
@@ -65,13 +70,11 @@ final class LogRedaction
     }
 
     /**
-     * Render an exception as `{class}: {redacted message}` bounded by the given limit.
+     * Render an exception without free-form message content, which may contain PII
+     * that cannot be reliably identified by pattern-based redaction.
      */
     public static function exception(Throwable $exception, int $limit = 500): string
     {
-        return Str::limit(
-            $exception::class.': '.self::text($exception->getMessage(), $limit),
-            $limit,
-        );
+        return Str::limit($exception::class.': [message redacted]', $limit);
     }
 }

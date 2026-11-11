@@ -55,7 +55,7 @@ class EmailLogRedactionTest extends TestCase
             'status' => EmailBroadcastRecipientStatus::Pending,
         ]);
 
-        $transportMessage = 'SMTP rejected e2e.broadcast@example.test password=supersecret';
+        $transportMessage = 'SMTP rejected e2e.broadcast@example.test; applicant=Synthetic Person; nim=EP02-NIM-482915; phone=+62 812-3456-7890 password=supersecret';
         $original = new RuntimeException($transportMessage);
 
         Log::spy();
@@ -73,6 +73,9 @@ class EmailLogRedactionTest extends TestCase
             self::assertStringContainsString('supersecret', (string) $exception->getPrevious()?->getMessage());
             self::assertStringNotContainsString('supersecret', $exception->getMessage());
             self::assertStringNotContainsString('e2e.broadcast@example.test', $exception->getMessage());
+            self::assertStringNotContainsString('Synthetic Person', $exception->getMessage());
+            self::assertStringNotContainsString('EP02-NIM-482915', $exception->getMessage());
+            self::assertStringNotContainsString('+62 812-3456-7890', $exception->getMessage());
             self::assertStringNotContainsString($transportMessage, $serialized);
             self::assertStringNotContainsString('e2e.broadcast@example.test', $serialized);
             self::assertStringNotContainsString('Next ', $serialized);
@@ -83,6 +86,9 @@ class EmailLogRedactionTest extends TestCase
         self::assertStringContainsString(RuntimeException::class, $errorMessage);
         self::assertStringNotContainsString('e2e.broadcast@example.test', $errorMessage);
         self::assertStringNotContainsString('supersecret', $errorMessage);
+        self::assertStringNotContainsString('Synthetic Person', $errorMessage);
+        self::assertStringNotContainsString('EP02-NIM-482915', $errorMessage);
+        self::assertStringNotContainsString('+62 812-3456-7890', $errorMessage);
 
         Log::shouldHaveReceived('error')->once()->withArgs(
             function (string $message, array $context = []) use ($transportMessage): bool {
@@ -90,10 +96,13 @@ class EmailLogRedactionTest extends TestCase
 
                 return ($context['exception_class'] ?? null) === RuntimeException::class
                     && array_key_exists('error', $context)
-                    && $context['error'] === LogRedaction::text($transportMessage)
+                    && $context['error'] === LogRedaction::exception(new RuntimeException($transportMessage))
                     && ($context['recipient'] ?? null) === 'e***@example.test'
                     && ! str_contains($encoded, 'e2e.broadcast@example.test')
-                    && ! str_contains($encoded, 'supersecret');
+                    && ! str_contains($encoded, 'supersecret')
+                    && ! str_contains($encoded, 'Synthetic Person')
+                    && ! str_contains($encoded, 'EP02-NIM-482915')
+                    && ! str_contains($encoded, '+62 812-3456-7890');
             }
         );
     }
@@ -112,7 +121,7 @@ class EmailLogRedactionTest extends TestCase
             'otp_last_sent_at' => now(),
         ])->save();
 
-        $transportMessage = 'SMTP rejected otp.person@example.test token=abc123';
+        $transportMessage = 'SMTP rejected otp.person@example.test; applicant=Synthetic Person; nim=EP02-NIM-482915; phone=+62 812-3456-7890 token=abc123';
         $original = new RuntimeException($transportMessage);
 
         Log::spy();
@@ -142,10 +151,13 @@ class EmailLogRedactionTest extends TestCase
                 return ($context['exception_class'] ?? null) === RuntimeException::class
                     && ($context['attempt'] ?? null) === 1
                     && array_key_exists('error', $context)
-                    && $context['error'] === LogRedaction::text($transportMessage)
+                    && $context['error'] === LogRedaction::exception(new RuntimeException($transportMessage))
                     && ! str_contains($encoded, 'otp.person@example.test')
                     && ! str_contains($encoded, 'abc123')
-                    && ! str_contains($encoded, 'token=abc123');
+                    && ! str_contains($encoded, 'token=abc123')
+                    && ! str_contains($encoded, 'Synthetic Person')
+                    && ! str_contains($encoded, 'EP02-NIM-482915')
+                    && ! str_contains($encoded, '+62 812-3456-7890');
             }
         );
     }

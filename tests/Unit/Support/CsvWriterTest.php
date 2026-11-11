@@ -33,6 +33,49 @@ final class CsvWriterTest extends TestCase
         self::assertSame(["'\xC2\xA0=1+1"], str_getcsv($csv, ',', '"', ''));
     }
 
+    public function test_neutralizes_formulas_hidden_behind_unicode_whitespace(): void
+    {
+        foreach (["\xC2\xA0=1+1", "\xE2\x80\x8B=1+1", "\xE2\x80\xAF+1+1", "\xE3\x80\x80@SUM(1)"] as $payload) {
+            $cells = str_getcsv($this->writeRow([$payload]), ',', '"', '');
+
+            self::assertSame(["'".$payload], $cells, 'Cell must be prefixed, keeping the original bytes.');
+        }
+    }
+
+    public function test_quoted_and_multiline_cells_remain_rfc4180_parseable(): void
+    {
+        $fields = ['say "hi", then bye', "line one\nline two", "tab\tinside"];
+
+        $cells = str_getcsv($this->writeRow($fields), ',', '"', '');
+
+        self::assertSame($fields, $cells);
+    }
+
+    public function test_quote_prefixed_formula_payload_is_escaped_not_left_active(): void
+    {
+        $payload = '"=1+1';
+
+        $csv = $this->writeRow([$payload]);
+        $cells = str_getcsv($csv, ',', '"', '');
+
+        self::assertCount(1, $cells);
+        self::assertSame($payload, $cells[0]);
+        self::assertFalse(str_starts_with($cells[0], '='));
+    }
+
+    public function test_writer_never_triggers_the_php_84_fputcsv_deprecation(): void
+    {
+        set_error_handler(static function (int $level, string $message): bool {
+            throw new \ErrorException($message, 0, $level);
+        });
+
+        try {
+            $this->writeRow(['name', '=SUM(1,2)', 'quote " inside']);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
     public function test_app_code_uses_the_central_writer_for_all_fputcsv_calls(): void
     {
         $applicationPath = dirname(__DIR__, 3).DIRECTORY_SEPARATOR.'app';

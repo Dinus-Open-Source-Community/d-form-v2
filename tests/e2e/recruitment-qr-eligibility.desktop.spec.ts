@@ -10,24 +10,30 @@ import { readXsrfToken } from './support/network';
  * Spec membuat satu periode fixture kecil dengan matriks applicant deterministik,
  * lalu membuktikan lewat HTTP nyata bahwa:
  * 1. `qr_eligible_count` / `qr_sent_count` / `qr_status_summary` sesuai aturan
- *    eligibility (tahap interview, tidak cancelled, belum absen, belum ada
- *    `recruitment_interview_scheduled` berstatus sent).
+ *    eligibility (tahap interview, tidak cancelled, belum absen, dan belum punya
+ *    `recruitment_interview_scheduled` berstatus sent atau queued).
  * 2. Kirim QR tanpa `include_sent` hanya membuat baris `email_logs` untuk
  *    applicant eligible.
  * 3. Kirim ulang dengan `include_sent=true` menambah baris baru untuk applicant
  *    yang sudah terkirim tanpa merusak semantik eligibility.
- * 4. Input anomali tidak pernah menghasilkan 5xx.
+ * 4. `qr_sent_count` melacak delivery sukses sebelumnya, sedangkan
+ *    `qr_status_summary` menunjukkan status terbaru; keduanya dapat overlap saat resend.
+ * 5. Input anomali tidak pernah menghasilkan 5xx.
  *
  * Data stress (1 juta baris) tidak dipakai untuk angka eksak; periode stress
  * hanya dipakai sebagai pembanding waktu navigasi (bukti, bukan gate).
  */
 
-/** Penanda unik fixture agar tidak bentrok dengan data stress atau spec lain. */
+/** Prefix domain untuk seluruh fixture pada spec ini. */
 const FIXTURE_MARKER = 'E2E BE-P2-003';
-const PERIOD_NAME = `${FIXTURE_MARKER} qr eligibility`;
-const PERIOD_SLUG = 'e2e-be-p2-003';
-const OTHER_PERIOD_NAME = `${FIXTURE_MARKER} other period`;
-const OTHER_PERIOD_SLUG = 'e2e-be-p2-003-other';
+let fixtureMarker = '';
+let periodName = '';
+let periodSlug = '';
+let otherPeriodName = '';
+let otherPeriodSlug = '';
+let fixtureDivisionCode = '';
+let otherPeriodPath = '';
+let fixtureCreated = false;
 
 /** Notifikasi QR yang diuji dan notifikasi lain sebagai pembanding. */
 const QR_NOTIFICATION = 'recruitment_interview_scheduled';
@@ -83,10 +89,11 @@ type TFixturePayload =
     | readonly IApplicationRow[]
     | readonly IPhpApplicationRow[]
     | readonly string[]
-    | { email: string; password: string };
+    | { email: string; password: string; name: string };
 
 interface IFixtureProbe {
     period_id: string | null;
+    other_period_id: string | null;
     applications: number;
     eligible: number;
     sent: number;
@@ -128,9 +135,9 @@ interface IAnomalyQuery {
  * Matriks fixture. Setiap baris menguji satu cabang aturan eligibility.
  *
  * eligible = tahap interview + `cancelled_at` null + belum punya attendance +
- * tidak punya log `recruitment_interview_scheduled` berstatus sent.
+ * tidak punya log `recruitment_interview_scheduled` berstatus sent atau queued.
  */
-const APPLICATIONS: IApplicationRow[] = [
+const APPLICATION_TEMPLATES: IApplicationRow[] = [
     {
         key: 'eligible-primary',
         registrationNumber: 'OPREC-E2E-P2003-01',
@@ -172,7 +179,7 @@ const APPLICATIONS: IApplicationRow[] = [
         minutesAgo: 7,
     },
     {
-        // Queued bukan sent, jadi masih eligible untuk dikirimi (boleh terkirim ganda saat retry).
+        // QR queued masih in-flight, jadi tidak masuk pool kirim biasa maupun kirim ulang.
         key: 'queued-log',
         registrationNumber: 'OPREC-E2E-P2003-04',
         name: `${FIXTURE_MARKER} Queued Log`,
@@ -271,31 +278,25 @@ const APPLICATIONS: IApplicationRow[] = [
     },
 ];
 
-const REGISTRATION_NUMBERS: string[] = APPLICATIONS.map((application) => application.registrationNumber);
-const KEY_BY_REGISTRATION = new Map<string, string>(
-    APPLICATIONS.map((application): [string, string] => [application.registrationNumber, application.key])
-);
+let applications: IApplicationRow[] = [];
+let registrationNumbers: string[] = [];
+let keyByRegistration = new Map<string, string>();
 
-/** Pool eligible: aturan eligibility hanya mengecualikan log berstatus sent. */
-const ELIGIBLE_KEYS: string[] = [
-    'eligible-primary',
-    'eligible-secondary',
-    'queued-log',
-    'failed-log',
-    'other-notification-sent',
-];
+/** QR queued dan sent masih in-flight; failed tetap eligible untuk dikirim ulang. */
+const ELIGIBLE_KEYS: string[] = ['eligible-primary', 'eligible-secondary', 'failed-log', 'other-notification-sent'];
 const SENT_KEYS: string[] = ['already-sent'];
+const QUEUED_KEYS: string[] = ['queued-log'];
+const QR_IN_FLIGHT_KEYS: string[] = [...SENT_KEYS, ...QUEUED_KEYS];
 /** Sudah absen / bukan interview / cancelled tidak pernah menerima QR baru. */
 const EXCLUDED_KEYS: string[] = ['attended', 'screening-stage', 'cancelled-interview'];
 /** Kirim biasa: hanya pool eligible. */
 const SEND_RECIPIENT_KEYS: string[] = [...ELIGIBLE_KEYS];
-/** Kirim ulang: pool eligible + yang sudah sent. */
+/** Kirim ulang: eligible + sent; QR yang masih queued tetap tidak dikirim ulang. */
 const RESEND_RECIPIENT_KEYS: string[] = [...ELIGIBLE_KEYS, ...SENT_KEYS];
 
-/** Jumlah applicant yang berada di periode fixture (di luar periode lain). */
+/** Jumlah applicant periode fixture yang memenuhi dasar QR (sebelum sent/queued dipisah). */
 const PERIOD_APPLICATION_COUNT = 9;
-/** eligible + sent selalu sama dengan seluruh applicant interview yang valid. */
-const INTERVIEW_ELIGIBLE_TOTAL = ELIGIBLE_KEYS.length + SENT_KEYS.length;
+let interviewQrCandidateCount = 0;
 
 /** Input GET liar: harus ditolak validasi dan parameter dibuang dari target redirect. */
 const ANOMALY_QUERIES: IAnomalyQuery[] = [
@@ -318,6 +319,51 @@ let serverErrors: string[] = [];
 let dispatchSkipReason: string | null = null;
 
 let memberEmail = '';
+let memberName = '';
+let memberCreated = false;
+
+function prepareFixtureIdentity(): void {
+    const fixtureToken = randomUUID().replaceAll('-', '');
+    const registrationToken = Buffer.from(fixtureToken, 'hex').toString('base64url');
+
+    fixtureMarker = `${FIXTURE_MARKER} ${fixtureToken}`;
+    periodName = `${fixtureMarker} qr eligibility`;
+    periodSlug = `e2e-be-p2-003-${fixtureToken}`;
+    otherPeriodName = `${fixtureMarker} other period`;
+    otherPeriodSlug = `${periodSlug}-other`;
+    fixtureDivisionCode = `e2e-p2-003-${fixtureToken}`;
+    memberEmail = `e2e-be-p2-003-member-${fixtureToken}@example.test`;
+    memberName = `${fixtureMarker} Member`;
+    memberCreated = false;
+    periodId = '';
+    periodPath = '';
+    otherPeriodPath = '';
+    stressPeriodId = null;
+    fixtureCreated = false;
+
+    applications = APPLICATION_TEMPLATES.map((application, index): IApplicationRow => {
+        const rowId = String(index + 1).padStart(2, '0');
+
+        return {
+            ...application,
+            registrationNumber: `E2E-${registrationToken}-${rowId}`,
+            name: application.name.replace(FIXTURE_MARKER, fixtureMarker),
+            nim: `E2E${fixtureToken}${rowId}`,
+            email: `e2e-${fixtureToken}-${rowId}@example.test`,
+        };
+    });
+    registrationNumbers = applications.map((application) => application.registrationNumber);
+    keyByRegistration = new Map(
+        applications.map((application): [string, string] => [application.registrationNumber, application.key])
+    );
+    interviewQrCandidateCount = applications.filter(
+        (application: IApplicationRow): boolean =>
+            !application.otherPeriod &&
+            application.stage === 'interview' &&
+            !application.cancelled &&
+            !application.attendance
+    ).length;
+}
 
 function encodePayload(value: TFixturePayload): string {
     return Buffer.from(JSON.stringify(value), 'utf8').toString('base64');
@@ -363,7 +409,7 @@ function resolveDispatchSkipReason(): string | null {
 
 /** Rencana fixture dikirim sebagai base64 agar tidak ada masalah kutip di tinker. */
 function createFixtures(): void {
-    const rows = APPLICATIONS.map((application) => ({
+    const rows = applications.map((application) => ({
         registration_number: application.registrationNumber,
         name: application.name,
         nim: application.nim,
@@ -382,15 +428,15 @@ function createFixtures(): void {
     const script = String.raw`
 $rows = json_decode(base64_decode('${encodePayload(rows)}'), true, 512, JSON_THROW_ON_ERROR);
 $period = App\Models\Recruitment\RecruitmentPeriod::factory()->open()->create([
-    'name' => '${PERIOD_NAME}',
-    'slug' => '${PERIOD_SLUG}',
+    'name' => '${periodName}',
+    'slug' => '${periodSlug}',
     'created_by' => null,
     'interview_starts_at' => today()->subDay()->toDateString(),
     'interview_ends_at' => today()->addMonth()->toDateString(),
 ]);
 $otherPeriod = App\Models\Recruitment\RecruitmentPeriod::factory()->open()->create([
-    'name' => '${OTHER_PERIOD_NAME}',
-    'slug' => '${OTHER_PERIOD_SLUG}',
+    'name' => '${otherPeriodName}',
+    'slug' => '${otherPeriodSlug}',
     'created_by' => null,
 ]);
 $division = App\Models\Recruitment\RecruitmentDivision::query()
@@ -399,8 +445,8 @@ $division = App\Models\Recruitment\RecruitmentDivision::query()
     ->first();
 if ($division === null) {
     $division = App\Models\Recruitment\RecruitmentDivision::factory()->create([
-        'name' => 'Divisi '.${JSON.stringify(FIXTURE_MARKER)},
-        'code' => 'E2E-P2003',
+        'name' => 'Divisi '.${JSON.stringify(fixtureMarker)},
+        'code' => '${fixtureDivisionCode}',
         'is_active' => true,
     ]);
 }
@@ -464,9 +510,9 @@ echo 'ok';
 /** Tinker tidak memberi exit code non-zero saat exception; hasil create diverifikasi ulang. */
 function assertFixturesExist(): void {
     const script = String.raw`
-$period = App\Models\Recruitment\RecruitmentPeriod::query()->where('slug', '${PERIOD_SLUG}')->first();
+$period = App\Models\Recruitment\RecruitmentPeriod::query()->where('slug', '${periodSlug}')->first();
 if ($period === null) {
-    echo json_encode(['period_id' => null, 'applications' => 0, 'eligible' => 0, 'sent' => 0, 'summary' => ['sent' => 0, 'failed' => 0, 'queued' => 0], 'other_applications' => 0, 'stress_period_id' => null]);
+    echo json_encode(['period_id' => null, 'other_period_id' => null, 'applications' => 0, 'eligible' => 0, 'sent' => 0, 'summary' => ['sent' => 0, 'failed' => 0, 'queued' => 0], 'other_applications' => 0, 'stress_period_id' => null]);
     exit(0);
 }
 $base = App\Models\Recruitment\RecruitmentApplication::query()
@@ -479,7 +525,7 @@ $eligible = (clone $base)->whereNotExists(function ($query): void {
         ->from('email_logs')
         ->whereColumn('email_logs.recruitment_application_id', 'recruitment_applications.id')
         ->where('email_logs.notification_type', '${QR_NOTIFICATION}')
-        ->where('email_logs.status', 'sent');
+        ->whereIn('email_logs.status', ['sent', 'queued']);
 })->count();
 $sent = (clone $base)->whereExists(function ($query): void {
     $query->selectRaw('1')
@@ -510,7 +556,7 @@ foreach ($latest as $status) {
         $summary[$status]++;
     }
 }
-$other = App\Models\Recruitment\RecruitmentPeriod::query()->where('slug', '${OTHER_PERIOD_SLUG}')->first();
+$other = App\Models\Recruitment\RecruitmentPeriod::query()->where('slug', '${otherPeriodSlug}')->first();
 $otherApplications = $other === null
     ? 0
     : App\Models\Recruitment\RecruitmentApplication::query()->where('recruitment_period_id', $other->id)->count();
@@ -520,6 +566,7 @@ $stress = App\Models\Recruitment\RecruitmentPeriod::query()
     ->first();
 echo json_encode([
     'period_id' => $period->id,
+    'other_period_id' => $other?->id,
     'applications' => $applications,
     'eligible' => $eligible,
     'sent' => $sent,
@@ -531,8 +578,13 @@ echo json_encode([
 
     const probe = JSON.parse(tinker(script)) as IFixtureProbe;
 
-    if (probe.period_id === null || probe.period_id === '') {
-        throw new Error('Fixture BE-P2-003 tidak mengembalikan period_id.');
+    if (
+        probe.period_id === null ||
+        probe.period_id === '' ||
+        probe.other_period_id === null ||
+        probe.other_period_id === ''
+    ) {
+        throw new Error('Fixture BE-P2-003 tidak mengembalikan period IDs.');
     }
 
     if (probe.applications !== PERIOD_APPLICATION_COUNT || probe.other_applications !== 1) {
@@ -551,13 +603,14 @@ echo json_encode([
 
     periodId = probe.period_id;
     periodPath = `/admin/recruitment/periods/${periodId}`;
+    otherPeriodPath = `/admin/recruitment/periods/${probe.other_period_id}`;
     stressPeriodId = probe.stress_period_id;
 }
 
 /** Hapus email log, attendance, sesi, lalu periode (termasuk soft-deleted) agar slug tidak bentrok. */
 function removeFixtures(): void {
     const script = String.raw`
-$registrations = json_decode(base64_decode('${encodePayload(REGISTRATION_NUMBERS)}'), true, 512, JSON_THROW_ON_ERROR);
+$registrations = json_decode(base64_decode('${encodePayload(registrationNumbers)}'), true, 512, JSON_THROW_ON_ERROR);
 $applicationIds = App\Models\Recruitment\RecruitmentApplication::query()
     ->whereIn('registration_number', $registrations)
     ->pluck('id')
@@ -568,13 +621,17 @@ App\Models\Recruitment\RecruitmentInterview::query()->whereIn('recruitment_appli
 App\Models\Recruitment\RecruitmentActivityLog::query()->whereIn('recruitment_application_id', $applicationIds)->delete();
 App\Models\Recruitment\RecruitmentApplication::query()->whereIn('id', $applicationIds)->delete();
 $periodIds = App\Models\Recruitment\RecruitmentPeriod::withTrashed()
-    ->whereIn('slug', ['${PERIOD_SLUG}', '${OTHER_PERIOD_SLUG}'])
+    ->whereIn('slug', ['${periodSlug}', '${otherPeriodSlug}'])
     ->pluck('id')
     ->all();
 App\Models\Recruitment\RecruitmentInterviewSession::query()->whereIn('recruitment_period_id', $periodIds)->delete();
 App\Models\Recruitment\RecruitmentPeriod::withTrashed()
-    ->whereIn('slug', ['${PERIOD_SLUG}', '${OTHER_PERIOD_SLUG}'])
+    ->whereIn('slug', ['${periodSlug}', '${otherPeriodSlug}'])
     ->forceDelete();
+App\Models\Recruitment\RecruitmentDivision::query()
+    ->where('code', '${fixtureDivisionCode}')
+    ->where('name', 'Divisi '.${JSON.stringify(fixtureMarker)})
+    ->delete();
 echo 'ok';
 `;
 
@@ -584,7 +641,7 @@ echo 'ok';
 /** Baris `email_logs` tipe QR untuk seluruh applicant fixture. */
 function readQrLogs(): IEmailLogRow[] {
     const script = String.raw`
-$registrations = json_decode(base64_decode('${encodePayload(REGISTRATION_NUMBERS)}'), true, 512, JSON_THROW_ON_ERROR);
+$registrations = json_decode(base64_decode('${encodePayload(registrationNumbers)}'), true, 512, JSON_THROW_ON_ERROR);
 $applications = App\Models\Recruitment\RecruitmentApplication::query()
     ->whereIn('registration_number', $registrations)
     ->pluck('id', 'registration_number');
@@ -615,7 +672,7 @@ function countQrLogsByKey(): Record<string, number> {
     const counts: Record<string, number> = {};
 
     for (const row of readQrLogs()) {
-        const key = KEY_BY_REGISTRATION.get(row.registration_number);
+        const key = keyByRegistration.get(row.registration_number);
         if (key === undefined) {
             continue;
         }
@@ -627,9 +684,7 @@ function countQrLogsByKey(): Record<string, number> {
 
 /** Baris log QR untuk satu key fixture (hanya status/delivery_key). */
 function qrLogsFor(key: string): IEmailLogRow[] {
-    return readQrLogs().filter(
-        (row: IEmailLogRow): boolean => KEY_BY_REGISTRATION.get(row.registration_number) === key
-    );
+    return readQrLogs().filter((row: IEmailLogRow): boolean => keyByRegistration.get(row.registration_number) === key);
 }
 
 /** Buka tab peserta periode fixture; halaman baru selalu memakai state bersih. */
@@ -700,10 +755,10 @@ async function readQrStatus(page: Page): Promise<IQrStatusPayload> {
 
 function createMemberUser(email: string, password: string): void {
     const script = String.raw`
-$payload = json_decode(base64_decode('${encodePayload({ email, password })}'), true, 512, JSON_THROW_ON_ERROR);
+$payload = json_decode(base64_decode('${encodePayload({ email, password, name: memberName })}'), true, 512, JSON_THROW_ON_ERROR);
 $role = Spatie\Permission\Models\Role::findOrCreate('member', 'web');
 $user = App\Models\User::factory()->create([
-    'name' => 'E2E BE-P2-003 Member',
+    'name' => $payload['name'],
     'email' => $payload['email'],
     'password' => Illuminate\Support\Facades\Hash::make($payload['password']),
     'email_verified_at' => now(),
@@ -731,12 +786,27 @@ echo 'ok';
     tinker(script);
 }
 
+function removeCurrentFixtures(): void {
+    if (fixtureCreated) {
+        removeFixtures();
+        fixtureCreated = false;
+    }
+
+    if (memberCreated && memberEmail !== '') {
+        removeMemberUser(memberEmail);
+        memberCreated = false;
+        memberEmail = '';
+    }
+}
+
 test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
     test.beforeAll((): void => {
         dispatchSkipReason = resolveDispatchSkipReason();
     });
 
     test.beforeEach(async ({ page }): Promise<void> => {
+        prepareFixtureIdentity();
+        fixtureCreated = true;
         serverErrors = [];
         page.on('response', (response: Response): void => {
             if (response.status() >= 500) {
@@ -746,18 +816,17 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         // Skrip analitik pihak ketiga menggantungkan event load dan tidak relevan bagi test.
         await page.route('**/seeyu.doscom.org/**', (route) => route.abort());
 
-        // Setiap test memakai state fixture bersih, sehingga retry tidak mewarisi log kiriman lama.
-        removeFixtures();
+        // Identitas baru per test/retry mengisolasi fixture dan limiter bucket.
         createFixtures();
         assertFixturesExist();
     });
 
-    test.afterAll((): void => {
-        removeFixtures();
+    test.afterEach((): void => {
+        removeCurrentFixtures();
+    });
 
-        if (memberEmail !== '') {
-            removeMemberUser(memberEmail);
-        }
+    test.afterAll((): void => {
+        removeCurrentFixtures();
     });
 
     test('menampilkan count QR sesuai aturan eligibility fixture', async ({ page }) => {
@@ -770,7 +839,7 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         expect(inertia.props.tab).toBe('peserta');
         expect(
             inertia.props.qr_eligible_count,
-            'pool eligible = interview, tidak cancelled, belum absen, belum sent'
+            'pool eligible = interview, tidak cancelled/absen, dan QR tidak sent/queued'
         ).toBe(ELIGIBLE_KEYS.length);
         expect(inertia.props.qr_sent_count, 'hanya satu applicant yang sudah terkirim').toBe(SENT_KEYS.length);
         expect(inertia.props.qr_status_summary).toEqual({ sent: 1, failed: 1, queued: 1 });
@@ -811,7 +880,7 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         await waitForQrLogCounts(expected);
 
         // Applicant di luar pool tidak menerima baris baru.
-        for (const key of [...EXCLUDED_KEYS, ...SENT_KEYS, 'other-period']) {
+        for (const key of [...EXCLUDED_KEYS, ...QR_IN_FLIGHT_KEYS, 'other-period']) {
             expect(countQrLogsByKey()[key] ?? 0, `${key} tidak boleh menerima QR baru`).toBe(before[key] ?? 0);
         }
 
@@ -824,15 +893,17 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
             ).toBe(true);
         }
 
-        // Muat ulang halaman: props count ikut berubah tanpa merusak partisi eligible/sent.
+        // Muat ulang halaman: eligible, sent, dan queued tetap menjadi partisi terpisah.
         await page.goto(`${periodPath}?tab=peserta`, { waitUntil: 'load' });
         const inertia = await readInertiaPage(page);
         const eligible = inertia.props.qr_eligible_count ?? 0;
         const sent = inertia.props.qr_sent_count ?? 0;
 
-        expect(eligible + sent, 'eligible + sent harus mencakup seluruh applicant interview yang valid').toBe(
-            INTERVIEW_ELIGIBLE_TOTAL
-        );
+        const queued = inertia.props.qr_status_summary?.queued ?? 0;
+        expect(
+            eligible + sent + queued,
+            'eligible + sent + queued harus mencakup seluruh applicant interview yang memenuhi dasar QR'
+        ).toBe(interviewQrCandidateCount);
         expect(sent, 'applicant yang sudah terkirim tetap terhitung').toBeGreaterThanOrEqual(SENT_KEYS.length);
 
         const summary = inertia.props.qr_status_summary;
@@ -840,11 +911,11 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
             throw new Error('qr_status_summary harus ada pada tab peserta.');
         }
         expect(summary.sent + summary.failed + summary.queued, 'enam applicant punya log QR setelah kirim').toBe(
-            INTERVIEW_ELIGIBLE_TOTAL
+            interviewQrCandidateCount
         );
 
         const status = await readQrStatus(page);
-        expect(status.recipients).toHaveLength(INTERVIEW_ELIGIBLE_TOTAL);
+        expect(status.recipients).toHaveLength(interviewQrCandidateCount);
         expect(serverErrors, 'tidak boleh ada response >= 500').toEqual([]);
     });
 
@@ -881,23 +952,23 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
 
         await waitForQrLogCounts(expected);
 
-        for (const key of [...EXCLUDED_KEYS, 'other-period']) {
+        for (const key of [...EXCLUDED_KEYS, ...QUEUED_KEYS, 'other-period']) {
             expect(countQrLogsByKey()[key] ?? 0, `${key} tidak boleh menerima QR baru`).toBe(before[key] ?? 0);
         }
 
-        // Semantik eligibility tetap utuh setelah kirim ulang.
+        // Sent adalah riwayat sukses untuk affordance resend; summary adalah status terbaru.
         await page.goto(`${periodPath}?tab=peserta`, { waitUntil: 'load' });
         const inertia = await readInertiaPage(page);
         const eligible = inertia.props.qr_eligible_count ?? 0;
         const sent = inertia.props.qr_sent_count ?? 0;
 
-        expect(eligible + sent).toBe(INTERVIEW_ELIGIBLE_TOTAL);
-
         const summary = inertia.props.qr_status_summary;
         if (summary === null || summary === undefined) {
             throw new Error('qr_status_summary harus ada pada tab peserta.');
         }
-        expect(summary.sent + summary.failed + summary.queued).toBe(INTERVIEW_ELIGIBLE_TOTAL);
+        expect(eligible, 'setelah resend semua kandidat memiliki QR sent atau queued').toBe(0);
+        expect(sent, 'delivery sebelumnya tetap tersedia untuk opsi resend').toBeGreaterThanOrEqual(SENT_KEYS.length);
+        expect(summary.sent + summary.failed + summary.queued).toBe(interviewQrCandidateCount);
         expect(serverErrors, 'tidak boleh ada response >= 500').toEqual([]);
     });
 
@@ -946,7 +1017,7 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         const before = countQrLogsByKey();
         const xsrf = await readXsrfToken(page.context());
 
-        const htmlPost = await page.request.post(`${periodPath}/send-qr`, {
+        const htmlPost = await page.request.post(`${otherPeriodPath}/send-qr`, {
             form: { include_sent: 'bukan-boolean' },
             headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'text/html' },
             maxRedirects: 0,
@@ -955,6 +1026,8 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         expect(htmlPost.status(), 'include_sent non-boolean harus redirect validasi 302').toBe(302);
         expect(htmlPost.headers()['location'], 'redirect validasi harus menyertakan Location').toBeTruthy();
 
+        // Limiter produksi tetap 1 request/menit per user+periode; HTML dan JSON memakai
+        // periode fixture berbeda agar bucket terisolasi tanpa membersihkan cache global.
         const jsonPost = await page.request.post(`${periodPath}/send-qr`, {
             form: { include_sent: 'bukan-boolean' },
             headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -991,9 +1064,9 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
             throw new Error('baseURL project tidak tersedia untuk context member.');
         }
 
-        const email = `e2e-be-p2-003-member-${Date.now()}@example.test`;
+        const email = memberEmail;
         const password = `E2e-${randomUUID()}`;
-        memberEmail = email;
+        memberCreated = true;
         createMemberUser(email, password);
 
         // Context manual tidak mewarisi opsi `use` project; baseURL eksplisit dan
@@ -1034,6 +1107,8 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
         } finally {
             await context.close();
             removeMemberUser(email);
+            memberCreated = false;
+            memberEmail = '';
         }
     });
 

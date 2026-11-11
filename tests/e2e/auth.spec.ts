@@ -1,5 +1,6 @@
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 import { runArtisan } from './support/artisan';
+import { readEnvironment } from './support/environment';
 import { readXsrfToken } from './support/network';
 
 // Spec ini menguji halaman guest (login/register/forgot-password); state admin project akan di-redirect 302.
@@ -14,11 +15,6 @@ interface ViteManifestEntry {
 }
 
 type ViteManifest = Record<string, ViteManifestEntry>;
-
-const STRESS_USER = {
-    email: 'stress-user-1@stress.test',
-    password: 'password',
-} as const;
 
 const VENDOR_MARKERS = ['tiptap', 'prosemirror', 'html5-qrcode', 'vue3-lottie', 'chart.js'] as const;
 
@@ -51,11 +47,13 @@ test.describe('auth login', () => {
     test('login sukses membuat sesi dan mengarah ke dashboard', async ({ page }) => {
         // Render /dashboard tidak diuji di sini: dengan dataset stress (943k form_answers)
         // query dashboard berjalan >7 menit, di luar scope optimasi auth.
+        const environment = readEnvironment();
+
         await page.goto('/auth/login');
 
         const response = await postAuth(page, '/auth/login', {
-            email: STRESS_USER.email,
-            password: STRESS_USER.password,
+            email: environment.adminEmail,
+            password: environment.adminPassword,
         });
 
         expect(response.status()).toBe(302);
