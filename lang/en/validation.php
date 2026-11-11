@@ -49,6 +49,7 @@ return [
     'extensions'             => 'The :attribute field must have one of the following extensions: :values.',
     'file'                   => 'The :attribute field must be a file.',
     'filled'                 => 'The :attribute field must have a value.',
+    'field_name_conflict'    => 'The internal field name ":value" is already used in this form. Please choose a different name.',
     'gt'                     => [
         'array'   => 'The :attribute field must have more than :value items.',
         'file'    => 'The :attribute field must be greater than :value kilobytes.',

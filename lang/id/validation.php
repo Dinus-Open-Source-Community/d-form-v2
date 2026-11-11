@@ -49,6 +49,7 @@ return [
     'extensions'             => 'Bidang :attribute harus memiliki salah satu ekstensi berikut: :values.',
     'file'                   => ':Attribute harus berupa sebuah berkas.',
     'filled'                 => ':Attribute harus memiliki nilai.',
+    'field_name_conflict'    => 'Nama internal bidang ":value" sudah digunakan dalam formulir ini. Silakan pilih nama lain.',
     'gt'                     => [
         'array'   => ':Attribute harus memiliki lebih dari :value anggota.',
         'file'    => ':Attribute harus berukuran lebih besar dari :value kilobita.',

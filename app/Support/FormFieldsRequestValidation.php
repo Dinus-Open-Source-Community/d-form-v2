@@ -327,7 +327,10 @@ final class FormFieldsRequestValidation
                     $q->where('id', '!=', $id);
                 }
                 if ($q->exists()) {
-                    $validator->errors()->add("fields.{$index}.name", __('validation.unique', ['attribute' => 'name']));
+                    $validator->errors()->add(
+                        "fields.{$index}.name",
+                        __('validation.field_name_conflict', ['value' => $name]),
+                    );
                 }
             }
         });

@@ -123,7 +123,9 @@ class FormBuilderHttpTest extends TestCase
                     ],
                 ],
             ])
-            ->assertInvalid(['fields.0.name']);
+            ->assertSessionHasErrors([
+                'fields.0.name' => __('validation.field_name_conflict', ['value' => 'taken']),
+            ]);
     }
 
     public function test_member_cannot_save_fields(): void
