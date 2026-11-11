@@ -11,7 +11,7 @@ import {
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 
 const props = defineProps<{
     group: IBundleSubmissionGroup | null;

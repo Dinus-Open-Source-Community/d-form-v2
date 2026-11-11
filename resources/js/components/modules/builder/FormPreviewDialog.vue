@@ -3,13 +3,13 @@ import { computed, ref, watch } from 'vue';
 import { X, Star, Upload, ImagePlus, Send } from 'lucide-vue-next';
 import { optionLabel, optionImageUrl, type IFieldOptionEntry } from '@/components/modules/builder/fieldMapping';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
-import PageHeader from '@/components/modules/dashboard/PageHeader.vue';
+import PageHeader from '@/components/modules/builder/PageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
-import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
+import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 

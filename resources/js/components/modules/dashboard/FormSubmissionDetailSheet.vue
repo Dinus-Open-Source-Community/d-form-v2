@@ -13,7 +13,7 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 
 const props = defineProps<{
     submission: IFormSubmission | IBundleSubmissionMember | null;

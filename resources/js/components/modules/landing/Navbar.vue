@@ -13,7 +13,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';

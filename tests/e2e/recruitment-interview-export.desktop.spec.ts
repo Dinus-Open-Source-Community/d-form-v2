@@ -884,4 +884,34 @@ test.describe('BE-P2-002 export CSV interview periode recruitment', () => {
         );
         expect(primaryOnly.rows.slice(1)).toHaveLength(APPLICATIONS.length);
     });
+
+    test('sheet tambah interviewer memakai route adapter, bukan literal fallback', async ({ page }) => {
+        test.setTimeout(60_000);
+
+        let postedPath = '';
+        await page.route('**/admin/recruitment/interviewers', async (route) => {
+            postedPath = new URL(route.request().url()).pathname;
+            await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+        });
+
+        await page.goto(`/admin/recruitment/periods/${periodId}?tab=interviewer`, { waitUntil: 'load' });
+
+        await page.getByText('Pilih interviewer', { exact: true }).click();
+        await page.getByRole('button', { name: 'Tambah interviewer baru' }).click();
+
+        const dialog = page.getByRole('dialog', { name: 'Tambah interviewer' });
+        await expect(dialog).toBeVisible();
+
+        await dialog.getByLabel('Nama').fill('E2E URL probe');
+        await dialog.getByLabel('Email').fill(`e2e-route-probe-${Date.now()}@example.test`);
+        await dialog.locator('#new-interviewer-password').fill('password123');
+        await dialog.locator('#new-interviewer-password-confirmation').fill('password123');
+
+        await dialog.getByRole('combobox').click();
+        await page.getByRole('option').first().click();
+
+        await dialog.getByRole('button', { name: 'Simpan interviewer' }).click();
+
+        expect(postedPath).toBe('/admin/recruitment/interviewers');
+    });
 });

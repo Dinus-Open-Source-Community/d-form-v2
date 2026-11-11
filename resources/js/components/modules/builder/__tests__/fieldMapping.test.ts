@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { toBackendFields } from '@/components/modules/builder/fieldMapping';
+import { fromBackendField, toBackendFields } from '@/components/modules/builder/fieldMapping';
 import { prependFormBannerToBackendPayload, defaultFormBannerState } from '@/components/modules/builder/formBanner';
-import type { IBuilderField } from '@/types/form-builder';
+import type { IBackendField, IBuilderField } from '@/types/form-builder';
 
 /** Field builder minimal; hanya properti yang diuji yang diisi. */
 function builderField(partial: Partial<IBuilderField> & Pick<IBuilderField, 'type'>): IBuilderField {
@@ -118,5 +118,72 @@ describe('toBackendFields — URL gambar yang dipersist', () => {
 
         expect(serialized).not.toContain('blob:');
         expect(serialized).not.toContain('data:');
+    });
+});
+
+describe('fromBackendField — metadata Inertia', () => {
+    function backendField(metadata: Record<string, unknown>): IBackendField {
+        return {
+            id: 'bf-1',
+            type: 'input',
+            label: 'Field',
+            description: null,
+            name: 'field_1',
+            order: 1,
+            metadata,
+        };
+    }
+
+    it('maps a valid metadata/rules payload', () => {
+        const field = fromBackendField(
+            backendField({
+                builderType: 'short_text',
+                placeholder: 'Nama',
+                sectionId: 'section-2',
+                maxLength: 80,
+                rules: { required: true, min: 0, max: 80 },
+            })
+        );
+
+        expect(field.type).toBe('short_text');
+        expect(field.placeholder).toBe('Nama');
+        expect(field.required).toBe(true);
+        expect(field.metadata.sectionId).toBe('section-2');
+        expect(field.metadata.maxLength).toBe(80);
+    });
+
+    it('falls back to defaults for a malformed metadata payload instead of throwing', () => {
+        const field = fromBackendField(
+            backendField({
+                builderType: 42,
+                placeholder: { nested: true },
+                sectionId: '   ',
+                maxStars: 'lima',
+                optionChoices: 'not-an-array',
+                rules: 'required',
+            })
+        );
+
+        expect(field.type).toBe('short_text');
+        expect(field.placeholder).toBe('');
+        expect(field.required).toBe(false);
+        expect(field.metadata.sectionId).toBe('section-1');
+        expect(field.metadata.maxStars).toBe(5);
+        expect(field.options).toEqual([]);
+    });
+});
+
+describe('toBackendFields — heading content', () => {
+    it('falls back to the section heading when content is cleared or whitespace', () => {
+        const canvas = [
+            builderField({ type: 'heading', metadata: { content: '' } }),
+            builderField({ id: 'f-2', name: 'field_2', type: 'heading', metadata: { content: '   ' } }),
+            builderField({ id: 'f-3', name: 'field_3', type: 'heading', metadata: { content: 'Judul' } }),
+        ];
+        const backend = toBackendFields(canvas);
+
+        expect(backendMetaOf(backend, 'field_1').content).toBe('Section Heading');
+        expect(backendMetaOf(backend, 'field_2').content).toBe('Section Heading');
+        expect(backendMetaOf(backend, 'field_3').content).toBe('Judul');
     });
 });

@@ -10,11 +10,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { routes } from '@/lib/routes';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useAuth } from '@/hooks/useAuth';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { Eye, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-vue-next';
 
 defineOptions({ layout: DashboardLayout });
@@ -52,9 +53,11 @@ const props = defineProps<{
     roleOptions: RoleOption[];
     query: UsersQuery;
 }>();
+const { goToPage, changePerPage } = usePaginationNavigation();
 
 const page = usePage();
 const authUser = useAuth(page.props);
+const { showErrorToast } = useToastNotifications();
 
 const search = ref(props.query.search ?? '');
 const role = ref(props.query.role ?? '');
@@ -269,7 +272,8 @@ function confirmDelete(): void {
                 :last-page="users.last_page"
                 :total="users.total"
                 :per-page="users.per_page"
-                :per-page-options="[]"
+                @page-change="goToPage"
+                @per-page-change="changePerPage"
             />
         </template>
 

@@ -3,7 +3,7 @@
  * Keep page components thin — import from here instead of inlining large `type` blocks.
  */
 
-import type { IBackendField, IFormBuilderSection } from '@/types/form-builder';
+import type { IBackendField, IFieldOptionEntry, IFormBuilderSection } from '@/types/form-builder';
 
 /** Access gate for the public form fill route */
 export type TFormAccessStatus =
@@ -86,17 +86,42 @@ export interface IFormFillSlotUi {
     errorSpacingClass: string;
 }
 
-/** Validation rules nested under `metadata.rules` on API fields */
-export type TFormFieldRules = {
-    required?: boolean;
-    in?: string;
-    mimes?: string;
-    max_size?: string | number;
-    min?: number;
-    max?: number;
-} & Record<string, unknown>;
+/** Validation rule keys the builder/API contract knows; every key is optional in a persisted bag. */
+export type TFormFieldRuleSet = {
+    required: boolean;
+    in: string;
+    mimes: string;
+    max_size: string | number;
+    min: number;
+    max: number;
+};
 
-/** Loose JSON-like metadata bag on `IFormField.metadata` */
+/** Rules bag nested under `metadata.rules`; known keys stay typed, legacy keys remain readable. */
+export type TFormFieldRules = Partial<TFormFieldRuleSet> & Record<string, unknown>;
+
+/** Keys the form builder serializes into `form_fields.metadata`; legacy keys stay valid at runtime. */
+export interface IFormFieldMetadata {
+    builderType?: string;
+    /** Input subtype persisted alongside `builderType` (text, email, tel, number, ...). */
+    type?: string;
+    placeholder?: string;
+    content?: string;
+    caption?: string;
+    alt?: string;
+    imageUrl?: string;
+    bannerUrl?: string;
+    bannerFileName?: string;
+    accepts?: string;
+    formBanner?: boolean;
+    is_multiple?: boolean;
+    maxStars?: number;
+    maxLength?: number;
+    sectionId?: string;
+    optionChoices?: IFieldOptionEntry[];
+    rules?: TFormFieldRules;
+}
+
+/** Loose JSON-like metadata bag on `IFormField.metadata` (untrusted Inertia payload). */
 export type TFormFieldMetadataBag = Record<string, unknown>;
 
 export interface IFormRegistrationMetadata {

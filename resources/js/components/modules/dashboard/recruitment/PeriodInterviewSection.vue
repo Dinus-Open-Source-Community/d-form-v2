@@ -5,6 +5,7 @@ import { Download, Eye, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import AppPagination from '@/components/core/AppPagination.vue';
 import {
     Dialog,
@@ -15,6 +16,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { type IPaginatorMeta } from '@/lib/paginatorLinks';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import InterviewSessionCreateSheet, {
     type IInterviewDivisionChoice,
 } from '@/components/modules/dashboard/recruitment/InterviewSessionCreateSheet.vue';
@@ -23,7 +25,6 @@ import InterviewSessionEditSheet, {
 } from '@/components/modules/dashboard/recruitment/InterviewSessionEditSheet.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import { routes } from '@/lib/routes';
-import { toast } from 'vue-sonner';
 import { assignUrl } from '@/adapters/browser/navigation';
 
 interface SessionRow {
@@ -50,6 +51,9 @@ const props = defineProps<{
     periodId: string;
     divisionOptions: IInterviewDivisionChoice[];
 }>();
+
+const { goToPage } = usePaginationNavigation();
+const { showInfoToast } = useToastNotifications();
 
 const createOpen = ref<boolean>(false);
 /** Sesi yang sedang diedit; null = sheet edit tertutup. */
@@ -221,7 +225,7 @@ function submitExport(): void {
     for (const key of ALL_EXPORT_COLUMN_KEYS) {
         if (selected.has(key)) params.append('columns[]', key);
     }
-    toast.info('Mengekspor…');
+    showInfoToast('Mengekspor…');
     exportOpen.value = false;
     assignUrl(`${routes.admin.recruitment.periods.exportInterviews(props.periodId)}?${params.toString()}`);
 }
@@ -435,6 +439,7 @@ function submitExport(): void {
             :total="sessions.total"
             :per-page="sessions.per_page ?? 20"
             :per-page-options="[]"
+            @page-change="goToPage"
         />
 
         <p v-else-if="!sessions" class="text-muted-foreground text-sm">Data sesi tidak tersedia untuk tab ini.</p>

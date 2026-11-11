@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CalendarDays, MapPin, Users, MoreVertical, SquarePen, Download, FileStack, Trash2 } from 'lucide-vue-next';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
-import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
+import { categoryLabelMap, categoryColorMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { routes } from '@/lib/routes';
 

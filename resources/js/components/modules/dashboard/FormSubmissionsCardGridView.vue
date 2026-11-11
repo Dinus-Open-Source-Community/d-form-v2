@@ -4,7 +4,7 @@ import { Clock, Inbox } from 'lucide-vue-next';
 import { submissionReviewBadge } from '@/lib/formSubmissionsUi';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 
 defineProps<{
     submissions: IFormSubmission[];

@@ -1,5 +1,6 @@
 import type { TFormPurpose, IFormRegistrationMetadata, TFormMetadataPayload } from '@/types/form';
 import type { IFormBuilderSection } from '@/types/form-builder';
+import { isRecord } from '@/lib/isRecord';
 
 /** Stable fallback for legacy forms that predate persisted section metadata. */
 export const DEFAULT_FORM_SECTION_ID = 'section-1';
@@ -12,11 +13,10 @@ export function defaultFormBuilderSections(): IFormBuilderSection[] {
 function parseBuilderSections(raw: unknown): IFormBuilderSection[] {
     if (!Array.isArray(raw)) return defaultFormBuilderSections();
     const sections = raw.flatMap((value, index): IFormBuilderSection[] => {
-        if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-        const record = value as Record<string, unknown>;
-        const id = typeof record.id === 'string' && record.id.trim() !== '' ? record.id : `section-${index + 1}`;
+        if (!isRecord(value)) return [];
+        const id = typeof value.id === 'string' && value.id.trim() !== '' ? value.id : `section-${index + 1}`;
         const title =
-            typeof record.title === 'string' && record.title.trim() !== '' ? record.title : `Bagian ${index + 1}`;
+            typeof value.title === 'string' && value.title.trim() !== '' ? value.title : `Bagian ${index + 1}`;
         return [{ id, title }];
     });
     return sections.length > 0 ? sections : defaultFormBuilderSections();
@@ -34,9 +34,24 @@ export function emptyFormRegistrationMetadata(): IFormRegistrationMetadata {
     };
 }
 
+/**
+ * Baca ukuran tim dari metadata tersimpan. Nilai non-numerik atau whitespace
+ * menjadi `null` supaya hasil baca dan payload tulis tetap simetris.
+ */
+function parseTeamSize(value: unknown): number | null {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value !== 'string') return null;
+
+    const trimmed: string = value.trim();
+    if (trimmed === '') return null;
+
+    const parsed: number = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 /** Normalizes any raw metadata bag into `IFormRegistrationMetadata`; used when loading an existing form. */
 export function parseFormRegistrationMetadata(raw: unknown): IFormRegistrationMetadata {
-    const m = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+    const m = isRecord(raw) ? raw : {};
     const purposeRaw = m['purpose'];
     const purpose: TFormPurpose = purposeRaw === 'other' ? 'other' : 'registration';
     const requiresRaw = m['requires_form_id'];
@@ -49,8 +64,8 @@ export function parseFormRegistrationMetadata(raw: unknown): IFormRegistrationMe
         purpose,
         requires_form_id,
         registration_mode: purpose === 'other' ? (rm === 'team' || rm === 'bundle' ? null : rm) : rm,
-        max_team_size: maxTs != null && maxTs !== '' ? Number(maxTs) : null,
-        team_size: teamS != null && teamS !== '' ? Number(teamS) : null,
+        max_team_size: parseTeamSize(maxTs),
+        team_size: parseTeamSize(teamS),
         sections: parseBuilderSections(m['sections']),
     };
 }
@@ -71,16 +86,8 @@ export function toFormMetadataPayload(m: IFormRegistrationMetadata): TFormMetada
                 ? 'single'
                 : null
             : (m.registration_mode ?? null),
-        max_team_size: isOther
-            ? null
-            : m.max_team_size != null && !Number.isNaN(Number(m.max_team_size))
-              ? Number(m.max_team_size)
-              : null,
-        team_size: isOther
-            ? null
-            : m.team_size != null && !Number.isNaN(Number(m.team_size))
-              ? Number(m.team_size)
-              : null,
+        max_team_size: isOther ? null : parseTeamSize(m.max_team_size),
+        team_size: isOther ? null : parseTeamSize(m.team_size),
         sections: parseBuilderSections(m.sections),
     };
 }

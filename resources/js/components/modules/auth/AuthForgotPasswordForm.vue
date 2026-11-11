@@ -8,10 +8,11 @@ import { AuthField } from '@/components/core/field';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController';
-import { toast } from 'vue-sonner';
 import { routes } from '@/lib/routes';
-import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage, showErrorToast } from '@/lib/error-message';
+import { getFieldError, humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
+const { handleInertiaFormErrors, showErrorToast, showSuccessToast } = useToastNotifications();
 const PASSWORD_RESET_LINK_URL = routes.auth.passwordResetLink;
 
 const email = ref('');
@@ -28,7 +29,7 @@ async function submit(): Promise<void> {
 
     try {
         const { message } = await requestPasswordResetLink(PASSWORD_RESET_LINK_URL, email.value);
-        toast.success(humanizeErrorMessage(message));
+        showSuccessToast(humanizeErrorMessage(message));
     } catch (error) {
         if (isHttpRequestError(error) && error.kind === 'validation') {
             const errors: TValidationErrorBag = error.validationErrors ?? {};

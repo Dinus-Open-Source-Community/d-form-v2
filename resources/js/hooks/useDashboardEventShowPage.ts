@@ -1,12 +1,12 @@
 import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import {
     destroy as destroyEvent,
     restore as restoreEvent,
 } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
-import { sessionLabelMap } from '@/lib/dummyData';
+import { sessionLabelMap } from '@/constants/eventDisplay';
 import { parseEventCategories } from '@/lib/eventShowUi';
 import { formatDateTime } from '@/lib/dateTime';
 
@@ -16,6 +16,7 @@ import { formatDateTime } from '@/lib/dateTime';
  * jaringan/UI ditangani di dalam hook, bukan di komponen.
  */
 export function useDashboardEventShowPage(event: IEvent, forms: { id: string; title: string }[]) {
+    const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
     const showDeleteModal = ref(false);
     const showRestoreModal = ref(false);
     const isDeleting = ref(false);
@@ -60,7 +61,7 @@ export function useDashboardEventShowPage(event: IEvent, forms: { id: string; ti
     function handleDelete() {
         isDeleting.value = true;
         router.delete(destroyEvent(event.id).url, {
-            onSuccess: () => toast.success(humanizeErrorMessage('Event has been archived.')),
+            onSuccess: () => showSuccessToast(humanizeErrorMessage('Event has been archived.')),
             onError: (errors) => handleInertiaFormErrors(errors, { title: 'Gagal mengarsipkan event' }),
             onFinish: () => {
                 isDeleting.value = false;
@@ -75,7 +76,7 @@ export function useDashboardEventShowPage(event: IEvent, forms: { id: string; ti
             restoreEvent(event.id).url,
             {},
             {
-                onSuccess: () => toast.success(humanizeErrorMessage('Event has been restored.')),
+                onSuccess: () => showSuccessToast(humanizeErrorMessage('Event has been restored.')),
                 onError: (errors) => handleInertiaFormErrors(errors, { title: 'Gagal memulihkan event' }),
                 onFinish: () => {
                     isRestoring.value = false;

@@ -10,7 +10,7 @@ import { resolveNavbarFallbackBackHref, pathWithoutQuery, routes } from '@/lib/r
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import { useTopbar } from '@/hooks/useDashboardTopbar';

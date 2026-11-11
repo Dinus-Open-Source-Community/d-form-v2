@@ -4,7 +4,10 @@ import { AuthSubmitButton } from '@/components/core/button';
 import { AuthField } from '@/components/core/field';
 import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController';
 import { store as resetPassword } from '@/actions/App/Http/Controllers/Auth/ResetPasswordController';
-import { getFieldError, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
+import { getFieldError } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+
+const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
 
 const props = defineProps<{
     token: string;

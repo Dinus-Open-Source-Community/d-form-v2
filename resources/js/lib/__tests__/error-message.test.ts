@@ -1,6 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('vue-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+import { describe, expect, it } from 'vitest';
 
 import {
     buildFieldLabelMap,

@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { Check, Eye, FileText, X } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import {
     answerPreview,
     formSubmissionReviewIsPending,

@@ -1,3 +1,5 @@
+// Entrypoint tetap JS: `vite.config.js` mengunci path `resources/js/app.js` sebagai input,
+// jadi rename ke `app.ts` menunggu perubahan config build (AUDIT-P3-009 follow-up).
 import './bootstrap';
 
 import { createApp, h } from 'vue';
@@ -8,7 +10,7 @@ import { useAuthHistoryGuard } from '@/hooks/useAuthHistoryGuard';
 useGlobalHttpStatusToast();
 useAuthHistoryGuard();
 
-const pages = import.meta.glob('./pages/**/*.vue');
+const lazyPageModules = import.meta.glob('./pages/**/*.vue');
 
 createInertiaApp({
     progress: {
@@ -18,9 +20,9 @@ createInertiaApp({
         showSpinner: false,
     },
     resolve: (name) => {
-        const page = pages[`./pages/${name}.vue`];
-        if (!page) throw new Error(`Halaman Inertia tidak ditemukan: ${name}`);
-        return page();
+        const pageModule = lazyPageModules[`./pages/${name}.vue`];
+        if (!pageModule) throw new Error(`Halaman Inertia tidak ditemukan: ${name}`);
+        return pageModule();
     },
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })

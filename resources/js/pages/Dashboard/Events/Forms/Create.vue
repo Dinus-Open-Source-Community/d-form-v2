@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
 import { defaultFormBannerState, prependFormBannerToBackendPayload } from '@/components/modules/builder/formBanner';
@@ -25,6 +25,8 @@ const props = defineProps<{
     event: { id: string; title: string };
     siblingForms?: IFormSiblingOption[];
 }>();
+
+const { handleInertiaFormErrors, showErrorToast, showSuccessToast } = useToastNotifications();
 
 const formTitle = ref<string>('');
 const formDescription = ref<string>('');
@@ -50,7 +52,7 @@ const createForm = useForm<CreateFormClientPayload>({
 
 function onSave(): void {
     if (builderPendingUploads.value > 0) {
-        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
+        showErrorToast('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
         return;
     }
     createForm.title = formTitle.value;
@@ -67,7 +69,7 @@ function onSave(): void {
 
     isSaving.value = true;
     createForm.post(routes.admin.events.forms.store(props.event.id), {
-        onSuccess: () => toast.success(humanizeErrorMessage('Form created successfully!')),
+        onSuccess: () => showSuccessToast(humanizeErrorMessage('Form created successfully!')),
         onError: (errors) => {
             handleInertiaFormErrors(errors, { title: 'Gagal membuat form' });
         },

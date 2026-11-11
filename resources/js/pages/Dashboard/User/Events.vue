@@ -9,10 +9,11 @@ import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
 import { FilterX } from 'lucide-vue-next';
 import { findCursorUrls, formatCompactNumber } from '@/lib/pagination';
-import { categoryLabelMap, sessionLabelMap } from '@/lib/dummyData';
+import { categoryLabelMap, sessionLabelMap } from '@/constants/eventDisplay';
 import { toCategoryList } from '@/lib/eventCategories';
 import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -48,6 +49,7 @@ const props = withDefaults(
     }>(),
     { listMode: 'browse', totalJoined: 0, truncated: false }
 );
+const { goToCursorUrl } = usePaginationNavigation();
 
 const filterCategory = ref(props.filters?.category ?? ALL_FILTER_VALUE);
 const filterSession = ref(props.filters?.session ?? ALL_FILTER_VALUE);
@@ -233,6 +235,7 @@ onMounted(() => {
                 :prev-url="cursorUrls.previous"
                 :next-url="cursorUrls.next"
                 :per-page-options="[]"
+                @cursor-change="goToCursorUrl"
             />
         </template>
     </div>

@@ -1,6 +1,7 @@
 import { computed, type ComputedRef } from 'vue';
 import type { InertiaForm } from '@inertiajs/vue3';
-import { buildFieldLabelMap, getFieldError, showErrorToast, type TErrorMessageContext } from '@/lib/error-message';
+import { buildFieldLabelMap, getFieldError, type TErrorMessageContext } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import {
     formFieldAnswerKey,
     formFieldAnswerKeys,
@@ -30,6 +31,7 @@ export interface IUseFormFillValidation {
  * `validateSection` also writes field errors and shows the "section incomplete" toast.
  */
 export function useFormFillValidation(options: IUseFormFillValidationOptions): IUseFormFillValidation {
+    const { showErrorToast } = useToastNotifications();
     const errorContext = computed<TErrorMessageContext>(() => ({
         fields: [...options.fields],
         fieldLabels: buildFieldLabelMap([...options.fields]),

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormFillSubmit } from '@/hooks/useFormFillSubmit';
-import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
 import type { TFormFillAnswerMap } from '@/types/form';
 
 vi.mock('@inertiajs/vue3', async (importOriginal) => {
@@ -14,18 +13,17 @@ vi.mock('@inertiajs/vue3', async (importOriginal) => {
     };
 });
 
-vi.mock('@/lib/error-message', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/lib/error-message')>();
+const toastMocks = vi.hoisted(() => ({
+    showErrorToast: vi.fn(),
+    handleInertiaFormErrors: vi.fn(),
+}));
 
-    return {
-        ...actual,
-        showErrorToast: vi.fn(),
-        handleInertiaFormErrors: vi.fn(),
-    };
-});
+vi.mock('@/hooks/useToastNotifications', () => ({
+    useToastNotifications: () => toastMocks,
+}));
 
-const showErrorToastMock = vi.mocked(showErrorToast);
-const handleInertiaFormErrorsMock = vi.mocked(handleInertiaFormErrors);
+const showErrorToastMock = toastMocks.showErrorToast;
+const handleInertiaFormErrorsMock = toastMocks.handleInertiaFormErrors;
 
 const FIELDS: IFormField[] = [
     { id: 'f1', type: 'input', label: 'Team member emails', name: 'team_member_emails', order: 0, metadata: {} },

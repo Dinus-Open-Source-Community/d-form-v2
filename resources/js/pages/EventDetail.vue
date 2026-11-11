@@ -4,7 +4,7 @@ import SeoHead from '@/components/seo/SeoHead.vue';
 import { computed, ref, onMounted } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { MapPin, CalendarDays, ArrowRight, Check, Shield, FileText, ChevronRight, LogIn } from 'lucide-vue-next';
-import { categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import { categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/constants/eventDisplay';
 
 /** Label sesi dari token; token tak dikenal ditampilkan apa adanya. */
 function sessionLabel(token: string): string {

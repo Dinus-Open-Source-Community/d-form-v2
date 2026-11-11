@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { MessageSquareCheck } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import DeferredRender from '@/components/core/DeferredRender.vue';
-import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors';
+import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 
 /**
  * Zona konfirmasi "Pesan setelah submit" ala Google Forms — segmen terakhir dari

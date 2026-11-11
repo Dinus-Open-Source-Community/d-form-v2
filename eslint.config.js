@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 import vueTsConfig from '@vue/eslint-config-typescript';
 import skipFormatting from '@vue/eslint-config-prettier/skip-formatting';
 import { BUILDER_COLOCATED_MODULES } from './scripts/frontendFolderBoundaries.js';
+import { LIB_RUNTIME_PACKAGES_RULE_ID, libRuntimePackageRule } from './scripts/libRuntimePackageRule.js';
 
 /**
  * FE-AUDIT-015: impor per folder mengikuti tabel folder AGENTS.md.
@@ -22,6 +23,12 @@ function restrictedImports(patterns) {
     return ['error', { paths: [AXIOS_IMPORT_PATH], patterns }];
 }
 
+/**
+ * `lib/` hanya pure function: impor paket runtime dilarang. Satu implementasi
+ * rule ada di `scripts/libRuntimePackageRule.js`, dipakai config ini dan test
+ * guard Vitest agar kedua jalur memberi verdict yang sama.
+ */
+
 const LIB_FORBIDDEN = [
     '@/components',
     '@/components/**',
@@ -39,8 +46,8 @@ const LIB_FORBIDDEN = [
     '@/plugins/**',
     '@/directives',
     '@/directives/**',
-    '@/constants',
-    '@/constants/**',
+    // `@/constants` sengaja diizinkan: nilai statis tanpa behavior (lihat
+    // docs/rules/front-end-structure.md: lib -> types, constants).
 ];
 const TYPES_FORBIDDEN = [...LIB_FORBIDDEN, '@/lib', '@/lib/**'];
 const HOOKS_LAYOUT_FORBIDDEN = [
@@ -154,6 +161,21 @@ export default tseslint.config(
                     ],
                 },
             ],
+        },
+    },
+
+    {
+        name: 'app/layer-lib-runtime-packages',
+        files: ['resources/js/lib/**/*.{ts,vue,js}'],
+        ignores: ['resources/js/lib/**/__tests__/**'],
+        plugins: {
+            dform: {
+                meta: { name: 'dform' },
+                rules: { 'lib-runtime-packages': libRuntimePackageRule },
+            },
+        },
+        rules: {
+            [LIB_RUNTIME_PACKAGES_RULE_ID]: 'error',
         },
     },
 

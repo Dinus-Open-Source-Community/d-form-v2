@@ -8,8 +8,9 @@ import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next';
 import { findCursorUrls } from '@/lib/pagination';
 import { routes } from '@/lib/routes';
 import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import { useEventSearch } from '@/hooks/useEventSearch';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { formatDateTime } from '@/lib/dateTime';
 import { findElementById } from '@/adapters/browser/domQuery';
 
@@ -38,6 +39,7 @@ const props = defineProps<{
 
 const visible = ref(false);
 const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSearch } = useEventSearch(props.filters);
+const { goToCursorUrl } = usePaginationNavigation();
 
 const activeQuery = computed((): string => props.filters?.q?.trim() ?? '');
 
@@ -201,6 +203,7 @@ const statusVariant = (s: string) =>
                 :prev-url="cursorUrls.previous"
                 :next-url="cursorUrls.next"
                 :per-page-options="[]"
+                @cursor-change="goToCursorUrl"
             />
         </div>
     </section>

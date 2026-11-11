@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronLeft, ChevronRight, MapPin, CalendarDays, ArrowRight } from 'lucide-vue-next';
-import { categoryColorMap, categoryLabelMap } from '@/lib/dummyData';
+import { categoryColorMap, categoryLabelMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList, primaryCategory } from '@/lib/eventCategories';
 

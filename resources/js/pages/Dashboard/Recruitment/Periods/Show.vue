@@ -36,9 +36,8 @@ import {
     UserCheck,
     Users,
 } from 'lucide-vue-next';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { describeRequestError } from '@/lib/requestErrorText';
-import { toast } from 'vue-sonner';
 import { routes } from '@/lib/routes';
 import type { TPeriodStatusValue } from '@/lib/recruitmentPeriodPhase';
 import {
@@ -208,6 +207,7 @@ const props = withDefaults(
 
 const page = usePage();
 const user = useAuth(page.props);
+const { showErrorToast, showSuccessToast } = useToastNotifications();
 const canListApplications = computed(() => user.value?.can_list_recruitment_applications === true);
 const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
 const canScreenApplications = computed(() => user.value?.can_screen_recruitment_applications === true);
@@ -329,10 +329,10 @@ function confirmGroupLink(): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Link grup dikirim ke applicant yang lolos.');
+                showSuccessToast('Link grup dikirim ke applicant yang lolos.');
             },
             onError: () => {
-                toast.error('Gagal mengirim link grup. Coba lagi.');
+                showErrorToast('Gagal mengirim link grup. Coba lagi.');
             },
             onFinish: () => {
                 isSendingGroupLink.value = false;

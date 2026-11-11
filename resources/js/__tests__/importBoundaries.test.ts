@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
+import { BUILDER_COLOCATED_MODULES } from '../../../scripts/frontendFolderBoundaries.js';
 
 /**
  * Architecture guard: static import graph must stay acyclic and respect layer
@@ -36,15 +38,7 @@ const RESOLVE_SUFFIXES = [
     '/index.js',
 ];
 
-const BUILDER_COLOCATED_ALLOWED = new Set([
-    'formBanner.ts',
-    'formBuilderPalette.ts',
-    'formBuilderFieldFactory.ts',
-    'fieldMapping.ts',
-    'autosaveGuard.ts',
-    'dirtyFields.ts',
-    'optionImage.ts',
-]);
+const BUILDER_COLOCATED_ALLOWED = new Set(BUILDER_COLOCATED_MODULES.map((moduleName: string) => `${moduleName}.ts`));
 
 interface IGraphBuild {
     edges: Map<string, string[]>;
@@ -173,6 +167,18 @@ const ADAPTERS_FORBIDDEN = ['pages/', 'layouts/', 'components/'];
 // Folder table: `pages/` is route-level only; no other layer may import it.
 const MODULES_FORBIDDEN = ['pages/'];
 
+/**
+ * Nama modul pemilik sebuah path di bawah `components/modules/`; `null` untuk
+ * path di luar folder itu. Dipakai guard "tidak ada import silang modul".
+ */
+function moduleSegment(repoPath: string): string | null {
+    const prefix = 'components/modules/';
+    if (!repoPath.startsWith(prefix)) return null;
+
+    const segment = repoPath.slice(prefix.length).split('/')[0];
+    return segment.length > 0 ? segment : null;
+}
+
 /** AGENTS.md allows builder factories/guards bound to the form-builder lifecycle to co-locate. */
 function isBuilderColocatedModule(targetPath: string): boolean {
     const builderPrefix = 'components/modules/builder/';
@@ -242,10 +248,85 @@ describe('import boundaries', () => {
         expect(violations, violations.join('\n')).toEqual([]);
     });
 
+    it('keeps every components/modules feature from importing another module', () => {
+        const violations: string[] = [];
+
+        for (const [source, targets] of edges) {
+            const sourcePath = toRepoPath(source);
+            const sourceModule = moduleSegment(sourcePath);
+            if (sourceModule === null) continue;
+
+            for (const target of targets) {
+                const targetModule = moduleSegment(toRepoPath(target));
+                if (targetModule === null || targetModule === sourceModule) continue;
+                violations.push(`${sourcePath} -> ${toRepoPath(target)}`);
+            }
+        }
+
+        expect(
+            violations,
+            `Komponen lintas modul wajib pindah ke components/core/: \n${violations.join('\n')}`
+        ).toEqual([]);
+    });
+
     it('only leaves generated Wayfinder imports unresolved', () => {
         const unexpected = unresolved.filter(
             (entry) => !GENERATED_PREFIXES.some((prefix) => entry.split('-> ')[1]?.startsWith(prefix))
         );
         expect(unexpected, unexpected.join('\n')).toEqual([]);
     });
+
+    it('keeps app route paths out of literal strings outside the adapter', () => {
+        const violations = collectAppPathLiterals().map((hit) => `${hit.path}:${hit.line} -> ${hit.literal}`);
+
+        expect(violations, `Path route literal di luar adapter/Wayfinder:\n${violations.join('\n')}`).toEqual([]);
+    });
 });
+
+/** Prefix path yang boleh memuat path aplikasi: adapter URL, Wayfinder, dan guard test. */
+const ROUTE_LITERAL_ALLOWED_PREFIXES = ['lib/routes.ts', 'adapters/', 'actions/', 'routes/', 'wayfinder/'];
+
+/** Literal string/template yang diawali path area aplikasi. */
+const APP_PATH_LITERAL = /^\/(?:admin|dashboard|recruitment|joined|browse)(?:\/|$)/;
+
+interface IAppPathLiteralHit {
+    path: string;
+    line: number;
+    literal: string;
+}
+
+/** Kumpulkan literal path aplikasi dari source runtime, tanpa komentar dan test. */
+function collectAppPathLiterals(): IAppPathLiteralHit[] {
+    const hits: IAppPathLiteralHit[] = [];
+
+    for (const file of collectSourceFiles(JS_ROOT)) {
+        const path = toRepoPath(file);
+        if (path.includes('__tests__')) continue;
+        if (ROUTE_LITERAL_ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix))) continue;
+
+        const sourceFile = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+        const inspect = (node: ts.Node): void => {
+            if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+                if (APP_PATH_LITERAL.test(node.text)) {
+                    hits.push({
+                        path,
+                        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+                        literal: node.text,
+                    });
+                }
+            } else if (ts.isTemplateExpression(node) && APP_PATH_LITERAL.test(node.head.text)) {
+                hits.push({
+                    path,
+                    line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+                    literal: node.head.text,
+                });
+            }
+
+            ts.forEachChild(node, inspect);
+        };
+
+        inspect(sourceFile);
+    }
+
+    return hits;
+}

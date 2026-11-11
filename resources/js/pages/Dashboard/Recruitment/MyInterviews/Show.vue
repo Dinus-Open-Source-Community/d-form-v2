@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { isHttpUrl } from '@/lib/isHttpUrl';
 import { formatDateTime } from '@/lib/dateTime';
 import { focusElementById } from '@/adapters/browser/domQuery';
@@ -84,6 +84,8 @@ const props = defineProps<{
     evaluateUrl: string;
     recommendationOptions: { value: string; label: string }[];
 }>();
+
+const { showSuccessToast } = useToastNotifications();
 
 const canEdit = computed(() => props.detail.evaluation.can_edit !== false);
 
@@ -414,7 +416,7 @@ function confirmSave(): void {
     form.post(props.evaluateUrl, {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success('Penilaian interview berhasil disimpan.');
+            showSuccessToast('Penilaian interview berhasil disimpan.');
         },
     });
 }

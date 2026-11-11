@@ -104,6 +104,11 @@ test.describe('auth login', () => {
         await form.getByRole('button', { name: /masuk/i }).click();
 
         await expect(form.locator('.text-destructive').filter({ hasText: /valid email address/i })).toBeVisible();
+        // EP-06 AUDIT-P1-012-F1/F4: toast dipindah ke `hooks/useToastNotifications`,
+        // perilaku pesan/title harus tetap sama.
+        const toast = page.locator('[data-sonner-toast]').filter({ hasText: /gagal masuk/i });
+        await expect(toast).toBeVisible({ timeout: 15_000 });
+        await expect(toast).toContainText(/email/i);
         await expect(page).toHaveURL(/\/auth\/login/);
     });
 });

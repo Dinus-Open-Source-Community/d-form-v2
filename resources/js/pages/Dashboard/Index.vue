@@ -76,7 +76,7 @@ onMounted(() => {
                         :event-base-href="routes.admin.events.index"
                     />
                 </div>
-                <MiniCalendar />
+                <MiniCalendar :events="events" />
             </div>
         </section>
 

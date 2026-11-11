@@ -1,4 +1,3 @@
-import { toast } from 'vue-sonner';
 import { isRecord } from '@/lib/isRecord';
 
 export type TValidationErrors = Record<string, string | string[] | undefined>;
@@ -309,47 +308,6 @@ export function parseValidationErrors(
 }
 
 /**
- * Side effect: tampilkan toast error validasi. Durasi menyesuaikan jumlah error;
- * tanpa error tetap menampilkan toast generik agar submit gagal tidak senyap.
- */
-export function showValidationErrorToast(
-    errors: TValidationErrors,
-    ctx?: TErrorMessageContext & { title?: string }
-): void {
-    const parsed = parseValidationErrors(errors, ctx);
-    const title = ctx?.title ?? 'Validasi gagal';
-
-    if (parsed.length === 0) {
-        toast.error(title, {
-            description: 'Periksa kembali formulir dan lengkapi field yang ditandai.',
-        });
-        return;
-    }
-
-    if (parsed.length === 1) {
-        const only = parsed[0];
-        toast.error(title, {
-            description: `${only.label}: ${only.message}`,
-            duration: 6000,
-        });
-        return;
-    }
-
-    toast.error(title, {
-        description: parsed.map((entry) => entry.line).join('\n'),
-        duration: Math.min(14_000, 4000 + parsed.length * 800),
-    });
-}
-
-/** Side effect: handler `onError` Inertia; meneruskan bag error ke toast validasi. */
-export function handleInertiaFormErrors(
-    errors: TValidationErrors,
-    ctx?: TErrorMessageContext & { title?: string }
-): void {
-    showValidationErrorToast(errors, ctx);
-}
-
-/**
  * Ambil pesan pertama dari bag `errors`, sudah di-humanize dengan label field.
  * `undefined` bila bag tidak ada atau tidak berisi string.
  */
@@ -394,71 +352,6 @@ function readErrorText(value: unknown): string | undefined {
     if (Array.isArray(value)) return value.find((item): item is string => typeof item === 'string');
 
     return undefined;
-}
-
-/**
- * Side effect: toast error HTTP. Pesan dari body diprioritaskan; bila kosong, pakai
- * pesan default per status (bisa di-override) dan fallback `Permintaan gagal (kode N)`.
- */
-export function showHttpErrorToast(status: number, body?: unknown, overrides?: Partial<Record<number, string>>): void {
-    const defaults: Record<number, string> = {
-        401: 'Anda perlu masuk terlebih dahulu.',
-        403: 'Anda tidak memiliki izin untuk tindakan ini.',
-        404: 'Data tidak ditemukan.',
-        419: 'Sesi tidak valid atau sudah habis. Muat ulang halaman lalu coba lagi.',
-        422: 'Data yang dikirim tidak valid. Periksa kembali formulir.',
-        429: 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.',
-        500: 'Terjadi kesalahan server. Coba lagi nanti.',
-        503: 'Layanan sedang sibuk. Coba lagi nanti.',
-        ...overrides,
-    };
-
-    const fromBody = body ? parseApiErrorMessage(body, '', status) : '';
-    if (fromBody) {
-        toast.error(fromBody);
-        return;
-    }
-
-    toast.error(defaults[status] ?? `Permintaan gagal (kode ${status}).`);
-}
-
-/** Side effect: toast error dari pesan bebas; pesan tetap di-humanize sebelum ditampilkan. */
-export function showErrorToast(
-    message: string,
-    options?: { title?: string; description?: string; duration?: number }
-): void {
-    const text = humanizeErrorMessage(message);
-
-    if (options?.title) {
-        toast.error(options.title, {
-            description: text || options.description,
-            duration: options.duration,
-        });
-        return;
-    }
-
-    toast.error(text, {
-        description: options?.description,
-        duration: options?.duration,
-    });
-}
-
-/** Side effect: toast dari flash session; `type === 'success'` → toast sukses, selain itu error. */
-export function showFlashToast(flash: { type?: string; message?: string } | null | undefined): void {
-    if (!flash?.message) return;
-
-    const message = humanizeErrorMessage(flash.message);
-    if (flash.type === 'success') {
-        toast.success(message);
-        return;
-    }
-
-    toast.error(message);
-}
-
-/** @deprecated Gunakan {@link showValidationErrorToast} */
-export function showEventValidationToast(errors: TValidationErrors): void {
-    showValidationErrorToast(errors, { title: 'Validasi gagal' });
 }
 
 /** Map `name → label` untuk field builder; field tanpa label dilewati. */

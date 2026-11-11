@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import {
     persistFormSnapshotKeepalive,
     resolveBuilderImageUploadUrl,
     saveFormFields,
     updateFormSettings,
-    reviewFormSubmission,
 } from '@/adapters/http/forms';
 import { currentOrigin } from '@/adapters/browser/navigation';
 import { useAutosaveSync } from '@/hooks/useAutosaveSync';
 import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
 import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
-import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
-import { notifyAutosaveFailure } from '@/lib/autosaveFailureToast';
+import { readFieldMetadata, readMetaText, readMetadataBag } from '@/lib/formFieldMetadata';
+import { getFieldError, humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
 import FormSettingsPanel from '@/components/modules/builder/FormSettingsPanel.vue';
@@ -51,14 +50,13 @@ import {
     submissionFileUrl,
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi';
-import { showErrorToast, showHttpErrorToast } from '@/lib/error-message';
-import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
 import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
 
@@ -77,6 +75,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage();
+const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast, showSuccessToast } = useToastNotifications();
 
 /** Baca tab dari query string agar deep-link ?tab=jawaban bekerja saat refresh/back. */
 function tabFromQuery(): TShowTab {
@@ -271,7 +270,7 @@ onUnmounted(() => {
 async function onSave(): Promise<void> {
     if (settingsForm.processing || manualSaving.value) return;
     if (builderPendingUploads.value > 0) {
-        toast.error('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
+        showErrorToast('Masih ada gambar yang diunggah. Tunggu sebentar lalu simpan lagi.');
         return;
     }
 
@@ -301,7 +300,7 @@ async function onSave(): Promise<void> {
                     // Manual PUT menyimpan seluruh state; error autosave sebelumnya
                     // tidak lagi berlaku.
                     showAutosave.markSaved();
-                    toast.success(humanizeErrorMessage('Form and fields saved successfully.'));
+                    showSuccessToast(humanizeErrorMessage('Form and fields saved successfully.'));
                 },
                 onError: (errors) => {
                     handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });
@@ -327,8 +326,7 @@ const answerKeys = computed(() => {
     const displayOnlyNames = new Set(
         (props.fields ?? [])
             .filter((f) => {
-                const metadata = (f.metadata ?? {}) as Record<string, unknown>;
-                const builderType = metadata.builderType;
+                const builderType = readFieldMetadata(f)['builderType'];
                 return f.name === 'form_banner' || isDisplayOnlyBuilderType(builderType);
             })
             .map((f) => f.name)
@@ -358,9 +356,7 @@ const answerKeys = computed(() => {
 const FILE_FIELD_TYPE_NAMES: ReadonlySet<string> = new Set(['fileUpload', 'file_upload', 'image_upload']);
 
 function backendFieldBuilderType(field: IBackendField): string {
-    const metadata = (field.metadata ?? {}) as Record<string, unknown>;
-    const builderType = metadata.builderType;
-    return typeof builderType === 'string' ? builderType : '';
+    return readMetaText(readMetadataBag(field.metadata), 'builderType');
 }
 
 /** True bila field adalah unggahan berkas/foto (banner dikecualikan — bukan jawaban). */
@@ -423,79 +419,25 @@ const detailFields = computed<IFormField[]>(() =>
 // ── Detail drawer + review jawaban ──
 const selectedSubmission = ref<IFormSubmission | null>(null);
 const isDetailOpen = ref(false);
-const reviewingIds = ref<Set<string>>(new Set());
-
-function isSubmissionReviewing(submissionId: string): boolean {
-    return reviewingIds.value.has(submissionId);
-}
+const { isReviewing: isSubmissionReviewing, reviewSubmission } = useFormSubmissionReview({
+    eventId: props.event.id,
+    formId: props.form.id,
+    reloadOnly: ['submissions'],
+    onReviewed: (submissionId: string): void => {
+        const next = (props.submissions ?? []).find((candidate) => candidate.id === submissionId) ?? null;
+        if (next && selectedSubmission.value?.id === submissionId) {
+            selectedSubmission.value = next;
+        }
+    },
+});
 
 function openSubmissionDetail(submission: IFormSubmission): void {
     selectedSubmission.value = submission;
     isDetailOpen.value = true;
 }
 
-function submitSubmissionReview(action: 'accept' | 'reject', submission: IFormSubmission): void {
-    if (!formSubmissionReviewIsPending(submission) || isSubmissionReviewing(submission.id)) return;
-
-    const reviewStatus = action === 'accept' ? 'accepted' : 'rejected';
-    const id = submission.id;
-    reviewingIds.value = new Set(reviewingIds.value).add(id);
-
-    const clearReviewing = (): void => {
-        const next = new Set(reviewingIds.value);
-        next.delete(id);
-        reviewingIds.value = next;
-    };
-
-    const { url } = FormAnswerReviewController.patch({
-        event: props.event.id,
-        form: props.form.id,
-        formAnswer: submission.id,
-    });
-
-    void (async () => {
-        try {
-            const result = await reviewFormSubmission({ url, method: 'PATCH', reviewStatus });
-
-            const isSuccess = result.status >= 200 && result.status < 300;
-
-            if (!isSuccess) {
-                showHttpErrorToast(
-                    result.status,
-                    result.message ? { message: humanizeErrorMessage(result.message) } : {},
-                    {
-                        409: 'Jawaban ini sudah pernah direview.',
-                        422: 'Status review tidak valid.',
-                        403: 'Anda tidak punya izin untuk mereview jawaban ini.',
-                        404: 'Jawaban tidak ditemukan.',
-                    }
-                );
-                if (result.status === 409 || result.status === 422) {
-                    router.reload({ only: ['submissions'] });
-                }
-                return;
-            }
-
-            toast.success(action === 'accept' ? 'Jawaban diterima.' : 'Jawaban ditolak.');
-            router.reload({
-                only: ['submissions'],
-                onSuccess: () => {
-                    const next = (props.submissions ?? []).find((s) => s.id === id) ?? null;
-                    if (next && selectedSubmission.value?.id === id) {
-                        selectedSubmission.value = next;
-                    }
-                },
-            });
-        } catch {
-            showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
-        } finally {
-            clearReviewing();
-        }
-    })();
-}
-
 function onDetailReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission }): void {
-    submitSubmissionReview(payload.action, payload.submission);
+    reviewSubmission(payload.action, payload.submission);
 }
 
 function acceptLabel(submission: IFormSubmission): string {
@@ -769,7 +711,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                                             class="text-success hover:bg-success/10 hover:text-success"
                                                             :aria-label="`${acceptLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
                                                             :disabled="isSubmissionReviewing(submission.id)"
-                                                            @click="submitSubmissionReview('accept', submission)"
+                                                            @click="reviewSubmission('accept', submission)"
                                                         >
                                                             <Check class="size-4" aria-hidden="true" />
                                                         </Button>
@@ -788,7 +730,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                                             class="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                             :aria-label="`${rejectLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
                                                             :disabled="isSubmissionReviewing(submission.id)"
-                                                            @click="submitSubmissionReview('reject', submission)"
+                                                            @click="reviewSubmission('reject', submission)"
                                                         >
                                                             <X class="size-4" aria-hidden="true" />
                                                         </Button>

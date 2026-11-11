@@ -10,10 +10,12 @@ import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
 import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue';
 import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
-import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
+
+const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
 
 /** Label field agar pesan validasi di toast mudah dicocokkan dengan form. */
 const errorFieldLabels: Record<string, string> = {

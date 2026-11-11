@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/vue3';
-import { showHttpErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
 let registered = false;
 let lastVisitMethod = 'get';
@@ -14,6 +14,8 @@ let lastVisitMethod = 'get';
 export function useHttpErrorToast(): void {
     if (registered) return;
     registered = true;
+
+    const { showHttpErrorToast } = useToastNotifications();
 
     router.on('before', (event) => {
         lastVisitMethod = event.detail.visit.method;

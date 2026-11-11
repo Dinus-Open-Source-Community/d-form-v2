@@ -1,13 +1,8 @@
 import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { readCookie } from '@/adapters/browser/cookies';
-import {
-    HttpRequestError,
-    readPublicMessage,
-    readRetryAfterSeconds,
-    readValidationErrors,
-    toHttpErrorKind,
-} from '@/adapters/http/httpError';
+import { HttpRequestError, readPublicMessage, readValidationErrors, toHttpErrorKind } from '@/adapters/http/httpError';
+import { parseRetryAfterSeconds } from '@/lib/http-retry-after';
 import type { THttpMethod } from '@/types/http';
 
 /** Opsi request JSON/form-data yang dipakai modul domain. */
@@ -79,7 +74,7 @@ function toRequestError(error: unknown): HttpRequestError {
             message: readPublicMessage(data) ?? `Permintaan gagal (kode ${status}).`,
             body: data,
             validationErrors: readValidationErrors(data),
-            retryAfterSeconds: readRetryAfterSeconds(error.response.headers['retry-after']),
+            retryAfterSeconds: parseRetryAfterSeconds(error.response.headers['retry-after']),
             cause: error,
         });
     }
@@ -153,7 +148,7 @@ export async function requestJsonWithStatus<T>(
 
     return {
         status: response.status,
-        retryAfterSeconds: readRetryAfterSeconds(response.headers['retry-after']),
+        retryAfterSeconds: parseRetryAfterSeconds(response.headers['retry-after']),
         data,
     };
 }

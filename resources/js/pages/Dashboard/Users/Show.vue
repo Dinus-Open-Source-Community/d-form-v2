@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { routes } from '@/lib/routes';
 import { formatDateTime } from '@/lib/dateTime';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
@@ -106,6 +106,8 @@ const props = defineProps<{
     staff: StaffInfo;
     permissions: { can_edit: boolean; can_delete: boolean };
 }>();
+
+const { showErrorToast } = useToastNotifications();
 
 const roleLabels: Record<string, string> = {
     'super-admin': 'Super Admin',

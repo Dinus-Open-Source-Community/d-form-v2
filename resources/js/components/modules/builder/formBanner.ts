@@ -1,5 +1,8 @@
 import type { IBuilderField } from '@/components/modules/builder/fieldMapping';
+import type { TFormFieldMetadataBag } from '@/types/form';
 import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
+import { readMetaText, readMetadataBag } from '@/lib/formFieldMetadata';
+import { isRecord } from '@/lib/isRecord';
 
 export interface IFormBannerState {
     id: string | null;
@@ -8,13 +11,12 @@ export interface IFormBannerState {
     caption: string;
 }
 
-function recordMetadata(field: IFormField): Record<string, unknown> {
-    return field.metadata && typeof field.metadata === 'object' ? field.metadata : {};
+function recordMetadata(field: IFormField): TFormFieldMetadataBag {
+    return isRecord(field.metadata) ? field.metadata : {};
 }
 
 function builderApiType(field: IFormField): string {
-    const m = recordMetadata(field);
-    const bt = m.builderType;
+    const bt = recordMetadata(field)['builderType'];
     return typeof bt === 'string' ? bt : field.type;
 }
 
@@ -31,9 +33,7 @@ export function extractFormBannerFromBuilderFields(rows: IBuilderField[]): {
     banner: IFormBannerState;
     canvasFields: IBuilderField[];
 } {
-    const idxFlag = rows.findIndex(
-        (f) => f.type === 'banner' && Boolean((f.metadata as Record<string, unknown> | undefined)?.formBanner)
-    );
+    const idxFlag = rows.findIndex((f) => f.type === 'banner' && Boolean(f.metadata?.formBanner));
     const idxLegacy = idxFlag === -1 ? rows.findIndex((f) => f.type === 'banner') : -1;
     const idx = idxFlag >= 0 ? idxFlag : idxLegacy;
 
@@ -42,12 +42,12 @@ export function extractFormBannerFromBuilderFields(rows: IBuilderField[]): {
     }
 
     const bf = rows[idx];
-    const meta = bf.metadata ?? {};
+    const meta = readMetadataBag(bf.metadata);
     const banner: IFormBannerState = {
         id: bf.id,
-        bannerUrl: typeof meta.bannerUrl === 'string' ? meta.bannerUrl : '',
-        bannerFileName: typeof meta.bannerFileName === 'string' ? meta.bannerFileName : '',
-        caption: typeof meta.content === 'string' ? meta.content : '',
+        bannerUrl: readMetaText(meta, 'bannerUrl'),
+        bannerFileName: readMetaText(meta, 'bannerFileName'),
+        caption: readMetaText(meta, 'content'),
     };
     const canvasFields = rows.filter((_, i) => i !== idx);
     return { banner, canvasFields };

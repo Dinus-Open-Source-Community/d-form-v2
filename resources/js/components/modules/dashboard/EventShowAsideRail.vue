@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -21,7 +20,10 @@ import {
 } from 'lucide-vue-next';
 import { edit as editEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+
+const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
 
 const props = defineProps<{
     event: IEvent;
@@ -47,7 +49,7 @@ function confirmDelete(): void {
     router.delete(routes.admin.events.forms.destroy(props.event.id, deleteTarget.value.id), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success(humanizeErrorMessage('Form deleted.'));
+            showSuccessToast(humanizeErrorMessage('Form deleted.'));
             showDeleteModal.value = false;
             deleteTarget.value = null;
         },

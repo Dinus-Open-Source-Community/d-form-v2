@@ -6,8 +6,8 @@
 
 import { dashboard as dashboardRoute, docs, features, home } from '@/routes';
 import { index as adminIndex } from '@/routes/admin';
-import { github, google, login as authLogin, logout as authLogout, register as authRegister } from '@/routes/auth';
-import { request as forgotPasswordRequest, resetLink as passwordResetLink } from '@/routes/auth/password';
+import { login as authLogin, register as authRegister } from '@/routes/auth';
+import { resetLink as passwordResetLink } from '@/routes/auth/password';
 import { profile as dashboardProfile } from '@/routes/dashboard';
 import {
     create as eventCreate,
@@ -17,16 +17,12 @@ import {
     registrants as eventRegistrants,
     show as eventShowAdmin,
 } from '@/routes/dashboard/events';
-import { attendanceCsv, registrationsCsv } from '@/routes/dashboard/events/exports';
+import { registrationsCsv } from '@/routes/dashboard/events/exports';
 import {
     create as formCreate,
     destroy as formDestroy,
-    fill as formFill,
-    index as formIndex,
     show as formShow,
     store as formStore,
-    submissions as formSubmissions,
-    submitted as formSubmitted,
 } from '@/routes/dashboard/events/forms';
 import { index as recruitmentIndex } from '@/routes/dashboard/recruitment';
 import { index as activityLogsIndex } from '@/routes/dashboard/recruitment/activity-logs';
@@ -36,7 +32,6 @@ import {
     verify as applicationVerify,
 } from '@/routes/dashboard/recruitment/applications';
 import { download as applicationDocument } from '@/routes/dashboard/recruitment/applications/documents';
-import { override as applicationEvaluationOverride } from '@/routes/dashboard/recruitment/applications/evaluation';
 import { accept as finalAccept, reject as finalReject } from '@/routes/dashboard/recruitment/applications/final';
 import {
     pass as screeningPass,
@@ -58,7 +53,6 @@ import {
     unassign as interviewerUnassign,
 } from '@/routes/dashboard/recruitment/interviewers';
 import {
-    evaluate as myInterviewEvaluate,
     index as myInterviewsIndex,
     primaryClaim,
     secondaryClaim,
@@ -77,12 +71,7 @@ import {
 } from '@/routes/dashboard/recruitment/periods';
 import { exportMethod as periodExportInterviews } from '@/routes/dashboard/recruitment/periods/interviews';
 import { applicants as applicantsExport, funnel as funnelExport } from '@/routes/dashboard/recruitment/reports/export';
-import {
-    exportMethod as scanExport,
-    feed as scanFeed,
-    index as scanIndex,
-    store as scanStore,
-} from '@/routes/dashboard/scan';
+import { exportMethod as scanExport, index as scanIndex } from '@/routes/dashboard/scan';
 import { events as memberJoined } from '@/routes/dashboard/user';
 import {
     browse as memberBrowse,
@@ -90,7 +79,6 @@ import {
     registration as memberRegistration,
     show as memberEventShow,
 } from '@/routes/dashboard/user/events';
-import { show as teamInvitationShow } from '@/routes/dashboard/user/team-invitations';
 import {
     checkEmail,
     create as userCreate,
@@ -104,22 +92,8 @@ import {
 import { update as profileAvatarUpdate } from '@/routes/dashboard/profile/avatar';
 import { update as profilePasswordUpdate } from '@/routes/dashboard/profile/password';
 import { index as eventsIndex, show as eventShow } from '@/routes/events';
-import { reset as resetPasswordRoute } from '@/routes/password';
-import {
-    apply as recruitmentApply,
-    attendance as recruitmentAttendance,
-    success as recruitmentSuccess,
-} from '@/routes/recruitment';
-import {
-    correction as trackCorrection,
-    edit as trackEdit,
-    feedback as trackFeedback,
-    login as trackLogin,
-    logout as trackLogout,
-    show as trackDashboard,
-    update as trackUpdate,
-} from '@/routes/recruitment/track';
-import { balloons, party } from '@/routes/secret';
+import { apply as recruitmentApply } from '@/routes/recruitment';
+import { login as trackLogin } from '@/routes/recruitment/track';
 
 /**
  * Broadcast dorman: `FEATURE_BROADCAST=false` membuat route `/admin/broadcasts/*`
@@ -129,69 +103,94 @@ import { balloons, party } from '@/routes/secret';
 const BROADCAST_BASE = '/admin/broadcasts';
 
 export const routes = {
-    home: home.url(),
+    get home() {
+        return home.url();
+    },
 
     landing: {
-        features: features.url(),
-        docs: docs.url(),
+        get features() {
+            return features.url();
+        },
+        get docs() {
+            return docs.url();
+        },
         events: {
-            index: eventsIndex.url(),
+            get index() {
+                return eventsIndex.url();
+            },
             show: (slug: string): string => eventShow.url({ event: slug }),
         },
     },
 
     // `landing` adalah form apply (nama route BE: `recruitment.apply`), bukan halaman landing terpisah.
     recruitment: {
-        landing: recruitmentApply.url(),
-        success: recruitmentSuccess.url(),
-        track: {
-            login: trackLogin.url(),
-            dashboard: trackDashboard.url(),
-            edit: trackEdit.url(),
-            update: trackUpdate.url(),
-            correction: trackCorrection.url(),
-            feedback: trackFeedback.url(),
-            logout: trackLogout.url(),
+        get landing() {
+            return recruitmentApply.url();
         },
-        attendance: recruitmentAttendance.url(),
+        track: {
+            get login() {
+                return trackLogin.url();
+            },
+        },
     },
 
     auth: {
-        login: authLogin.url(),
-        register: authRegister.url(),
-        forgotPassword: forgotPasswordRequest.url(),
-        resetPassword: (token: string): string => resetPasswordRoute.url({ token }),
-        passwordResetLink: passwordResetLink.url(),
-        google: google.url(),
-        github: github.url(),
-        logout: authLogout.url(),
+        get login() {
+            return authLogin.url();
+        },
+        get register() {
+            return authRegister.url();
+        },
+        get passwordResetLink() {
+            return passwordResetLink.url();
+        },
         registerWithIntended: (intended: string): string => authLogin.url({ query: { intended } }),
     },
 
     dashboard: {
-        index: dashboardRoute.url(),
-        profile: dashboardProfile.url(),
-        profileAvatar: profileAvatarUpdate.url(),
-        profilePassword: profilePasswordUpdate.url(),
+        get index() {
+            return dashboardRoute.url();
+        },
+        get profile() {
+            return dashboardProfile.url();
+        },
+        get profileAvatar() {
+            return profileAvatarUpdate.url();
+        },
+        get profilePassword() {
+            return profilePasswordUpdate.url();
+        },
     },
 
     admin: {
-        index: adminIndex.url(),
+        get index() {
+            return adminIndex.url();
+        },
         recruitment: {
-            index: recruitmentIndex.url(),
+            get index() {
+                return recruitmentIndex.url();
+            },
             reports: {
+                // Wayfinder membangun query lewat `URLSearchParams`, sehingga `period_id`
+                // selalu ter-encode (spasi → `+`, `/ ? #` → persen). Kontraknya: nilai
+                // adalah ID periode tervalidasi; jangan menambahkan encode manual lagi.
                 exportFunnel: (periodId?: string): string =>
                     funnelExport.url(periodId ? { query: { period_id: periodId } } : undefined),
                 exportApplicants: (periodId?: string): string =>
                     applicantsExport.url(periodId ? { query: { period_id: periodId } } : undefined),
             },
             activityLogs: {
-                index: activityLogsIndex.url(),
+                get index() {
+                    return activityLogsIndex.url();
+                },
             },
             periods: {
-                index: recruitmentIndex.url(),
-                create: periodCreate.url(),
-                store: periodStore.url(),
+                get create() {
+                    return periodCreate.url();
+                },
+                get store() {
+                    return periodStore.url();
+                },
                 show: (id: string): string => periodShow.url({ period: id }),
                 update: (id: string): string => periodUpdate.url({ period: id }),
                 open: (id: string): string => periodOpen.url({ period: id }),
@@ -205,8 +204,12 @@ export const routes = {
                 update: (id: string): string => divisionUpdate.url({ division: id }),
             },
             interviewers: {
-                store: interviewerStore.url(),
-                assign: interviewerAssign.url(),
+                get store() {
+                    return interviewerStore.url();
+                },
+                get assign() {
+                    return interviewerAssign.url();
+                },
                 unassign: (id: string): string => interviewerUnassign.url({ assignment: id }),
             },
             applications: {
@@ -224,7 +227,6 @@ export const routes = {
                 verify: (id: string): string => applicationVerify.url({ application: id }),
                 resendEmail: (id: string): string => applicationResendEmail.url({ application: id }),
                 resendTracking: (id: string): string => applicationResendTracking.url({ application: id }),
-                evaluationOverride: (id: string): string => applicationEvaluationOverride.url({ application: id }),
                 final: {
                     accept: (id: string): string => finalAccept.url({ application: id }),
                     reject: (id: string): string => finalReject.url({ application: id }),
@@ -235,64 +237,82 @@ export const routes = {
                 reject: (id: string): string => correctionReject.url({ correction: id }),
             },
             interviewSessions: {
-                store: sessionStore.url(),
+                get store() {
+                    return sessionStore.url();
+                },
                 show: (id: string): string => sessionShow.url({ session: id }),
                 update: (id: string): string => sessionUpdate.url({ session: id }),
                 destroy: (id: string): string => sessionDestroy.url({ session: id }),
             },
             myInterviews: {
-                index: myInterviewsIndex.url(),
+                get index() {
+                    return myInterviewsIndex.url();
+                },
                 show: (id: string): string => myInterviewShow.url({ interview: id }),
-                evaluate: (id: string): string => myInterviewEvaluate.url({ interview: id }),
-                secondaryClaim: secondaryClaim.url(),
-                primaryClaim: primaryClaim.url(),
+                get secondaryClaim() {
+                    return secondaryClaim.url();
+                },
+                get primaryClaim() {
+                    return primaryClaim.url();
+                },
                 primaryAssign: (id: string): string => interviewAssign.url({ interview: id }),
             },
         },
         events: {
-            index: eventsIndexAdmin.url(),
-            create: eventCreate.url(),
+            get index() {
+                return eventsIndexAdmin.url();
+            },
+            get create() {
+                return eventCreate.url();
+            },
             show: (eventId: string | number): string => eventShowAdmin.url({ event: String(eventId) }),
             edit: (eventId: string | number): string => eventEdit.url({ event: String(eventId) }),
             registrants: (eventId: string | number): string => eventRegistrants.url({ event: String(eventId) }),
             laporan: (eventId: string | number): string => eventLaporan.url({ event: String(eventId) }),
             exports: {
                 registrations: (eventId: string | number): string => registrationsCsv.url({ event: String(eventId) }),
-                attendance: (eventId: string | number): string => attendanceCsv.url({ event: String(eventId) }),
             },
             forms: {
-                /** @deprecated primary UI now inline di Event Detail, keep untuk redirect/bookmark */
-                index: (eventId: string | number): string => formIndex.url({ event: String(eventId) }),
                 create: (eventId: string | number): string => formCreate.url({ event: String(eventId) }),
                 show: (eventId: string | number, formId: string | number): string =>
                     formShow.url({ event: String(eventId), form: String(formId) }),
                 store: (eventId: string | number): string => formStore.url({ event: String(eventId) }),
                 destroy: (eventId: string | number, formId: string | number): string =>
                     formDestroy.url({ event: String(eventId), form: String(formId) }),
-                submissions: (eventId: string | number, formId: string | number): string =>
-                    formSubmissions.url({ event: String(eventId), form: String(formId) }),
             },
         },
         scan: {
-            index: scanIndex.url(),
-            store: scanStore.url(),
-            feed: scanFeed.url(),
+            get index() {
+                return scanIndex.url();
+            },
             export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }): string =>
                 scanExport.url({ query: { kind: params.kind, target: params.target, format: params.format } }),
         },
         users: {
-            index: usersIndex.url(),
-            create: userCreate.url(),
-            store: userStore.url(),
+            get index() {
+                return usersIndex.url();
+            },
+            get create() {
+                return userCreate.url();
+            },
+            get store() {
+                return userStore.url();
+            },
             show: (id: string): string => userShow.url({ user: id }),
             edit: (id: string): string => userEdit.url({ user: id }),
             update: (id: string): string => userUpdate.url({ user: id }),
             destroy: (id: string): string => userDestroy.url({ user: id }),
         },
         broadcasts: {
-            index: BROADCAST_BASE,
-            create: `${BROADCAST_BASE}/create`,
-            store: BROADCAST_BASE,
+            get index() {
+                return BROADCAST_BASE;
+            },
+            get create() {
+                return `${BROADCAST_BASE}/create`;
+            },
+            get store() {
+                return BROADCAST_BASE;
+            },
             show: (id: string): string => `${BROADCAST_BASE}/${id}`,
             destroy: (id: string): string => `${BROADCAST_BASE}/${id}`,
             content: (id: string): string => `${BROADCAST_BASE}/${id}/content`,
@@ -304,29 +324,25 @@ export const routes = {
             schedule: (id: string): string => `${BROADCAST_BASE}/${id}/schedule`,
             cancel: (id: string): string => `${BROADCAST_BASE}/${id}/cancel`,
             retry: (id: string): string => `${BROADCAST_BASE}/${id}/retry-failed`,
-            datasetsPreview: `${BROADCAST_BASE}/datasets/preview`,
+            inlineImage: (id: string): string => `${BROADCAST_BASE}/${id}/inline-image`,
         },
     },
 
     member: {
-        joined: memberJoined.url(),
-        browse: memberBrowse.url(),
-        checkEmail: checkEmail.url(),
+        get joined() {
+            return memberJoined.url();
+        },
+        get browse() {
+            return memberBrowse.url();
+        },
+        get checkEmail() {
+            return checkEmail.url();
+        },
         event: {
             show: (segment: string | number): string => memberEventShow.url({ event_segment: segment }),
             register: (segment: string | number): string => memberRegister.url({ event_segment: segment }),
             registration: (segment: string | number): string => memberRegistration.url({ event_segment: segment }),
-            formFill: (eventId: string | number, formId: string | number): string =>
-                formFill.url({ event: String(eventId), form: String(formId) }),
-            formSubmitted: (eventId: string | number, formId: string | number): string =>
-                formSubmitted.url({ event: String(eventId), form: String(formId) }),
         },
-        teamInvitation: (token: string): string => teamInvitationShow.url({ token }),
-    },
-
-    secret: {
-        party: party.url(),
-        balloons: balloons.url(),
     },
 };
 

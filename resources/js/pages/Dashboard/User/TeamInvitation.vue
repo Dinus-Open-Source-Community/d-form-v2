@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata';
-import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
+import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
 import { getFormFieldOptionRows, formFieldBuilderType } from '@/lib/formFieldOptions';
 import { validateUploadFile } from '@/lib/uploadValidation';
@@ -30,10 +30,10 @@ import { routes } from '@/lib/routes';
 import {
     buildFieldLabelMap,
     getFieldError,
-    handleInertiaFormErrors,
     type TErrorMessageContext,
     type TValidationErrors,
 } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -46,6 +46,8 @@ const props = defineProps<{
     alreadyConfirmed: boolean;
     confirmUrl: string;
 }>();
+
+const { handleInertiaFormErrors } = useToastNotifications();
 
 function metadata(field: IFormField): Record<string, unknown> {
     return field.metadata && typeof field.metadata === 'object' ? field.metadata : {};

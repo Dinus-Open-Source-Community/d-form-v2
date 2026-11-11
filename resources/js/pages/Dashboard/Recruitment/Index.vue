@@ -7,7 +7,7 @@ import DivisionListSheet, {
 } from '@/components/modules/dashboard/recruitment/DivisionListSheet.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-se
 import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { useAuth } from '@/hooks/useAuth';
 import { usePage } from '@inertiajs/vue3';
 import { CalendarRange, ImageOff, Layers, User, Users, ClipboardList, Trash2 } from 'lucide-vue-next';
@@ -93,9 +94,11 @@ const props = withDefaults(
     }>(),
     { periods: null, query: () => ({}), statusOptions: () => [], divisions: () => [] }
 );
+const { goToPage } = usePaginationNavigation();
 
 const page = usePage();
 const user = useAuth(page.props);
+const { showErrorToast } = useToastNotifications();
 const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
 const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
 const actionQueues = computed(() => props.summary.action_queues ?? []);
@@ -382,6 +385,7 @@ onMounted(() => {
                 :total="periods?.total ?? null"
                 :per-page="periods?.per_page ?? 20"
                 :per-page-options="[]"
+                @page-change="goToPage"
             />
         </section>
 

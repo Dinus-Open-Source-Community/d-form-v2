@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { formSubmissionReviewIsPending, submissionReviewBadge } from '@/lib/formSubmissionsUi';
 import { formFieldApiType, formFieldBuilderType } from '@/lib/formFieldOptions';
 import { formatDateTime } from '@/lib/dateTime';

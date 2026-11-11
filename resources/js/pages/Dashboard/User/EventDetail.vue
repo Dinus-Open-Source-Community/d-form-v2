@@ -19,10 +19,10 @@ import {
     ChevronRight,
     Lock,
 } from 'lucide-vue-next';
-import { statusColorMap, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/lib/dummyData';
+import { statusColorMap, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
 import { routes } from '@/lib/routes';
 import { EVENT_HERO_BANNER_ASPECT } from '@/lib/eventBannerAspect';

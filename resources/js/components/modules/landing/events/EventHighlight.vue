@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Users, ArrowRight } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import { findElementById } from '@/adapters/browser/domQuery';
 
 const props = defineProps<{

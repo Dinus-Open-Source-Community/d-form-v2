@@ -20,7 +20,9 @@ function readRetryAfterHeader(response: HttpExceptionResponse): string | null {
 
 /** Muat modul pesan saat error terjadi saja, supaya tabel pesan tidak ikut entry bundle. */
 async function showStatusToast(status: number, message: string | null): Promise<void> {
-    const { showErrorToast, showHttpErrorToast } = await import('@/lib/error-message');
+    const { showErrorToast, showHttpErrorToast } = (
+        await import('@/hooks/useToastNotifications')
+    ).useToastNotifications();
 
     if (message === null) {
         showHttpErrorToast(status);

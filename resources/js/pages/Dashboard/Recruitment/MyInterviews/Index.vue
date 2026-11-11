@@ -23,6 +23,7 @@ import AppPagination from '@/components/core/AppPagination.vue';
 import { routes } from '@/lib/routes';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { formatDateTime } from '@/lib/dateTime';
 import { isDocumentHidden, onVisibilityChange } from '@/adapters/browser/documentState';
 import { ChevronRight, RotateCcw, Search, ThumbsDown, Ticket } from 'lucide-vue-next';
@@ -150,6 +151,8 @@ const props = withDefaults(
         can_assign_interviewer: false,
     }
 );
+
+const { goToPage } = usePaginationNavigation();
 
 const searchInput = ref<string>(props.query.q ?? '');
 const divisionId = ref<string>(props.query.division_id ?? '');
@@ -805,6 +808,7 @@ const emptyDescription = computed<string>((): string => {
             :total="interviews.total"
             :per-page="interviews.per_page ?? FALLBACK_PER_PAGE"
             :per-page-options="[]"
+            @page-change="goToPage"
         />
     </div>
 </template>

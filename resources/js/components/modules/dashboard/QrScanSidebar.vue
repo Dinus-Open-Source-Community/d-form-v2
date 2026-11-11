@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Clock3, QrCode, TriangleAlert } from 'lucide-vue-next';
-import { SCAN_STATUS_THEME, type IScanEntry, type IScanResult } from '@/lib/qrScanUi';
+import { SCAN_STATUS_THEME } from '@/constants/scanStatusTheme';
+import { type IScanEntry, type IScanResult } from '@/lib/qrScanUi';
 
 const props = withDefaults(
     defineProps<{

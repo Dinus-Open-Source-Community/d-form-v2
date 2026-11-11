@@ -1,6 +1,5 @@
-import type { Component } from 'vue';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-vue-next';
 import { formatDateTime } from '@/lib/dateTime';
+import { isRecord } from '@/lib/isRecord';
 
 /** Interval dasar polling feed scan lintas meja (ms). */
 export const FEED_POLL_MS = 2000;
@@ -22,12 +21,6 @@ export function nextFeedDelayMs(consecutiveFailures: number): number {
 }
 
 export type TScanStatus = 'success' | 'already' | 'invalid';
-
-export const SCAN_STATUS_THEME: Record<TScanStatus, { icon: Component; class: string; bg: string; label: string }> = {
-    success: { icon: CheckCircle, class: 'text-success', bg: 'bg-success/10', label: 'Check-in berhasil' },
-    already: { icon: AlertTriangle, class: 'text-warning', bg: 'bg-warning/10', label: 'Sudah pernah scan' },
-    invalid: { icon: XCircle, class: 'text-destructive', bg: 'bg-destructive/10', label: 'QR tidak valid' },
-};
 
 export interface IScanEntry {
     id: string;
@@ -63,7 +56,11 @@ export function extractQrCandidate(decodedText: string): string {
     }
 
     try {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(raw);
+        if (!isRecord(parsed)) {
+            return raw;
+        }
+
         const candidate =
             parsed.application_id ??
             parsed.submission_id ??

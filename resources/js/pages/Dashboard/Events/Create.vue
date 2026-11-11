@@ -8,8 +8,7 @@ import {
     updateFormSettings,
 } from '@/adapters/http/forms';
 import { removeStorage } from '@/adapters/browser/storage';
-import { handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
-import { notifyAutosaveFailure } from '@/lib/autosaveFailureToast';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import EventDashboardForm from '@/components/modules/dashboard/events/EventDashboardForm.vue';
 import EventWizardStepper from '@/components/modules/dashboard/events/EventWizardStepper.vue';
@@ -40,6 +39,8 @@ import type { IBuilderField } from '@/types/form-builder';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardFocusLayout });
+
+const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast } = useToastNotifications();
 
 interface WizardDraftForm {
     id: string;

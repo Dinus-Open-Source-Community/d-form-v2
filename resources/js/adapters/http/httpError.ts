@@ -1,4 +1,3 @@
-import { parseRetryAfterSeconds } from '@/lib/http-retry-after';
 import type { THttpErrorKind, TValidationErrorBag } from '@/types/http';
 
 /** Input konstruksi `HttpRequestError`; semua field opsional punya default aman. */
@@ -84,13 +83,4 @@ export function readPublicMessage(body: unknown): string | null {
     const message = body.message.trim();
 
     return message.length > 0 ? message : null;
-}
-
-/** Normalisasi `Retry-After` (detik) menjadi integer positif; nilai 0/invalid menjadi null. */
-export function readRetryAfterSeconds(value: unknown): number | null {
-    if (typeof value !== 'string' && typeof value !== 'number') return null;
-
-    const seconds = parseRetryAfterSeconds(String(value));
-
-    return seconds !== null && seconds > 0 ? seconds : null;
 }

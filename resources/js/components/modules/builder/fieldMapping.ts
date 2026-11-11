@@ -4,8 +4,11 @@
  */
 
 import type { IBackendField, IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
+import type { TFormFieldMetadataBag } from '@/types/form';
 import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata';
 import { cleanStoredImageUrl, stripLocalImageUrlsDeep } from '@/lib/builderImageSanitizer';
+import { readMetadataBag, readMetaNumber, readMetaText, readRuleSet } from '@/lib/formFieldMetadata';
+import { isRecord } from '@/lib/isRecord';
 
 export type { IBackendField, IBuilderField, IFieldOptionEntry };
 
@@ -40,12 +43,11 @@ function parseOptionChoices(raw: unknown): IFieldOptionEntry[] | null {
     if (!Array.isArray(raw)) return null;
     const out: IFieldOptionEntry[] = [];
     for (const item of raw) {
-        if (item && typeof item === 'object' && item !== null) {
-            const row = item as Record<string, unknown>;
-            const id = String(row.id ?? crypto.randomUUID());
-            const type = row.type === 'image' ? 'image' : 'text';
-            const label = String(row.label ?? '').trim();
-            const imageUrl = String(row.imageUrl ?? '').trim();
+        if (isRecord(item)) {
+            const id = typeof item.id === 'string' && item.id !== '' ? item.id : crypto.randomUUID();
+            const type = item.type === 'image' ? 'image' : 'text';
+            const label = typeof item.label === 'string' ? item.label.trim() : '';
+            const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : '';
             out.push({ id, type, label, imageUrl });
         } else if (typeof item === 'string') {
             const label = item.trim();
@@ -55,8 +57,8 @@ function parseOptionChoices(raw: unknown): IFieldOptionEntry[] | null {
     return out.length > 0 ? out : null;
 }
 
-function preservedMeta(f: IBuilderField): Record<string, unknown> {
-    const raw = f.metadata && typeof f.metadata === 'object' && !Array.isArray(f.metadata) ? { ...f.metadata } : {};
+function preservedMeta(f: IBuilderField): TFormFieldMetadataBag {
+    const raw: TFormFieldMetadataBag = isRecord(f.metadata) ? { ...f.metadata } : {};
     // API validation allows only string|null for metadata.options (radio/checkbox).
     // Stale array-shaped `options` from DB or legacy clients must not be re-submitted.
     delete raw.options;
@@ -87,6 +89,12 @@ function mergeTextRules(req: Record<string, unknown>, f: IBuilderField): Record<
         merged.max = Math.min(Math.floor(n), 100_000);
     }
     return merged;
+}
+
+/** Teks metadata dengan fallback saat kosong/whitespace; dipakai heading section. */
+function readContentOrFallback(metadata: TFormFieldMetadataBag, fallback: string): string {
+    const content = readMetaText(metadata, 'content');
+    return content.trim() === '' ? fallback : content;
 }
 
 export function toBackendField(f: IBuilderField, order: number): IBackendField {
@@ -158,9 +166,9 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'number',
                     placeholder: '',
-                    rules: { ...req, min: 1, max: (f.metadata?.maxStars as number) ?? 5 },
+                    rules: { ...req, min: 1, max: readMetaNumber(f.metadata, 'maxStars', 5) },
                     builderType: 'rating',
-                    maxStars: (f.metadata?.maxStars as number) ?? 5,
+                    maxStars: readMetaNumber(f.metadata, 'maxStars', 5),
                 }),
             };
         case 'heading':
@@ -172,7 +180,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     placeholder: '',
                     rules: {},
                     builderType: 'heading',
-                    content: (f.metadata?.content as string) || 'Section Heading',
+                    content: readContentOrFallback(f.metadata, 'Section Heading'),
                 }),
             };
         case 'image':
@@ -185,8 +193,8 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     rules: {},
                     builderType: 'image',
                     imageUrl: cleanStoredImageUrl(f.metadata?.imageUrl),
-                    caption: (f.metadata?.caption as string) || '',
-                    alt: (f.metadata?.alt as string) || '',
+                    caption: readMetaText(f.metadata, 'caption'),
+                    alt: readMetaText(f.metadata, 'alt'),
                 }),
             };
         case 'divider':
@@ -214,7 +222,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     placeholder: '',
                     rules: {},
                     builderType: 'paragraph',
-                    content: (f.metadata?.content as string) || '',
+                    content: readMetaText(f.metadata, 'content'),
                 }),
             };
 
@@ -271,7 +279,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
         case 'date':
             return { ...base, type: 'datePicker', metadata: withMeta(f, { rules: req, builderType: 'date' }) };
         case 'image_upload': {
-            const mimes = ((f.metadata?.accepts as string) || '').trim().replace(/\s+/g, '') || 'png,jpg,jpeg';
+            const mimes = readMetaText(f.metadata, 'accepts').trim().replace(/\s+/g, '') || 'png,jpg,jpeg';
             return {
                 ...base,
                 type: 'fileUpload',
@@ -279,7 +287,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
             };
         }
         case 'file_upload': {
-            const mimes = ((f.metadata?.accepts as string) || '').trim().replace(/\s+/g, '') || 'pdf,doc,xls';
+            const mimes = readMetaText(f.metadata, 'accepts').trim().replace(/\s+/g, '') || 'pdf,doc,xls';
             return {
                 ...base,
                 type: 'fileUpload',
@@ -295,8 +303,8 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     builderType: 'banner',
                     accepts: 'gif, png, jpg, jpeg',
                     bannerUrl: cleanStoredImageUrl(f.metadata?.bannerUrl),
-                    bannerFileName: (f.metadata?.bannerFileName as string) || '',
-                    content: (f.metadata?.content as string) || '',
+                    bannerFileName: readMetaText(f.metadata, 'bannerFileName'),
+                    content: readMetaText(f.metadata, 'content'),
                     formBanner: Boolean(f.metadata?.formBanner),
                 }),
             };
@@ -306,7 +314,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
     }
 }
 
-function guessType(apiType: string, m: Record<string, unknown>): string {
+function guessType(apiType: string, m: TFormFieldMetadataBag): string {
     if (apiType === 'input') {
         if (m.type === 'email') return 'email';
         if (m.type === 'tel') return 'phone';
@@ -324,13 +332,11 @@ function guessType(apiType: string, m: Record<string, unknown>): string {
 }
 
 export function fromBackendField(bf: IBackendField): IBuilderField {
-    const mFull: Record<string, unknown> =
-        bf.metadata && typeof bf.metadata === 'object' ? (bf.metadata as Record<string, unknown>) : {};
-    const m: Record<string, unknown> = { ...mFull };
+    const m: TFormFieldMetadataBag = { ...readMetadataBag(bf.metadata) };
     delete m.options;
-    const rules = (m.rules as Record<string, unknown>) || {};
-    const bt = (m.builderType as string) || guessType(bf.type, m);
-    const inStr = (rules.in as string) || '';
+    const rules = readRuleSet(m);
+    const bt = readMetaText(m, 'builderType') || guessType(bf.type, m);
+    const inStr = typeof rules.in === 'string' ? rules.in : '';
     const parsedChoices = parseOptionChoices(m.optionChoices);
     const optsRaw: IFieldOptionEntry[] =
         parsedChoices ??
@@ -360,29 +366,31 @@ export function fromBackendField(bf: IBackendField): IBuilderField {
         }
     }
 
+    const sectionIdRaw = readMetaText(m, 'sectionId');
+    const sectionId = sectionIdRaw.trim() !== '' ? sectionIdRaw : DEFAULT_FORM_SECTION_ID;
+
     return {
         id: bf.id,
         type: bt,
         label: bf.label || '',
         description: bf.description || '',
         name: bf.name || '',
-        placeholder: (m.placeholder as string) || '',
+        placeholder: readMetaText(m, 'placeholder'),
         required: !!rules.required,
         options: opts,
         is_append: bf.is_append === true,
         metadata: {
             ...m,
-            sectionId:
-                typeof m.sectionId === 'string' && m.sectionId.trim() !== '' ? m.sectionId : DEFAULT_FORM_SECTION_ID,
-            maxStars: (m.maxStars as number) || 5,
-            accepts: ((rules.mimes as string) || '').replace(/,/g, ', '),
+            sectionId,
+            maxStars: readMetaNumber(m, 'maxStars', 5) || 5,
+            accepts: (typeof rules.mimes === 'string' ? rules.mimes : '').replace(/,/g, ', '),
             formBanner: m.formBanner === true,
             ...(maxLengthForMeta != null ? { maxLength: maxLengthForMeta } : {}),
             ...(bt === 'image'
                 ? {
                       imageUrl: cleanStoredImageUrl(m.imageUrl),
-                      caption: typeof m.caption === 'string' ? m.caption : '',
-                      alt: typeof m.alt === 'string' ? m.alt : '',
+                      caption: readMetaText(m, 'caption'),
+                      alt: readMetaText(m, 'alt'),
                   }
                 : {}),
         },

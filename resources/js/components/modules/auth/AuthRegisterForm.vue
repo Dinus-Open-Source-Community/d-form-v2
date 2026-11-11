@@ -5,7 +5,8 @@ import { Check, Loader2, X } from 'lucide-vue-next';
 import { AuthField } from '@/components/core/field';
 import { AuthSubmitButton } from '@/components/core/button';
 import { store as register } from '@/actions/App/Http/Controllers/Auth/RegisterController';
-import { getFieldError, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
+import { getFieldError } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { useEmailAvailability } from '@/hooks/useEmailAvailability';
 import type { IPasswordRule } from '@/types/auth';
 
@@ -13,6 +14,8 @@ import type { IPasswordRule } from '@/types/auth';
 const STRENGTH_SEGMENT_TOTAL = 4;
 
 const props = defineProps<{ isActive: boolean }>();
+
+const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
 
 const form = useForm({
     name: '',

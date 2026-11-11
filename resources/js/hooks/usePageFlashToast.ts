@@ -1,6 +1,6 @@
 import { onMounted, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import { showFlashToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
 type FlashToast = { type?: string; message?: string } | null | undefined;
 
@@ -10,6 +10,7 @@ type FlashToast = { type?: string; message?: string } | null | undefined;
  */
 export function usePageFlashToast(): void {
     const page = usePage();
+    const { showFlashToast } = useToastNotifications();
 
     // Toast harus dipanggil setelah Toaster ter-mount: pada hard load (mis. redirect
     // callback OAuth) layout baru memasang Toaster setelah setup selesai.

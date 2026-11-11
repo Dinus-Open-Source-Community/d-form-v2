@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { ImageOff } from 'lucide-vue-next';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { cn } from '@/lib/utils';
 
-const props = withDefaults(
-    defineProps<{
-        src?: string | null;
-        alt: string;
-        imgClass?: string;
-    }>(),
-    { src: '', imgClass: '' }
-);
+interface IEventBannerImageProps {
+    /** Referensi banner dari server (absolut `/storage/...`, http(s), atau path disk). */
+    src?: string | null;
+    alt: string;
+    imgClass?: string;
+}
+
+const props = withDefaults(defineProps<IEventBannerImageProps>(), { src: '', imgClass: '' });
 
 const failed = ref(false);
 
-function onError() {
+function onError(): void {
     failed.value = true;
 }
 
@@ -25,22 +26,13 @@ watch(
     }
 );
 
-const showImg = computed(() => Boolean(props.src) && !failed.value);
+/**
+ * Satu-satunya normalisasi URL banner: delegasi ke `normalizePublicStorageUrl`
+ * agar network-path (`//host`, `/\host`) dan varian multi-slash tetap inert.
+ */
+const resolvedSrc = computed<string>(() => normalizePublicStorageUrl(props.src ?? ''));
 
-const resolvedSrc = computed(() => {
-    if (!props.src) return '';
-    const value = String(props.src);
-    if (
-        value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        value.startsWith('/') ||
-        value.startsWith('data:')
-    ) {
-        return value;
-    }
-
-    return `/storage/${value.replace(/^storage\//, '')}`;
-});
+const showImg = computed<boolean>(() => resolvedSrc.value !== '' && !failed.value);
 </script>
 
 <template>

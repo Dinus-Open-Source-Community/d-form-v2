@@ -119,6 +119,36 @@ test.describe('FE-AUDIT-005 response narrowing', () => {
         }
     });
 
+    test('anomali: review 409 menampilkan prompt konflik tanpa toast sukses dan status tetap pending', async ({
+        page,
+    }) => {
+        const fixture = createReviewFixture();
+
+        try {
+            await page.route('**/submissions/*/review', (route) =>
+                route.fulfill({
+                    status: 409,
+                    contentType: 'application/json',
+                    body: JSON.stringify({}),
+                })
+            );
+
+            await page.goto(`${fixture.showPath}?tab=jawaban`);
+            await page
+                .getByRole('button', { name: /Terima jawaban dari/i })
+                .first()
+                .click();
+
+            await expect(
+                page.locator('[data-sonner-toast]').filter({ hasText: 'Jawaban ini sudah pernah direview.' })
+            ).toBeVisible();
+            await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Jawaban diterima/i })).toHaveCount(0);
+            expect(readReviewStatus(fixture.answerId)).toBe('pending');
+        } finally {
+            cleanupReviewFixture(fixture);
+        }
+    });
+
     test('anomali: review 200 dengan body tidak sesuai kontrak menjadi error feedback, bukan sukses', async ({
         page,
     }) => {

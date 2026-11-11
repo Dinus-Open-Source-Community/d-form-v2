@@ -1,12 +1,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { toast } from 'vue-sonner';
 import type { Html5Qrcode as THtml5Qrcode } from 'html5-qrcode';
 import { isHttpRequestError, toHttpErrorKind } from '@/adapters/http/httpError';
 import { fetchScanFeed, submitScan } from '@/adapters/http/scan';
 import { playScanFeedback } from '@/adapters/browser/feedback';
 import { findElementById } from '@/adapters/browser/domQuery';
 import { readStorage, writeStorage } from '@/adapters/browser/storage';
-import { humanizeErrorMessage, parseApiErrorMessage, showErrorToast } from '@/lib/error-message';
+import { humanizeErrorMessage, parseApiErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { describeRequestError } from '@/lib/requestErrorText';
 import {
     createScanHistoryEntry,
@@ -205,6 +205,7 @@ export function useGlobalQrScanPage(
     feedUrl: string,
     getTargets: () => IGlobalScanTargets
 ) {
+    const { showErrorToast, showSuccessToast, showToast, showWarningToast } = useToastNotifications();
     const deskId = resolveDeskId();
 
     const scanner = ref<THtml5Qrcode | null>(null);
@@ -608,7 +609,7 @@ export function useGlobalQrScanPage(
                         eventTitle: title,
                         queueNumber: body?.attendee?.queue_number ?? fallbackQueue,
                     });
-                    toast.warning(msg, {
+                    showWarningToast(msg, {
                         description: `${name} · ${identifier}`,
                     });
                 } else {
@@ -624,7 +625,7 @@ export function useGlobalQrScanPage(
                         eventTitle: title,
                         queueNumber: null,
                     });
-                    toast.warning(msg, {
+                    showWarningToast(msg, {
                         description: email !== '-' ? `${name} · ${email}` : name,
                     });
                 }
@@ -720,7 +721,7 @@ export function useGlobalQrScanPage(
                         queueNumber,
                     };
                     const statusLabel = data.attendee.interview_status_label ?? 'ruang tunggu';
-                    toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
+                    showSuccessToast(data.attendee.name?.trim() || 'Check-in berhasil.', {
                         description: `${statusLabel} — arahkan ke ruang tunggu`,
                     });
                 } else {
@@ -735,7 +736,7 @@ export function useGlobalQrScanPage(
                         eventTitle: title,
                         queueNumber: null,
                     };
-                    toast.success(data.attendee.name?.trim() || 'Check-in berhasil.', {
+                    showSuccessToast(data.attendee.name?.trim() || 'Check-in berhasil.', {
                         description: 'Boleh masuk — tiket dikirim ke email',
                     });
                 }
@@ -827,7 +828,7 @@ export function useGlobalQrScanPage(
             // Resume gagal berarti kamera berhenti; teardown nyata agar instance
             // tidak menggantung dan "Mulai kamera" bisa membuat sesi baru.
             await teardownScanner();
-            toast.warning('Kamera terhenti. Klik "Mulai kamera" untuk melanjutkan.');
+            showWarningToast('Kamera terhenti. Klik "Mulai kamera" untuk melanjutkan.');
         }
     }
 
@@ -847,7 +848,7 @@ export function useGlobalQrScanPage(
             // sesi agar kegagalan tidak senyap tanpa membanjiri toast tiap scan.
             if (!pauseFailureNotified) {
                 pauseFailureNotified = true;
-                toast.warning('Kamera tidak dapat dijeda sementara.');
+                showWarningToast('Kamera tidak dapat dijeda sementara.');
             }
         }
 
@@ -983,7 +984,7 @@ export function useGlobalQrScanPage(
             }
 
             isCameraReady.value = true;
-            toast.success('Kamera aktif', {
+            showSuccessToast('Kamera aktif', {
                 description: 'Arahkan QR ke area scanner untuk check-in otomatis.',
             });
         } catch (error) {
@@ -1047,7 +1048,7 @@ export function useGlobalQrScanPage(
         scanEntryEpochMs.clear();
         rawCodeByEntryId.clear();
         scanResult.value = null;
-        toast('Riwayat scan dibersihkan');
+        showToast('Riwayat scan dibersihkan');
     }
 
     onMounted(loadCameras);

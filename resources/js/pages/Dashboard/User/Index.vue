@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, Zap, Clock, MapPin, ArrowRight } from 'lucide-vue-next';
-import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
+import { categoryLabelMap, categoryColorMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import { routes } from '@/lib/routes';

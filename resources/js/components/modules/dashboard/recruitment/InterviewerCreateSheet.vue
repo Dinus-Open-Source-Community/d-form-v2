@@ -44,17 +44,6 @@ const form = useForm({
 const showPassword = ref<boolean>(false);
 const showPasswordConfirmation = ref<boolean>(false);
 
-type InterviewerRoutes = {
-    assign: string;
-    unassign: (id: string) => string;
-    store?: string;
-};
-
-const interviewerRoutes = computed<InterviewerRoutes>(() => routes.admin.recruitment.interviewers);
-
-/** Selaras dengan kontrak backend lane paralel; fallback dipakai sampai helper store mendarat. */
-const storeUrl = computed<string>(() => interviewerRoutes.value.store ?? '/admin/recruitment/interviewers');
-
 const divisionOptions = computed<SearchableSelectOption[]>(() =>
     props.divisions.map((d) => ({
         value: d.id,
@@ -94,7 +83,7 @@ watch(
 
 function submit(): void {
     if (!canSubmit.value) return;
-    form.post(storeUrl.value, {
+    form.post(routes.admin.recruitment.interviewers.store, {
         preserveScroll: true,
         onSuccess: () => {
             emit('created', form.email);

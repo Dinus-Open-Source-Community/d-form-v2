@@ -3,8 +3,12 @@ import { ref, computed } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
-import { dummyEvents, categoryColorMap } from '@/lib/dummyData';
+import { categoryColorMap } from '@/constants/eventDisplay';
 import { primaryCategory } from '@/lib/eventCategories';
+
+const props = defineProps<{
+    events?: IEvent[];
+}>();
 
 const today = new Date();
 const currentMonth = ref(today.getMonth());
@@ -52,7 +56,8 @@ function goThisMonth() {
 const calendarDays = computed(() => {
     const firstDay = new Date(currentYear.value, currentMonth.value, 1).getDay();
     const daysInMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate();
-    const days: { day: number; isCurrentMonth: boolean; isToday: boolean; events: typeof dummyEvents }[] = [];
+    const events = props.events ?? [];
+    const days: { day: number; isCurrentMonth: boolean; isToday: boolean; events: IEvent[] }[] = [];
 
     const prevMonthDays = new Date(currentYear.value, currentMonth.value, 0).getDate();
     for (let i = firstDay - 1; i >= 0; i--) {
@@ -64,7 +69,7 @@ const calendarDays = computed(() => {
             d === today.getDate() &&
             currentMonth.value === today.getMonth() &&
             currentYear.value === today.getFullYear();
-        const dayEvents = dummyEvents.filter((e) => dateStr >= e.start_date && dateStr <= e.end_date && !e.deleted_at);
+        const dayEvents = events.filter((e) => dateStr >= e.start_date && dateStr <= e.end_date && !e.deleted_at);
         days.push({ day: d, isCurrentMonth: true, isToday, events: dayEvents });
     }
     const remaining = 42 - days.length;

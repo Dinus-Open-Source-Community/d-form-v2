@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bar } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, type ChartOptions } from 'chart.js';
-import { categoryLabelMap, categoryColorMap } from '@/lib/dummyData';
+import { categoryLabelMap, categoryColorMap } from '@/constants/eventDisplay';
 import { LayoutGrid } from 'lucide-vue-next';
 import { observeThemeAttribute, readThemeAttribute } from '@/adapters/browser/documentState';
 

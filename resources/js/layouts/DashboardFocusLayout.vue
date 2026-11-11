@@ -4,7 +4,7 @@ import { computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/sonner';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';

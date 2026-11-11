@@ -21,14 +21,19 @@ describe('extractQrCandidate', () => {
         expect(extractQrCandidate(input)).toBe(expected);
     });
 
-    it('returns the raw JSON when the candidate is blank', () => {
-        const raw = '{"application_id":"   "}';
-
-        expect(extractQrCandidate(raw)).toBe(raw);
+    it.each([
+        ['valid object', '{"application_id":"app-1"}', 'app-1'],
+        ['array payload', '["app-1"]', '["app-1"]'],
+        ['null payload', 'null', 'null'],
+        ['object with null candidate', '{"application_id":null}', '{"application_id":null}'],
+        ['broken JSON', '{"application_id":}', '{"application_id":}'],
+        ['non-JSON text', 'SUB-123', 'SUB-123'],
+    ])('keeps the raw fallback for %s', (_label: string, input: string, expected: string) => {
+        expect(extractQrCandidate(input)).toBe(expected);
     });
 
-    it('returns the raw text when the JSON is malformed', () => {
-        const raw = '{"application_id":}';
+    it('returns the raw JSON when the candidate is blank', () => {
+        const raw = '{"application_id":"   "}';
 
         expect(extractQrCandidate(raw)).toBe(raw);
     });

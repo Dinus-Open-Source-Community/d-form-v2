@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { TFormFieldMetadataBag } from '@/types/form';
-import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata';
+import {
+    readFieldMetadata,
+    readFieldRules,
+    readMetaBoolean,
+    readMetaNumber,
+    readMetaText,
+    readMetadataBag,
+    readRuleSet,
+} from '@/lib/formFieldMetadata';
 
 function makeField(overrides: Partial<IFormField> = {}): IFormField {
     return { id: 'f1', type: 'input', label: 'Field', name: 'field', order: 1, metadata: {}, ...overrides };
@@ -82,5 +90,32 @@ describe('readFieldRules', () => {
 
     it('reads rules from a JSON string metadata bag', () => {
         expect(readFieldRules(makeFieldWithRuntimeMetadata('{"rules":{"required":true}}'))).toEqual({ required: true });
+    });
+});
+
+describe('readMetadataBag / readRuleSet', () => {
+    it('normalizes non-record values to an empty bag', () => {
+        expect(readMetadataBag(null)).toEqual({});
+        expect(readMetadataBag(42)).toEqual({});
+        expect(readMetadataBag(['x'])).toEqual({});
+    });
+
+    it('keeps a record bag untouched and reads rules only when they are a record', () => {
+        const bag = readMetadataBag({ rules: { required: true } });
+
+        expect(bag).toEqual({ rules: { required: true } });
+        expect(readRuleSet(bag)).toEqual({ required: true });
+        expect(readRuleSet(readMetadataBag({ rules: 'required' }))).toEqual({});
+    });
+});
+
+describe('readMetaText / readMetaNumber', () => {
+    it('reads typed values and falls back for malformed ones', () => {
+        const bag = readMetadataBag({ content: 'Heading', maxStars: 4, caption: 42, maxLength: '80' });
+
+        expect(readMetaText(bag, 'content', 'Default')).toBe('Heading');
+        expect(readMetaText(bag, 'caption', 'Default')).toBe('Default');
+        expect(readMetaNumber(bag, 'maxStars', 5)).toBe(4);
+        expect(readMetaNumber(bag, 'maxLength', 5)).toBe(5);
     });
 });

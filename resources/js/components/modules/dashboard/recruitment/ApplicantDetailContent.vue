@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue';
 import type { ComponentPublicInstance } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,9 +23,9 @@ import { formatDateTime } from '@/lib/dateTime';
 import ApplicantEmailingSection from './ApplicantEmailingSection.vue';
 import type { IApplicationDetail } from '@/types/recruitment';
 import { routes } from '@/lib/routes';
-import { showErrorToast } from '@/lib/error-message';
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
 import { useAuth } from '@/hooks/useAuth';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import {
     CalendarClock,
     CheckCircle2,
@@ -77,6 +76,7 @@ const props = withDefaults(
 
 const page = usePage();
 const user = useAuth(page.props);
+const { showErrorToast, showSuccessToast } = useToastNotifications();
 
 const emit = defineEmits<{ submitted: []; resent: [] }>();
 
@@ -152,7 +152,7 @@ function submitScreening() {
             preserveScroll: true,
             onSuccess: () => {
                 screeningModalOpen.value = false;
-                toast.success('Permintaan revisi telah dikirim.');
+                showSuccessToast('Permintaan revisi telah dikirim.');
                 emit('submitted');
             },
             onError: () => showErrorToast('Gagal mengirim permintaan revisi.'),
@@ -170,7 +170,7 @@ function postScreeningReject() {
         preserveScroll: true,
         onSuccess: () => {
             screeningModalOpen.value = false;
-            toast.success('Applicant ditolak pada tahap screening.');
+            showSuccessToast('Applicant ditolak pada tahap screening.');
             emit('submitted');
         },
         onError: () => showErrorToast('Gagal menolak applicant.'),
@@ -393,7 +393,7 @@ function submitFinalConfirm(): void {
                 preserveScroll: true,
                 onSuccess: () => {
                     finalConfirmOpen.value = false;
-                    toast.success('Applicant ditolak. Email hasil telah dikirim.');
+                    showSuccessToast('Applicant ditolak. Email hasil telah dikirim.');
                     emit('submitted');
                 },
                 onError: () => showErrorToast('Gagal menyimpan keputusan final.'),
@@ -450,7 +450,7 @@ function acceptFinal(payload: Record<string, string | boolean>, successMessage: 
                 }
                 finalConfirmOpen.value = false;
                 emit('submitted');
-                toast.success(successMessage, { duration: 5000, id: 'final-decision-result' });
+                showSuccessToast(successMessage, { duration: 5000, id: 'final-decision-result' });
             },
             onError: (errors: Record<string, string | string[]>) => {
                 if (errors['final_division_id']) finalStep.value = 1;
@@ -536,7 +536,7 @@ function passApplication(payload: Record<string, string | boolean> = {}) {
     router.post(routes.admin.recruitment.applications.screening.pass(props.application.id), payload, {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success('Applicant lolos screening.');
+            showSuccessToast('Applicant lolos screening.');
             emit('submitted');
         },
         onError: () => showErrorToast('Gagal meloloskan applicant.'),
@@ -579,7 +579,7 @@ function submitGroupLinkWithoutLink(): void {
             preserveScroll: true,
             onSuccess: () => {
                 waDialogOpen.value = false;
-                toast.success('Applicant lolos screening tanpa link grup.');
+                showSuccessToast('Applicant lolos screening tanpa link grup.');
                 emit('submitted');
             },
             onError: (errors: Record<string, string | string[]>) => {
@@ -618,7 +618,7 @@ function submitGroupLink(): void {
             onSuccess: () => {
                 groupLinkSavedLocal.value = true;
                 waDialogOpen.value = false;
-                toast.success('Link grup tersimpan. Applicant lolos screening.');
+                showSuccessToast('Link grup tersimpan. Applicant lolos screening.');
                 emit('submitted');
             },
             onError: (errors: Record<string, string | string[]>) => {
@@ -641,7 +641,7 @@ function verifyApplication() {
         {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Pendaftaran berhasil diverifikasi.');
+                showSuccessToast('Pendaftaran berhasil diverifikasi.');
                 emit('submitted');
             },
             onError: () => showErrorToast('Gagal memverifikasi pendaftaran.'),
@@ -656,7 +656,7 @@ function resendTrackingApplication() {
         {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Informasi tracking telah dikirim ulang ke applicant.');
+                showSuccessToast('Informasi tracking telah dikirim ulang ke applicant.');
                 emit('submitted');
             },
             onError: () => showErrorToast('Gagal mengirim ulang informasi tracking.'),

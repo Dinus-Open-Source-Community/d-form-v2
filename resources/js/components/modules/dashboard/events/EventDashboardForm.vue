@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
 import DeferredRender from '@/components/core/DeferredRender.vue';
-import { LazyTipTapEditor } from '@/components/core/lazyRichTextEditors';
+import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 import EventMultiValuePicker from '@/components/modules/dashboard/events/EventMultiValuePicker.vue';
 import {
     FileText,
@@ -51,6 +51,8 @@ const props = defineProps<{
      *  Create 200 dgn draftEvent; halaman induk mendeteksi & pindah step. */
     wizardMode?: boolean;
 }>();
+
+const { showErrorToast, showSuccessToast } = useToastNotifications();
 
 const defaultSessions = [
     { value: 'general', label: 'General' },
@@ -322,7 +324,7 @@ async function handleBannerChange(e: Event): Promise<void> {
         form.banner = file;
         bannerPreview.value = URL.createObjectURL(file);
     } else if (file) {
-        toast.error('Gambar tidak valid atau melebihi 5 MB.');
+        showErrorToast('Gambar tidak valid atau melebihi 5 MB.');
         input.value = '';
     }
 }
@@ -334,7 +336,7 @@ async function handleDrop(e: DragEvent): Promise<void> {
         form.banner = file;
         bannerPreview.value = URL.createObjectURL(file);
     } else if (file) {
-        toast.error('Gambar tidak valid atau melebihi 5 MB.');
+        showErrorToast('Gambar tidak valid atau melebihi 5 MB.');
     }
 }
 
@@ -370,13 +372,13 @@ function submitForm(publish: boolean): void {
                 return;
             }
             if (publish) {
-                toast.success(
+                showSuccessToast(
                     props.variant === 'create'
                         ? 'Acara berhasil dipublikasikan.'
                         : 'Acara diperbarui dan dipublikasikan.'
                 );
             } else {
-                toast.success(props.variant === 'create' ? 'Disimpan sebagai draf.' : 'Perubahan disimpan.');
+                showSuccessToast(props.variant === 'create' ? 'Disimpan sebagai draf.' : 'Perubahan disimpan.');
             }
         },
         onError: (errors) => {

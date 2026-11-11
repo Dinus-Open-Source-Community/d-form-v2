@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
@@ -22,6 +22,8 @@ const props = defineProps<{
     forms: IForm[];
 }>();
 
+const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
+
 onMounted(() => {
     setTopbar({ title: props.event.title, subtitle: 'Kelola formulir pendaftaran' });
 });
@@ -40,7 +42,7 @@ function confirmDelete() {
     router.delete(routes.admin.events.forms.destroy(props.event.id, id), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success(humanizeErrorMessage('Form deleted.'));
+            showSuccessToast(humanizeErrorMessage('Form deleted.'));
             showDeleteModal.value = false;
             deleteTarget.value = null;
         },

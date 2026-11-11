@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
-import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
+import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue';
 import { formFieldImageSrc, formFieldMetadataText } from '@/lib/formFillFields';
 import { useFormFillFieldsList } from '@/hooks/useFormFillFieldsList';

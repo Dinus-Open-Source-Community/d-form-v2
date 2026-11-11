@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import DeferredRender from '@/components/core/DeferredRender.vue';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { routes } from '@/lib/routes';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { validateUploadFile } from '@/lib/uploadValidation';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 
@@ -83,6 +83,8 @@ const props = defineProps<{
         attachments: string[];
     };
 }>();
+
+const { showErrorToast } = useToastNotifications();
 
 onMounted(() => {
     setTopbar({ title: props.broadcast.name, subtitle: `Status: ${props.broadcast.status}` });
@@ -159,8 +161,8 @@ function loadRecipients(): void {
 
 // --- Email content ---
 // Endpoint upload inline image broadcast: POST {id}/inline-image (field `file`).
-// Lihat route `dashboard.broadcasts.inline-image.upload` di routes/web/admin/broadcasting.php.
-const inlineImageUploadUrl = `/admin/broadcasts/${props.broadcast.id}/inline-image`;
+// Broadcast dorman tidak di-generate Wayfinder; path tetap diadaptasi oleh `lib/routes.ts`.
+const inlineImageUploadUrl = routes.admin.broadcasts.inlineImage(props.broadcast.id);
 
 const contentForm = useForm({
     subject: props.broadcast.subject ?? '',

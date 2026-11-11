@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClipboardList, ScanLine, Users, Download } from 'lucide-vue-next';
 import { formatDateTime } from '@/lib/dateTime';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 
 const props = withDefaults(
     defineProps<{
@@ -37,6 +38,8 @@ const props = withDefaults(
     }>(),
     { showExportToolbar: true }
 );
+
+const { goToPage } = usePaginationNavigation();
 </script>
 
 <template>
@@ -128,6 +131,7 @@ const props = withDefaults(
                     :total="attendanceLog.total"
                     :per-page="attendanceLog.per_page"
                     :per-page-options="[]"
+                    @page-change="goToPage"
                 />
             </CardContent>
         </Card>

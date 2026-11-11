@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronRight } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { submissionReviewBadge } from '@/lib/formSubmissionsUi';
 import { formatDateTime } from '@/lib/dateTime';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';

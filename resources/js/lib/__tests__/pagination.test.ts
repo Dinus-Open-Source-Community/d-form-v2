@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { findCursorUrls, formatCompactNumber, pageWindow } from '@/lib/pagination';
+import {
+    buildPaginationTargetUrl,
+    findCursorUrls,
+    formatCompactNumber,
+    pageWindow,
+    parsePerPageValue,
+    resolvePageRequest,
+} from '@/lib/pagination';
 
 describe('formatCompactNumber', () => {
     it('keeps small totals as plain digits', () => {
@@ -8,6 +15,7 @@ describe('formatCompactNumber', () => {
     });
 
     it.each([
+        [999, '999'],
         [1_000, '1k'],
         [4_600, '4.6k'],
         [1_000_000, '1m'],
@@ -17,9 +25,14 @@ describe('formatCompactNumber', () => {
         expect(formatCompactNumber(value)).toBe(expected);
     });
 
-    it('does not promote a near-million total to the next unit', () => {
-        // Current behavior: 999_999 rounds up to "1000k"; promotion to "1m" is not implemented.
-        expect(formatCompactNumber(999_999)).toBe('1000k');
+    it('promotes values whose rounding crosses the next unit boundary', () => {
+        expect(formatCompactNumber(999_999)).toBe('1m');
+        expect(formatCompactNumber(999_999_999)).toBe('1b');
+    });
+
+    it('keeps near-boundary values that do not round up', () => {
+        expect(formatCompactNumber(999_400)).toBe('999.4k');
+        expect(formatCompactNumber(999_949)).toBe('999.9k');
     });
 });
 
@@ -76,5 +89,99 @@ describe('findCursorUrls', () => {
 
     it('returns nulls when no label matches', () => {
         expect(findCursorUrls([{ url: '/1', label: '1' }])).toEqual({ previous: null, next: null });
+    });
+});
+
+describe('buildPaginationTargetUrl', () => {
+    it('keeps the active query, replaces the page, and drops the cursor marker', () => {
+        expect(
+            buildPaginationTargetUrl({
+                pathname: '/admin/events/1/report',
+                search: '?tab=attendance&page=1&per_page=20&cursor=abc',
+                page: 3,
+                perPage: 20,
+                pageParam: 'page',
+                perPageParam: 'per_page',
+                includePerPage: true,
+            })
+        ).toBe('/admin/events/1/report?tab=attendance&page=3&per_page=20');
+    });
+
+    it('omits per_page when the per-page selector is hidden', () => {
+        expect(
+            buildPaginationTargetUrl({
+                pathname: '/admin/users',
+                search: '?search=ada',
+                page: 2,
+                perPage: 25,
+                pageParam: 'page',
+                perPageParam: 'per_page',
+                includePerPage: false,
+            })
+        ).toBe('/admin/users?search=ada&page=2');
+    });
+
+    it('works with an empty search and honours custom parameter names', () => {
+        expect(
+            buildPaginationTargetUrl({
+                pathname: '/recruitment',
+                search: '',
+                page: 2,
+                perPage: 10,
+                pageParam: 'halaman',
+                perPageParam: 'jumlah',
+                includePerPage: true,
+            })
+        ).toBe('/recruitment?halaman=2&jumlah=10');
+    });
+});
+
+describe('parsePerPageValue', () => {
+    it('accepts positive integers', () => {
+        expect(parsePerPageValue('8')).toBe(8);
+        expect(parsePerPageValue('100')).toBe(100);
+    });
+
+    it.each(['0', '-5', '2.5', 'abc', ''])('rejects %s', (raw: string) => {
+        expect(parsePerPageValue(raw)).toBeNull();
+    });
+});
+
+describe('resolvePageRequest', () => {
+    const base = { currentPage: 2, lastPage: 5, perPage: 20, isCursorMode: false, includePerPage: true };
+
+    it('accepts an in-range page change and carries the active per-page value', () => {
+        expect(resolvePageRequest({ ...base, requestedPage: 3 })).toEqual({
+            page: 3,
+            perPage: 20,
+            includePerPage: true,
+        });
+    });
+
+    it('carries the visibility of the per-page selector instead of page config', () => {
+        expect(resolvePageRequest({ ...base, requestedPage: 3, includePerPage: false })).toEqual({
+            page: 3,
+            perPage: 20,
+            includePerPage: false,
+        });
+    });
+
+    it('ignores the current page, out-of-range pages, and cursor mode', () => {
+        expect(resolvePageRequest({ ...base, requestedPage: 2 })).toBeNull();
+        expect(resolvePageRequest({ ...base, requestedPage: 0 })).toBeNull();
+        expect(resolvePageRequest({ ...base, requestedPage: 6 })).toBeNull();
+        expect(resolvePageRequest({ ...base, requestedPage: 3, isCursorMode: true })).toBeNull();
+    });
+
+    it('treats a null lastPage as unbounded', () => {
+        expect(resolvePageRequest({ ...base, lastPage: null, requestedPage: 12 })).toEqual({
+            page: 12,
+            perPage: 20,
+            includePerPage: true,
+        });
+    });
+
+    it('rejects non-integer pages', () => {
+        expect(resolvePageRequest({ ...base, requestedPage: 2.5 })).toBeNull();
     });
 });

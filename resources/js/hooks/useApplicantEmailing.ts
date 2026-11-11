@@ -1,7 +1,6 @@
 import { ref, type Ref } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
-import { handleInertiaFormErrors } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { routes } from '@/lib/routes';
 import {
     emailResendLabelOf,
@@ -32,6 +31,7 @@ export function useApplicantEmailing(state: IApplicantEmailingState): {
     cancelSend: () => void;
     confirmSend: () => void;
 } {
+    const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
     const pendingType = ref<TRecruitmentEmailResendType | null>(null);
     const confirmOpen = ref(false);
     const isSending = ref(false);
@@ -70,7 +70,7 @@ export function useApplicantEmailing(state: IApplicantEmailingState): {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success(`Email ${emailResendLabelOf(type).toLowerCase()} telah dikirim ulang.`);
+                    showSuccessToast(`Email ${emailResendLabelOf(type).toLowerCase()} telah dikirim ulang.`);
                     confirmOpen.value = false;
                     pendingType.value = null;
                     state.onSent();

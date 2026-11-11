@@ -1,13 +1,130 @@
 import { describe, expect, it } from 'vitest';
 import { isSidebarNavActive, pathWithoutQuery, resolveNavbarFallbackBackHref, routes } from '@/lib/routes';
 
+/** Ambil leaf key route tanpa mengevaluasi getter/fungsi (descriptor, bukan nilai). */
+function collectRouteKeys(value: object, prefix = ''): string[] {
+    return Reflect.ownKeys(value).flatMap((key): string[] => {
+        if (typeof key !== 'string') return [];
+
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor === undefined) return [];
+
+        const path = prefix === '' ? key : `${prefix}.${key}`;
+        const nested: unknown = descriptor.value;
+
+        if (typeof nested === 'object' && nested !== null) {
+            return collectRouteKeys(nested, path);
+        }
+
+        return [path];
+    });
+}
+
+/** Kontrak key adapter: penghapusan/penambahan harus lewat perubahan snapshot ini. */
+const SURVIVING_ROUTE_KEYS = [
+    'home',
+    'landing.features',
+    'landing.docs',
+    'landing.events.index',
+    'landing.events.show',
+    'recruitment.landing',
+    'recruitment.track.login',
+    'auth.login',
+    'auth.register',
+    'auth.passwordResetLink',
+    'auth.registerWithIntended',
+    'dashboard.index',
+    'dashboard.profile',
+    'dashboard.profileAvatar',
+    'dashboard.profilePassword',
+    'admin.index',
+    'admin.recruitment.index',
+    'admin.recruitment.reports.exportFunnel',
+    'admin.recruitment.reports.exportApplicants',
+    'admin.recruitment.activityLogs.index',
+    'admin.recruitment.periods.create',
+    'admin.recruitment.periods.store',
+    'admin.recruitment.periods.show',
+    'admin.recruitment.periods.update',
+    'admin.recruitment.periods.open',
+    'admin.recruitment.periods.close',
+    'admin.recruitment.periods.destroy',
+    'admin.recruitment.periods.sendGroupLink',
+    'admin.recruitment.periods.sendQr',
+    'admin.recruitment.periods.exportInterviews',
+    'admin.recruitment.divisions.update',
+    'admin.recruitment.interviewers.store',
+    'admin.recruitment.interviewers.assign',
+    'admin.recruitment.interviewers.unassign',
+    'admin.recruitment.applications.document',
+    'admin.recruitment.applications.screening.pass',
+    'admin.recruitment.applications.screening.revision',
+    'admin.recruitment.applications.screening.reject',
+    'admin.recruitment.applications.verify',
+    'admin.recruitment.applications.resendEmail',
+    'admin.recruitment.applications.resendTracking',
+    'admin.recruitment.applications.final.accept',
+    'admin.recruitment.applications.final.reject',
+    'admin.recruitment.corrections.approve',
+    'admin.recruitment.corrections.reject',
+    'admin.recruitment.interviewSessions.store',
+    'admin.recruitment.interviewSessions.show',
+    'admin.recruitment.interviewSessions.update',
+    'admin.recruitment.interviewSessions.destroy',
+    'admin.recruitment.myInterviews.index',
+    'admin.recruitment.myInterviews.show',
+    'admin.recruitment.myInterviews.secondaryClaim',
+    'admin.recruitment.myInterviews.primaryClaim',
+    'admin.recruitment.myInterviews.primaryAssign',
+    'admin.events.index',
+    'admin.events.create',
+    'admin.events.show',
+    'admin.events.edit',
+    'admin.events.registrants',
+    'admin.events.laporan',
+    'admin.events.exports.registrations',
+    'admin.events.forms.create',
+    'admin.events.forms.show',
+    'admin.events.forms.store',
+    'admin.events.forms.destroy',
+    'admin.scan.index',
+    'admin.scan.export',
+    'admin.users.index',
+    'admin.users.create',
+    'admin.users.store',
+    'admin.users.show',
+    'admin.users.edit',
+    'admin.users.update',
+    'admin.users.destroy',
+    'admin.broadcasts.index',
+    'admin.broadcasts.create',
+    'admin.broadcasts.store',
+    'admin.broadcasts.show',
+    'admin.broadcasts.destroy',
+    'admin.broadcasts.content',
+    'admin.broadcasts.snapshot',
+    'admin.broadcasts.recipients',
+    'admin.broadcasts.attachments',
+    'admin.broadcasts.preview',
+    'admin.broadcasts.test',
+    'admin.broadcasts.schedule',
+    'admin.broadcasts.cancel',
+    'admin.broadcasts.retry',
+    'admin.broadcasts.inlineImage',
+    'member.joined',
+    'member.browse',
+    'member.checkEmail',
+    'member.event.show',
+    'member.event.register',
+    'member.event.registration',
+];
+
 describe('routes builders', () => {
     it('builds a public event show path from a slug', () => {
         expect(routes.landing.events.show('open-house')).toBe('/events/open-house');
     });
 
-    it('builds password reset and login-with-intended paths', () => {
-        expect(routes.auth.resetPassword('tok-1')).toBe('/auth/reset-password/tok-1');
+    it('builds login-with-intended path', () => {
         // URLSearchParams meng-encode spasi sebagai `+` (bukan `%20`); keduanya
         // ekuivalen saat PHP mem-parsing query string.
         expect(routes.auth.registerWithIntended('/events/a b')).toBe('/auth/login?intended=%2Fevents%2Fa+b');
@@ -20,8 +137,15 @@ describe('routes builders', () => {
         );
     });
 
-    it('builds admin event form submission path', () => {
-        expect(routes.admin.events.forms.submissions('e-1', 'f-1')).toBe('/admin/events/e-1/forms/f-1/submissions');
+    it('encodes special characters in the export period filter', () => {
+        const encoded = '..%2Fperiod+%3F%231';
+
+        expect(routes.admin.recruitment.reports.exportFunnel('../period ?#1')).toBe(
+            `/admin/recruitment/reports/export/funnel.csv?period_id=${encoded}`
+        );
+        expect(routes.admin.recruitment.reports.exportApplicants('../period ?#1')).toBe(
+            `/admin/recruitment/reports/export/applicants.csv?period_id=${encoded}`
+        );
     });
 
     it('builds document download path with preview query', () => {
@@ -36,12 +160,12 @@ describe('routes builders', () => {
         );
     });
 
-    it('builds member form fill path', () => {
-        expect(routes.member.event.formFill('e-1', 'f-1')).toBe('/joined/e-1/forms/f-1/fill');
-    });
-
     it('builds admin index path', () => {
         expect(routes.admin.index).toBe('/admin');
+    });
+
+    it('keeps the surviving key set deliberate', () => {
+        expect(collectRouteKeys(routes)).toEqual(SURVIVING_ROUTE_KEYS);
     });
 
     // Pasangan action yang shape parameternya identik mudah tertukar dan tetap

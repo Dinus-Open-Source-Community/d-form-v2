@@ -3,7 +3,6 @@ import {
     HttpRequestError,
     isHttpRequestError,
     readPublicMessage,
-    readRetryAfterSeconds,
     readValidationErrors,
     toHttpErrorKind,
 } from '@/adapters/http/httpError';
@@ -40,16 +39,6 @@ describe('readValidationErrors', () => {
         expect(readValidationErrors(null)).toBeNull();
         expect(readValidationErrors({ errors: {} })).toBeNull();
         expect(readValidationErrors({ message: 'x' })).toBeNull();
-    });
-});
-
-describe('readRetryAfterSeconds', () => {
-    it('normalizes positive numeric values', () => {
-        expect(readRetryAfterSeconds('30')).toBe(30);
-        expect(readRetryAfterSeconds(1.2)).toBeNull();
-        expect(readRetryAfterSeconds('0')).toBeNull();
-        expect(readRetryAfterSeconds('abc')).toBeNull();
-        expect(readRetryAfterSeconds(undefined)).toBeNull();
     });
 });
 

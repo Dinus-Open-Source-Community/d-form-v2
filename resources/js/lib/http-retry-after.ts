@@ -1,10 +1,22 @@
 const RETRY_AFTERLESS_MESSAGE = 'Terlalu banyak percobaan. Coba lagi sebentar lagi.';
 
 /**
- * Ubah header `Retry-After` (detik) menjadi angka bulat; null bila kosong, negatif, atau bukan angka.
+ * Satu-satunya parser `Retry-After` untuk header HTTP maupun nilai programatik.
+ *
+ * Semantik yang dipilih mengikuti RFC 9110 bagian "delta-seconds":
+ * - string harus berisi digit saja setelah trim; bentuk HTTP-date tidak didukung
+ *   karena backend hanya mengirim delta-seconds;
+ * - number harus integer >= 0;
+ * - `0` adalah nilai sah (retry segera) dan dikembalikan apa adanya, sehingga
+ *   pemanggil yang butuh cooldown positif tetap memakai fallback-nya sendiri;
+ * - nilai kosong, negatif, pecahan, atau bukan angka menjadi `null`.
  */
-export function parseRetryAfterSeconds(value: string | null | undefined): number | null {
-    if (value == null) return null;
+export function parseRetryAfterSeconds(value: unknown): number | null {
+    if (typeof value === 'number') {
+        return Number.isInteger(value) && value >= 0 ? value : null;
+    }
+
+    if (typeof value !== 'string') return null;
 
     const trimmed: string = value.trim();
     if (!/^\d+$/.test(trimmed)) return null;

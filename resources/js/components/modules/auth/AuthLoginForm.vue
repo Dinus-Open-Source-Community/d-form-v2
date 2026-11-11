@@ -4,9 +4,11 @@ import { AuthSubmitButton } from '@/components/core/button';
 import { AuthField } from '@/components/core/field';
 import { store as login } from '@/actions/App/Http/Controllers/Auth/LoginController';
 import { index as forgotPasswordPage } from '@/actions/App/Http/Controllers/Auth/ForgotPasswordController';
-import { getFieldError, handleInertiaFormErrors } from '@/lib/error-message';
+import { getFieldError } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
 const form = useForm({ email: '', password: '' }).dontRemember('password');
+const { handleInertiaFormErrors } = useToastNotifications();
 
 function submit(): void {
     form.submit(login(), {

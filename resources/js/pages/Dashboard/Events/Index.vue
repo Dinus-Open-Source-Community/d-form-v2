@@ -16,6 +16,7 @@ import {
 import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useAuth } from '@/hooks/useAuth';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -57,6 +58,7 @@ const props = defineProps<{
         per_page?: number;
     };
 }>();
+const { goToPage, changePerPage } = usePaginationNavigation();
 
 const searchQuery = ref('');
 const filterCategory = ref('all');
@@ -201,6 +203,8 @@ function handleDeleteConfirm(): void {
             :last-page="events.last_page"
             :total="events.total"
             :per-page="events.per_page"
+            @page-change="goToPage"
+            @per-page-change="changePerPage"
         />
     </div>
 </template>

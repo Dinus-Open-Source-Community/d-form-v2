@@ -1,4 +1,5 @@
-import type { TFormFieldMetadataBag, TFormFieldRules } from '@/types/form';
+import type { IFormFieldMetadata, TFormFieldMetadataBag, TFormFieldRules } from '@/types/form';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Baca flag boolean dari metadata API/Laravel tanpa jebakan `Boolean("false") === true`.
@@ -15,16 +16,12 @@ export function readMetaBoolean(meta: TFormFieldMetadataBag, key: string): boole
     return Boolean(v);
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
 /**
- * Normalisasi `field.metadata` menjadi objek: string JSON di-parse (gagal → dibiarkan),
+ * Normalisasi nilai metadata mentah menjadi objek: string JSON di-parse (gagal → dibiarkan),
  * array → objek pertama, bentuk lain → `{}`.
  */
-export function readFieldMetadata(field: IFormField): TFormFieldMetadataBag {
-    let m: unknown = field.metadata;
+export function readMetadataBag(value: unknown): TFormFieldMetadataBag {
+    let m: unknown = value;
     if (typeof m === 'string' && m.trim()) {
         try {
             m = JSON.parse(m);
@@ -33,13 +30,40 @@ export function readFieldMetadata(field: IFormField): TFormFieldMetadataBag {
         }
     }
     if (Array.isArray(m)) {
-        m = m.find((item) => isPlainObject(item)) ?? {};
+        m = m.find((item) => isRecord(item)) ?? {};
     }
-    return isPlainObject(m) ? m : {};
+    return isRecord(m) ? m : {};
 }
 
-/** Ambil `metadata.rules` bila berbentuk objek; selain itu `{}`. */
+/** Normalisasi `field.metadata` menjadi objek (lihat `readMetadataBag`). */
+export function readFieldMetadata(field: IFormField): TFormFieldMetadataBag {
+    return readMetadataBag(field.metadata);
+}
+
+/** Type guard seam Inertia: `metadata.rules` harus record JSON agar aman dibaca sebagai rules. */
+export function isFormFieldRules(value: unknown): value is TFormFieldRules {
+    return isRecord(value);
+}
+
+/** Ambil `metadata.rules` dari bag; nilai non-record jatuh ke objek kosong. */
+export function readRuleSet(metadata: TFormFieldMetadataBag): TFormFieldRules {
+    const raw = metadata.rules;
+    return isFormFieldRules(raw) ? raw : {};
+}
+
+/** Ambil `metadata.rules` sebuah field bila berbentuk objek; selain itu `{}`. */
 export function readFieldRules(field: IFormField): TFormFieldRules {
-    const raw = readFieldMetadata(field).rules;
-    return isPlainObject(raw) ? (raw as TFormFieldRules) : {};
+    return readRuleSet(readFieldMetadata(field));
+}
+
+/** Nilai string dari metadata; tipe lain (payload malformed) jatuh ke `fallback`. */
+export function readMetaText(metadata: TFormFieldMetadataBag, key: keyof IFormFieldMetadata, fallback = ''): string {
+    const value = metadata[key];
+    return typeof value === 'string' ? value : fallback;
+}
+
+/** Nilai number finite dari metadata; tipe lain (payload malformed) jatuh ke `fallback`. */
+export function readMetaNumber(metadata: TFormFieldMetadataBag, key: keyof IFormFieldMetadata, fallback = 0): number {
+    const value = metadata[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }

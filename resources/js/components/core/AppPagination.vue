@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { router } from '@inertiajs/vue3';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
-import { formatCompactNumber, pageWindow, type TPaginationItem } from '@/lib/pagination';
-import { currentPathname, currentSearch } from '@/adapters/browser/navigation';
+import { formatCompactNumber, pageWindow, resolvePageRequest, type TPaginationItem } from '@/lib/pagination';
+import type { IPaginationPageChange } from '@/types/pagination';
 
 interface IAppPaginationProps {
     currentPage: number;
@@ -33,7 +32,15 @@ const props = withDefaults(defineProps<IAppPaginationProps>(), {
     nextUrl: null,
 });
 
-const NAVIGATION_OPTIONS = { preserveState: true, preserveScroll: true, replace: true };
+/**
+ * Komponen ini presentational: hanya mengirim niat navigasi. Pemanggil yang
+ * membangun URL dan memanggil router (lihat `usePaginationNavigation`).
+ */
+const emit = defineEmits<{
+    'page-change': [change: IPaginationPageChange];
+    'per-page-change': [rawPerPage: string];
+    'cursor-change': [url: string];
+}>();
 
 const COUNT_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -77,51 +84,47 @@ const isNextDisabled = computed<boolean>(() =>
     isCursorMode.value ? props.nextUrl === null : props.lastPage === null || props.currentPage >= props.lastPage
 );
 
-/** URL tujuan dari query aktif, agar filter, tab, dan pencarian tidak hilang saat pindah halaman. */
-function pageUrl(page: number, perPage: number): string {
-    const params = new URLSearchParams(currentSearch());
-    params.set(props.pageParam, String(page));
-    if (showPerPageSelector.value) params.set(props.perPageParam, String(perPage));
-    params.delete('cursor');
-    return `${currentPathname()}?${params.toString()}`;
+/** Putuskan apakah nomor halaman ini boleh dikirim ke pemanggil (mode cursor, sama, atau di luar rentang). */
+function requestPage(page: number): void {
+    const change = resolvePageRequest({
+        requestedPage: page,
+        currentPage: props.currentPage,
+        lastPage: props.lastPage,
+        perPage: props.perPage,
+        isCursorMode: isCursorMode.value,
+        includePerPage: showPerPageSelector.value,
+    });
+    if (change !== null) emit('page-change', change);
 }
 
-/** Pindah ke nomor halaman tertentu, mempertahankan seluruh query filter. */
-function goToPage(page: number): void {
-    if (isCursorMode.value || page === props.currentPage) return;
-    if (props.lastPage !== null && (page < 1 || page > props.lastPage)) return;
-    router.get(pageUrl(page, props.perPage), {}, NAVIGATION_OPTIONS);
-}
-
-/** Ganti jumlah baris per halaman lalu kembali ke halaman pertama. */
-function changePerPage(nextValue: string): void {
-    const nextPerPage = Number(nextValue);
-    if (!Number.isInteger(nextPerPage) || nextPerPage <= 0 || nextPerPage === props.perPage) return;
-    router.get(pageUrl(1, nextPerPage), {}, NAVIGATION_OPTIONS);
+/** Ganti jumlah baris per halaman lalu kembali ke halaman pertama (diputuskan pemanggil). */
+function requestPerPage(rawValue: string): void {
+    if (Number(rawValue) === props.perPage) return;
+    emit('per-page-change', rawValue);
 }
 
 /** Mode cursor: ikuti tautan server apa adanya karena nomor halaman tidak tersedia. */
-function goToCursorPage(url: string | null): void {
+function requestCursorPage(url: string | null): void {
     if (url === null) return;
-    router.get(url, {}, NAVIGATION_OPTIONS);
+    emit('cursor-change', url);
 }
 
 /** Tombol ‹: mundur satu halaman nomor atau satu cursor. */
 function goToPrevious(): void {
     if (isCursorMode.value) {
-        goToCursorPage(props.prevUrl);
+        requestCursorPage(props.prevUrl);
         return;
     }
-    goToPage(props.currentPage - 1);
+    requestPage(props.currentPage - 1);
 }
 
 /** Tombol ›: maju satu halaman nomor atau satu cursor. */
 function goToNext(): void {
     if (isCursorMode.value) {
-        goToCursorPage(props.nextUrl);
+        requestCursorPage(props.nextUrl);
         return;
     }
-    goToPage(props.currentPage + 1);
+    requestPage(props.currentPage + 1);
 }
 </script>
 
@@ -137,7 +140,7 @@ function goToNext(): void {
                 :options="perPageSelectOptions"
                 class="h-8 w-auto text-xs"
                 aria-label="Jumlah baris per halaman"
-                @update:model-value="changePerPage"
+                @update:model-value="requestPerPage"
             />
             <p v-if="rangeLabel" class="tabular-nums">{{ rangeLabel }}</p>
         </div>
@@ -177,7 +180,7 @@ function goToNext(): void {
                             :data-active="item === currentPage"
                             :aria-current="item === currentPage ? 'page' : undefined"
                             :aria-label="`Halaman ${item}`"
-                            @click="goToPage(item)"
+                            @click="requestPage(item)"
                         >
                             {{ item }}
                         </Button>

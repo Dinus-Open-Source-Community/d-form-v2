@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue';
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue';
@@ -16,6 +15,7 @@ import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { useGlobalQrScanPage } from '@/hooks/useGlobalQrScanPage';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { downloadUrl } from '@/adapters/browser/fileDownload';
 import type { IScanTargetEvent, IScanTargetSession } from '@/types/scan';
 
@@ -30,17 +30,12 @@ const props = defineProps<{
         events: IScanTargetEvent[];
     };
     globalScanStoreUrl: string;
-    globalScanFeedUrl?: string;
+    globalScanFeedUrl: string;
 }>();
 
-const feedUrl = computed<string>(() => {
-    const explicit = props.globalScanFeedUrl?.trim() ?? '';
-    if (explicit.length > 0) {
-        return explicit;
-    }
+const { showSuccessToast } = useToastNotifications();
 
-    return `${props.globalScanStoreUrl.replace(/\/+$/, '')}/feed`;
-});
+const feedUrl = computed<string>(() => props.globalScanFeedUrl.trim());
 
 const s = reactive(
     useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets)
@@ -81,7 +76,7 @@ function downloadScanExports(targets: TScanExportTarget[], format: TScanExportFo
 
             if (index === targets.length - 1) {
                 isExporting.value = false;
-                toast.success(
+                showSuccessToast(
                     targets.length === 1
                         ? `Export ${format.toUpperCase()} diunduh.`
                         : `${targets.length} file ${format.toUpperCase()} sedang diunduh.`,

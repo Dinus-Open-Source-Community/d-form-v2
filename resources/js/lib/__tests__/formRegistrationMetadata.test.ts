@@ -63,6 +63,20 @@ describe('parseFormRegistrationMetadata', () => {
         });
     });
 
+    it('nulls non-numeric and whitespace sizes instead of producing NaN', () => {
+        const parsed = parseFormRegistrationMetadata({ max_team_size: 'abc', team_size: '   ' });
+
+        expect(parsed.max_team_size).toBeNull();
+        expect(parsed.team_size).toBeNull();
+    });
+
+    it('keeps zero and decimal sizes as finite numbers', () => {
+        const parsed = parseFormRegistrationMetadata({ max_team_size: '0', team_size: '2.5' });
+
+        expect(parsed.max_team_size).toBe(0);
+        expect(parsed.team_size).toBe(2.5);
+    });
+
     it('fills missing section ids and titles by position', () => {
         const parsed = parseFormRegistrationMetadata({
             sections: [
@@ -162,5 +176,15 @@ describe('toFormMetadataPayload', () => {
         };
 
         expect(parseFormRegistrationMetadata(toFormMetadataPayload(teamMetadata))).toEqual(teamMetadata);
+    });
+
+    it('is idempotent when a stored size is invalid', () => {
+        const first = parseFormRegistrationMetadata({ max_team_size: 'abc', team_size: '' });
+        const payload = toFormMetadataPayload(first);
+
+        expect(payload.max_team_size).toBeNull();
+        expect(payload.team_size).toBeNull();
+        expect(parseFormRegistrationMetadata(payload)).toEqual(first);
+        expect(toFormMetadataPayload(parseFormRegistrationMetadata(payload))).toEqual(payload);
     });
 });

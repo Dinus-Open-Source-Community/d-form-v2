@@ -498,36 +498,45 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
     });
 
     /**
-     * Banner eksternal (termasuk network-path reference `//host/x.png`) memang
-     * fitur admin: `normalizePublicStorageUrl` hanya menjamin payload tidak
-     * menjadi skema yang dapat dieksekusi. Host passthrough dicatat sebagai
-     * hardening terpisah di ticket `AUDIT-P1-012-F2`, bukan regresi tiket ini.
+     * AUDIT-P1-012-F2: network-path reference (`//host/x.png`) tidak boleh
+     * diteruskan sebagai `img[src]` karena browser akan memuat host pihak ketiga.
+     * Kontrak sekarang: `normalizePublicStorageUrl` menolak input tersebut
+     * (string kosong), sehingga pratinjau tidak dirender dan tidak ada request
+     * keluar. `http(s)://` eksplisit tetap diizinkan dan diuji di unit test.
      */
-    test('URL protocol-relative tetap inert sebagai gambar, bukan skrip atau navigasi', async ({ page }) => {
+    test('URL protocol-relative ditolak dan tidak memicu request host eksternal', async ({ page }) => {
         test.setTimeout(60_000);
         const form = createAdminOwnedForm(test.info());
         const dialogs = collectDialogs(page);
         const navigations = collectNavigations(page);
+        const requests = collectRequests(page);
 
         try {
             await openShowEditor(page, form);
             const title = await page.locator('#f-title').inputValue();
 
-            await putFormBannerUrl(page, form, { title, bannerUrl: '//evil.example/x.png' });
-            await page.reload({ waitUntil: 'domcontentloaded' });
+            for (const payload of ['//evil.example/x.png', '/\t/evil.example/x.png']) {
+                await putFormBannerUrl(page, form, { title, bannerUrl: payload });
+                await page.reload({ waitUntil: 'domcontentloaded' });
 
-            const bannerImage = page.getByAltText('Pratinjau banner form');
-            await expect(bannerImage).toBeVisible();
+                // Banner tidak dirender karena URL ditolak; host eksternal tidak pernah diminta.
+                await expect(
+                    page.getByAltText('Pratinjau banner form'),
+                    `payload ${JSON.stringify(payload)}`
+                ).toHaveCount(0);
+                expect(
+                    requests.urls().filter((url) => url.includes('evil.example')),
+                    `tidak boleh ada request ke host network-path untuk ${JSON.stringify(payload)}`
+                ).toHaveLength(0);
+            }
 
-            const bannerSrc = await bannerImage.getAttribute('src');
-            expectInertImageSource(bannerSrc, 'protocol-relative banner');
-            expect(bannerSrc?.startsWith('data:text/html'), 'src tidak boleh HTML data URL').toBe(false);
             expect(dialogs.messages(), 'tidak ada dialog dari banner eksternal').toHaveLength(0);
             expect(
                 navigations.urls().filter((url) => url.startsWith('javascript:')),
                 'tidak ada navigasi javascript:'
             ).toHaveLength(0);
         } finally {
+            requests.stop();
             dialogs.stop();
             navigations.stop();
             cleanupOwnerFixture(form.identity);

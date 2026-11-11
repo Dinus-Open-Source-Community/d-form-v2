@@ -4,12 +4,13 @@ import { Link } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { dummyEvents, categoryLabelMap } from '@/lib/dummyData';
+import { categoryLabelMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
 import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 
 const props = defineProps<{
     events?: IEvent[];
@@ -17,14 +18,17 @@ const props = defineProps<{
     eventBaseHref?: string;
 }>();
 
-const recentEvents = computed(
-    () =>
-        props.events ??
-        dummyEvents
-            .filter((e) => !e.deleted_at)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 4)
+const recentEvents = computed(() =>
+    [...(props.events ?? [])]
+        .filter((e) => !e.deleted_at)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 4)
 );
+
+/** Banner server sudah absolut; normalisasi menjaga payload lama/relatif tetap inert. */
+function bannerSrc(event: IEvent): string {
+    return normalizePublicStorageUrl(event.banner_url ?? '');
+}
 
 const allHref = computed(() => props.viewAllHref ?? routes.admin.events.index);
 const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index);
@@ -57,7 +61,7 @@ const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index
                         EVENT_CARD_BANNER_ASPECT,
                     ]"
                 >
-                    <img :src="event.banner_url ?? ''" :alt="event.title" class="size-full object-cover" />
+                    <img :src="bannerSrc(event)" :alt="event.title" class="size-full object-cover" />
                 </div>
                 <div class="min-w-0 flex-1">
                     <p

@@ -1,7 +1,8 @@
 import { usePage } from '@inertiajs/vue3';
 import type { InertiaForm } from '@inertiajs/vue3';
 import type { ComputedRef } from 'vue';
-import { buildFieldLabelMap, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message';
+import { buildFieldLabelMap } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { containsAccountEmail } from '@/lib/formFillFields';
 import type { TFormFillAnswerMap } from '@/types/form';
 
@@ -22,6 +23,8 @@ export interface IUseFormFillSubmit {
  * and forwards server validation errors to the shared Inertia error toast.
  */
 export function useFormFillSubmit(options: IUseFormFillSubmitOptions): IUseFormFillSubmit {
+    const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
+
     function submit(): void {
         if (options.isBlocked.value) return;
 

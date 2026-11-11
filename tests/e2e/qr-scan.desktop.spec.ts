@@ -3,6 +3,7 @@ import { cleanupOwnerFixture, countFixtureRows, expect, ownerIdentityForTest, te
 import type { IOwnerIdentity } from './support/marker';
 import { runArtisanJson } from './support/artisan';
 import { startRequestLog } from './support/network';
+import { installAudioContextProbe, readAudioContextCount } from './support/audioProbe';
 
 /**
  * E2E AUDIT-P1-015: check-in QR manual pada halaman scanner global (`/admin/scan`).
@@ -169,6 +170,7 @@ test.describe('AUDIT-P1-015 QR scan manual', () => {
 
         try {
             createScanFixture(identity, fixture);
+            await installAudioContextProbe(page);
 
             await page.goto(SCAN_PATH, { waitUntil: 'domcontentloaded' });
             await expect(page.getByText('Input Manual', { exact: true })).toBeVisible();
@@ -190,6 +192,7 @@ test.describe('AUDIT-P1-015 QR scan manual', () => {
                 .toBeGreaterThanOrEqual(beforeSuccess + 1);
 
             expect(attendanceCount(identity.marker), 'tepat satu attendance').toBe(1);
+            expect(await readAudioContextCount(page), 'feedback suara dibunyikan tepat sekali').toBe(1);
             expect(requestLog.serverErrorStatuses(), 'tidak boleh ada response >= 500').toEqual([]);
         } finally {
             try {

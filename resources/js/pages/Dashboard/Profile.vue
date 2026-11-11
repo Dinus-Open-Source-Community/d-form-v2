@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
-import { toast } from 'vue-sonner';
-import { getFieldError, handleInertiaFormErrors } from '@/lib/error-message';
+import { getFieldError } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import { Eye, EyeOff, Save, UploadCloud } from 'lucide-vue-next';
@@ -23,6 +23,7 @@ defineOptions({ layout: DashboardLayout });
 
 const page = usePage();
 const user = useAuth(page.props);
+const { handleInertiaFormErrors, showErrorToast, showInfoToast, showSuccessToast } = useToastNotifications();
 
 const hasLocalPassword = computed<boolean>(() => user.value?.has_local_password !== false);
 
@@ -133,7 +134,7 @@ async function onAvatarFileChange(ev: Event): Promise<void> {
     const validationError = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
     if (validationError) {
         input.value = '';
-        toast.error(validationError);
+        showErrorToast(validationError);
         return;
     }
     clearPendingAvatar();
@@ -197,7 +198,7 @@ function openAvatarPicker(): void {
 
 function saveAllChanges(): void {
     if (!hasPendingChanges.value) {
-        toast.info('Tidak ada perubahan untuk disimpan.');
+        showInfoToast('Tidak ada perubahan untuk disimpan.');
         return;
     }
 
@@ -284,7 +285,7 @@ function saveAllChanges(): void {
 
         if (!task) {
             isSavingAll.value = false;
-            toast.success('Perubahan berhasil disimpan.');
+            showSuccessToast('Perubahan berhasil disimpan.');
             return;
         }
 

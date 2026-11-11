@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Clock, MapPin, Tag } from 'lucide-vue-next';
-import { categoryColorMap, categoryLabelMap } from '@/lib/dummyData';
+import { categoryColorMap, categoryLabelMap } from '@/constants/eventDisplay';
 import { parseEventCategories } from '@/lib/eventShowUi';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import { EVENT_HERO_BANNER_ASPECT } from '@/lib/eventBannerAspect';
 
 type StatusPill = { label: string; classes: string };
@@ -29,11 +29,7 @@ defineProps<{
         <div class="grid min-w-0 grid-cols-1 xl:grid-cols-12 xl:items-stretch">
             <div class="bg-muted relative isolate w-full min-w-0 overflow-hidden xl:col-span-5">
                 <div :class="[EVENT_HERO_BANNER_ASPECT, 'w-full xl:aspect-auto xl:h-full xl:min-h-[292px]']">
-                    <EventBannerImage
-                        :src="event.banner_url ?? event.banner"
-                        :alt="event.title"
-                        class="h-full w-full"
-                    />
+                    <EventBannerImage :src="event.banner_url" :alt="event.title" class="h-full w-full" />
                 </div>
             </div>
 

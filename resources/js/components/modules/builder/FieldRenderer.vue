@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping';
-import FormParagraphContent from '@/components/modules/dashboard/FormParagraphContent.vue';
+import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
 import {

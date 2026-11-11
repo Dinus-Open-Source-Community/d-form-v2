@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { type IPaginatorLink, type IPaginatorMeta } from '@/lib/paginatorLinks';
 import { readSharedError } from '@/lib/sharedErrors';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import {
     Dialog,
     DialogContent,
@@ -18,12 +19,12 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ArrowRight, Check, X } from 'lucide-vue-next';
-import { toast } from 'vue-sonner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { routes } from '@/lib/routes';
 import { findElement, focusElement } from '@/adapters/browser/domQuery';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 
 interface ApplicationRow {
     id: string;
@@ -99,6 +100,9 @@ const emit = defineEmits<{
     select: [id: string];
     deselect: [];
 }>();
+
+const { goToPage } = usePaginationNavigation();
+const { showErrorToast, showSuccessToast } = useToastNotifications();
 
 const rowRefs = ref<Record<string, HTMLElement | null>>({});
 let lastSelectedId: string | null = null;
@@ -351,10 +355,10 @@ function confirmPass(): void {
             preserveState: true,
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Applicant lolos screening.');
+                showSuccessToast('Applicant lolos screening.');
             },
             onError: () => {
-                toast.error('Gagal meloloskan applicant.');
+                showErrorToast('Gagal meloloskan applicant.');
             },
             onFinish: () => {
                 processingId.value = null;
@@ -389,12 +393,12 @@ function submitPassGroupLink(): void {
                 preserveScroll: true,
                 onError: () => {
                     passGroupLinkError.value = 'Gagal meloloskan applicant.';
-                    toast.error('Gagal meloloskan applicant.');
+                    showErrorToast('Gagal meloloskan applicant.');
                 },
                 onSuccess: () => {
                     passGroupLinkDialogOpen.value = false;
                     passTarget.value = null;
-                    toast.success('Applicant lolos screening tanpa link grup.');
+                    showSuccessToast('Applicant lolos screening tanpa link grup.');
                 },
                 onFinish: () => {
                     processingId.value = null;
@@ -423,12 +427,12 @@ function submitPassGroupLink(): void {
             onError: (errors: Record<string, string | string[]>) => {
                 const first = errors['whatsapp_group_url'] ?? errors['application'];
                 passGroupLinkError.value = (Array.isArray(first) ? first[0] : first) ?? 'Gagal menyimpan link grup.';
-                toast.error(passGroupLinkError.value);
+                showErrorToast(passGroupLinkError.value);
             },
             onSuccess: () => {
                 passGroupLinkDialogOpen.value = false;
                 passTarget.value = null;
-                toast.success('Link grup tersimpan. Applicant lolos screening.');
+                showSuccessToast('Link grup tersimpan. Applicant lolos screening.');
             },
             onFinish: () => {
                 processingId.value = null;
@@ -475,10 +479,10 @@ function submitReject(): void {
         preserveScroll: true,
         onSuccess: () => {
             closeReject();
-            toast.success('Applicant ditolak pada tahap screening.');
+            showSuccessToast('Applicant ditolak pada tahap screening.');
         },
         onError: () => {
-            toast.error('Gagal menolak applicant.');
+            showErrorToast('Gagal menolak applicant.');
         },
         onFinish: () => {
             processingId.value = null;
@@ -677,6 +681,7 @@ function submitReject(): void {
             :total="serverMeta.total"
             :per-page="applications.per_page ?? 20"
             :per-page-options="[]"
+            @page-change="goToPage"
         />
 
         <ConfirmationModal
