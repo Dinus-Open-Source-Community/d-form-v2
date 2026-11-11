@@ -75,9 +75,13 @@ const uploader: TUploader = async (file, { signal, onProgress }): Promise<IUploa
 const {
     phase: uploadPhase,
     progress: uploadProgress,
+    fileName: uploadFileName,
+    fileSize: uploadFileSize,
+    mime: uploadMime,
     errorMessage: uploadErrorMessage,
     start: startUpload,
     cancel: cancelUpload,
+    reset: resetUpload,
 } = useUploadedFileState({
     upload: uploader,
     onCompleted: (result) => {
@@ -105,6 +109,7 @@ async function onBannerPick(file: File): Promise<void> {
 }
 
 function clearImage(): void {
+    resetUpload();
     revokeObjectUrl(localPreviewUrl.value);
     localPreviewUrl.value = '';
     patch({ bannerUrl: '', bannerFileName: '' });
@@ -151,10 +156,14 @@ onUnmounted(() => {
             accept="image/png,image/jpeg,image/gif"
             hint="PNG, JPG, JPEG, GIF"
             :max-size-kb="BANNER_MAX_SIZE_KB"
+            :file-name="uploadFileName"
+            :file-size="uploadFileSize"
+            :mime="uploadMime"
             :progress="uploadProgress"
             :error-message="uploadErrorMessage"
             @pick="onBannerPick"
             @cancel="cancelUpload"
+            @remove="clearImage"
         />
 
         <Button

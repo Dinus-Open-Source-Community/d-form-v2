@@ -43,6 +43,11 @@ describe('normalizePublicStorageUrl', () => {
         ['storage path', '/storage/x', '/storage/x'],
         ['data URL', 'data:image/png;base64,AAAA', 'data:image/png;base64,AAAA'],
         ['absolute https', 'https://x', 'https://x'],
+        [
+            'absolute app storage URL becomes same-origin path',
+            'http://192.168.0.170:3000/storage/form-images/form/image.jpg',
+            '/storage/form-images/form/image.jpg',
+        ],
     ])('handles %s', (_label: string, input: string, expected: string) => {
         expect(normalizePublicStorageUrl(input)).toBe(expected);
     });

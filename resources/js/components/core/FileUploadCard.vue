@@ -53,12 +53,21 @@ const emit = defineEmits<{
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const instance = getCurrentInstance();
+const localFileName = ref('');
+const localFileSize = ref(0);
+const localMime = ref('');
 
 const phase = computed(() => uploadRowPhase(props.state));
-const sizeLabel = computed(() => formatFileSize(props.fileSize));
+const displayFileName = computed(() => props.fileName || localFileName.value);
+const displayFileSize = computed(() => (props.fileSize > 0 ? props.fileSize : localFileSize.value));
+const displayMime = computed(() => props.mime || localMime.value);
+const sizeLabel = computed(() => formatFileSize(displayFileSize.value));
 const completedLabel = computed(() => uploadRowStatusLabel('completed'));
 const showImagePreview = computed(
-    () => phase.value === 'completed' && props.previewUrl !== '' && isPreviewableImage(props.mime, props.fileName)
+    () =>
+        phase.value === 'completed' &&
+        props.previewUrl !== '' &&
+        isPreviewableImage(displayMime.value, displayFileName.value)
 );
 
 function openPicker(): void {
@@ -71,6 +80,9 @@ function onPicked(event: Event): void {
     const file = target?.files?.[0];
 
     if (file === undefined) return;
+    localFileName.value = file.name;
+    localFileSize.value = file.size;
+    localMime.value = file.type;
     emit('pick', file);
 
     // Reset agar file yang sama bisa dipilih ulang setelah gagal/dihapus.
@@ -91,6 +103,22 @@ function onRetry(): void {
     }
 
     openPicker();
+}
+
+function clearLocalFile(): void {
+    localFileName.value = '';
+    localFileSize.value = 0;
+    localMime.value = '';
+}
+
+function onCancel(): void {
+    emit('cancel');
+    clearLocalFile();
+}
+
+function onRemove(): void {
+    emit('remove');
+    clearLocalFile();
 }
 </script>
 
@@ -128,14 +156,16 @@ function onRetry(): void {
         <figure v-else-if="showImagePreview" class="border-border bg-card overflow-hidden rounded-xl border shadow-xs">
             <img
                 :src="previewUrl"
-                :alt="fileName || 'Pratinjau gambar'"
+                :alt="displayFileName || 'Pratinjau gambar'"
                 loading="lazy"
                 decoding="async"
                 class="bg-muted max-h-44 w-full object-contain"
             />
             <figcaption class="flex items-start gap-3 px-3 py-2.5">
                 <div class="min-w-0 flex-1">
-                    <p class="text-foreground truncate text-sm font-medium" :title="fileName">{{ fileName }}</p>
+                    <p class="text-foreground truncate text-sm font-medium" :title="displayFileName">
+                        {{ displayFileName }}
+                    </p>
                     <p class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
                         <span class="tabular-nums">{{ sizeLabel }}</span>
                         <span aria-hidden="true">·</span>
@@ -150,7 +180,7 @@ function onRetry(): void {
                     type="button"
                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/30 grid size-8 shrink-0 place-items-center rounded-lg transition-colors outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50"
                     :disabled="disabled"
-                    :aria-label="`Hapus ${fileName || 'berkas'}`"
+                    :aria-label="`Hapus ${displayFileName || 'berkas'}`"
                     @click="emit('remove')"
                 >
                     <Trash2 class="size-4" aria-hidden="true" />
@@ -162,16 +192,16 @@ function onRetry(): void {
         <FileUploadRow
             v-else
             :state="props.state"
-            :file-name="props.fileName"
-            :file-size="props.fileSize"
-            :mime="props.mime"
+            :file-name="displayFileName"
+            :file-size="displayFileSize"
+            :mime="displayMime"
             :progress="props.progress"
             :error-message="props.errorMessage"
             :removable="props.removable"
             :disabled="props.disabled"
             @retry="onRetry"
-            @cancel="emit('cancel')"
-            @remove="emit('remove')"
+            @cancel="onCancel"
+            @remove="onRemove"
         />
     </div>
 </template>

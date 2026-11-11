@@ -66,16 +66,26 @@ const publicFileUrl = computed((): string | null => {
     if (!t) {
         return null;
     }
-    const norm = normalizePublicStorageUrl(t);
-    if (!norm) {
-        return null;
-    }
-    return norm;
+    return resolveAnswerFileUrl(t);
 });
 
 function isImageHref(href: string): boolean {
     const path = (href.split('?')[0] ?? '').toLowerCase();
     return /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i.test(path);
+}
+
+/**
+ * Jawaban file memakai route privat yang sudah diotorisasi server.
+ * Jangan melewatkan route itu ke normalizer storage publik: ia akan mengubah
+ * `/admin/form-answers/files/...` menjadi `/storage/admin/...` dan memecahkan
+ * preview gambar/PDF.
+ */
+function resolveAnswerFileUrl(value: string): string | null {
+    const pathname = new URL(value, currentOrigin()).pathname;
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments[0] === 'admin' && segments[1] === 'form-answers' && segments[2] === 'files') return value;
+
+    return normalizePublicStorageUrl(value) || null;
 }
 
 function isPdfHref(href: string): boolean {

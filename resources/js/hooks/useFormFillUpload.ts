@@ -63,6 +63,7 @@ export function useFormFillUpload(answerForm: InertiaForm<TFormFillAnswerMap>): 
     function clearFileUpload(fieldName: string): void {
         revokeFilePreview(fieldName);
         answerForm[fieldName] = null;
+        answerForm.clearErrors(fieldName);
     }
 
     onBeforeUnmount(() => {

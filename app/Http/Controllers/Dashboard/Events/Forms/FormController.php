@@ -241,7 +241,12 @@ class FormController extends Controller
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($form, $data, $request) {
-            $form->update($this->formAttributesFrom($data, $form, $request->isDraftAutosave()));
+            $form->update($this->formAttributesFrom(
+                $data,
+                $form,
+                $request->isDraftAutosave(),
+                $request->isStatusDraftTransition(),
+            ));
 
             if (isset($data['fields'])) {
                 $oldById = $form->formFields->keyBy('id');
@@ -277,7 +282,10 @@ class FormController extends Controller
 
         // Autosave global (background, tanpa navigasi) → JSON.
         if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
+            return response()->json([
+                'ok' => true,
+                'status' => $form->fresh()->status->value,
+            ]);
         }
 
         Inertia::flash('toast', [
@@ -320,8 +328,16 @@ class FormController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function formAttributesFrom(array $data, Form $form, bool $isDraftAutosave): array
-    {
+    private function formAttributesFrom(
+        array $data,
+        Form $form,
+        bool $isDraftAutosave,
+        bool $isStatusDraftTransition = false,
+    ): array {
+        if ($isStatusDraftTransition) {
+            return ['status' => FormStatus::Draft];
+        }
+
         if (! $isDraftAutosave) {
             return [
                 'title' => $data['title'],
@@ -381,6 +397,10 @@ class FormController extends Controller
      */
     private function resolveStatus(Form $form, array $data): FormStatus
     {
+        if (isset($data['status'])) {
+            return FormStatus::from($data['status']);
+        }
+
         return ! empty($data['publish']) ? FormStatus::Published : $form->status;
     }
 

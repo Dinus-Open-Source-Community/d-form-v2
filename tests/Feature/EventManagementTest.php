@@ -55,6 +55,34 @@ class EventManagementTest extends TestCase
             );
     }
 
+    public function test_BE_P3_001_member_only_portal_redirects_organizer(): void
+    {
+        $organizer = User::factory()->create();
+        $organizer->assignRole('admin');
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.user.events'))
+            ->assertRedirect(route('dashboard'));
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.user.events.browse'))
+            ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_BE_P3_001_browse_rejects_invalid_filter_values(): void
+    {
+        $member = User::factory()->create();
+        $member->assignRole('member');
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.browse', [
+                'category' => 'invalid-category',
+                'session' => 'invalid-session',
+                'page' => 0,
+            ]))
+            ->assertSessionHasErrors(['category', 'session', 'page']);
+    }
+
     public function test_events_joined_url_resolves_to_member_portal_route(): void
     {
         $route = app('router')->getRoutes()->match(

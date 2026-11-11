@@ -1,14 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import csvIcon from '@/assets/file-types/csv.svg?url&no-inline';
-import excelIcon from '@/assets/file-types/excel.svg?url&no-inline';
-import genericIcon from '@/assets/file-types/generic.svg?url&no-inline';
-import imageIcon from '@/assets/file-types/image.svg?url&no-inline';
-import pdfIcon from '@/assets/file-types/pdf.svg?url&no-inline';
-import powerpointIcon from '@/assets/file-types/powerpoint.svg?url&no-inline';
-import textIcon from '@/assets/file-types/text.svg?url&no-inline';
-import wordIcon from '@/assets/file-types/word.svg?url&no-inline';
-import zipIcon from '@/assets/file-types/zip.svg?url&no-inline';
+import { computed, ref, watch } from 'vue';
+import { FileText } from 'lucide-vue-next';
 import { fileTypeIconKey, type TFileTypeIconKey } from '@/lib/fileTypeIcon';
 
 const props = defineProps<{
@@ -16,31 +8,51 @@ const props = defineProps<{
     fileName?: string;
 }>();
 
-/** Aset vendored (vscode-icons, MIT) — lihat `assets/file-types/ATTRIBUTION.md`. */
-const ICON_SOURCES: Record<TFileTypeIconKey, string> = {
-    pdf: pdfIcon,
-    excel: excelIcon,
-    word: wordIcon,
-    powerpoint: powerpointIcon,
-    csv: csvIcon,
-    zip: zipIcon,
-    image: imageIcon,
-    text: textIcon,
-    generic: genericIcon,
+/** Aset statis di public: URL relatif tetap sama pada Vite dev dan PHP build. */
+const ICON_PATHS: Record<TFileTypeIconKey, string> = {
+    pdf: '/file-types/pdf.svg',
+    excel: '/file-types/excel.svg',
+    word: '/file-types/word.svg',
+    powerpoint: '/file-types/powerpoint.svg',
+    csv: '/file-types/csv.svg',
+    zip: '/file-types/zip.svg',
+    image: '/file-types/image.svg',
+    text: '/file-types/text.svg',
+    generic: '/file-types/generic.svg',
 };
 
 const iconKey = computed(() => fileTypeIconKey(props.mime ?? '', props.fileName ?? ''));
+const iconSource = computed(() => ICON_PATHS[iconKey.value]);
+const iconFailed = ref(false);
+
+watch(iconSource, () => {
+    iconFailed.value = false;
+});
+
+function onIconError(): void {
+    iconFailed.value = true;
+}
 </script>
 
 <template>
     <!-- Ikon dekoratif: nama berkas di sebelahnya adalah label aksesibelnya. -->
     <img
-        :src="ICON_SOURCES[iconKey]"
+        v-if="!iconFailed"
+        :src="iconSource"
         alt=""
         width="40"
         height="40"
         class="h-[40px] w-[40px] shrink-0 object-contain"
         aria-hidden="true"
         draggable="false"
+        @error="onIconError"
     />
+    <span
+        v-else
+        class="border-border bg-muted text-muted-foreground grid size-10 shrink-0 place-items-center rounded-md border"
+        aria-hidden="true"
+        data-testid="file-type-icon-fallback"
+    >
+        <FileText class="size-5" />
+    </span>
 </template>

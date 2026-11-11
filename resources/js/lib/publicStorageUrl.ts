@@ -24,7 +24,16 @@ export function normalizePublicStorageUrl(raw: string): string {
     if (/[\t\n\r]/.test(trimmed)) return '';
     if (trimmed.startsWith('data:')) return trimmed;
     if (trimmed.startsWith('blob:')) return trimmed;
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) {
+        try {
+            const parsed = new URL(trimmed);
+            if (parsed.pathname.startsWith('/storage/')) return `${parsed.pathname}${parsed.search}`;
+        } catch {
+            return '';
+        }
+
+        return trimmed;
+    }
     if (isNetworkPathReference(trimmed)) return '';
     if (trimmed.startsWith('/')) return isInternalPath(trimmed) ? trimmed : '';
     return `/storage/${trimmed.replace(/^\/+/, '')}`;

@@ -73,6 +73,10 @@ function tabFromQuery(): TShowTab {
     return raw === 'settings' ? 'settings' : 'editor';
 }
 const activeTab = ref<TShowTab>(tabFromQuery());
+const formStatus = ref<'draft' | 'published'>(props.form.status ?? 'published');
+const isChangingStatus = ref(false);
+
+const statusActionLabel = computed<string>(() => (formStatus.value === 'draft' ? 'Publish form' : 'Jadikan draft'));
 
 onMounted(() => {
     // Topbar builder: judul form + konteks acara, tanpa strip breadcrumb.
@@ -269,6 +273,50 @@ async function onSave(): Promise<void> {
     }
 }
 
+/** Ubah status tanpa mengirim ulang field atau metadata form. */
+async function toggleFormStatus(): Promise<void> {
+    if (isChangingStatus.value || settingsForm.processing || manualSaving.value) return;
+
+    const nextStatus = formStatus.value === 'draft' ? 'published' : 'draft';
+    isChangingStatus.value = true;
+    showAutosave.suspend();
+
+    try {
+        await showAutosave.waitForIdle();
+        settingsForm
+            .transform(() => {
+                if (nextStatus === 'draft') return { _method: 'put', status: nextStatus };
+
+                return {
+                    _method: 'put',
+                    ...showAutosave.buildSettingsPayload({ fields: showAutosave.buildFieldsPayload() }),
+                    status: nextStatus,
+                };
+            })
+            .put(props.updateFormUrl, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    formStatus.value = nextStatus;
+                    showAutosave.markSaved();
+                    showSuccessToast(
+                        nextStatus === 'published' ? 'Form berhasil dipublish.' : 'Form dikembalikan menjadi draft.'
+                    );
+                },
+                onError: (errors) => {
+                    handleInertiaFormErrors(errors, { title: 'Gagal mengubah status form' });
+                },
+                onFinish: () => {
+                    showAutosave.resume();
+                    isChangingStatus.value = false;
+                },
+            });
+    } catch {
+        showAutosave.resume();
+        isChangingStatus.value = false;
+        showErrorToast('Gagal mengubah status form.');
+    }
+}
+
 /** Jawaban terurut mengikuti urutan field di builder; sisa key (legacy) di akhir. */
 const answerKeys = computed(() => {
     const orderMap = new Map<string, number>();
@@ -456,6 +504,16 @@ function rejectLabel(submission: IFormSubmission): string {
                 </div>
 
                 <div class="flex shrink-0 items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="inline-flex px-2.5 text-xs font-medium sm:px-3 sm:text-sm"
+                        :disabled="isChangingStatus || settingsForm.processing || manualSaving"
+                        :aria-label="statusActionLabel"
+                        @click="toggleFormStatus"
+                    >
+                        {{ isChangingStatus ? 'Memproses…' : statusActionLabel }}
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"

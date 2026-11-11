@@ -67,22 +67,6 @@ export function isFormBuilderHeaderComplete(state: IFormBuilderDraftState): bool
     );
 }
 
-/**
- * Snapshot kanal header: hanya judul + deskripsi, sehingga perubahan closed_at,
- * visibilitas, banner, atau section tidak memicu simpan header.
- */
-export function serializeHeaderSnapshot(state: IFormBuilderDraftState): string {
-    return JSON.stringify({ title: state.title, description: state.description });
-}
-
-/**
- * Snapshot kanal fields: **hanya** daftar field. Perubahan header maupun section
- * tidak memicu kanal ini; urutan/isi/id field ikut membentuk snapshot.
- */
-export function serializeFieldsSnapshot(state: IFormBuilderDraftState): string {
-    return JSON.stringify({ fields: state.fields });
-}
-
 /** Payload `PUT {form}`: settings bertipe, dengan opsi `fields`/`publish`/`autosave`. */
 export function buildFormBuilderSettingsPayload(
     state: IFormBuilderDraftState,
@@ -114,7 +98,7 @@ export function buildFormBuilderSettingsPayload(
     return payload;
 }
 
-/** Payload header ringkas untuk kanal header (mode draf parsial). */
+/** Payload header ringkas untuk autosave draft. */
 export function buildHeaderAutosavePayload(state: IFormBuilderDraftState): Record<string, unknown> {
     return { title: state.title, description: state.description, autosave: true };
 }
@@ -135,15 +119,4 @@ export function buildHeaderKeepalivePayload(
     if (!isFormBuilderHeaderComplete(state)) return {};
 
     return { settingsUrl: urls.settingsUrl, settings: buildFormBuilderSettingsPayload(state) };
-}
-
-/**
- * Payload kanal fields untuk `pagehide`: hanya daftar field. Daftar kosong tetap
- * dikirim (penghapusan field terakhir masih tertunda), bukan membawa metadata/section.
- */
-export function buildFieldsKeepalivePayload(
-    urls: IFormBuilderAutosaveUrls,
-    fields: unknown[]
-): IFormBuilderKeepalivePayload {
-    return { fieldsUrl: urls.fieldsUrl, fields };
 }

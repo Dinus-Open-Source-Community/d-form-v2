@@ -80,8 +80,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe('kanal header', () => {
-    it('mengubah title hanya menyimpan header, tanpa field', async () => {
+describe('autosave gabungan header dan fields', () => {
+    it('mengubah title menyimpan fields lalu header dalam satu siklus', async () => {
         const harness = createHarness();
 
         harness.models.formTitle.value = 'Judul Baru';
@@ -93,20 +93,20 @@ describe('kanal header', () => {
             description: '',
             autosave: true,
         });
-        expect(saveFormFields).not.toHaveBeenCalled();
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
     });
 
-    it('mengubah description hanya menyimpan header', async () => {
+    it('mengubah description menyimpan fields lalu header', async () => {
         const harness = createHarness();
 
         harness.models.formDescription.value = 'Deskripsi baru';
         await settle();
 
         expect(updateFormSettings).toHaveBeenCalledTimes(1);
-        expect(saveFormFields).not.toHaveBeenCalled();
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
     });
 
-    it('closed_at / visible_for / banner tidak memicu simpan header', async () => {
+    it('mengubah pengaturan lain menyimpan snapshot gabungan', async () => {
         const harness = createHarness();
 
         harness.models.closedAt.value = '2026-12-01T10:00';
@@ -114,12 +114,12 @@ describe('kanal header', () => {
         harness.models.formMetadata.value = { ...EMPTY_METADATA, max_team_size: 4 };
         await settle();
 
-        expect(updateFormSettings).not.toHaveBeenCalled();
-        expect(saveFormFields).not.toHaveBeenCalled();
+        expect(updateFormSettings).toHaveBeenCalledTimes(1);
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
     });
 });
 
-describe('kanal fields (POST /fields saja)', () => {
+describe('autosave fields dan header bersama', () => {
     const FIELD = {
         id: 'f-1',
         type: 'short_text',
@@ -132,7 +132,7 @@ describe('kanal fields (POST /fields saja)', () => {
         metadata: {},
     };
 
-    it('menambah section tanpa field tidak mengirim request apa pun', async () => {
+    it('menambah section menyimpan snapshot gabungan', async () => {
         const harness = createHarness();
 
         harness.models.formMetadata.value = {
@@ -141,16 +141,17 @@ describe('kanal fields (POST /fields saja)', () => {
         };
         await settle();
 
-        expect(saveFormFields).not.toHaveBeenCalled();
-        expect(updateFormSettings).not.toHaveBeenCalled();
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
+        expect(updateFormSettings).toHaveBeenCalledTimes(1);
     });
 
-    it('menambah section saat sudah ada field juga tidak mengirim request', async () => {
+    it('menambah section saat sudah ada field mengirim snapshot gabungan', async () => {
         const harness = createHarness();
 
         harness.models.formFields.value = [{ ...FIELD }];
         await settle();
         saveFormFields.mockClear();
+        updateFormSettings.mockClear();
         updateFormSettings.mockClear();
 
         harness.models.formMetadata.value = {
@@ -159,20 +160,26 @@ describe('kanal fields (POST /fields saja)', () => {
         };
         await settle();
 
-        expect(saveFormFields).not.toHaveBeenCalled();
-        expect(updateFormSettings).not.toHaveBeenCalled();
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
+        expect(updateFormSettings).toHaveBeenCalledTimes(1);
     });
 
     it('menambah field pertama menyimpan fields tanpa data header/section', async () => {
         const harness = createHarness();
 
+        harness.models.banner.value = {
+            id: 'banner-1',
+            bannerUrl: '/storage/form-images/banner.png',
+            bannerFileName: 'banner.png',
+            caption: 'Banner form',
+        };
         harness.models.formFields.value = [{ ...FIELD }];
         await settle();
 
         expect(saveFormFields).toHaveBeenCalledTimes(1);
         expect(saveFormFields.mock.calls[0]?.[1]).toHaveLength(1);
-        // Kanal fields tidak pernah menyentuh endpoint settings.
-        expect(updateFormSettings).not.toHaveBeenCalled();
+        expect(saveFormFields.mock.calls[0]?.[1]).not.toContainEqual(expect.objectContaining({ name: 'form_banner' }));
+        expect(updateFormSettings).toHaveBeenCalledTimes(1);
     });
 
     const fieldTriggers: Array<[string, (harness: IHarness) => void]> = [
@@ -215,7 +222,7 @@ describe('kanal fields (POST /fields saja)', () => {
     ];
 
     for (const [label, mutate] of fieldTriggers) {
-        it(`${label} → tepat satu request fields, kanal header diam`, async () => {
+        it(`${label} → tepat satu siklus autosave gabungan`, async () => {
             const harness = createHarness();
 
             harness.models.formFields.value = [{ ...FIELD }];
@@ -227,7 +234,7 @@ describe('kanal fields (POST /fields saja)', () => {
             await settle();
 
             expect(saveFormFields).toHaveBeenCalledTimes(1);
-            expect(updateFormSettings).not.toHaveBeenCalled();
+            expect(updateFormSettings).toHaveBeenCalledTimes(1);
         });
     }
 
@@ -237,13 +244,14 @@ describe('kanal fields (POST /fields saja)', () => {
         harness.models.formFields.value = [{ ...FIELD }];
         await settle();
         saveFormFields.mockClear();
+        updateFormSettings.mockClear();
 
         harness.models.formFields.value = [];
         await settle();
 
         expect(saveFormFields).toHaveBeenCalledTimes(1);
         expect(saveFormFields.mock.calls[0]?.[1]).toEqual([]);
-        expect(updateFormSettings).not.toHaveBeenCalled();
+        expect(updateFormSettings).toHaveBeenCalledTimes(1);
     });
 });
 

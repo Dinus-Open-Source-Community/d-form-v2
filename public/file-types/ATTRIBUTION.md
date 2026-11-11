@@ -20,5 +20,6 @@ Vendored files (each a 32×32 `viewBox` SVG with `role="img" aria-hidden="true"`
 - `text.svg`
 - `generic.svg`
 
-The package is **not** a runtime dependency; the icons are static assets imported with
-`?url` and mapped by `resources/js/lib/fileTypeIcon.ts`.
+The package is **not** a runtime dependency; the static assets are served from
+`public/file-types/` at `/file-types/*.svg` and selected by
+`resources/js/lib/fileTypeIcon.ts`.

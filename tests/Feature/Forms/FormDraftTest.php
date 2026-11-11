@@ -424,6 +424,81 @@ class FormDraftTest extends TestCase
         $this->assertSame(1, $form->formFields()->count());
     }
 
+    public function test_published_form_can_be_returned_to_draft_without_losing_fields(): void
+    {
+        $owner = $this->organizer();
+        $event = $this->eventOwnedBy($owner);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'created_by' => $owner->id,
+            'status' => FormStatus::Published,
+            ...$this->completeFormPayload(['title' => 'Published form']),
+        ]);
+        $field = $form->formFields()->create([
+            'label' => 'Name',
+            'name' => 'full_name',
+            'input_type' => 'input',
+            'metadata' => ['type' => 'text', 'rules' => []],
+            'order' => 1,
+        ]);
+        $answer = FormAnswer::factory()->create(['form_id' => $form->id]);
+
+        $this->actingAs($owner)
+            ->putJson($this->updatePath($event, $form), ['status' => 'draft'])
+            ->assertOk()
+            ->assertJsonPath('status', FormStatus::Draft->value);
+
+        $form->refresh();
+        $this->assertTrue($form->isDraft());
+        $this->assertSame('Published form', $form->title);
+        $this->assertTrue($form->formFields()->whereKey($field->id)->exists());
+        $this->assertDatabaseHas('form_answers', ['id' => $answer->id, 'form_id' => $form->id]);
+    }
+
+    public function test_draft_status_transition_is_idempotent_and_publish_round_trip_keeps_field_ids(): void
+    {
+        $owner = $this->organizer();
+        $event = $this->eventOwnedBy($owner);
+        $form = $this->draft($event, $owner, $this->completeFormPayload(['title' => 'Round trip']));
+        $field = $form->formFields()->create([
+            'label' => 'Name',
+            'name' => 'full_name',
+            'input_type' => 'input',
+            'metadata' => ['type' => 'text', 'rules' => []],
+            'order' => 1,
+        ]);
+
+        $this->actingAs($owner)
+            ->putJson($this->updatePath($event, $form), ['status' => 'draft'])
+            ->assertOk()
+            ->assertJsonPath('status', FormStatus::Draft->value);
+
+        $this->actingAs($owner)
+            ->putJson($this->updatePath($event, $form), [
+                ...$this->completeFormPayload(),
+                'status' => 'published',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', FormStatus::Published->value);
+
+        $this->assertSame($field->id, $form->refresh()->formFields()->firstOrFail()->id);
+    }
+
+    public function test_status_and_publish_cannot_be_sent_together(): void
+    {
+        $owner = $this->organizer();
+        $event = $this->eventOwnedBy($owner);
+        $form = $this->draft($event, $owner);
+
+        $this->actingAs($owner)
+            ->putJson($this->updatePath($event, $form), [
+                'status' => 'published',
+                'publish' => true,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['status']);
+    }
+
     public function test_publish_requires_full_validation_before_flipping_status(): void
     {
         $owner = $this->organizer();

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Dashboard\User;
 
 use App\Enums\EventStatus;
+use App\Enums\MemberConfirmationStatus;
+use App\Enums\RegistrationRole;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
@@ -86,6 +88,43 @@ class JoinedEventsPayloadTest extends TestCase
                 ->has('events', 3)
                 ->where('totalJoined', 3)
                 ->where('truncated', false)
+            );
+    }
+
+    public function test_BE_P3_001_pending_invitation_url_and_exact_list_props_are_preserved(): void
+    {
+        $member = $this->member();
+        $event = Event::factory()->create([
+            'status' => EventStatus::Published,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->toDateString(),
+        ]);
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $token = 'pending-'.uniqid();
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events'))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/Events')
+                    ->has('events', 1)
+                    ->where('events.0.pending_team_invitation_url', route(
+                        'dashboard.user.team-invitations.show',
+                        ['token' => $token],
+                        false,
+                    ))
+                    ->where('totalJoined', 1)
+                    ->where('truncated', false)
+                    ->where('listMode', 'mine')
             );
     }
 

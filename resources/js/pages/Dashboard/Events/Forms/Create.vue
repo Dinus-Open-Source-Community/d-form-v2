@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Eye } from 'lucide-vue-next';
-import { requestFormDraft, updateFormSettings } from '@/adapters/http/forms';
+import { requestFormDraft, resolveBuilderImageUploadUrl, updateFormSettings } from '@/adapters/http/forms';
 import { isHttpRequestError } from '@/adapters/http/httpError';
 import { getFieldError, humanizeErrorMessage, type TValidationErrors } from '@/lib/error-message';
 import { resolveDraftAccessDecision, type TDraftAccess } from '@/lib/formDraftAccess';
@@ -159,6 +159,13 @@ async function ensureDraftForm(): Promise<string | null> {
 
     return draftRequest;
 }
+
+/** Endpoint upload gambar builder `POST {form}/images`; kosong sampai draf siap. */
+const builderImageUploadUrl = computed<string>(() => {
+    const formId = draftFormId.value;
+
+    return formId === null ? '' : resolveBuilderImageUploadUrl(props.event.id, formId);
+});
 
 const autosaveEndpoints = computed<IFormBuilderAutosaveEndpoints | null>(() => {
     const formId = draftFormId.value;
@@ -434,6 +441,7 @@ onMounted(() => {
                 v-model:form-metadata="formMetadata"
                 :processing="isPublishing"
                 :field-errors="fieldErrors"
+                :image-upload-url="builderImageUploadUrl"
                 @save="publishForm"
                 @open-settings="activeTab = 'settings'"
             />

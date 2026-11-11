@@ -41,7 +41,7 @@ class UpdateEventFormRequest extends FormRequest
      */
     public function isDraftAutosave(): bool
     {
-        if ($this->boolean('publish') || ! $this->boolean('autosave')) {
+        if ($this->boolean('publish') || $this->has('status') || ! $this->boolean('autosave')) {
             return false;
         }
 
@@ -53,11 +53,18 @@ class UpdateEventFormRequest extends FormRequest
      */
     public function rules(): array
     {
+        if ($this->isStatusDraftTransition()) {
+            return [
+                'status' => ['required', Rule::in(['draft'])],
+            ];
+        }
+
         if ($this->isDraftAutosave()) {
             return array_merge(
                 [
                     'autosave' => 'sometimes|boolean',
                     'publish' => 'sometimes|boolean',
+                    'status' => ['sometimes', Rule::in(['published'])],
                     'title' => 'nullable|string|max:100',
                     'description' => 'nullable|string',
                     'success_content' => 'nullable|string',
@@ -89,6 +96,7 @@ class UpdateEventFormRequest extends FormRequest
                 // Sama seperti EventService::create/update: `publish` memindahkan status
                 // form ke Published hanya setelah seluruh validasi di request ini lolos.
                 'publish' => 'sometimes|boolean',
+                'status' => ['sometimes', Rule::in(['published'])],
                 'autosave' => 'sometimes|boolean',
             ],
             FormFieldsRequestValidation::formMetadataRules(),
@@ -123,6 +131,12 @@ class UpdateEventFormRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
+        $validator->after(function (Validator $current): void {
+            if ($this->has('status') && $this->has('publish')) {
+                $current->errors()->add('status', 'Status dan publish tidak dapat dikirim bersamaan.');
+            }
+        });
+
         $event = $this->resolvedEvent();
         $form = $this->resolvedForm();
 
@@ -132,6 +146,14 @@ class UpdateEventFormRequest extends FormRequest
             $form,
             $event?->id ?? $form?->event_id,
         );
+    }
+
+    /** Status draft dapat diturunkan tanpa mengirim ulang header lengkap. */
+    public function isStatusDraftTransition(): bool
+    {
+        return $this->input('status') === 'draft'
+            && ! $this->has('publish')
+            && ! $this->boolean('autosave');
     }
 
     private function resolvedEvent(): ?Event

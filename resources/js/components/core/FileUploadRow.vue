@@ -37,7 +37,8 @@ const emit = defineEmits<{
 const phase = computed(() => uploadRowPhase(props.state));
 const statusLabel = computed(() => uploadRowStatusLabel(phase.value));
 const sizeLabel = computed(() => formatFileSize(props.fileSize));
-const percent = computed(() => uploadRowPercentLabel(props.progress));
+/** Fase selesai selalu 100%; adapter boleh berhenti di 0 saat redirect selesai. */
+const percent = computed(() => uploadRowPercentLabel(phase.value === 'completed' ? 100 : props.progress));
 const percentValue = computed(() => Number.parseInt(percent.value, 10));
 const displayName = computed(() => (props.fileName.trim() === '' ? 'Berkas' : props.fileName));
 

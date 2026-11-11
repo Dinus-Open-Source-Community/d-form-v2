@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-    buildFieldsKeepalivePayload,
     buildFormBuilderSettingsPayload,
     buildHeaderAutosavePayload,
     buildHeaderKeepalivePayload,
     isFormBuilderHeaderComplete,
-    serializeFieldsSnapshot,
-    serializeHeaderSnapshot,
     type IFormBuilderDraftState,
 } from '@/lib/formBuilderAutosave';
 import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
@@ -59,57 +56,6 @@ describe('isFormBuilderHeaderComplete', () => {
     }
 });
 
-describe('serializeHeaderSnapshot', () => {
-    it('hanya memuat judul dan deskripsi', () => {
-        const snapshot = JSON.parse(serializeHeaderSnapshot(completeState({ fields: SAMPLE_FIELDS })));
-
-        expect(snapshot).toEqual({ title: 'Form Pendaftaran', description: 'Deskripsi singkat' });
-    });
-
-    it('tidak berubah saat closed_at, visibilitas, banner, atau fields berubah', () => {
-        const base = serializeHeaderSnapshot(completeState());
-        const changed = serializeHeaderSnapshot(
-            completeState({
-                closedAt: '2026-12-31T23:59',
-                visibleFor: ['public', 'participant'],
-                banner: { bannerUrl: '/x.png', caption: 'Caption' },
-                fields: SAMPLE_FIELDS,
-            })
-        );
-
-        expect(changed).toBe(base);
-    });
-});
-
-describe('serializeFieldsSnapshot', () => {
-    it('hanya memuat daftar field (tanpa section/header)', () => {
-        const state = completeState({
-            fields: SAMPLE_FIELDS,
-            metadata: { ...completeState().metadata, sections: [{ id: 'section-1', title: 'Bagian 1' }] },
-        });
-
-        expect(Object.keys(JSON.parse(serializeFieldsSnapshot(state)))).toEqual(['fields']);
-    });
-
-    it('tidak berubah saat section berubah', () => {
-        const base = serializeFieldsSnapshot(completeState({ fields: SAMPLE_FIELDS }));
-        const changed = serializeFieldsSnapshot(
-            completeState({
-                fields: SAMPLE_FIELDS,
-                metadata: { ...completeState().metadata, sections: [{ id: 'x', title: 'Bagian X' }] },
-            })
-        );
-
-        expect(changed).toBe(base);
-    });
-
-    it('tidak berubah saat judul/deskripsi berubah', () => {
-        const base = serializeFieldsSnapshot(completeState({ fields: SAMPLE_FIELDS }));
-
-        expect(serializeFieldsSnapshot(completeState({ fields: SAMPLE_FIELDS, title: 'Lain' }))).toBe(base);
-    });
-});
-
 describe('payload kanal header', () => {
     it('draf mengirim judul + deskripsi saja dengan autosave', () => {
         expect(buildHeaderAutosavePayload(completeState())).toEqual({
@@ -142,22 +88,6 @@ describe('payload kanal header', () => {
 
         expect(payload.settings?.title).toBe('Form Pendaftaran');
         expect(payload.settings?.autosave).toBeUndefined();
-    });
-});
-
-describe('payload kanal fields', () => {
-    const urls = { fieldsUrl: '/admin/events/e-1/forms/f-1/fields', settingsUrl: '/admin/events/e-1/forms/f-1' };
-
-    it('keepalive hanya membawa daftar field', () => {
-        const payload = buildFieldsKeepalivePayload(urls, [{ name: 'nama' }]);
-
-        expect(payload).toEqual({ fieldsUrl: urls.fieldsUrl, fields: [{ name: 'nama' }] });
-        expect(payload.settingsUrl).toBeUndefined();
-        expect(payload.settings).toBeUndefined();
-    });
-
-    it('daftar kosong (hapus field terakhir) tetap dikirim ke endpoint fields', () => {
-        expect(buildFieldsKeepalivePayload(urls, [])).toEqual({ fieldsUrl: urls.fieldsUrl, fields: [] });
     });
 });
 

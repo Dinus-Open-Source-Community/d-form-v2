@@ -293,6 +293,17 @@ test.describe('participant upload card', () => {
             });
 
             await expect(page.getByText(/· Selesai/)).toBeVisible();
+            const typeIcon = page.locator('img[src="/file-types/pdf.svg"]');
+            await expect(typeIcon).toBeVisible();
+            await expect
+                .poll(() =>
+                    typeIcon.evaluate(
+                        (element) => element instanceof HTMLImageElement && element.complete && element.naturalWidth > 0
+                    )
+                )
+                .toBe(true);
+            const iconResponse = await page.request.get(new URL('/file-types/pdf.svg', page.url()).toString());
+            expect(iconResponse.status()).toBe(200);
 
             await page.getByRole('button', { name: 'Hapus cv.pdf' }).click();
             await expect(page.getByRole('button', { name: 'Pilih berkas' })).toBeVisible();
@@ -302,6 +313,26 @@ test.describe('participant upload card', () => {
             await expect(page).toHaveURL(/\/fill/);
             await expect(page.getByText(/required|wajib/i).first()).toBeVisible();
             expect(storedAnswer(fixture, 'cv').count).toBe(0);
+        } finally {
+            cleanupFillFixture(fixture);
+        }
+    });
+
+    test('document row shows a neutral icon when the vendored icon fails to load', async ({ page }) => {
+        const fixture = createFillFixture('file_upload', 'cv');
+
+        try {
+            await page.route('**/file-types/pdf.svg', (route) => route.abort());
+            await page.goto(fixture.fillUrl);
+            await page.locator('input[type=file]').first().setInputFiles({
+                name: 'cv.pdf',
+                mimeType: 'application/pdf',
+                buffer: PDF_STUB,
+            });
+
+            await expect(page.getByText('cv.pdf', { exact: true })).toBeVisible();
+            await expect(page.getByTestId('file-type-icon-fallback')).toBeVisible();
+            await expect(page.locator('img[src="/file-types/pdf.svg"]')).toHaveCount(0);
         } finally {
             cleanupFillFixture(fixture);
         }

@@ -30,7 +30,7 @@ describe('FileTypeTile', () => {
         it(`${fileName} → ikon ${key}`, async () => {
             const html = await renderTile(mime, fileName);
 
-            expect(html).toContain(`file-types/${key}.svg`);
+            expect(html).toContain(`src="/file-types/${key}.svg"`);
             expect(html).toContain('aria-hidden="true"');
             expect(html).toContain(' alt width="40"');
             expect(html).not.toContain('alt="');
@@ -42,6 +42,6 @@ describe('FileTypeTile', () => {
     it('tanpa props tetap merender ikon generic', async () => {
         const html = await renderToString(createSSRApp({ render: () => h(FileTypeTile) }));
 
-        expect(html).toContain('file-types/generic.svg');
+        expect(html).toContain('src="/file-types/generic.svg"');
     });
 });
