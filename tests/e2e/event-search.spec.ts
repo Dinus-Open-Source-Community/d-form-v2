@@ -199,6 +199,43 @@ test.describe('pencarian acara publik', () => {
         await expect(page.locator(SEARCH_INPUT)).toBeVisible();
     });
 
+    test('batas pencarian 99/100/101 karakter tetap terlihat dan tidak redirect senyap', async ({ page }) => {
+        await page.goto('/events', { waitUntil: 'domcontentloaded' });
+
+        const input = page.locator(SEARCH_INPUT);
+        await expect(input).toHaveAttribute('maxlength', '100');
+
+        await input.fill('a'.repeat(99));
+        await page.waitForTimeout(SEARCH_SETTLE_MS);
+        expect(new URL(page.url()).searchParams.get('q')).toHaveLength(99);
+
+        await input.fill('b'.repeat(100));
+        await page.waitForTimeout(SEARCH_SETTLE_MS);
+        expect(new URL(page.url()).searchParams.get('q')).toHaveLength(100);
+
+        const invalidVisit = page.waitForResponse((response): boolean => {
+            const url = new URL(response.url());
+            return url.pathname.endsWith('/events') && url.searchParams.get('q')?.length === 101;
+        });
+
+        await page.evaluate((value: string): void => {
+            const element = document.querySelector<HTMLInputElement>('input[placeholder="Cari acara..."]');
+            if (element === null) throw new Error('search input not found');
+
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+            if (setter === undefined) throw new Error('HTMLInputElement value setter not found');
+
+            setter.call(element, value);
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 'c'.repeat(101));
+
+        const invalidResponse = await invalidVisit;
+        expect(invalidResponse.status()).toBe(302);
+        await expect(page.locator('#event-search-error')).toContainText(/q.*100.*(karakter|characters)/i);
+        expect(new URL(page.url()).searchParams.get('q')).toHaveLength(100);
+        await expect(input).toHaveValue('c'.repeat(101));
+    });
+
     test('429 tampil sebagai pesan ramah, bukan modal Inertia', async ({ page }) => {
         // Jangan menghabiskan rate limiter `event-search` yang nyata: kuotanya per menit
         // tetap terpakai di server, sehingga spec berikutnya yang mengharapkan `/events`

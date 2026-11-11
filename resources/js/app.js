@@ -6,6 +6,7 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { useGlobalHttpStatusToast } from '@/hooks/useGlobalHttpStatusToast';
 import { useAuthHistoryGuard } from '@/hooks/useAuthHistoryGuard';
+import { focusDirective } from '@/directives/focus';
 
 useGlobalHttpStatusToast();
 useAuthHistoryGuard();
@@ -27,11 +28,7 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)
-            .directive('focus', {
-                mounted: (el, binding) => {
-                    if (binding.value) el.focus();
-                },
-            })
+            .directive('focus', focusDirective)
             .mount(el);
     },
 });

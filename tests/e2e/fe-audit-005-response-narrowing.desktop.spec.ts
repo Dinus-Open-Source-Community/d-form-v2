@@ -174,7 +174,7 @@ test.describe('FE-AUDIT-005 response narrowing', () => {
                 .click();
 
             await expect(
-                page.locator('[data-sonner-toast]').filter({ hasText: 'Tidak dapat menghubungi server. Coba lagi.' })
+                page.locator('[data-sonner-toast]').filter({ hasText: 'Server mengirim respons yang tidak valid.' })
             ).toBeVisible();
             await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Jawaban diterima/i })).toHaveCount(0);
             expect(readReviewStatus(fixture.answerId)).toBe('pending');

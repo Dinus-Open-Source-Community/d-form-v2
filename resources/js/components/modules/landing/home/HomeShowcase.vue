@@ -1,24 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import LocalLottie from '@/components/core/LocalLottie.vue';
 import { CheckCircle2, TrendingUp, Globe, Lock } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.12 }
-    );
-    const el = findElementById('section-showcase');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'section-showcase', threshold: 0.12 });
 
 interface Advantage {
     icon: Component;

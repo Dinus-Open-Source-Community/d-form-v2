@@ -20,8 +20,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ArrowRight, Check, X } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import PeriodApplicantFilters from './PeriodApplicantFilters.vue';
+import type { SimpleSelectOption } from '@/components/ui/simple-select';
 import { routes } from '@/lib/routes';
 import { findElement, focusElement } from '@/adapters/browser/domQuery';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
@@ -183,16 +183,6 @@ const semesterSelectOptions = computed<SimpleSelectOption[]>(() => {
     return [...options, { value: active, label: /^\d+$/.test(active) ? `Semester ${active}` : active }];
 });
 
-const queueModel = computed<string>({
-    get: () => queue.value,
-    set: (value: string) => {
-        queue.value = value;
-        if (value) {
-            stage.value = '';
-        }
-    },
-});
-
 const serverRows = computed<ApplicationRow[]>(() => props.applications?.data ?? []);
 
 /** Filter dikirim ke server sebagai query param (partial reload); bukan filter klien. */
@@ -237,6 +227,10 @@ watch(search, (): void => {
 
 watch([divisionId, stage, queue, semester], (): void => {
     applyServerFilters();
+});
+
+watch(queue, (value: string): void => {
+    if (value !== '') stage.value = '';
 });
 
 watch(
@@ -497,45 +491,17 @@ function submitReject(): void {
             <h2 class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Applicant periode ini</h2>
         </div>
 
-        <div class="flex flex-wrap items-end gap-3">
-            <Input v-model="search" placeholder="Cari nama, NIM, nomor pendaftaran..." class="max-w-xs" />
-            <div class="flex min-w-0 flex-col gap-1.5">
-                <SimpleSelect
-                    v-model="divisionId"
-                    :options="divisionSelectOptions"
-                    id="filter-divisi"
-                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter divisi"
-                />
-            </div>
-            <div class="flex min-w-0 flex-col gap-1.5">
-                <SimpleSelect
-                    v-model="queueModel"
-                    :options="queueSelectOptions"
-                    id="filter-antrean"
-                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter antrean"
-                />
-            </div>
-            <div v-if="!queue" class="flex min-w-0 flex-col gap-1.5">
-                <SimpleSelect
-                    v-model="stage"
-                    :options="stageSelectOptions"
-                    id="filter-tahap"
-                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter tahap"
-                />
-            </div>
-            <div class="flex min-w-0 flex-col gap-1.5">
-                <SimpleSelect
-                    v-model="semester"
-                    :options="semesterSelectOptions"
-                    id="filter-semester"
-                    class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
-                    aria-label="Filter semester"
-                />
-            </div>
-        </div>
+        <PeriodApplicantFilters
+            v-model:search="search"
+            v-model:division-id="divisionId"
+            v-model:queue="queue"
+            v-model:stage="stage"
+            v-model:semester="semester"
+            :division-options="divisionSelectOptions"
+            :queue-options="queueSelectOptions"
+            :stage-options="stageSelectOptions"
+            :semester-options="semesterSelectOptions"
+        />
 
         <Card
             v-if="applications"

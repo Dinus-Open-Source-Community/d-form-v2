@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import LocalLottie from '@/components/core/LocalLottie.vue';
 import type { TLottieName } from '@/lib/lotties';
 import { CalendarPlus, PenTool, Rocket } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
 interface Step {
     num: string;
@@ -42,20 +41,7 @@ const steps: Step[] = [
     },
 ];
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.12 }
-    );
-    const el = findElementById('features-how');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'features-how', threshold: 0.12 });
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { computed } from 'vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,26 +7,13 @@ import { MapPin, Users, ArrowRight } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { eventCardBannerContainerClass } from '@/lib/eventBannerAspect';
 import EventBannerImage from '@/components/core/EventBannerImage.vue';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
 const props = defineProps<{
     events: IEvent[];
 }>();
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.1 }
-    );
-    const el = findElementById('event-highlight');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'event-highlight', threshold: 0.1 });
 
 const featured = computed(() => props.events.slice(0, 3));
 

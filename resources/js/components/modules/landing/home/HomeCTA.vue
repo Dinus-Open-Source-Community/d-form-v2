@@ -1,25 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import LocalLottie from '@/components/core/LocalLottie.vue';
 import { ArrowRight } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.2 }
-    );
-    const el = findElementById('section-cta');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'section-cta', threshold: 0.2 });
 </script>
 
 <template>

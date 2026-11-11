@@ -136,18 +136,13 @@ async function openEventShow(page: Page, eventId: string): Promise<void> {
     await page.goto(showPath, { waitUntil: 'domcontentloaded' });
 }
 
-/**
- * Konfirmasi dialog AlertDialog yang sedang terbuka berdasarkan label tombolnya.
- * Aktivasi lewat keyboard: pada build ini konten AlertDialog mewarisi
- * `pointer-events: none` dari body (layer ReKa), sehingga klik mouse ditangkap
- * overlay. Enter pada tombol yang fokus menjalankan aksi yang sama.
- */
+/** Konfirmasi dialog AlertDialog yang sedang terbuka lewat klik mouse nyata. */
 async function confirmDialog(page: Page, confirmLabel: string): Promise<void> {
     const dialog = page.getByRole('alertdialog');
 
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: confirmLabel, exact: true }).focus();
-    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    await dialog.getByRole('button', { name: confirmLabel, exact: true }).click();
 }
 
 test.describe('BE-P2-004 cascade archive/restore event', () => {

@@ -14,28 +14,14 @@ import ApplicantDetailPanel from '@/components/modules/dashboard/recruitment/App
 import type { IApplicationDetail } from '@/types/recruitment';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import InterviewerCreateSheet from '@/components/modules/dashboard/recruitment/InterviewerCreateSheet.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import PeriodInterviewerAssignments from '@/components/modules/dashboard/recruitment/PeriodInterviewerAssignments.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import type { SearchableSelectOption } from '@/components/ui/searchable-select';
 import { type IPaginatorMeta } from '@/lib/paginatorLinks';
-import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-    BarChart3,
-    CalendarClock,
-    Plus,
-    QrCode,
-    RefreshCw,
-    Send,
-    Settings,
-    Trash2,
-    UserCheck,
-    Users,
-} from 'lucide-vue-next';
+import { BarChart3, CalendarClock, QrCode, RefreshCw, Send, Settings, UserCheck, Users } from 'lucide-vue-next';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { describeRequestError } from '@/lib/requestErrorText';
 import { routes } from '@/lib/routes';
@@ -397,6 +383,12 @@ const unassigningId = ref<string | null>(null);
 function requestUnassign(row: InterviewerAssignment): void {
     pendingUnassign.value = row;
     unassignDialogOpen.value = true;
+}
+
+function handleUnassignRequest(assignmentId: string): void {
+    const assignment = props.assignments.find((item) => item.id === assignmentId);
+    if (assignment === undefined) return;
+    requestUnassign(assignment);
 }
 
 function cancelUnassign(): void {
@@ -1225,143 +1217,31 @@ function closePeriod(): void {
             </TabsContent>
 
             <TabsContent value="interviewer" class="mt-4">
-                <Card v-if="canManagePeriods" class="border-border/70 rounded-2xl">
-                    <CardHeader class="pb-1">
-                        <CardTitle class="text-base">Tugaskan interviewer</CardTitle>
-                        <p class="text-muted-foreground text-sm">
-                            Pilih orang dan divisi, lalu tugaskan. Kombinasi yang sudah ada tidak bisa dipilih lagi.
-                        </p>
-                    </CardHeader>
-                    <CardContent class="space-y-5">
-                        <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="submitAssign">
-                            <div class="space-y-2">
-                                <Label for="assign-user">Interviewer</Label>
-                                <SearchableSelect
-                                    id="assign-user"
-                                    v-model="assignForm.user_id"
-                                    :options="assignInterviewerOptions"
-                                    placeholder="Pilih interviewer"
-                                    search-placeholder="Cari nama atau email…"
-                                    :aria-invalid="assignForm.errors.user_id ? true : undefined"
-                                    @create="openCreateSheet"
-                                >
-                                    <template #action>
-                                        <Plus class="size-4" aria-hidden="true" />
-                                        <span>Tambah interviewer baru</span>
-                                    </template>
-                                </SearchableSelect>
-                                <p v-if="assignForm.errors.user_id" role="alert" class="text-destructive text-xs">
-                                    {{ assignForm.errors.user_id }}
-                                </p>
-                            </div>
-                            <div class="space-y-2">
-                                <Label for="assign-division">Divisi</Label>
-                                <SearchableSelect
-                                    id="assign-division"
-                                    v-model="assignForm.recruitment_division_id"
-                                    :options="assignDivisionOptions"
-                                    placeholder="Pilih divisi"
-                                    search-placeholder="Cari divisi…"
-                                    :aria-invalid="assignForm.errors.recruitment_division_id ? true : undefined"
-                                />
-                                <p
-                                    v-if="assignForm.errors.recruitment_division_id"
-                                    role="alert"
-                                    class="text-destructive text-xs"
-                                >
-                                    {{ assignForm.errors.recruitment_division_id }}
-                                </p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p v-if="isDuplicateAssign" role="status" class="text-muted-foreground mb-2 text-xs">
-                                    Kombinasi interviewer dan divisi ini sudah ditugaskan.
-                                </p>
-                                <Button type="submit" size="sm" :disabled="!canSubmitAssign">
-                                    {{ assignForm.processing ? 'Menugaskan…' : 'Tugaskan' }}
-                                </Button>
-                            </div>
-                        </form>
-
-                        <TooltipProvider v-if="groupedAssignments.length > 0">
-                            <div class="space-y-4">
-                                <section
-                                    v-for="group in groupedAssignments"
-                                    :key="group.key"
-                                    aria-label="Interviewer divisi"
-                                    class="border-border/70 overflow-hidden rounded-xl border"
-                                >
-                                    <header
-                                        class="border-border/60 bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-2.5"
-                                    >
-                                        <div class="flex min-w-0 items-center gap-2">
-                                            <span
-                                                aria-hidden="true"
-                                                class="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tracking-wide"
-                                            >
-                                                {{ group.divisionCode.slice(0, 2).toUpperCase() }}
-                                            </span>
-                                            <h3 class="truncate text-sm font-semibold">{{ group.divisionName }}</h3>
-                                        </div>
-                                        <Badge variant="secondary" class="shrink-0 tabular-nums">
-                                            {{ group.count.toLocaleString('id-ID') }} orang
-                                        </Badge>
-                                    </header>
-                                    <ul class="divide-border/70 divide-y">
-                                        <li
-                                            v-for="row in group.rows"
-                                            :key="row.id"
-                                            class="flex items-center justify-between gap-3 px-4 py-3"
-                                        >
-                                            <div class="flex min-w-0 items-center gap-3">
-                                                <Avatar class="size-8 shrink-0">
-                                                    <AvatarFallback class="text-[11px] font-semibold">
-                                                        {{ initialsOf(row.user_name) }}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div class="min-w-0">
-                                                    <p class="truncate text-sm font-medium">{{ row.user_name }}</p>
-                                                    <p class="text-muted-foreground truncate text-xs">
-                                                        {{ row.user_email }}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <Tooltip>
-                                                <TooltipTrigger as-child>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        :aria-label="`Hapus ${row.user_name} dari ${row.division_name}`"
-                                                        @click="requestUnassign(row)"
-                                                    >
-                                                        <Trash2 class="size-4" aria-hidden="true" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Hapus penugasan</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </li>
-                                    </ul>
-                                </section>
-                            </div>
-                        </TooltipProvider>
-                        <div
-                            v-else
-                            class="border-border/80 flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center"
-                        >
-                            <span
-                                aria-hidden="true"
-                                class="bg-muted flex size-10 items-center justify-center rounded-full"
-                            >
-                                <UserCheck class="text-muted-foreground size-5" />
-                            </span>
-                            <p class="text-sm font-medium">Belum ada interviewer yang ditugaskan.</p>
-                            <p class="text-muted-foreground max-w-sm text-xs leading-relaxed">
-                                Pilih interviewer dan divisi di atas untuk menugaskan.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <PeriodInterviewerAssignments
+                    :can-manage="canManagePeriods"
+                    :assignment-user-id="assignForm.user_id"
+                    :assignment-division-id="assignForm.recruitment_division_id"
+                    :user-options="assignInterviewerOptions"
+                    :division-options="assignDivisionOptions"
+                    :user-error="assignForm.errors.user_id"
+                    :division-error="assignForm.errors.recruitment_division_id"
+                    :duplicate="isDuplicateAssign"
+                    :can-submit="canSubmitAssign"
+                    :processing="assignForm.processing"
+                    :groups="groupedAssignments"
+                    :initials-of="initialsOf"
+                    :pending-description="pendingUnassignDescription"
+                    :unassign-open="unassignDialogOpen"
+                    :unassigning="unassigningId !== null"
+                    :on-create="openCreateSheet"
+                    :on-assign="submitAssign"
+                    :on-unassign="handleUnassignRequest"
+                    :on-confirm-unassign="confirmUnassign"
+                    :on-cancel-unassign="cancelUnassign"
+                    :on-user-change="(value) => (assignForm.user_id = value)"
+                    :on-division-change="(value) => (assignForm.recruitment_division_id = value)"
+                    @update:unassign-open="unassignDialogOpen = $event"
+                />
 
                 <ConfirmationModal
                     :open="unassignDialogOpen"

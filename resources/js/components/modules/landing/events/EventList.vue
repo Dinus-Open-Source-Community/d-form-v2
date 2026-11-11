@@ -1,66 +1,35 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { toRef } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppPagination from '@/components/core/AppPagination.vue';
 import { MapPin, Calendar, Users, Search, ArrowRight } from 'lucide-vue-next';
-import { findCursorUrls } from '@/lib/pagination';
 import { routes } from '@/lib/routes';
 import { eventListThumbnailContainerClass } from '@/lib/eventBannerAspect';
 import EventBannerImage from '@/components/core/EventBannerImage.vue';
-import { useEventSearch } from '@/hooks/useEventSearch';
-import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
+import { useEventListSection, type IEventListFilters, type IEventListPagination } from '@/hooks/useEventListSection';
 import { formatDateTime } from '@/lib/dateTime';
-import { findElementById } from '@/adapters/browser/domQuery';
-
-interface IEventPaginationLink {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
-interface IEventPagination {
-    links: IEventPaginationLink[];
-    currentPage?: number | null;
-    hasMore: boolean;
-}
-
-interface IEventFilters {
-    q: string | null;
-}
 
 const props = defineProps<{
     events: IEvent[];
-    pagination?: IEventPagination;
-    filters?: IEventFilters;
+    pagination?: IEventListPagination;
+    filters?: IEventListFilters;
     searchError?: string | null;
+    errors?: { q?: string };
 }>();
 
-const visible = ref(false);
-const { query, cooldownSeconds, isCoolingDown, requestDebouncedSearch, resetSearch } = useEventSearch(props.filters);
-const { goToCursorUrl } = usePaginationNavigation();
-
-const activeQuery = computed((): string => props.filters?.q?.trim() ?? '');
-
-/** Cursor pagination: navigasi hanya lewat URL prev/next dari server. */
-const cursorUrls = computed<{ previous: string | null; next: string | null }>(() =>
-    findCursorUrls(props.pagination?.links ?? [])
-);
-
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.05 }
-    );
-    const el = findElementById('event-list');
-    if (el !== null) obs.observe(el);
-});
+const {
+    query,
+    cooldownSeconds,
+    isCoolingDown,
+    requestDebouncedSearch,
+    resetSearch,
+    visible,
+    activeQuery,
+    cursorUrls,
+    goToCursorUrl,
+} = useEventListSection({ filters: toRef(props, 'filters'), pagination: toRef(props, 'pagination') });
 
 const statusLabel = (s: string) => {
     if (s === 'open') return 'Dibuka';
@@ -102,10 +71,21 @@ const statusVariant = (s: string) =>
                             v-model="query"
                             placeholder="Cari acara..."
                             aria-label="Cari acara"
+                            :aria-invalid="props.errors?.q !== undefined"
+                            :aria-describedby="props.errors?.q ? 'event-search-error' : undefined"
+                            maxlength="100"
                             class="h-10 pl-9 text-sm"
                             @input="requestDebouncedSearch"
                         />
                     </div>
+                    <p
+                        v-if="props.errors?.q"
+                        id="event-search-error"
+                        class="text-destructive mt-2 text-xs sm:text-right"
+                        role="alert"
+                    >
+                        {{ props.errors.q }}
+                    </p>
                     <p v-if="isCoolingDown" class="mt-2 text-xs text-balance text-amber-600 sm:text-right">
                         Terlalu banyak pencarian. Coba lagi dalam {{ cooldownSeconds }} detik.
                     </p>

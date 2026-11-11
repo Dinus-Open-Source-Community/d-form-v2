@@ -18,6 +18,7 @@ import { focusElementById } from '@/adapters/browser/domQuery';
 import { onWindowEvent } from '@/adapters/browser/domEvents';
 import { readStorage, removeStorage, writeStorage } from '@/adapters/browser/storage';
 import { openUrlInNewTab } from '@/adapters/browser/fileDownload';
+import { parseOprecDraft, serializeOprecDraft, toOprecDraftValue, type TJsonValue } from '@/lib/oprecDraft';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -166,12 +167,12 @@ function onPopState(): void {
 }
 
 function draftSnapshot(): string {
-    const values: Record<string, unknown> = {};
+    const values: Record<string, TJsonValue> = {};
     for (const [key, value] of Object.entries(ctx.answerForm.data())) {
-        if (value instanceof File) continue;
-        values[key] = value;
+        const draftValue = toOprecDraftValue(value);
+        if (draftValue !== undefined) values[key] = draftValue;
     }
-    return JSON.stringify({ step: currentStep.value, values });
+    return serializeOprecDraft({ step: currentStep.value, values });
 }
 
 const {
@@ -228,10 +229,6 @@ const draftStatusText = computed((): string => {
     return '';
 });
 
-function isDraftShape(value: unknown): value is { step?: unknown; values?: unknown } {
-    return typeof value === 'object' && value !== null;
-}
-
 /** Probe sekali saat mount: klaim "tersimpan otomatis" tidak boleh muncul sebelum storage terbukti bisa ditulis. */
 function probeDraftStorage(): void {
     const probeKey = `${DRAFT_KEY}::probe`;
@@ -251,26 +248,16 @@ function discardCorruptDraft(): void {
 function restoreDraft(): void {
     const raw = readStorage({ area: 'local', key: DRAFT_KEY });
     if (!raw) return;
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
+    const parsed = parseOprecDraft(raw);
+    if (parsed === null) {
         discardCorruptDraft();
         return;
     }
-    if (!isDraftShape(parsed)) {
-        discardCorruptDraft();
-        return;
-    }
-    if (typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= TOTAL_STEPS) {
+    if (parsed.step !== undefined && parsed.step >= 1 && parsed.step <= TOTAL_STEPS) {
         currentStep.value = parsed.step;
     }
-    if (typeof parsed.values === 'object' && parsed.values !== null) {
-        for (const [key, value] of Object.entries(parsed.values)) {
-            if (typeof value === 'string' && key in ctx.answerForm) {
-                ctx.answerForm[key] = value;
-            }
-        }
+    for (const [key, value] of Object.entries(parsed.values)) {
+        if (key in ctx.answerForm) Object.assign(ctx.answerForm, { [key]: value });
     }
 }
 
@@ -326,7 +313,10 @@ const reviewRows = computed((): Array<{ label: string; value: string }> => {
     const get = (name: string): string => {
         const value: unknown = ctx.answerForm[name];
         if (value instanceof File) return value.name;
-        return typeof value === 'string' && value !== '' ? value : '—';
+        if (typeof value === 'string' && value !== '') return value;
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        if (Array.isArray(value) && value.length > 0) return value.join(', ');
+        return '—';
     };
     return [
         { label: 'Nama Lengkap', value: get('full_name') },

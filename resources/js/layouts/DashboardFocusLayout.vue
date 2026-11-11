@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
-import { clearTopbar } from '@/hooks/useDashboardTopbar';
+import { provideTopbar } from '@/hooks/useDashboardTopbar';
 
 usePageFlashToast();
 import {
@@ -28,12 +28,13 @@ import { useAuth } from '@/hooks/useAuth';
 
 const page = usePage();
 const user = useAuth(page.props);
+const topbar = provideTopbar();
 
 // Reset state topbar saat navigasi Inertia ke halaman lain.
 watch(
     () => page.component,
     () => {
-        clearTopbar();
+        topbar.clearTopbar();
     }
 );
 

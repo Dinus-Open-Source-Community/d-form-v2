@@ -13,7 +13,7 @@ import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
-import { useTopbar } from '@/hooks/useDashboardTopbar';
+import { clearTopbar, useTopbar } from '@/hooks/useDashboardTopbar';
 import { readDocumentTitle } from '@/adapters/browser/documentState';
 import { onDocumentCustomEvent } from '@/adapters/browser/domEvents';
 import { goBack as navigateBack } from '@/adapters/browser/navigation';
@@ -110,6 +110,7 @@ function closeProfileMenu(): void {
 
 function handleLogout(): void {
     profileMenuOpen.value = false;
+    clearTopbar();
     router.post(logout().url);
 }
 </script>
@@ -214,7 +215,7 @@ function handleLogout(): void {
                     size="sm"
                     aria-label="Keluar"
                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive shadow-none transition-colors duration-150 hover:shadow-none"
-                    @click="router.post(logout().url)"
+                    @click="handleLogout"
                 >
                     <LogOut class="size-4" />
                     <span>Keluar</span>

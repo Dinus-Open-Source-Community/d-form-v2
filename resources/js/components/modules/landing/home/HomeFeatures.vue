@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import {
     GripVertical,
     BarChart3,
@@ -12,7 +11,7 @@ import {
     Users,
 } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
 interface Feature {
     title: string;
@@ -70,20 +69,7 @@ const features: Feature[] = [
     },
 ];
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.08 }
-    );
-    const el = findElementById('section-features');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'section-features', threshold: 0.08 });
 </script>
 
 <template>

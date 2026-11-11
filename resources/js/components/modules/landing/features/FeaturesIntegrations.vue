@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import LocalLottie from '@/components/core/LocalLottie.vue';
 import { FileSpreadsheet, Bell, Webhook, Code2, Link2, Share2 } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import { findElementById } from '@/adapters/browser/domQuery';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
 interface Integration {
     icon: Component;
@@ -44,20 +43,7 @@ const integrations: Integration[] = [
     },
 ];
 
-const visible = ref(false);
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => {
-            if (e?.isIntersecting) {
-                visible.value = true;
-                obs.disconnect();
-            }
-        },
-        { threshold: 0.1 }
-    );
-    const el = findElementById('features-integrations');
-    if (el !== null) obs.observe(el);
-});
+const { visible } = useViewportReveal({ targetId: 'features-integrations', threshold: 0.1 });
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { router } from '@inertiajs/vue3';
 import { reviewFormSubmission, type IFormReviewResult } from '@/adapters/http/forms';
+import { HttpRequestError } from '@/adapters/http/httpError';
 import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
 
 /**
@@ -184,6 +185,27 @@ describe('useFormSubmissionReview', () => {
 
         expect(toastMock.showSuccessToast).not.toHaveBeenCalled();
         expect(reloadMock).not.toHaveBeenCalled();
+        expect(review.isReviewing('submission-1')).toBe(false);
+    });
+
+    it('FE-AUDIT-005-F1 uses contract copy for an invalid 2xx response', async () => {
+        reviewMock.mockRejectedValue(
+            new HttpRequestError({
+                kind: 'invalid_response',
+                status: 200,
+                message: 'Respons server tidak sesuai kontrak.',
+            })
+        );
+
+        const review = useFormSubmissionReview(OPTIONS);
+        review.reviewSubmission('accept', PENDING_SUBMISSION);
+
+        await vi.waitFor(() => expect(toastMock.showErrorToast).toHaveBeenCalledTimes(1));
+
+        expect(toastMock.showErrorToast).toHaveBeenCalledWith(
+            'Server mengirim respons yang tidak valid. Coba lagi beberapa saat lagi.'
+        );
+        expect(toastMock.showSuccessToast).not.toHaveBeenCalled();
         expect(review.isReviewing('submission-1')).toBe(false);
     });
 });

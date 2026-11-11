@@ -6,7 +6,8 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StyledSelect } from '@/components/ui/styled-select';
-import { Star, ImagePlus, Upload, X } from 'lucide-vue-next';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
+import { Star } from 'lucide-vue-next';
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
 import { formFillSlotUi } from '@/lib/formFillSlotUi';
 import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
@@ -44,6 +45,33 @@ const descriptionHtml = computed(() =>
     props.field.description ? formatParagraphContentToHtml(props.field.description) : ''
 );
 
+/** Field yang jawabannya berkas: kartu unggah menggantikan dropzone lama. */
+const isFileField = computed(() =>
+    ['file_upload', 'image_upload', 'fileUpload'].includes(props.ctx.builderType(props.field))
+);
+
+/** Berkas yang menunggu submit; nilai awal field file selalu `null`. */
+const selectedFile = computed<File | null>(() => {
+    const value = props.ctx.answerForm[props.storageKey];
+
+    return typeof File !== 'undefined' && value instanceof File ? value : null;
+});
+
+/** Progres milik visit submit yang sama, jadi angkanya nyata dan bisa dibatalkan. */
+const fileCardState = computed<TFileUploadState>(() => {
+    if (props.ctx.answerForm.processing && selectedFile.value) return 'uploading';
+    if (props.ctx.fieldError(props.storageKey)) return 'error';
+
+    return selectedFile.value ? 'completed' : 'idle';
+});
+
+const fileCardIdleLabel = computed(() =>
+    props.ctx.builderType(props.field) === 'image_upload' ? 'Pilih foto' : 'Pilih berkas'
+);
+
+/** Pratinjau hanya dari object URL yang dikelola hook upload (tanpa base64). */
+const filePreviewUrl = computed(() => (fillReady() ? props.ctx.filePreviewUrls[props.storageKey] : ''));
+
 function textAnswer(name: string): string {
     const value = props.ctx.answerForm[name];
     return typeof value === 'string' ? value : '';
@@ -59,6 +87,16 @@ function fillReady(): boolean {
 
 function openLightbox(): void {
     emit('openLightbox', props.ctx.filePreviewUrls[props.storageKey], props.ctx.fileAnswerName(props.storageKey));
+}
+
+/**
+ * Menyimpan berkas pilihan kartu lewat jalur yang sama dengan input file lama
+ * (`applyFileSelection`): validasi klien, object URL pratinjau, dan nilai form identik.
+ * Galat lama dibersihkan hanya setelah berkas lolos agar kartu keluar dari state error.
+ */
+async function pickFile(file: File): Promise<void> {
+    const accepted = await props.ctx.applyFileSelection(props.storageKey, file);
+    if (accepted) props.ctx.answerForm.clearErrors(props.storageKey);
 }
 </script>
 
@@ -216,90 +254,37 @@ function openLightbox(): void {
             @update:model-value="setTextAnswer(storageKey, $event)"
         />
 
-        <div
-            v-else-if="['file_upload', 'image_upload', 'fileUpload'].includes(ctx.builderType(field))"
-            class="border-border bg-muted/20 hover:border-primary/30 relative overflow-hidden rounded-xl border border-dashed transition-colors"
-            :class="
-                fillReady()
-                    ? 'p-0'
-                    : variant === 'bundleParticipant'
-                      ? 'hover:bg-muted/30 p-4 text-center'
-                      : 'hover:bg-muted/30 p-6 text-center'
-            "
-        >
-            <div v-if="fillReady()" class="bg-muted/30 relative aspect-video w-full sm:aspect-[4/3]">
-                <button
-                    type="button"
-                    class="focus-visible:ring-ring focus-visible:ring-offset-background absolute inset-0 z-10 flex w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    @click="openLightbox"
-                >
-                    <img
-                        :src="ctx.filePreviewUrls[storageKey]"
-                        :alt="ctx.fileAnswerName(storageKey)"
-                        class="h-full w-full object-cover"
-                    />
-                    <span class="sr-only">View full size</span>
-                </button>
-                <button
-                    type="button"
-                    class="border-border/80 bg-background/95 text-destructive absolute top-2 right-2 z-20 grid size-9 place-items-center border shadow-md backdrop-blur-sm"
-                    :aria-label="`Remove ${ctx.fileAnswerName(storageKey)}`"
-                    @click.stop="ctx.clearFileUpload(storageKey)"
-                >
-                    <X class="size-4" />
-                </button>
-                <div
-                    class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-1 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-3 pt-14 pb-3 text-center"
-                >
-                    <label
-                        class="bg-background/95 text-foreground hover:bg-background pointer-events-auto cursor-pointer border border-white/20 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm transition-colors"
-                    >
-                        Choose another file
-                        <input
-                            type="file"
-                            :accept="ctx.acceptValue(field)"
-                            class="sr-only"
-                            @change="ctx.onFileChange(storageKey, $event)"
-                            @click.stop
-                        />
-                    </label>
-                    <p class="text-[10px] font-medium text-white drop-shadow">Click image to view full size</p>
-                </div>
-            </div>
-
-            <div v-else class="flex flex-col items-center gap-2">
-                <div class="border-border bg-card grid size-12 place-items-center rounded-full border shadow-xs">
-                    <component
-                        :is="ctx.builderType(field) === 'image_upload' ? ImagePlus : Upload"
-                        class="text-muted-foreground size-5"
-                    />
-                </div>
-                <div>
-                    <p class="text-foreground text-sm font-semibold">Click to upload</p>
-                    <p class="text-muted-foreground mt-0.5 text-[10px]">{{ ctx.fileHint(field) }}</p>
-                </div>
-                <input
-                    type="file"
-                    :accept="ctx.acceptValue(field)"
-                    class="absolute inset-0 cursor-pointer opacity-0"
-                    @change="ctx.onFileChange(storageKey, $event)"
-                />
-            </div>
-
-            <div
-                v-if="ctx.answerForm[storageKey] && !fillReady()"
-                class="border-border bg-card relative z-10 mt-4 flex items-center justify-center gap-2 rounded-xl border p-3 shadow-xs"
+        <div v-else-if="isFileField" class="space-y-1.5">
+            <FileUploadCard
+                :state="fileCardState"
+                :idle-label="fileCardIdleLabel"
+                :hint="ctx.fileHint(field)"
+                :accept="ctx.acceptValue(field)"
+                :file-name="selectedFile?.name ?? ''"
+                :file-size="selectedFile?.size ?? 0"
+                :mime="selectedFile?.type ?? ''"
+                :progress="ctx.submitProgress"
+                :preview-url="filePreviewUrl"
+                :error-message="ctx.fieldError(storageKey) ?? ''"
+                :disabled="ctx.answerForm.processing"
+                @pick="pickFile"
+                @cancel="ctx.cancelSubmit"
+                @remove="ctx.clearFileUpload(storageKey)"
+            />
+            <button
+                v-if="filePreviewUrl"
+                type="button"
+                class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/30 rounded-md text-xs underline-offset-2 outline-none hover:underline focus-visible:ring-[3px]"
+                @click="openLightbox"
             >
-                <span class="text-foreground max-w-[200px] truncate text-xs font-medium">{{
-                    ctx.fileAnswerName(storageKey)
-                }}</span>
-                <button type="button" class="text-destructive" @click="ctx.clearFileUpload(storageKey)">
-                    <X class="size-4" />
-                </button>
-            </div>
+                Lihat ukuran penuh
+            </button>
         </div>
 
-        <p v-if="ctx.fieldError(storageKey)" :class="[ui.errorSpacingClass, 'text-destructive text-xs font-medium']">
+        <p
+            v-if="!isFileField && ctx.fieldError(storageKey)"
+            :class="[ui.errorSpacingClass, 'text-destructive text-xs font-medium']"
+        >
             {{ ctx.fieldError(storageKey) }}
         </p>
     </CardContent>

@@ -19,8 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { applicantAllowsTrackingResend, userAllowsTrackingResend } from '@/lib/recruitmentApplicantCapabilities';
 import { isHttpUrl } from '@/lib/isHttpUrl';
-import { formatDateTime } from '@/lib/dateTime';
 import ApplicantEmailingSection from './ApplicantEmailingSection.vue';
+import ApplicantProfileSummary from './ApplicantProfileSummary.vue';
+import ApplicantActivityHistory from './ApplicantActivityHistory.vue';
 import type { IApplicationDetail } from '@/types/recruitment';
 import { routes } from '@/lib/routes';
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
@@ -33,8 +34,6 @@ import {
     Download,
     ExternalLink,
     FileText,
-    History,
-    Instagram,
     Lock,
     Mail,
     PencilLine,
@@ -692,42 +691,6 @@ function evaluationAverageLabel(speaking: number, technical: number, attitude: n
     return ((speaking + technical + attitude) / 3).toFixed(1).replace('.', ',');
 }
 
-const activityActionLabels: Record<string, string> = {
-    'screening.pass': 'Lolos screening',
-    'screening.revision_required': 'Diminta revisi',
-    'screening.reject': 'Ditolak pada tahap screening',
-    'evaluation.submitted': 'Evaluasi interview dikirim',
-    'evaluation.updated': 'Evaluasi interview diperbarui',
-    'evaluation.staff_override': 'Evaluasi diubah staff',
-    'correction.requested': 'Applicant meminta koreksi',
-    'correction.approved': 'Permintaan koreksi disetujui',
-    'correction.rejected': 'Permintaan koreksi ditolak',
-    'interview.scheduled': 'Interview dijadwalkan',
-    'interview.rescheduled': 'Jadwal interview diubah',
-    'interview.reassigned': 'Interviewer diganti',
-    'interview.cancelled': 'Interview dibatalkan',
-    'application.verified': 'Pendaftaran diverifikasi',
-    'tracking.resend': 'Informasi tracking dikirim ulang',
-    'application.updated': 'Pendaftaran diperbarui applicant',
-    'final.accept': 'Diterima sebagai anggota',
-    'final.reject': 'Tidak lolos seleksi akhir',
-    'attendance.check_in': 'Absensi interview tercatat',
-    'interview.no_show': 'Tidak hadir interview',
-};
-
-function activityActionLabel(action: string): string {
-    const label = activityActionLabels[action];
-    if (label) return label;
-
-    const pretty = action.replace(/[._-]+/g, ' ').trim();
-    if (pretty === '') return action;
-
-    return pretty.charAt(0).toUpperCase() + pretty.slice(1);
-}
-
-const instagramHandle = computed<string>(() => props.application.instagram_username.replace(/^@+/, '').trim());
-const instagramUrl = computed<string>(() => `https://instagram.com/${instagramHandle.value}`);
-
 const portfolioExternalUrl = computed<string | null>(() => {
     const applicationDocument = props.application.document;
     if (applicationDocument === null) return null;
@@ -887,73 +850,7 @@ const defaultTab = computed(() => {
             </TabsList>
 
             <TabsContent value="profile" class="mt-4 space-y-5">
-                <Card class="border-border/70 rounded-2xl">
-                    <CardContent class="space-y-5 p-6">
-                        <div class="space-y-3">
-                            <p class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-                                Detail pendaftaran
-                            </p>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div v-if="!readonly">
-                                    <p class="text-muted-foreground text-xs uppercase">NIM</p>
-                                    <p class="font-medium">{{ application.nim }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Semester</p>
-                                    <p class="font-medium">{{ application.semester }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Divisi utama</p>
-                                    <p class="font-medium">{{ application.primary_division?.name ?? '—' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Divisi cadangan</p>
-                                    <p class="font-medium">{{ application.secondary_division?.name ?? '—' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Periode</p>
-                                    <p class="font-medium">{{ application.period?.name ?? '—' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Hasil</p>
-                                    <p class="font-medium">{{ application.result_label }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="border-border/60 space-y-3 border-t pt-5">
-                            <p class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Kontak</p>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Telepon</p>
-                                    <p class="font-medium">{{ application.phone }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Instagram</p>
-                                    <a
-                                        v-if="instagramHandle"
-                                        :href="instagramUrl"
-                                        target="_blank"
-                                        rel="noopener"
-                                        class="mt-0.5 inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:underline"
-                                    >
-                                        <Instagram class="size-4 shrink-0" aria-hidden="true" />
-                                        <span>@{{ instagramHandle }}</span>
-                                    </a>
-                                    <p v-else class="font-medium">—</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Email pribadi</p>
-                                    <p class="font-medium">{{ application.personal_email }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground text-xs uppercase">Email kampus</p>
-                                    <p class="font-medium">{{ application.student_email }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
+                <ApplicantProfileSummary :application="application" :readonly="readonly" />
                 <Card class="border-border/70 rounded-2xl">
                     <CardContent class="space-y-4 p-6">
                         <p class="text-sm font-semibold">Dokumen</p>
@@ -1595,30 +1492,7 @@ const defaultTab = computed(() => {
             </TabsContent>
 
             <TabsContent value="history" class="mt-4">
-                <Card class="border-border/70 rounded-2xl">
-                    <CardContent class="space-y-3 p-6">
-                        <div
-                            v-for="log in application.activity_logs"
-                            :key="log.id"
-                            class="flex gap-3 rounded-xl border p-4"
-                        >
-                            <History class="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                            <div class="min-w-0 flex-1">
-                                <p class="font-medium">{{ activityActionLabel(log.action) }}</p>
-                                <p class="text-muted-foreground text-xs">
-                                    {{ log.actor?.name ?? 'Sistem' }} ·
-                                    {{
-                                        formatDateTime({ value: log.created_at, variant: 'date-time-medium' }) ||
-                                        'Waktu tidak tercatat'
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <p v-if="application.activity_logs.length === 0" class="text-muted-foreground text-sm">
-                            Belum ada aktivitas tercatat.
-                        </p>
-                    </CardContent>
-                </Card>
+                <ApplicantActivityHistory :activity-logs="application.activity_logs" />
             </TabsContent>
 
             <TabsContent value="emailing" class="mt-4">

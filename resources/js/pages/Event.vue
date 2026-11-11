@@ -19,6 +19,7 @@ const props = defineProps<{
     };
     filters?: { q: string | null };
     searchError?: string | null;
+    errors?: { q?: string };
 }>();
 
 const page = usePage();
@@ -79,6 +80,12 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
         />
         <EventHero />
         <EventHighlight :events="highlight" />
-        <EventList :events="events" :pagination="pagination" :filters="filters" :search-error="searchError ?? null" />
+        <EventList
+            :events="events"
+            :pagination="pagination"
+            :filters="filters"
+            :search-error="searchError ?? null"
+            :errors="errors"
+        />
     </LandingLayout>
 </template>

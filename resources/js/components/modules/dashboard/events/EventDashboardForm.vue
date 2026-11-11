@@ -1,28 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
 import DeferredRender from '@/components/core/DeferredRender.vue';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 import EventMultiValuePicker from '@/components/modules/dashboard/events/EventMultiValuePicker.vue';
-import {
-    FileText,
-    ImageUp,
-    MapPin,
-    MapPinned,
-    PanelsTopLeft,
-    X,
-    Save,
-    Send,
-    CalendarRange,
-    CalendarClock,
-    Ticket,
-    Tags,
-} from 'lucide-vue-next';
+import EventScheduleFields from '@/components/modules/dashboard/events/EventScheduleFields.vue';
+import { FileText, MapPin, MapPinned, PanelsTopLeft, Save, Send, Ticket, Tags } from 'lucide-vue-next';
 import {
     store as storeEvent,
     update as updateEvent,
@@ -30,6 +18,8 @@ import {
 import { getFieldError } from '@/lib/error-message';
 import { cn } from '@/lib/utils';
 import { validateUploadFile } from '@/lib/uploadValidation';
+import { uploadPercent } from '@/lib/fileDisplay';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
 import {
     formatIntegerId,
     formatPriceId,
@@ -52,7 +42,7 @@ const props = defineProps<{
     wizardMode?: boolean;
 }>();
 
-const { showErrorToast, showSuccessToast } = useToastNotifications();
+const { showSuccessToast } = useToastNotifications();
 
 const defaultSessions = [
     { value: 'general', label: 'General' },
@@ -152,14 +142,9 @@ function buildFormPayload(): EventFormPayload {
 
 const form = useForm(buildFormPayload());
 
-const bannerEmptyTitle = computed(() =>
-    props.variant === 'create' ? 'Unggah atau seret gambar ke sini' : 'Unggah banner baru'
-);
-
-const bannerEmptyHint = computed(() =>
-    props.variant === 'create' ? 'PNG, JPG, WebP - maks. 5MB' : 'PNG, JPG, WebP - maks. 5MB'
-);
-
+/** Batas & format banner di frontend; backend tetap memvalidasi. */
+const BANNER_MAX_SIZE_KB = 5120;
+const BANNER_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
 const classificationDescription = computed(() =>
     props.variant === 'create'
         ? 'Sesi (divisi) dan kategori dipakai untuk filter di dashboard. Bisa lebih dari satu.'
@@ -244,11 +229,24 @@ const pageSubtitle = computed(() =>
         : 'Perbarui detail event kamu — simpan perubahan atau terbitkan kembali.'
 );
 
-const bannerPreview = ref<string | null>(
-    props.variant === 'edit' && props.event?.banner_url ? props.event.banner_url : null
+/** Banner yang sudah tersimpan: URL server dari props (diperbarui setelah submit sukses). */
+const serverBannerUrl = computed<string | null>(() =>
+    props.variant === 'edit' ? (props.event?.banner_url ?? null) : null
 );
 
-const isDragging = ref(false);
+/** Object URL pratinjau untuk banner yang baru dipilih (belum diunggah). */
+const bannerObjectUrl = ref<string | null>(null);
+/** Error pilih berkas (format/ukuran) — ditampilkan oleh kartu unggah. */
+const bannerPickError = ref('');
+/** Persentase unggah nyata dari kunjungan Inertia; null = tidak berjalan. */
+const bannerProgress = ref<number | null>(null);
+
+const bannerCardState = computed<TFileUploadState>(() => {
+    if (bannerPickError.value !== '') return 'error';
+    return form.banner !== null ? 'completed' : 'idle';
+});
+
+const bannerIdleLabel = computed<string>(() => (serverBannerUrl.value !== null ? 'Ganti banner' : 'Unggah banner'));
 
 const quotaDisplay = ref(form.quota > 0 ? formatIntegerId(form.quota) : '');
 
@@ -317,33 +315,34 @@ function commitQuotaPriceFromFields(): void {
     form.price = parsePriceInput(priceDisplay.value);
 }
 
-async function handleBannerChange(e: Event): Promise<void> {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']))) {
-        form.banner = file;
-        bannerPreview.value = URL.createObjectURL(file);
-    } else if (file) {
-        showErrorToast('Gambar tidak valid atau melebihi 5 MB.');
-        input.value = '';
-    }
-}
+/**
+ * Pilih banner: validasi format/ukuran lalu simpan sebagai berkas tertunda.
+ * Berkas ikut payload form saat submit (`forceFormData`); tidak ada request terpisah.
+ */
+async function onBannerPick(file: File): Promise<void> {
+    bannerPickError.value = '';
+    const validationError = await validateUploadFile(file, BANNER_EXTENSIONS);
 
-async function handleDrop(e: DragEvent): Promise<void> {
-    isDragging.value = false;
-    const file = e.dataTransfer?.files[0];
-    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp', 'gif']))) {
-        form.banner = file;
-        bannerPreview.value = URL.createObjectURL(file);
-    } else if (file) {
-        showErrorToast('Gambar tidak valid atau melebihi 5 MB.');
+    if (validationError !== null) {
+        bannerPickError.value = validationError;
+        return;
     }
+
+    revokeObjectUrl(bannerObjectUrl.value);
+    bannerObjectUrl.value = createObjectUrl(file);
+    form.banner = file;
 }
 
 function removeBanner(): void {
+    revokeObjectUrl(bannerObjectUrl.value);
+    bannerObjectUrl.value = null;
+    bannerPickError.value = '';
     form.banner = null;
-    bannerPreview.value = null;
 }
+
+onUnmounted(() => {
+    revokeObjectUrl(bannerObjectUrl.value);
+});
 
 function submitForm(publish: boolean): void {
     form.publish = publish;
@@ -365,6 +364,17 @@ function submitForm(publish: boolean): void {
 
     form.post(url, {
         forceFormData: true,
+        // Progres byte nyata dari kunjungan Inertia (multipart FormData).
+        onStart: () => {
+            bannerProgress.value = 0;
+        },
+        onProgress: (progress) => {
+            if (progress === undefined) return;
+            bannerProgress.value = uploadPercent(progress.loaded, progress.total ?? 0);
+        },
+        onFinish: () => {
+            bannerProgress.value = null;
+        },
         onSuccess: () => {
             if (isWizard) {
                 // Backend merender ulang Create (200, draftEvent prop) → halaman
@@ -550,93 +560,75 @@ defineExpose({ submitForm, validateRequired, form });
 
                         <!-- Sub B: Banner / poster -->
                         <div class="flex flex-col gap-4">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <Label class="flex items-center gap-1.5 text-sm font-medium">
-                                        <PanelsTopLeft
-                                            class="text-foreground/80 size-4.5 shrink-0 stroke-[1.75]"
-                                            aria-hidden="true"
-                                        />
-                                        Banner / poster
-                                        <span v-if="isRequired('banner')" class="text-destructive">*</span>
-                                    </Label>
-                                    <p class="text-muted-foreground mt-1 text-xs">
-                                        Rasio 16:7 — PNG, JPG, atau WebP maks. 5MB.
-                                    </p>
-                                </div>
-                                <div v-if="bannerPreview" class="flex items-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        class="h-9 text-xs"
-                                        type="button"
-                                        @click="($refs.bannerInput as HTMLInputElement)?.click()"
-                                    >
-                                        Ganti
-                                    </Button>
-                                    <Button
-                                        radius="icon"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        class="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                        type="button"
-                                        aria-label="Hapus banner"
-                                        @click="removeBanner"
-                                    >
-                                        <X class="size-4" />
-                                    </Button>
-                                </div>
+                            <div>
+                                <Label class="flex items-center gap-1.5 text-sm font-medium">
+                                    <PanelsTopLeft
+                                        class="text-foreground/80 size-4.5 shrink-0 stroke-[1.75]"
+                                        aria-hidden="true"
+                                    />
+                                    Banner / poster
+                                    <span v-if="isRequired('banner')" class="text-destructive">*</span>
+                                </Label>
+                                <p class="text-muted-foreground mt-1 text-xs">
+                                    Rasio 16:7 — PNG, JPG, atau WebP maks. 5MB.
+                                </p>
                             </div>
 
+                            <!-- Banner tersimpan: URL server dari props (diperbarui setelah submit sukses). -->
                             <div
-                                :class="[
-                                    'border-border bg-muted/25 overflow-hidden rounded-xl border-2 transition-colors',
-                                    isDragging ? 'border-primary/60 bg-primary/5' : '',
-                                    fieldError('banner') ? 'border-destructive/70 bg-red-50 dark:bg-red-500/10' : '',
-                                    isFieldShaking('banner') ? 'animate-shake' : '',
-                                ]"
+                                v-if="serverBannerUrl !== null && form.banner === null"
+                                class="border-border bg-muted/25 overflow-hidden rounded-xl border-2"
                             >
-                                <div class="relative aspect-[16/7] w-full">
-                                    <template v-if="bannerPreview">
-                                        <img
-                                            :src="bannerPreview"
-                                            alt="Pratinjau banner"
-                                            class="absolute inset-0 size-full object-cover"
+                                <img
+                                    :src="serverBannerUrl"
+                                    alt="Banner saat ini"
+                                    class="aspect-[16/7] w-full object-cover"
+                                />
+                            </div>
+
+                            <div :class="isFieldShaking('banner') ? 'animate-shake' : ''">
+                                <FileUploadCard
+                                    :state="bannerCardState"
+                                    :idle-label="bannerIdleLabel"
+                                    accept="image/*"
+                                    hint="PNG, JPG, atau WebP — rasio 16:7."
+                                    :max-size-kb="BANNER_MAX_SIZE_KB"
+                                    :file-name="form.banner?.name ?? ''"
+                                    :file-size="form.banner?.size ?? 0"
+                                    :mime="form.banner?.type ?? ''"
+                                    :preview-url="bannerObjectUrl ?? ''"
+                                    :error-message="bannerPickError"
+                                    :disabled="form.processing"
+                                    @pick="onBannerPick"
+                                    @remove="removeBanner"
+                                />
+
+                                <!-- Progres byte nyata dari kunjungan Inertia; Batalkan tidak
+                                     ditampilkan karena submit Inertia tidak bisa dibatalkan. -->
+                                <div
+                                    v-if="form.banner !== null && bannerProgress !== null"
+                                    class="mt-2"
+                                    role="progressbar"
+                                    :aria-valuenow="bannerProgress"
+                                    aria-valuemin="0"
+                                    aria-valuemax="100"
+                                    aria-label="Progres unggah banner event"
+                                >
+                                    <p class="text-muted-foreground text-xs" aria-live="polite">
+                                        Mengunggah banner… {{ bannerProgress }}%
+                                    </p>
+                                    <div class="bg-muted mt-1 h-2 w-full overflow-hidden rounded-full">
+                                        <div
+                                            class="bg-primary h-full rounded-full transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                                            :style="{ width: `${bannerProgress}%` }"
                                         />
-                                    </template>
-                                    <div
-                                        v-else
-                                        class="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2.5 px-6 text-center transition-colors"
-                                        @dragover.prevent="isDragging = true"
-                                        @dragleave="isDragging = false"
-                                        @drop.prevent="handleDrop"
-                                        @click="($refs.bannerInput as HTMLInputElement)?.click()"
-                                    >
-                                        <span
-                                            class="bg-muted text-muted-foreground grid size-12 place-items-center rounded-full"
-                                        >
-                                            <ImageUp class="size-5.5 stroke-[1.75]" aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <p class="text-sm font-medium">{{ bannerEmptyTitle }}</p>
-                                            <p class="text-muted-foreground mt-0.5 text-xs">{{ bannerEmptyHint }}</p>
-                                        </div>
-                                        <p class="text-muted-foreground text-[11px]">
-                                            Klik untuk memilih, atau seret gambar ke sini
-                                        </p>
                                     </div>
                                 </div>
                             </div>
+
                             <p v-if="fieldError('banner')" class="text-destructive text-xs">
                                 {{ fieldError('banner') }}
                             </p>
-                            <input
-                                ref="bannerInput"
-                                type="file"
-                                accept="image/*"
-                                class="hidden"
-                                @change="handleBannerChange"
-                            />
                         </div>
 
                         <!-- Pembatas sub-bagian -->
@@ -687,93 +679,30 @@ defineExpose({ submitForm, validateRequired, form });
             </div>
 
             <div class="flex flex-col gap-8 lg:col-span-5">
-                <!-- 1. Jadwal acara -->
-                <div class="border-border/60 bg-card rounded-xl border p-5 shadow-xs sm:p-6">
-                    <div class="mb-5 flex items-center gap-2.5">
-                        <CalendarRange class="text-foreground/80 size-5 shrink-0 stroke-[1.75]" aria-hidden="true" />
-                        <div>
-                            <p class="text-foreground text-base font-semibold tracking-tight">Jadwal acara</p>
-                            <p class="text-muted-foreground mt-0.5 text-xs">Kapan acara berlangsung.</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-5">
-                        <div class="flex flex-col gap-2">
-                            <Label for="start_date" class="text-foreground text-sm font-medium"
-                                >Tanggal mulai
-                                <span v-if="isRequired('start_date')" class="text-destructive">*</span></Label
-                            >
-                            <DatePicker
-                                id="start_date"
-                                v-model="form.start_date"
-                                :aria-invalid="!!fieldError('start_date')"
-                                :class="
-                                    cn(
-                                        'bg-white',
-                                        errorClass('start_date'),
-                                        isFieldShaking('start_date') && 'animate-shake'
-                                    )
-                                "
-                            />
-                            <p v-if="fieldError('start_date')" class="text-destructive text-xs">
-                                {{ fieldError('start_date') }}
-                            </p>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <Label for="end_date" class="text-foreground text-sm font-medium"
-                                >Tanggal selesai
-                                <span v-if="isRequired('end_date')" class="text-destructive">*</span></Label
-                            >
-                            <DatePicker
-                                id="end_date"
-                                v-model="form.end_date"
-                                :aria-invalid="!!fieldError('end_date')"
-                                :class="
-                                    cn(
-                                        'bg-white',
-                                        errorClass('end_date'),
-                                        isFieldShaking('end_date') && 'animate-shake'
-                                    )
-                                "
-                            />
-                            <p v-if="fieldError('end_date')" class="text-destructive text-xs">
-                                {{ fieldError('end_date') }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. Pendaftaran -->
-                <div class="border-border/60 bg-card rounded-xl border p-5 shadow-xs sm:p-6">
-                    <div class="mb-5 flex items-center gap-2.5">
-                        <CalendarClock class="text-foreground/80 size-5 shrink-0 stroke-[1.75]" aria-hidden="true" />
-                        <div>
-                            <p class="text-foreground text-base font-semibold tracking-tight">Pendaftaran</p>
-                            <p class="text-muted-foreground mt-0.5 text-xs">Periode peserta dapat mendaftar.</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-5">
-                        <SplitDateTimeField
-                            :id-prefix="`reg_open`"
-                            v-model="form.registration_start"
-                            label="Pendaftaran dibuka"
-                            picker-class="bg-white"
-                            :required="isRequired('registration_start')"
-                            :invalid="!!fieldError('registration_start')"
-                            :error="fieldError('registration_start')"
-                            :shaking="isFieldShaking('registration_start')"
-                        />
-                        <SplitDateTimeField
-                            :id-prefix="`reg_close`"
-                            v-model="form.registration_end"
-                            label="Pendaftaran ditutup"
-                            picker-class="bg-white"
-                            :required="isRequired('registration_end')"
-                            :invalid="!!fieldError('registration_end')"
-                            :error="fieldError('registration_end')"
-                            :shaking="isFieldShaking('registration_end')"
-                        />
-                    </div>
-                </div>
+                <EventScheduleFields
+                    v-model:start-date="form.start_date"
+                    v-model:end-date="form.end_date"
+                    v-model:registration-start="form.registration_start"
+                    v-model:registration-end="form.registration_end"
+                    :start-date-error="fieldError('start_date')"
+                    :end-date-error="fieldError('end_date')"
+                    :registration-start-error="fieldError('registration_start')"
+                    :registration-end-error="fieldError('registration_end')"
+                    :start-date-shaking="isFieldShaking('start_date')"
+                    :end-date-shaking="isFieldShaking('end_date')"
+                    :registration-start-shaking="isFieldShaking('registration_start')"
+                    :registration-end-shaking="isFieldShaking('registration_end')"
+                    :start-date-required="isRequired('start_date')"
+                    :end-date-required="isRequired('end_date')"
+                    :start-date-class="
+                        cn('bg-white', errorClass('start_date'), isFieldShaking('start_date') && 'animate-shake')
+                    "
+                    :end-date-class="
+                        cn('bg-white', errorClass('end_date'), isFieldShaking('end_date') && 'animate-shake')
+                    "
+                    :registration-start-required="isRequired('registration_start')"
+                    :registration-end-required="isRequired('registration_end')"
+                />
 
                 <!-- 3. Kapasitas dan Harga -->
                 <div class="border-border/60 bg-card rounded-xl border p-5 shadow-xs sm:p-6">

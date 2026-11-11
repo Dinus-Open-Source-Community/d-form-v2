@@ -1,24 +1,7 @@
 import { formatDateTime } from '@/lib/dateTime';
 import { isRecord } from '@/lib/isRecord';
 
-/** Interval dasar polling feed scan lintas meja (ms). */
-export const FEED_POLL_MS = 2000;
-
-const FEED_BACKOFF_CAP_MS = 30_000;
-
-/**
- * Jeda sebelum percobaan feed berikutnya; exponential 2s/4s/8s/16s, cap 30s.
- * `0` kegagalan = FEED_POLL_MS. Nilai negatif/NaN diperlakukan sebagai tanpa kegagalan.
- */
-export function nextFeedDelayMs(consecutiveFailures: number): number {
-    if (!Number.isFinite(consecutiveFailures) || consecutiveFailures <= 0) {
-        return FEED_POLL_MS;
-    }
-
-    const exponent = Math.floor(consecutiveFailures) - 1;
-
-    return Math.min(FEED_POLL_MS * 2 ** exponent, FEED_BACKOFF_CAP_MS);
-}
+export { FEED_POLL_MS, nextFeedDelayMs } from '@/lib/qrScanFeed';
 
 export type TScanStatus = 'success' | 'already' | 'invalid';
 

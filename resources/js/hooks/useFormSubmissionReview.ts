@@ -1,8 +1,10 @@
 import { ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { reviewFormSubmission } from '@/adapters/http/forms';
+import { isHttpRequestError } from '@/adapters/http/httpError';
 import { formSubmissionReviewIsPending } from '@/lib/formSubmissionsUi';
 import { humanizeErrorMessage } from '@/lib/error-message';
+import { describeRequestError } from '@/lib/requestErrorText';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import FormAnswerReviewController from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormAnswerReviewController';
 
@@ -23,6 +25,13 @@ export interface IFormSubmissionReview {
     /** Kirim keputusan review; guard pending + in-flight mencegah request ganda. */
     reviewSubmission: (action: TFormSubmissionReviewAction, submission: IFormSubmission) => void;
 }
+
+const REVIEW_ERROR_OVERRIDES: Partial<Record<number, string>> = {
+    409: 'Jawaban ini sudah pernah direview.',
+    422: 'Status review tidak valid.',
+    403: 'Anda tidak punya izin untuk mereview jawaban ini.',
+    404: 'Jawaban tidak ditemukan.',
+};
 
 /**
  * Satu-satunya implementasi alur review submission untuk jalur hidup
@@ -70,10 +79,7 @@ export function useFormSubmissionReview(options: IUseFormSubmissionReviewOptions
                         result.status,
                         result.message ? { message: humanizeErrorMessage(result.message) } : {},
                         {
-                            409: 'Jawaban ini sudah pernah direview.',
-                            422: 'Status review tidak valid.',
-                            403: 'Anda tidak punya izin untuk mereview jawaban ini.',
-                            404: 'Jawaban tidak ditemukan.',
+                            ...REVIEW_ERROR_OVERRIDES,
                         }
                     );
 
@@ -90,8 +96,13 @@ export function useFormSubmissionReview(options: IUseFormSubmissionReviewOptions
                         options.onReviewed?.(submissionId);
                     },
                 });
-            } catch {
-                showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
+            } catch (error: unknown) {
+                if (isHttpRequestError(error)) {
+                    const message = describeRequestError(error);
+                    if (message !== null) showErrorToast(message);
+                } else {
+                    showErrorToast('Tidak dapat menghubungi server. Coba lagi.');
+                }
             } finally {
                 clearReviewing(submissionId);
             }

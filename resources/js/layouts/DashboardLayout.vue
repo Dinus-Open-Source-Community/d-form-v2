@@ -8,7 +8,9 @@ import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vu
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
 import { useHttpErrorToast } from '@/hooks/useHttpErrorToast';
-import { clearTopbar } from '@/hooks/useDashboardTopbar';
+import { provideTopbar } from '@/hooks/useDashboardTopbar';
+
+const topbar = provideTopbar();
 
 usePageFlashToast();
 
@@ -21,7 +23,7 @@ const page = usePage();
 watch(
     () => page.component,
     () => {
-        clearTopbar();
+        topbar.clearTopbar();
     }
 );
 

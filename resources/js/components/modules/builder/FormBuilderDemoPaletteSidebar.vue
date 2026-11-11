@@ -37,6 +37,7 @@ const emit = defineEmits<{
                 <input
                     v-model="searchQuery"
                     type="text"
+                    aria-label="Cari komponen"
                     placeholder="Search components..."
                     class="border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15 w-full rounded-lg border py-2 pr-3 pl-8 text-xs font-medium shadow-xs transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus:ring-3 focus:outline-none"
                 />

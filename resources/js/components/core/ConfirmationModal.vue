@@ -29,7 +29,7 @@ const emit = defineEmits<{
 
 <template>
     <AlertDialog :open="open" @update:open="(v) => emit('update:open', v)">
-        <AlertDialogContent class="rounded-2xl">
+        <AlertDialogContent :disable-outside-pointer-events="false" class="rounded-2xl">
             <AlertDialogHeader>
                 <AlertDialogTitle class="font-display text-xl font-bold tracking-[-0.02em]">{{
                     title

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { routes } from '@/lib/routes';
 import { copyTextToClipboard } from '@/adapters/browser/clipboard';
 import { CheckCircle2, Copy, Mail } from 'lucide-vue-next';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -15,13 +16,23 @@ const props = defineProps<{
     periodName: string | null;
     applicantName: string | null;
 }>();
+const { showSuccessToast, showErrorToast } = useToastNotifications();
+const copyFailed = ref(false);
 
 const trackLoginUrl = computed(
     () => `${routes.recruitment.track.login}?reg=${encodeURIComponent(props.registrationNumber)}`
 );
 
 async function copyRegistrationNumber(): Promise<void> {
-    await copyTextToClipboard(props.registrationNumber);
+    const copied = await copyTextToClipboard(props.registrationNumber);
+    copyFailed.value = !copied;
+    if (copied) {
+        showSuccessToast('Nomor pendaftaran berhasil disalin.');
+        return;
+    }
+    showErrorToast('Nomor pendaftaran belum tersalin.', {
+        description: `Salin manual nomor ini: ${props.registrationNumber}`,
+    });
 }
 </script>
 
@@ -50,6 +61,9 @@ async function copyRegistrationNumber(): Promise<void> {
                         <Copy class="mr-1.5 size-3.5" />
                         Salin nomor
                     </Button>
+                    <p v-if="copyFailed" role="alert" class="text-destructive mt-2 text-xs">
+                        Salin manual nomor pendaftaran ini: <strong>{{ registrationNumber }}</strong>
+                    </p>
                 </div>
 
                 <ol class="space-y-3 text-sm">

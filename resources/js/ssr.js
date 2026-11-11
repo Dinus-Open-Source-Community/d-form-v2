@@ -4,12 +4,12 @@ import createServer from '@inertiajs/vue3/server';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { renderToString } from 'vue/server-renderer';
 import { createSSRApp, h } from 'vue';
+import { focusDirective } from '@/directives/focus';
 
 const lazyPageModules = import.meta.glob('./pages/**/*.vue');
 
 // `v-focus` dipakai di input inti; tanpa registrasi, resolveDirective bernilai undefined
 // dan render SSR melempar error. Versi ini hanya menyediakan `getSSRProps` (tanpa DOM).
-const ssrFocusDirective = { getSSRProps: () => ({}) };
 
 /**
  * Render satu halaman Inertia menjadi HTML+head di server (dipakai `npm run build:ssr`).
@@ -28,6 +28,6 @@ createServer((page) =>
         setup: ({ App, props, plugin }) =>
             createSSRApp({ render: () => h(App, props) })
                 .use(plugin)
-                .directive('focus', ssrFocusDirective),
+                .directive('focus', focusDirective),
     })
 );

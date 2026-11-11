@@ -53,6 +53,7 @@ function applyFilters(periodId: string, action: string) {
         <Card class="border-border/70 rounded-2xl">
             <CardContent class="flex flex-wrap gap-3 p-4">
                 <select
+                    aria-label="Filter periode"
                     class="border-input bg-background h-9 rounded-md border px-3 text-sm"
                     :value="query.period_id ?? ''"
                     @change="applyFilters(($event.target as HTMLSelectElement).value, query.action ?? '')"
@@ -64,6 +65,7 @@ function applyFilters(periodId: string, action: string) {
                 </select>
                 <input
                     type="search"
+                    aria-label="Filter aksi"
                     class="border-input bg-background h-9 min-w-[200px] flex-1 rounded-md border px-3 text-sm"
                     placeholder="Filter action..."
                     :value="query.action ?? ''"
