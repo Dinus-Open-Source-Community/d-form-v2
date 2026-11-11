@@ -6,6 +6,7 @@
         "build": "vite build",
         "build:ssr": "vite build --ssr",
         "dev": "vite",
+        "wayfinder:generate": "php artisan wayfinder:generate",
         "lint": "eslint \"resources/js/**/*.{ts,vue,js}\"",
         "lint:fix": "eslint \"resources/js/**/*.{ts,vue,js}\" --fix",
         "test:e2e": "playwright test",
@@ -14,9 +15,13 @@
         "test:e2e:setup": "playwright test --project=setup",
         "test:e2e:types": "tsc -p tsconfig.e2e.json",
         "test:unit": "vitest run",
+        "pretest:unit": "node scripts/wayfinder/generateFrontendArtifacts.js",
         "test:unit:coverage": "vitest run --coverage",
+        "pretest:unit:coverage": "node scripts/wayfinder/generateFrontendArtifacts.js",
         "typecheck": "vue-tsc --noEmit",
-        "typecheck:unit": "tsc -p tsconfig.vitest.json"
+        "pretypecheck": "node scripts/wayfinder/generateFrontendArtifacts.js",
+        "typecheck:unit": "tsc -p tsconfig.vitest.json",
+        "pretypecheck:unit": "node scripts/wayfinder/generateFrontendArtifacts.js"
     },
     "devDependencies": {
         "@laravel/vite-plugin-wayfinder": "^0.1.7",
@@ -29,7 +34,6 @@
         "@vue/language-server": "^3.3.13",
         "axios": "^1.11.0",
         "concurrently": "^10.0.6",
-        "daisyui": "^5.5.5",
         "eslint": "^10.1.0",
         "eslint-plugin-vue": "^10.8.0",
         "laravel-vite-plugin": "^2.1.0",
