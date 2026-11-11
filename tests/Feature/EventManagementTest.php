@@ -83,6 +83,37 @@ class EventManagementTest extends TestCase
             ->assertSessionHasErrors(['category', 'session', 'page']);
     }
 
+    public function test_BE_P3_001_browse_returns_expected_inertia_component_and_props(): void
+    {
+        $member = User::factory()->create();
+        $member->assignRole('member');
+        $event = Event::factory()->create([
+            'status' => EventStatus::Published,
+            'category' => 'rkt',
+            'session' => 'general',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.browse', [
+                'category' => 'rkt',
+                'session' => 'general',
+                'page' => 1,
+            ]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/Events')
+                    ->has('events', 1)
+                    ->where('events.0.id', $event->id)
+                    ->has('pagination.links')
+                    ->where('pagination.currentPage', null)
+                    ->where('pagination.hasMore', false)
+                    ->where('filters.category', 'rkt')
+                    ->where('filters.session', 'general')
+                    ->where('listMode', 'browse')
+            );
+    }
+
     public function test_events_joined_url_resolves_to_member_portal_route(): void
     {
         $route = app('router')->getRoutes()->match(
