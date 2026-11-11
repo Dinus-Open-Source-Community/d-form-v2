@@ -31,10 +31,14 @@ final class SafeExceptionReporter
             'frames' => self::frames($exception),
         ];
 
-        $correlationId = request()->header('X-Request-ID');
+        $requestId = request()->attributes->get('request_id');
 
-        if (is_string($correlationId) && Str::isUuid($correlationId)) {
-            $context['correlation_id'] = $correlationId;
+        if (! is_string($requestId) || ! Str::isUuid($requestId)) {
+            $requestId = request()->header('X-Request-ID');
+        }
+
+        if (is_string($requestId) && Str::isUuid($requestId)) {
+            $context['correlation_id'] = $requestId;
         }
 
         Log::error('unhandled_exception', $context);

@@ -2,6 +2,7 @@
 
 use App\Console\Commands\DispatchRecruitmentQrOutboxCommand;
 use App\Exceptions\QuotaExceededException;
+use App\Http\Middleware\AssignRequestCorrelationId;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\SafeExceptionReporter;
 use Illuminate\Foundation\Application;
@@ -30,7 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Prepended so the response phase runs after every other global middleware:
         // responses short-circuited earlier (503, redirects, 404s) still get headers.
-        $middleware->prepend(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->prepend([
+            \App\Http\Middleware\SecurityHeaders::class,
+            AssignRequestCorrelationId::class,
+        ]);
 
         // Appended so it runs after TrustProxies (which applies the trusted proxy
         // list per request) and therefore sees X-Forwarded-Host, while the prepended
