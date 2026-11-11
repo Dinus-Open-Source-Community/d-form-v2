@@ -12,13 +12,12 @@ use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
-use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
-use App\Services\Registration\FormAnswerInputMapper;
 use App\Services\Registration\FormAnswerWriter;
+use App\Services\Registration\FormSubmissionContext;
+use App\Services\Registration\FormSubmissionOrchestrator;
 use App\Services\Registration\FormSubmissionRules;
-use App\Services\Registration\MemberEmailListRules;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\SecretAnswerInput;
 use Illuminate\Http\RedirectResponse;
@@ -33,9 +32,8 @@ class FormSubmissionController extends Controller
         private TeamRegistrationSubmitter $teamRegistrationSubmitter,
         private BundleRegistrationSubmitter $bundleRegistrationSubmitter,
         private EventRegistrationCounter $registrationCounter,
-        private BundleGuestDuplicateChecker $bundleGuestDuplicateChecker,
         private FormAnswerWriter $formAnswerWriter,
-        private FormAnswerInputMapper $formAnswerInputMapper,
+        private FormSubmissionOrchestrator $formSubmissionOrchestrator,
     ) {
     }
 
@@ -77,42 +75,24 @@ class FormSubmissionController extends Controller
             ? TeamRegistrationSubmitter::resolveTeamSize($form)
             : 0;
 
-        $resolvedGuestIdsByEmail = null;
-
         try {
-            $validated = FormSubmissionRules::validate($request->all(), $fields, $mode, $teamSize);
-
-            if ($mode === FormSubmissionMode::Team) {
-                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form);
-            }
-
-            if ($mode === FormSubmissionMode::Bundle || $mode === FormSubmissionMode::Team) {
-                $participantEmails = MemberEmailListRules::resolve(
-                    $request->input('team_member_emails'),
-                    $user->email,
-                    $teamSize - 1,
-                );
-            }
-
-            if ($mode === FormSubmissionMode::Bundle) {
-                // The common duplicate case is rejected here, before the mapper
-                // stores appendable uploads on the private disk. A concurrent
-                // duplicate detected later by the in-transaction race guard may
-                // leave the just-stored upload behind; the form-upload storage
-                // sweep owns cleanup of those orphans, not this request.
-                $resolvedGuestIdsByEmail = $this->bundleGuestDuplicateChecker
-                    ->assertEmailsAvailableForForm($form, $participantEmails);
-                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form, $teamSize - 1);
-            }
-
-            if ($mode === FormSubmissionMode::Single || $mode === FormSubmissionMode::Other) {
-                $answers = $this->formAnswerInputMapper->map($validated, $fields, $form);
-            }
+            $payload = $this->formSubmissionOrchestrator->validateAndMap(new FormSubmissionContext(
+                input: $request->all(),
+                form: $form,
+                user: $user,
+                fields: $fields,
+                mode: $mode,
+                teamSize: $teamSize,
+            ));
         } catch (ValidationException $exception) {
             return $this->fillRedirect($event, $form)
                 ->withErrors($exception->errors())
                 ->withInput(SecretAnswerInput::flashable($request, $fields, $this->extraMemberSlots($mode, $teamSize)));
         }
+
+        $answers = $payload->answers;
+        $participantEmails = $payload->participantEmails;
+        $resolvedGuestIdsByEmail = $payload->resolvedGuestIdsByEmail;
 
         $isAdmin = $user->can('events.list');
 
