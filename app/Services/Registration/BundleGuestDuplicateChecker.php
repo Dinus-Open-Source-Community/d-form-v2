@@ -27,6 +27,48 @@ final class BundleGuestDuplicateChecker
      */
     public function assertEmailsAvailableForForm(Form $form, array $emails): array
     {
+        $normalized = $this->normalizeByIndex($emails);
+
+        if ($normalized === []) {
+            return [];
+        }
+
+        $userIdsByEmail = $this->resolveUserIdsByEmail($normalized);
+
+        $this->assertNoneTaken($form, $normalized, $userIdsByEmail);
+
+        return $userIdsByEmail;
+    }
+
+    /**
+     * Race-guard re-check inside the submit transaction.
+     *
+     * Only the active-answer predicate runs here. The user lookup is skipped by
+     * reusing the ids resolved by {@see assertEmailsAvailableForForm()}, so a
+     * submit keeps one lookup regardless of how many guards re-run.
+     *
+     * @param  array<array-key, string>  $emails
+     * @param  array<string, string>  $userIdsByEmail  output of assertEmailsAvailableForForm()
+     *
+     * @throws ValidationException
+     */
+    public function assertEmailsStillAvailable(Form $form, array $emails, array $userIdsByEmail): void
+    {
+        $normalized = $this->normalizeByIndex($emails);
+
+        if ($normalized === []) {
+            return;
+        }
+
+        $this->assertNoneTaken($form, $normalized, $userIdsByEmail);
+    }
+
+    /**
+     * @param  array<array-key, string>  $emails
+     * @return array<array-key, string>
+     */
+    private function normalizeByIndex(array $emails): array
+    {
         $normalized = [];
 
         foreach ($emails as $index => $email) {
@@ -39,21 +81,36 @@ final class BundleGuestDuplicateChecker
             $normalized[$index] = $value;
         }
 
-        if ($normalized === []) {
-            return [];
-        }
+        return $normalized;
+    }
 
-        $uniqueEmails = array_values(array_unique($normalized));
-
+    /**
+     * @param  array<array-key, string>  $normalized
+     * @return array<string, string>
+     */
+    private function resolveUserIdsByEmail(array $normalized): array
+    {
         $userIdsByEmail = [];
-        $userIds = [];
 
         foreach (User::resolveByNormalizedEmails($normalized) as $email => $user) {
             // Mirror the old User::...->first() semantics: keep the first user id
             // per input email, but still pass every resolved id to the user_id branch.
             $userIdsByEmail[$email] = (string) $user->id;
-            $userIds[] = (string) $user->id;
         }
+
+        return $userIdsByEmail;
+    }
+
+    /**
+     * @param  array<array-key, string>  $normalized
+     * @param  array<string, string>  $userIdsByEmail
+     *
+     * @throws ValidationException
+     */
+    private function assertNoneTaken(Form $form, array $normalized, array $userIdsByEmail): void
+    {
+        $uniqueEmails = array_values(array_unique($normalized));
+        $userIds = array_values($userIdsByEmail);
 
         $takenEmails = [];
         $takenUserIds = [];
@@ -92,7 +149,5 @@ final class BundleGuestDuplicateChecker
                 ]);
             }
         }
-
-        return $userIdsByEmail;
     }
 }

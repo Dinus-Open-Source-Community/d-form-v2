@@ -37,6 +37,9 @@ final class BundleRegistrationSubmitter
     /**
      * @param  list<array<string, mixed>>  $memberAnswerRows  one merged answers payload per member (same keys as leader)
      * @param  list<string>  $memberEmails  normalized lowercase emails
+     * @param  array<string, string>|null  $resolvedUserIdsByEmail  output of
+     *         BundleGuestDuplicateChecker::assertEmailsAvailableForForm() when the caller already
+     *         checked before mapping answers; null re-runs the full check in the transaction.
      * @return array{leader: FormAnswer, members: list<FormAnswer>}
      */
     public function submit(
@@ -47,6 +50,7 @@ final class BundleRegistrationSubmitter
         array $memberAnswerRows,
         array $memberEmails,
         bool $adminExemptFromQuota,
+        ?array $resolvedUserIdsByEmail = null,
     ): array {
         $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
 
@@ -75,8 +79,16 @@ final class BundleRegistrationSubmitter
             $leaderAnswers,
             $memberAnswerRows,
             $adminExemptFromQuota,
-            $teamSize
+            $teamSize,
+            $resolvedUserIdsByEmail
         ): array {
+            // Concurrency invariant: the read view that makes the race guard
+            // correct starts after the event row lock; do not add a non-locking
+            // read before it and do not move the lock. Bundle submits for the
+            // same event serialize here, so assertEmailsStillAvailable() must be
+            // the first consistent (non-locking) read after lockForUpdate();
+            // a plain SELECT earlier would fix the snapshot before the competing
+            // submit commits and silently hide the duplicate.
             $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
             if ($lockedEvent === null) {
                 throw new \RuntimeException('Event not found.');
@@ -93,7 +105,15 @@ final class BundleRegistrationSubmitter
                 ]);
             }
 
-            $userIdsByEmail = $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
+            // The caller that already rejected duplicates before mapping answers
+            // passes its resolution, so this transaction only re-runs the race
+            // predicate (never the user lookup or the answer mapping).
+            if ($resolvedUserIdsByEmail !== null) {
+                $this->duplicateChecker->assertEmailsStillAvailable($form, $memberEmails, $resolvedUserIdsByEmail);
+                $userIdsByEmail = $resolvedUserIdsByEmail;
+            } else {
+                $userIdsByEmail = $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
+            }
 
             $this->registrationCounter->assertCanReserve($lockedEvent, $teamSize, $adminExemptFromQuota);
 

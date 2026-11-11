@@ -5,22 +5,16 @@
 
 import type { IBackendField, IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
 import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata';
-import { cleanStoredImageUrl } from '@/hooks/useBuilderImageUpload';
+import { cleanStoredImageUrl, stripLocalImageUrlsDeep } from '@/lib/builderImageSanitizer';
 
 export type { IBackendField, IBuilderField, IFieldOptionEntry };
 
-/** Builder type display-only: tidak menerima jawaban, tidak masuk answer keys. */
-export const DISPLAY_ONLY_BUILDER_TYPES: ReadonlySet<string> = new Set([
-    'heading',
-    'paragraph',
-    'divider',
-    'banner',
-    'image',
-]);
-
-export function isDisplayOnlyBuilderType(type: unknown): boolean {
-    return typeof type === 'string' && DISPLAY_ONLY_BUILDER_TYPES.has(type);
-}
+/**
+ * Daftar display-only dimiliki `@/lib/formFieldContract` (satu sumber lintas sisi).
+ * Re-export dipertahankan karena `fieldMapping` adalah seam publik builder bagi
+ * pemanggil lama (mis. `Dashboard/Events/Forms/Show.vue`).
+ */
+export { DISPLAY_ONLY_BUILDER_TYPES, isDisplayOnlyBuilderType } from '@/lib/formFieldContract';
 
 export function optionLabel(entry: IFieldOptionEntry): string {
     return String(entry.label ?? '').trim();
@@ -66,7 +60,16 @@ function preservedMeta(f: IBuilderField): Record<string, unknown> {
     // API validation allows only string|null for metadata.options (radio/checkbox).
     // Stale array-shaped `options` from DB or legacy clients must not be re-submitted.
     delete raw.options;
-    return raw;
+
+    // Metadata lama bisa membawa preview lokal (`blob:`/`data:`). Strip di semua nilai
+    // agar payload backend tidak pernah menerima URL sementara, termasuk key yang tidak
+    // dipetakan eksplisit di bawah.
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+        cleaned[key] = stripLocalImageUrlsDeep(value);
+    }
+
+    return cleaned;
 }
 
 function withMeta(f: IBuilderField, specific: Record<string, unknown>): Record<string, unknown> {
@@ -291,7 +294,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     rules: {},
                     builderType: 'banner',
                     accepts: 'gif, png, jpg, jpeg',
-                    bannerUrl: (f.metadata?.bannerUrl as string) || '',
+                    bannerUrl: cleanStoredImageUrl(f.metadata?.bannerUrl),
                     bannerFileName: (f.metadata?.bannerFileName as string) || '',
                     content: (f.metadata?.content as string) || '',
                     formBanner: Boolean(f.metadata?.formBanner),

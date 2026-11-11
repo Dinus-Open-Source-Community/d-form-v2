@@ -2,15 +2,17 @@
 import { ref, watch, computed, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
-import { saveFormFields, updateFormSettings, reviewFormSubmission } from '@/adapters/http/forms';
+import {
+    persistFormSnapshotKeepalive,
+    resolveBuilderImageUploadUrl,
+    saveFormFields,
+    updateFormSettings,
+    reviewFormSubmission,
+} from '@/adapters/http/forms';
 import { currentOrigin } from '@/adapters/browser/navigation';
 import { useAutosaveSync } from '@/hooks/useAutosaveSync';
-import {
-    builderPendingUploads,
-    cleanStoredImageUrl,
-    resolveBuilderImageUploadUrl,
-    sanitizeBuilderSnapshot,
-} from '@/hooks/useBuilderImageUpload';
+import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
+import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
 import { getFieldError, handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
 import { notifyAutosaveFailure } from '@/lib/autosaveFailureToast';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
@@ -111,20 +113,19 @@ const formFields = ref<IBuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
 // ── Autosave global: semua mutasi builder (fields + header/settings) ──
+/** Snapshot mentah; sanitasi draft lokal ditangani `useAutosaveSync`. */
 function buildShowSnapshot(): string {
-    return sanitizeBuilderSnapshot(
-        JSON.stringify({
-            fields: formFields.value,
-            title: settingsForm.title,
-            description: settingsForm.description,
-            bannerUrl: bannerState.value.bannerUrl,
-            bannerCaption: bannerState.value.caption,
-            success: settingsForm.success_content ?? '',
-            closedAt: settingsForm.closed_at ?? '',
-            visibleFor: settingsForm.visible_for,
-            metadata: formMetadata.value,
-        })
-    );
+    return JSON.stringify({
+        fields: formFields.value,
+        title: settingsForm.title,
+        description: settingsForm.description,
+        bannerUrl: bannerState.value.bannerUrl,
+        bannerCaption: bannerState.value.caption,
+        success: settingsForm.success_content ?? '',
+        closedAt: settingsForm.closed_at ?? '',
+        visibleFor: settingsForm.visible_for,
+        metadata: formMetadata.value,
+    });
 }
 
 /** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
@@ -134,7 +135,12 @@ async function saveShowSnapshot(): Promise<void> {
     const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
     const backendFields = toBackendFields(merged);
     await saveFormFields(props.saveFieldsUrl, backendFields);
-    await updateFormSettings(props.updateFormUrl, {
+    await updateFormSettings(props.updateFormUrl, buildShowSettingsPayload(backendFields));
+}
+
+/** Payload settings yang dipakai autosave biasa maupun snapshot keepalive. */
+function buildShowSettingsPayload(backendFields: IBackendField[]): Record<string, unknown> {
+    return {
         title: settingsForm.title,
         description: settingsForm.description,
         success_content: settingsForm.success_content ?? '',
@@ -144,6 +150,18 @@ async function saveShowSnapshot(): Promise<void> {
         banner_caption: bannerState.value.caption || null,
         fields: backendFields,
         metadata: toFormMetadataPayload(formMetadata.value),
+    };
+}
+
+/** Snapshot final saat halaman di-reload/ditinggalkan, dikirim dengan `keepalive`. */
+function saveShowSnapshotOnUnload(): void {
+    const backendFields = toBackendFields(prependFormBannerToBackendPayload(formFields.value, bannerState.value));
+
+    persistFormSnapshotKeepalive({
+        fieldsUrl: props.saveFieldsUrl,
+        fields: backendFields,
+        settingsUrl: props.updateFormUrl,
+        settings: buildShowSettingsPayload(backendFields),
     });
 }
 
@@ -240,6 +258,7 @@ const showAutosave = useAutosaveSync(buildShowSnapshot, saveShowSnapshot, {
     debounceMs: 800,
     isBlocked: () => builderPendingUploads.value > 0,
     onError: (message) => notifyAutosaveFailure(message, () => void showAutosave.retry()),
+    saveOnUnload: saveShowSnapshotOnUnload,
 });
 const showSaveState = showAutosave.status;
 const manualSaving = ref(false);

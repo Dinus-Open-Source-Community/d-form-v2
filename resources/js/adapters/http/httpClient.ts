@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { readCookie } from '@/adapters/browser/cookies';
 import {
     HttpRequestError,
     readPublicMessage,
@@ -167,6 +168,31 @@ export async function requestBlob(url: string, signal?: AbortSignal): Promise<Bl
     } catch (error) {
         throw toRequestError(error);
     }
+}
+
+/**
+ * Kirim JSON tanpa menunggu respons, dengan `keepalive` agar browser tetap
+ * meneruskannya ketika halaman di-reload/ditinggalkan (XHR/axios dibatalkan).
+ * Dipakai untuk snapshot autosave terakhir; kegagalan tidak bisa ditampilkan
+ * karena halaman bisa sudah dibuang, jadi sengaja diabaikan.
+ */
+export function sendJsonKeepalive(options: IHttpRequestOptions): void {
+    const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...options.headers,
+    };
+    const xsrfToken = readCookie('XSRF-TOKEN');
+    if (xsrfToken !== '') headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
+
+    void fetch(options.url, {
+        method: options.method ?? 'POST',
+        body: JSON.stringify(options.body ?? null),
+        headers,
+        credentials: 'same-origin',
+        keepalive: true,
+    }).catch((): void => undefined);
 }
 
 /**

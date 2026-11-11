@@ -442,6 +442,7 @@ Catatan skema:
 - `forms.event_id` **nullable** sejak migrasi `2026_09_23` (form OpRec tidak terikat event).
 - `form_answers.user_id` **nullable** sejak `2026_06_11` (peserta guest/bundle).
 - `email_logs` mengait ke `form_answer_id` **atau** `recruitment_application_id`; keduanya nullable.
+- `forms.archived_by_event_id` / `form_fields.archived_by_event_id` (nullable, migrasi `2026_11_11_000001`) menandai cascade arsip event: saat event di-restore, **hanya baris yang diarsipkan oleh event itu** yang dikembalikan. Backfill `2026_11_11_000002` memberi marker pada arsip lama yang `deleted_at`-nya sama dengan event/form, sehingga perilaku restore lama tetap berlaku untuk data itu; baris yang diarsipkan mandiri (marker `NULL`, atau arsip lama yang tidak cocok) tetap ter-soft-delete. `forceDelete` event meninggalkan child dengan marker yang menunjuk event id yang sudah hard-deleted (pembersihan follow-up).
 - Fitur broadcast memakai tabel `email_*` (baru). Tabel legacy `broadcasts` hanya tersisa sebagai file migrasi `.bak`.
 - 45 migrasi aktif; 4 file `.bak` tidak dijalankan.
 

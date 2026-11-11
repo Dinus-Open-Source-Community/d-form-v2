@@ -10,12 +10,14 @@ use App\Enums\RegistrationRole;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
+use App\Models\FormField;
 use App\Models\User;
 use App\Services\Registration\BundleGuestDuplicateChecker;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -333,6 +335,58 @@ class TeamBundleParticipantQueryCountTest extends TestCase
 
         $this->assertSame(12, FormAnswer::query()->where('form_id', $form->id)->count());
         $this->assertSame(11, FormAnswer::query()->where('form_id', $form->id)->where('is_active', 1)->count());
+    }
+
+    /**
+     * BE-P3-013: one user lookup per submit, plus the in-transaction race
+     * predicate. The duplicated cost in the original code was the user lookup
+     * running outside *and* inside the transaction; the predicate intentionally
+     * runs twice (pre-check before answer mapping + race guard).
+     */
+    public function test_bundle_http_submit_runs_the_user_lookup_once_and_keeps_the_race_guard(): void
+    {
+        Mail::fake();
+
+        $leader     = User::factory()->create();
+        $guestEmail = 'bundle-once-'.uniqid().'@example.com';
+        $event      = $this->openEvent();
+        $form       = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'bundle',
+                'max_team_size'     => 2,
+            ],
+        ]);
+
+        FormField::factory()->create([
+            'form_id'    => $form->id,
+            'input_type' => 'input',
+            'name'       => 'full_name',
+            'label'      => 'Full Name',
+            'order'      => 1,
+            'metadata'   => ['type' => 'text', 'rules' => ['required' => true], 'duplicatable' => true],
+        ]);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->actingAs($leader)
+            ->post(route('dashboard.forms.submission', ['event' => $event, 'form' => $form], false), [
+                'full_name' => 'Lead Person',
+                'bundle__full_name__0' => 'Second Person',
+                'team_member_emails' => [$guestEmail],
+            ])
+            ->assertRedirect(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false));
+
+        $emailLookupQueries = $this->countQueriesMatching('/["`]?email_normalized["`]?\s+in\s*\(/i');
+        $invitedEmailQueries = $this->countQueriesMatching('/["`]?invited_email["`]?\s+in\s*\(/i');
+
+        DB::disableQueryLog();
+
+        // One lookup (pre-check) + one predicate before mapping (rejects before
+        // file I/O) + one predicate inside the transaction (race guard).
+        $this->assertSame(1, $emailLookupQueries, 'The user lookup must run once per submit.');
+        $this->assertSame(2, $invitedEmailQueries, 'Pre-check plus in-transaction race predicate.');
+        $this->assertSame(2, FormAnswer::query()->where('form_id', $form->id)->count());
     }
 
     public function test_bundle_checker_query_count_is_constant(): void

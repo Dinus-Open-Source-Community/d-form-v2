@@ -6,11 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-vue-next';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
-import {
-    createLocalImagePreviewUrl,
-    revokeLocalImagePreviewUrl,
-    useBuilderImageUpload,
-} from '@/hooks/useBuilderImageUpload';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
+import { useBuilderImageUpload } from '@/hooks/useBuilderImageUpload';
 
 const props = withDefaults(
     defineProps<{
@@ -53,8 +50,8 @@ async function onBannerFile(ev: Event) {
     const previousName = props.modelValue.bannerFileName;
 
     // Preview instan (object URL) — tidak pernah base64, tidak pernah ke DB apa adanya.
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
-    const localUrl = createLocalImagePreviewUrl(file);
+    revokeObjectUrl(localPreviewUrl.value);
+    const localUrl = createObjectUrl(file);
     localPreviewUrl.value = localUrl;
     patch({ bannerUrl: localUrl, bannerFileName: file.name });
     input.value = '';
@@ -62,14 +59,14 @@ async function onBannerFile(ev: Event) {
     const result = await uploadImage(file);
     if (result) {
         localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
+        revokeObjectUrl(localUrl);
         patch({ bannerUrl: result.url, bannerFileName: file.name });
         return;
     }
 
     if (props.uploadUrl.trim() !== '') {
         localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
+        revokeObjectUrl(localUrl);
         patch({ bannerUrl: previousUrl, bannerFileName: previousName });
         if (!bannerUploadError.value) bannerUploadError.value = 'Gagal mengunggah gambar. Coba lagi.';
     }
@@ -77,7 +74,7 @@ async function onBannerFile(ev: Event) {
 }
 
 function clearImage() {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    revokeObjectUrl(localPreviewUrl.value);
     localPreviewUrl.value = '';
     patch({ bannerUrl: '', bannerFileName: '' });
 }
@@ -86,7 +83,7 @@ const previewSrc = computed(() => localPreviewUrl.value || normalizePublicStorag
 const isUploading = computed(() => bannerUploading.value);
 
 onUnmounted(() => {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    revokeObjectUrl(localPreviewUrl.value);
 });
 </script>
 

@@ -12,6 +12,22 @@ use Illuminate\Validation\Validator;
 final class FormFieldsRequestValidation
 {
     /**
+     * Request keys owned by the submission boundary. A form field with one of
+     * these names would shadow (or be shadowed by) framework/registration input.
+     *
+     * @var list<string>
+     */
+    public const RESERVED_FIELD_NAMES = ['team_member_emails', '_token', '_method'];
+
+    /**
+     * Prefix reserved for bundle participant slot inputs (`bundle__name__0`).
+     */
+    public const RESERVED_FIELD_NAME_PREFIX = 'bundle__';
+
+    /** Characters Laravel validation interprets as paths/wildcards. */
+    private const PATH_SEPARATOR_CHARACTERS = ['.', '*'];
+
+    /**
      * Validation rules for each entry in the `fields` array (dashboard / API).
      *
      * @return array<string, mixed>
@@ -191,6 +207,15 @@ final class FormFieldsRequestValidation
                 if (!is_array($field)) {
                     continue;
                 }
+
+                $name = $field['name'] ?? null;
+                if (is_string($name) && $name !== '') {
+                    $problem = self::fieldNameProblem($name);
+                    if ($problem !== null) {
+                        $validator->errors()->add("fields.{$index}.name", $problem);
+                    }
+                }
+
                 if (($field['type'] ?? '') === 'datePicker') {
                     $min = $field['metadata']['rules']['min_date'] ?? null;
                     $max = $field['metadata']['rules']['max_date'] ?? null;
@@ -274,6 +299,29 @@ final class FormFieldsRequestValidation
                 }
             }
         });
+    }
+
+    /**
+     * Reject names that break the validation/answer boundary. Returns a
+     * user-facing reason naming the offending field, or `null` when valid.
+     */
+    private static function fieldNameProblem(string $name): ?string
+    {
+        foreach (self::PATH_SEPARATOR_CHARACTERS as $character) {
+            if (str_contains($name, $character)) {
+                return "Field name \"{$name}\" may not contain \"{$character}\": Laravel validation treats it as a nested path or wildcard.";
+            }
+        }
+
+        if (in_array($name, self::RESERVED_FIELD_NAMES, true)) {
+            return "Field name \"{$name}\" is reserved by the form submission boundary; choose another name.";
+        }
+
+        if (str_starts_with($name, self::RESERVED_FIELD_NAME_PREFIX)) {
+            return "Field name \"{$name}\" may not start with \"".self::RESERVED_FIELD_NAME_PREFIX."\": that prefix is reserved for bundle participant slots.";
+        }
+
+        return null;
     }
 
     private static function validateFormMetadataConstraints(

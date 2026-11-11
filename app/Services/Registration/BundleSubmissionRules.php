@@ -44,19 +44,7 @@ final class BundleSubmissionRules
 
     public static function fieldIsDisplayOnly(FormField $field): bool
     {
-        $meta = $field->metadata;
-        $bt = null;
-        if ($meta instanceof \Illuminate\Support\Collection) {
-            $bt = $meta->get('builderType');
-        } elseif (is_array($meta)) {
-            $bt = $meta['builderType'] ?? null;
-        }
-
-        if (is_string($bt) && in_array($bt, ['heading', 'paragraph', 'divider', 'banner'], true)) {
-            return true;
-        }
-
-        return $field->input_type === 'banner';
+        return RulesBuilder::isDisplayOnlyField($field);
     }
 
     /**
@@ -66,7 +54,7 @@ final class BundleSubmissionRules
      * @param  Collection<int, FormField>  $fields
      * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
      */
-    public static function buildForFill(Collection $fields, int $extraMemberSlots, bool $requireScalarString = false): array
+    public static function buildForFill(Collection $fields, int $extraMemberSlots, bool $requireScalarString = true): array
     {
         $raw = RulesBuilder::extractRulesFromFields($fields);
         $laravel = RulesBuilder::build($raw, $requireScalarString);

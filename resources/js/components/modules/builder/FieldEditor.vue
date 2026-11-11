@@ -2,11 +2,8 @@
 import { computed, onUnmounted, ref } from 'vue';
 import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
-import {
-    createLocalImagePreviewUrl,
-    revokeLocalImagePreviewUrl,
-    useBuilderImageUpload,
-} from '@/hooks/useBuilderImageUpload';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
+import { useBuilderImageUpload } from '@/hooks/useBuilderImageUpload';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -164,13 +161,13 @@ function onOptionImageFile(optionId: string, event: Event) {
     optionUploadError.value = '';
     void (async () => {
         // Preview instan (object URL) — tidak pernah base64.
-        const localUrl = createLocalImagePreviewUrl(file);
+        const localUrl = createObjectUrl(file);
         setOptionImageUrlById(optionId, localUrl);
         trackOptionUpload(optionId, true);
         try {
             const result = await uploadImage(file);
             if (result) {
-                revokeLocalImagePreviewUrl(localUrl);
+                revokeObjectUrl(localUrl);
                 setOptionImageUrlById(optionId, result.url);
             } else if (props.uploadUrl.trim() !== '') {
                 setOptionImageUrlById(optionId, '');
@@ -208,16 +205,16 @@ async function onImageBlockFile(event: Event): Promise<void> {
     imageBlockUploadError.value = '';
     const previous = typeof props.field.metadata?.imageUrl === 'string' ? props.field.metadata.imageUrl : '';
     // Preview instan (object URL) — tidak pernah base64.
-    const localUrl = createLocalImagePreviewUrl(file);
+    const localUrl = createObjectUrl(file);
     updateMeta('imageUrl', localUrl);
     imageBlockUploading.value = true;
     try {
         const result = await uploadImage(file);
         if (result) {
-            revokeLocalImagePreviewUrl(localUrl);
+            revokeObjectUrl(localUrl);
             updateMeta('imageUrl', result.url);
         } else if (props.uploadUrl.trim() !== '') {
-            revokeLocalImagePreviewUrl(localUrl);
+            revokeObjectUrl(localUrl);
             updateMeta('imageUrl', previous);
             imageBlockUploadError.value = 'Gagal mengunggah gambar. Coba lagi.';
         }
@@ -229,16 +226,16 @@ async function onImageBlockFile(event: Event): Promise<void> {
 
 function clearImageBlock(): void {
     const raw = props.field.metadata?.imageUrl;
-    if (typeof raw === 'string') revokeLocalImagePreviewUrl(raw);
+    if (typeof raw === 'string') revokeObjectUrl(raw);
     updateMeta('imageUrl', '');
 }
 
 onUnmounted(() => {
     const raw = props.field.metadata?.imageUrl;
-    if (typeof raw === 'string' && raw.startsWith('blob:')) revokeLocalImagePreviewUrl(raw);
+    if (typeof raw === 'string' && raw.startsWith('blob:')) revokeObjectUrl(raw);
     for (const opt of optionRows()) {
         if (typeof opt.imageUrl === 'string' && opt.imageUrl.startsWith('blob:')) {
-            revokeLocalImagePreviewUrl(opt.imageUrl);
+            revokeObjectUrl(opt.imageUrl);
         }
     }
 });

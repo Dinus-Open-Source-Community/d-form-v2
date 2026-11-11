@@ -7,10 +7,12 @@ use App\Models\FormField;
 /**
  * API / kontrak memakai `select`; kolom DB `form_fields.input_type` memakai `selectInput`.
  * `radio` dan `checkbox` tersimpan dengan nama yang sama di API dan DB.
+ * `banner` sengaja tidak ada di `API_TYPES`: banner nyata disimpan sebagai
+ * `fileUpload` + `metadata.builderType = banner`.
  */
 final class FormFieldTypeMapping
 {
-    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox', 'banner'];
+    public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox'];
 
     /**
      * Konten gambar builder TIDAK menambah API type / enum DB baru:

@@ -15,8 +15,10 @@ use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\FormAnswerFileStorage;
+use App\Services\Registration\FormAnswerInputMapper;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\FormFieldTypeMapping;
+use App\Support\SecretAnswerInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -31,6 +33,7 @@ class TeamInvitationController extends Controller
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
         private FormAnswerFileStorage $formAnswerFiles,
+        private FormAnswerInputMapper $formAnswerInputMapper,
     ) {
     }
 
@@ -192,29 +195,16 @@ class TeamInvitationController extends Controller
         if ($validator->fails()) {
             return redirect()->route('dashboard.user.team-invitations.show', ['token' => $token])
                 ->withErrors($validator)
-                ->withInput();
+                ->withInput(SecretAnswerInput::flashable($request, $appendableFields));
         }
 
-        foreach ($appendableFields as $field) {
-            $name     = $field->name;
-            $metadata = $field->metadata;
-            $meta     = $metadata instanceof \Illuminate\Support\Collection
-                ? $metadata->all()
-                : (array) $metadata;
-
-            if ($field->input_type === 'fileUpload') {
-                $file = $request->file($name);
-                if ($file !== null) {
-                    $answers[$name] = $this->formAnswerFiles->store($file, $form);
-                }
-            } elseif ($field->input_type === 'checkbox') {
-                $answers[$name] = $request->input($name, []);
-            } elseif ($field->input_type === 'selectInput' && ! empty($meta['is_multiple'])) {
-                $answers[$name] = $request->input($name, []);
-            } else {
-                $answers[$name] = $request->input($name);
-            }
-        }
+        $answers = $this->formAnswerInputMapper->mergeAnswers(
+            $validator->validated(),
+            $appendableFields,
+            $form,
+            $answers,
+            preserveStoredFiles: true,
+        );
 
         $answer->forceFill([
             'answers' => $answers,
@@ -288,7 +278,7 @@ class TeamInvitationController extends Controller
             }
 
             $laravelRules[$name] = array_map(
-                fn (string $rule) => $rule === 'required' ? 'nullable' : $rule,
+                static fn (mixed $rule): mixed => $rule === 'required' ? 'nullable' : $rule,
                 $laravelRules[$name]
             );
         }

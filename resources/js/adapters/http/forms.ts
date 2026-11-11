@@ -1,5 +1,5 @@
 import { HttpRequestError, isRecord } from '@/adapters/http/httpError';
-import { requestBlob, requestJson, requestJsonWithStatus } from '@/adapters/http/httpClient';
+import { requestBlob, requestJson, requestJsonWithStatus, sendJsonKeepalive } from '@/adapters/http/httpClient';
 import type { TFormReviewStatus, IFormReviewErrorBody, IFormReviewSuccessResponse } from '@/types/forms';
 import type { THttpMethod } from '@/types/http';
 import { isPersistableImageUrl } from '@/lib/urlPolicy';
@@ -111,6 +111,11 @@ function readRegisteredUser(value: unknown): IRegisteredUserSummary | null {
     };
 }
 
+/** URL endpoint upload gambar builder `POST /admin/events/{event}/forms/{form}/images`. */
+export function resolveBuilderImageUploadUrl(eventId: string | number, formId: string | number): string {
+    return `/admin/events/${eventId}/forms/${formId}/images`;
+}
+
 /** Simpan daftar field form builder. Payload builder bersifat dinamis, adapter hanya menyerialkan. */
 export async function saveFormFields(url: string, fields: unknown[]): Promise<void> {
     await requestJson({ url, method: 'POST', body: { fields } }, parseAck);
@@ -119,6 +124,28 @@ export async function saveFormFields(url: string, fields: unknown[]): Promise<vo
 /** Simpan header/metadata form builder. */
 export async function updateFormSettings(url: string, payload: Record<string, unknown>): Promise<void> {
     await requestJson({ url, method: 'PUT', body: payload }, parseAck);
+}
+
+/** Snapshot final autosave yang dikirim saat halaman ditinggalkan. */
+export interface IFormSnapshotKeepaliveOptions {
+    fieldsUrl: string;
+    fields: unknown[];
+    /** Bila kosong, hanya daftar field yang dikirim (header belum lengkap). */
+    settingsUrl?: string;
+    settings?: Record<string, unknown>;
+}
+
+/**
+ * Simpan snapshot terakhir dengan `keepalive`, dipanggil dari `pagehide`.
+ * Request yang sudah berjalan lewat axios/XHR dibatalkan browser saat reload;
+ * jalur ini memakai Fetch `keepalive` sehingga perubahan terakhir tetap sampai.
+ */
+export function persistFormSnapshotKeepalive(options: IFormSnapshotKeepaliveOptions): void {
+    sendJsonKeepalive({ url: options.fieldsUrl, method: 'POST', body: { fields: options.fields } });
+
+    if (options.settingsUrl === undefined || options.settings === undefined) return;
+
+    sendJsonKeepalive({ url: options.settingsUrl, method: 'PUT', body: options.settings });
 }
 
 /** Upload satu gambar builder ke endpoint `{form}/images`. */

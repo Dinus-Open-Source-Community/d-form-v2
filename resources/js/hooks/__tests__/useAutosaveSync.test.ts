@@ -40,9 +40,32 @@ function createSaveController(): ISaveController {
 
 const DEBOUNCE_MS = 50;
 
+/** Window palsu yang merekam listener `pagehide` agar bisa dipicu manual. */
+function stubPageLifecycle(): { fire: (type: string) => void } {
+    const listeners = new Map<string, Array<() => void>>();
+    vi.stubGlobal('window', {
+        addEventListener: (type: string, handler: () => void): void => {
+            listeners.set(type, [...(listeners.get(type) ?? []), handler]);
+        },
+        removeEventListener: (type: string, handler: () => void): void => {
+            listeners.set(
+                type,
+                (listeners.get(type) ?? []).filter((entry: () => void): boolean => entry !== handler)
+            );
+        },
+    });
+
+    return {
+        fire: (type: string): void => {
+            for (const handler of listeners.get(type) ?? []) handler();
+        },
+    };
+}
+
 afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
 });
 
 describe('useAutosaveSync', () => {
@@ -311,6 +334,7 @@ describe('useAutosaveSync', () => {
         autosave.markSaved();
         expect(autosave.status.value).toBe('idle');
 
+        autosave.schedule();
         void autosave.flush();
         await vi.advanceTimersByTimeAsync(0);
         controller.deferreds[0]?.reject(new Error('boom'));
@@ -405,6 +429,7 @@ describe('useAutosaveSync', () => {
             onError: () => undefined,
         });
 
+        autosave.schedule();
         void autosave.flush();
         await vi.advanceTimersByTimeAsync(500);
 
@@ -424,6 +449,7 @@ describe('useAutosaveSync', () => {
             blockedWaitTimeoutMs: 1_000,
         });
 
+        autosave.schedule();
         void autosave.flush();
         await vi.advanceTimersByTimeAsync(0);
         expect(autosave.status.value).toBe('uploading');
@@ -434,5 +460,195 @@ describe('useAutosaveSync', () => {
 
         expect(autosave.status.value).toBe('idle');
         expect(controller.calls).toEqual([]);
+    });
+});
+
+describe('useAutosaveSync unload guard', () => {
+    it('hasUnsavedChanges: true saat edit tertunda, false setelah save sukses', async () => {
+        vi.useFakeTimers();
+        const controller = createSaveController();
+        const autosave = useAutosaveSync(() => 'v1', controller.save, { debounceMs: DEBOUNCE_MS });
+
+        expect(autosave.hasUnsavedChanges.value).toBe(false);
+
+        autosave.schedule();
+        expect(autosave.hasUnsavedChanges.value).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        controller.deferreds[0]?.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(autosave.hasUnsavedChanges.value).toBe(false);
+    });
+
+    it('edit baru saat save berjalan tetap tercatat belum tersimpan', async () => {
+        vi.useFakeTimers();
+        let current = 'v1';
+        const controller = createSaveController();
+        const autosave = useAutosaveSync(() => current, controller.save, { debounceMs: DEBOUNCE_MS });
+
+        autosave.schedule();
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        expect(controller.calls).toEqual(['v1']);
+
+        current = 'v2';
+        autosave.schedule();
+        controller.deferreds[0]?.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+
+        // Masih ada debounce yang menunggu v2 → belum boleh dianggap bersih.
+        expect(autosave.hasUnsavedChanges.value).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        expect(controller.calls).toEqual(['v1', 'v2']);
+
+        controller.deferreds[1]?.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(autosave.hasUnsavedChanges.value).toBe(false);
+    });
+
+    it('pagehide mengirim snapshot final hanya saat ada perubahan belum tersimpan', async () => {
+        vi.useFakeTimers();
+        const pageLifecycle = stubPageLifecycle();
+        let current = 'v1';
+        const controller = createSaveController();
+        const saveOnUnload = vi.fn();
+        const autosave = useAutosaveSync(() => current, controller.save, {
+            debounceMs: DEBOUNCE_MS,
+            saveOnUnload,
+        });
+
+        // Form bersih: unload tidak boleh memicu request tambahan.
+        pageLifecycle.fire('pagehide');
+        expect(saveOnUnload).not.toHaveBeenCalled();
+
+        autosave.schedule();
+        current = 'v2';
+        autosave.schedule();
+        pageLifecycle.fire('pagehide');
+
+        expect(saveOnUnload).toHaveBeenCalledTimes(1);
+        expect(saveOnUnload).toHaveBeenCalledWith('v2');
+
+        // Keepalive tidak menandai state bersih, tetapi debounce yang menunggu dibatalkan
+        // agar snapshot yang sama tidak dikirim ulang lewat XHR (mis. saat restore bfcache).
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
+        expect(controller.calls).toEqual([]);
+        expect(saveOnUnload).toHaveBeenCalledTimes(1);
+    });
+
+    it('pagehide tidak mengirim snapshot saat autosave disabled', async () => {
+        vi.useFakeTimers();
+        const pageLifecycle = stubPageLifecycle();
+        const enabled = ref(true);
+        const saveOnUnload = vi.fn();
+        const autosave = useAutosaveSync(
+            () => 'v1',
+            async () => undefined,
+            {
+                debounceMs: DEBOUNCE_MS,
+                enabled,
+                saveOnUnload,
+            }
+        );
+
+        autosave.schedule();
+        enabled.value = false;
+        pageLifecycle.fire('pagehide');
+
+        expect(saveOnUnload).not.toHaveBeenCalled();
+    });
+
+    it('markSaved membersihkan tanda perubahan setelah manual save', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('window', undefined);
+        const autosave = useAutosaveSync(
+            () => 'v1',
+            async () => undefined,
+            { debounceMs: DEBOUNCE_MS }
+        );
+
+        autosave.schedule();
+        expect(autosave.hasUnsavedChanges.value).toBe(true);
+
+        autosave.markSaved();
+        expect(autosave.hasUnsavedChanges.value).toBe(false);
+    });
+});
+
+describe('useAutosaveSync flush tanpa perubahan', () => {
+    it('flush saat tidak ada edit tertunda tidak memulai save', async () => {
+        vi.useFakeTimers();
+        const controller = createSaveController();
+        const autosave = useAutosaveSync(() => 'v1', controller.save, { debounceMs: DEBOUNCE_MS });
+
+        await autosave.flush();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(controller.calls).toEqual([]);
+        expect(autosave.hasUnsavedChanges.value).toBe(false);
+    });
+
+    it('flush setelah save sukses tidak mengirim putaran kedua', async () => {
+        vi.useFakeTimers();
+        const controller = createSaveController();
+        const autosave = useAutosaveSync(() => 'v1', controller.save, { debounceMs: DEBOUNCE_MS });
+
+        autosave.schedule();
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        controller.deferreds[0]?.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(controller.calls).toEqual(['v1']);
+
+        // Navigasi eksplisit + unmount memanggil flush lagi: tidak boleh menambah request.
+        await autosave.flush();
+        await autosave.flush();
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        expect(controller.calls).toEqual(['v1']);
+    });
+
+    it('retry setelah error tetap berjalan meski status bukan navigating', async () => {
+        vi.useFakeTimers();
+        const controller = createSaveController();
+        const autosave = useAutosaveSync(() => 'v1', controller.save, { debounceMs: DEBOUNCE_MS });
+
+        autosave.schedule();
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+        controller.deferreds[0]?.reject(new Error('boom'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(autosave.status.value).toBe('error');
+        expect(autosave.hasUnsavedChanges.value).toBe(true);
+
+        void autosave.retry();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(controller.calls).toEqual(['v1', 'v1']);
+    });
+
+    it('sanitasi snapshot hanya untuk draft storage; save menerima snapshot mentah', async () => {
+        vi.useFakeTimers();
+        const writes: string[] = [];
+        const snapshots: string[] = [];
+        const storage: IAutosaveStorage = {
+            read: () => null,
+            write: (_key: string, value: string): void => {
+                writes.push(value);
+            },
+            remove: () => {},
+        };
+        const raw = JSON.stringify({ bannerUrl: 'blob:https://dform.test/1', title: 'A' });
+        const autosave = useAutosaveSync(
+            () => raw,
+            async (snapshot: string): Promise<void> => {
+                snapshots.push(snapshot);
+            },
+            { debounceMs: DEBOUNCE_MS, storage, storageKey: 'draft' }
+        );
+
+        autosave.schedule();
+        void autosave.flush();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(JSON.parse(writes[0] ?? '{}')).toEqual({ bannerUrl: '', title: 'A' });
+        expect(snapshots).toEqual([raw]);
     });
 });

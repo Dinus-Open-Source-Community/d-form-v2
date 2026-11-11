@@ -2,8 +2,10 @@
 
 namespace App\Services\Form;
 
+use App\Models\FormField;
 use App\Rules\SafeUploadFile;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 class RulesBuilder
 {
@@ -17,6 +19,32 @@ class RulesBuilder
     ];
 
     /**
+     * Builder block types that never produce an answer. Frontend single source:
+     * `resources/js/lib/formFieldContract.ts`; both sides are asserted against
+     * `tests/fixtures/form-field-contract.json`.
+     *
+     * @var list<string>
+     */
+    public const DISPLAY_ONLY_BUILDER_TYPES = ['heading', 'paragraph', 'divider', 'banner', 'image'];
+
+    /**
+     * Field whose validated key must never reach `form_answers.answers`.
+     * Display-only blocks are skipped here so client-sent strings for them are
+     * not even validated, let alone stored.
+     */
+    public static function isDisplayOnlyField(FormField $field): bool
+    {
+        $builderType = self::metadataArray($field)['builderType'] ?? null;
+
+        if (is_string($builderType) && in_array($builderType, self::DISPLAY_ONLY_BUILDER_TYPES, true)) {
+            return true;
+        }
+
+        // Legacy rows may still carry the (now rejected) `banner` input type.
+        return $field->input_type === 'banner';
+    }
+
+    /**
      * Method ini untuk mengambil rules dari field-field untuk dibuild nantinya
      * @template T of \App\Models\FormField
      * @param Collection<int, T> $fields
@@ -24,20 +52,19 @@ class RulesBuilder
      */
     public static function extractRulesFromFields(Collection $fields): array
     {
-        $result = $fields->mapWithKeys(function ($field) {
-            $metadata = $field->metadata;
-            if (is_object($metadata) && method_exists($metadata, 'get')) {
-                $ruleSet = $metadata->get('rules') ?? [];
-                $inputSubtype = $metadata->get('type') ?? null;
-                $options = $metadata->get('options') ?? null;
-                $builderType = $metadata->get('builderType') ?? null;
-            } else {
-                $md = (array) $metadata;
-                $ruleSet = $md['rules'] ?? [];
-                $inputSubtype = $md['type'] ?? null;
-                $options = $md['options'] ?? null;
-                $builderType = $md['builderType'] ?? null;
+        $result = [];
+
+        foreach ($fields as $field) {
+            if (self::isDisplayOnlyField($field)) {
+                continue;
             }
+
+            $metadata = self::metadataArray($field);
+            $ruleSet = $metadata['rules'] ?? [];
+            $inputSubtype = $metadata['type'] ?? null;
+            $options = $metadata['options'] ?? null;
+            $builderType = $metadata['builderType'] ?? null;
+
             if (!is_array($ruleSet)) {
                 $ruleSet = [];
             }
@@ -54,31 +81,49 @@ class RulesBuilder
                 $ruleSet['in'] = $options;
             }
 
+            // Canonical option sources: builder writes rules.in + optionChoices,
+            // older forms only have metadata.options.
+            $choices = self::resolveChoices($metadata, $ruleSet);
+
             if ($field->input_type === 'checkbox') {
                 $ruleSet['is_checkbox'] = true;
-                if (is_string($options) && $options !== '') {
-                    $ruleSet['checkbox_in'] = $options;
+                if ($choices !== []) {
+                    $ruleSet['allowed_choices'] = $choices;
                 }
             }
 
             if ($field->input_type === 'selectInput') {
-                $isMultiple = is_object($metadata) && method_exists($metadata, 'get')
-                    ? $metadata->get('is_multiple')
-                    : (isset($md['is_multiple']) ? $md['is_multiple'] : false);
+                $isMultiple = filter_var($metadata['is_multiple'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-                if (filter_var($isMultiple, FILTER_VALIDATE_BOOLEAN)) {
+                if ($isMultiple) {
                     $ruleSet['is_multiple'] = true;
+                    if ($choices !== []) {
+                        $ruleSet['allowed_choices'] = $choices;
+                    }
                 }
+            }
+
+            if (
+                in_array($field->input_type, ['selectInput', 'radio'], true)
+                && self::choicesAreNumeric($choices)
+            ) {
+                $ruleSet['scalar_guard'] = 'numeric';
+            }
+
+            if ($field->input_type === 'datePicker') {
+                $ruleSet['scalar_guard'] = 'date';
+            }
+
+            if ($field->input_type === 'input' && $inputSubtype === 'number') {
+                $ruleSet['scalar_guard'] = 'numeric';
             }
 
             if ($field->input_type === 'fileUpload') {
                 $ruleSet['is_file'] = true;
             }
 
-            return [
-                (string) $field->name => $ruleSet,
-            ];
-        })->all();
+            $result[(string) $field->name] = $ruleSet;
+        }
 
         return $result;
     }
@@ -87,11 +132,15 @@ class RulesBuilder
      * Mengonversi custom rules array menjadi Laravel Validation rules.
      *
      * @param array<string, array<string, mixed>> $customRules
-     * @param bool $requireScalarString Tambahkan rule `string` untuk field skalar
-     *        agar payload array tidak lolos `required` lalu tersimpan sebagai array.
-     * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
+     * @param bool $requireScalarString Tambahkan guard tipe skalar untuk field
+     *        agar payload array/objek tidak lolos `required` lalu tersimpan
+     *        sebagai array. Guard mengikuti tipe field (`string`, `numeric`
+     *        untuk select/number numerik, `date` untuk datePicker). Default aman
+     *        untuk jawaban user; `false` hanya untuk caller yang memang butuh
+     *        rules mentah (mis. payload non-jawaban).
+     * @return array<string, array<int, string|\App\Rules\SafeUploadFile|\Illuminate\Validation\Rules\In>>
      */
-    public static function build(array $customRules, bool $requireScalarString = false): array
+    public static function build(array $customRules, bool $requireScalarString = true): array
     {
         $laravelRules = [];
 
@@ -105,12 +154,7 @@ class RulesBuilder
             if ($isCheckbox) {
                 $mappedRules[] = $isRequired ? 'required' : 'nullable';
                 $mappedRules[] = 'array';
-                if (!empty($rules['checkbox_in'])) {
-                    $allowedValues = implode(',', array_map('trim', explode(',', (string) $rules['checkbox_in'])));
-                    $laravelRules["{$fieldName}.*"] = ["string", "in:{$allowedValues}"];
-                } else {
-                    $laravelRules["{$fieldName}.*"] = ['string'];
-                }
+                $laravelRules["{$fieldName}.*"] = self::elementRules($rules);
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
             }
@@ -118,7 +162,7 @@ class RulesBuilder
             if ($isMultiple) {
                 $mappedRules[] = $isRequired ? 'required' : 'nullable';
                 $mappedRules[] = 'array';
-                $laravelRules["{$fieldName}.*"] = ['string'];
+                $laravelRules["{$fieldName}.*"] = self::elementRules($rules);
                 $laravelRules[$fieldName] = $mappedRules;
                 continue;
             }
@@ -153,7 +197,7 @@ class RulesBuilder
             }
 
             if ($requireScalarString) {
-                $mappedRules[] = 'string';
+                $mappedRules[] = self::scalarGuardRule($rules);
             }
 
             foreach (self::DIRECT_MAP as $customKey => $laravelKey) {
@@ -177,13 +221,176 @@ class RulesBuilder
             }
 
             if (!empty($rules['in'])) {
-                $allowedValues = implode(',', array_map('trim', explode(',', (string) $rules['in'])));
-                $mappedRules[] = "in:{$allowedValues}";
+                $allowedValues = self::normalizeChoiceList($rules['in']);
+                if ($allowedValues !== []) {
+                    $mappedRules[] = Rule::in($allowedValues);
+                }
             }
 
             $laravelRules[$fieldName] = $mappedRules;
         }
 
         return $laravelRules;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function metadataArray(FormField $field): array
+    {
+        $metadata = $field->metadata;
+
+        if ($metadata instanceof Collection) {
+            return $metadata->all();
+        }
+
+        if (is_object($metadata) && method_exists($metadata, 'toArray')) {
+            return $metadata->toArray();
+        }
+
+        return is_array($metadata) ? $metadata : [];
+    }
+
+    /**
+     * Rules for one element of an array-valued field (`checkbox`, multi-select).
+     * The whitelist uses array-form `Rule::in` so an option label containing
+     * `,` or `|` cannot widen/inject the rule.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array<int, string|\Illuminate\Validation\Rules\In>
+     */
+    private static function elementRules(array $rules): array
+    {
+        $allowedValues = self::normalizeChoiceList($rules['allowed_choices'] ?? null);
+
+        return $allowedValues === [] ? ['string'] : ['string', Rule::in($allowedValues)];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @param  array<string, mixed>  $ruleSet
+     * @return list<string>
+     */
+    private static function resolveChoices(array $metadata, array $ruleSet): array
+    {
+        $choices = self::normalizeChoiceList($ruleSet['in'] ?? null);
+        if ($choices === []) {
+            $choices = self::normalizeChoiceList($metadata['optionChoices'] ?? null);
+        }
+        if ($choices === []) {
+            $choices = self::normalizeChoiceList($metadata['options'] ?? null);
+        }
+
+        return $choices;
+    }
+
+    /**
+     * @param  list<string>  $choices
+     */
+    private static function choicesAreNumeric(array $choices): bool
+    {
+        if ($choices === []) {
+            return false;
+        }
+
+        foreach ($choices as $choice) {
+            if (!is_numeric($choice)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Scalar guard for a field: rejects array/object payloads while keeping the
+     * field's natural scalar type (numeric select/number, date).
+     *
+     * @param  array<string, mixed>  $rules
+     */
+    private static function scalarGuardRule(array $rules): string
+    {
+        $guard = $rules['scalar_guard'] ?? 'string';
+
+        return in_array($guard, ['string', 'numeric', 'date'], true) ? $guard : 'string';
+    }
+
+    /**
+     * Normalize any option source into a list of allowed answer strings.
+     *
+     * Accepts a CSV string, a JSON string, an array of strings, or an array of
+     * option rows (`optionChoices`) where the answer is the `label` (falling
+     * back to `value`/`text`/`name`).
+     *
+     * @return list<string>
+     */
+    private static function normalizeChoiceList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                return [];
+            }
+
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $decoded = json_decode($trimmed, true);
+                if (is_array($decoded)) {
+                    $value = $decoded;
+                }
+            }
+
+            if (is_string($value)) {
+                return self::uniqueChoices(explode(',', $value));
+            }
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return self::uniqueChoices($value);
+    }
+
+    /**
+     * @param array<int|string, mixed> $items
+     * @return list<string>
+     */
+    private static function uniqueChoices(array $items): array
+    {
+        $choices = [];
+
+        foreach ($items as $item) {
+            $label = self::choiceLabel($item);
+            if ($label !== null) {
+                $choices[$label] = true;
+            }
+        }
+
+        return array_keys($choices);
+    }
+
+    private static function choiceLabel(mixed $item): ?string
+    {
+        if (is_string($item) || is_int($item) || is_float($item)) {
+            $label = trim((string) $item);
+
+            return $label === '' ? null : $label;
+        }
+
+        if (!is_array($item)) {
+            return null;
+        }
+
+        foreach (['label', 'value', 'text', 'name'] as $key) {
+            $candidate = $item[$key] ?? null;
+            if (is_string($candidate) || is_int($candidate) || is_float($candidate)) {
+                $label = trim((string) $candidate);
+                if ($label !== '') {
+                    return $label;
+                }
+            }
+        }
+
+        return null;
     }
 }

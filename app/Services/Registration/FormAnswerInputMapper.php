@@ -67,6 +67,39 @@ final class FormAnswerInputMapper
     }
 
     /**
+     * Merge mapped answers for the given fields into an existing payload.
+     *
+     * Used by the team/bundle invitation confirmation, where a member may edit
+     * only appendable fields. `preserveStoredFiles` keeps the already stored
+     * path when the member submits no new upload instead of resetting it to
+     * `null` (submission behaviour stays the default).
+     *
+     * @param  array<string, mixed>  $validated
+     * @param  Collection<int, FormField>  $fields
+     * @param  array<string, mixed>  $existingAnswers
+     * @return array<string, mixed>
+     */
+    public function mergeAnswers(
+        array $validated,
+        Collection $fields,
+        Form $form,
+        array $existingAnswers,
+        bool $preserveStoredFiles = false,
+    ): array {
+        foreach ($fields as $field) {
+            $value = $this->valueFor($validated, $field, $form, $field->name);
+
+            if ($preserveStoredFiles && $field->input_type === 'fileUpload' && $value === null) {
+                continue;
+            }
+
+            $existingAnswers[$field->name] = $value;
+        }
+
+        return $existingAnswers;
+    }
+
+    /**
      * @param  array<string, mixed>  $validated
      * @param  Collection<int, FormField>  $fields
      * @return array<string, mixed>

@@ -32,7 +32,10 @@ class OprecFormRequest extends FormRequest
             return self::legacyRules();
         }
 
-        return RulesBuilder::build(RulesBuilder::extractRulesFromFields($fields));
+        return RulesBuilder::build(
+            RulesBuilder::extractRulesFromFields($fields),
+            requireScalarString: true,
+        );
     }
 
     /**

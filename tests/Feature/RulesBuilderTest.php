@@ -19,28 +19,32 @@ class RulesBuilderTest extends TestCase
                 'username' => ['required' => 1, 'min' => 10, 'max' => 255, 'regex' => '^adalah$'],
                 'email'    => ['required' => 1, 'min' => 10, 'max' => 255, 'email' => 1],
                 'bio'      => ['required' => null],
-                'start_date' => ['max_date' => '2026-10-10'],
+                'start_date' => ['max_date' => '2026-10-10', 'scalar_guard' => 'date'],
                 'image'    => ['required' => true, 'max_size' => 2048, 'mimes' => 'jpg', 'is_file' => true],
             ];
 
         $expectedBuiltRules = [
             'username' => [
                 'required',
+                'string',
                 'min:10',
                 'max:255',
                 'regex:/^adalah$/',
             ],
             'email' => [
                 'required',
+                'string',
                 'min:10',
                 'max:255',
                 'email'
             ],
             'bio' => [
                 'nullable',
+                'string',
             ],
             'start_date' => [
                 'nullable',
+                'date',
                 'before_or_equal:2026-10-10',
             ],
         ];

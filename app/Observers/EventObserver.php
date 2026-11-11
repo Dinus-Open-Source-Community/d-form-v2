@@ -85,25 +85,45 @@ class EventObserver
      * Cascade soft-delete to child forms (and their fields) so an event draft
      * removal (wizard Cancel) does not leave orphaned forms behind.
      *
+     * Only rows that are active at event-archive time are touched; a child an
+     * admin archived independently keeps its own `deleted_at`. The touched rows
+     * are marked with `archived_by_event_id` so {@see restored()} can revive
+     * exactly that set (BE-P2-017).
+     *
      * Bulk `UPDATE` (bukan delete per model) menjaga jumlah query konstan. Form dan
      * FormField tidak punya observer/listener, jadi tidak ada side effect model yang
      * terlewat; `updated_at` diisi otomatis oleh Eloquent Builder::update().
      *
      * Form di-update lebih dulu, baru field: subquery field memakai `withTrashed()`
-     * sehingga form yang baru saja di-soft-delete tetap cocok. Urutan ini menghindari
-     * lock S->X pada `forms` dan ABBA dengan `FormController::update` (forms lalu fields);
-     * `DB::transaction(..., 3)` menangani deadlock 1213 yang tersisa.
+     * dan marker form sehingga field milik form yang baru saja di-soft-delete tetap
+     * cocok, sementara field form yang diarsipkan mandiri tidak ikut. Urutan ini
+     * menghindari lock S->X pada `forms` dan ABBA dengan `FormController::update`
+     * (forms lalu fields); `DB::transaction(..., 3)` menangani deadlock 1213.
      */
     public function deleting(Event $event): void
     {
-        DB::transaction(function () use ($event): void {
-            Form::withTrashed()
-                ->where('event_id', $event->id)
-                ->update(['deleted_at' => now()]);
+        $archivedAt = now();
 
-            FormField::withTrashed()
-                ->whereIn('form_id', Form::withTrashed()->select('id')->where('event_id', $event->id))
-                ->update(['deleted_at' => now()]);
+        DB::transaction(function () use ($event, $archivedAt): void {
+            Form::query()
+                ->where('event_id', $event->id)
+                ->update([
+                    'deleted_at' => $archivedAt,
+                    'archived_by_event_id' => $event->id,
+                ]);
+
+            FormField::query()
+                ->whereIn(
+                    'form_id',
+                    Form::withTrashed()
+                        ->select('id')
+                        ->where('event_id', $event->id)
+                        ->where('archived_by_event_id', $event->id),
+                )
+                ->update([
+                    'deleted_at' => $archivedAt,
+                    'archived_by_event_id' => $event->id,
+                ]);
         }, 3);
     }
 
@@ -113,20 +133,37 @@ class EventObserver
      * Hitungan kategori tidak disentuh di sini: `restore()` memicu `updated` dengan
      * deleted_at berubah, dan delta di `updated` sudah menambahkannya kembali.
      *
-     * `onlyTrashed()` meniru perilaku `restore()` per model: baris yang masih aktif
-     * adalah no-op, sehingga form yang diarsipkan terpisah tetap ikut dikembalikan.
+     * Hanya baris yang ditandai `archived_by_event_id` milik event ini yang
+     * dikembalikan; form/field yang diarsipkan admin secara mandiri tetap
+     * ter-soft-delete (BE-P2-017). Marker dibersihkan agar arsip mandiri
+     * berikutnya tidak pernah dianggap milik cascade event ini.
+     *
      * Urutan form-lalu-field dan retry deadlock sama dengan {@see deleting()}.
      */
     public function restored(Event $event): void
     {
         DB::transaction(function () use ($event): void {
+            // Capture the cascade set before the marker is cleared; field restore
+            // is scoped to those forms so a field of an independently archived
+            // form is never revived on its own.
+            $formIds = Form::onlyTrashed()
+                ->where('event_id', $event->id)
+                ->where('archived_by_event_id', $event->id)
+                ->pluck('id');
+
             Form::onlyTrashed()
                 ->where('event_id', $event->id)
-                ->update(['deleted_at' => null]);
+                ->where('archived_by_event_id', $event->id)
+                ->update(['deleted_at' => null, 'archived_by_event_id' => null]);
+
+            if ($formIds->isEmpty()) {
+                return;
+            }
 
             FormField::onlyTrashed()
-                ->whereIn('form_id', Form::withTrashed()->select('id')->where('event_id', $event->id))
-                ->update(['deleted_at' => null]);
+                ->whereIn('form_id', $formIds->all())
+                ->where('archived_by_event_id', $event->id)
+                ->update(['deleted_at' => null, 'archived_by_event_id' => null]);
         }, 3);
 
         $this->invalidateEventCache(true);

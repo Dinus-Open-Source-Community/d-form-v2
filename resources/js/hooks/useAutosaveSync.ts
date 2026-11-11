@@ -1,5 +1,6 @@
-import { ref, watch, type Ref } from 'vue';
-import { sanitizeBuilderSnapshot } from '@/hooks/useBuilderImageUpload';
+import { getCurrentInstance, onUnmounted, ref, watch, type Ref } from 'vue';
+import { onPageHide } from '@/adapters/browser/pageLifecycle';
+import { sanitizeBuilderSnapshot } from '@/lib/builderImageSanitizer';
 
 export type TAutosaveStatus = 'idle' | 'saving' | 'saved' | 'uploading' | 'error';
 
@@ -25,10 +26,14 @@ export interface IUseAutosaveSyncOptions {
     onError?: (message: string) => void;
     storage?: IAutosaveStorage;
     storageKey?: string;
+    /** Kirim snapshot final saat halaman ditinggalkan bila masih ada perubahan belum tersimpan. */
+    saveOnUnload?: (snapshot: string) => void;
 }
 
 export interface IUseAutosaveSyncResult {
     status: Ref<TAutosaveStatus>;
+    /** True bila ada edit yang belum sukses tersimpan ke server. */
+    hasUnsavedChanges: Ref<boolean>;
     /** Jadwalkan simpan remote setelah debounce; tulisan `storage` lokal langsung dieksekusi. */
     schedule: () => void;
     /** Jalankan save remote sekarang, satu request aktif; pemanggilan beruntun terkoalesasi. */
@@ -58,12 +63,23 @@ export interface IUseAutosaveSyncResult {
 /**
  * Auto-sync global: optimistik (UI berubah duluan) + debounce (remote belakangan).
  * Halaman menyuplai `source` (snapshot serial) dan `save` (cara menyimpan).
- * Snapshot selalu disanitasi (strip `data:`/`blob:` URL) agar DB tidak menerima base64.
+ *
+ * Kepemilikan sanitasi (satu lapisan, tidak dobel):
+ * - `source()` mengembalikan snapshot **mentah** (JSON) milik halaman.
+ * - Hook menyanitasi hanya saat snapshot ditulis ke draft storage (`writeDraftSnapshot`).
+ * - Payload remote/keepalive dibangun halaman dari state bertipe lalu disanitasi di
+ *   boundary pemetaan (`toBackendFields` → `cleanStoredImageUrl`, settings `banner_url`),
+ *   jadi `save`/`saveOnUnload` menerima snapshot mentah dan boleh mengabaikannya.
  *
  * Serialisasi: hanya satu `save` aktif. `flush` saat save berjalan menandai satu
  * putaran tambahan yang membaca snapshot terbaru (last write wins) tanpa abort
  * request yang sudah dikirim. Kegagalan menghentikan loop dan menunggu retry
- * eksplisit agar server yang sedang gagal tidak dihantam berulang.
+ * eksplisit agar server yang sedang gagal tidak dihantam berulang. `flush` tanpa
+ * edit tertunda tidak memulai putaran baru.
+ *
+ * `hasUnsavedChanges` + `saveOnUnload` menjaga edit terakhir saat halaman
+ * ditinggalkan: `pagehide` mengirim snapshot lewat jalur `keepalive`, karena
+ * XHR yang sedang berjalan dibatalkan browser pada reload/close.
  */
 export function useAutosaveSync(
     source: () => string,
@@ -74,6 +90,7 @@ export function useAutosaveSync(
     const blockedRetryMs = opts.blockedRetryMs ?? debounceMs;
     const blockedWaitTimeoutMs = opts.blockedWaitTimeoutMs ?? 30_000;
     const status = ref<TAutosaveStatus>('idle');
+    const hasUnsavedChanges = ref(false);
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let runner: Promise<void> | null = null;
     let runAgain = false;
@@ -104,16 +121,17 @@ export function useAutosaveSync(
     }
 
     /**
-     * Tulis snapshot ke storage lokal. Serialisasi dihitung di luar `try` agar
-     * kegagalan menyiapkan data tidak dilaporkan sebagai storage tidak tersedia.
-     * `onError` hanya dipanggil pada transisi sukses→gagal agar tidak spam per keystroke.
+     * Tulis snapshot ke storage lokal. Sanitasi hanya di sini karena inilah satu-satunya
+     * konsumen yang membutuhkannya: payload remote dibangun dari state bertipe dan
+     * disanitasi di boundary pemetaan (`toBackendFields`/`cleanStoredImageUrl`), sehingga
+     * tidak ada deep walk ganda yang hasilnya dibuang.
      */
     function writeDraftSnapshot(): void {
         if (!opts.storage || !opts.storageKey) return;
 
         let snapshot: string;
         try {
-            snapshot = cleanSnapshot();
+            snapshot = sanitizeBuilderSnapshot(source());
             snapshotPrepareFailed = false;
         } catch {
             status.value = 'idle';
@@ -134,9 +152,9 @@ export function useAutosaveSync(
         }
     }
 
-    /** Snapshot bersih: `data:`/`blob:` URL (preview lokal) tidak ikut tersimpan. */
-    function cleanSnapshot(): string {
-        return sanitizeBuilderSnapshot(source());
+    /** Snapshot mentah dari halaman; sanitasi draft lokal ditangani `writeDraftSnapshot`. */
+    function rawSnapshot(): string {
+        return source();
     }
 
     function clearTimer(): void {
@@ -185,7 +203,7 @@ export function useAutosaveSync(
         status.value = 'saving';
         let snapshot: string;
         try {
-            snapshot = cleanSnapshot();
+            snapshot = rawSnapshot();
         } catch {
             status.value = 'error';
             notifyError('Gagal menyiapkan data yang akan disimpan.');
@@ -209,7 +227,11 @@ export function useAutosaveSync(
                 runAgain = false;
                 const succeeded = await runOnce();
                 if (!succeeded) break;
-                if (!runAgain) break;
+                if (!runAgain) {
+                    // Save terakhir sukses: bersih hanya bila tidak ada edit yang menunggu debounce.
+                    hasUnsavedChanges.value = debounceTimer !== null;
+                    break;
+                }
                 if (suspended) {
                     // Putaran tambahan yang diantre sebelum suspend tidak boleh jalan;
                     // serahkan ke resume() agar tetap tersimpan setelah manual save.
@@ -237,6 +259,7 @@ export function useAutosaveSync(
 
     function schedule(): void {
         if (!isEnabled()) return;
+        hasUnsavedChanges.value = true;
         writeDraftSnapshot();
         clearTimer();
         if (suspended) {
@@ -256,12 +279,17 @@ export function useAutosaveSync(
     }
 
     function flush(): Promise<void> {
+        const hasPendingWork = debounceTimer !== null || hasUnsavedChanges.value;
         clearTimer();
         if (!isEnabled()) return Promise.resolve();
         if (suspended) {
-            pendingWhileSuspended = true;
+            if (hasPendingWork) pendingWhileSuspended = true;
             return Promise.resolve();
         }
+        // Tidak ada edit tertunda → jangan mulai putaran save baru. Ini yang membuat
+        // flush eksplisit saat navigasi tidak diikuti save duplikat dari unmount.
+        if (!hasPendingWork) return Promise.resolve();
+        hasUnsavedChanges.value = true;
         return requestRun();
     }
 
@@ -270,6 +298,7 @@ export function useAutosaveSync(
     }
 
     function markSaved(): void {
+        hasUnsavedChanges.value = false;
         if (status.value === 'error') status.value = 'saved';
     }
 
@@ -292,6 +321,7 @@ export function useAutosaveSync(
         suspended = false;
         if (pendingWhileSuspended) {
             pendingWhileSuspended = false;
+            hasUnsavedChanges.value = true;
             void requestRun();
         }
     }
@@ -300,5 +330,42 @@ export function useAutosaveSync(
         schedule();
     });
 
-    return { status, schedule, flush, waitForIdle, retry, markSaved, cancel, suspend, resume };
+    let stopPageHide: (() => void) | null = null;
+    if (opts.saveOnUnload !== undefined) {
+        const saveOnUnload = opts.saveOnUnload;
+        stopPageHide = onPageHide((): void => {
+            if (!hasUnsavedChanges.value || !isEnabled()) return;
+
+            // Debounce yang menunggu dibatalkan: snapshot yang sama sudah dikirim lewat
+            // jalur keepalive, sehingga restore bfcache tidak mengirim putaran ganda.
+            clearTimer();
+
+            try {
+                saveOnUnload(rawSnapshot());
+            } catch {
+                // Snapshot gagal disiapkan saat halaman sudah ditinggalkan: tidak ada UI tersisa.
+            }
+        });
+
+        const instance = getCurrentInstance();
+        if (instance !== null) {
+            onUnmounted((): void => {
+                stopPageHide?.();
+                stopPageHide = null;
+            });
+        }
+    }
+
+    return {
+        status,
+        hasUnsavedChanges,
+        schedule,
+        flush,
+        waitForIdle,
+        retry,
+        markSaved,
+        cancel,
+        suspend,
+        resume,
+    };
 }

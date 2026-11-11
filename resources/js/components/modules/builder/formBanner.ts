@@ -1,4 +1,5 @@
 import type { IBuilderField } from '@/components/modules/builder/fieldMapping';
+import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
 
 export interface IFormBannerState {
     id: string | null;
@@ -82,7 +83,9 @@ export function buildFormBannerBuilderField(state: IFormBannerState): IBuilderFi
         options: [],
         metadata: {
             accepts: 'gif, png, jpg, jpeg',
-            bannerUrl: trimmedUrl,
+            // URL preview lokal (`blob:`/`data:`) tidak boleh masuk payload backend;
+            // `hasPayload` tetap memakai nilai mentah agar keputusan membuat field tidak berubah.
+            bannerUrl: cleanStoredImageUrl(trimmedUrl),
             bannerFileName: state.bannerFileName.trim(),
             content: trimmedCaption,
             formBanner: true,

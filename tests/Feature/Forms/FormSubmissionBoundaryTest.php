@@ -54,6 +54,14 @@ class FormSubmissionBoundaryTest extends TestCase
         return $user;
     }
 
+    private function admin(): User
+    {
+        $user = User::factory()->create();
+        $user->assignRole('admin');
+
+        return $user;
+    }
+
     private function openEvent(array $overrides = []): Event
     {
         return Event::factory()->create(array_merge([
@@ -148,6 +156,18 @@ class FormSubmissionBoundaryTest extends TestCase
     private function submitSuccessRedirect(Event $event, Form $form): string
     {
         return route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false);
+    }
+
+    private function passwordField(Form $form, string $name = 'account_password'): FormField
+    {
+        return FormField::factory()->create([
+            'form_id'    => $form->id,
+            'input_type' => 'input',
+            'name'       => $name,
+            'label'      => 'Account Password',
+            'order'      => 9,
+            'metadata'   => ['type' => 'password', 'rules' => ['required' => true]],
+        ]);
     }
 
     // =========================================================================
@@ -463,6 +483,54 @@ class FormSubmissionBoundaryTest extends TestCase
         $this->assertDatabaseCount('form_answers', 1);
     }
 
+    /**
+     * BE-P3-013 regression: the duplicate pre-check runs before the answer
+     * mapper, so a rejected duplicate attempt never writes a private upload.
+     */
+    public function test_bundle_duplicate_guest_email_stores_no_new_private_file(): void
+    {
+        Storage::fake('local');
+        Mail::fake();
+
+        $leader     = $this->member();
+        $guestEmail = 'boundary-no-file-'.uniqid().'@example.com';
+        $event      = $this->openEvent();
+        $form       = $this->bundleForm($event, 2);
+        $this->duplicatableTextField($form);
+
+        FormField::factory()->create([
+            'form_id'    => $form->id,
+            'input_type' => 'fileUpload',
+            'name'       => 'cv',
+            'label'      => 'CV',
+            'order'      => 2,
+            'metadata'   => ['rules' => ['required' => true, 'mimes' => 'pdf', 'max_size' => 2048]],
+        ]);
+
+        $existing = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => null,
+            'invited_email' => $guestEmail,
+            'answers' => ['full_name' => 'Existing Guest', 'cv' => 'form-uploads/'.$form->id.'/existing.pdf'],
+        ]);
+
+        $this->assertSame([], Storage::disk('local')->allFiles());
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Lead Person',
+                'bundle__full_name__0' => 'Second Person',
+                'team_member_emails' => [$guestEmail],
+                'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\n".str_repeat('x', 100)."\n%%EOF"),
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails.0');
+
+        $this->assertSame([], Storage::disk('local')->allFiles());
+        $this->assertSame(1, FormAnswer::query()->where('form_id', $form->id)->count());
+        $this->assertDatabaseHas('form_answers', ['id' => $existing->id]);
+    }
+
     public function test_bundle_submission_rejects_the_leader_as_guest(): void
     {
         $leader = $this->member();
@@ -719,6 +787,125 @@ class FormSubmissionBoundaryTest extends TestCase
             ->assertSessionHasErrors('cv');
 
         $this->assertDatabaseCount('form_answers', 0);
+    }
+
+    // =========================================================================
+    // Failed-submit old input and post-submit redirect target
+    // =========================================================================
+
+    public function test_failed_single_submit_never_flashes_password_answers(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $this->textField($form);
+        $this->passwordField($form);
+
+        $secret = 'p@ssw0rd-'.uniqid();
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $form), [
+                'nickname' => 'Jane',
+                'account_password' => $secret,
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('full_name');
+
+        $oldInput = session('_old_input');
+
+        $this->assertIsArray($oldInput);
+        $this->assertSame('Jane', $oldInput['nickname'] ?? null);
+        $this->assertArrayNotHasKey('account_password', $oldInput);
+        $this->assertStringNotContainsString($secret, (string) json_encode(session()->all()));
+        $this->assertDatabaseCount('form_answers', 0);
+    }
+
+    public function test_failed_team_submit_never_flashes_password_answers(): void
+    {
+        $leader = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->teamForm($event, 2);
+        $this->textField($form);
+        $this->passwordField($form);
+
+        $secret = 'p@ssw0rd-'.uniqid();
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'full_name' => 'Team Leader',
+                'account_password' => $secret,
+                'team_member_emails' => ['nobody-'.uniqid().'@example.com'],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails.0');
+
+        $oldInput = session('_old_input');
+
+        $this->assertIsArray($oldInput);
+        $this->assertSame('Team Leader', $oldInput['full_name'] ?? null);
+        $this->assertArrayNotHasKey('account_password', $oldInput);
+        $this->assertStringNotContainsString($secret, (string) json_encode(session()->all()));
+        $this->assertDatabaseCount('form_answers', 0);
+    }
+
+    public function test_failed_bundle_submit_never_flashes_slot_password_answers(): void
+    {
+        $leader = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->bundleForm($event, 2);
+        $this->duplicatableTextField($form);
+
+        FormField::factory()->create([
+            'form_id'    => $form->id,
+            'input_type' => 'input',
+            'name'       => 'account_password',
+            'label'      => 'Account Password',
+            'order'      => 2,
+            'metadata'   => ['type' => 'password', 'rules' => ['required' => true], 'duplicatable' => true],
+        ]);
+
+        $secret = 'slot-secret-'.uniqid();
+        $slotSecret = $secret.'-slot';
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'nickname' => 'Lead',
+                'account_password' => $secret,
+                'bundle__account_password__0' => $slotSecret,
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors(['full_name', 'bundle__full_name__0']);
+
+        $oldInput = session('_old_input');
+        $sessionPayload = (string) json_encode(session()->all());
+
+        $this->assertIsArray($oldInput);
+        $this->assertSame('Lead', $oldInput['nickname'] ?? null);
+        $this->assertArrayNotHasKey('account_password', $oldInput);
+        $this->assertArrayNotHasKey('bundle__account_password__0', $oldInput);
+        $this->assertStringNotContainsString($secret, $sessionPayload);
+        $this->assertStringNotContainsString($slotSecret, $sessionPayload);
+        $this->assertDatabaseCount('form_answers', 0);
+    }
+
+    public function test_non_owner_organizer_success_redirect_lands_on_an_allowed_page(): void
+    {
+        $owner = $this->admin();
+        $submitter = $this->admin();
+        $event = $this->openEvent(['created_by' => $owner->id]);
+        $form  = $this->openForm($event);
+        $this->textField($form);
+
+        $response = $this->actingAs($submitter)
+            ->post($this->submitPath($event, $form), ['full_name' => 'Jane Doe']);
+
+        $expected = route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form]);
+        $response->assertRedirect($expected);
+        $this->assertSame($expected, $response->headers->get('Location'));
+
+        $this->actingAs($submitter)
+            ->get($response->headers->get('Location'))
+            ->assertOk();
     }
 
     public function test_display_only_fields_are_not_stored_in_answers(): void

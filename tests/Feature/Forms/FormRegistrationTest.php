@@ -142,7 +142,7 @@ class FormRegistrationTest extends TestCase
     /** Post-submit redirect matches {@see FormSubmissionController} (members land on submit success page). */
     private function submitSuccessRedirect(Event $event, User $user, Form $form): string
     {
-        if ($user->can('events.view')) {
+        if ($user->can('view', $event)) {
             return route('dashboard.events.show', $event);
         }
 

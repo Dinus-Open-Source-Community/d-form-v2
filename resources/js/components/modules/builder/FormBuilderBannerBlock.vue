@@ -4,11 +4,8 @@ import { Button } from '@/components/ui/button';
 import { ImageUp, Loader2, RefreshCw, X } from 'lucide-vue-next';
 import type { IFormBannerState } from './formBanner';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
-import {
-    createLocalImagePreviewUrl,
-    revokeLocalImagePreviewUrl,
-    useBuilderImageUpload,
-} from '@/hooks/useBuilderImageUpload';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
+import { useBuilderImageUpload } from '@/hooks/useBuilderImageUpload';
 
 const banner = defineModel<IFormBannerState>('banner', { required: true });
 
@@ -64,15 +61,15 @@ async function applyFile(file: File | null | undefined): Promise<void> {
     const previousName = banner.value.bannerFileName;
 
     // Preview instan (object URL) — tidak pernah base64, tidak pernah ke DB apa adanya.
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
-    const localUrl = createLocalImagePreviewUrl(file);
+    revokeObjectUrl(localPreviewUrl.value);
+    const localUrl = createObjectUrl(file);
     localPreviewUrl.value = localUrl;
     patch({ bannerUrl: localUrl, bannerFileName: file.name });
 
     const result = await uploadImage(file);
     if (result) {
         localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
+        revokeObjectUrl(localUrl);
         patch({ bannerUrl: result.url, bannerFileName: file.name });
         return;
     }
@@ -80,7 +77,7 @@ async function applyFile(file: File | null | undefined): Promise<void> {
     if (props.uploadUrl.trim() !== '') {
         // Upload gagal → kembalikan state semula agar snapshot tetap konsisten.
         localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
+        revokeObjectUrl(localUrl);
         patch({ bannerUrl: previousUrl, bannerFileName: previousName });
         if (!bannerUploadError.value) bannerUploadError.value = 'Gagal mengunggah gambar. Coba lagi.';
     }
@@ -103,13 +100,13 @@ function onDrop(e: DragEvent): void {
 }
 
 function clearImage(): void {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    revokeObjectUrl(localPreviewUrl.value);
     localPreviewUrl.value = '';
     patch({ bannerUrl: '', bannerFileName: '' });
 }
 
 onUnmounted(() => {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    revokeObjectUrl(localPreviewUrl.value);
 });
 </script>
 

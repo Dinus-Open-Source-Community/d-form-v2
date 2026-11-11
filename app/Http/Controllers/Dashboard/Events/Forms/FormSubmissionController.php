@@ -20,6 +20,7 @@ use App\Services\Registration\FormAnswerWriter;
 use App\Services\Registration\FormSubmissionRules;
 use App\Services\Registration\MemberEmailListRules;
 use App\Services\Registration\TeamRegistrationSubmitter;
+use App\Support\SecretAnswerInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,8 @@ class FormSubmissionController extends Controller
             ? TeamRegistrationSubmitter::resolveTeamSize($form)
             : 0;
 
+        $resolvedGuestIdsByEmail = null;
+
         try {
             $validated = FormSubmissionRules::validate($request->all(), $fields, $mode, $teamSize);
 
@@ -92,7 +95,13 @@ class FormSubmissionController extends Controller
             }
 
             if ($mode === FormSubmissionMode::Bundle) {
-                $this->bundleGuestDuplicateChecker->assertEmailsAvailableForForm($form, $participantEmails);
+                // The common duplicate case is rejected here, before the mapper
+                // stores appendable uploads on the private disk. A concurrent
+                // duplicate detected later by the in-transaction race guard may
+                // leave the just-stored upload behind; the form-upload storage
+                // sweep owns cleanup of those orphans, not this request.
+                $resolvedGuestIdsByEmail = $this->bundleGuestDuplicateChecker
+                    ->assertEmailsAvailableForForm($form, $participantEmails);
                 $answers = $this->formAnswerInputMapper->map($validated, $fields, $form, $teamSize - 1);
             }
 
@@ -102,17 +111,43 @@ class FormSubmissionController extends Controller
         } catch (ValidationException $exception) {
             return $this->fillRedirect($event, $form)
                 ->withErrors($exception->errors())
-                ->withInput();
+                ->withInput(SecretAnswerInput::flashable($request, $fields, $this->extraMemberSlots($mode, $teamSize)));
         }
 
         $isAdmin = $user->can('events.list');
 
         if ($mode === FormSubmissionMode::Bundle) {
-            return $this->submitBundleRegistration($answers, $participantEmails, $event, $form, $user, $isAdmin);
+            // The guest duplicate check lives once, inside the submitter's
+            // transaction (race guard); its ValidationException keeps the same
+            // `team_member_emails.{i}` keys and first-fail order as the redirect
+            // this path used to build from a duplicated outer check.
+            try {
+                return $this->submitBundleRegistration(
+                    $answers,
+                    $participantEmails,
+                    $event,
+                    $form,
+                    $user,
+                    $isAdmin,
+                    $resolvedGuestIdsByEmail,
+                );
+            } catch (ValidationException $exception) {
+                return $this->fillRedirect($event, $form)
+                    ->withErrors($exception->errors())
+                    ->withInput(SecretAnswerInput::flashable($request, $fields, $this->extraMemberSlots($mode, $teamSize)));
+            }
         }
 
         if ($mode === FormSubmissionMode::Team) {
-            return $this->submitTeamRegistration($answers['leader'], $participantEmails, $event, $form, $user, $isAdmin);
+            return $this->submitTeamRegistration(
+                $answers['leader'],
+                $participantEmails,
+                $event,
+                $form,
+                $user,
+                $isAdmin,
+                SecretAnswerInput::flashable($request, $fields, 0),
+            );
         }
 
         if ($mode === FormSubmissionMode::Other) {
@@ -197,6 +232,7 @@ class FormSubmissionController extends Controller
     /**
      * @param  array{leader: array<string, mixed>, members: list<array<string, mixed>>}  $answers
      * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
+     * @param  array<string, string>|null  $resolvedGuestIdsByEmail  pre-check resolution
      */
     private function submitBundleRegistration(
         array $answers,
@@ -205,6 +241,7 @@ class FormSubmissionController extends Controller
         Form $form,
         User $leaderUser,
         bool $isAdmin,
+        ?array $resolvedGuestIdsByEmail,
     ): RedirectResponse {
         $result = $this->bundleRegistrationSubmitter->submit(
             $form,
@@ -214,6 +251,7 @@ class FormSubmissionController extends Controller
             $answers['members'],
             $memberEmails,
             $isAdmin,
+            $resolvedGuestIdsByEmail,
         );
 
         SendRegistrationConfirmationJob::dispatch($result['leader']->id)->afterCommit();
@@ -237,6 +275,7 @@ class FormSubmissionController extends Controller
     /**
      * @param  array<string, mixed>  $answers
      * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
+     * @param  array<string, mixed>  $flashableInput  request input without secret answers
      */
     private function submitTeamRegistration(
         array $answers,
@@ -245,6 +284,7 @@ class FormSubmissionController extends Controller
         Form $form,
         User $leaderUser,
         bool $isAdmin,
+        array $flashableInput,
     ): RedirectResponse {
         $memberUsers = [];
         $usersByEmail = User::resolveByNormalizedEmails($memberEmails);
@@ -255,7 +295,7 @@ class FormSubmissionController extends Controller
             if ($memberUser === null) {
                 return $this->fillRedirect($event, $form)
                     ->withErrors(["team_member_emails.{$index}" => __('No account exists for this email. The teammate must register first.')])
-                    ->withInput();
+                    ->withInput($flashableInput);
             }
 
             $memberUsers[] = $memberUser;
@@ -293,9 +333,22 @@ class FormSubmissionController extends Controller
         return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
     }
 
+    private function extraMemberSlots(FormSubmissionMode $mode, int $teamSize): int
+    {
+        if ($mode !== FormSubmissionMode::Bundle || $teamSize < 2) {
+            return 0;
+        }
+
+        return $teamSize - 1;
+    }
+
+    /**
+     * Only land on the event page when the policy actually allows it; otherwise
+     * a non-owner organizer would hit a 403 right after a successful submit.
+     */
     private function successRedirect(User $user, Event $event, Form $form): RedirectResponse
     {
-        if ($user->can('events.view')) {
+        if ($user->can('view', $event)) {
             return redirect()->route('dashboard.events.show', ['event' => $event]);
         }
 

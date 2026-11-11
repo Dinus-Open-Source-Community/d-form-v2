@@ -125,16 +125,15 @@ class EventObserverCascadeQueryTest extends TestCase
     }
 
     /**
-     * Quirk sengaja dipertahankan: `delete()` me-restamp `deleted_at` semua child
-     * (termasuk yang sudah trashed), dan `restore()` mengembalikan seluruh child trashed,
-     * termasuk form/field yang diarsipkan terpisah sebelum event. BE-P2-017 akan
-     * mengubah perilaku ini; test ini mengunci semantik lama sampai tiket itu masuk.
+     * BE-P2-017: a child archived independently before the event keeps its own
+     * archive timestamp and is not revived by the event restore.
      */
-    public function test_cascade_preserves_legacy_quirk_for_previously_archived_children(): void
+    public function test_cascade_leaves_independently_archived_children_untouched(): void
     {
         $event = $this->createEventWithChildren(2, 1);
         $archivedForm = Form::where('event_id', $event->id)->orderBy('id')->firstOrFail();
         $archivedField = FormField::where('form_id', $archivedForm->id)->firstOrFail();
+        $activeForm = Form::where('event_id', $event->id)->where('id', '!=', $archivedForm->id)->firstOrFail();
 
         // Arsipkan form dan field terpisah sebelum event, lalu backdate deleted_at.
         $archivedForm->delete();
@@ -145,22 +144,48 @@ class EventObserverCascadeQueryTest extends TestCase
 
         $event->delete();
 
-        // Delete-side: re-stamp seluruh child, termasuk yang sudah trashed.
-        $this->assertNotSame('2020-01-01 00:00:00', DB::table('forms')->where('id', $archivedForm->id)->value('deleted_at'));
-        $this->assertNotSame('2020-01-01 00:00:00', DB::table('form_fields')->where('id', $archivedField->id)->value('deleted_at'));
+        // Delete-side: arsip mandiri tidak di-restamp.
+        $this->assertSame('2020-01-01 00:00:00', DB::table('forms')->where('id', $archivedForm->id)->value('deleted_at'));
+        $this->assertSame('2020-01-01 00:00:00', DB::table('form_fields')->where('id', $archivedField->id)->value('deleted_at'));
+        $this->assertNotNull(DB::table('forms')->where('id', $activeForm->id)->value('deleted_at'));
 
         $event->restore();
 
-        // Restore-side: form/field yang diarsipkan terpisah ikut dikembalikan.
-        $freshForm = $archivedForm->fresh();
-        $this->assertNotNull($freshForm);
-        $this->assertNull($freshForm->deleted_at);
+        // Restore-side: arsip mandiri tetap ter-soft-delete dengan waktu aslinya.
+        $this->assertSame('2020-01-01 00:00:00', DB::table('forms')->where('id', $archivedForm->id)->value('deleted_at'));
+        $this->assertSame('2020-01-01 00:00:00', DB::table('form_fields')->where('id', $archivedField->id)->value('deleted_at'));
 
-        $freshField = FormField::withTrashed()->find($archivedField->id);
-        $this->assertNotNull($freshField);
-        $this->assertNull($freshField->deleted_at);
+        $this->assertNull(DB::table('forms')->where('id', $activeForm->id)->value('deleted_at'));
+        $this->assertSame(0, DB::table('form_fields')->where('form_id', $activeForm->id)->whereNotNull('deleted_at')->count());
+    }
 
-        $this->assertSame(0, DB::table('forms')->where('event_id', $event->id)->whereNotNull('deleted_at')->count());
+    /**
+     * Restore only revives the set the event archived, even when another
+     * soft-deleted form of the same event exists (marker is not this event).
+     */
+    public function test_restore_skips_children_trashed_without_the_event_marker(): void
+    {
+        $event = $this->createEventWithChildren(2, 1);
+
+        $event->delete();
+
+        $forms = Form::withTrashed()->where('event_id', $event->id)->orderBy('id')->get();
+        $this->assertCount(2, $forms);
+
+        $independentlyArchived = $forms->first();
+        DB::table('forms')->where('id', $independentlyArchived->id)->update([
+            'deleted_at' => '2021-05-05 00:00:00',
+            'archived_by_event_id' => null,
+        ]);
+
+        $event->restore();
+
+        $this->assertSame('2021-05-05 00:00:00', DB::table('forms')->where('id', $independentlyArchived->id)->value('deleted_at'));
+
+        $restored = Form::query()->where('event_id', $event->id)->pluck('id')->all();
+        $this->assertCount(1, $restored);
+        $this->assertNotSame((string) $independentlyArchived->id, (string) $restored[0]);
+        $this->assertSame(0, DB::table('form_fields')->whereIn('form_id', $restored)->whereNotNull('deleted_at')->count());
     }
 
     /**
