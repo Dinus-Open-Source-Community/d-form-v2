@@ -160,3 +160,46 @@ asserting that a job was pushed.
 All fix-round PHP commands ran only in the local `d_form_app` container. The
 unrelated dirty paths present before this fix round, including the form-builder
 and frontend redesign paths, remain untouched.
+
+## Fix round 2 — exact confirmation dispatch count
+
+The team characterization now uses `Queue::assertPushedTimes` to require
+exactly one `SendRegistrationConfirmationJob`, alongside the existing
+`afterCommit === true` assertion. This preserves the duplicate-confirmation
+idempotency boundary while retaining explicit after-commit evidence.
+
+### Fix-round 2 verification commands and output
+
+1. Command:
+
+   `podman exec -i -w /app d_form_app php artisan test --filter='FormSubmissionControllerCharacterizationTest|FormRegistrationTest' --env=testing`
+
+   Exit: `0`
+
+   Output: `Tests: 98 passed (677 assertions)`; duration `13.59s`.
+   The existing PHPUnit doc-comment metadata warning and redundant-index-drop
+   skip were emitted and did not affect the exit status.
+
+2. Command:
+
+   `podman exec -i -w /app d_form_app php artisan test tests/Feature/Forms/FormSubmissionBoundaryTest.php --env=testing`
+
+   Exit: `0`
+
+   Output: `Tests: 32 passed (163 assertions)`; duration `4.66s`.
+   The configured redundant-index-drop skip was emitted and did not affect the
+   exit status.
+
+3. Command:
+
+   `podman exec -i -w /app d_form_app ./vendor/bin/pint --test app/Http/Controllers/Dashboard/Events/Forms/FormSubmissionController.php app/Services/Registration/FormSubmissionContext.php app/Services/Registration/FormSubmissionOrchestrator.php app/Services/Registration/FormSubmissionPayload.php tests/Feature/Forms/FormSubmissionControllerCharacterizationTest.php`
+
+   Exit: `0`
+
+   Output: `PASS` under `PSR 12`, `5 files`.
+
+4. Command:
+
+   `git diff --check`
+
+   Exit: `0`; no output.

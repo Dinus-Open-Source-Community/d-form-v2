@@ -88,6 +88,7 @@ final class FormSubmissionControllerCharacterizationTest extends TestCase
             ->assertRedirect(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form]));
 
         $this->assertDatabaseCount('form_answers', 2);
+        Queue::assertPushedTimes(SendRegistrationConfirmationJob::class, 1);
         Queue::assertPushed(
             SendRegistrationConfirmationJob::class,
             static fn (SendRegistrationConfirmationJob $job): bool => $job->afterCommit === true,
