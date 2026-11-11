@@ -33,13 +33,16 @@ Route::middleware(['auth', 'recruitment.access'])
 
         Route::get('interview-sessions', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('interview-sessions.redirect');
         Route::get('reports', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('reports.redirect');
         Route::get('periods', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('periods.redirect');
 
         Route::resource('periods', RecruitmentPeriodController::class)->except(['index', 'edit', 'show']);
         Route::get('periods/{period}', [RecruitmentPeriodController::class, 'show'])
