@@ -10,7 +10,7 @@ Vitest, sehingga pelanggaran menjadi error, bukan temuan audit.
 
 | Issue | Commit |
 | ----- | ------ |
-| EP-06 (`AUDIT-P1-012` + F1–F2, `AUDIT-P3-006/007/009`, `FE-AUDIT-002-F1…F6`, `FE-AUDIT-003` + F2, `FE-AUDIT-004` + F1–F3, `FE-AUDIT-005-F2/F3`, `FE-AUDIT-009` + F1–F3, `FE-AUDIT-010/011/012/013`, `FLOW-P2-004/007`) | `PENDING` |
+| EP-06 (`AUDIT-P1-012` + F1–F2, `AUDIT-P3-006/007/009`, `FE-AUDIT-002-F1…F6`, `FE-AUDIT-003` + F2, `FE-AUDIT-004` + F1–F3, `FE-AUDIT-005-F2/F3`, `FE-AUDIT-009` + F1–F3, `FE-AUDIT-010/011/012/013`, `FLOW-P2-004/007`) | `c517245a` (refactor) + `3e214112` (chore) |
 
 Laporan lengkap: `docs/big-changes/patching-ticket/EP-06/patching-ticket.md`.
 
