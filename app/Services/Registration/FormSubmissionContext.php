@@ -11,9 +11,10 @@ use Illuminate\Support\Collection;
 /**
  * Typed inputs required to validate and map one form submission.
  *
- * The HTTP request object is deliberately not passed beyond the controller;
- * only its array payload and the already-resolved domain context cross this
- * boundary.
+ * The HTTP request object is deliberately not passed beyond the controller.
+ * The array payload is the intentional validator-boundary input; the
+ * orchestrator must not use its unvalidated participant values after the
+ * validation step.
  */
 final readonly class FormSubmissionContext
 {

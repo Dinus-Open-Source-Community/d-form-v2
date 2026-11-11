@@ -101,3 +101,62 @@ to bypass this boundary.
 - The controller remains responsible for persistence and HTTP translation by
   design; further extraction would broaden scope and risk changing transaction
   or dispatch semantics.
+
+## Fix round 1 — reviewer findings
+
+### Finding 1: participant input boundary
+
+Root cause: the context intentionally carried the request payload for the
+validator, but the orchestrator also read `team_member_emails` directly from
+that boundary array when calling `MemberEmailListRules::resolve`.
+
+Fix: participant-list rules now validate the boundary value first, and the
+orchestrator passes only the validated `team_member_emails` value to
+`MemberEmailListRules::resolve`. The context comment now explicitly documents
+that its array is validator-boundary input, not a post-validation data source.
+
+### Finding 2: after-commit evidence
+
+The characterization test now asserts the dispatched
+`SendRegistrationConfirmationJob` has `afterCommit === true`, rather than only
+asserting that a job was pushed.
+
+### Fix-round verification commands and output
+
+1. Command:
+
+   `podman exec -i -w /app d_form_app php artisan test --filter='FormSubmissionControllerCharacterizationTest|FormRegistrationTest' --env=testing`
+
+   Exit: `0`
+
+   Output: `Tests: 98 passed (676 assertions)`; duration `21.74s`.
+   The existing PHPUnit doc-comment metadata warning and redundant-index-drop
+   skip were emitted and did not affect the exit status.
+
+2. Command:
+
+   `podman exec -i -w /app d_form_app php artisan test tests/Feature/Forms/FormSubmissionBoundaryTest.php --env=testing`
+
+   Exit: `0`
+
+   Output: `Tests: 32 passed (163 assertions)`; duration `4.59s`.
+   The configured redundant-index-drop skip was emitted and did not affect the
+   exit status.
+
+3. Command:
+
+   `podman exec -i -w /app d_form_app ./vendor/bin/pint --test app/Http/Controllers/Dashboard/Events/Forms/FormSubmissionController.php app/Services/Registration/FormSubmissionContext.php app/Services/Registration/FormSubmissionOrchestrator.php app/Services/Registration/FormSubmissionPayload.php tests/Feature/Forms/FormSubmissionControllerCharacterizationTest.php`
+
+   Exit: `0`
+
+   Output: `PASS` under `PSR 12`, `5 files`.
+
+4. Command:
+
+   `git diff --check`
+
+   Exit: `0`; no output.
+
+All fix-round PHP commands ran only in the local `d_form_app` container. The
+unrelated dirty paths present before this fix round, including the form-builder
+and frontend redesign paths, remain untouched.

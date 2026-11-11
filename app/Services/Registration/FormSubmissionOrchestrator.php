@@ -3,6 +3,7 @@
 namespace App\Services\Registration;
 
 use App\Enums\FormSubmissionMode;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -45,8 +46,13 @@ final class FormSubmissionOrchestrator
         }
 
         if (in_array($context->mode, [FormSubmissionMode::Bundle, FormSubmissionMode::Team], true)) {
+            $validatedParticipantInput = Validator::make(
+                ['team_member_emails' => $context->input['team_member_emails'] ?? null],
+                MemberEmailListRules::validationRules($context->teamSize - 1),
+            )->validate();
+
             $participantEmails = MemberEmailListRules::resolve(
-                $context->input['team_member_emails'] ?? null,
+                $validatedParticipantInput['team_member_emails'],
                 $context->user->email,
                 $context->teamSize - 1,
             );
