@@ -1,7 +1,9 @@
 import { HttpRequestError, isRecord } from '@/adapters/http/httpError';
 import { requestBlob, requestJson, requestJsonWithStatus, sendJsonKeepalive } from '@/adapters/http/httpClient';
+import { createPercentProgressReporter } from '@/adapters/http/upload';
 import type { TFormReviewStatus, IFormReviewErrorBody, IFormReviewSuccessResponse } from '@/types/forms';
-import type { THttpMethod } from '@/types/http';
+import type { IBackendField, TBackendFieldType } from '@/types/form-builder';
+import type { THttpMethod, IUploadTransferOptions } from '@/types/http';
 import { isPersistableImageUrl } from '@/lib/urlPolicy';
 
 /** Respons upload gambar builder: `path` internal dan `url` publik. */
@@ -126,13 +128,120 @@ export async function updateFormSettings(url: string, payload: Record<string, un
     await requestJson({ url, method: 'PUT', body: payload }, parseAck);
 }
 
-/** Snapshot final autosave yang dikirim saat halaman ditinggalkan. */
+/**
+ * Snapshot final autosave yang dikirim saat halaman ditinggalkan. Kedua bagian
+ * opsional: autosave builder memakai dua kanal (header saja / fields + settings).
+ */
 export interface IFormSnapshotKeepaliveOptions {
-    fieldsUrl: string;
-    fields: unknown[];
-    /** Bila kosong, hanya daftar field yang dikirim (header belum lengkap). */
+    fieldsUrl?: string;
+    fields?: unknown[];
     settingsUrl?: string;
     settings?: Record<string, unknown>;
+}
+
+/** Tipe field backend yang dikenal (validasi runtime payload draf). */
+const BACKEND_FIELD_TYPES: ReadonlySet<string> = new Set([
+    'input',
+    'select',
+    'textarea',
+    'datePicker',
+    'fileUpload',
+    'checkbox',
+    'radio',
+]);
+
+/** Hasil `POST /admin/events/{event}/forms/draft`: snapshot draf + URL halaman edit. */
+export interface IFormDraftResult {
+    formId: string;
+    editUrl: string;
+    form: IForm;
+    fields: IBackendField[];
+}
+
+/** Guard header form dari body draf (`formToInertia()`). */
+function readDraftForm(value: unknown): IForm | null {
+    if (!isRecord(value)) return null;
+
+    const id = value.id;
+    const title = value.title;
+    const description = value.description;
+    const eventId = value.event_id;
+    const visibleFor = value.visible_for;
+
+    if (typeof id !== 'string' || id === '') return null;
+    if (typeof title !== 'string' || typeof description !== 'string') return null;
+    if (typeof eventId !== 'string' || eventId === '') return null;
+    if (!Array.isArray(visibleFor) || !visibleFor.every((item): boolean => typeof item === 'string')) return null;
+
+    return {
+        id,
+        title,
+        description,
+        event_id: eventId,
+        visible_for: visibleFor,
+        closed_at: typeof value.closed_at === 'string' ? value.closed_at : '',
+        success_content: typeof value.success_content === 'string' ? value.success_content : null,
+        banner_url: typeof value.banner_url === 'string' ? value.banner_url : null,
+        banner_caption: typeof value.banner_caption === 'string' ? value.banner_caption : null,
+        metadata: isRecord(value.metadata) ? value.metadata : undefined,
+    };
+}
+
+/** Guard satu baris field backend (`formFieldToInertia()`). */
+function readDraftField(value: unknown): IBackendField | null {
+    if (!isRecord(value)) return null;
+
+    const id = value.id;
+    const name = value.name;
+    const type = value.type;
+    const order = value.order;
+
+    if (typeof id !== 'string' || id === '') return null;
+    if (typeof name !== 'string' || name === '') return null;
+    if (typeof type !== 'string' || !BACKEND_FIELD_TYPES.has(type)) return null;
+    if (typeof order !== 'number' || !Number.isFinite(order)) return null;
+
+    return {
+        id,
+        name,
+        // `type` lolos membership `BACKEND_FIELD_TYPES` (runtime validation) sebelum dipersempit.
+        type: type as TBackendFieldType,
+        label: typeof value.label === 'string' ? value.label : '',
+        description: typeof value.description === 'string' ? value.description : null,
+        order,
+        metadata: isRecord(value.metadata) ? value.metadata : {},
+        is_append: value.is_append === true,
+    };
+}
+
+/**
+ * Ambil atau buat draf server-side untuk halaman "buat form". Backend idempoten per
+ * user+event dan mengembalikan snapshot lengkap (`{ form, fields }`) supaya halaman
+ * bisa melanjutkan draf setelah reload. 403 = draf milik pembuat event.
+ */
+export async function requestFormDraft(url: string): Promise<IFormDraftResult> {
+    return requestJson({ url, method: 'POST' }, (payload) => {
+        if (!isRecord(payload)) return null;
+
+        const form = readDraftForm(payload.form);
+        if (form === null) return null;
+
+        const editUrl = isRecord(payload.form) ? payload.form.edit_url : undefined;
+        if (typeof editUrl !== 'string' || editUrl === '') return null;
+
+        const fields: IBackendField[] = [];
+        if (payload.fields !== undefined) {
+            if (!Array.isArray(payload.fields)) return null;
+
+            for (const row of payload.fields) {
+                const field = readDraftField(row);
+                if (field === null) return null;
+                fields.push(field);
+            }
+        }
+
+        return { formId: form.id, editUrl, form, fields };
+    });
 }
 
 /**
@@ -141,7 +250,9 @@ export interface IFormSnapshotKeepaliveOptions {
  * jalur ini memakai Fetch `keepalive` sehingga perubahan terakhir tetap sampai.
  */
 export function persistFormSnapshotKeepalive(options: IFormSnapshotKeepaliveOptions): void {
-    sendJsonKeepalive({ url: options.fieldsUrl, method: 'POST', body: { fields: options.fields } });
+    if (options.fieldsUrl !== undefined && options.fields !== undefined) {
+        sendJsonKeepalive({ url: options.fieldsUrl, method: 'POST', body: { fields: options.fields } });
+    }
 
     if (options.settingsUrl === undefined || options.settings === undefined) return;
 
@@ -152,22 +263,32 @@ export function persistFormSnapshotKeepalive(options: IFormSnapshotKeepaliveOpti
 export async function uploadBuilderImage(
     url: string,
     file: File,
-    fieldName = 'file'
+    fieldName = 'file',
+    options?: IUploadTransferOptions
 ): Promise<IBuilderImageUploadResult> {
     const formData = new FormData();
     formData.append(fieldName, file);
 
-    return requestJson({ url, method: 'POST', formData }, (payload) => {
-        if (!isRecord(payload)) return null;
+    return requestJson(
+        {
+            url,
+            method: 'POST',
+            formData,
+            signal: options?.signal,
+            onProgress: createPercentProgressReporter(options?.onProgress),
+        },
+        (payload) => {
+            if (!isRecord(payload)) return null;
 
-        const path = typeof payload.path === 'string' ? payload.path.trim() : '';
-        const rawUrl = typeof payload.url === 'string' ? payload.url.trim() : '';
-        const safeUrl = isPersistableImageUrl(rawUrl) ? rawUrl : '';
+            const path = typeof payload.path === 'string' ? payload.path.trim() : '';
+            const rawUrl = typeof payload.url === 'string' ? payload.url.trim() : '';
+            const safeUrl = isPersistableImageUrl(rawUrl) ? rawUrl : '';
 
-        if (!isPersistableImageUrl(path) && safeUrl === '') return null;
+            if (!isPersistableImageUrl(path) && safeUrl === '') return null;
 
-        return { path, url: safeUrl };
-    });
+            return { path, url: safeUrl };
+        }
+    );
 }
 
 /** Kirim keputusan review submission (accept/reject). */

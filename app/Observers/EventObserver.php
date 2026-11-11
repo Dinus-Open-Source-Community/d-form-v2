@@ -105,8 +105,12 @@ class EventObserver
         $archivedAt = now();
 
         DB::transaction(function () use ($event, $archivedAt): void {
+            // Draft bukan form "hidup": baris draft sengaja tidak diarsipkan
+            // bersama event sehingga pekerjaan yang belum dipublikasikan tidak
+            // ikut terhapus. Form published tetap diarsipkan seperti sebelumnya.
             Form::query()
                 ->where('event_id', $event->id)
+                ->published()
                 ->update([
                     'deleted_at' => $archivedAt,
                     'archived_by_event_id' => $event->id,
@@ -149,11 +153,13 @@ class EventObserver
             $formIds = Form::onlyTrashed()
                 ->where('event_id', $event->id)
                 ->where('archived_by_event_id', $event->id)
+                ->published()
                 ->pluck('id');
 
             Form::onlyTrashed()
                 ->where('event_id', $event->id)
                 ->where('archived_by_event_id', $event->id)
+                ->published()
                 ->update(['deleted_at' => null, 'archived_by_event_id' => null]);
 
             if ($formIds->isEmpty()) {

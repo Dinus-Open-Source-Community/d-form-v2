@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import type { CancelToken, Progress } from '@inertiajs/core';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { Separator } from '@/components/ui/separator';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import { routes } from '@/lib/routes';
 import { readSharedError } from '@/lib/sharedErrors';
 import { validateUploadFile } from '@/lib/uploadValidation';
 import { focusElementById } from '@/adapters/browser/domQuery';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -86,36 +89,83 @@ const secondaryDivisionOptions = computed<SimpleSelectOption[]>(() => [
 
 const cvHint = computed(() =>
     props.application.cv_original_name
-        ? `File saat ini: ${props.application.cv_original_name} (kosongkan jika tidak diganti)`
-        : 'Unggah CV PDF'
+        ? `File saat ini: ${props.application.cv_original_name}. Pilih berkas baru untuk mengganti.`
+        : 'Unggah CV PDF.'
 );
 
 const instagramFollowHint = computed(() =>
     props.application.instagram_follow_original_name
-        ? `File saat ini: ${props.application.instagram_follow_original_name} (kosongkan jika tidak diganti)`
-        : 'Unggah screenshot follow Instagram (jpg/jpeg/png/webp)'
+        ? `File saat ini: ${props.application.instagram_follow_original_name}. Pilih berkas baru untuk mengganti.`
+        : 'Unggah screenshot follow Instagram (jpg/jpeg/png/webp).'
 );
 
-async function onCvChange(event: Event): Promise<void> {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0] ?? null;
-    if (file && !(await validateUploadFile(file, ['pdf']))) form.cv = file;
-    else if (file) target.value = '';
+/** Progres unggah multipart 0..100 dari satu visit update yang sama untuk semua berkas. */
+const uploadProgress = ref(0);
+let cancelVisit: (() => void) | null = null;
+
+/** Pratinjau foto bukti follow: object URL lokal, dicabut saat diganti/dihapus/unmount. */
+const instagramPreviewUrl = ref('');
+
+function replaceInstagramPreview(file: File | null): void {
+    revokeObjectUrl(instagramPreviewUrl.value);
+    instagramPreviewUrl.value = file ? createObjectUrl(file) : '';
 }
 
-async function onPortfolioFileChange(event: Event): Promise<void> {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0] ?? null;
-    if (file && !(await validateUploadFile(file, ['pdf']))) form.portfolio_file = file;
-    else if (file) target.value = '';
+/** Kartu menampilkan berkas terpilih; progres hanya saat visit update berjalan. */
+function fileCardState(file: File | null, fieldError: string | undefined): TFileUploadState {
+    if (form.processing && file) return 'uploading';
+    if (fieldError) return 'error';
+
+    return file ? 'completed' : 'idle';
 }
 
-async function onInstagramFollowChange(event: Event): Promise<void> {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0] ?? null;
-    if (file && !(await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']))) form.instagram_follow_proof = file;
-    else if (file) target.value = '';
+async function applyCvFile(file: File): Promise<void> {
+    const message = await validateUploadFile(file, ['pdf']);
+    if (message) {
+        form.setError('cv', message);
+        return;
+    }
+
+    form.clearErrors('cv');
+    form.cv = file;
 }
+
+async function applyPortfolioFile(file: File): Promise<void> {
+    const message = await validateUploadFile(file, ['pdf']);
+    if (message) {
+        form.setError('portfolio_file', message);
+        return;
+    }
+
+    form.clearErrors('portfolio_file');
+    form.portfolio_file = file;
+}
+
+async function applyInstagramFollowFile(file: File): Promise<void> {
+    const message = await validateUploadFile(file, ['jpg', 'jpeg', 'png', 'webp']);
+    if (message) {
+        form.setError('instagram_follow_proof', message);
+        return;
+    }
+
+    form.clearErrors('instagram_follow_proof');
+    form.instagram_follow_proof = file;
+    replaceInstagramPreview(file);
+}
+
+function removeInstagramFollowFile(): void {
+    form.instagram_follow_proof = null;
+    replaceInstagramPreview(null);
+}
+
+function cancelUpload(): void {
+    cancelVisit?.();
+}
+
+onBeforeUnmount(() => {
+    cancelVisit = null;
+    replaceInstagramPreview(null);
+});
 
 function submit() {
     form.clearErrors('semester', 'primary_division_id', 'secondary_division_id');
@@ -132,9 +182,20 @@ function submit() {
         focusElementById(firstEmpty);
         return;
     }
+    uploadProgress.value = 0;
     form.put(props.updateUrl, {
         forceFormData: true,
         preserveScroll: true,
+        onProgress: (event: Progress | undefined): void => {
+            uploadProgress.value = event?.percentage ?? 0;
+        },
+        onCancelToken: (token: CancelToken): void => {
+            cancelVisit = token.cancel;
+        },
+        onFinish: (): void => {
+            uploadProgress.value = 0;
+            cancelVisit = null;
+        },
     });
 }
 
@@ -314,10 +375,22 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                 </CardHeader>
                 <CardContent class="space-y-5">
                     <div class="space-y-2">
-                        <Label for="cv">CV (PDF)</Label>
-                        <Input id="cv" type="file" accept="application/pdf" @change="onCvChange" />
-                        <p class="text-muted-foreground text-xs">{{ cvHint }}</p>
-                        <p v-if="form.errors.cv" class="text-destructive text-xs">{{ form.errors.cv }}</p>
+                        <Label>CV (PDF)</Label>
+                        <FileUploadCard
+                            :state="fileCardState(form.cv, form.errors.cv)"
+                            idle-label="Pilih CV PDF"
+                            accept="application/pdf"
+                            :hint="cvHint"
+                            :file-name="form.cv?.name ?? ''"
+                            :file-size="form.cv?.size ?? 0"
+                            :mime="form.cv?.type ?? ''"
+                            :progress="uploadProgress"
+                            :error-message="form.errors.cv ?? ''"
+                            :disabled="form.processing"
+                            @pick="applyCvFile"
+                            @cancel="cancelUpload"
+                            @remove="form.cv = null"
+                        />
                     </div>
 
                     <Separator />
@@ -391,12 +464,19 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                             aria-label="URL portfolio"
                         />
                         <div v-else-if="form.portfolio_type === 'file'" class="space-y-1">
-                            <Input
-                                id="portfolio_file"
-                                type="file"
+                            <FileUploadCard
+                                :state="fileCardState(form.portfolio_file, form.errors.portfolio_file)"
+                                idle-label="Pilih file portfolio (opsional)"
                                 accept="application/pdf"
-                                aria-label="File portfolio (opsional)"
-                                @change="onPortfolioFileChange"
+                                :file-name="form.portfolio_file?.name ?? ''"
+                                :file-size="form.portfolio_file?.size ?? 0"
+                                :mime="form.portfolio_file?.type ?? ''"
+                                :progress="uploadProgress"
+                                :error-message="form.errors.portfolio_file ?? ''"
+                                :disabled="form.processing"
+                                @pick="applyPortfolioFile"
+                                @cancel="cancelUpload"
+                                @remove="form.portfolio_file = null"
                             />
                             <p class="text-muted-foreground text-xs">
                                 Opsional.
@@ -408,25 +488,28 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                         <p v-if="form.errors.portfolio_url" class="text-destructive text-xs">
                             {{ form.errors.portfolio_url }}
                         </p>
-                        <p v-if="form.errors.portfolio_file" class="text-destructive text-xs">
-                            {{ form.errors.portfolio_file }}
-                        </p>
                     </div>
 
                     <Separator />
 
                     <div class="space-y-2">
-                        <Label for="instagram_follow_proof">Bukti Follow Instagram</Label>
-                        <Input
-                            id="instagram_follow_proof"
-                            type="file"
+                        <Label>Bukti Follow Instagram</Label>
+                        <FileUploadCard
+                            :state="fileCardState(form.instagram_follow_proof, form.errors.instagram_follow_proof)"
+                            idle-label="Pilih screenshot follow Instagram"
                             accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                            @change="onInstagramFollowChange"
+                            :hint="instagramFollowHint"
+                            :file-name="form.instagram_follow_proof?.name ?? ''"
+                            :file-size="form.instagram_follow_proof?.size ?? 0"
+                            :mime="form.instagram_follow_proof?.type ?? ''"
+                            :progress="uploadProgress"
+                            :preview-url="instagramPreviewUrl"
+                            :error-message="form.errors.instagram_follow_proof ?? ''"
+                            :disabled="form.processing"
+                            @pick="applyInstagramFollowFile"
+                            @cancel="cancelUpload"
+                            @remove="removeInstagramFollowFile"
                         />
-                        <p class="text-muted-foreground text-xs">{{ instagramFollowHint }}</p>
-                        <p v-if="form.errors.instagram_follow_proof" class="text-destructive text-xs">
-                            {{ form.errors.instagram_follow_proof }}
-                        </p>
                     </div>
 
                     <div class="space-y-2">

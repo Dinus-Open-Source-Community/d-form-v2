@@ -9,13 +9,14 @@ import {
 import { sessionLabelMap } from '@/constants/eventDisplay';
 import { parseEventCategories } from '@/lib/eventShowUi';
 import { formatDateTime } from '@/lib/dateTime';
+import type { IEventFormSummary } from '@/types/form';
 
 /**
  * State turunan halaman detail event (progres kuota, label status/harga) plus aksi
  * arsip/pulihkan. Aksi memanggil `router` Inertia dan memunculkan toast — efek samping
  * jaringan/UI ditangani di dalam hook, bukan di komponen.
  */
-export function useDashboardEventShowPage(event: IEvent, forms: { id: string; title: string }[]) {
+export function useDashboardEventShowPage(event: IEvent, forms: IEventFormSummary[]) {
     const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
     const showDeleteModal = ref(false);
     const showRestoreModal = ref(false);

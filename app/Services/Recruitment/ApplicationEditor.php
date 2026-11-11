@@ -7,7 +7,9 @@ use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDocument;
 use Illuminate\Http\UploadedFile;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadInspector;
 use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -115,9 +117,9 @@ final class ApplicationEditor
                 Storage::disk('local')->delete($document->cv_path);
             }
 
-            $document->cv_path = $storage->store($cv, $localTarget);
+            $document->cv_path = $storage->store($cv, $localTarget, UploadPurpose::RecruitmentCv);
             $document->cv_original_name = $cv->getClientOriginalName();
-            $document->cv_mime = $cv->getMimeType() ?? 'application/pdf';
+            $document->cv_mime = UploadInspector::sniffedMime($cv) ?? 'application/pdf';
             $document->cv_size_bytes = $cv->getSize();
         }
 
@@ -140,9 +142,9 @@ final class ApplicationEditor
             }
 
             $document->portfolio_url = null;
-            $document->portfolio_path = $storage->store($portfolioFile, $localTarget);
+            $document->portfolio_path = $storage->store($portfolioFile, $localTarget, UploadPurpose::RecruitmentPortfolio);
             $document->portfolio_original_name = $portfolioFile->getClientOriginalName();
-            $document->portfolio_mime = $portfolioFile->getMimeType() ?? 'application/pdf';
+            $document->portfolio_mime = UploadInspector::sniffedMime($portfolioFile) ?? 'application/pdf';
             $document->portfolio_size_bytes = $portfolioFile->getSize();
         } elseif ($portfolioType === 'none' || ($portfolioType === 'file' && $portfolioFile === null && blank($document->portfolio_path))) {
             if (filled($document->portfolio_path)) {
@@ -163,9 +165,9 @@ final class ApplicationEditor
                 Storage::disk('local')->delete($document->instagram_follow_path);
             }
 
-            $document->instagram_follow_path = $storage->store($instagramFollowProof, $localTarget);
+            $document->instagram_follow_path = $storage->store($instagramFollowProof, $localTarget, UploadPurpose::InstagramProof);
             $document->instagram_follow_original_name = $instagramFollowProof->getClientOriginalName();
-            $document->instagram_follow_mime = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
+            $document->instagram_follow_mime = UploadInspector::sniffedMime($instagramFollowProof) ?? 'image/jpeg';
             $document->instagram_follow_size_bytes = $instagramFollowProof->getSize();
         }
 

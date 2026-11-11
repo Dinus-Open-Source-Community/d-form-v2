@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     HttpRequestError,
+    describeRequestErrorMessage,
     isHttpRequestError,
     readPublicMessage,
     readValidationErrors,
@@ -66,5 +67,55 @@ describe('HttpRequestError', () => {
         expect(error.validationErrors).toBeNull();
         expect(error.retryAfterSeconds).toBeNull();
         expect(error.body).toBe(body);
+    });
+});
+
+describe('describeRequestErrorMessage', () => {
+    it('memakai pesan field pertama dari bag validasi (diterjemahkan)', () => {
+        const error = new HttpRequestError({
+            kind: 'validation',
+            status: 422,
+            message: 'Please enter the form title. (and 2 more errors)',
+            validationErrors: {
+                title: ['Please enter the form title.'],
+                description: ['Please enter a description for the form.'],
+            },
+        });
+
+        expect(describeRequestErrorMessage(error)).toBe('Judul form wajib diisi.');
+    });
+
+    it('tidak pernah menampilkan ringkasan Laravel', () => {
+        const error = new HttpRequestError({
+            kind: 'validation',
+            status: 422,
+            message: 'Please enter the form title. (and 2 more errors)',
+        });
+
+        const message = describeRequestErrorMessage(error);
+
+        expect(message.includes('(and ')).toBe(false);
+        expect(message).toBe('Judul form wajib diisi.');
+    });
+
+    it('membuka pesan yang berupa string JSON', () => {
+        const error = new HttpRequestError({
+            kind: 'validation',
+            status: 422,
+            message: JSON.stringify({ message: 'Please select when the form closes.' }),
+        });
+
+        expect(describeRequestErrorMessage(error)).toBe('Pilih tanggal tutup form.');
+    });
+
+    it('memakai pesan transport apa adanya bila bukan validasi', () => {
+        const error = new HttpRequestError({ kind: 'server', status: 500, message: 'Kesalahan server.' });
+
+        expect(describeRequestErrorMessage(error)).toBe('Kesalahan server.');
+    });
+
+    it('memakai fallback untuk error tanpa pesan', () => {
+        expect(describeRequestErrorMessage(new Error('   '), 'Gagal menyimpan.')).toBe('Gagal menyimpan.');
+        expect(describeRequestErrorMessage(null, 'Gagal menyimpan.')).toBe('Gagal menyimpan.');
     });
 });

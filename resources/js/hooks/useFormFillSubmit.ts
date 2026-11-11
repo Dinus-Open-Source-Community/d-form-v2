@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/vue3';
+import type { CancelToken, Progress } from '@inertiajs/core';
 import type { InertiaForm } from '@inertiajs/vue3';
-import type { ComputedRef } from 'vue';
+import { ref, type ComputedRef, type Ref } from 'vue';
 import { buildFieldLabelMap } from '@/lib/error-message';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { containsAccountEmail } from '@/lib/formFillFields';
@@ -16,14 +17,22 @@ export interface IUseFormFillSubmitOptions {
 
 export interface IUseFormFillSubmit {
     submit: () => void;
+    /** Progres unggah multipart 0..100 dari visit submit yang sedang berjalan. */
+    progress: Ref<number>;
+    /** Hentikan visit submit yang berjalan; berkas yang sudah dipilih tetap di form. */
+    cancel: () => void;
 }
 
 /**
  * Submits the fill form: blocks blocked forms, rejects member emails equal to the account email,
  * and forwards server validation errors to the shared Inertia error toast.
+ * Upload progress and cancel come from the Inertia visit options (`onProgress`/`onCancelToken`),
+ * so the multipart request stays the same one the form always used.
  */
 export function useFormFillSubmit(options: IUseFormFillSubmitOptions): IUseFormFillSubmit {
     const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
+    const progress = ref<number>(0);
+    let cancelVisit: (() => void) | null = null;
 
     function submit(): void {
         if (options.isBlocked.value) return;
@@ -40,8 +49,19 @@ export function useFormFillSubmit(options: IUseFormFillSubmitOptions): IUseFormF
             }
         }
 
+        progress.value = 0;
         options.answerForm.post(options.submitUrl, {
             forceFormData: true,
+            onProgress: (event: Progress | undefined): void => {
+                progress.value = event?.percentage ?? 0;
+            },
+            onCancelToken: (token: CancelToken): void => {
+                cancelVisit = token.cancel;
+            },
+            onFinish: (): void => {
+                progress.value = 0;
+                cancelVisit = null;
+            },
             onError: (errors) => {
                 handleInertiaFormErrors(errors, {
                     fields: [...options.fields],
@@ -52,7 +72,11 @@ export function useFormFillSubmit(options: IUseFormFillSubmitOptions): IUseFormF
         });
     }
 
-    return { submit };
+    function cancel(): void {
+        cancelVisit?.();
+    }
+
+    return { submit, progress, cancel };
 }
 
 /** Signed-in account email normalized for comparison; empty when unauthenticated. */

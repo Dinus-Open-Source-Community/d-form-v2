@@ -30,7 +30,12 @@ function laravelLogTail(): string {
     return runArtisanJson<string>([
         'tinker',
         '--execute',
-        `$path = (string) config('logging.channels.single.path'); echo json_encode($path !== '' && is_file($path) ? substr((string) file_get_contents($path), -${LOG_TAIL_BYTES}) : '');`,
+        `$path = (string) config('logging.channels.single.path');` +
+            `if ($path === '' || ! is_file($path)) { echo json_encode(''); return; }` +
+            `$size = (int) filesize($path); $take = min($size, ${LOG_TAIL_BYTES});` +
+            `$handle = fopen($path, 'rb'); fseek($handle, $size - $take);` +
+            `$tail = $take > 0 ? (string) fread($handle, $take) : ''; fclose($handle);` +
+            `echo json_encode($tail);`,
     ]);
 }
 

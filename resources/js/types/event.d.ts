@@ -51,6 +51,9 @@ declare global {
         banner_url: string | null;
         banner_caption: string | null;
         metadata?: Record<string, unknown>;
+        /** Dikirim `formToInertia()`; dipakai autosave untuk memilih jalur draf. */
+        status?: 'draft' | 'published';
+        is_draft?: boolean;
         registration_mode?: 'single' | 'bundle';
         purpose?: 'registration' | 'other';
     }

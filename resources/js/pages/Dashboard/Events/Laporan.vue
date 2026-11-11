@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, reactive } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import EventReportingFocusPanel from '@/components/modules/dashboard/EventReportingFocusPanel.vue';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, ClipboardList, ScanLine, Download } from 'lucide-vue-next';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { useExportDownload } from '@/hooks/useExportDownload';
 
 defineOptions({ layout: DashboardFocusLayout });
 
@@ -48,6 +50,18 @@ const props = defineProps<{
 onMounted(() => {
     setTopbar({ title: 'Laporan', subtitle: 'Unduhan CSV & ringkasan acara' });
 });
+
+/** Satu state unduhan per tombol export; keduanya GET download terpisah. */
+const registrationsExport = reactive(useExportDownload());
+const attendanceExport = reactive(useExportDownload());
+
+function downloadRegistrations(): void {
+    void registrationsExport.start([props.exports.registrations]);
+}
+
+function downloadAttendance(): void {
+    void attendanceExport.start([props.exports.attendance]);
+}
 </script>
 
 <template>
@@ -89,13 +103,47 @@ onMounted(() => {
                         {{ event.title }}
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" as-child class="">
-                        <a :href="exports.registrations"> <Download class="mr-1.5 size-4" />Registrations CSV </a>
-                    </Button>
-                    <Button variant="outline" size="sm" as-child class="">
-                        <a :href="exports.attendance"> <Download class="mr-1.5 size-4" />Attendance CSV </a>
-                    </Button>
+                <div class="flex flex-col gap-2">
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            :disabled="registrationsExport.isRunning"
+                            @click="downloadRegistrations"
+                        >
+                            <Download class="mr-1.5 size-4" />Registrations CSV
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            :disabled="attendanceExport.isRunning"
+                            @click="downloadAttendance"
+                        >
+                            <Download class="mr-1.5 size-4" />Attendance CSV
+                        </Button>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <ExportDownloadStatus
+                            :phase="registrationsExport.phase"
+                            label="Registrations CSV"
+                            :progress="registrationsExport.progress"
+                            :indeterminate="registrationsExport.indeterminate"
+                            :loaded-bytes="registrationsExport.loadedBytes"
+                            :direct-count="registrationsExport.directCount"
+                            :error-message="registrationsExport.errorMessage"
+                            @cancel="registrationsExport.cancel()"
+                        />
+                        <ExportDownloadStatus
+                            :phase="attendanceExport.phase"
+                            label="Attendance CSV"
+                            :progress="attendanceExport.progress"
+                            :indeterminate="attendanceExport.indeterminate"
+                            :loaded-bytes="attendanceExport.loadedBytes"
+                            :direct-count="attendanceExport.directCount"
+                            :error-message="attendanceExport.errorMessage"
+                            @cancel="attendanceExport.cancel()"
+                        />
+                    </div>
                 </div>
             </CardContent>
         </Card>

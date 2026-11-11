@@ -8,21 +8,19 @@ import ScanExportDialog, {
     type TScanExportFormat,
     type TScanExportTarget,
 } from '@/components/modules/dashboard/ScanExportDialog.vue';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { useGlobalQrScanPage } from '@/hooks/useGlobalQrScanPage';
+import { useExportDownload } from '@/hooks/useExportDownload';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
-import { downloadUrl } from '@/adapters/browser/fileDownload';
 import type { IScanTargetEvent, IScanTargetSession } from '@/types/scan';
 
 defineOptions({ layout: DashboardFocusLayout });
-
-/** Jeda antar-unduhan agar browser tidak menganggapnya spam unduhan otomatis. */
-const EXPORT_DOWNLOAD_STAGGER_MS = 400;
 
 const props = defineProps<{
     targets: {
@@ -38,7 +36,12 @@ const { showSuccessToast } = useToastNotifications();
 const feedUrl = computed<string>(() => props.globalScanFeedUrl.trim());
 
 const s = reactive(
-    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets)
+    useGlobalQrScanPage({
+        scannerContainerId: 'global-qr-scanner-region',
+        storeUrl: props.globalScanStoreUrl,
+        feedUrl: feedUrl.value,
+        getTargets: () => props.targets,
+    })
 );
 
 const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
@@ -57,45 +60,40 @@ const heroEmptyMessage = computed<string>(() =>
 
 const exportDialogOpen = ref(false);
 const exportFormat = ref<TScanExportFormat>('xlsx');
-const isExporting = ref(false);
+const exportLabel = ref('Export scan');
+const exportDownload = reactive(useExportDownload());
 
-function triggerBrowserDownload(url: string): void {
-    downloadUrl(url);
-}
-
-function downloadScanExports(targets: TScanExportTarget[], format: TScanExportFormat): void {
+async function downloadScanExports(targets: TScanExportTarget[], format: TScanExportFormat): Promise<void> {
     if (targets.length === 0) {
         return;
     }
 
-    isExporting.value = true;
+    exportLabel.value = `Export ${format.toUpperCase()}`;
 
-    targets.forEach((target, index) => {
-        setTimeout(() => {
-            triggerBrowserDownload(routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
+    const urls = targets.map((target) => routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
+    const summary = await exportDownload.start(urls);
 
-            if (index === targets.length - 1) {
-                isExporting.value = false;
-                showSuccessToast(
-                    targets.length === 1
-                        ? `Export ${format.toUpperCase()} diunduh.`
-                        : `${targets.length} file ${format.toUpperCase()} sedang diunduh.`,
-                    {
-                        description:
-                            targets.length > 1
-                                ? 'Jika browser meminta izin, pilih "Allow" agar semua file terunduh.'
-                                : undefined,
-                    }
-                );
-            }
-        }, index * EXPORT_DOWNLOAD_STAGGER_MS);
-    });
+    if (summary === null) {
+        return;
+    }
+
+    const started = summary.directCount > 0;
+
+    showSuccessToast(
+        targets.length === 1
+            ? `Export ${format.toUpperCase()} ${started ? 'mulai diunduh' : 'diunduh'}.`
+            : `${targets.length} file ${format.toUpperCase()} ${started ? 'mulai diunduh' : 'sedang diunduh'}.`,
+        {
+            description:
+                targets.length > 1 ? 'Jika browser meminta izin, pilih "Allow" agar semua file terunduh.' : undefined,
+        }
+    );
 }
 
 function requestScanExport(format: TScanExportFormat): void {
     const selected = s.selectedTargetOption;
     if (selected !== null) {
-        downloadScanExports([selected], format);
+        void downloadScanExports([selected], format);
 
         return;
     }
@@ -105,7 +103,7 @@ function requestScanExport(format: TScanExportFormat): void {
 }
 
 function confirmScanExport(targets: TScanExportTarget[]): void {
-    downloadScanExports(targets, exportFormat.value);
+    void downloadScanExports(targets, exportFormat.value);
 }
 
 function toggleLog(): void {
@@ -148,7 +146,7 @@ onMounted(() => {
                     <Button
                         variant="outline"
                         class="md:min-w-32"
-                        :disabled="isExporting"
+                        :disabled="exportDownload.isRunning"
                         @click="requestScanExport('xlsx')"
                     >
                         <FileSpreadsheet data-icon="inline-start" />
@@ -157,12 +155,24 @@ onMounted(() => {
                     <Button
                         variant="outline"
                         class="md:min-w-32"
-                        :disabled="isExporting"
+                        :disabled="exportDownload.isRunning"
                         @click="requestScanExport('csv')"
                     >
                         <FileText data-icon="inline-start" />
                         Export CSV
                     </Button>
+                    <ExportDownloadStatus
+                        :phase="exportDownload.phase"
+                        :label="exportLabel"
+                        :progress="exportDownload.progress"
+                        :indeterminate="exportDownload.indeterminate"
+                        :loaded-bytes="exportDownload.loadedBytes"
+                        :current-index="exportDownload.currentIndex"
+                        :total-files="exportDownload.totalFiles"
+                        :direct-count="exportDownload.directCount"
+                        :error-message="exportDownload.errorMessage"
+                        @cancel="exportDownload.cancel()"
+                    />
                 </div>
             </div>
 

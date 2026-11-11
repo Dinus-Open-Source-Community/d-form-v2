@@ -7,6 +7,7 @@ use App\Models\EmailBroadcast;
 use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 /**
  * Inline image editor broadcast (multipart field `file`); otorisasi `update`
@@ -42,7 +43,7 @@ class StoreBroadcastInlineImageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => SafeUploadFile::rules(true, ['png', 'jpg', 'jpeg', 'gif', 'webp']),
+            'file' => SafeUploadFile::rules(true, UploadPurpose::Image),
         ];
     }
 

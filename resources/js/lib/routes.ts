@@ -21,6 +21,7 @@ import { registrationsCsv } from '@/routes/dashboard/events/exports';
 import {
     create as formCreate,
     destroy as formDestroy,
+    draft as formDraft,
     show as formShow,
     store as formStore,
 } from '@/routes/dashboard/events/forms';
@@ -277,6 +278,7 @@ export const routes = {
                 show: (eventId: string | number, formId: string | number): string =>
                     formShow.url({ event: String(eventId), form: String(formId) }),
                 store: (eventId: string | number): string => formStore.url({ event: String(eventId) }),
+                draft: (eventId: string | number): string => formDraft.url({ event: String(eventId) }),
                 destroy: (eventId: string | number, formId: string | number): string =>
                     formDestroy.url({ event: String(eventId), form: String(formId) }),
             },

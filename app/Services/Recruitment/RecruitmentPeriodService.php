@@ -7,6 +7,7 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use App\Models\User;
 use App\Services\User\UserAvatarService;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
@@ -64,7 +65,11 @@ final class RecruitmentPeriodService
         $data['slug'] = $this->slugGenerator->generateForName($data['name']);
 
         if ($banner !== null) {
-            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('recruitment/banners'));
+            $data['banner'] = app(SafeUploadStorage::class)->store(
+                $banner,
+                UploadStorageTarget::public('recruitment/banners'),
+                UploadPurpose::Image,
+            );
         }
 
         return DB::transaction(function () use ($data): RecruitmentPeriod {
@@ -95,7 +100,11 @@ final class RecruitmentPeriodService
                 Storage::disk('public')->delete($period->banner);
             }
 
-            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('recruitment/banners'));
+            $data['banner'] = app(SafeUploadStorage::class)->store(
+                $banner,
+                UploadStorageTarget::public('recruitment/banners'),
+                UploadPurpose::Image,
+            );
         }
 
         $period->update($data);

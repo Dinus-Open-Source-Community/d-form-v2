@@ -160,21 +160,35 @@ class SecurityHeaders
      */
     private function devServerOrigins(): array
     {
-        $origin = config('security.csp.dev_server_origin');
+        $configured = config('security.csp.dev_server_origins');
 
-        if (! is_string($origin) || $origin === '') {
-            return [];
+        if (! is_array($configured)) {
+            $legacy = config('security.csp.dev_server_origin');
+            $configured = is_string($legacy) && $legacy !== '' ? [$legacy] : [];
         }
 
-        $parts = parse_url($origin);
+        $origins = [];
 
-        if ($parts === false || ! isset($parts['host'])) {
-            return [$origin];
+        foreach ($configured as $origin) {
+            if (! is_string($origin) || trim($origin) === '') {
+                continue;
+            }
+
+            $origin = trim($origin);
+            $parts = parse_url($origin);
+
+            if ($parts === false || ! isset($parts['host'])) {
+                $origins[] = $origin;
+
+                continue;
+            }
+
+            $authority = $parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+            $origins[] = 'http://'.$authority;
+            $origins[] = 'ws://'.$authority;
         }
 
-        $authority = $parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
-
-        return ['http://'.$authority, 'ws://'.$authority];
+        return array_values(array_unique($origins));
     }
 
     /**

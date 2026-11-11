@@ -7,12 +7,17 @@ defineEmits<{
 </script>
 
 <template>
+    <!--
+        FAB kanvas mobile: bulat penuh, mengambang di atas bar aksi bawah
+        (`Pratinjau`/`Simpan`, tinggi tombol h-11 + padding pb-6) dan tidak pernah
+        menempel ke tepi bawah browser (`env(safe-area-inset-bottom)`).
+    -->
     <button
         type="button"
-        class="bg-primary text-primary-foreground hover:bg-primary/92 fixed right-5 bottom-6 z-40 inline-flex size-14 items-center justify-center shadow-sm transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden"
+        class="bg-primary text-primary-foreground hover:bg-primary/92 focus-visible:ring-ring/40 active:bg-primary/85 focus-visible:ring-offset-background absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-40 inline-flex size-14 items-center justify-center rounded-full shadow-lg transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none focus-visible:ring-[3px] focus-visible:ring-offset-2 active:scale-[0.97] lg:hidden"
         aria-label="Add field"
         @click="$emit('click')"
     >
-        <Plus class="size-6" />
+        <Plus class="size-6" aria-hidden="true" />
     </button>
 </template>

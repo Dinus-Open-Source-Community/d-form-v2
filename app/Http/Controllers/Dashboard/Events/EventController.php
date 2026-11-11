@@ -129,8 +129,17 @@ class EventController extends Controller
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->visibleToEventCreator($event, auth()->user())
             ->orderBy('title')
-            ->get(['id', 'title']);
+            ->get(['id', 'title', 'status', 'created_by'])
+            ->map(fn (Form $form): array => [
+                'id' => $form->id,
+                'title' => $form->title,
+                'status' => $form->status->value,
+                'is_draft' => $form->isDraft(),
+            ])
+            ->values()
+            ->all();
 
         return Inertia::render('Dashboard/Events/Show', [
             'event' => $this->eventService->eventToInertiaArray($event),

@@ -20,6 +20,10 @@ class FormFillController extends Controller
     public function __invoke(Request $request, Event $event, Form $form): Response
     {
         abort_unless($form->event_id === $event->id, 404);
+        // Draft belum dipublikasikan: isi form tidak boleh dirender ke peserta
+        // walau id-nya bisa ditebak. Guard akses tetap memberi NotVisible untuk
+        // pemakai lain (submit/picker), ini menutup kebocoran konten halaman fill.
+        abort_if($form->isDraft(), 404);
 
         $user = $request->user();
         FormAccessGuard::assertEventAvailable($event, $user);

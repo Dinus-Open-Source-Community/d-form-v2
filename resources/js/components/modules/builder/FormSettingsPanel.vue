@@ -127,6 +127,7 @@ function vString(v: unknown): string {
                     v-for="opt in visibilityOptions"
                     :key="opt.value"
                     type="button"
+                    :aria-pressed="visibleFor.includes(opt.value)"
                     @click="$emit('toggleVisibility', opt.value, !visibleFor.includes(opt.value))"
                     :class="[
                         'border px-4 py-2 text-sm font-medium transition-[border-color,background-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',

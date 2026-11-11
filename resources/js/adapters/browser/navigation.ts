@@ -30,6 +30,11 @@ export function currentHash(): string {
 }
 
 /** Ganti URL tanpa menambah history. */
+/** Muat ulang halaman saat ini (dipakai pemulihan setelah sesi/target autosave hilang). */
+export function reloadPage(): void {
+    window.location.reload();
+}
+
 export function replaceUrl(url: string | URL): void {
     readWindow()?.history.replaceState(null, '', typeof url === 'string' ? url : url.toString());
 }

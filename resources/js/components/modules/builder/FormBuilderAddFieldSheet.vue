@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Search, Plus } from 'lucide-vue-next';
 import type {
@@ -16,19 +17,38 @@ defineProps<{
 defineEmits<{
     pickField: [template: IFormBuilderPaletteField];
 }>();
+
+/** Target fokus netral saat sheet terbuka (judul), bukan input pencarian. */
+const focusTarget = ref<HTMLElement | null>(null);
+
+/**
+ * reka-ui memfokuskan elemen tabbable pertama — yaitu input pencarian — sehingga di
+ * mobile keyboard langsung terbuka. Batalkan fokus otomatis itu dan pindahkan fokus
+ * ke judul sheet agar pembaca layar tetap mendarat di dalam dialog.
+ */
+function onOpenAutoFocus(event: Event): void {
+    event.preventDefault();
+    focusTarget.value?.focus();
+}
 </script>
 
 <template>
     <Sheet v-model:open="open">
-        <SheetContent side="bottom" class="border-border flex max-h-[88vh] flex-col rounded-t-2xl border-t p-0">
+        <SheetContent
+            side="bottom"
+            class="border-border flex max-h-[88vh] flex-col rounded-t-2xl border-t p-0"
+            @open-auto-focus="onOpenAutoFocus"
+        >
             <SheetHeader class="border-border shrink-0 space-y-1 border-b px-5 py-4 text-left">
-                <SheetTitle class="font-display flex items-center gap-2 text-base font-bold tracking-[-0.015em]">
-                    <Plus class="text-primary size-4" />
-                    Add a field
-                </SheetTitle>
-                <SheetDescription class="text-xs"
-                    >Tap any block to insert it at the bottom of your form.</SheetDescription
-                >
+                <div ref="focusTarget" tabindex="-1" class="outline-none">
+                    <SheetTitle class="font-display flex items-center gap-2 text-base font-bold tracking-[-0.015em]">
+                        <Plus class="text-primary size-4" />
+                        Add a field
+                    </SheetTitle>
+                    <SheetDescription class="text-xs"
+                        >Tap any block to insert it at the bottom of your form.</SheetDescription
+                    >
+                </div>
             </SheetHeader>
             <div class="border-border bg-card border-b px-5 py-3">
                 <div class="relative">

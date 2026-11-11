@@ -75,8 +75,10 @@ function toRepoPath(file: string): string {
 }
 
 function specifierBase(specifier: string, fromFile: string): string | null {
-    if (specifier.startsWith('@/')) return join(JS_ROOT, specifier.slice(2));
-    if (specifier.startsWith('.')) return resolve(dirname(fromFile), specifier);
+    // Query Vite (`?url`, `?no-inline`, `?raw`) bukan bagian path berkas.
+    const [specifierPath] = specifier.split('?');
+    if (specifierPath.startsWith('@/')) return join(JS_ROOT, specifierPath.slice(2));
+    if (specifierPath.startsWith('.')) return resolve(dirname(fromFile), specifierPath);
     return null;
 }
 

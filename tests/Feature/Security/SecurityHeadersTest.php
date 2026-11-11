@@ -64,6 +64,23 @@ class SecurityHeadersTest extends TestCase
         $this->assertNotContains("'unsafe-eval'", $directives['script-src']);
     }
 
+    public function test_csp_dev_allowances_accept_multiple_dev_origins(): void
+    {
+        config([
+            'security.csp.dev_allowances' => true,
+            'security.csp.dev_server_origins' => ['http://192.168.0.170:5173', 'http://localhost:5173'],
+        ]);
+
+        $directives = $this->cspDirectives($this->get('/'));
+
+        foreach (['script-src', 'style-src', 'connect-src'] as $directive) {
+            $this->assertContains('http://192.168.0.170:5173', $directives[$directive]);
+            $this->assertContains('ws://192.168.0.170:5173', $directives[$directive]);
+        }
+
+        $this->assertContains('http://localhost:5173', $directives['script-src']);
+    }
+
     public function test_production_csp_adds_upgrade_insecure_requests_and_drops_dev_origins(): void
     {
         // security.hsts.* and security.csp.dev_allowances are not re-read here because

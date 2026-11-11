@@ -434,7 +434,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             await page.getByRole('button', { name: 'Tambah opsi' }).click();
             await page.getByText('Pakai gambar', { exact: true }).first().click();
 
-            const optionFileInput = page.locator('[role=dialog] input[type=file][accept="image/*"]');
+            const optionFileInput = page.locator('[role=dialog] input[type=file][accept*="image/"]');
             const uploadsBefore = requests.urls().filter((url) => url.endsWith('/images')).length;
 
             await optionFileInput.first().setInputFiles({
@@ -447,7 +447,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             // payload aktif tidak pernah menyentuh server/storage. Teks persis dipakai
             // agar tidak tertukar dengan pesan gagal-upload generik.
             await expect(
-                page.getByText('Gagal mengunggah gambar opsi. Coba lagi.', { exact: true }),
+                page.getByText('Format file tidak didukung.', { exact: true }),
                 'error validasi tampil di UI'
             ).toBeVisible();
             expect(

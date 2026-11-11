@@ -7,6 +7,7 @@ use App\Models\Form;
 use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 /**
  * Unggahan gambar di editor form builder; otorisasi mengikuti policy event
@@ -28,6 +29,10 @@ class StoreFormImageRequest extends FormRequest
             404
         );
 
+        if (! $form->isDraftVisibleTo($event, $this->user())) {
+            return false;
+        }
+
         return $this->user()?->can('update', $event) ?? false;
     }
 
@@ -39,7 +44,7 @@ class StoreFormImageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => SafeUploadFile::rules(true, ['png', 'jpg', 'jpeg', 'gif', 'webp']),
+            'file' => SafeUploadFile::rules(true, UploadPurpose::Image),
         ];
     }
 }

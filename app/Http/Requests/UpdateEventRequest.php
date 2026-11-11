@@ -11,6 +11,7 @@ use App\Rules\SafeUploadFile;
 use App\Services\Event\EventService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 class UpdateEventRequest extends FormRequest
 {
@@ -40,7 +41,7 @@ class UpdateEventRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'session' => ['required', 'string', 'max:2048', new CommaSeparatedEventSessions()],
             'category' => ['required', 'string', 'max:2048', new CommaSeparatedEventCategories()],
-            'banner' => ['sometimes', ...SafeUploadFile::rules(false, ['jpg', 'jpeg', 'png', 'webp', 'gif'])],
+            'banner' => ['sometimes', ...SafeUploadFile::rules(false, UploadPurpose::Image)],
             'publish' => ['sometimes', 'boolean'],
         ];
     }

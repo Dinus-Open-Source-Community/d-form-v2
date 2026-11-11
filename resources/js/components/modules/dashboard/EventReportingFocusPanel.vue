@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { reactive } from 'vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClipboardList, ScanLine, Users, Download } from 'lucide-vue-next';
 import { formatDateTime } from '@/lib/dateTime';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
+import { useExportDownload } from '@/hooks/useExportDownload';
 
 const props = withDefaults(
     defineProps<{
@@ -40,17 +43,58 @@ const props = withDefaults(
 );
 
 const { goToPage } = usePaginationNavigation();
+
+/** Satu state unduhan per tombol: kedua export adalah GET download terpisah. */
+const registrationsExport = reactive(useExportDownload());
+const attendanceExport = reactive(useExportDownload());
+
+function downloadRegistrations(): void {
+    void registrationsExport.start([props.exportUrls.registrations]);
+}
+
+function downloadAttendance(): void {
+    void attendanceExport.start([props.exportUrls.attendance]);
+}
 </script>
 
 <template>
     <div class="flex flex-col gap-4">
-        <div v-if="props.showExportToolbar" class="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" as-child class="">
-                <a :href="exportUrls.registrations"> <Download class="mr-1.5 size-4" />Registrations CSV </a>
-            </Button>
-            <Button variant="outline" size="sm" as-child class="">
-                <a :href="exportUrls.attendance"> <Download class="mr-1.5 size-4" />Attendance CSV </a>
-            </Button>
+        <div v-if="props.showExportToolbar" class="flex flex-col gap-2">
+            <div class="flex flex-wrap gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="registrationsExport.isRunning"
+                    @click="downloadRegistrations"
+                >
+                    <Download class="mr-1.5 size-4" />Registrations CSV
+                </Button>
+                <Button variant="outline" size="sm" :disabled="attendanceExport.isRunning" @click="downloadAttendance">
+                    <Download class="mr-1.5 size-4" />Attendance CSV
+                </Button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <ExportDownloadStatus
+                    :phase="registrationsExport.phase"
+                    label="Registrations CSV"
+                    :progress="registrationsExport.progress"
+                    :indeterminate="registrationsExport.indeterminate"
+                    :loaded-bytes="registrationsExport.loadedBytes"
+                    :direct-count="registrationsExport.directCount"
+                    :error-message="registrationsExport.errorMessage"
+                    @cancel="registrationsExport.cancel()"
+                />
+                <ExportDownloadStatus
+                    :phase="attendanceExport.phase"
+                    label="Attendance CSV"
+                    :progress="attendanceExport.progress"
+                    :indeterminate="attendanceExport.indeterminate"
+                    :loaded-bytes="attendanceExport.loadedBytes"
+                    :direct-count="attendanceExport.directCount"
+                    :error-message="attendanceExport.errorMessage"
+                    @cancel="attendanceExport.cancel()"
+                />
+            </div>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

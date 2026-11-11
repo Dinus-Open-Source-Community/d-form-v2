@@ -1,5 +1,6 @@
 import { isRecord } from '@/lib/isRecord';
 import { isFormBuilderFieldType } from '@/lib/formBuilderFieldType';
+import { createShortId, createUuid } from '@/lib/uuid';
 
 /**
  * Operasi daftar field form builder yang dipakai bersama oleh entry point demo
@@ -66,7 +67,7 @@ export interface IFormBuilderFieldList<T extends IFormBuilderListedField> {
 
 /** Nama teknis unik per field (dipakai jawaban form). */
 function createFieldName(): string {
-    return `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    return `field_${createShortId(12)}`;
 }
 
 /** Indeks drop yang valid untuk daftar sepanjang `length`. */
@@ -140,7 +141,7 @@ export function createFormBuilderFieldList<T extends IFormBuilderListedField>(
         // JSON round-trip: aman untuk field reaktif Vue (proxy tidak bisa di-`structuredClone`)
         // dan identik dengan perilaku duplikasi sebelumnya.
         const copy: T = JSON.parse(JSON.stringify(original));
-        copy.id = crypto.randomUUID();
+        copy.id = createUuid();
         copy.name = createFieldName();
 
         const decorated = options.decorateDuplicate === undefined ? copy : options.decorateDuplicate(copy, original);

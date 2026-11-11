@@ -32,13 +32,15 @@ class FieldModifyRequest extends FormRequest
 
         $form = $formParam instanceof Form
             ? $formParam
-            : Form::query()->select(['id', 'event_id'])->find($formParam);
+            : Form::query()->select(['id', 'event_id', 'status', 'created_by'])->find($formParam);
 
         if (!$event || !$form || $form->event_id !== $event->id) {
             return false;
         }
 
-        return $user->can('update', $event);
+        // Draft hanya boleh ditulis oleh pembuat event (autosave editor tetap
+        // berjalan untuknya; ini bukan syarat "published").
+        return $user->can('update', $event) && $form->isDraftVisibleTo($event, $user);
     }
 
     /**
@@ -48,7 +50,9 @@ class FieldModifyRequest extends FormRequest
     {
         return array_merge(
             [
-                'fields' => 'required|array',
+                // `present` (bukan `required`): array kosong adalah payload sah
+                // untuk menghapus field terakhir pada channel autosave fields.
+                'fields' => 'present|array',
             ],
             FormFieldsRequestValidation::nestedFieldRules(),
         );
@@ -62,7 +66,7 @@ class FieldModifyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fields.required' => 'Please provide form fields to update.',
+            'fields.present' => 'Please provide form fields to update.',
             'fields.array' => 'Form fields must be a valid list.',
         ];
     }

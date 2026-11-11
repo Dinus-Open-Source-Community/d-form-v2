@@ -3,6 +3,7 @@
 namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 use App\Support\LogRedaction;
@@ -48,7 +49,11 @@ class BroadcastInlineImageService
      */
     public function store(EmailBroadcast $broadcast, UploadedFile $file): array
     {
-        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'));
+        $path = app(SafeUploadStorage::class)->store(
+            $file,
+            UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'),
+            UploadPurpose::Image,
+        );
 
         return [
             'path' => $path,

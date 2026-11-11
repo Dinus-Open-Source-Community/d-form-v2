@@ -33,7 +33,16 @@ return [
 
     'forms' => [
         'upload_max_size_kb' => max(1, min(5120, (int) env('FORMS_UPLOAD_MAX_SIZE_KB', 5120))),
-        'upload_max_pixels' => max(1, min(25_000_000, (int) env('FORMS_UPLOAD_MAX_PIXELS', 25_000_000))),
+        /*
+         * Cap piksel 12 juta dan dimensi 8000 px diperiksa dari header gambar
+         * sebelum decode. Worst case decode ~48 MB (4 byte/piksel) + buffer
+         * sumber/encode ≤5 MB masing-masing.
+         */
+        'upload_max_pixels' => max(1, min(12_000_000, (int) env('FORMS_UPLOAD_MAX_PIXELS', 12_000_000))),
+        'upload_max_dimension' => max(1, min(8000, (int) env('FORMS_UPLOAD_MAX_DIMENSION', 8000))),
+        /* CSV dataset broadcast diparse penuh: batas ukuran dan jumlah baris sendiri. */
+        'dataset_csv_max_size_kb' => max(1, min(5120, (int) env('DATASET_CSV_MAX_SIZE_KB', 2048))),
+        'dataset_csv_max_rows' => max(1, min(100000, (int) env('DATASET_CSV_MAX_ROWS', 10000))),
         'upload_allowed_mimes' => env('FORMS_UPLOAD_ALLOWED_MIMES', 'pdf,jpg,jpeg,png,webp,gif'),
         /*
          * Submit form per user per form per menit. Submit normal 1×; sisa kuota

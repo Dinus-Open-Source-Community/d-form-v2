@@ -25,6 +25,7 @@ use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use App\Services\Registration\FormAnswerFileStorage;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,6 +41,14 @@ use Tests\TestCase;
  * change in columns, order, BOM, CSV escaping, timezone formatting, or answer
  * summarization changes the hash. EP-04 refactored both controllers onto a
  * shared export seam and these hashes are the proof that the bytes did not move.
+ *
+ * Signed file URLs embed the scheme, host, expiry and a signature hashed over
+ * both, so their bytes are a function of APP_URL rather than of the export
+ * contract. The registration hash is therefore taken over a body where the
+ * app-generated signed URL is replaced by a token that keeps its route path;
+ * the URL itself is proved separately against the same generator the app uses.
+ * This keeps the suite green under any APP_URL without loosening the columns,
+ * order or payload comparison.
  */
 class ExportCsvByteIdentityTest extends TestCase
 {
@@ -53,7 +62,7 @@ class ExportCsvByteIdentityTest extends TestCase
 
     private const LEGACY_ANSWER_ID = '44444444-4444-4444-8444-444444444444';
 
-    private const REGISTRATION_CSV_SHA256 = 'e0d09a12509c9a2e934d8018c8efbb7dea988862c3d342d351a4307abac73f80';
+    private const REGISTRATION_CSV_SHA256 = '5aa9fef7c9a18bd82ec1d3b583709a2e79e07236befa496aa6621798a353888b';
 
     private const INTERVIEW_CSV_SHA256 = '0e8c5f109e08dd6a33f9df906191b5697b9e10a1673d9bbc5fc999e43476c53c';
 
@@ -147,6 +156,8 @@ class ExportCsvByteIdentityTest extends TestCase
 
         $content = $response->streamedContent();
         self::assertIsString($content);
+
+        $content = $this->replaceSignedFileUrl($content, $leaderAnswer, 'payment_proof');
 
         $hash = hash('sha256', $content);
 
@@ -337,5 +348,27 @@ class ExportCsvByteIdentityTest extends TestCase
         $user->assignRole('admin');
 
         return $user;
+    }
+
+    /**
+     * Swap the app-generated signed file URL for a stable token.
+     *
+     * Regenerating the URL through the same seam the export uses means a drift
+     * fails loudly instead of silently skipping the substitution. The token keeps
+     * the route path (still byte compared), while the raw body must still carry
+     * exactly one expiry and signature pair so an unsigned or dropped link cannot
+     * hide behind the normalization.
+     */
+    private function replaceSignedFileUrl(string $content, FormAnswer $submission, string $field): string
+    {
+        $signedUrl = app(FormAnswerFileStorage::class)->temporaryUrl($submission, $field);
+
+        self::assertSame(1, substr_count($content, $signedUrl), 'Export must embed the signed file URL generated for this host.');
+        self::assertSame(1, substr_count($content, 'expires='), 'Export must emit exactly one signed URL expiry.');
+        self::assertSame(1, substr_count($content, 'signature='), 'Export must emit exactly one signed URL signature.');
+
+        $path = (string) parse_url($signedUrl, PHP_URL_PATH);
+
+        return str_replace($signedUrl, '<<signed-file-url:'.$path.'>>', $content);
     }
 }

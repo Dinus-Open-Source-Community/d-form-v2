@@ -9,6 +9,7 @@ import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata';
 import { cleanStoredImageUrl, stripLocalImageUrlsDeep } from '@/lib/builderImageSanitizer';
 import { readMetadataBag, readMetaNumber, readMetaText, readRuleSet } from '@/lib/formFieldMetadata';
 import { isRecord } from '@/lib/isRecord';
+import { createUuid } from '@/lib/uuid';
 
 export type { IBackendField, IBuilderField, IFieldOptionEntry };
 
@@ -44,14 +45,14 @@ function parseOptionChoices(raw: unknown): IFieldOptionEntry[] | null {
     const out: IFieldOptionEntry[] = [];
     for (const item of raw) {
         if (isRecord(item)) {
-            const id = typeof item.id === 'string' && item.id !== '' ? item.id : crypto.randomUUID();
+            const id = typeof item.id === 'string' && item.id !== '' ? item.id : createUuid();
             const type = item.type === 'image' ? 'image' : 'text';
             const label = typeof item.label === 'string' ? item.label.trim() : '';
             const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : '';
             out.push({ id, type, label, imageUrl });
         } else if (typeof item === 'string') {
             const label = item.trim();
-            out.push({ id: crypto.randomUUID(), type: 'text', label });
+            out.push({ id: createUuid(), type: 'text', label });
         }
     }
     return out.length > 0 ? out : null;
@@ -345,7 +346,7 @@ export function fromBackendField(bf: IBackendField): IBuilderField {
                   .split(',')
                   .map((s) => s.trim())
                   .filter(Boolean)
-                  .map((label) => ({ id: crypto.randomUUID(), type: 'text' as const, label }))
+                  .map((label) => ({ id: createUuid(), type: 'text' as const, label }))
             : []);
     const opts: IFieldOptionEntry[] =
         bt === 'dropdown'

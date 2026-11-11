@@ -7,6 +7,7 @@ use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Enums\UploadPurpose;
 
 class UpdateApplicationRequest extends FormRequest
 {
@@ -49,9 +50,9 @@ class UpdateApplicationRequest extends FormRequest
             ],
             'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'starts_with:http://,https://', 'max:500'],
-            'portfolio_file' => SafeUploadFile::rules(false, ['pdf']),
-            'cv' => [$hasCv ? 'nullable' : 'required', 'file', new SafeUploadFile(['pdf'])],
-            'instagram_follow_proof' => [$hasInstagramFollow ? 'nullable' : 'required', 'file', new SafeUploadFile(['jpg', 'jpeg', 'png', 'webp'])],
+            'portfolio_file' => SafeUploadFile::rules(false, UploadPurpose::RecruitmentPortfolio),
+            'cv' => [$hasCv ? 'nullable' : 'required', 'file', new SafeUploadFile(UploadPurpose::RecruitmentCv)],
+            'instagram_follow_proof' => [$hasInstagramFollow ? 'nullable' : 'required', 'file', new SafeUploadFile(UploadPurpose::InstagramProof)],
             'twibbon_url' => ['required', 'url', 'starts_with:http://,https://', 'max:500'],
         ];
     }

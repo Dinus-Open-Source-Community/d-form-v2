@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Security;
 
+use App\Support\Security\SecurityEnvironment;
+use App\Support\Security\TrustedHostAllowlist;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +14,8 @@ use Tests\TestCase;
 class TrustedHostTest extends TestCase
 {
     private const PROBE = '/__test/host-probe';
+
+    private const CONFIGURED_HOST = 'kiosk-allowlisted.example';
 
     protected function setUp(): void
     {
@@ -30,11 +34,70 @@ class TrustedHostTest extends TestCase
         ]));
     }
 
+    /**
+     * Exact hosts the middleware trusts for the current configuration.
+     *
+     * Reads the real allowlist builder so the suite never pins APP_URL: the test
+     * host is whatever the configuration trusts, not a literal baked into a URL.
+     *
+     * @return list<string>
+     */
+    private function allowlistedHosts(): array
+    {
+        $includeLoopbackHosts = SecurityEnvironment::isLocal()
+            || SecurityEnvironment::environment() === 'testing';
+
+        $patterns = (new TrustedHostAllowlist($includeLoopbackHosts))->patterns(
+            config('trusted_hosts.hosts'),
+            (string) config('app.url'),
+        );
+
+        return array_map(
+            static fn (string $pattern): string => preg_replace('/\\\\(.)/s', '$1', substr($pattern, 1, -1)),
+            $patterns,
+        );
+    }
+
+    /**
+     * Host taken from APP_URL; always the baseline entry of the allowlist.
+     *
+     * The host travels in the request URL on purpose: Laravel's test helpers
+     * resolve a relative URI through `url()` (so APP_URL) and Symfony then takes
+     * HTTP_HOST from that URI, which means a bare `Host` header would be
+     * overwritten. Building the URL from config keeps the case environment
+     * agnostic without pinning a host literal.
+     */
+    private function appUrlHost(): string
+    {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        self::assertIsString($host);
+        self::assertNotSame('', $host);
+
+        return strtolower($host);
+    }
+
     public function test_allowlisted_host_is_served(): void
     {
-        $this->get(self::PROBE)
+        $host = $this->appUrlHost();
+
+        self::assertContains($host, $this->allowlistedHosts());
+
+        $this->get('http://'.$host.self::PROBE)
             ->assertOk()
-            ->assertJsonPath('host', 'localhost');
+            ->assertJsonPath('host', $host);
+    }
+
+    public function test_configured_host_is_served_regardless_of_app_url(): void
+    {
+        config(['trusted_hosts.hosts' => self::CONFIGURED_HOST]);
+
+        self::assertNotSame(self::CONFIGURED_HOST, $this->appUrlHost());
+        self::assertContains(self::CONFIGURED_HOST, $this->allowlistedHosts());
+
+        $this->get('http://'.self::CONFIGURED_HOST.self::PROBE)
+            ->assertOk()
+            ->assertJsonPath('host', self::CONFIGURED_HOST);
     }
 
     public function test_untrusted_host_is_rejected_with_a_plain_bad_request(): void
@@ -87,11 +150,13 @@ class TrustedHostTest extends TestCase
 
     public function test_forwarded_host_from_an_untrusted_peer_is_ignored(): void
     {
+        $host = $this->appUrlHost();
+
         $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.5'])
             ->withHeaders(['X-Forwarded-Host' => 'evil.example'])
-            ->get(self::PROBE)
+            ->get('http://'.$host.self::PROBE)
             ->assertOk()
-            ->assertJsonPath('host', 'localhost');
+            ->assertJsonPath('host', $host);
     }
 
     public function test_configured_hosts_are_trusted_without_trusting_their_subdomains(): void

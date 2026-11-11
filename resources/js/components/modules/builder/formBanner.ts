@@ -3,6 +3,7 @@ import type { TFormFieldMetadataBag } from '@/types/form';
 import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
 import { readMetaText, readMetadataBag } from '@/lib/formFieldMetadata';
 import { isRecord } from '@/lib/isRecord';
+import { createUuid } from '@/lib/uuid';
 
 export interface IFormBannerState {
     id: string | null;
@@ -70,7 +71,7 @@ export function buildFormBannerBuilderField(state: IFormBannerState): IBuilderFi
         return null;
     }
 
-    const id = previousId ?? crypto.randomUUID();
+    const id = previousId ?? createUuid();
 
     return {
         id,

@@ -1,4 +1,5 @@
 import type { THttpErrorKind, TValidationErrorBag } from '@/types/http';
+import { humanizeErrorMessage, parseValidationErrors, sanitizeApiMessageText } from '@/lib/error-message';
 
 /** Input konstruksi `HttpRequestError`; semua field opsional punya default aman. */
 export interface IHttpRequestErrorInit {
@@ -83,4 +84,23 @@ export function readPublicMessage(body: unknown): string | null {
     const message = body.message.trim();
 
     return message.length > 0 ? message : null;
+}
+
+/**
+ * Pesan publik dari error request untuk toast. Bag validasi diprioritaskan (pesan field
+ * pertama, sudah diterjemahkan), sehingga ringkasan Laravel `... (and N more errors)`
+ * atau string JSON mentah tidak pernah tampil. `fallback` dipakai bila tidak ada pesan.
+ */
+export function describeRequestErrorMessage(error: unknown, fallback = 'Gagal menyimpan.'): string {
+    if (error instanceof HttpRequestError && error.validationErrors !== null) {
+        const first = parseValidationErrors(error.validationErrors)[0];
+        if (first !== undefined) return first.message;
+    }
+
+    if (error instanceof Error) {
+        const message = humanizeErrorMessage(sanitizeApiMessageText(error.message));
+        if (message !== '') return message;
+    }
+
+    return fallback;
 }

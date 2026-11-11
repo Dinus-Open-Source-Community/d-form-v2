@@ -9,6 +9,8 @@ import {
     parseApiErrorMessage,
     parseValidationErrors,
     resolveFieldLabel,
+    sanitizeApiMessageText,
+    stripValidationSummary,
 } from '@/lib/error-message';
 import { describeRequestError } from '@/lib/requestErrorText';
 
@@ -233,5 +235,118 @@ describe('describeRequestError', () => {
     it('memakai pesan generik untuk client dan unknown tanpa membaca status', () => {
         expect(describeRequestError({ kind: 'client', status: 400 })).toBe('Permintaan gagal diproses. Coba lagi.');
         expect(describeRequestError({ kind: 'unknown', status: 200 })).toBe('Permintaan gagal diproses. Coba lagi.');
+    });
+});
+
+describe('pesan validasi form dari backend', () => {
+    const translations: Array<[string, string]> = [
+        ['Please enter the form title.', 'Judul form wajib diisi.'],
+        ['Please enter a description for the form.', 'Deskripsi form wajib diisi.'],
+        ['Please select when the form closes.', 'Pilih tanggal tutup form.'],
+        ['Please select who can see this form.', 'Pilih siapa yang bisa melihat form ini.'],
+        ['Please select at least one visibility option.', 'Pilih minimal satu opsi visibilitas.'],
+        ['Please provide form fields to update.', 'Sertakan minimal satu field form.'],
+    ];
+
+    for (const [raw, expected] of translations) {
+        it(`menerjemahkan "${raw}"`, () => {
+            expect(humanizeErrorMessage(raw)).toBe(expected);
+            expect(humanizeErrorMessage(raw, 'title')).toBe(expected);
+        });
+    }
+
+    it('setiap pesan custom form punya terjemahan Indonesia', () => {
+        const untranslated = translations.map(([raw]) => raw).filter((raw) => humanizeErrorMessage(raw) === raw);
+
+        expect(untranslated).toEqual([]);
+    });
+});
+
+describe('stripValidationSummary', () => {
+    const cases: Array<[string, string]> = [
+        ['Please enter the form title. (and 2 more errors)', 'Please enter the form title.'],
+        ['Judul wajib diisi. (and 1 more error)', 'Judul wajib diisi.'],
+        ['Judul wajib diisi.', 'Judul wajib diisi.'],
+        ['(and 3 more errors) awal', '(and 3 more errors) awal'],
+    ];
+
+    for (const [raw, expected] of cases) {
+        it(`membersihkan "${raw}"`, () => {
+            expect(stripValidationSummary(raw)).toBe(expected);
+        });
+    }
+
+    it('ringkasan Laravel tidak tampil lewat humanizeErrorMessage', () => {
+        expect(humanizeErrorMessage('Please enter the form title. (and 2 more errors)')).toBe(
+            'Judul form wajib diisi.'
+        );
+    });
+});
+
+describe('sanitizeApiMessageText', () => {
+    it('membuka string JSON berisi message', () => {
+        expect(sanitizeApiMessageText('{"message":"Please enter the form title."}')).toBe(
+            'Please enter the form title.'
+        );
+    });
+
+    it('membuka string JSON berisi errors dan memilih pesan field pertama (sudah diterjemahkan)', () => {
+        expect(
+            sanitizeApiMessageText(
+                JSON.stringify({
+                    message: 'Please enter the form title. (and 2 more errors)',
+                    errors: { title: ['Please enter the form title.'], description: ['x'] },
+                })
+            )
+        ).toBe('Judul form wajib diisi.');
+    });
+
+    it('membiarkan teks biasa apa adanya', () => {
+        expect(sanitizeApiMessageText('Gagal menyimpan form.')).toBe('Gagal menyimpan form.');
+        expect(sanitizeApiMessageText('{bukan json')).toBe('{bukan json');
+    });
+});
+
+describe('parseApiErrorMessage untuk ringkasan dan string JSON', () => {
+    it('membuang suffix ringkasan saat hanya body.message tersedia', () => {
+        expect(parseApiErrorMessage({ message: 'Please enter the form title. (and 2 more errors)' })).toBe(
+            'Judul form wajib diisi.'
+        );
+    });
+
+    it('membuka body yang datang sebagai string JSON', () => {
+        expect(
+            parseApiErrorMessage(
+                JSON.stringify({
+                    message: 'Please enter the form title. (and 2 more errors)',
+                    errors: { description: ['Please enter a description for the form.'] },
+                }),
+                'Fallback',
+                422
+            )
+        ).toBe('Deskripsi form wajib diisi.');
+    });
+
+    it('memprioritaskan bag validasi di atas ringkasan message (422)', () => {
+        expect(
+            parseApiErrorMessage(
+                {
+                    message: 'Please enter the form title. (and 2 more errors)',
+                    errors: {
+                        title: ['Please enter the form title.'],
+                        description: ['Please enter a description for the form.'],
+                        closed_at: ['Please select when the form closes.'],
+                    },
+                },
+                'Fallback',
+                422
+            )
+        ).toBe('Judul form wajib diisi.');
+    });
+
+    it('tidak pernah memakai teks ringkasan mentah', () => {
+        const message = parseApiErrorMessage({ message: 'The raw field is required. (and 4 more errors)' }, 'Fallback');
+
+        expect(message.includes('(and ')).toBe(false);
     });
 });

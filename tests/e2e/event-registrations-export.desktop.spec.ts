@@ -408,12 +408,13 @@ async function downloadRegistrationsCsv(page: Page, eventId: string): Promise<IC
     const response = await page.goto(laporanPath(eventId), { waitUntil: 'domcontentloaded' });
     expect(response?.status()).toBe(200);
 
-    const link = page.getByRole('link', { name: /Registrations CSV/ }).first();
-    await expect(link).toBeVisible({ timeout: 30_000 });
-    await expect(link).toHaveAttribute('href', new RegExp(`/admin/events/${eventId}/exports/registrations\\.csv$`));
+    // Tombol export kini memakai `downloadWithProgress` (bukan anchor), jadi unduhan
+    // tetap berupa event download browser dengan nama file dari `Content-Disposition`.
+    const button = page.getByRole('button', { name: 'Registrations CSV' }).first();
+    await expect(button).toBeVisible({ timeout: 30_000 });
 
     const downloadPromise = page.waitForEvent('download');
-    await link.click();
+    await button.click();
 
     return collectDownload(await downloadPromise);
 }

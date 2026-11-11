@@ -3,44 +3,28 @@ import { computed, reactive, ref } from 'vue';
 import FormPreviewDialog from '@/components/modules/builder/FormPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
-import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import type { IBuilderField } from '@/types/form-builder';
-import type { IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
+import type { IFormRegistrationMetadata } from '@/types/form';
 import { useFormBuilderWorkspace } from '@/hooks/useFormBuilderWorkspace';
-import FormBuilderToolbar from './FormBuilderToolbar.vue';
-import FormBuilderMobileTabBar from './FormBuilderMobileTabBar.vue';
 import FormBuilderPalettePanel from './FormBuilderPalettePanel.vue';
 import FormBuilderCanvasBuildView from './FormBuilderCanvasBuildView.vue';
 import FormBuilderAddFieldSheet from './FormBuilderAddFieldSheet.vue';
 import FormBuilderEditFieldSheet from './FormBuilderEditFieldSheet.vue';
 import FormBuilderMobileAddFab from './FormBuilderMobileAddFab.vue';
-import { routes } from '@/lib/routes';
-import FormSettingsPanel from './FormSettingsPanel.vue';
 
 const props = withDefaults(
     defineProps<{
-        event: { id: string; title: string };
-        toolbarSubtitle: string;
-        saveLabel?: string;
         processing?: boolean;
-        fieldErrors?: Partial<Record<'title' | 'description' | 'closed_at' | 'visible_for', string>>;
         shell?: 'dashboard' | 'fullscreen';
-        siblingForms?: IFormSiblingOption[];
-        hideToolbarTitles?: boolean;
-        hideToolbar?: boolean;
-        formSettingsPlacement?: 'inline' | 'tab';
+        /** Error validasi header dari server; ditampilkan di input judul/deskripsi kanvas. */
+        fieldErrors?: Partial<Record<'title' | 'description', string>>;
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
     }>(),
     {
-        saveLabel: 'Save Form',
         processing: false,
-        fieldErrors: () => ({}),
         shell: 'dashboard',
-        siblingForms: () => [],
-        hideToolbarTitles: false,
-        hideToolbar: false,
-        formSettingsPlacement: 'inline',
+        fieldErrors: () => ({}),
         imageUploadUrl: '',
     }
 );
@@ -77,33 +61,25 @@ const wb = reactive(
     )
 );
 
-const backHref = computed(() => routes.admin.events.show(props.event.id));
 const shellHeightClass = computed(() => (props.shell === 'fullscreen' ? 'h-svh' : 'h-full'));
-const visibilityOptions = FORM_VISIBILITY_OPTIONS;
-/** Accordion "Pengaturan form" di panel kiri (bawaan tertutup). */
-const formSettingsOpen = ref(false);
-function toggleFormSettings(): void {
-    formSettingsOpen.value = !formSettingsOpen.value;
-}
 
 /**
- * Satu-satunya jalur simpan untuk toolbar dan blok mobile.
- * Klik berulang saat request masih berjalan diabaikan agar form tidak terkirim dua kali.
+ * Satu-satunya jalur simpan untuk blok aksi mobile (aksi desktop hidup di header tab
+ * halaman). Klik berulang saat request berjalan diabaikan agar form tidak terkirim dua kali.
+ * Header form yang belum valid (tanggal tutup / visibilitas) memindahkan user ke tab
+ * pengaturan lewat `openSettings`; emit hanya sekali per klik.
  */
 function submitForm(): void {
     if (props.processing) return;
 
-    if (
-        props.formSettingsPlacement === 'tab' &&
-        wb.validationIssues.some((issue) => issue.key === 'closedAt' || issue.key === 'visibleFor')
-    ) {
+    if (wb.validationIssues.some((issue) => issue.key === 'closedAt' || issue.key === 'visibleFor')) {
         emit('openSettings');
     }
 
     wb.requestSave();
 }
 
-/** Handle untuk aksi toolbar eksternal (Pratinjau / Save All) dari halaman induk. */
+/** Handle untuk aksi halaman induk (Pratinjau / simpan) yang hidup di header tab. */
 defineExpose({
     showPreview: () => {
         wb.showPreview = true;
@@ -113,49 +89,18 @@ defineExpose({
 </script>
 
 <template>
-    <div data-testid="form-builder-workspace" :class="['flex min-h-0 flex-col overflow-hidden', shellHeightClass]">
-        <FormBuilderToolbar
-            :back-href="backHref"
-            :toolbar-subtitle="toolbarSubtitle"
-            :heading-title="formTitle"
-            :is-ready-to-save="wb.isReadyToSave"
-            :validation-issue-count="wb.validationIssues.length"
-            :is-empty="wb.isEmpty"
-            :processing="processing"
-            :save-label="saveLabel"
-            :hide-titles="hideToolbarTitles"
-            :hide-toolbar="hideToolbar"
-            @preview="wb.showPreview = true"
-            @save="submitForm"
-        >
-            <template #toolbar-extra>
-                <slot name="toolbar-extra" />
-            </template>
-        </FormBuilderToolbar>
-
-        <FormBuilderMobileTabBar
-            v-model="wb.mobileTab"
-            :field-count="wb.currentSectionFields.length"
-            :is-ready-to-save="wb.isReadyToSave"
-            :show-settings-tab="formSettingsPlacement === 'inline'"
-        />
-
+    <div
+        data-testid="form-builder-workspace"
+        :class="['relative flex min-h-0 flex-col overflow-hidden', shellHeightClass]"
+    >
         <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
             <FormBuilderPalettePanel
                 v-model:search-query="wb.searchQuery"
-                v-model:closed-at="closedAt"
-                v-model:visible-for="visibleFor"
-                v-model:form-metadata="formMetadata"
                 :categories="wb.filteredCategories"
                 :open-category-name="wb.openCategoryName"
-                :form-settings-open="formSettingsOpen"
-                :show-form-settings="formSettingsPlacement === 'inline'"
-                :field-errors="fieldErrors"
-                :visibility-options="visibilityOptions"
-                :sibling-forms="siblingForms"
                 @toggle-category="wb.toggleCategory"
-                @toggle-form-settings="toggleFormSettings"
-                @toggle-visibility="wb.toggleVisibility"
+                @palette-drag-start="wb.onPaletteDragStart"
+                @palette-drag-end="wb.onDragEnd"
             />
 
             <main
@@ -169,8 +114,9 @@ defineExpose({
                     v-model:success-content="successContent"
                     v-model:banner="banner"
                     :show-success-zone="wb.showSuccessZone"
-                    :hide-on-mobile-settings="formSettingsPlacement === 'inline' && wb.mobileTab === 'settings'"
                     :banner-preview-src="wb.bannerPreviewSrc"
+                    :title-error="fieldErrors.title"
+                    :description-error="fieldErrors.description"
                     :is-empty="wb.isCurrentSectionEmpty"
                     :is-dragging-over-canvas="wb.isDraggingOverCanvas"
                     :form-fields="wb.currentSectionFields"
@@ -181,6 +127,7 @@ defineExpose({
                     :drag-source-id="wb.dragSourceId"
                     :banner-upload-url="imageUploadUrl"
                     @remove="wb.hideSuccessZone"
+                    @canvas-drag-enter="wb.onCanvasDragEnter"
                     @canvas-drag-over="wb.onCanvasDragOver"
                     @canvas-drag-leave="wb.onCanvasDragLeave"
                     @canvas-drop="wb.onCanvasDrop"
@@ -197,25 +144,6 @@ defineExpose({
                     @add-section="wb.addSection"
                     @go-to-section="wb.goToSection"
                 />
-
-                <div
-                    v-if="formSettingsPlacement === 'inline'"
-                    v-show="wb.mobileTab === 'settings'"
-                    class="px-4 pt-5 pb-24 lg:hidden"
-                >
-                    <div class="mx-auto max-w-[480px]">
-                        <FormSettingsPanel
-                            v-model:closed-at="closedAt"
-                            v-model:visible-for="visibleFor"
-                            v-model:form-metadata="formMetadata"
-                            id-prefix="m"
-                            :field-errors="fieldErrors"
-                            :visibility-options="visibilityOptions"
-                            :sibling-forms="siblingForms"
-                            @toggle-visibility="wb.toggleVisibility"
-                        />
-                    </div>
-                </div>
             </main>
 
             <div class="mx-auto w-full max-w-[480px] px-4 pb-6 sm:hidden">
@@ -235,7 +163,7 @@ defineExpose({
                 </div>
             </div>
         </div>
-        <FormBuilderMobileAddFab v-if="wb.mobileTab === 'build' && !wb.isEmpty" @click="wb.showAddSheet = true" />
+        <FormBuilderMobileAddFab v-if="!wb.isEmpty" @click="wb.showAddSheet = true" />
     </div>
 
     <FormBuilderAddFieldSheet

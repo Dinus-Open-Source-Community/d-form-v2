@@ -60,9 +60,8 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->
     ]);
 
     Route::resource('/events/{event}/forms', EventFormController::class)
-        ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
+        ->only(['create', 'store', 'show', 'edit', 'update', 'destroy'])
         ->names([
-            'index' => 'events.forms.index',
             'create' => 'events.forms.create',
             'store' => 'events.forms.store',
             'show' => 'events.forms.show',
@@ -70,6 +69,14 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->
             'update' => 'events.forms.update',
             'destroy' => 'events.forms.destroy',
         ]);
+
+    Route::post('/events/{event}/forms/draft', [EventFormController::class, 'storeDraft'])
+        ->name('events.forms.draft');
+
+    // Halaman daftar form sudah dihapus (draft tampil di halaman detail event).
+    // Tanpa route ini, GET pada URI yang sama dijawab 405 (karena `store` POST),
+    // padahal URL lama harus 404.
+    Route::get('/events/{event}/forms', static fn () => abort(404));
 
     Route::post('/events/{event}/forms/{form}/fields', [FieldOperationController::class, '__invoke'])
         ->name('events.forms.fields');

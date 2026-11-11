@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import {
-    persistFormSnapshotKeepalive,
-    resolveBuilderImageUploadUrl,
-    saveFormFields,
-    updateFormSettings,
-} from '@/adapters/http/forms';
+import { resolveBuilderImageUploadUrl } from '@/adapters/http/forms';
 import { currentOrigin } from '@/adapters/browser/navigation';
-import { useAutosaveSync } from '@/hooks/useAutosaveSync';
+import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
+import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
 import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
-import { cleanStoredImageUrl } from '@/lib/builderImageSanitizer';
 import { readFieldMetadata, readMetaText, readMetadataBag } from '@/lib/formFieldMetadata';
 import { getFieldError, humanizeErrorMessage } from '@/lib/error-message';
+import { toggleVisibilitySelection } from '@/lib/formVisibility';
+import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
+
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
@@ -26,22 +24,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import { Check, Eye, FileText, Inbox, PenLine, Settings, X } from 'lucide-vue-next';
 import {
-    fromBackendField,
-    toBackendFields,
     isDisplayOnlyBuilderType,
     type IBackendField,
     type IBuilderField,
 } from '@/components/modules/builder/fieldMapping';
-import {
-    defaultFormBannerState,
-    prependFormBannerToBackendPayload,
-    extractFormBannerFromBuilderFields,
-} from '@/components/modules/builder/formBanner';
-import {
-    emptyFormRegistrationMetadata,
-    parseFormRegistrationMetadata,
-    toFormMetadataPayload,
-} from '@/lib/formRegistrationMetadata';
+import { defaultFormBannerState } from '@/components/modules/builder/formBanner';
+import { hydrateFormBuilderState } from '@/components/modules/builder/formBuilderHydration';
 import type { IFormSiblingOption } from '@/types/form';
 import {
     answerPreview,
@@ -59,6 +47,7 @@ import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -84,6 +73,14 @@ function tabFromQuery(): TShowTab {
     return raw === 'settings' ? 'settings' : 'editor';
 }
 const activeTab = ref<TShowTab>(tabFromQuery());
+
+onMounted(() => {
+    // Topbar builder: judul form + konteks acara, tanpa strip breadcrumb.
+    setTopbar({
+        title: props.form.title || 'Form tanpa judul',
+        subtitle: `Edit form · ${props.event.title}`,
+    });
+});
 
 /** Sinkronkan tab ke query string (?tab=jawaban) agar deep-link tetap bertahan saat refresh. */
 watch(activeTab, (tab) => {
@@ -111,58 +108,8 @@ const bannerState = ref(defaultFormBannerState());
 const formFields = ref<IBuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
-// ── Autosave global: semua mutasi builder (fields + header/settings) ──
-/** Snapshot mentah; sanitasi draft lokal ditangani `useAutosaveSync`. */
-function buildShowSnapshot(): string {
-    return JSON.stringify({
-        fields: formFields.value,
-        title: settingsForm.title,
-        description: settingsForm.description,
-        bannerUrl: bannerState.value.bannerUrl,
-        bannerCaption: bannerState.value.caption,
-        success: settingsForm.success_content ?? '',
-        closedAt: settingsForm.closed_at ?? '',
-        visibleFor: settingsForm.visible_for,
-        metadata: formMetadata.value,
-    });
-}
-
 /** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
 const builderImageUploadUrl = computed(() => resolveBuilderImageUploadUrl(props.event.id, props.form.id));
-
-async function saveShowSnapshot(): Promise<void> {
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
-    const backendFields = toBackendFields(merged);
-    await saveFormFields(props.saveFieldsUrl, backendFields);
-    await updateFormSettings(props.updateFormUrl, buildShowSettingsPayload(backendFields));
-}
-
-/** Payload settings yang dipakai autosave biasa maupun snapshot keepalive. */
-function buildShowSettingsPayload(backendFields: IBackendField[]): Record<string, unknown> {
-    return {
-        title: settingsForm.title,
-        description: settingsForm.description,
-        success_content: settingsForm.success_content ?? '',
-        closed_at: settingsForm.closed_at ?? '',
-        visible_for: settingsForm.visible_for,
-        banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
-        banner_caption: bannerState.value.caption || null,
-        fields: backendFields,
-        metadata: toFormMetadataPayload(formMetadata.value),
-    };
-}
-
-/** Snapshot final saat halaman di-reload/ditinggalkan, dikirim dengan `keepalive`. */
-function saveShowSnapshotOnUnload(): void {
-    const backendFields = toBackendFields(prependFormBannerToBackendPayload(formFields.value, bannerState.value));
-
-    persistFormSnapshotKeepalive({
-        fieldsUrl: props.saveFieldsUrl,
-        fields: backendFields,
-        settingsUrl: props.updateFormUrl,
-        settings: buildShowSettingsPayload(backendFields),
-    });
-}
 
 /** Ref ke FormBuilderWorkspace untuk memicu preview/save dari bar aksi inline (toolbar disembunyikan). */
 const workspaceRef = ref<InstanceType<typeof FormBuilderWorkspace> | null>(null);
@@ -209,6 +156,11 @@ const visibleFor = computed({
     },
 });
 
+/** Panel pengaturan meng-emit pilihan; state tetap satu sumber di `settingsForm.visible_for`. */
+function onToggleVisibility(value: string, checked: boolean): void {
+    visibleFor.value = toggleVisibilitySelection(visibleFor.value, value, checked);
+}
+
 const fieldErrors = computed(() => ({
     title: getFieldError(settingsForm.errors, 'title'),
     description: getFieldError(settingsForm.errors, 'description'),
@@ -216,48 +168,53 @@ const fieldErrors = computed(() => ({
     visible_for: getFieldError(settingsForm.errors, 'visible_for'),
 }));
 
-function syncFieldsFromProps(): void {
-    const raw: IBackendField[] = JSON.parse(JSON.stringify(props.fields || []));
-    raw.sort((a, b) => a.order - b.order);
-    const mapped = raw.map((f) => fromBackendField(f));
-    const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
+/**
+ * Terapkan snapshot server (header + fields) ke state builder. Pemetaannya satu
+ * implementasi bersama halaman create (`hydrateFormBuilderState`), bukan salinan.
+ */
+function applyServerSnapshot(): void {
+    const hydrated = hydrateFormBuilderState({ form: props.form, fields: props.fields ?? [] });
 
-    bannerState.value.id = syntheticBanner.id;
-    bannerState.value.bannerUrl = props.form.banner_url ?? syntheticBanner.bannerUrl;
-    bannerState.value.caption = props.form.banner_caption ?? syntheticBanner.caption;
-    bannerState.value.bannerFileName = syntheticBanner.bannerFileName;
+    settingsForm.title = hydrated.title;
+    settingsForm.description = hydrated.description;
+    settingsForm.success_content = hydrated.successContent;
+    settingsForm.closed_at = hydrated.closedAt;
+    settingsForm.visible_for = hydrated.visibleFor;
+    settingsForm.banner_url = hydrated.banner.bannerUrl;
+    settingsForm.banner_caption = hydrated.banner.caption;
 
-    formFields.value = canvasFields;
+    bannerState.value = hydrated.banner;
+    formMetadata.value = hydrated.metadata;
+    formFields.value = hydrated.fields;
 }
 
-watch(
-    () => props.fields,
-    () => syncFieldsFromProps(),
-    { immediate: true, deep: true }
-);
-watch(
-    () => props.form,
-    (f) => {
-        if (!f) return;
-        settingsForm.title = f.title;
-        settingsForm.description = f.description;
-        settingsForm.success_content = f.success_content ?? '';
-        settingsForm.closed_at = f.closed_at ?? '';
-        settingsForm.visible_for = [...f.visible_for];
-        settingsForm.banner_url = f.banner_url ?? '';
-        settingsForm.banner_caption = f.banner_caption ?? '';
-        formMetadata.value = parseFormRegistrationMetadata(f.metadata);
-    },
-    { deep: true, immediate: true }
-);
+watch(() => props.fields, applyServerSnapshot, { immediate: true, deep: true });
+watch(() => props.form, applyServerSnapshot, { deep: true, immediate: true });
 
 // ── Autosave global: di-instantiasi SETELAH watcher hydrate di atas, agar snapshot
-// awal menangkap state yang sudah terisi → tidak ada job save-redundan saat mount. ──
-const showAutosave = useAutosaveSync(buildShowSnapshot, saveShowSnapshot, {
-    debounceMs: 800,
-    isBlocked: () => builderPendingUploads.value > 0,
+// awal menangkap state yang sudah terisi → tidak ada job save-redundan saat mount.
+// Form di halaman ini sudah ada (bukan draf baru), jadi settings selalu ikut disimpan
+// dan payload-nya membawa daftar field. ──
+const autosaveEndpoints = computed<IFormBuilderAutosaveEndpoints>(() => ({
+    fieldsUrl: props.saveFieldsUrl,
+    settingsUrl: props.updateFormUrl,
+}));
+
+const showAutosave = useFormBuilderAutosave({
+    models: {
+        formTitle,
+        formDescription,
+        successContent,
+        closedAt,
+        visibleFor,
+        banner: bannerState,
+        formFields,
+        formMetadata,
+    },
+    endpoints: autosaveEndpoints,
+    // Draf boleh belum lengkap: autosave parsial (`autosave: true`) alih-alih 422.
+    isDraft: computed<boolean>(() => props.form.is_draft === true || props.form.status === 'draft'),
     onError: (message) => notifyAutosaveFailure(message, () => void showAutosave.retry()),
-    saveOnUnload: saveShowSnapshotOnUnload,
 });
 const showSaveState = showAutosave.status;
 const manualSaving = ref(false);
@@ -282,17 +239,12 @@ async function onSave(): Promise<void> {
         showAutosave.suspend();
         await showAutosave.waitForIdle();
 
-        settingsForm.banner_url = cleanStoredImageUrl(bannerState.value.bannerUrl);
-        settingsForm.banner_caption = bannerState.value.caption;
-
-        const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
-        const backendFields = toBackendFields(merged);
-
+        // Payload settings (termasuk daftar field) dibangun oleh satu implementasi di
+        // `useFormBuilderAutosave`; `_method` tetap eksplisit untuk Inertia.
         settingsForm
-            .transform((data) => ({
-                ...data,
-                fields: backendFields,
-                metadata: toFormMetadataPayload(formMetadata.value),
+            .transform(() => ({
+                _method: 'put',
+                ...showAutosave.buildSettingsPayload({ fields: showAutosave.buildFieldsPayload() }),
             }))
             .put(props.updateFormUrl, {
                 preserveScroll: true,
@@ -538,15 +490,8 @@ function rejectLabel(submission: IFormSubmission): string {
                     v-model:banner="bannerState"
                     v-model:form-fields="formFields"
                     v-model:form-metadata="formMetadata"
-                    :event="event"
-                    :sibling-forms="siblingForms ?? []"
-                    :toolbar-subtitle="`Edit form · ${event.title}`"
                     :image-upload-url="builderImageUploadUrl"
-                    form-settings-placement="tab"
-                    save-label="Save All"
-                    hide-toolbar
                     :processing="settingsForm.processing || manualSaving"
-                    :field-errors="fieldErrors"
                     @save="onSave"
                     @open-settings="activeTab = 'settings'"
                 />
@@ -562,6 +507,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         :field-errors="fieldErrors"
                         :visibility-options="FORM_VISIBILITY_OPTIONS"
                         :sibling-forms="siblingForms ?? []"
+                        @toggle-visibility="onToggleVisibility"
                     />
                 </div>
             </TabsContent>

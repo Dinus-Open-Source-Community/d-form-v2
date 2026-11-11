@@ -83,6 +83,21 @@ describe('useFormFillSubmit', () => {
         expect(options?.forceFormData).toBe(true);
     });
 
+    it('reports multipart upload progress and cancels only the running visit', () => {
+        const { submitter, postSpy } = createSubmitter();
+
+        submitter.submit();
+        const options = postSpy.mock.calls[0]?.[1];
+        const cancelVisit = vi.fn();
+        options?.onCancelToken?.({ cancel: cancelVisit });
+        options?.onProgress?.({ loaded: 512, total: 1024, progress: 0.5, percentage: 50 });
+
+        expect(submitter.progress.value).toBe(50);
+
+        submitter.cancel();
+        expect(cancelVisit).toHaveBeenCalledTimes(1);
+    });
+
     it('forwards server validation errors to the shared toast handler', () => {
         const { submitter, postSpy } = createSubmitter();
 

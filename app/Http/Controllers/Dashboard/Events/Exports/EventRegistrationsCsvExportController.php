@@ -95,7 +95,7 @@ class EventRegistrationsCsvExportController extends Controller
         // Satu query kecil per export (bukan per halaman): id form mempartisi
         // stream keyset, judulnya dipakai untuk kolom CSV tanpa join per halaman.
         /** @var array<string, string|null> $formTitles */
-        $formTitles = $event->forms()->pluck('title', 'id')->all();
+        $formTitles = $event->forms()->published()->pluck('title', 'id')->all();
         $formIds = array_keys($formTitles);
 
         foreach ($this->datedAnswers($formIds, $pageSize) as $answer) {

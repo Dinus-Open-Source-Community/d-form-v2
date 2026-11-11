@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcasting\GenerateSnapshotRequest;
 use App\Models\EmailBroadcast;
 use App\Services\Broadcasting\BroadcastSnapshotService;
+use App\Support\CsvRows;
 use Illuminate\Http\RedirectResponse;
 
 class BroadcastSnapshotController extends Controller
@@ -39,6 +40,9 @@ class BroadcastSnapshotController extends Controller
     }
 
     /**
+     * Parse CSV snapshot dengan guard {@see CsvRows}: batas baris/panjang baris
+     * dan penolakan baris biner; ukuran file dibatasi `UploadPurpose::DatasetCsv`.
+     *
      * @return array{valid:array<int,array{name:string|null,email:string}>, invalid:array<int,string>}
      */
     private function parseCsv(?\Illuminate\Http\UploadedFile $file): array
@@ -49,46 +53,38 @@ class BroadcastSnapshotController extends Controller
 
         $valid = [];
         $invalid = [];
+        $emailColumn = 0;
+        $nameColumn = null;
+        $headerChecked = false;
 
-        $handle = fopen($file->getRealPath(), 'r');
+        CsvRows::each($file, function (array $row, int $index) use (&$valid, &$invalid, &$emailColumn, &$nameColumn, &$headerChecked): void {
+            if ($index === 0 && ! $headerChecked) {
+                $headerChecked = true;
+                $lower = array_map(fn ($cell) => strtolower(trim((string) $cell)), $row);
 
-        if ($handle === false) {
-            return ['valid' => [], 'invalid' => []];
-        }
+                if (in_array('email', $lower, true)) {
+                    $emailColumn = (int) array_search('email', $lower, true);
+                    $nameIndex = array_search('name', $lower, true);
+                    $nameColumn = is_int($nameIndex) ? $nameIndex : null;
 
-        $header = fgetcsv($handle);
-        $hasName = $header !== false && in_array('name', array_map('strtolower', array_map('trim', $header)), true);
-        $emailIdx = 0;
-        $nameIdx = null;
-
-        if ($header !== false) {
-            $lower = array_map(fn ($h) => strtolower(trim((string) $h)), $header);
-            if (in_array('email', $lower, true)) {
-                $emailIdx = array_search('email', $lower, true);
-                $nameIdx = array_search('name', $lower, true);
-                $nameIdx = $nameIdx === false ? null : $nameIdx;
-            } else {
-                // Tanpa header: baris pertama adalah data.
-                $this->pushCsvRow($header[$emailIdx] ?? '', $nameIdx !== null ? ($header[$nameIdx] ?? null) : null, $valid, $invalid);
+                    return;
+                }
             }
-        }
 
-        while (($row = fgetcsv($handle)) !== false) {
-            $email = trim((string) ($row[$emailIdx] ?? ''));
-            $name = $nameIdx !== null ? trim((string) ($row[$nameIdx] ?? '')) : null;
-            // Format minimum "email" saja; jika header tidak ada name, kolom 0 = email.
-            if (! $hasName && count($row) >= 2 && $emailIdx === 0) {
-                // dukung "name,email" tanpa header? perlakukan kolom 0 sbg name bila 2 kolom dan kolom 1 valid email
+            $email = trim((string) ($row[$emailColumn] ?? ''));
+            $name = $nameColumn !== null ? trim((string) ($row[$nameColumn] ?? '')) : null;
+
+            // Dukung "name,email" tanpa header bila kolom 1 adalah email valid.
+            if ($nameColumn === null && $index > 0 && count($row) >= 2) {
                 $maybeEmail = trim((string) ($row[1] ?? ''));
                 if (filter_var($maybeEmail, FILTER_VALIDATE_EMAIL) !== false) {
                     $name = trim((string) ($row[0] ?? ''));
                     $email = $maybeEmail;
                 }
             }
-            $this->pushCsvRow($email, $name, $valid, $invalid);
-        }
 
-        fclose($handle);
+            $this->pushCsvRow($email, $name, $valid, $invalid);
+        });
 
         return ['valid' => $valid, 'invalid' => $invalid];
     }

@@ -3,6 +3,7 @@
 namespace App\Services\Event;
 
 use App\Enums\EventRegistrationStatus;
+use App\Enums\UploadPurpose;
 use App\Enums\EventStatus;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
@@ -255,7 +256,7 @@ class EventService
     {
         unset($data['banner']);
 
-        $path = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'));
+        $path = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'), UploadPurpose::Image);
 
         $status = ! empty($data['publish']) ? EventStatus::Published : EventStatus::Draft;
         unset($data['publish']);
@@ -284,7 +285,7 @@ class EventService
             if ($event->banner) {
                 Storage::disk('public')->delete($event->banner);
             }
-            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'));
+            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'), UploadPurpose::Image);
         }
 
         if (array_key_exists('quota', $data) && ! array_key_exists('registered_count', $data)) {

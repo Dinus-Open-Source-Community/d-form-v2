@@ -2,38 +2,89 @@
 
 namespace App\Services\Upload;
 
+use App\Enums\UploadPurpose;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
-/** Stores validated uploads and re-encodes raster images to discard appended payloads and metadata. */
+/**
+ * Menyimpan unggahan yang sudah tervalidasi isi.
+ *
+ * - Validasi isi memakai {@see UploadInspector} (satu implementasi untuk rule HTTP
+ *   dan penyimpanan): sniff `finfo`, magic byte, kecocokan ekstensi/MIME klien,
+ *   batas ukuran, dimensi gambar sebelum decode.
+ * - Gambar raster selalu di-decode lalu di-re-encode agar payload tambahan dan
+ *   metadata ikut hilang.
+ * - Nama file selalu dibuat server dan ekstensinya berasal dari MIME hasil sniff,
+ *   bukan dari nama klien.
+ */
 final class SafeUploadStorage
 {
-    /** Store an image as a fresh raster or a non-image file after shared validation. */
-    public function store(UploadedFile $file, UploadStorageTarget $target): string
+    /**
+     * Simpan satu unggahan tervalidasi pada target dan purpose yang diberikan.
+     *
+     * Melempar `ValidationException` (422) bila isi file tidak lolos kebijakan
+     * purpose — pertahanan terakhir untuk jalur yang tidak lewat rule request.
+     */
+    public function store(UploadedFile $file, UploadStorageTarget $target, UploadPurpose $purpose): string
     {
-        $mime = (string) $file->getMimeType();
-        if (str_starts_with($mime, 'image/') === false) {
-            $path = $file->store($target->directory, $target->disk);
-            if (is_string($path) === false) {
-                throw new RuntimeException('Uploaded file could not be stored.');
+        if ($target->disk !== $purpose->disk()) {
+            throw new \InvalidArgumentException(
+                "Upload target disk [{$target->disk}] does not match purpose [{$purpose->value}]."
+            );
+        }
+
+        $error = UploadInspector::inspect($file, $purpose);
+        if ($error !== null) {
+            throw ValidationException::withMessages(['file' => $error]);
+        }
+
+        $mime = UploadInspector::sniffedMime($file);
+        if ($mime === null) {
+            throw ValidationException::withMessages(['file' => 'The uploaded file type could not be detected.']);
+        }
+
+        if ($this->isRasterMime($mime)) {
+            $contents = file_get_contents($file->getRealPath());
+            if ($contents === false) {
+                throw new RuntimeException('Uploaded image could not be read.');
             }
 
-            return $path;
+            return $this->storeImageBytes($contents, $target, $purpose);
         }
 
-        $sourceContents = file_get_contents($file->getRealPath());
-        if ($sourceContents === false) {
-            throw new RuntimeException('Uploaded image could not be read.');
+        $extension = UploadInspector::extensionForMime($mime);
+        if ($extension === null) {
+            throw ValidationException::withMessages(['file' => 'The uploaded file type is not allowed.']);
         }
 
-        return $this->storeImageBytes($sourceContents, $target);
+        $contents = file_get_contents($file->getRealPath());
+        if ($contents === false) {
+            throw new RuntimeException('Uploaded file could not be read.');
+        }
+
+        $path = $this->generatedPath($target, $extension);
+        if (Storage::disk($target->disk)->put($path, $contents) === false) {
+            throw new RuntimeException('Uploaded file could not be stored.');
+        }
+
+        return $path;
     }
 
-    /** Decode, constrain, re-encode, and store trusted raster bytes from any input boundary. */
-    public function storeImageBytes(string $contents, UploadStorageTarget $target): string
-    {
-        $maxBytes = (int) config('events.forms.upload_max_size_kb', 5120) * 1024;
+    /**
+     * Decode, batasi, re-encode, dan simpan byte raster terpercaya dari boundary
+     * mana pun (mis. base64 inline editor atau konversi gambar legacy).
+     *
+     * Pemeriksaan dimensi memakai header (`getimagesizefromstring`) sebelum
+     * `imagecreatefromstring`, sehingga decompression bomb tidak pernah di-decode.
+     */
+    public function storeImageBytes(
+        string $contents,
+        UploadStorageTarget $target,
+        UploadPurpose $purpose = UploadPurpose::Image,
+    ): string {
+        $maxBytes = $purpose->maxBytes();
         if (strlen($contents) > $maxBytes) {
             throw new RuntimeException('Image exceeds the upload size limit.');
         }
@@ -45,19 +96,22 @@ final class SafeUploadStorage
 
         $mime = finfo_buffer($finfo, $contents);
         finfo_close($finfo);
-        if (is_string($mime) === false || in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true) === false) {
+        if (is_string($mime) === false || in_array($mime, $purpose->mimes(), true) === false || $this->isRasterMime($mime) === false) {
             throw new RuntimeException('Image type is not allowed.');
+        }
+
+        $header = @getimagesizefromstring($contents);
+        $width = is_array($header) ? (int) ($header[0] ?? 0) : 0;
+        $height = is_array($header) ? (int) ($header[1] ?? 0) : 0;
+        $maxPixels = (int) config('events.forms.upload_max_pixels', 12_000_000);
+        $maxDimension = (int) config('events.forms.upload_max_dimension', 8000);
+        if ($width < 1 || $height < 1 || $width > $maxDimension || $height > $maxDimension || $width * $height > $maxPixels) {
+            throw new RuntimeException('Image dimensions are not allowed.');
         }
 
         $source = @imagecreatefromstring($contents);
         if ($source === false) {
             throw new RuntimeException('Uploaded image could not be decoded.');
-        }
-
-        $maxPixels = (int) config('events.forms.upload_max_pixels', 25_000_000);
-        if (imagesx($source) * imagesy($source) > $maxPixels) {
-            imagedestroy($source);
-            throw new RuntimeException('Image dimensions are not allowed.');
         }
 
         ob_start();
@@ -74,20 +128,30 @@ final class SafeUploadStorage
             throw new RuntimeException('Uploaded image could not be safely re-encoded.');
         }
 
-        $maxBytes = (int) config('events.forms.upload_max_size_kb', 5120) * 1024;
         if (strlen($contents) > $maxBytes) {
             throw new RuntimeException('Re-encoded image exceeds the upload size limit.');
         }
 
-        $extension = match ($mime) {
-            'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif',
-        };
-        $path = $target->directory.'/'.bin2hex(random_bytes(16)).'.'.$extension;
-        $stored = Storage::disk($target->disk)->put($path, $contents);
-        if ($stored === false) {
+        $extension = UploadInspector::extensionForMime($mime);
+        if ($extension === null) {
+            throw new RuntimeException('Image type is not allowed.');
+        }
+
+        $path = $this->generatedPath($target, $extension);
+        if (Storage::disk($target->disk)->put($path, $contents) === false) {
             throw new RuntimeException('Re-encoded image could not be stored.');
         }
 
         return $path;
+    }
+
+    private function generatedPath(UploadStorageTarget $target, string $extension): string
+    {
+        return $target->directory.'/'.bin2hex(random_bytes(16)).'.'.$extension;
+    }
+
+    private function isRasterMime(string $mime): bool
+    {
+        return in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true);
     }
 }

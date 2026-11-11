@@ -4,7 +4,9 @@ namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
 use App\Models\EmailBroadcastAttachment;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadInspector;
 use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -24,12 +26,14 @@ class BroadcastAttachmentService
         $path = app(SafeUploadStorage::class)->store(
             $file,
             UploadStorageTarget::local('broadcasts/'.$broadcast->id),
+            UploadPurpose::BroadcastAttachment,
         );
 
         return $broadcast->attachments()->create([
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'mime_type' => $file->getMimeType(),
+            // MIME hasil sniff, bukan header klien.
+            'mime_type' => UploadInspector::sniffedMime($file) ?? 'application/octet-stream',
             'file_size' => $size,
         ]);
     }

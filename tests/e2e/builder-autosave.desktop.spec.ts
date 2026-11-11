@@ -8,6 +8,8 @@ test.use({ fixtureFormCount: 1, fixtureFieldCount: 2 });
 
 const AUTOSAVE_SAVED_TEXT = 'Tersimpan';
 const FIELDS_REQUEST_PATH = /\/admin\/events\/[^/]+\/forms\/[^/]+\/fields$/;
+/** Kanal header: PUT settings form (judul/deskripsi). */
+const HEADER_PUT_PATH = /\/admin\/events\/[^/]+\/forms\/[^/]+$/;
 /**
  * Toast kegagalan: HEAD memakai teks hardcoded, working tree bisa memakai pesan
  * body 500 mentah atau versi humanized (`Field tidak dapat disimpan.`), plus aksi
@@ -168,7 +170,7 @@ test.describe('builder autosave', () => {
         await expect(fieldLabelInputs(page).first()).toHaveValue(originalLabel);
     });
 
-    test('anomali: dua edit dalam debounce hanya mengirim satu snapshot fields', async ({
+    test('anomali: dua edit judul dalam debounce hanya mengirim satu snapshot header', async ({
         page,
         fixtureEvent,
         fixtureForm,
@@ -193,7 +195,9 @@ test.describe('builder autosave', () => {
             // terkirim dalam jendela ini dan menggagalkan assertion jumlah request.
             await page.waitForTimeout(1_600);
 
-            expect(requestLog.requestCount('POST', FIELDS_REQUEST_PATH)).toBe(1);
+            // Judul = kanal header, jadi yang dihitung adalah satu PUT settings.
+            expect(requestLog.requestCount('PUT', HEADER_PUT_PATH)).toBe(1);
+            expect(requestLog.requestCount('POST', FIELDS_REQUEST_PATH)).toBe(0);
         } finally {
             requestLog.stop();
         }

@@ -50,7 +50,14 @@ return [
         // Local dev tooling (Vite HMR, debugbar, Boost logger) injects inline scripts.
         // The env flag can only tighten this: dev allowances are never enabled outside local.
         'dev_allowances' => $isLocalEnvironment && SecurityEnvironment::flag(env('SECURITY_CSP_DEV_ALLOWANCES'), true),
-        'dev_server_origin' => env('VITE_DEV_ORIGIN', 'http://localhost:5173'),
+        // Origin(s) allowed for the Vite dev server. Accepts a comma-separated list
+        // (VITE_DEV_ORIGIN) and always adds the LAN dev host used by `vite.config.js`
+        // plus localhost, so the same build is reachable from the machine and a phone.
+        'dev_server_origins' => array_values(array_unique(array_filter(array_merge(
+            array_map('trim', explode(',', (string) env('VITE_DEV_ORIGIN', ''))),
+            [env('VITE_DEV_HOST') ? 'http://'.env('VITE_DEV_HOST').':5173' : null],
+            ['http://localhost:5173'],
+        )))),
 
         'directives' => [
             'default-src' => ["'self'"],

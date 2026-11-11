@@ -12,6 +12,17 @@ use Illuminate\Validation\Validator;
 final class FormFieldsRequestValidation
 {
     /**
+     * Batas `metadata.maxLength` per builder type. Sumber UI: resources/js/lib/fieldMaxLength.ts.
+     */
+    public const MAX_LENGTH_LIMITS = [
+        'short_text' => 1000,
+        'long_text' => 10000,
+    ];
+
+    /** Batas atas global untuk rule `maxLength` (batas tipe terpanjang). */
+    private const MAX_LENGTH_GLOBAL_MAX = 10000;
+
+    /**
      * Request keys owned by the submission boundary. A form field with one of
      * these names would shadow (or be shadowed by) framework/registration input.
      *
@@ -94,6 +105,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.optionChoices' => 'nullable|array',
             'fields.*.metadata.content' => 'nullable',
             'fields.*.metadata.maxStars' => 'nullable',
+            'fields.*.metadata.maxLength' => 'nullable|integer|min:1|max:'.self::MAX_LENGTH_GLOBAL_MAX,
             // Hanya path storage / URL publik (hasil endpoint upload builder).
             // Data URL (data:...) ditolak di after-validation agar payload tetap kecil.
             'fields.*.metadata.bannerUrl' => 'nullable|string',
@@ -172,13 +184,18 @@ final class FormFieldsRequestValidation
     /**
      * Rules for `forms.metadata` (purpose / registration / team configuration).
      *
+     * `$requirePurpose = false` dipakai autosave draft: metadata boleh dikirim
+     * sebagian (tanpa purpose) tanpa memicu error field wajib.
+     *
      * @return array<string, mixed>
      */
-    public static function formMetadataRules(): array
+    public static function formMetadataRules(bool $requirePurpose = true): array
     {
         return [
             'metadata' => 'nullable|array',
-            'metadata.purpose' => ['required', 'string', Rule::enum(FormPurpose::class)],
+            'metadata.purpose' => $requirePurpose
+                ? ['required', 'string', Rule::enum(FormPurpose::class)]
+                : ['nullable', Rule::enum(FormPurpose::class)],
             'metadata.requires_form_id' => ['nullable', 'uuid'],
             'metadata.registration_mode' => ['nullable', 'string', Rule::in(['single', 'bundle', 'team'])],
             'metadata.max_team_size' => 'nullable|integer|min:1|max:10000',
@@ -213,6 +230,21 @@ final class FormFieldsRequestValidation
                     $problem = self::fieldNameProblem($name);
                     if ($problem !== null) {
                         $validator->errors()->add("fields.{$index}.name", $problem);
+                    }
+                }
+
+                $maxLength = $field['metadata']['maxLength'] ?? null;
+                if (is_numeric($maxLength)) {
+                    $builderType = is_string($field['metadata']['builderType'] ?? null)
+                        ? $field['metadata']['builderType']
+                        : '';
+                    $limit = self::MAX_LENGTH_LIMITS[$builderType] ?? null;
+
+                    if ($limit !== null && (int) $maxLength > $limit) {
+                        $validator->errors()->add(
+                            "fields.{$index}.metadata.maxLength",
+                            "Maksimal karakter untuk field ini adalah {$limit}."
+                        );
                     }
                 }
 

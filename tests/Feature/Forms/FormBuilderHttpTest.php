@@ -252,6 +252,114 @@ class FormBuilderHttpTest extends TestCase
             ->assertJsonPath('props.status', 500);
     }
 
+    public function test_empty_fields_array_removes_every_field_and_keeps_form_settings(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Keep My Title',
+            'metadata' => [
+                'purpose' => 'registration',
+                'registration_mode' => 'single',
+                'sections' => [['id' => 'section-1', 'title' => 'Bagian 1']],
+            ],
+            'banner_url' => 'form-banners/keep.jpg',
+            'banner_caption' => 'Keep caption',
+        ]);
+
+        foreach (['a', 'b'] as $index => $name) {
+            FormField::factory()->create([
+                'form_id' => $form->id,
+                'name' => $name,
+                'label' => strtoupper($name),
+                'input_type' => 'input',
+                'order' => $index + 1,
+                'metadata' => ['type' => 'text', 'rules' => []],
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => []])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertSame(0, FormField::query()->where('form_id', $form->id)->count());
+        $this->assertSame(2, FormField::onlyTrashed()->where('form_id', $form->id)->count());
+
+        $form->refresh();
+        $this->assertSame('Keep My Title', $form->title);
+        $this->assertSame('registration', $form->metadata['purpose'] ?? null);
+        $this->assertSame('single', $form->metadata['registration_mode'] ?? null);
+        $this->assertSame(
+            [['id' => 'section-1', 'title' => 'Bagian 1']],
+            $form->metadata['sections'] ?? null,
+        );
+        $this->assertSame('form-banners/keep.jpg', $form->banner_url);
+        $this->assertSame('Keep caption', $form->banner_caption);
+    }
+
+    public function test_fields_key_must_be_present_even_though_it_may_be_empty(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'kept',
+            'label' => 'Kept',
+            'input_type' => 'input',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['fields']);
+
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
+    }
+
+    public function test_empty_fields_array_still_validates_each_row_and_rejects_malformed_rows(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'kept',
+            'label' => 'Kept',
+            'input_type' => 'input',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'label' => '',
+                    'name' => '',
+                    'type' => 'not-a-type',
+                    'order' => -1,
+                    'metadata' => 'not-an-array',
+                ]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'fields.0.label',
+                'fields.0.name',
+                'fields.0.type',
+                'fields.0.order',
+                'fields.0.metadata',
+            ]);
+
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
+    }
+
     private function fieldSavePath(Event $event, Form $form): string
     {
         return route('dashboard.events.forms.fields', [

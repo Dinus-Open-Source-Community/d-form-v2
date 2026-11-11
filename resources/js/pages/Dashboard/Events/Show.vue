@@ -10,12 +10,13 @@ import EventShowAsideRail from '@/components/modules/dashboard/EventShowAsideRai
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDashboardEventShowPage } from '@/hooks/useDashboardEventShowPage';
 import { routes } from '@/lib/routes';
+import type { IEventFormSummary } from '@/types/form';
 
 defineOptions({ layout: DashboardFocusLayout });
 
 const props = defineProps<{
     event: IEvent;
-    forms: { id: string; title: string }[];
+    forms: IEventFormSummary[];
 }>();
 
 const laporanHref = routes.admin.events.laporan(props.event.id);

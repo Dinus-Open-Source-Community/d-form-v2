@@ -5,6 +5,7 @@ namespace App\Services\Registration;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Http\UploadedFile;
@@ -30,6 +31,7 @@ final class FormAnswerFileStorage
         return $this->uploads->store(
             $file,
             UploadStorageTarget::local(self::DIRECTORY_PREFIX.'/'.$form->id),
+            UploadPurpose::FormAnswerFile,
         );
     }
 

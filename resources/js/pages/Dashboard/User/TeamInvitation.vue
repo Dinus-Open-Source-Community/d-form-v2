@@ -13,10 +13,13 @@ import { readFieldMetadata, readFieldRules } from '@/lib/formFieldMetadata';
 import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import { isCheckboxOptionSelected, toggleCheckboxSelection } from '@/lib/formCheckboxAnswers';
 import { getFormFieldOptionRows, formFieldBuilderType } from '@/lib/formFieldOptions';
+import { formFieldAcceptAttribute, formFieldFileHint } from '@/lib/formFillFields';
 import { validateUploadFile } from '@/lib/uploadValidation';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import type { CancelToken, Progress } from '@inertiajs/core';
 import {
     Dialog,
     DialogContent,
@@ -77,20 +80,6 @@ function invitationFieldError(errors: TValidationErrors, key: string): string | 
     return getFieldError(errors, key, errorContext.value);
 }
 
-async function onInvitationFileChange(fieldName: string, event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    if (file) {
-        const message = await validateUploadFile(file);
-        if (message) {
-            input.value = '';
-            confirmForm.setError(fieldName, message);
-            return;
-        }
-    }
-    confirmForm[fieldName] = file;
-}
-
 /** Nilai yang bisa ditampung form undangan: teks, pilihan ganda, atau berkas. */
 type TInvitationAnswer = string | string[] | File | null;
 
@@ -115,15 +104,70 @@ const confirmForm = useForm(initialFormState());
 const declineDialogOpen = ref(false);
 const acceptConfirmOpen = ref(false);
 
+/** Progres unggah multipart 0..100 dari visit konfirmasi yang sedang berjalan. */
+const confirmProgress = ref(0);
+let cancelConfirmVisit: (() => void) | null = null;
+
+/** Berkas baru yang menunggu submit per field; berkas pemimpin form tetap read-only. */
+const selectedInvitationFiles = computed<Record<string, File | null>>(() => {
+    const files: Record<string, File | null> = {};
+    for (const field of appendableFields.value) {
+        if (field.type !== 'fileUpload') continue;
+        const value = confirmForm[field.name];
+        files[field.name] = typeof File !== 'undefined' && value instanceof File ? value : null;
+    }
+
+    return files;
+});
+
+function invitationFileCardState(fieldName: string): TFileUploadState {
+    const file = selectedInvitationFiles.value[fieldName] ?? null;
+    if (confirmForm.processing && file) return 'uploading';
+    if (invitationFieldError(confirmForm.errors, fieldName)) return 'error';
+
+    return file ? 'completed' : 'idle';
+}
+
+/** Menerapkan berkas pilihan kartu; nilai form tetap `File` seperti input file lama. */
+async function applyInvitationFile(fieldName: string, file: File): Promise<void> {
+    const message = await validateUploadFile(file);
+    if (message) {
+        confirmForm.setError(fieldName, message);
+        return;
+    }
+
+    confirmForm.clearErrors(fieldName);
+    confirmForm[fieldName] = file;
+}
+
+function removeInvitationFile(fieldName: string): void {
+    confirmForm[fieldName] = null;
+}
+
+function cancelConfirmUpload(): void {
+    cancelConfirmVisit?.();
+}
+
 function onCheckboxToggle(fieldName: string, option: string, checked: boolean) {
     confirmForm[fieldName] = toggleCheckboxSelection(confirmForm[fieldName], option, checked);
 }
 
 function submitConfirm() {
+    confirmProgress.value = 0;
     confirmForm
         .transform((data) => ({ ...data, invitation_decision: 'accept' as const }))
         .post(props.confirmUrl, {
             forceFormData: true,
+            onProgress: (event: Progress | undefined): void => {
+                confirmProgress.value = event?.percentage ?? 0;
+            },
+            onCancelToken: (token: CancelToken): void => {
+                cancelConfirmVisit = token.cancel;
+            },
+            onFinish: (): void => {
+                confirmProgress.value = 0;
+                cancelConfirmVisit = null;
+            },
             onError: (errors) => {
                 handleInertiaFormErrors(errors, {
                     ...errorContext.value,
@@ -260,7 +304,7 @@ function submitDeclineFromDialog() {
                     <!-- Appendable: editable -->
                     <Card v-else-if="field.is_append" class="overflow-hidden">
                         <div
-                            v-if="invitationFieldError(confirmForm.errors, field.name)"
+                            v-if="field.type !== 'fileUpload' && invitationFieldError(confirmForm.errors, field.name)"
                             class="border-destructive/20 bg-destructive/5 border-b px-5 py-3 sm:px-6"
                         >
                             <p class="text-destructive text-xs font-medium">
@@ -368,10 +412,7 @@ function submitDeclineFromDialog() {
                                 class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
                                 aria-label="Select"
                             />
-                            <div
-                                v-else-if="field.type === 'fileUpload'"
-                                class="border-border space-y-3 rounded-xl border border-dashed p-4"
-                            >
+                            <div v-else-if="field.type === 'fileUpload'" class="space-y-3">
                                 <p
                                     v-if="typeof answers[field.name] === 'string' && answers[field.name]"
                                     class="text-muted-foreground text-xs font-medium"
@@ -387,15 +428,27 @@ function submitDeclineFromDialog() {
                                     <p class="text-muted-foreground mb-1.5 text-xs">
                                         Unggah berkas baru (opsional mengganti)
                                     </p>
-                                    <input
-                                        type="file"
-                                        class="w-full text-xs"
-                                        @change="(e) => onInvitationFileChange(field.name, e)"
+                                    <FileUploadCard
+                                        :state="invitationFileCardState(field.name)"
+                                        idle-label="Pilih berkas"
+                                        :accept="formFieldAcceptAttribute(field)"
+                                        :hint="formFieldFileHint(field)"
+                                        :file-name="selectedInvitationFiles[field.name]?.name ?? ''"
+                                        :file-size="selectedInvitationFiles[field.name]?.size ?? 0"
+                                        :mime="selectedInvitationFiles[field.name]?.type ?? ''"
+                                        :progress="confirmProgress"
+                                        :error-message="invitationFieldError(confirmForm.errors, field.name) ?? ''"
+                                        :disabled="confirmForm.processing"
+                                        @pick="(file) => applyInvitationFile(field.name, file)"
+                                        @cancel="cancelConfirmUpload"
+                                        @remove="removeInvitationFile(field.name)"
                                     />
                                 </div>
                             </div>
                             <p
-                                v-if="invitationFieldError(confirmForm.errors, field.name)"
+                                v-if="
+                                    field.type !== 'fileUpload' && invitationFieldError(confirmForm.errors, field.name)
+                                "
                                 class="text-destructive text-xs font-medium"
                             >
                                 {{ invitationFieldError(confirmForm.errors, field.name) }}

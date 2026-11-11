@@ -1,3 +1,5 @@
+import { createShortId, createUuid } from '@/lib/uuid';
+
 /**
  * Default field baru untuk entry point demo (`pages/FormBuilder.vue`).
  * Berbeda dari `createFormBuilderField` (production): demo menyimpan opsi sebagai
@@ -22,10 +24,10 @@ export function createDemoBuilderField(type: TFormBuilderType, label: string): I
     };
 
     return {
-        id: crypto.randomUUID(),
+        id: createUuid(),
         type,
         label: label || 'Untitled Field',
-        name: `field_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        name: `field_${createShortId(12)}`,
         description: '',
         order: 0,
         metadata: metadataDefaults[type] ?? {},

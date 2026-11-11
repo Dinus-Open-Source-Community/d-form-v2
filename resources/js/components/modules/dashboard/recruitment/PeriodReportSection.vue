@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, reactive } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
 import { routes } from '@/lib/routes';
+import { useExportDownload } from '@/hooks/useExportDownload';
 import { Download, Funnel, GraduationCap, Users } from 'lucide-vue-next';
 
 interface ReportPayload {
@@ -20,25 +22,55 @@ const props = defineProps<{
 }>();
 
 const maxFunnel = computed(() => Math.max(1, ...(props.report?.funnel.map((row) => row.count) ?? [1])));
+
+/** Satu state unduhan per tombol; keduanya GET download terpisah. */
+const funnelExport = reactive(useExportDownload());
+const applicantsExport = reactive(useExportDownload());
+
+function downloadFunnel(): void {
+    void funnelExport.start([routes.admin.recruitment.reports.exportFunnel(props.periodId)]);
+}
+
+function downloadApplicants(): void {
+    void applicantsExport.start([routes.admin.recruitment.reports.exportApplicants(props.periodId)]);
+}
 </script>
 
 <template>
     <div v-if="report" class="flex flex-col gap-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Laporan periode ini</h2>
-            <div class="flex flex-wrap gap-2">
-                <Button as-child size="sm" variant="outline">
-                    <a :href="routes.admin.recruitment.reports.exportFunnel(periodId)">
+            <div class="flex flex-col items-end gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" :disabled="funnelExport.isRunning" @click="downloadFunnel">
                         <Download class="mr-2 size-4" aria-hidden="true" />
                         Export funnel CSV
-                    </a>
-                </Button>
-                <Button as-child size="sm">
-                    <a :href="routes.admin.recruitment.reports.exportApplicants(periodId)">
+                    </Button>
+                    <Button size="sm" :disabled="applicantsExport.isRunning" @click="downloadApplicants">
                         <Download class="mr-2 size-4" aria-hidden="true" />
                         Export applicant CSV
-                    </a>
-                </Button>
+                    </Button>
+                </div>
+                <ExportDownloadStatus
+                    :phase="funnelExport.phase"
+                    label="Funnel CSV"
+                    :progress="funnelExport.progress"
+                    :indeterminate="funnelExport.indeterminate"
+                    :loaded-bytes="funnelExport.loadedBytes"
+                    :direct-count="funnelExport.directCount"
+                    :error-message="funnelExport.errorMessage"
+                    @cancel="funnelExport.cancel()"
+                />
+                <ExportDownloadStatus
+                    :phase="applicantsExport.phase"
+                    label="Applicant CSV"
+                    :progress="applicantsExport.progress"
+                    :indeterminate="applicantsExport.indeterminate"
+                    :loaded-bytes="applicantsExport.loadedBytes"
+                    :direct-count="applicantsExport.directCount"
+                    :error-message="applicantsExport.errorMessage"
+                    @cancel="applicantsExport.cancel()"
+                />
             </div>
         </div>
 

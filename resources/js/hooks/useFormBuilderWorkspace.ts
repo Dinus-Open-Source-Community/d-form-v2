@@ -1,7 +1,15 @@
-import { ref, computed, nextTick, watch, type Ref } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch, type Ref } from 'vue';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
 import { DEFAULT_FORM_SECTION_ID, defaultFormBuilderSections } from '@/lib/formRegistrationMetadata';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import {
+    initialDragState,
+    reduceDragEvent,
+    type IFormBuilderDragState,
+    type TFormBuilderDragEvent,
+} from '@/lib/formBuilderDragState';
+import { createUuid } from '@/lib/uuid';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import {
     cloneFormBuilderPalette,
@@ -14,7 +22,6 @@ import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
 import type { IFormRegistrationMetadata } from '@/types/form';
 
 export type TFormBuilderInspectorMode = 'settings' | 'field';
-export type TFormBuilderMobileTab = 'build' | 'settings';
 
 export interface IFormBuilderValidationIssue {
     key: 'title' | 'description' | 'closedAt' | 'visibleFor' | 'fields';
@@ -43,11 +50,17 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
 
     const searchQuery = ref<string>('');
     const selectedFieldId = ref<string | null>(null);
-    const dropIndicatorIndex = ref<number>(-1);
-    const isDraggingOverCanvas = ref<boolean>(false);
-    const dragSourceId = ref<string | null>(null);
+    /**
+     * Satu sumber kebenaran sesi drag. Semua nilai UI drag diturunkan sebagai computed
+     * agar tidak ada jalur reset yang terlewat.
+     */
+    const dragState = ref<IFormBuilderDragState>(initialDragState);
+    /** Pelepas listener terminasi drag (dipasang saat mount, dilepas saat unmount). */
+    let releaseDragSessionListeners: (() => void)[] = [];
+    const dropIndicatorIndex = computed<number>(() => dragState.value.dropIndicatorIndex);
+    const isDraggingOverCanvas = computed<boolean>(() => dragState.value.isOverCanvas);
+    const dragSourceId = computed<string | null>(() => dragState.value.sourceFieldId);
     const inspectorMode = ref<TFormBuilderInspectorMode>('settings');
-    const mobileTab = ref<TFormBuilderMobileTab>('build');
     const showAddSheet = ref<boolean>(false);
     const showMobileEditor = ref<boolean>(false);
     const showPreview = ref<boolean>(false);
@@ -93,7 +106,7 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     function addSection(): void {
         const configured = ensureSections();
         const section: IFormBuilderSection = {
-            id: crypto.randomUUID(),
+            id: createUuid(),
             title: `Bagian ${configured.length + 1}`,
         };
         models.formMetadata.value = {
@@ -286,11 +299,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         fieldList.moveFieldToIndex(source, target);
     }
 
-    function toggleVisibility(value: string, checked: boolean): void {
-        if (checked) models.visibleFor.value = [...models.visibleFor.value, value];
-        else models.visibleFor.value = models.visibleFor.value.filter((v) => v !== value);
-    }
-
     function toggleCategory(cat: IFormBuilderPaletteCategory): void {
         openCategoryName.value = openCategoryName.value === cat.name ? null : cat.name;
         // Sinkronkan isOpen agar cocok dengan state yang dipakai item kartu.
@@ -299,32 +307,58 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         }
     }
 
+    /** Satu-satunya jalur transisi state drag; semua handler di bawah memakai ini. */
+    function dispatchDrag(event: TFormBuilderDragEvent): void {
+        dragState.value = reduceDragEvent(dragState.value, event);
+    }
+
+    /** True bila `related` masih di dalam `container` (transisi antar anak kanvas). */
+    function isInsideContainer(container: EventTarget | null, related: EventTarget | null): boolean {
+        return container instanceof Node && related instanceof Node && container.contains(related);
+    }
+
+    /**
+     * Transisi internal kanvas: pointer masih di dalam kotak kanvas, `relatedTarget`
+     * masih anak kanvas, atau node tujuan sudah dilepas oleh render ulang marker.
+     * Event seperti ini tidak boleh mereset marker (penyebab flicker).
+     */
+    function isInternalCanvasTransition(e: DragEvent): boolean {
+        if (isInsideContainer(e.currentTarget, e.relatedTarget)) return true;
+        if (e.relatedTarget instanceof Node && !e.relatedTarget.isConnected) return true;
+        if (!(e.currentTarget instanceof HTMLElement)) return false;
+        const rect = e.currentTarget.getBoundingClientRect();
+        return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+    }
+
     function onGapDragEnter(index: number): void {
-        dropIndicatorIndex.value = index;
+        dispatchDrag({ type: 'gapEnter', index });
+    }
+
+    function onCanvasDragEnter(e: DragEvent): void {
+        if (isInsideContainer(e.currentTarget, e.relatedTarget)) return;
+        dispatchDrag({ type: 'canvasEnter' });
     }
 
     function onCanvasDragOver(e: DragEvent): void {
         e.preventDefault();
-        const dt = e.dataTransfer;
-        if (dt) {
-            /** Drag dari palet: belum ada dragSourceId; tandai agar UI drop (ring kanvas) muncul */
-            if (!dragSourceId.value && Array.from(dt.types).includes('application/json')) {
-                isDraggingOverCanvas.value = true;
-            }
-            dt.dropEffect = dragSourceId.value ? 'move' : 'copy';
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = dragState.value.origin === 'palette' ? 'copy' : 'move';
         }
-        if (dropIndicatorIndex.value === -1 && isCurrentSectionEmpty.value) dropIndicatorIndex.value = 0;
+        dispatchDrag({ type: 'canvasOver', isCanvasEmpty: isCurrentSectionEmpty.value });
     }
 
     function onCanvasDragLeave(e: DragEvent): void {
-        if (!e.currentTarget || !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-            dropIndicatorIndex.value = -1;
-            isDraggingOverCanvas.value = false;
-        }
+        if (isInternalCanvasTransition(e)) return;
+        dispatchDrag({ type: 'canvasLeave' });
     }
 
     function onCanvasDrop(e: DragEvent): void {
         e.preventDefault();
+        const dropIndex = dragState.value.dropIndicatorIndex;
+        // Tutup sesi sebelum efek samping: kegagalan membuat field (mis. id gagal dibuat)
+        // tidak boleh meninggalkan marker/ring di kanvas.
+        dispatchDrag({ type: 'drop' });
+
         const raw = e.dataTransfer?.getData('application/json');
         if (!raw) return;
         const data = parseFormBuilderDragPayload(raw);
@@ -332,15 +366,12 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         // Drop item "Pesan setelah submit" = trigger zona konfirmasi di akhir canvas, bukan IBuilderField.
         if (data.isNew && data.type === 'confirmation') {
             showSuccessZone.value = true;
-            dropIndicatorIndex.value = -1;
-            isDraggingOverCanvas.value = false;
-            dragSourceId.value = null;
             return;
         }
         const insertAt =
-            dropIndicatorIndex.value < 0
+            dropIndex < 0
                 ? globalInsertIndex(activeSectionId.value, currentSectionFields.value.length)
-                : globalInsertIndex(activeSectionId.value, dropIndicatorIndex.value);
+                : globalInsertIndex(activeSectionId.value, dropIndex);
         if (data.isNew) {
             if (data.type === undefined || data.label === undefined || data.label === '') return;
             const nf = fieldList.insertNewField(data.type, data.label, insertAt);
@@ -353,37 +384,62 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
             selectedFieldId.value = data.id;
             inspectorMode.value = 'field';
         }
-        dropIndicatorIndex.value = -1;
-        isDraggingOverCanvas.value = false;
-        dragSourceId.value = null;
+    }
+
+    function onPaletteDragStart(): void {
+        dispatchDrag({ type: 'start', origin: 'palette' });
     }
 
     function onCanvasDragStart(e: DragEvent, field: IBuilderField, index: number): void {
-        dragSourceId.value = field.id;
-        if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData(
-                'application/json',
-                JSON.stringify({ id: field.id, fromIndex: index, isNew: false })
-            );
-        }
-        requestAnimationFrame(() => {
-            isDraggingOverCanvas.value = true;
-        });
+        dispatchDrag({ type: 'start', origin: 'field', sourceFieldId: field.id });
+        if (!e.dataTransfer) return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/json', JSON.stringify({ id: field.id, fromIndex: index, isNew: false }));
     }
 
     function onDragEnd(): void {
-        dropIndicatorIndex.value = -1;
-        isDraggingOverCanvas.value = false;
-        dragSourceId.value = null;
+        dispatchDrag({ type: 'end' });
     }
+
+    /**
+     * Terminasi sesi di luar kanvas: dragend (termasuk dari palette), drop di target mana
+     * pun, jendela kehilangan fokus, dan Escape. Reset idempotent, jadi event ganda aman.
+     */
+    function onWindowDragEnd(): void {
+        dispatchDrag({ type: 'end' });
+    }
+
+    function onWindowDrop(): void {
+        dispatchDrag({ type: 'drop' });
+    }
+
+    function onWindowBlur(): void {
+        dispatchDrag({ type: 'blur' });
+    }
+
+    function onWindowKeyDown(e: KeyboardEvent): void {
+        if (e.key === 'Escape') dispatchDrag({ type: 'escape' });
+    }
+
+    onMounted(() => {
+        releaseDragSessionListeners = [
+            onWindowEvent('dragend', onWindowDragEnd),
+            onWindowEvent('drop', onWindowDrop),
+            onWindowEvent('blur', onWindowBlur),
+            onWindowEvent('keydown', onWindowKeyDown),
+        ];
+    });
+
+    onUnmounted(() => {
+        for (const release of releaseDragSessionListeners) release();
+        releaseDragSessionListeners = [];
+    });
 
     function requestSave(): void {
         if (validationIssues.value.length > 0) {
             showErrorToast(`Field belum lengkap: ${validationIssues.value.map((i) => i.label).join(', ')}`, {
                 title: 'Form belum siap disimpan',
             });
-            mobileTab.value = 'settings';
             inspectorMode.value = 'settings';
             return;
         }
@@ -402,7 +458,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         isDraggingOverCanvas,
         dragSourceId,
         inspectorMode,
-        mobileTab,
         showAddSheet,
         showMobileEditor,
         showPreview,
@@ -424,14 +479,15 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         duplicateField,
         updateField,
         moveField,
-        toggleVisibility,
         toggleCategory,
         hideSuccessZone,
         onGapDragEnter,
+        onCanvasDragEnter,
         onCanvasDragOver,
         onCanvasDragLeave,
         onCanvasDrop,
         onCanvasDragStart,
+        onPaletteDragStart,
         onDragEnd,
         requestSave,
     };

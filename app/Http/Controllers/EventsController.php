@@ -68,6 +68,7 @@ class EventsController extends Controller
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->published()
             ->orderBy('title')
             ->get()
             ->filter(fn (Form $form): bool => $form->visible_for?->contains(EventFormVisibility::Public) ?? false)

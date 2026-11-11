@@ -2,201 +2,69 @@
 
 namespace App\Rules;
 
+use App\Enums\UploadPurpose;
+use App\Services\Upload\UploadInspector;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\UploadedFile;
 
-/** Validates upload names, bytes, structure, and decoded content without third-party packages. */
+/**
+ * Rule HTTP untuk unggahan: menerjemahkan hasil {@see UploadInspector} menjadi
+ * error validasi per field (422).
+ *
+ * Dua mode:
+ * - purpose (`UploadPurpose`): kebijakan tetap per tujuan unggahan (disarankan).
+ * - daftar ekstensi dinamis: dipakai form field yang allow-list-nya berasal dari
+ *   metadata field; batas ukurannya tetap tunduk pada batas global.
+ */
 final class SafeUploadFile implements ValidationRule
 {
     /** Format yang dipakai bila pemanggil tidak menyebut daftar ekstensi sendiri. */
     public const DEFAULT_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'];
 
-    /** Return the shared required/optional file rules for a known format group and optional per-field limit in KB. */
+    /** Return the shared required/optional file rules for a purpose (or legacy format list). */
     public static function rules(
         bool $required = true,
-        array $formats = self::DEFAULT_FORMATS,
+        UploadPurpose|array $purposeOrFormats = UploadPurpose::Image,
         ?int $maxSizeKb = null
     ): array {
-        return [$required ? 'required' : 'nullable', 'file', new self($formats, $maxSizeKb)];
+        return [$required ? 'required' : 'nullable', 'file', new self($purposeOrFormats, $maxSizeKb)];
     }
+
+    private readonly UploadPurpose $purpose;
+
+    /** @var list<string>|null */
+    private readonly ?array $allowedExtensions;
 
     /**
-     * @param list<string> $formats
-     * @param int|null $maxSizeKb Per-field limit in KB; clamped to the global upload limit. Null falls back to global.
+     * @param  UploadPurpose|list<string>  $purposeOrFormats  Purpose atau daftar ekstensi dinamis.
+     * @param  int|null  $maxSizeKb  Batas per field (KB); selalu di-clamp ke batas purpose.
      */
     public function __construct(
-        private readonly array $formats = self::DEFAULT_FORMATS,
+        UploadPurpose|array $purposeOrFormats = UploadPurpose::Image,
         private readonly ?int $maxSizeKb = null
     ) {
+        if ($purposeOrFormats instanceof UploadPurpose) {
+            $this->purpose = $purposeOrFormats;
+            $this->allowedExtensions = null;
+        } else {
+            $this->purpose = UploadPurpose::FormAnswerFile;
+            $this->allowedExtensions = $purposeOrFormats;
+        }
     }
 
-    /** Rejects hostile names, malformed structures, active PDF content, and oversized decoded images. */
+    /** Tolak nama berbahaya, tipe yang tidak cocok dengan isi, konten aktif, dan ukuran/dimensi berlebih. */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (($value instanceof UploadedFile) === false || $value->isValid() === false) {
+        if (($value instanceof UploadedFile) === false) {
             $fail('The uploaded file is invalid.');
+
             return;
         }
 
-        $size = $value->getSize();
-        $maxSizeKb = $this->effectiveMaxSizeKb();
-        $maxBytes = $maxSizeKb * 1024;
-        if ($size === null || $size > $maxBytes) {
-            $fail('The file may not be greater than '.self::formatLimit($maxSizeKb).'.');
-            return;
-        }
-
-        if ($this->hasUnsafeName($value)) {
-            $fail('The uploaded file name is invalid.');
-            return;
-        }
-
-        $extension = strtolower($value->getClientOriginalExtension());
-        if ($extension === '' || in_array($extension, $this->formats, true) === false) {
-            $fail('The uploaded file format is not allowed.');
-            return;
-        }
-
-        $mime = $this->detectMime($value);
-        if ($mime === null) {
-            $fail('The uploaded file type could not be detected.');
-            return;
-        }
-
-        $message = match (true) {
-            $extension === 'pdf' => $this->validatePdf($value, $mime),
-            in_array($extension, ['csv', 'txt'], true) => $this->validateText($value),
-            default => $this->validateImage($value, $extension, $mime),
-        };
-
+        $message = UploadInspector::inspect($value, $this->purpose, $this->allowedExtensions, $this->maxSizeKb);
         if ($message !== null) {
             $fail($message);
         }
-    }
-
-    /** Per-field limit in KB, never exceeding the global configured limit. */
-    private function effectiveMaxSizeKb(): int
-    {
-        $globalKb = max(1, (int) config('events.forms.upload_max_size_kb', 5120));
-        $fieldKb = $this->maxSizeKb ?? 0;
-
-        return min($fieldKb > 0 ? $fieldKb : $globalKb, $globalKb);
-    }
-
-    /** Human-readable limit for validation messages: whole megabytes when divisible by 1024, otherwise KB. */
-    private static function formatLimit(int $maxSizeKb): string
-    {
-        return $maxSizeKb % 1024 === 0
-            ? intdiv($maxSizeKb, 1024).' MB'
-            : $maxSizeKb.' KB';
-    }
-
-    /** Rejects path traversal, control characters, alternate stream syntax, and hidden names. */
-    private function hasUnsafeName(UploadedFile $file): bool
-    {
-        $name = $file->getClientOriginalName();
-
-        return $name === ''
-            || basename($name) !== $name
-            || str_contains($name, '/')
-            || str_contains($name, '\\')
-            || str_contains($name, ':')
-            || str_starts_with($name, '.')
-            || preg_match('/[\x00-\x1F\x7F]/', $name) === 1;
-    }
-
-    /** Detects content from the temporary file rather than trusting the request MIME header. */
-    private function detectMime(UploadedFile $file): ?string
-    {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        if ($finfo === false) {
-            return null;
-        }
-
-        $mime = finfo_file($finfo, $file->getRealPath());
-        finfo_close($finfo);
-
-        return is_string($mime) ? $mime : null;
-    }
-
-    /** Checks PDF header, EOF marker, and active features that must never enter this application. */
-    private function validatePdf(UploadedFile $file, string $mime): ?string
-    {
-        if ($mime !== 'application/pdf') {
-            return 'The PDF content does not match its detected format.';
-        }
-
-        $contents = file_get_contents($file->getRealPath());
-        if ($contents === false || str_starts_with($contents, '%PDF-') === false) {
-            return 'The PDF header is invalid.';
-        }
-
-        if (str_contains(substr($contents, -1024), '%%EOF') === false) {
-            return 'The PDF is incomplete.';
-        }
-
-        if (preg_match('/\/(?:JavaScript|JS|OpenAction|AA|Launch|EmbeddedFile|RichMedia|SubmitForm|ImportData|GoToR|XFA|Encrypt)\b/i', $contents) === 1) {
-            return 'The PDF contains active or embedded content that is not allowed.';
-        }
-
-        return null;
-    }
-
-    /** Accepts only UTF-8 text without binary control bytes. */
-    private function validateText(UploadedFile $file): ?string
-    {
-        $contents = file_get_contents($file->getRealPath());
-        if ($contents === false || mb_check_encoding($contents, 'UTF-8') === false) {
-            return 'The text file content is invalid.';
-        }
-
-        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $contents) === 1) {
-            return 'The text file contains binary control bytes.';
-        }
-
-        return null;
-    }
-
-    /** Decodes raster metadata and enforces MIME/extension and decompression-bomb limits. */
-    private function validateImage(UploadedFile $file, string $extension, string $mime): ?string
-    {
-        $image = @getimagesize($file->getRealPath());
-        if ($image === false || is_string($image['mime'] ?? null) === false) {
-            return 'The image content is invalid.';
-        }
-
-        $expectedMimes = match ($extension) {
-            'jpg', 'jpeg' => ['image/jpeg'],
-            'png' => ['image/png'],
-            'webp' => ['image/webp'],
-            'gif' => ['image/gif'],
-            default => [],
-        };
-
-        if (in_array($image['mime'], $expectedMimes, true) === false || $image['mime'] !== $mime) {
-            return 'The image content does not match its detected format.';
-        }
-
-        $width = $image[0] ?? 0;
-        $height = $image[1] ?? 0;
-        $maxPixels = (int) config('events.forms.upload_max_pixels', 25_000_000);
-        if (is_int($width) === false || is_int($height) === false || $width < 1 || $height < 1 || $width * $height > $maxPixels) {
-            return 'The image dimensions are not allowed.';
-        }
-
-        $contents = file_get_contents($file->getRealPath());
-        if ($contents === false) {
-            return 'The image content could not be read.';
-        }
-
-        $decoded = @imagecreatefromstring($contents);
-        if ($decoded === false) {
-            return 'The image content could not be fully decoded.';
-        }
-
-        imagedestroy($decoded);
-
-        return null;
     }
 }

@@ -18,6 +18,7 @@ class EventRegistrantsController extends Controller
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->published()
             ->orderBy('title')
             ->get(['id', 'title']);
 

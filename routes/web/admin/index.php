@@ -198,6 +198,7 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
         $requiredFormIds = Form::query()
             ->where('event_id', $event->id)
             ->where('metadata->purpose', FormPurpose::Other->value)
+            ->published()
             ->get()
             ->map(fn (Form $f) => $f->requiresFormId())
             ->filter()
@@ -209,12 +210,14 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
             ? []
             : Form::query()
                 ->whereIn('id', $requiredFormIds)
+                ->published()
                 ->pluck('title', 'id')
                 ->all();
 
         $participantForms = Form::query()
             ->where('event_id', $event->id)
             ->where('metadata->purpose', FormPurpose::Other->value)
+            ->published()
             ->orderBy('title')
             ->get()
             ->map(function (Form $form) use ($event, $user, $requiredTitles): array {

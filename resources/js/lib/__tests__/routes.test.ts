@@ -86,6 +86,7 @@ const SURVIVING_ROUTE_KEYS = [
     'admin.events.forms.create',
     'admin.events.forms.show',
     'admin.events.forms.store',
+    'admin.events.forms.draft',
     'admin.events.forms.destroy',
     'admin.scan.index',
     'admin.scan.export',

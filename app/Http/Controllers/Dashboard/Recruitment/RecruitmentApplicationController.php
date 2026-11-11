@@ -38,7 +38,7 @@ class RecruitmentApplicationController extends Controller
                 return Storage::disk('local')->response(
                     $document->cv_path,
                     $document->cv_original_name,
-                    ['Content-Type' => 'application/pdf'],
+                    $this->streamHeaders('application/pdf'),
                     'inline',
                 );
             }
@@ -46,7 +46,7 @@ class RecruitmentApplicationController extends Controller
             return Storage::disk('local')->download(
                 $document->cv_path,
                 $document->cv_original_name,
-                ['Content-Type' => $document->cv_mime],
+                $this->streamHeaders($document->cv_mime ?: 'application/pdf'),
             );
         }
 
@@ -57,7 +57,7 @@ class RecruitmentApplicationController extends Controller
                 return Storage::disk('local')->response(
                     $document->portfolio_path,
                     $document->portfolio_original_name ?? 'portfolio.pdf',
-                    ['Content-Type' => 'application/pdf'],
+                    $this->streamHeaders('application/pdf'),
                     'inline',
                 );
             }
@@ -65,7 +65,7 @@ class RecruitmentApplicationController extends Controller
             return Storage::disk('local')->download(
                 $document->portfolio_path,
                 $document->portfolio_original_name ?? 'portfolio',
-                ['Content-Type' => $document->portfolio_mime ?? 'application/octet-stream'],
+                $this->streamHeaders($document->portfolio_mime ?: 'application/octet-stream'),
             );
         }
 
@@ -78,7 +78,7 @@ class RecruitmentApplicationController extends Controller
                 return Storage::disk('local')->response(
                     $document->instagram_follow_path,
                     $document->instagram_follow_original_name ?? 'instagram-follow',
-                    ['Content-Type' => $contentType],
+                    $this->streamHeaders($contentType),
                     'inline',
                 );
             }
@@ -86,11 +86,25 @@ class RecruitmentApplicationController extends Controller
             return Storage::disk('local')->download(
                 $document->instagram_follow_path,
                 $document->instagram_follow_original_name ?? 'instagram-follow',
-                ['Content-Type' => $contentType],
+                $this->streamHeaders($contentType),
             );
         }
 
         abort(404);
+    }
+
+    /**
+     * Header unduhan berkas pelamar: tipe dari hasil sniff saat disimpan dan
+     * `nosniff` agar browser tidak menebak tipe lain dari isi berkas.
+     *
+     * @return array<string, string>
+     */
+    private function streamHeaders(string $contentType): array
+    {
+        return [
+            'Content-Type' => $contentType,
+            'X-Content-Type-Options' => 'nosniff',
+        ];
     }
 
     public function verify(Request $request, RecruitmentApplication $application): RedirectResponse

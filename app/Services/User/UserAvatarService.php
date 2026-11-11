@@ -4,6 +4,7 @@ namespace App\Services\User;
 
 use App\Models\User;
 use App\Support\PublicStorage;
+use App\Enums\UploadPurpose;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Http\Request;
@@ -19,7 +20,11 @@ final class UserAvatarService
     {
         $previous = $user->avatar;
 
-        $path = app(SafeUploadStorage::class)->store($file, UploadStorageTarget::public('avatars/'.$user->getKey()));
+        $path = app(SafeUploadStorage::class)->store(
+            $file,
+            UploadStorageTarget::public('avatars/'.$user->getKey()),
+            UploadPurpose::Image,
+        );
 
         if (self::isStoredRelativePath($previous)) {
             Storage::disk('public')->delete($previous);

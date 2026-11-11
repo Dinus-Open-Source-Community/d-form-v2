@@ -26,8 +26,9 @@ import { Label } from '@/components/ui/label';
 import { uploadBroadcastImage } from '@/adapters/http/broadcast';
 import { isHttpRequestError, readPublicMessage } from '@/adapters/http/httpError';
 import type { TValidationErrorBag } from '@/types/http';
-import { validateUploadFile } from '@/lib/uploadValidation';
+import { ACCEPTED_IMAGE_EXTENSIONS, validateUploadFile } from '@/lib/uploadValidation';
 import {
+    Ban,
     Bold,
     Italic,
     Underline as UnderlineIcon,
@@ -122,6 +123,14 @@ const imageUrlError = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadingCount = ref(0);
 const uploadError = ref('');
+/** Persentase byte gambar aktif (0 = ukuran belum diketahui → bar indeterminate). */
+const uploadProgress = ref(0);
+const uploadQueueIndex = ref(0);
+const uploadQueueTotal = ref(0);
+
+/** Satu upload aktif pada satu waktu; Batalkan menghentikan antrean sisanya. */
+let uploadController: AbortController | null = null;
+let uploadCancelled = false;
 
 const editor = useEditor({
     content: props.modelValue ?? '',
@@ -188,40 +197,81 @@ async function uploadImageFile(file: File): Promise<string | null> {
         uploadError.value = 'Endpoint unggah gambar belum dikonfigurasi.';
         return null;
     }
+
+    const controller = new AbortController();
+    uploadController = controller;
+    uploadProgress.value = 0;
     uploadingCount.value += 1;
+
     try {
-        const url = await uploadBroadcastImage(target, file);
+        const url = await uploadBroadcastImage(target, file, 'file', {
+            signal: controller.signal,
+            onProgress: (percent: number): void => {
+                uploadProgress.value = percent;
+            },
+        });
+
         if (url.trim() === '') {
             uploadError.value = 'Respons upload tidak membawa URL gambar yang valid.';
             return null;
         }
+
         return url;
     } catch (error) {
+        // Batalkan bukan kegagalan: antrean dihentikan oleh `cancelUpload`.
+        if (isHttpRequestError(error) && error.kind === 'aborted') return null;
+
         uploadError.value = readUploadErrorMessage(error);
         return null;
     } finally {
+        if (uploadController === controller) uploadController = null;
         uploadingCount.value = Math.max(0, uploadingCount.value - 1);
     }
+}
+
+/** Batalkan unggahan aktif; sisa antrean tidak dikirim dan state kembali bersih. */
+function cancelUpload(): void {
+    uploadCancelled = true;
+    uploadController?.abort();
+    uploadController = null;
+    uploadProgress.value = 0;
+    uploadQueueIndex.value = 0;
+    uploadQueueTotal.value = 0;
+    uploadError.value = '';
 }
 
 async function uploadAndInsert(files: File[], atPos?: number | null): Promise<void> {
     const e = editor.value;
     if (!e) return;
     uploadError.value = '';
-    for (const file of files) {
-        const invalid = await validateUploadFile(file, ['png', 'jpg', 'jpeg', 'gif', 'webp']);
+    uploadCancelled = false;
+    uploadQueueTotal.value = files.length;
+
+    for (let index = 0; index < files.length; index += 1) {
+        uploadQueueIndex.value = index + 1;
+        const file = files[index];
+
+        const invalid = await validateUploadFile(file, ACCEPTED_IMAGE_EXTENSIONS);
         if (invalid) {
             uploadError.value = invalid;
             continue;
         }
+
         const url = await uploadImageFile(file);
+        if (uploadCancelled) return;
+
         if (!url) continue;
+
         if (typeof atPos === 'number' && atPos >= 0) {
             e.chain().focus().setTextSelection(atPos).setImage({ src: url }).run();
         } else {
             e.chain().focus().setImage({ src: url }).run();
         }
     }
+
+    uploadQueueTotal.value = 0;
+    uploadQueueIndex.value = 0;
+    uploadProgress.value = 0;
 }
 
 function triggerFilePicker(): void {
@@ -504,9 +554,38 @@ const toolbarGroups: ToolbarTool[][] = [
             @change="onFilePicked"
         />
         <EditorContent :editor="editor" />
-        <p v-if="uploadingCount > 0" class="border-border/60 text-muted-foreground border-t px-4 py-2 text-xs">
-            Mengunggah gambar…
-        </p>
+        <div v-if="uploadingCount > 0" class="border-border/60 flex flex-wrap items-center gap-3 border-t px-4 py-2">
+            <p class="text-muted-foreground text-xs" aria-live="polite">
+                Mengunggah gambar{{ uploadProgress > 0 ? ` ${uploadProgress}%` : '…' }}
+                <span v-if="uploadQueueTotal > 1">({{ uploadQueueIndex }}/{{ uploadQueueTotal }})</span>
+            </p>
+            <div
+                class="bg-muted h-1.5 w-24 overflow-hidden rounded-full"
+                role="progressbar"
+                :aria-valuenow="uploadProgress > 0 ? uploadProgress : undefined"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-label="Progres unggah gambar"
+            >
+                <div
+                    v-if="uploadProgress === 0"
+                    class="bg-primary/50 h-full w-full animate-pulse motion-reduce:animate-none"
+                />
+                <div
+                    v-else
+                    class="bg-primary h-full rounded-full transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                    :style="{ width: `${uploadProgress}%` }"
+                />
+            </div>
+            <button
+                type="button"
+                class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/30 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px]"
+                @click="cancelUpload"
+            >
+                <Ban class="size-3" aria-hidden="true" />
+                Batalkan
+            </button>
+        </div>
         <p v-if="uploadError" class="border-border/60 text-destructive border-t px-4 py-2 text-xs font-medium">
             {{ uploadError }}
         </p>

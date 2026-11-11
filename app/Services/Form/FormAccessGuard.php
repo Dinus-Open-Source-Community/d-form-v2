@@ -36,6 +36,12 @@ final class FormAccessGuard
      */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
+        // Draft belum boleh diisi siapa pun: halaman fill/submit hanya untuk form
+        // yang sudah dipublikasikan penyelenggara.
+        if ($form->isDraft()) {
+            return FormAccessStatus::NotVisible;
+        }
+
         $isAdmin = $user->can('events.list');
 
         if (! $isAdmin && ! self::isVisible($form, $user)) {
@@ -202,6 +208,7 @@ final class FormAccessGuard
         $requiredBelongsToEvent = Form::query()
             ->where('id', $requiresFormId)
             ->where('event_id', $event->id)
+            ->published()
             ->exists();
 
         if (! $requiredBelongsToEvent) {

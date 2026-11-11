@@ -56,15 +56,12 @@ class ScanTestSeeder extends Seeder
         $this->purgeStaleQrFiles();
 
         // EVENT dimatikan sementara (belum dibutuhkan): hanya seed OPREC.
-        // $eventCodes = $this->seedEventRegistrations();
         $eventCodes = [];
         $oprecNumbers = $this->seedOprecApplicants();
 
         $this->command->info('ScanTestSeeder done.');
-        // $this->command->info('  EVENT registrations (20, Accepted): '.implode(', ', $eventCodes));
         $this->command->info('  OPREC applications (20, Interview/Scheduled): '.implode(', ', $oprecNumbers));
         $this->command->info('  QR folders: storage/app/scan-test/oprec/ ('.count($oprecNumbers).' PNG)');
-        // $this->command->info('  Test logins (password: password): scan-test-event-01@example.test … scan-test-event-20@example.test');
 
         $this->sendQrDigests($eventCodes, $oprecNumbers);
     }

@@ -1,11 +1,15 @@
 import { fileURLToPath } from 'node:url';
+import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vitest/config';
 
 /**
  * Runner unit test frontend. Environment `node` dipakai karena adapter diuji
- * dengan global browser yang di-stub per test; tidak perlu jsdom.
+ * dengan global browser yang di-stub per test; tidak perlu jsdom. Komponen
+ * `.vue` dirender lewat `@vue/server-renderer`, jadi plugin Vue tetap wajib
+ * aktif agar SFC bisa dikompilasi.
  */
 export default defineConfig({
+    plugins: [vue()],
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./resources/js', import.meta.url)),

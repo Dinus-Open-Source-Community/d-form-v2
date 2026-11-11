@@ -443,6 +443,8 @@ final class MigrationRollbackTest extends TestCase
      */
     private function destroysEarlierStructure(string $contents): bool
     {
+        $contents = $this->stripPhpComments($contents);
+
         if (preg_match('/->(dropColumn|renameColumn)\(/', $contents) === 1) {
             return true;
         }
@@ -477,6 +479,63 @@ final class MigrationRollbackTest extends TestCase
         ));
 
         $this->assertContains('2026_11_10_000008_users_email_lookup_index', $documented);
+    }
+
+    /**
+     * A comment is not executable, so a mention inside it must neither flag a
+     * migration as destructive nor mask a real drop. `token_get_all` avoids
+     * regex heuristics that cannot tell `// Schema::dropIfExists('x')` from code.
+     */
+    private function stripPhpComments(string $contents): string
+    {
+        $stripped = '';
+
+        foreach (token_get_all($contents) as $token) {
+            if (is_array($token)) {
+                if ($token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+                    $stripped .= str_repeat("\n", substr_count($token[1], "\n"));
+
+                    continue;
+                }
+
+                $stripped .= $token[1];
+
+                continue;
+            }
+
+            $stripped .= $token;
+        }
+
+        return $stripped;
+    }
+
+    /**
+     * Comment-only mentions must not change classification in either direction.
+     */
+    public function test_comment_only_mentions_do_not_affect_destructive_classification(): void
+    {
+        $method = new \ReflectionMethod($this, 'destroysEarlierStructure');
+        $method->setAccessible(true);
+
+        $commented = <<<'PHP'
+        <?php
+        // Schema::dropIfExists('legacy_table');
+        /* ->dropColumn('notes') */
+        return new class extends Migration {};
+        PHP;
+
+        $real = <<<'PHP'
+        <?php
+        return new class extends Migration {
+            public function down(): void
+            {
+                Schema::dropIfExists('legacy_table');
+            }
+        };
+        PHP;
+
+        $this->assertFalse($method->invoke($this, $commented));
+        $this->assertTrue($method->invoke($this, $real));
     }
 
     /**

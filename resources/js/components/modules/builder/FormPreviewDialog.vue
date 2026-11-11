@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { X, Star, Upload, ImagePlus, Send } from 'lucide-vue-next';
 import { optionLabel, optionImageUrl, type IFieldOptionEntry } from '@/components/modules/builder/fieldMapping';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { createUuid } from '@/lib/uuid';
 import PageHeader from '@/components/modules/builder/PageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +86,7 @@ function optionEntries(field: IFormPreviewField): IFieldOptionEntry[] {
     if (!Array.isArray(raw)) return [];
     return raw.map((opt) => {
         if (typeof opt === 'object' && opt !== null) return opt as IFieldOptionEntry;
-        return { id: crypto.randomUUID(), type: 'text', label: String(opt) } as IFieldOptionEntry;
+        return { id: createUuid(), type: 'text', label: String(opt) } as IFieldOptionEntry;
     });
 }
 

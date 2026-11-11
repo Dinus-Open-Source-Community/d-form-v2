@@ -4,6 +4,7 @@ namespace App\Http\Requests\Recruitment;
 
 use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 class UpdateRecruitmentPeriodRequest extends FormRequest
 {
@@ -36,7 +37,7 @@ class UpdateRecruitmentPeriodRequest extends FormRequest
             'interview_starts_at' => ['nullable', 'date'],
             'interview_ends_at' => ['nullable', 'date', 'after_or_equal:interview_starts_at'],
             'finalization_deadline_at' => ['nullable', 'date'],
-            'banner' => ['sometimes', ...SafeUploadFile::rules(false, ['jpg', 'jpeg', 'png', 'webp'])],
+            'banner' => ['sometimes', ...SafeUploadFile::rules(false, UploadPurpose::Image)],
             'whatsapp_group_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
             'whatsapp_group_aa_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],
             'whatsapp_group_member_url' => ['nullable', 'string', 'max:255', 'url', 'starts_with:https://'],

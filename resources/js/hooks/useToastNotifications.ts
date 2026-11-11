@@ -1,5 +1,7 @@
 import { toast } from 'vue-sonner';
+import { reloadPage } from '@/adapters/browser/navigation';
 import { buildAutosaveFailureMessage } from '@/lib/autosaveFailureMessage';
+import type { IAutosaveFailureDecision } from '@/lib/autosaveFailure';
 import {
     humanizeErrorMessage,
     parseApiErrorMessage,
@@ -57,6 +59,8 @@ export interface IToastNotifications {
     showFlashToast(flash: IToastFlash | null | undefined): void;
     /** Toast kegagalan autosave dengan aksi retry. */
     notifyAutosaveFailure(message: string, retry: () => void): void;
+    /** Toast kegagalan autosave terminal (404/403/419) dengan aksi muat ulang. */
+    notifyAutosaveTerminalFailure(decision: IAutosaveFailureDecision): void;
 }
 
 const notifications: IToastNotifications = {
@@ -166,6 +170,20 @@ const notifications: IToastNotifications = {
                 onClick: retry,
             },
         });
+    },
+
+    notifyAutosaveTerminalFailure(decision) {
+        const options: Parameters<typeof toast.error>[1] =
+            decision.action === 'reload'
+                ? {
+                      action: {
+                          label: 'Muat ulang',
+                          onClick: reloadPage,
+                      },
+                  }
+                : {};
+
+        toast.error(decision.message, options);
     },
 };
 

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Rules\SafeUploadFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 class UpdateDashboardProfileAvatarRequest extends FormRequest
 {
@@ -19,7 +20,7 @@ class UpdateDashboardProfileAvatarRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'avatar' => SafeUploadFile::rules(true, ['jpeg', 'jpg', 'png', 'gif', 'webp']),
+            'avatar' => SafeUploadFile::rules(true, UploadPurpose::Image),
         ];
     }
 

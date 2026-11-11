@@ -137,12 +137,8 @@ test.describe('BE-P2-006 laporan kehadiran event', () => {
             await expect(attendanceRows(page)).toHaveCount(PER_PAGE);
             await expect(page.getByText(/1[–-]20 dari 25/)).toBeVisible();
 
-            const csvLink = page.getByRole('link', { name: /Attendance CSV/ });
-            await expect(csvLink).toBeVisible();
-            await expect(csvLink).toHaveAttribute(
-                'href',
-                new RegExp(`/admin/events/${owner.eventId}/exports/attendance\\.csv$`)
-            );
+            const csvButton = page.getByRole('button', { name: 'Attendance CSV' });
+            await expect(csvButton).toBeVisible();
 
             // BE-P2-025: tie-breaker `id` membuat dua halaman tidak berbagi baris.
             const firstPageSubmissions = await attendanceRows(page).locator('td:nth-child(3)').allInnerTexts();

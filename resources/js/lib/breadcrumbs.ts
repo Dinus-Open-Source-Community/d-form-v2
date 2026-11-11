@@ -2,7 +2,8 @@ import { pathWithoutQuery, routes } from '@/lib/routes';
 
 export interface IBreadcrumbItem {
     label: string;
-    href: string;
+    /** `null` = segmen statis (halaman tujuan sudah tidak ada), bukan link. */
+    href: string | null;
 }
 
 /**
@@ -10,7 +11,7 @@ export interface IBreadcrumbItem {
  * Urut dari path terpanjang dulu agar prefix paling spesifik menang
  * (mis. `/admin/events` sebelum `/admin`).
  */
-const BASE_PATHS: IBreadcrumbItem[] = [
+const BASE_PATHS: Array<{ label: string; href: string }> = [
     { label: 'Acara', href: routes.admin.events.index },
     { label: 'Rekrutmen', href: routes.admin.recruitment.index },
     { label: 'Acara Diikuti', href: routes.member.joined },
@@ -94,6 +95,14 @@ export function buildBreadcrumbs(url: string, pageTitle: string): IBreadcrumbIte
         } else {
             label = seg;
         }
+
+        // Halaman daftar form sudah dihapus: segmen `forms` tetap tampil sebagai teks,
+        // bukan link, agar breadcrumb tidak mengarah ke URL 404.
+        if (seg === 'forms' && !isLast) {
+            crumbs.push({ label, href: null });
+            return;
+        }
+
         crumbs.push({ label, href: prefix });
     });
 

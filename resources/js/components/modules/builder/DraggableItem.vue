@@ -15,6 +15,12 @@ const props = withDefaults(
 
 const isDragging = ref(false);
 
+/** Emit dipakai pemilik kanvas untuk memulai/mengakhiri sesi drag; tidak ada state global di sini. */
+const emit = defineEmits<{
+    dragStart: [e: DragEvent];
+    dragEnd: [];
+}>();
+
 const onDragStart = (event: DragEvent) => {
     if (!event.dataTransfer || !(event.target instanceof Element)) return;
 
@@ -25,10 +31,12 @@ const onDragStart = (event: DragEvent) => {
     );
     event.dataTransfer.setDragImage(event.target, event.target.clientWidth / 2, 20);
     isDragging.value = true;
+    emit('dragStart', event);
 };
 
 const onDragEnd = () => {
     isDragging.value = false;
+    emit('dragEnd');
 };
 </script>
 

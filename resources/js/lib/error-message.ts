@@ -53,6 +53,12 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
     'Enter a valid email address.': 'Masukkan alamat email yang valid.',
     'Form deleted.': 'Form berhasil dihapus.',
     'Form created successfully!': 'Form berhasil dibuat.',
+    'Please enter the form title.': 'Judul form wajib diisi.',
+    'Please enter a description for the form.': 'Deskripsi form wajib diisi.',
+    'Please select when the form closes.': 'Pilih tanggal tutup form.',
+    'Please select who can see this form.': 'Pilih siapa yang bisa melihat form ini.',
+    'Please select at least one visibility option.': 'Pilih minimal satu opsi visibilitas.',
+    'Please provide form fields to update.': 'Sertakan minimal satu field form.',
     'Form and fields saved successfully.': 'Form dan field berhasil disimpan.',
     'Event has been archived.': 'Event berhasil diarsipkan.',
     'Event has been restored.': 'Event berhasil dipulihkan.',
@@ -272,7 +278,7 @@ export function humanizeErrorMessage(
     fieldKey?: string,
     ctx?: TErrorMessageContext
 ): string {
-    const message = normalizeErrorText(raw);
+    const message = sanitizeApiMessageText(normalizeErrorText(raw));
     if (!message) return '';
 
     const known = KNOWN_BACKEND_MESSAGES[message];
@@ -284,6 +290,45 @@ export function humanizeErrorMessage(
     }
 
     return message;
+}
+
+/**
+ * Laravel meringkas bag validasi menjadi `"<pesan pertama> (and N more errors)"`.
+ * Ringkasan seperti itu tidak boleh tampil apa adanya di UI.
+ */
+export function stripValidationSummary(message: string): string {
+    return message.replace(/\s*\(and \d+ more errors?\)\s*$/i, '').trim();
+}
+
+/**
+ * Sebagian error terbungkus sebagai string JSON (`{"message":...,"errors":{...}}`).
+ * Unwrap hanya bila memang objek berisi `message` atau `errors`.
+ */
+function unwrapJsonMessageText(message: string): string {
+    const trimmed = message.trim();
+    if (!trimmed.startsWith('{')) return message;
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(trimmed);
+    } catch {
+        return message;
+    }
+
+    if (!isRecord(parsed)) return message;
+    if (!('message' in parsed) && !('errors' in parsed)) return message;
+
+    return readFirstValidationMessage(parsed) ?? (typeof parsed.message === 'string' ? parsed.message : '');
+}
+
+/**
+ * Bersihkan teks error dari API sebelum dipakai UI: unwrap string JSON lalu buang
+ * sufiks ringkasan `(and N more errors)`.
+ */
+export function sanitizeApiMessageText(message: string): string {
+    const unwrapped = unwrapJsonMessageText(message);
+
+    return stripValidationSummary(unwrapped);
 }
 
 /** Pesan error humanized untuk satu key; `undefined` bila key tidak punya pesan. */
@@ -324,6 +369,26 @@ function readFirstValidationMessage(body: Record<string, unknown>): string | und
 }
 
 /**
+ * Body error sebagai record; string JSON (dibungkus lapisan lain) di-parse dulu.
+ * String biasa bukan kontrak error, jadi dianggap tidak bisa dipakai.
+ */
+function readBodyRecord(body: unknown): Record<string, unknown> | null {
+    if (isRecord(body)) return body;
+    if (typeof body !== 'string') return null;
+
+    const trimmed = body.trim();
+    if (!trimmed.startsWith('{')) return null;
+
+    try {
+        const parsed: unknown = JSON.parse(trimmed);
+
+        return isRecord(parsed) ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Pesan publik dari body error API. Untuk `status === 422`, bag `errors` diprioritaskan
  * agar aturan validasi Laravel berbahasa Inggris tidak bocor mentah ke UI.
  */
@@ -332,13 +397,14 @@ export function parseApiErrorMessage(
     fallback = 'Terjadi kesalahan. Coba lagi.',
     status?: number | null
 ): string {
-    if (!isRecord(body)) return fallback;
+    const record = readBodyRecord(body);
+    if (record === null) return fallback;
 
-    const validationMessage = readFirstValidationMessage(body);
+    const validationMessage = readFirstValidationMessage(record);
     if (status === 422 && validationMessage !== undefined) return validationMessage;
 
-    if (typeof body.message === 'string' && body.message.trim()) {
-        return humanizeErrorMessage(body.message);
+    if (typeof record.message === 'string' && record.message.trim()) {
+        return humanizeErrorMessage(record.message) || fallback;
     }
 
     if (validationMessage !== undefined) return validationMessage;

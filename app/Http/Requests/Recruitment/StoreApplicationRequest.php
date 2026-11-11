@@ -8,6 +8,7 @@ use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Enums\UploadPurpose;
 
 class StoreApplicationRequest extends FormRequest
 {
@@ -42,9 +43,9 @@ class StoreApplicationRequest extends FormRequest
             ],
             'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'starts_with:http://,https://', 'max:500'],
-            'portfolio_file' => SafeUploadFile::rules(false, ['pdf']),
-            'cv' => SafeUploadFile::rules(true, ['pdf']),
-            'instagram_follow_proof' => SafeUploadFile::rules(true, ['jpg', 'jpeg', 'png', 'webp']),
+            'portfolio_file' => SafeUploadFile::rules(false, UploadPurpose::RecruitmentPortfolio),
+            'cv' => SafeUploadFile::rules(true, UploadPurpose::RecruitmentCv),
+            'instagram_follow_proof' => SafeUploadFile::rules(true, UploadPurpose::InstagramProof),
             'twibbon_url' => ['required', 'url', 'starts_with:http://,https://', 'max:500'],
         ];
     }

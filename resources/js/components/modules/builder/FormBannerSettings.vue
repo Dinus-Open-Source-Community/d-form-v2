@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-vue-next';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
-import { useBuilderImageUpload } from '@/hooks/useBuilderImageUpload';
+import { ACCEPTED_IMAGE_EXTENSIONS, validateUploadFile } from '@/lib/uploadValidation';
+import { uploadBuilderImage } from '@/adapters/http/forms';
+import { describeRequestErrorMessage } from '@/adapters/http/httpError';
+import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
+import { useUploadedFileState, type IUploadedFileResult, type TUploader } from '@/hooks/useUploadedFileState';
 
 const props = withDefaults(
     defineProps<{
@@ -19,68 +21,101 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ 'update:modelValue': [value: IFormBannerState] }>();
 
-const bannerUploadError = ref('');
-const localPreviewUrl = ref('');
+/** MIME yang diterima tombol pilih banner; pesan error dipertahankan seperti sebelumnya. */
+const ALLOWED_BANNER_MIME_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif'];
+const BANNER_MAX_SIZE_KB = 5120;
 
-const { uploading: bannerUploading, uploadImage } = useBuilderImageUpload({
-    uploadUrl: () => props.uploadUrl,
-    onError: (message) => {
-        bannerUploadError.value = message;
-    },
-});
+const localPreviewUrl = ref('');
+const hasUploadEndpoint = computed<boolean>(() => props.uploadUrl.trim() !== '');
 
 function patch(partial: Partial<IFormBannerState>) {
     emit('update:modelValue', { ...props.modelValue, ...partial });
 }
 
-async function onBannerFile(ev: Event) {
-    bannerUploadError.value = '';
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    const ok = ['image/png', 'image/jpeg', 'image/gif'];
-    if (!ok.includes(file.type)) {
-        bannerUploadError.value = 'Gunakan PNG, JPG, JPEG, atau GIF.';
-        input.value = '';
-        return;
+/**
+ * Upload banner lewat adapter axios (`POST {form}/images`) sehingga progres byte dan
+ * `AbortSignal` Batalkan benar-benar diteruskan ke request.
+ * `builderPendingUploads` dinaikkan selama request agar autosave menunggu upload selesai.
+ */
+const uploader: TUploader = async (file, { signal, onProgress }): Promise<IUploadedFileResult> => {
+    if (!ALLOWED_BANNER_MIME_TYPES.includes(file.type)) {
+        throw new Error('Gunakan PNG, JPG, JPEG, atau GIF.');
     }
 
-    const previousUrl = props.modelValue.bannerUrl;
-    const previousName = props.modelValue.bannerFileName;
+    const validationError = await validateUploadFile(file, ACCEPTED_IMAGE_EXTENSIONS);
+    if (validationError !== null) throw new Error(validationError);
 
-    // Preview instan (object URL) — tidak pernah base64, tidak pernah ke DB apa adanya.
+    builderPendingUploads.value += 1;
+
+    try {
+        const result = await uploadBuilderImage(props.uploadUrl.trim(), file, 'file', { signal, onProgress });
+        const storedValue = result.url.trim() !== '' ? result.url : result.path;
+
+        if (storedValue.trim() === '') {
+            throw new Error('Respons upload tidak membawa path/url gambar.');
+        }
+
+        return {
+            fileName: file.name,
+            fileSize: file.size,
+            mime: file.type,
+            previewUrl: normalizePublicStorageUrl(storedValue),
+            storedValue,
+        };
+    } catch (error) {
+        // Batalkan bukan kegagalan: state machine mengembalikan kartu ke idle.
+        if (error instanceof Error && error.name === 'AbortError') throw error;
+
+        throw new Error(describeRequestErrorMessage(error, 'Gagal mengunggah gambar.'));
+    } finally {
+        builderPendingUploads.value = Math.max(0, builderPendingUploads.value - 1);
+    }
+};
+
+const {
+    phase: uploadPhase,
+    progress: uploadProgress,
+    errorMessage: uploadErrorMessage,
+    start: startUpload,
+    cancel: cancelUpload,
+} = useUploadedFileState({
+    upload: uploader,
+    onCompleted: (result) => {
+        patch({ bannerUrl: result.storedValue ?? '', bannerFileName: result.fileName });
+    },
+});
+
+/**
+ * Tanpa endpoint `{form}/images` tidak ada request: preview lokal (object URL) tetap
+ * ditampilkan dan sanitizer membuangnya sebelum save.
+ */
+function applyDraftPreview(file: File): void {
     revokeObjectUrl(localPreviewUrl.value);
-    const localUrl = createObjectUrl(file);
-    localPreviewUrl.value = localUrl;
-    patch({ bannerUrl: localUrl, bannerFileName: file.name });
-    input.value = '';
-
-    const result = await uploadImage(file);
-    if (result) {
-        localPreviewUrl.value = '';
-        revokeObjectUrl(localUrl);
-        patch({ bannerUrl: result.url, bannerFileName: file.name });
-        return;
-    }
-
-    if (props.uploadUrl.trim() !== '') {
-        localPreviewUrl.value = '';
-        revokeObjectUrl(localUrl);
-        patch({ bannerUrl: previousUrl, bannerFileName: previousName });
-        if (!bannerUploadError.value) bannerUploadError.value = 'Gagal mengunggah gambar. Coba lagi.';
-    }
-    // Tanpa uploadUrl: pertahankan preview lokal (sanitizer membuangnya sebelum save).
+    localPreviewUrl.value = createObjectUrl(file);
+    patch({ bannerUrl: localPreviewUrl.value, bannerFileName: file.name });
 }
 
-function clearImage() {
+async function onBannerPick(file: File): Promise<void> {
+    if (!hasUploadEndpoint.value) {
+        applyDraftPreview(file);
+        return;
+    }
+
+    await startUpload(file);
+}
+
+function clearImage(): void {
     revokeObjectUrl(localPreviewUrl.value);
     localPreviewUrl.value = '';
     patch({ bannerUrl: '', bannerFileName: '' });
 }
 
 const previewSrc = computed(() => localPreviewUrl.value || normalizePublicStorageUrl(props.modelValue.bannerUrl));
-const isUploading = computed(() => bannerUploading.value);
+
+/** Hasil upload ditampilkan oleh pratinjau 3:1, jadi kartu kembali ke idle setelah selesai. */
+const cardState = computed<TFileUploadState>(() => (uploadPhase.value === 'completed' ? 'idle' : uploadPhase.value));
+const idleLabel = computed(() => (previewSrc.value !== '' ? 'Ganti gambar' : 'Unggah gambar atau GIF'));
+const isUploading = computed<boolean>(() => uploadPhase.value === 'uploading');
 
 onUnmounted(() => {
     revokeObjectUrl(localPreviewUrl.value);
@@ -110,16 +145,17 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <div class="flex flex-col gap-1.5">
-            <Label class="text-xs font-semibold">Unggah gambar atau GIF</Label>
-            <Input type="file" accept="image/png,image/jpeg,image/gif" class="text-xs" @change="onBannerFile" />
-            <p class="text-muted-foreground text-[10px]">PNG, JPG, JPEG, GIF</p>
-            <p v-if="isUploading" class="text-primary flex items-center gap-1 text-[10px] font-semibold">
-                <Loader2 class="size-3 animate-spin" aria-hidden="true" />
-                Mengunggah…
-            </p>
-            <p v-if="bannerUploadError" class="text-destructive text-[10px] font-semibold">{{ bannerUploadError }}</p>
-        </div>
+        <FileUploadCard
+            :state="cardState"
+            :idle-label="idleLabel"
+            accept="image/png,image/jpeg,image/gif"
+            hint="PNG, JPG, JPEG, GIF"
+            :max-size-kb="BANNER_MAX_SIZE_KB"
+            :progress="uploadProgress"
+            :error-message="uploadErrorMessage"
+            @pick="onBannerPick"
+            @cancel="cancelUpload"
+        />
 
         <Button
             v-if="modelValue.bannerUrl.trim() !== '' || modelValue.bannerFileName.trim() !== ''"
@@ -127,6 +163,7 @@ onUnmounted(() => {
             size="sm"
             type="button"
             class="h-8 text-xs"
+            :disabled="isUploading"
             @click="clearImage"
         >
             Hapus banner

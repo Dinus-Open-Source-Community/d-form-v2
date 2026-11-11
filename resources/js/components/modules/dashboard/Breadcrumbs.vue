@@ -20,12 +20,19 @@ defineProps<{
                 aria-hidden="true"
             />
             <Link
-                v-if="idx < items.length - 1"
+                v-if="idx < items.length - 1 && item.href !== null"
                 :href="item.href"
                 class="hover:text-foreground min-w-0 truncate transition-colors duration-150"
             >
                 {{ item.label }}
             </Link>
+            <span
+                v-else-if="idx < items.length - 1"
+                class="text-muted-foreground/80 min-w-0 truncate"
+                data-breadcrumb-static="true"
+            >
+                {{ item.label }}
+            </span>
             <span v-else class="text-foreground min-w-0 truncate font-medium">
                 {{ item.label }}
             </span>

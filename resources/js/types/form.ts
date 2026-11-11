@@ -26,6 +26,16 @@ export interface IFormSiblingOption {
     title: string;
 }
 
+/**
+ * Ringkasan form pada sidebar halaman detail acara. Controller `dashboard.events.show`
+ * selalu mengirim `is_draft` (draft hanya terlihat oleh pembuat acara).
+ */
+export interface IEventFormSummary {
+    id: string;
+    title: string;
+    is_draft: boolean;
+}
+
 export interface IFormFillPageEvent {
     id: string;
     slug: string;

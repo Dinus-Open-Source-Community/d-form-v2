@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
+import type { CancelToken, Progress } from '@inertiajs/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import DeferredRender from '@/components/core/DeferredRender.vue';
+import FileUploadCard from '@/components/core/FileUploadCard.vue';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { routes } from '@/lib/routes';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
-import { validateUploadFile } from '@/lib/uploadValidation';
+import { ACCEPTED_CSV_EXTENSIONS, MAX_UPLOAD_BYTES, validateUploadFile } from '@/lib/uploadValidation';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 /** Editor broadcast (Tiptap + upload gambar) tetap async agar vendor Tiptap tidak masuk chunk page ini. */
@@ -104,6 +106,17 @@ const snapshotForm = useForm({
     csv_file: null as File | null,
 });
 
+const MAX_CSV_SIZE_KB = MAX_UPLOAD_BYTES / 1024;
+
+/**
+ * Fase kartu CSV. `completed` = file sudah menempel di form (belum dikirim);
+ * visit snapshot yang mengirim multipart memakai `uploading` + progres byte Inertia.
+ */
+const csvPhase = ref<'idle' | 'uploading' | 'completed' | 'error'>('idle');
+const csvProgress = ref(0);
+const csvError = ref('');
+let cancelSnapshotVisit: (() => void) | null = null;
+
 function generateSnapshot(): void {
     const datasets = selectedSources.value.map((t) => ({ type: t }));
     const manual = manualRows.value
@@ -119,18 +132,63 @@ function generateSnapshot(): void {
         });
     snapshotForm.datasets = datasets;
     snapshotForm.manual = manual;
+    csvProgress.value = 0;
+    if (snapshotForm.csv_file !== null) {
+        csvPhase.value = 'uploading';
+        csvError.value = '';
+    }
     snapshotForm.post(routes.admin.broadcasts.snapshot(props.broadcast.id), {
         preserveScroll: true,
         forceFormData: true,
-        onError: () => showErrorToast('Gagal generate snapshot.'),
+        onProgress: (event: Progress | undefined): void => {
+            csvProgress.value = event?.percentage ?? 0;
+        },
+        onCancelToken: (token: CancelToken): void => {
+            cancelSnapshotVisit = token.cancel;
+        },
+        onFinish: (): void => {
+            cancelSnapshotVisit = null;
+            csvProgress.value = 0;
+            if (csvPhase.value === 'uploading') {
+                csvPhase.value = snapshotForm.csv_file === null ? 'idle' : 'completed';
+            }
+        },
+        onError: (errors: Record<string, string>): void => {
+            const message = Object.values(errors)[0] ?? 'Gagal generate snapshot.';
+            csvError.value = message;
+            csvPhase.value = snapshotForm.csv_file === null ? 'idle' : 'error';
+            showErrorToast('Gagal generate snapshot.');
+        },
     });
 }
 
-async function onCsv(e: Event): Promise<void> {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    if (file && !(await validateUploadFile(file, ['csv', 'txt']))) snapshotForm.csv_file = file;
-    else if (file) input.value = '';
+/** Validasi sama seperti sebelumnya (ekstensi + isi), tetapi pesannya tampil di kartu. */
+async function onCsvPick(file: File): Promise<void> {
+    const validationError = await validateUploadFile(file, ACCEPTED_CSV_EXTENSIONS);
+    csvError.value = validationError ?? '';
+
+    if (validationError !== null) {
+        snapshotForm.csv_file = null;
+        csvPhase.value = 'error';
+
+        return;
+    }
+
+    snapshotForm.csv_file = file;
+    csvPhase.value = 'completed';
+}
+
+function removeCsv(): void {
+    snapshotForm.csv_file = null;
+    csvPhase.value = 'idle';
+    csvProgress.value = 0;
+    csvError.value = '';
+}
+
+/** Batalkan visit snapshot yang berjalan; file tetap terpilih di form. */
+function cancelCsvUpload(): void {
+    cancelSnapshotVisit?.();
+    csvProgress.value = 0;
 }
 
 // --- Recipients manual ---
@@ -327,7 +385,21 @@ const progress = computed(() => {
                 </div>
                 <div class="grid gap-2">
                     <Label>CSV (header <code>name,email</code> atau <code>email</code>, maks 5 MB)</Label>
-                    <Input type="file" accept=".csv,.txt" @change="onCsv" />
+                    <FileUploadCard
+                        :state="csvPhase"
+                        idle-label="Pilih file CSV"
+                        accept=".csv,.txt"
+                        :max-size-kb="MAX_CSV_SIZE_KB"
+                        hint="Header name,email atau email."
+                        :file-name="snapshotForm.csv_file?.name ?? ''"
+                        :file-size="snapshotForm.csv_file?.size ?? 0"
+                        :mime="snapshotForm.csv_file?.type ?? ''"
+                        :progress="csvProgress"
+                        :error-message="csvError"
+                        @pick="onCsvPick"
+                        @cancel="cancelCsvUpload"
+                        @remove="removeCsv"
+                    />
                 </div>
                 <Button :disabled="snapshotForm.processing" @click="generateSnapshot">
                     {{ snapshotForm.processing ? 'Memproses…' : 'Generate Snapshot' }}

@@ -58,6 +58,11 @@ export interface IUseAutosaveSyncResult {
     suspend: () => void;
     /** Buka blokir; jalankan satu save terkoalesasi bila ada snapshot tertunda. */
     resume: () => void;
+    /**
+     * Hentikan autosave permanen untuk halaman ini (target sudah tidak ada: 404/403/419).
+     * Membatalkan debounce, menutup antrean, dan mencegah keepalive mengirim ulang.
+     */
+    fail: () => void;
 }
 
 /**
@@ -95,11 +100,13 @@ export function useAutosaveSync(
     let runner: Promise<void> | null = null;
     let runAgain = false;
     let suspended = false;
+    let terminal = false;
     let pendingWhileSuspended = false;
     let storageWriteFailed = false;
     let snapshotPrepareFailed = false;
 
     function isEnabled(): boolean {
+        if (terminal) return false;
         if (typeof opts.enabled === 'boolean') return opts.enabled;
         if (opts.enabled) return opts.enabled.value;
         return true;
@@ -311,6 +318,15 @@ export function useAutosaveSync(
         clearTimer();
     }
 
+    /** Kill switch: tidak ada save/keepalive berikutnya untuk halaman ini. */
+    function fail(): void {
+        terminal = true;
+        clearTimer();
+        runAgain = false;
+        hasUnsavedChanges.value = false;
+        status.value = 'error';
+    }
+
     function suspend(): void {
         suspended = true;
         clearTimer();
@@ -367,5 +383,6 @@ export function useAutosaveSync(
         cancel,
         suspend,
         resume,
+        fail,
     };
 }

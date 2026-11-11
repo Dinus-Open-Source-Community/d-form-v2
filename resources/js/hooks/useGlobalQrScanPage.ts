@@ -6,6 +6,7 @@ import { playScanFeedback } from '@/adapters/browser/feedback';
 import { readStorage, writeStorage } from '@/adapters/browser/storage';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { createScanHistoryEntry, type IScanEntry, type IScanResult } from '@/lib/qrScanUi';
+import { createShortId } from '@/lib/uuid';
 import { createScanFeedPolling, type IScanFeedPolling } from '@/hooks/scan/useScanFeedPolling';
 import { useScanCamera, type IScanCamera } from '@/hooks/scan/useScanCamera';
 import { useScanSubmission } from '@/hooks/scan/useScanSubmission';
@@ -69,10 +70,7 @@ function resolveDeskId(): string {
         return existing;
     }
 
-    const fresh =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-            ? crypto.randomUUID().slice(0, 8)
-            : Math.random().toString(16).slice(2, 10);
+    const fresh = createShortId(8);
     writeStorage({ area: 'session', key: DESK_STORAGE_KEY, value: fresh });
 
     return fresh;

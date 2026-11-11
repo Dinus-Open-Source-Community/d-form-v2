@@ -13,15 +13,11 @@ use App\Http\Controllers\Auth\VerifyOtpController;
 use App\Http\Middleware\PreventAuthPageCaching;
 use Illuminate\Support\Facades\Route;
 
-// use App\Http\Controllers\Auth\PageController as AuthPageController;
-
 Route::redirect('/auth', '/auth/login')
     ->middleware([PreventAuthPageCaching::class, 'guest']);
 
 // Routes for login and register
 Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
-    // Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.login');
-
     /**
      * Routes for login
      * GET: index [auth/login]

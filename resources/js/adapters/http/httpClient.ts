@@ -1,9 +1,10 @@
 import axios from 'axios';
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { AxiosProgressEvent, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { readCookie } from '@/adapters/browser/cookies';
 import { HttpRequestError, readPublicMessage, readValidationErrors, toHttpErrorKind } from '@/adapters/http/httpError';
+import { uploadPercent } from '@/lib/fileDisplay';
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after';
-import type { THttpMethod } from '@/types/http';
+import type { THttpMethod, ITransferProgress } from '@/types/http';
 
 /** Opsi request JSON/form-data yang dipakai modul domain. */
 export interface IHttpRequestOptions {
@@ -15,6 +16,8 @@ export interface IHttpRequestOptions {
     signal?: AbortSignal;
     headers?: Record<string, string>;
     timeoutMs?: number;
+    /** Progres unggah XHR; tidak memengaruhi request tanpa body file. */
+    onProgress?: (progress: ITransferProgress) => void;
 }
 
 /** Hasil request yang membiarkan status HTTP dibaca pemanggil (mis. OTP 422/429). */
@@ -101,6 +104,15 @@ async function send(options: IHttpRequestOptions, tolerateHttpStatus = false): P
             timeout: options.timeoutMs,
         };
         if (tolerateHttpStatus) config.validateStatus = (): boolean => true;
+
+        const reportProgress = options.onProgress;
+        if (reportProgress !== undefined) {
+            // `total` bisa 0/undefined saat ukuran tidak diketahui (chunked).
+            config.onUploadProgress = (event: AxiosProgressEvent): void => {
+                const total = typeof event.total === 'number' && event.total > 0 ? event.total : 0;
+                reportProgress({ loaded: event.loaded, total, percent: uploadPercent(event.loaded, total) });
+            };
+        }
 
         return await httpClient.request<unknown>(config);
     } catch (error) {
