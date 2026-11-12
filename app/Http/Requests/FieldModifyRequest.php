@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -11,6 +13,9 @@ use Illuminate\Validation\Validator;
 
 class FieldModifyRequest extends FormRequest
 {
+    use ConvertsLegacyDataUrls;
+    use SanitizesRichHtmlInput;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -23,17 +28,19 @@ class FieldModifyRequest extends FormRequest
 
         $event = $eventParam instanceof Event
             ? $eventParam
-            : Event::query()->find($eventParam);
+            : Event::query()->select(['id', 'created_by'])->find($eventParam);
 
         $form = $formParam instanceof Form
             ? $formParam
-            : Form::query()->find($formParam);
+            : Form::query()->select(['id', 'event_id', 'status', 'created_by'])->find($formParam);
 
         if (!$event || !$form || $form->event_id !== $event->id) {
             return false;
         }
 
-        return $user->can('update', $event);
+        // Draft hanya boleh ditulis oleh pembuat event (autosave editor tetap
+        // berjalan untuknya; ini bukan syarat "published").
+        return $user->can('update', $event) && $form->isDraftVisibleTo($event, $user);
     }
 
     /**
@@ -43,7 +50,9 @@ class FieldModifyRequest extends FormRequest
     {
         return array_merge(
             [
-                'fields' => 'required|array',
+                // `present` (bukan `required`): array kosong adalah payload sah
+                // untuk menghapus field terakhir pada channel autosave fields.
+                'fields' => 'present|array',
             ],
             FormFieldsRequestValidation::nestedFieldRules(),
         );
@@ -57,7 +66,7 @@ class FieldModifyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'fields.required' => 'Please provide form fields to update.',
+            'fields.present' => 'Please provide form fields to update.',
             'fields.array' => 'Form fields must be a valid list.',
         ];
     }
@@ -67,7 +76,13 @@ class FieldModifyRequest extends FormRequest
         $formParam = $this->route('form');
         $form = $formParam instanceof Form
             ? $formParam
-            : ($formParam !== null ? Form::query()->find($formParam) : null);
+            : ($formParam !== null ? Form::query()->select(['id', 'event_id'])->find($formParam) : null);
         FormFieldsRequestValidation::afterForFields($validator, $this, $form);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->convertLegacyDataUrlsInRequest();
+        $this->mergeSanitizedFormFieldHtml();
     }
 }

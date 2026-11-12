@@ -1,52 +1,46 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3'
-import axios from 'axios'
-import { ref } from 'vue'
-import { AuthField } from '@/components/core/field'
-import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
-import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController'
-import { toast } from 'vue-sonner'
-import { routes } from '@/lib/routes'
-import {
-    getFieldError,
-    handleInertiaFormErrors,
-    humanizeErrorMessage,
-    showErrorToast,
-} from '@/lib/error-message'
+import { Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { requestPasswordResetLink } from '@/adapters/http/auth';
+import { isHttpRequestError } from '@/adapters/http/httpError';
+import type { TValidationErrorBag } from '@/types/http';
+import { AuthField } from '@/components/core/field';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController';
+import { routes } from '@/lib/routes';
+import { getFieldError, humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 
-const PASSWORD_RESET_LINK_URL = routes.auth.passwordResetLink
+const { handleInertiaFormErrors, showErrorToast, showSuccessToast } = useToastNotifications();
+const PASSWORD_RESET_LINK_URL = routes.auth.passwordResetLink;
 
-const email = ref('')
-const emailError = ref<string | undefined>()
-const processing = ref(false)
+const email = ref('');
+const emailError = ref<string | undefined>();
+const processing = ref(false);
 
 async function submit(): Promise<void> {
     if (processing.value) {
-        return
+        return;
     }
 
-    emailError.value = undefined
-    processing.value = true
+    emailError.value = undefined;
+    processing.value = true;
 
     try {
-        const { data } = await axios.post<{ message: string }>(PASSWORD_RESET_LINK_URL, {
-            email: email.value,
-        })
-        toast.success(humanizeErrorMessage(data.message))
+        const { message } = await requestPasswordResetLink(PASSWORD_RESET_LINK_URL, email.value);
+        showSuccessToast(humanizeErrorMessage(message));
     } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 422) {
-            const errors = error.response.data?.errors as Record<string, string[]> | undefined
-            if (errors) {
-                handleInertiaFormErrors(errors, { title: 'Gagal mengirim tautan reset' })
-                emailError.value = getFieldError(errors, 'email')
-            }
-            return
+        if (isHttpRequestError(error) && error.kind === 'validation') {
+            const errors: TValidationErrorBag = error.validationErrors ?? {};
+            handleInertiaFormErrors(errors, { title: 'Gagal mengirim tautan reset' });
+            emailError.value = getFieldError(errors, 'email');
+            return;
         }
 
-        showErrorToast('Unable to send reset link. Please try again.')
+        showErrorToast('Unable to send reset link. Please try again.');
     } finally {
-        processing.value = false
+        processing.value = false;
     }
 }
 </script>
@@ -54,9 +48,13 @@ async function submit(): Promise<void> {
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Reset password</h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-                Enter your email and we will send you a link if an account exists.
+            <h1
+                class="font-display text-foreground text-[2rem] leading-tight font-bold tracking-[-0.035em] sm:text-4xl"
+            >
+                Lupa kata sandi?
+            </h1>
+            <p class="text-muted-foreground mt-2.5 text-sm">
+                Masukkan email Anda. Kami kirim tautan pengaturan ulang bila akun terdaftar.
             </p>
         </div>
 
@@ -76,18 +74,18 @@ async function submit(): Promise<void> {
             <Button size="lg" class="w-full disabled:cursor-not-allowed" :disabled="processing">
                 <span v-if="processing" class="flex items-center gap-2">
                     <Spinner />
-                    Sending link
+                    Mengirim tautan
                 </span>
-                <span v-else>Send reset link</span>
+                <span v-else>Kirim tautan reset</span>
             </Button>
 
-            <p class="mt-2 text-center text-sm text-muted-foreground">
-                Remember your password?
+            <p class="text-muted-foreground mt-2 text-center text-sm">
+                Ingat kata sandi Anda?
                 <Link
                     :href="loginPage()"
-                    class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
+                    class="text-primary font-semibold underline-offset-4 transition-colors hover:underline"
                 >
-                    Sign in
+                    Masuk
                 </Link>
             </p>
         </form>

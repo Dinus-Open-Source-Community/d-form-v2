@@ -27,6 +27,7 @@ class EmailLog extends Model
         'notification_type',
         'error_message',
         'sent_at',
+        'delivery_key',
     ];
 
     protected function casts(): array

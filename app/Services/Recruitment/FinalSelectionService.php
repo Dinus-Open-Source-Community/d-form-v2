@@ -121,7 +121,8 @@ final class FinalSelectionService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'final_accepted', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null);
+            SendRecruitmentNotificationJob::dispatch($application->id, 'final_accepted', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null)
+                ->afterCommit();
 
             return $decision;
         });
@@ -174,7 +175,8 @@ final class FinalSelectionService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'final_rejected');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'final_rejected')
+                ->afterCommit();
 
             return $decision;
         });

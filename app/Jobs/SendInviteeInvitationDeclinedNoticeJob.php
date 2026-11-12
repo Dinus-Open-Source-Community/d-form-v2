@@ -3,26 +3,28 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
-use App\Enums\EmailLogStatus;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Enums\EmailNotificationType;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Mail\RegistrationRejectedMail;
-use App\Models\EmailLog;
 use App\Models\FormAnswer;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue
+class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue, ShouldBeEncrypted
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $formAnswerId,
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(): void
@@ -61,17 +63,16 @@ class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue
 
         $event = $submission->form->event;
 
+        $logAttributes = [
+            'form_answer_id' => $submission->id,
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'recipient_email' => (string) $user->email,
+            'notification_type' => EmailNotificationType::InvitationDeclinedByInvitee,
+        ];
+
         if ($user->email === '') {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $user->id,
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::InvitationDeclinedByInvitee,
-                'error_message' => 'User has no email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogUndeliverable($logAttributes, 'User has no email address configured.');
 
             Log::warning('[SendInviteeInvitationDeclinedNoticeJob] No recipient email.', [
                 'form_answer_id' => $submission->id,
@@ -80,9 +81,15 @@ class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue
             return;
         }
 
-        try {
-            $this->applyOutgoingEmailJitter();
+        $this->applyOutgoingEmailJitter();
 
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
+
+        try {
             Mail::to($user->email)->send(
                 new RegistrationRejectedMail(
                     $submission,
@@ -90,39 +97,19 @@ class SendInviteeInvitationDeclinedNoticeJob implements ShouldQueue
                 )
             );
 
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $user->id,
-                'recipient_email' => $user->email,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::InvitationDeclinedByInvitee,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $user->email);
         } catch (\Throwable $e) {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $user->id,
-                'recipient_email' => $user->email,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::InvitationDeclinedByInvitee,
-                'error_message' => $e->getMessage(),
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogFailed($log, $e);
 
             Log::error('[SendInviteeInvitationDeclinedNoticeJob] Email send failed.', [
                 'notification_type' => EmailNotificationType::InvitationDeclinedByInvitee->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
-                'recipient_email' => $user->email,
+                'delivery_key' => $this->deliveryKey,
                 'exception_class' => $e::class,
-                'exception_message' => $e->getMessage(),
-                'exception' => $e,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

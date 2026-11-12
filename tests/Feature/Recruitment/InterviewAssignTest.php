@@ -12,6 +12,8 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use Database\Factories\Recruitment\RecruitmentInterviewFactory;
+use Database\Factories\Recruitment\RecruitmentInterviewSessionFactory;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,15 +61,9 @@ class InterviewAssignTest extends TestCase
             'recruitment_division_id' => $this->programming->id,
         ]);
 
-        $this->session = RecruitmentInterviewSession::query()->create([
+        $this->session = RecruitmentInterviewSessionFactory::new()->create([
             'recruitment_period_id' => $this->period->id,
             'recruitment_division_id' => $this->programming->id,
-            'session_date' => now()->toDateString(),
-            'starts_at' => '09:00:00',
-            'ends_at' => '12:00:00',
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
-            'is_active' => true,
         ]);
     }
 
@@ -147,14 +143,10 @@ class InterviewAssignTest extends TestCase
             'result' => ApplicationResult::Pending,
         ]);
 
-        $secondary = RecruitmentInterview::query()->create([
+        $secondary = RecruitmentInterviewFactory::new()->secondary()->create([
             'recruitment_application_id' => $application->id,
             'recruitment_interview_session_id' => $this->session->id,
-            'interview_kind' => RecruitmentInterview::KIND_SECONDARY,
-            'interviewer_id' => null,
             'scheduled_at' => now(),
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
             'status' => InterviewStatus::Waiting,
         ]);
 

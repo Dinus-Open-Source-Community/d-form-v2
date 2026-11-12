@@ -28,5 +28,11 @@ return [
             'participant' => 'peserta',
             'admin' => 'admin'
         ]
-    ]
+    ],
+    'form' => [
+        'status' => [
+            'draft' => 'draf',
+            'published' => 'diterbitkan',
+        ],
+    ],
 ];

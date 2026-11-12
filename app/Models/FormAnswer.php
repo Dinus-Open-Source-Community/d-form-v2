@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use App\Observers\FormAnswerObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy(FormAnswerObserver::class)]
 class FormAnswer extends Model
 {
     /** @use HasFactory<\Database\Factories\FormAnswerFactory> */
@@ -38,6 +41,7 @@ class FormAnswer extends Model
         'reviewed_at',
         'reviewed_by',
         'registration_code',
+        'is_active',
     ];
 
     /**
@@ -53,7 +57,24 @@ class FormAnswer extends Model
             'reviewed_at' => 'datetime',
             'member_confirmed_at' => 'datetime',
             'invitation_expired_at' => 'datetime',
+            'is_active' => 'integer',
         ];
+    }
+
+    /**
+     * Return whether this submission participates in active uniqueness constraints.
+     */
+    public function isActiveSubmission(): bool
+    {
+        if ($this->review_status === FormAnswerReviewStatus::Rejected) {
+            return false;
+        }
+
+        return $this->registration_role !== RegistrationRole::Member
+            || ! in_array($this->member_confirmation_status, [
+                MemberConfirmationStatus::Rejected,
+                MemberConfirmationStatus::Expired,
+            ], true);
     }
 
     public function isMemberPendingInvitation(): bool
@@ -168,6 +189,14 @@ class FormAnswer extends Model
     public function emailLogs(): HasMany
     {
         return $this->hasMany(EmailLog::class, 'form_answer_id');
+    }
+
+    /**
+     * @return HasMany<FormReviewEmailOutbox, $this>
+     */
+    public function formReviewEmailOutboxes(): HasMany
+    {
+        return $this->hasMany(FormReviewEmailOutbox::class, 'form_answer_id');
     }
 
     /**

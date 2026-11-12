@@ -99,6 +99,10 @@ class FormControllerM3ComplianceTest extends TestCase
                     'registration_mode' => 'team',
                     'max_team_size' => 8,
                     'team_size' => 4,
+                    'sections' => [
+                        ['id' => 'section-1', 'title' => 'Data peserta'],
+                        ['id' => 'section-2', 'title' => 'Konfirmasi'],
+                    ],
                 ],
                 'fields' => [
                     array_merge($this->inputField($fid, 'note', 1, true), [
@@ -106,6 +110,7 @@ class FormControllerM3ComplianceTest extends TestCase
                             'type' => 'text',
                             'rules' => [],
                             'duplicatable' => true,
+                            'sectionId' => 'section-2',
                         ],
                     ]),
                 ],
@@ -118,10 +123,18 @@ class FormControllerM3ComplianceTest extends TestCase
         $this->assertSame('team', $form->metadata['registration_mode'] ?? null);
         $this->assertSame(8, $form->metadata['max_team_size'] ?? null);
         $this->assertSame(4, $form->metadata['team_size'] ?? null);
+        $this->assertSame(
+            [
+                ['id' => 'section-1', 'title' => 'Data peserta'],
+                ['id' => 'section-2', 'title' => 'Konfirmasi'],
+            ],
+            $form->metadata['sections'] ?? null,
+        );
 
         $field = FormField::query()->where('form_id', $form->id)->first();
         $this->assertTrue($field->is_append);
         $this->assertTrue((bool) ($field->metadata->get('duplicatable') ?? false));
+        $this->assertSame('section-2', $field->metadata->get('sectionId'));
     }
 
     public function test_update_rejects_name_collision_with_existing_row(): void

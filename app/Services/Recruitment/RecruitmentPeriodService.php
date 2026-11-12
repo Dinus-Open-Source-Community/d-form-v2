@@ -7,6 +7,9 @@ use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\Recruitment\RecruitmentRegistrationSequence;
 use App\Models\User;
 use App\Services\User\UserAvatarService;
+use App\Enums\UploadPurpose;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use App\Support\PublicStorage;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -25,7 +28,11 @@ final class RecruitmentPeriodService
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20, ?User $user = null): LengthAwarePaginator
     {
-        $query = RecruitmentPeriod::query()->with('creator')->orderByDesc('created_at')->orderByDesc('id');
+        $query = RecruitmentPeriod::query()
+            ->with('creator')
+            ->withCount('applications')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -58,7 +65,11 @@ final class RecruitmentPeriodService
         $data['slug'] = $this->slugGenerator->generateForName($data['name']);
 
         if ($banner !== null) {
-            $data['banner'] = $banner->store('recruitment/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store(
+                $banner,
+                UploadStorageTarget::public('recruitment/banners'),
+                UploadPurpose::Image,
+            );
         }
 
         return DB::transaction(function () use ($data): RecruitmentPeriod {
@@ -89,33 +100,37 @@ final class RecruitmentPeriodService
                 Storage::disk('public')->delete($period->banner);
             }
 
-            $data['banner'] = $banner->store('recruitment/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store(
+                $banner,
+                UploadStorageTarget::public('recruitment/banners'),
+                UploadPurpose::Image,
+            );
         }
 
         $period->update($data);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function open(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Open]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function close(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Closed]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     public function archive(RecruitmentPeriod $period): RecruitmentPeriod
     {
         $period->update(['status' => RecruitmentPeriodStatus::Archived]);
 
-        return $period->fresh();
+        return $period->refresh();
     }
 
     /**
@@ -149,8 +164,8 @@ final class RecruitmentPeriodService
             ] : null,
             'created_at' => $period->created_at?->toIso8601String(),
             'updated_at' => $period->updated_at?->toIso8601String(),
-            'can_edit' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.edit') || ($period->created_by !== null && (string) $period->created_by === (string) $user->id)),
-            'can_delete' => $user !== null && ($user->hasRole('super-admin') || $user->can('recruitment.periods.delete')),
+            'can_edit' => $user !== null && $user->can('update', $period),
+            'can_delete' => $user !== null && $user->can('delete', $period),
         ];
     }
 }

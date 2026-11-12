@@ -14,6 +14,8 @@ use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
 use App\Services\Recruitment\InterviewAutoEnrollService;
+use Database\Factories\Recruitment\RecruitmentInterviewFactory;
+use Database\Factories\Recruitment\RecruitmentInterviewSessionFactory;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -150,14 +152,10 @@ class InterviewAutoEnrollTest extends TestCase
         $alreadyHas = $this->interviewStageApplication('E6');
         $otherDivision = $this->interviewStageApplication('E7', $this->data->id);
 
-        RecruitmentInterview::query()->create([
+        RecruitmentInterviewFactory::new()->create([
             'recruitment_application_id' => $alreadyHas->id,
             'recruitment_interview_session_id' => $this->makeSession($this->programming->id, today()->toDateString())->id,
-            'interview_kind' => RecruitmentInterview::KIND_PRIMARY,
-            'interviewer_id' => null,
             'scheduled_at' => now(),
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
             'status' => InterviewStatus::Waiting,
         ]);
 
@@ -205,14 +203,10 @@ class InterviewAutoEnrollTest extends TestCase
 
         $session = $this->makeSession($this->programming->id, today()->toDateString());
 
-        RecruitmentInterview::query()->create([
+        RecruitmentInterviewFactory::new()->create([
             'recruitment_application_id' => $application->id,
             'recruitment_interview_session_id' => $session->id,
-            'interview_kind' => RecruitmentInterview::KIND_PRIMARY,
-            'interviewer_id' => null,
             'scheduled_at' => now()->subMinute(),
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
             'status' => InterviewStatus::Waiting,
         ]);
 
@@ -250,15 +244,10 @@ class InterviewAutoEnrollTest extends TestCase
 
     private function makeSession(string $divisionId, string $date): RecruitmentInterviewSession
     {
-        return RecruitmentInterviewSession::query()->create([
+        return RecruitmentInterviewSessionFactory::new()->create([
             'recruitment_period_id' => $this->period->id,
             'recruitment_division_id' => $divisionId,
             'session_date' => $date,
-            'starts_at' => '09:00:00',
-            'ends_at' => '12:00:00',
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
-            'is_active' => true,
         ]);
     }
 }

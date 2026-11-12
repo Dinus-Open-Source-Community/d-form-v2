@@ -1,13 +1,23 @@
-export function formatSubmissionDate(value: string): string {
-    return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-}
-
+/** Nama field submission → label tampil; fallback buang prefix `field_` dan ubah `_` jadi spasi. */
 export function humanizeSubmissionKey(fieldLabelMap: Record<string, string>, value: string): string {
     return fieldLabelMap[value] || value.replace(/^field_/, '').replace(/_/g, ' ');
 }
 
-import { normalizeBannerSrc } from '@/components/modules/builder/formBanner';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import {
+    FORM_ANSWER_REVIEW_STATUS_BADGES,
+    MEMBER_CONFIRMATION_STATUS_BADGES,
+    BUNDLE_GROUP_REVIEW_STATUS_BADGES,
+    registrationRoleLabel as registrationRoleLabelFromMap,
+} from '@/lib/registrationStatusUi';
+import type {
+    TBundleGroupReviewStatus,
+    TFormAnswerReviewStatus,
+    TMemberConfirmationStatus,
+    TRegistrationRole,
+} from '@/types/registrationStatus';
 
+/** Ringkas jawaban form jadi satu baris teks; array digabung koma, objek → placeholder. */
 export function answerPreview(value: unknown): string {
     if (Array.isArray(value)) return value.map(String).join(', ');
     if (typeof value === 'string') return value;
@@ -16,6 +26,7 @@ export function answerPreview(value: unknown): string {
     return 'Jawaban terstruktur';
 }
 
+/** URL publik file jawaban dari path storage; `null` bila bukan string atau kosong. */
 export function submissionFileUrl(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;
@@ -24,15 +35,7 @@ export function submissionFileUrl(value: unknown): string | null {
     if (!t) {
         return null;
     }
-    return normalizeBannerSrc(t);
-}
-
-export function submissionPaginationLabel(value: string): string {
-    return value
-        .replace('&laquo;', 'Sebelumnya')
-        .replace('&raquo;', 'Berikutnya')
-        .replace('Previous', 'Sebelumnya')
-        .replace('Next', 'Berikutnya');
+    return normalizePublicStorageUrl(t);
 }
 
 /** True when admin must not accept until the member confirms (team / bundle). */
@@ -50,108 +53,53 @@ export function formSubmissionReviewIsPending(submission: {
     return submission.review_status == null || submission.review_status === 'pending';
 }
 
+/** Returns the accessible name for a submission review or detail action. */
+export function formSubmissionReviewActionLabel(
+    action: 'accept' | 'reject' | 'detail',
+    isReviewing: boolean,
+    senderName: string
+): string {
+    if (isReviewing) return `Memproses jawaban dari ${senderName}`;
+    if (action === 'accept') return `Terima jawaban dari ${senderName}`;
+    if (action === 'reject') return `Tolak jawaban dari ${senderName}`;
+    return `Lihat detail jawaban dari ${senderName}`;
+}
+
 /** Label + kelas untuk badge status review (Bahasa Indonesia). */
-export function submissionReviewBadge(status: 'pending' | 'accepted' | 'rejected' | null | undefined): {
+export function submissionReviewBadge(status: TFormAnswerReviewStatus | null | undefined): {
     label: string;
     class: string;
 } {
-    if (status === 'accepted') {
-        return {
-            label: 'Diterima',
-            class: 'border-success/30 bg-success/10 text-success',
-        };
-    }
-    if (status === 'rejected') {
-        return {
-            label: 'Ditolak',
-            class: 'border-destructive/25 bg-destructive/10 text-destructive',
-        };
-    }
-    return {
-        label: 'Menunggu review',
-        class: 'border-warning/30 bg-warning/10 text-warning',
-    };
+    return FORM_ANSWER_REVIEW_STATUS_BADGES[status ?? 'pending'];
 }
 
 /** Label untuk status konfirmasi anggota (Bahasa Indonesia). */
-export function memberConfirmationStatusLabel(
-    status: 'pending' | 'accepted' | 'rejected' | 'expired' | null | undefined
-): string {
-    if (status === 'accepted') return 'Diterima';
-    if (status === 'rejected') return 'Ditolak';
-    if (status === 'expired') return 'Kedaluwarsa';
-    if (status === 'pending') return 'Menunggu';
-    return '—';
+export function memberConfirmationStatusLabel(status: TMemberConfirmationStatus | null | undefined): string {
+    return status === null || status === undefined ? '—' : MEMBER_CONFIRMATION_STATUS_BADGES[status].label;
 }
 
 /** Badge classes untuk status konfirmasi anggota. */
-export function memberConfirmationStatusBadge(
-    status: 'pending' | 'accepted' | 'rejected' | 'expired' | null | undefined
-): { label: string; class: string } {
-    if (status === 'accepted') {
-        return {
-            label: 'Diterima',
-            class: 'border-success/30 bg-success/10 text-success',
-        };
-    }
-    if (status === 'rejected') {
-        return {
-            label: 'Ditolak',
-            class: 'border-destructive/25 bg-destructive/10 text-destructive',
-        };
-    }
-    if (status === 'expired') {
-        return {
-            label: 'Kedaluwarsa',
-            class: 'border-muted-foreground/25 bg-muted/20 text-muted-foreground',
-        };
-    }
-    return {
-        label: 'Menunggu',
-        class: 'border-warning/30 bg-warning/10 text-warning',
-    };
-}
-
-/** Label untuk status review group. */
-export function groupReviewStatusLabel(status: 'pending' | 'partial' | 'accepted' | 'rejected'): string {
-    if (status === 'accepted') return 'Semua diterima';
-    if (status === 'rejected') return 'Ditolak';
-    if (status === 'partial') return 'Sebagian direview';
-    return 'Menunggu review';
-}
-
-/** Badge classes untuk status review group. */
-export function groupReviewStatusBadge(status: 'pending' | 'partial' | 'accepted' | 'rejected'): {
+export function memberConfirmationStatusBadge(status: TMemberConfirmationStatus | null | undefined): {
     label: string;
     class: string;
 } {
-    if (status === 'accepted') {
-        return {
-            label: ' diterima',
-            class: 'border-success/30 bg-success/10 text-success',
-        };
-    }
-    if (status === 'rejected') {
-        return {
-            label: 'Ditolak',
-            class: 'border-destructive/25 bg-destructive/10 text-destructive',
-        };
-    }
-    if (status === 'partial') {
-        return {
-            label: 'Sebagian direview',
-            class: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400',
-        };
-    }
-    return {
-        label: 'Menunggu review',
-        class: 'border-warning/30 bg-warning/10 text-warning',
-    };
+    return MEMBER_CONFIRMATION_STATUS_BADGES[status ?? 'pending'];
+}
+
+/** Label untuk status review group. */
+export function groupReviewStatusLabel(status: TBundleGroupReviewStatus): string {
+    return BUNDLE_GROUP_REVIEW_STATUS_BADGES[status].label;
+}
+
+/** Badge classes untuk status review group. */
+export function groupReviewStatusBadge(status: TBundleGroupReviewStatus): {
+    label: string;
+    class: string;
+} {
+    return BUNDLE_GROUP_REVIEW_STATUS_BADGES[status];
 }
 
 /** Label untuk role registrasi. */
-export function registrationRoleLabel(role: 'leader' | 'member' | null | undefined): string {
-    if (role === 'leader') return 'Ketua';
-    if (role === 'member') return 'Anggota';
-    return '—';
+export function registrationRoleLabel(role: TRegistrationRole | null | undefined): string {
+    return registrationRoleLabelFromMap(role);
 }

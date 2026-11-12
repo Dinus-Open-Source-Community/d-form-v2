@@ -6,6 +6,7 @@ use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Mail\AttendanceConfirmedMail;
 use App\Models\EmailLog;
 use App\Models\EventAttendance;
@@ -21,10 +22,12 @@ class RecordAttendanceJob implements ShouldQueue
     use AppliesOutgoingEmailDelay;
     use Dispatchable;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $attendanceId,
     ) {
+        $this->initializeEmailDelivery('attendance-confirmed:'.$attendanceId);
     }
 
     public function handle(FormAnswerRecipientResolver $recipientResolver): void
@@ -68,17 +71,16 @@ class RecordAttendanceJob implements ShouldQueue
         $event = $submission->form->event;
         $recipientEmail = $recipientResolver->email($submission);
 
+        $logAttributes = [
+            'form_answer_id' => $submission->id,
+            'event_id' => $event->id,
+            'user_id' => $recipientResolver->userIdForLog($submission),
+            'recipient_email' => $recipientEmail ?? '',
+            'notification_type' => EmailNotificationType::AttendanceConfirmed,
+        ];
+
         if ($recipientEmail === null || $recipientEmail === '') {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::AttendanceConfirmed,
-                'error_message' => 'No recipient email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogUndeliverable($logAttributes, 'No recipient email address configured.');
 
             Log::warning('[RecordAttendanceJob] No recipient email for attendance confirmation.', [
                 'form_answer_id' => $submission->id,
@@ -87,44 +89,30 @@ class RecordAttendanceJob implements ShouldQueue
             return;
         }
 
-        try {
-            $this->applyOutgoingEmailJitter();
+        $this->applyOutgoingEmailJitter();
 
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
+
+        try {
             Mail::to($recipientEmail)->send(new AttendanceConfirmedMail($submission, $attendance));
 
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::AttendanceConfirmed,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $e) {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::AttendanceConfirmed,
-                'error_message' => $e->getMessage(),
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogFailed($log, $e);
 
             Log::error('[RecordAttendanceJob] Email send failed.', [
                 'notification_type' => EmailNotificationType::AttendanceConfirmed->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
-                'recipient_email' => $recipientEmail,
+                'delivery_key' => $this->deliveryKey,
                 'exception_class' => $e::class,
-                'exception_message' => $e->getMessage(),
-                'exception' => $e,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

@@ -22,6 +22,7 @@ class UserEventRegistrationFormPickerController
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->published()
             ->where(function ($q): void {
                 $q->whereNull('metadata')
                     ->orWhereNull('metadata->purpose')

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\Events;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Events\ShowEventReportRequest;
 use App\Models\Event;
 use App\Services\Event\EventService;
 use App\Services\Reporting\EventReportingQuery;
@@ -17,12 +18,12 @@ class EventLaporanController extends Controller
     ) {
     }
 
-    public function __invoke(Event $event): Response
+    public function __invoke(ShowEventReportRequest $request, Event $event): Response
     {
         $this->authorize('view', $event);
 
         $attendanceLog = $this->eventReportingQuery
-            ->paginateAttendanceLog($event)
+            ->paginateAttendanceLog($event, $request->perPage())
             ->withQueryString();
 
         return Inertia::render('Dashboard/Events/Laporan', [

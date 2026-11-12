@@ -1,56 +1,64 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { IconComponent } from '@/types/icons'
-import { GripVertical } from 'lucide-vue-next'
+import { ref } from 'vue';
+import type { TIconComponent } from '@/types/icons';
+import { GripVertical } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
-        type: string
-        label: string
-        icon?: IconComponent
-        description?: string
+        type: string;
+        label: string;
+        icon?: TIconComponent;
+        description?: string;
     }>(),
-    { description: '' },
-)
+    { description: '' }
+);
 
-const isDragging = ref(false)
+const isDragging = ref(false);
+
+/** Emit dipakai pemilik kanvas untuk memulai/mengakhiri sesi drag; tidak ada state global di sini. */
+const emit = defineEmits<{
+    dragStart: [e: DragEvent];
+    dragEnd: [];
+}>();
 
 const onDragStart = (event: DragEvent) => {
-    if (!event.dataTransfer || !(event.target instanceof Element)) return
+    if (!event.dataTransfer || !(event.target instanceof Element)) return;
 
-    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.effectAllowed = 'copy';
     event.dataTransfer.setData(
         'application/json',
-        JSON.stringify({ type: props.type, label: props.label, isNew: true }),
-    )
-    event.dataTransfer.setDragImage(event.target, event.target.clientWidth / 2, 20)
-    isDragging.value = true
-}
+        JSON.stringify({ type: props.type, label: props.label, isNew: true })
+    );
+    event.dataTransfer.setDragImage(event.target, event.target.clientWidth / 2, 20);
+    isDragging.value = true;
+    emit('dragStart', event);
+};
 
 const onDragEnd = () => {
-    isDragging.value = false
-}
+    isDragging.value = false;
+    emit('dragEnd');
+};
 </script>
 
 <template>
     <div
-        class="group relative flex cursor-grab items-center gap-3 rounded-xl border bg-card px-3 py-2.5 shadow-xs select-none transition-[border-color,background-color,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:cursor-grabbing"
+        class="group bg-card relative flex cursor-grab items-center gap-3 rounded-xl border px-3 py-2.5 shadow-xs transition-[border-color,background-color,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] select-none active:cursor-grabbing"
         :class="
- isDragging
- ? 'border-primary/60 bg-primary/10 opacity-80 shadow-md ring-2 ring-primary/25'
- : 'border-border hover:border-primary/35 hover:bg-accent'
- "
+            isDragging
+                ? 'border-primary/60 bg-primary/10 ring-primary/25 opacity-80 shadow-md ring-2'
+                : 'border-border hover:border-primary/35 hover:bg-accent'
+        "
         draggable="true"
         @dragstart="onDragStart"
         @dragend="onDragEnd"
     >
         <GripVertical
-            class="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-primary"
+            class="text-muted-foreground/50 group-hover:text-primary size-4 shrink-0 transition-colors"
             aria-hidden="true"
         />
         <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-foreground">{{ label }}</p>
-            <p v-if="description" class="mt-0.5 truncate text-xs leading-snug text-muted-foreground">
+            <p class="text-foreground truncate text-sm font-medium">{{ label }}</p>
+            <p v-if="description" class="text-muted-foreground mt-0.5 truncate text-xs leading-snug">
                 {{ description }}
             </p>
         </div>

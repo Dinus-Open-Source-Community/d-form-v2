@@ -1,0 +1,206 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { formatCompactNumber, pageWindow, resolvePageRequest, type TPaginationItem } from '@/lib/pagination';
+import type { IPaginationPageChange } from '@/types/pagination';
+
+interface IAppPaginationProps {
+    currentPage: number;
+    /** `null` = cursor pagination: tanpa deret angka dan tanpa rentang total. */
+    lastPage?: number | null;
+    total?: number | null;
+    perPage?: number;
+    /** Kirim `[]`/`null` untuk menyembunyikan selector jumlah baris. */
+    perPageOptions?: number[] | null;
+    pageParam?: string;
+    perPageParam?: string;
+    /** URL prev/next dari server; wajib pada mode cursor agar navigasi benar. */
+    prevUrl?: string | null;
+    nextUrl?: string | null;
+}
+
+const props = withDefaults(defineProps<IAppPaginationProps>(), {
+    lastPage: null,
+    total: null,
+    perPage: 10,
+    perPageOptions: (): number[] => [8, 25, 50, 100],
+    pageParam: 'page',
+    perPageParam: 'per_page',
+    prevUrl: null,
+    nextUrl: null,
+});
+
+/**
+ * Komponen ini presentational: hanya mengirim niat navigasi. Pemanggil yang
+ * membangun URL dan memanggil router (lihat `usePaginationNavigation`).
+ */
+const emit = defineEmits<{
+    'page-change': [change: IPaginationPageChange];
+    'per-page-change': [rawPerPage: string];
+    'cursor-change': [url: string];
+}>();
+
+const COUNT_FORMATTER = new Intl.NumberFormat('id-ID');
+
+const isCursorMode = computed<boolean>(() => props.lastPage === null || props.total === null);
+
+const perPageChoices = computed<number[]>(() => props.perPageOptions ?? []);
+
+const showPerPageSelector = computed<boolean>((): boolean => perPageChoices.value.length > 0 && props.perPage > 0);
+
+const perPageSelectOptions = computed<SimpleSelectOption[]>(() =>
+    perPageChoices.value.map((value: number): SimpleSelectOption => ({
+        value: String(value),
+        label: `${value} per halaman`,
+    }))
+);
+
+const selectedPerPage = computed<string>(() => String(props.perPage));
+
+const isVisible = computed<boolean>(() => {
+    if (isCursorMode.value) return props.prevUrl !== null || props.nextUrl !== null || showPerPageSelector.value;
+    return props.total !== null && props.total > 0;
+});
+
+const rangeStart = computed<number>(() => Math.max(1, (props.currentPage - 1) * props.perPage + 1));
+
+const rangeLabel = computed<string>(() => {
+    if (isCursorMode.value || props.total === null || props.total === 0) return '';
+    const rangeEnd = Math.min(props.currentPage * props.perPage, props.total);
+    return `${COUNT_FORMATTER.format(rangeStart.value)}–${COUNT_FORMATTER.format(rangeEnd)} dari ${formatCompactNumber(props.total)}`;
+});
+
+const pageItems = computed<TPaginationItem[]>(() =>
+    props.lastPage === null || props.lastPage <= 1 ? [] : pageWindow(props.currentPage, props.lastPage)
+);
+
+const isPreviousDisabled = computed<boolean>(() =>
+    isCursorMode.value ? props.prevUrl === null : props.currentPage <= 1
+);
+
+const isNextDisabled = computed<boolean>(() =>
+    isCursorMode.value ? props.nextUrl === null : props.lastPage === null || props.currentPage >= props.lastPage
+);
+
+/** Putuskan apakah nomor halaman ini boleh dikirim ke pemanggil (mode cursor, sama, atau di luar rentang). */
+function requestPage(page: number): void {
+    const change = resolvePageRequest({
+        requestedPage: page,
+        currentPage: props.currentPage,
+        lastPage: props.lastPage,
+        perPage: props.perPage,
+        isCursorMode: isCursorMode.value,
+        includePerPage: showPerPageSelector.value,
+    });
+    if (change !== null) emit('page-change', change);
+}
+
+/** Ganti jumlah baris per halaman lalu kembali ke halaman pertama (diputuskan pemanggil). */
+function requestPerPage(rawValue: string): void {
+    if (Number(rawValue) === props.perPage) return;
+    emit('per-page-change', rawValue);
+}
+
+/** Mode cursor: ikuti tautan server apa adanya karena nomor halaman tidak tersedia. */
+function requestCursorPage(url: string | null): void {
+    if (url === null) return;
+    emit('cursor-change', url);
+}
+
+/** Tombol ‹: mundur satu halaman nomor atau satu cursor. */
+function goToPrevious(): void {
+    if (isCursorMode.value) {
+        requestCursorPage(props.prevUrl);
+        return;
+    }
+    requestPage(props.currentPage - 1);
+}
+
+/** Tombol ›: maju satu halaman nomor atau satu cursor. */
+function goToNext(): void {
+    if (isCursorMode.value) {
+        requestCursorPage(props.nextUrl);
+        return;
+    }
+    requestPage(props.currentPage + 1);
+}
+</script>
+
+<template>
+    <div
+        v-if="isVisible"
+        class="text-muted-foreground flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm"
+    >
+        <div class="flex min-w-0 items-center gap-2.5">
+            <SimpleSelect
+                v-if="showPerPageSelector"
+                :model-value="selectedPerPage"
+                :options="perPageSelectOptions"
+                class="h-8 w-auto text-xs"
+                aria-label="Jumlah baris per halaman"
+                @update:model-value="requestPerPage"
+            />
+            <p v-if="rangeLabel" class="tabular-nums">{{ rangeLabel }}</p>
+        </div>
+
+        <nav role="navigation" aria-label="pagination" class="flex items-center">
+            <ul class="flex flex-row items-center gap-1">
+                <li>
+                    <Button
+                        variant="outline"
+                        size="icon-sm"
+                        radius="md"
+                        class="h-7 gap-1 px-2.5"
+                        :disabled="isPreviousDisabled"
+                        aria-label="Halaman sebelumnya"
+                        @click="goToPrevious"
+                    >
+                        <ChevronLeft class="size-3.5" aria-hidden="true" />
+                    </Button>
+                </li>
+
+                <template v-for="(item, index) in pageItems" :key="index">
+                    <li class="hidden sm:block">
+                        <span
+                            v-if="item === 'ellipsis'"
+                            aria-hidden="true"
+                            class="text-muted-foreground flex h-7 w-7 items-center justify-center"
+                        >
+                            <MoreHorizontal class="size-4" />
+                            <span class="sr-only">More pages</span>
+                        </span>
+                        <Button
+                            v-else
+                            :variant="item === currentPage ? 'outline' : 'ghost'"
+                            size="icon-sm"
+                            radius="md"
+                            class="h-7 min-w-7 px-1.5 text-xs font-medium tabular-nums"
+                            :data-active="item === currentPage"
+                            :aria-current="item === currentPage ? 'page' : undefined"
+                            :aria-label="`Halaman ${item}`"
+                            @click="requestPage(item)"
+                        >
+                            {{ item }}
+                        </Button>
+                    </li>
+                </template>
+
+                <li>
+                    <Button
+                        variant="outline"
+                        size="icon-sm"
+                        radius="md"
+                        class="h-7 gap-1 px-2.5"
+                        :disabled="isNextDisabled"
+                        aria-label="Halaman berikutnya"
+                        @click="goToNext"
+                    >
+                        <ChevronRight class="size-3.5" aria-hidden="true" />
+                    </Button>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</template>

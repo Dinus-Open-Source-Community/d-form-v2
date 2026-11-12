@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import type { SharedSeoProps } from '@/types/seo';
+import type { ISharedSeoProps } from '@/types/seo';
 
 const props = withDefaults(
     defineProps<{
@@ -15,18 +15,21 @@ const props = withDefaults(
         ogType?: 'website' | 'article';
         /** Satu atau beberapa objek JSON-LD schema.org (akan di-render sebagai satu blok atau array) */
         jsonLd?: Record<string, unknown> | Record<string, unknown>[] | null;
+        /** Tandai halaman privat (auth) agar tidak diindeks; canonical ikut dihilangkan. */
+        noindex?: boolean;
     }>(),
     {
         description: undefined,
         ogImage: undefined,
         ogType: 'website',
         jsonLd: null,
+        noindex: false,
     }
 );
 
 const page = usePage();
 
-const seo = computed(() => (page.props as { seo?: SharedSeoProps }).seo);
+const seo = computed(() => (page.props as { seo?: ISharedSeoProps }).seo);
 
 const siteName = computed(() => seo.value?.siteName ?? 'App');
 
@@ -41,9 +44,7 @@ const documentTitle = computed(() => {
     return t.toLowerCase().includes(sn.toLowerCase()) ? t : `${t} · ${sn}`;
 });
 
-const description = computed(
-    () => props.description?.trim() || seo.value?.defaultDescription || '—'
-);
+const description = computed(() => props.description?.trim() || seo.value?.defaultDescription || '—');
 
 const canonicalUrl = computed(() => {
     const base = (seo.value?.siteUrl ?? '').replace(/\/$/, '');
@@ -81,7 +82,8 @@ const twitterCreator = computed(() => seo.value?.twitterCreator ?? null);
     <Head>
         <title>{{ documentTitle }}</title>
         <meta name="description" :content="description" />
-        <link rel="canonical" :href="canonicalUrl" />
+        <meta v-if="noindex" name="robots" content="noindex, nofollow" />
+        <link v-if="!noindex" rel="canonical" :href="canonicalUrl" />
 
         <meta property="og:type" :content="props.ogType" />
         <meta property="og:site_name" :content="siteName" />

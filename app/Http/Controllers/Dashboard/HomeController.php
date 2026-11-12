@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Enums\EventRegistrationStatus;
-use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Services\Event\EventService;
@@ -13,6 +11,11 @@ use Inertia\Response as InertiaResponse;
 
 /**
  * Beranda penyelenggara — hanya diakses lewat rute dengan middleware organizer.
+ *
+ * Semua agregat mahal (statistik event, jumlah pendaftar, breakdown kategori) dibaca
+ * dari cache; request tidak pernah menghitung sendiri agar cold start tidak 9 s.
+ * Isi cache lewat `php artisan dashboard:warm` (dijadwalkan tiap 5 menit di routes/console.php).
+ * Bila cache kosong, dashboard menampilkan angka nol dan mencatat `dashboard cache kosong`.
  */
 class HomeController extends Controller
 {
@@ -24,26 +27,27 @@ class HomeController extends Controller
 
     public function __invoke(Request $request): InertiaResponse
     {
-        $allEvents = Event::query()->whereNull('deleted_at')->get();
-
-        $recentEvents = $allEvents
-            ->sortByDesc('created_at')
-            ->take(5)
-            ->map(fn (Event $e) => $this->eventService->eventToInertiaArray($e))
-            ->values()
-            ->all();
-
-        $total = $allEvents->count();
-        $closed = $allEvents->filter(
-            fn (Event $e) => $this->eventService->registrationStatus($e) === EventRegistrationStatus::Closed
-        )->count();
+        $eventStats = $this->reportingQuery->dashboardEventStats();
 
         $stats = [
-            'totalEvents' => $total,
-            'activeEvents' => $allEvents->where('status', EventStatus::Published)->count(),
-            'totalRegistrants' => (int) $allEvents->sum('registered_count'),
-            'completionRate' => $total > 0 ? (int) round(($closed / $total) * 100) : 0,
+            ...$eventStats,
+            'totalRegistrants' => $this->reportingQuery->dashboardRegistrantTotal(),
         ];
+
+        // Kolom `description` tidak dipakai kartu dashboard; hanya 5 baris, tapi tetap dipangkas.
+        $recentEvents = Event::query()
+            ->whereNull('deleted_at')
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get([
+                'id', 'slug', 'title', 'location', 'banner', 'price', 'quota',
+                'registered_count', 'category', 'session', 'status',
+                'start_date', 'end_date', 'registration_start', 'registration_end',
+                'created_at', 'updated_at',
+            ])
+            ->map(fn (Event $e): array => $this->eventService->eventToInertiaArray($e))
+            ->values()
+            ->all();
 
         $adminCharts = [
             'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),

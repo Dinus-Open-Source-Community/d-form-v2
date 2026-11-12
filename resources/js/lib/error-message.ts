@@ -1,11 +1,11 @@
-import { toast } from 'vue-sonner'
+import { isRecord } from '@/lib/isRecord';
 
-export type ValidationErrors = Record<string, string | string[] | undefined>
+export type TValidationErrors = Record<string, string | string[] | undefined>;
 
-export type ErrorMessageContext = {
-    fields?: IFormField[]
-    fieldLabels?: Record<string, string>
-}
+export type TErrorMessageContext = {
+    fields?: IFormField[];
+    fieldLabels?: Record<string, string>;
+};
 
 /** Label statis untuk field umum di luar form builder. */
 export const STATIC_FIELD_LABELS: Record<string, string> = {
@@ -34,7 +34,7 @@ export const STATIC_FIELD_LABELS: Record<string, string> = {
     decline_reason: 'Alasan penolakan',
     invitation_decision: 'Keputusan undangan',
     fields: 'Field form',
-}
+};
 
 /** Pesan backend (EN) → bahasa manusia (ID). */
 const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
@@ -42,8 +42,7 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
         'Form bundle ini membutuhkan ukuran tim minimal 2 di pengaturan form.',
     'This team form requires a team size of at least 2 in form settings.':
         'Form tim ini membutuhkan ukuran tim minimal 2 di pengaturan form.',
-    'You cannot list yourself as a team member.':
-        'Anda tidak boleh memasukkan email sendiri sebagai anggota tim.',
+    'You cannot list yourself as a team member.': 'Anda tidak boleh memasukkan email sendiri sebagai anggota tim.',
     'Each team member email must be unique.': 'Setiap email anggota tim harus unik.',
     'No account exists for this email. The teammate must register first.':
         'Akun untuk email ini belum ada. Anggota tim harus mendaftar terlebih dahulu.',
@@ -54,6 +53,12 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
     'Enter a valid email address.': 'Masukkan alamat email yang valid.',
     'Form deleted.': 'Form berhasil dihapus.',
     'Form created successfully!': 'Form berhasil dibuat.',
+    'Please enter the form title.': 'Judul form wajib diisi.',
+    'Please enter a description for the form.': 'Deskripsi form wajib diisi.',
+    'Please select when the form closes.': 'Pilih tanggal tutup form.',
+    'Please select who can see this form.': 'Pilih siapa yang bisa melihat form ini.',
+    'Please select at least one visibility option.': 'Pilih minimal satu opsi visibilitas.',
+    'Please provide form fields to update.': 'Sertakan minimal satu field form.',
     'Form and fields saved successfully.': 'Form dan field berhasil disimpan.',
     'Event has been archived.': 'Event berhasil diarsipkan.',
     'Event has been restored.': 'Event berhasil dipulihkan.',
@@ -65,8 +70,7 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
     'Unable to login with GitHub. Please try again.': 'Gagal masuk dengan GitHub. Silakan coba lagi.',
     'If an account exists for that email, we sent a password reset link.':
         'Jika akun dengan email tersebut ada, kami telah mengirim tautan reset kata sandi.',
-    'Your password has been reset. You can sign in.':
-        'Kata sandi berhasil diatur ulang. Anda bisa masuk sekarang.',
+    'Your password has been reset. You can sign in.': 'Kata sandi berhasil diatur ulang. Anda bisa masuk sekarang.',
     'Profile updated successfully.': 'Profil berhasil diperbarui.',
     'Password updated successfully.': 'Kata sandi berhasil diperbarui.',
     'Your registration has been submitted successfully.': 'Pendaftaran Anda berhasil dikirim.',
@@ -76,20 +80,17 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
         'Peserta ini harus mengonfirmasi pendaftaran sebelum dapat diterima.',
     'Fields have been saved': 'Field berhasil disimpan.',
     'Fields cannot be saved': 'Field tidak dapat disimpan.',
-    'This participant has already checked in for this event.':
-        'Peserta ini sudah pernah check-in untuk event ini.',
+    'This participant has already checked in for this event.': 'Peserta ini sudah pernah check-in untuk event ini.',
     'Check-in queued. A confirmation email will be sent when processing completes.':
         'Check-in dalam antrean. Email konfirmasi akan dikirim setelah pemrosesan selesai.',
     'Registration not found.': 'Data pendaftaran tidak ditemukan.',
     'Registration has no participant account.':
         'Pendaftaran tidak memiliki identitas peserta (akun atau email undangan).',
     'This registration is not for this event.': 'Pendaftaran ini bukan untuk event ini.',
-    'Only accepted registrations can check in.':
-        'Hanya pendaftaran yang sudah diterima yang dapat check-in.',
+    'Only accepted registrations can check in.': 'Hanya pendaftaran yang sudah diterima yang dapat check-in.',
     'Unable to read a submission ID from the QR text or registration code.':
         'Tidak dapat membaca ID submission dari QR atau kode registrasi.',
-    'Participant will receive their ticket by email.':
-        'Peserta akan menerima tiket melalui email.',
+    'Participant will receive their ticket by email.': 'Peserta akan menerima tiket melalui email.',
     'new event created successfully': 'Event baru berhasil dibuat.',
     'this event has been edited': 'Event berhasil diperbarui.',
     'event deleted successfully': 'Event berhasil dihapus.',
@@ -105,8 +106,7 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
         'Form tim tidak dikonfigurasi dengan benar (ukuran tim). Hubungi penyelenggara.',
     'Bundle participants were misconfigured. Try again or contact the organizer.':
         'Peserta bundle tidak dikonfigurasi dengan benar. Coba lagi atau hubungi penyelenggara.',
-    'A participant is already registered for this form.':
-        'Salah satu peserta sudah terdaftar di form ini.',
+    'A participant is already registered for this form.': 'Salah satu peserta sudah terdaftar di form ini.',
     'A participant with this email is already registered for this form.':
         'Email peserta ini sudah terdaftar di form ini.',
     'You have already submitted this form.': 'Anda sudah mengirim form ini.',
@@ -116,8 +116,7 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
     'Failed to save form. Please check your fields.': 'Gagal menyimpan form. Periksa field yang ditandai.',
     'Failed to archive event.': 'Gagal mengarsipkan event.',
     'Failed to restore event.': 'Gagal memulihkan event.',
-    'Unable to send reset link. Please try again.':
-        'Tidak dapat mengirim tautan reset. Silakan coba lagi.',
+    'Unable to send reset link. Please try again.': 'Tidak dapat mengirim tautan reset. Silakan coba lagi.',
     'Password must be at least 8 characters.': 'Kata sandi minimal 8 karakter.',
     'Password does not match.': 'Konfirmasi kata sandi tidak cocok.',
     'Password does not match': 'Konfirmasi kata sandi tidak cocok.',
@@ -131,83 +130,107 @@ const KNOWN_BACKEND_MESSAGES: Record<string, string> = {
         'Gagal menyimpan. Periksa field yang ditandai lalu coba lagi.',
     'Terjadi kesalahan server saat memuat halaman. Coba refresh; jika tetap terjadi, ini perlu diperbaiki di server.':
         'Terjadi kesalahan server saat memuat halaman. Coba refresh; jika tetap terjadi, hubungi admin.',
-}
+};
 
 type LaravelRulePattern = {
-    test: RegExp
-    build: (label: string, match: RegExpMatchArray) => string
-}
+    test: RegExp;
+    build: (label: string, match: RegExpMatchArray) => string;
+};
 
 const LARAVEL_EN_RULES: LaravelRulePattern[] = [
     { test: /^The .+ field is required\.?$/i, build: (l) => `${l} wajib diisi.` },
-    { test: /^The .+ field must be a valid email address\.?$/i, build: (l) => `${l} harus berupa alamat email yang valid.` },
+    {
+        test: /^The .+ field must be a valid email address\.?$/i,
+        build: (l) => `${l} harus berupa alamat email yang valid.`,
+    },
     { test: /^The .+ field must be a valid URL\.?$/i, build: (l) => `${l} harus berupa URL yang valid.` },
     { test: /^The .+ field must be a valid date\.?$/i, build: (l) => `${l} harus berupa tanggal yang valid.` },
-    { test: /^The .+ field must be a date after or equal to .+\.?$/i, build: (l) => `${l} harus berupa tanggal setelah atau sama dengan batas minimum.` },
-    { test: /^The .+ field must be a date before or equal to .+\.?$/i, build: (l) => `${l} harus berupa tanggal sebelum atau sama dengan batas maksimum.` },
+    {
+        test: /^The .+ field must be a date after or equal to .+\.?$/i,
+        build: (l) => `${l} harus berupa tanggal setelah atau sama dengan batas minimum.`,
+    },
+    {
+        test: /^The .+ field must be a date before or equal to .+\.?$/i,
+        build: (l) => `${l} harus berupa tanggal sebelum atau sama dengan batas maksimum.`,
+    },
     { test: /^The .+ field must be a file\.?$/i, build: (l) => `${l} harus berupa berkas.` },
     { test: /^The .+ field must be an array\.?$/i, build: (l) => `${l} harus berupa daftar pilihan.` },
-    { test: /^The .+ field must not be greater than (\d+) kilobytes\.?$/i, build: (l, m) => `${l} ukurannya tidak boleh lebih dari ${m[1]} KB.` },
+    {
+        test: /^The .+ field must not be greater than (\d+) kilobytes\.?$/i,
+        build: (l, m) => `${l} ukurannya tidak boleh lebih dari ${m[1]} KB.`,
+    },
     { test: /^The .+ field must be at least (\d+) characters\.?$/i, build: (l, m) => `${l} minimal ${m[1]} karakter.` },
-    { test: /^The .+ field must not be greater than (\d+) characters\.?$/i, build: (l, m) => `${l} maksimal ${m[1]} karakter.` },
+    {
+        test: /^The .+ field must not be greater than (\d+) characters\.?$/i,
+        build: (l, m) => `${l} maksimal ${m[1]} karakter.`,
+    },
     { test: /^The .+ field must be accepted\.?$/i, build: (l) => `${l} harus dicentang.` },
     { test: /^The selected .+ is invalid\.?$/i, build: (l) => `Pilihan ${l} tidak valid.` },
     { test: /^The .+ field format is invalid\.?$/i, build: (l) => `Format ${l} tidak valid.` },
     { test: /^The .+ confirmation does not match\.?$/i, build: (l) => `Konfirmasi ${l} tidak cocok.` },
-]
+];
 
 const LARAVEL_ID_RULES: LaravelRulePattern[] = [
     { test: /^:.+ harus diisi\.?$/i, build: (l) => `${l} wajib diisi.` },
     { test: /^:.+ wajib diisi\.?$/i, build: (l) => `${l} wajib diisi.` },
-]
+];
 
+/** Ambil teks error pertama (array → elemen pertama), trim; `null`/`undefined` → string kosong. */
 export function normalizeErrorText(value: string | string[] | undefined | null): string {
-    if (value == null) return ''
-    if (Array.isArray(value)) return normalizeErrorText(value[0])
-    return String(value).trim()
+    if (value == null) return '';
+    if (Array.isArray(value)) return normalizeErrorText(value[0]);
+    return String(value).trim();
 }
 
 function escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function fieldNameFromKey(key: string): string {
-    const bundle = key.match(/^bundle__(.+)__(\d+)$/)
-    if (bundle) return bundle[1]
+    const bundle = key.match(/^bundle__(.+)__(\d+)$/);
+    if (bundle) return bundle[1];
 
-    const teamEmail = key.match(/^team_member_emails\.(\d+)$/)
-    if (teamEmail) return 'team_member_emails'
+    const teamEmail = key.match(/^team_member_emails\.(\d+)$/);
+    if (teamEmail) return 'team_member_emails';
 
-    return key.split('.')[0] ?? key
+    return key.split('.')[0] ?? key;
 }
 
-export function humanizeFieldKey(key: string, ctx?: ErrorMessageContext): string {
-    if (STATIC_FIELD_LABELS[key]) return STATIC_FIELD_LABELS[key]
+/**
+ * Ubah key error menjadi label manusiawi. Menangani key bundle `bundle__<field>__<slot>`
+ * (slot 0 = ketua, jadi peserta = slot + 2) dan `team_member_emails.<index>`.
+ */
+export function humanizeFieldKey(key: string, ctx?: TErrorMessageContext): string {
+    if (STATIC_FIELD_LABELS[key]) return STATIC_FIELD_LABELS[key];
 
-    const bundleMatch = key.match(/^bundle__(.+)__(\d+)$/)
+    const bundleMatch = key.match(/^bundle__(.+)__(\d+)$/);
     if (bundleMatch) {
-        const fieldName = bundleMatch[1]
-        const slot = Number.parseInt(bundleMatch[2], 10)
-        const fieldLabel = resolveFieldLabel(fieldName, ctx)
-        return `${fieldLabel} (Peserta ${slot + 2})`
+        const fieldName = bundleMatch[1];
+        const slot = Number.parseInt(bundleMatch[2], 10);
+        const fieldLabel = resolveFieldLabel(fieldName, ctx);
+        return `${fieldLabel} (Peserta ${slot + 2})`;
     }
 
-    const teamEmailMatch = key.match(/^team_member_emails\.(\d+)$/)
+    const teamEmailMatch = key.match(/^team_member_emails\.(\d+)$/);
     if (teamEmailMatch) {
-        return `Email anggota ${Number.parseInt(teamEmailMatch[1], 10) + 1}`
+        return `Email anggota ${Number.parseInt(teamEmailMatch[1], 10) + 1}`;
     }
 
-    return resolveFieldLabel(fieldNameFromKey(key), ctx)
+    return resolveFieldLabel(fieldNameFromKey(key), ctx);
 }
 
-export function resolveFieldLabel(name: string, ctx?: ErrorMessageContext): string {
-    if (STATIC_FIELD_LABELS[name]) return STATIC_FIELD_LABELS[name]
-    if (ctx?.fieldLabels?.[name]) return ctx.fieldLabels[name]
+/**
+ * Resolusi label field berurutan: label statis → `ctx.fieldLabels` → label field builder
+ * → fallback humanisasi nama (`snake_case` → Title Case).
+ */
+export function resolveFieldLabel(name: string, ctx?: TErrorMessageContext): string {
+    if (STATIC_FIELD_LABELS[name]) return STATIC_FIELD_LABELS[name];
+    if (ctx?.fieldLabels?.[name]) return ctx.fieldLabels[name];
 
-    const field = ctx?.fields?.find((f) => f.name === name)
-    if (field?.label?.trim()) return field.label.trim()
+    const field = ctx?.fields?.find((f) => f.name === name);
+    if (field?.label?.trim()) return field.label.trim();
 
-    return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function injectFieldLabel(message: string, key: string, label: string): string {
@@ -217,203 +240,193 @@ function injectFieldLabel(message: string, key: string, label: string): string {
         key.replace(/\./g, ' '),
         fieldNameFromKey(key),
         fieldNameFromKey(key).replace(/_/g, ' '),
-    ])
+    ]);
 
-    let output = message
+    let output = message;
     for (const variant of variants) {
-        if (!variant || variant.length < 2) continue
-        const re = new RegExp(escapeRegex(variant), 'i')
+        if (!variant || variant.length < 2) continue;
+        const re = new RegExp(escapeRegex(variant), 'i');
         if (re.test(output)) {
-            output = output.replace(re, label)
-            break
+            output = output.replace(re, label);
+            break;
         }
     }
 
-    return output.replace(/^:Attribute\b/i, label).replace(/^:attribute\b/i, label)
+    return output.replace(/^:Attribute\b/i, label).replace(/^:attribute\b/i, label);
 }
 
 function translateLaravelMessage(message: string, label: string): string {
     for (const rule of LARAVEL_EN_RULES) {
-        const match = message.match(rule.test)
-        if (match) return rule.build(label, match)
+        const match = message.match(rule.test);
+        if (match) return rule.build(label, match);
     }
 
     for (const rule of LARAVEL_ID_RULES) {
-        const match = message.match(rule.test)
-        if (match) return rule.build(label, match)
+        const match = message.match(rule.test);
+        if (match) return rule.build(label, match);
     }
 
-    return injectFieldLabel(message, label, label)
+    return injectFieldLabel(message, label, label);
 }
 
+/**
+ * Terjemahkan pesan error backend ke bahasa Indonesia: pesan yang dikenal dipetakan langsung,
+ * sisanya dicocokkan dengan aturan Laravel lalu diinjeksi label field. Tanpa `fieldKey` → pesan asli.
+ */
 export function humanizeErrorMessage(
     raw: string | string[] | undefined,
     fieldKey?: string,
-    ctx?: ErrorMessageContext,
+    ctx?: TErrorMessageContext
 ): string {
-    const message = normalizeErrorText(raw)
-    if (!message) return ''
+    const message = sanitizeApiMessageText(normalizeErrorText(raw));
+    if (!message) return '';
 
-    const known = KNOWN_BACKEND_MESSAGES[message]
-    if (known) return known
+    const known = KNOWN_BACKEND_MESSAGES[message];
+    if (known) return known;
 
-    const label = fieldKey ? humanizeFieldKey(fieldKey, ctx) : ''
+    const label = fieldKey ? humanizeFieldKey(fieldKey, ctx) : '';
     if (label) {
-        return translateLaravelMessage(message, label)
+        return translateLaravelMessage(message, label);
     }
 
-    return message
+    return message;
 }
 
-export function getFieldError(
-    errors: ValidationErrors,
-    key: string,
-    ctx?: ErrorMessageContext,
-): string | undefined {
-    const message = normalizeErrorText(errors[key])
-    if (!message) return undefined
-    return humanizeErrorMessage(message, key, ctx)
+/**
+ * Laravel meringkas bag validasi menjadi `"<pesan pertama> (and N more errors)"`.
+ * Ringkasan seperti itu tidak boleh tampil apa adanya di UI.
+ */
+export function stripValidationSummary(message: string): string {
+    return message.replace(/\s*\(and \d+ more errors?\)\s*$/i, '').trim();
 }
 
+/**
+ * Sebagian error terbungkus sebagai string JSON (`{"message":...,"errors":{...}}`).
+ * Unwrap hanya bila memang objek berisi `message` atau `errors`.
+ */
+function unwrapJsonMessageText(message: string): string {
+    const trimmed = message.trim();
+    if (!trimmed.startsWith('{')) return message;
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(trimmed);
+    } catch {
+        return message;
+    }
+
+    if (!isRecord(parsed)) return message;
+    if (!('message' in parsed) && !('errors' in parsed)) return message;
+
+    return readFirstValidationMessage(parsed) ?? (typeof parsed.message === 'string' ? parsed.message : '');
+}
+
+/**
+ * Bersihkan teks error dari API sebelum dipakai UI: unwrap string JSON lalu buang
+ * sufiks ringkasan `(and N more errors)`.
+ */
+export function sanitizeApiMessageText(message: string): string {
+    const unwrapped = unwrapJsonMessageText(message);
+
+    return stripValidationSummary(unwrapped);
+}
+
+/** Pesan error humanized untuk satu key; `undefined` bila key tidak punya pesan. */
+export function getFieldError(errors: TValidationErrors, key: string, ctx?: TErrorMessageContext): string | undefined {
+    const message = normalizeErrorText(errors[key]);
+    if (!message) return undefined;
+    return humanizeErrorMessage(message, key, ctx);
+}
+
+/** Ratakan bag `errors` menjadi baris `{ key, label, message, line }`; entri kosong dibuang. */
 export function parseValidationErrors(
-    errors: ValidationErrors,
-    ctx?: ErrorMessageContext,
+    errors: TValidationErrors,
+    ctx?: TErrorMessageContext
 ): Array<{ key: string; label: string; message: string; line: string }> {
     return Object.entries(errors)
         .filter(([, value]) => normalizeErrorText(value).length > 0)
         .map(([key, raw]) => {
-            const label = humanizeFieldKey(key, ctx)
-            const message = humanizeErrorMessage(raw, key, ctx)
-            return { key, label, message, line: `${label}: ${message}` }
-        })
+            const label = humanizeFieldKey(key, ctx);
+            const message = humanizeErrorMessage(raw, key, ctx);
+            return { key, label, message, line: `${label}: ${message}` };
+        });
 }
 
-export function showValidationErrorToast(
-    errors: ValidationErrors,
-    ctx?: ErrorMessageContext & { title?: string },
-): void {
-    const parsed = parseValidationErrors(errors, ctx)
-    const title = ctx?.title ?? 'Validasi gagal'
+/**
+ * Ambil pesan pertama dari bag `errors`, sudah di-humanize dengan label field.
+ * `undefined` bila bag tidak ada atau tidak berisi string.
+ */
+function readFirstValidationMessage(body: Record<string, unknown>): string | undefined {
+    if (!isRecord(body.errors)) return undefined;
 
-    if (parsed.length === 0) {
-        toast.error(title, {
-            description: 'Periksa kembali formulir dan lengkapi field yang ditandai.',
-        })
-        return
+    const first = Object.entries(body.errors)[0];
+    if (first === undefined) return undefined;
+
+    const message = readErrorText(first[1]);
+    if (message === undefined) return undefined;
+
+    return humanizeErrorMessage(message, first[0]) || undefined;
+}
+
+/**
+ * Body error sebagai record; string JSON (dibungkus lapisan lain) di-parse dulu.
+ * String biasa bukan kontrak error, jadi dianggap tidak bisa dipakai.
+ */
+function readBodyRecord(body: unknown): Record<string, unknown> | null {
+    if (isRecord(body)) return body;
+    if (typeof body !== 'string') return null;
+
+    const trimmed = body.trim();
+    if (!trimmed.startsWith('{')) return null;
+
+    try {
+        const parsed: unknown = JSON.parse(trimmed);
+
+        return isRecord(parsed) ? parsed : null;
+    } catch {
+        return null;
     }
-
-    if (parsed.length === 1) {
-        const only = parsed[0]
-        toast.error(title, {
-            description: `${only.label}: ${only.message}`,
-            duration: 6000,
-        })
-        return
-    }
-
-    toast.error(title, {
-        description: parsed.map((entry) => entry.line).join('\n'),
-        duration: Math.min(14_000, 4000 + parsed.length * 800),
-    })
 }
 
-export function handleInertiaFormErrors(
-    errors: ValidationErrors,
-    ctx?: ErrorMessageContext & { title?: string },
-): void {
-    showValidationErrorToast(errors, ctx)
-}
+/**
+ * Pesan publik dari body error API. Untuk `status === 422`, bag `errors` diprioritaskan
+ * agar aturan validasi Laravel berbahasa Inggris tidak bocor mentah ke UI.
+ */
+export function parseApiErrorMessage(
+    body: unknown,
+    fallback = 'Terjadi kesalahan. Coba lagi.',
+    status?: number | null
+): string {
+    const record = readBodyRecord(body);
+    if (record === null) return fallback;
 
-export function parseApiErrorMessage(body: unknown, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
-    if (!body || typeof body !== 'object') return fallback
-
-    const record = body as Record<string, unknown>
+    const validationMessage = readFirstValidationMessage(record);
+    if (status === 422 && validationMessage !== undefined) return validationMessage;
 
     if (typeof record.message === 'string' && record.message.trim()) {
-        return humanizeErrorMessage(record.message)
+        return humanizeErrorMessage(record.message) || fallback;
     }
 
-    if (record.errors && typeof record.errors === 'object') {
-        const firstKey = Object.keys(record.errors as ValidationErrors)[0]
-        if (firstKey) {
-            const firstValue = (record.errors as ValidationErrors)[firstKey]
-            const parsed = humanizeErrorMessage(firstValue, firstKey)
-            if (parsed) return parsed
-        }
-    }
+    if (validationMessage !== undefined) return validationMessage;
 
-    return fallback
+    return fallback;
 }
 
-export function showHttpErrorToast(
-    status: number,
-    body?: unknown,
-    overrides?: Partial<Record<number, string>>,
-): void {
-    const defaults: Record<number, string> = {
-        401: 'Anda perlu masuk terlebih dahulu.',
-        403: 'Anda tidak memiliki izin untuk tindakan ini.',
-        404: 'Data tidak ditemukan.',
-        419: 'Sesi tidak valid atau sudah habis. Muat ulang halaman lalu coba lagi.',
-        422: 'Data yang dikirim tidak valid. Periksa kembali formulir.',
-        429: 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.',
-        500: 'Terjadi kesalahan server. Coba lagi nanti.',
-        503: 'Layanan sedang sibuk. Coba lagi nanti.',
-        ...overrides,
-    }
+/** Ambil teks error pertama yang berupa string atau bagian dari array string. */
+function readErrorText(value: unknown): string | undefined {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.find((item): item is string => typeof item === 'string');
 
-    const fromBody = body ? parseApiErrorMessage(body, '') : ''
-    if (fromBody) {
-        toast.error(fromBody)
-        return
-    }
-
-    toast.error(defaults[status] ?? `Permintaan gagal (kode ${status}).`)
+    return undefined;
 }
 
-export function showErrorToast(
-    message: string,
-    options?: { title?: string; description?: string; duration?: number },
-): void {
-    const text = humanizeErrorMessage(message)
-
-    if (options?.title) {
-        toast.error(options.title, {
-            description: text || options.description,
-            duration: options.duration,
-        })
-        return
-    }
-
-    toast.error(text, {
-        description: options?.description,
-        duration: options?.duration,
-    })
-}
-
-export function showFlashToast(flash: { type?: string; message?: string } | null | undefined): void {
-    if (!flash?.message) return
-
-    const message = humanizeErrorMessage(flash.message)
-    if (flash.type === 'success') {
-        toast.success(message)
-        return
-    }
-
-    toast.error(message)
-}
-
-/** @deprecated Gunakan {@link showValidationErrorToast} */
-export function showEventValidationToast(errors: ValidationErrors): void {
-    showValidationErrorToast(errors, { title: 'Validasi gagal' })
-}
-
+/** Map `name → label` untuk field builder; field tanpa label dilewati. */
 export function buildFieldLabelMap(fields: IFormField[]): Record<string, string> {
-    const map: Record<string, string> = {}
+    const map: Record<string, string> = {};
     for (const field of fields) {
         if (field.label?.trim()) {
-            map[field.name] = field.label.trim()
+            map[field.name] = field.label.trim();
         }
     }
-    return map
+    return map;
 }

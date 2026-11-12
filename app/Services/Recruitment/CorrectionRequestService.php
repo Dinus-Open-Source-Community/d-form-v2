@@ -46,7 +46,8 @@ final class CorrectionRequestService
                 request: $request,
             );
 
-            SendRecruitmentCorrectionRequestStaffJob::dispatch($correction->id);
+            SendRecruitmentCorrectionRequestStaffJob::dispatch($correction->id)
+                ->afterCommit();
 
             return $correction;
         });

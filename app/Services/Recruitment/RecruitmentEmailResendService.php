@@ -3,16 +3,17 @@
 namespace App\Services\Recruitment;
 
 use App\Enums\EmailLogStatus;
+use App\Enums\EmailNotificationType;
 use App\Enums\Recruitment\ApplicationResult;
-use App\Jobs\Recruitment\SendRecruitmentApplicationConfirmationJob;
 use App\Jobs\Recruitment\SendRecruitmentCorrectionRequestStaffJob;
 use App\Jobs\Recruitment\SendRecruitmentInterviewerNotificationJob;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Models\EmailLog;
 use App\Models\Recruitment\RecruitmentActivityLog;
+use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentInterview;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class RecruitmentEmailResendService
@@ -30,11 +31,12 @@ final class RecruitmentEmailResendService
         'recruitment_final_rejected' => 'final_rejected',
     ];
 
-    private const MAX_PER_DAY = 3;
+    public const MAX_PER_DAY = 3;
+
+    public const DAILY_LIMIT_MESSAGE = 'Batas kirim ulang tercapai (maks 3x sehari per jenis). Coba lagi besok.';
 
     public function __construct(
         private readonly RecruitmentTrackingResendService $trackingResendService,
-        private readonly RecruitmentTrackingTokenGenerator $tokenGenerator,
         private readonly RecruitmentActivityLogger $activityLogger,
     ) {
     }
@@ -42,22 +44,42 @@ final class RecruitmentEmailResendService
     /** Kirim ulang satu jenis email applicant (throttle 3x/hari per jenis). */
     public function resend(EmailResendCommand $command): void
     {
-        $this->throwUnlessUnderDailyLimit($command);
+        if ($command->type === 'tracking') {
+            $this->trackingResendService->resend(
+                $command->actor,
+                $command->application,
+                $command->request,
+            );
 
-        $this->activityLogger->log(
-            action: 'email.resend',
-            actor: $command->actor,
-            application: $command->application,
-            newValues: [
-                'type' => $command->type,
-                'recipient_email' => $command->application->personal_email,
-            ],
-            request: $command->request,
-        );
+            return;
+        }
+
+        if ($command->type === 'confirmation') {
+            $this->resendConfirmation($command);
+
+            return;
+        }
+
+        DB::transaction(function () use ($command): void {
+            $application = RecruitmentApplication::query()
+                ->whereKey($command->application->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->throwUnlessUnderDailyLimit($command);
+
+            $this->activityLogger->log(
+                action: 'email.resend',
+                actor: $command->actor,
+                application: $application,
+                newValues: [
+                    'type' => $command->type,
+                ],
+                request: $command->request,
+            );
+        });
 
         match ($command->type) {
-            'tracking' => $this->trackingResendService->resend($command->actor, $command->application, $command->request),
-            'confirmation' => $this->resendConfirmation($command),
             'correction' => $this->resendCorrection($command),
             'interviewer' => $this->resendInterviewer($command),
             'notification' => $this->resendNotification($command),
@@ -72,11 +94,11 @@ final class RecruitmentEmailResendService
     /** Kirim ulang konfirmasi pendaftaran dengan token tracking baru. */
     private function resendConfirmation(EmailResendCommand $command): void
     {
-        $token = $this->tokenGenerator->generate();
-
-        $command->application->update(['tracking_token_hash' => Hash::make($token)]);
-
-        SendRecruitmentApplicationConfirmationJob::dispatch($command->application->id, $token);
+        $this->trackingResendService->resendConfirmation(
+            $command->actor,
+            $command->application,
+            $command->request,
+        );
     }
 
     /** Kirim ulang notifikasi koreksi ke staff untuk koreksi terbaru applicant. */
@@ -114,17 +136,49 @@ final class RecruitmentEmailResendService
         SendRecruitmentInterviewerNotificationJob::dispatch($interview->id);
     }
 
+    /**
+     * Template key notifikasi terkirim terbaru yang bisa dikirim ulang, atau `null`.
+     *
+     * Satu-satunya sumber aturan "replayable": log terbaru boleh non-resendable (mis.
+     * konfirmasi setelah resend), jadi pencarian melewatinya dan berhenti di log pertama
+     * yang tipenya ada di allowlist. Template interview tetap butuh interview yang ada.
+     *
+     * @param  bool|null  $hasInterview  Hasil query pemanggil; `null` berarti helper yang mencari.
+     */
+    public function latestReplayableNotification(RecruitmentApplication $application, ?bool $hasInterview = null): ?string
+    {
+        $types = EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('status', EmailLogStatus::Sent)
+            ->whereIn('notification_type', array_keys(self::RESENDABLE_TEMPLATES))
+            ->orderByDesc('created_at')
+            ->pluck('notification_type');
+
+        foreach ($types as $type) {
+            $value = $type instanceof EmailNotificationType ? $type->value : (string) $type;
+            $templateKey = self::RESENDABLE_TEMPLATES[$value];
+
+            if (! in_array($templateKey, ['interview_scheduled', 'interview_rescheduled'], true)) {
+                return $templateKey;
+            }
+
+            $hasInterview ??= RecruitmentInterview::query()
+                ->where('recruitment_application_id', $application->id)
+                ->whereNotNull('interviewer_id')
+                ->exists();
+
+            if ($hasInterview) {
+                return $templateKey;
+            }
+        }
+
+        return null;
+    }
+
     /** Kirim ulang notifikasi terakhir yang terkirim untuk applicant. */
     private function resendNotification(EmailResendCommand $command): void
     {
-        $lastSent = EmailLog::query()
-            ->where('recruitment_application_id', $command->application->id)
-            ->where('status', EmailLogStatus::Sent)
-            ->orderByDesc('created_at')
-            ->first();
-
-        $lastType = $lastSent?->notification_type?->value;
-        $templateKey = is_string($lastType) ? (self::RESENDABLE_TEMPLATES[$lastType] ?? null) : null;
+        $templateKey = $this->latestReplayableNotification($command->application);
 
         if ($templateKey === null) {
             throw ValidationException::withMessages([
@@ -216,7 +270,7 @@ final class RecruitmentEmailResendService
             ->count();
 
         if ($sent >= self::MAX_PER_DAY) {
-            abort(429, 'Batas kirim ulang tercapai (maks 3x sehari per jenis). Coba lagi besok.');
+            abort(429, self::DAILY_LIMIT_MESSAGE);
         }
     }
 }

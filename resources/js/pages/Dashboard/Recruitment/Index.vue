@@ -1,127 +1,120 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
+import { computed, onMounted, ref, watch } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import DivisionListSheet, {
-    type DashboardDivision,
-} from '@/components/modules/dashboard/recruitment/DivisionListSheet.vue'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import { showErrorToast } from '@/lib/error-message'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { routes } from '@/lib/routes'
-import { cn } from '@/lib/utils'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
-import useAuth from '@/utils/composables/useAuth'
-import { usePage } from '@inertiajs/vue3'
-import {
-    CalendarRange,
-    ImageOff,
-    Layers,
-    User,
-    Users,
-    ClipboardList,
-    Trash2,
-} from 'lucide-vue-next'
+    type IDashboardDivision,
+} from '@/components/modules/dashboard/recruitment/DivisionListSheet.vue';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import AppPagination from '@/components/core/AppPagination.vue';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { routes } from '@/lib/routes';
+import { cn } from '@/lib/utils';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
+import { useAuth } from '@/hooks/useAuth';
+import { usePage } from '@inertiajs/vue3';
+import { CalendarRange, ImageOff, Layers, User, Users, ClipboardList, Trash2 } from 'lucide-vue-next';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface PeriodSummary {
-    id: string
-    name: string
-    status: string
-    status_label: string
+    id: string;
+    name: string;
+    status: string;
+    status_label: string;
 }
 
 interface ActionQueue {
-    key: string
-    label: string
-    description: string
-    count: number
+    key: string;
+    label: string;
+    description: string;
+    count: number;
 }
 
 interface TodaySession {
-    id: string
-    session_date: string
-    starts_at: string
-    ends_at: string
-    location: string
-    room: string
-    interviews_count: number
-    division: { name: string } | null
+    id: string;
+    session_date: string;
+    starts_at: string;
+    ends_at: string;
+    location: string;
+    room: string;
+    interviews_count: number;
+    division: { name: string } | null;
 }
 
 interface PeriodCreator {
-    name: string
-    avatar_url: string | null
+    name: string;
+    avatar_url: string | null;
 }
 
 interface PeriodRow {
-    id: string
-    name: string
-    slug: string
-    status: string
-    status_label: string
-    banner_url: string | null
-    registration_opens_at: string | null
-    registration_closes_at: string | null
-    applications_count: number
-    creator?: PeriodCreator | null
-    can_edit?: boolean
-    can_delete?: boolean
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    status_label: string;
+    banner_url: string | null;
+    registration_opens_at: string | null;
+    registration_closes_at: string | null;
+    applications_count: number;
+    creator?: PeriodCreator | null;
+    can_edit?: boolean;
+    can_delete?: boolean;
 }
 
 interface PeriodPaginator {
-    data: PeriodRow[]
-    current_page: number
-    last_page: number
-    total: number
-    per_page?: number
+    data: PeriodRow[];
+    current_page: number;
+    last_page: number;
+    total: number;
+    per_page?: number;
 }
 
 const props = withDefaults(
     defineProps<{
         summary: {
-            active_period: PeriodSummary | null
-            stats: Record<string, number>
-            funnel?: { stage: string; label: string; count: number }[]
-            accepted_count?: number
-            is_interviewer_view?: boolean
-            action_queues?: ActionQueue[]
-            today_sessions?: TodaySession[]
-        }
-        periods?: PeriodPaginator | null
-        query?: { search?: string; status?: string }
-        statusOptions?: { value: string; label: string }[]
-        divisions?: DashboardDivision[]
+            active_period: PeriodSummary | null;
+            stats: Record<string, number>;
+            funnel?: { stage: string; label: string; count: number }[];
+            accepted_count?: number;
+            is_interviewer_view?: boolean;
+            action_queues?: ActionQueue[];
+            today_sessions?: TodaySession[];
+        };
+        periods?: PeriodPaginator | null;
+        query?: { search?: string; status?: string };
+        statusOptions?: { value: string; label: string }[];
+        divisions?: IDashboardDivision[];
     }>(),
-    { periods: null, query: () => ({}), statusOptions: () => [], divisions: () => [] },
-)
+    { periods: null, query: () => ({}), statusOptions: () => [], divisions: () => [] }
+);
+const { goToPage } = usePaginationNavigation();
 
-const page = usePage()
-const user = useAuth(page.props)
-const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true)
-const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true)
-const actionQueues = computed(() => props.summary.action_queues ?? [])
-const todaySessions = computed(() => props.summary.today_sessions ?? [])
+const page = usePage();
+const user = useAuth(page.props);
+const { showErrorToast } = useToastNotifications();
+const canManagePeriods = computed(() => user.value?.can_manage_recruitment_periods === true);
+const canScheduleInterviews = computed(() => user.value?.can_schedule_recruitment_interviews === true);
+const actionQueues = computed(() => props.summary.action_queues ?? []);
+const todaySessions = computed(() => props.summary.today_sessions ?? []);
 
-const periodRows = computed<PeriodRow[]>(() => props.periods?.data ?? [])
-const periodCurrentPage = computed<number>(() => props.periods?.current_page ?? 1)
-const periodLastPage = computed<number>(() => props.periods?.last_page ?? 1)
-const periodTotal = computed<number>(() => props.periods?.total ?? 0)
+const periodRows = computed<PeriodRow[]>(() => props.periods?.data ?? []);
 
-const divisionRows = computed<DashboardDivision[]>(() => props.divisions ?? [])
-const divisionDrawerOpen = ref<boolean>(false)
+const divisionRows = computed<IDashboardDivision[]>(() => props.divisions ?? []);
+const divisionDrawerOpen = ref<boolean>(false);
 
 function openDivisionDrawer(): void {
-    divisionDrawerOpen.value = true
+    divisionDrawerOpen.value = true;
 }
 
 function closeDivisionDrawer(): void {
-    divisionDrawerOpen.value = false
+    divisionDrawerOpen.value = false;
 }
 
 /** Selaras dengan pemetaan di Periods/Show.vue — token design system, bukan warna arbitrary. */
@@ -130,20 +123,20 @@ const periodStatusClasses: Record<string, string> = {
     open: 'border-success/20 bg-success/10 text-success',
     closed: 'border-warning/25 bg-warning/10 text-warning-foreground',
     archived: 'border-border bg-muted text-muted-foreground',
-}
+};
 
 function periodStatusClass(status: string): string {
-    return periodStatusClasses[status] ?? 'border-border bg-secondary text-secondary-foreground'
+    return periodStatusClasses[status] ?? 'border-border bg-secondary text-secondary-foreground';
 }
 
-const periodSearch = ref<string>(props.query?.search ?? '')
-const periodStatus = ref<string>(props.query?.status ?? '')
+const periodSearch = ref<string>(props.query?.search ?? '');
+const periodStatus = ref<string>(props.query?.status ?? '');
 
 /** Opsi dropdown status — nilai dari backend, UI SimpleSelect seperti admin/events. */
 const periodStatusOptions = computed<SimpleSelectOption[]>(() => [
     { value: '', label: 'Semua status' },
     ...props.statusOptions,
-])
+]);
 
 function applyPeriodFilters(page: number = 1): void {
     router.get(
@@ -153,71 +146,71 @@ function applyPeriodFilters(page: number = 1): void {
             status: periodStatus.value || undefined,
             page: page > 1 ? page : undefined,
         },
-        { preserveState: true, replace: true },
-    )
+        { preserveState: true, replace: true }
+    );
 }
 
-watch([periodSearch, periodStatus], () => applyPeriodFilters())
+watch([periodSearch, periodStatus], () => applyPeriodFilters());
 
 const quickApplicantHref = computed(() =>
     props.summary.active_period
         ? routes.admin.recruitment.periods.show(props.summary.active_period.id)
-        : routes.admin.recruitment.index,
-)
+        : routes.admin.recruitment.index
+);
 
 const quickInterviewHref = computed(() =>
     props.summary.active_period
         ? `${routes.admin.recruitment.periods.show(props.summary.active_period.id)}?tab=interview`
-        : routes.admin.recruitment.index,
-)
+        : routes.admin.recruitment.index
+);
 
 function applicationsQueueUrl(queue: string): string {
-    const periodId = props.summary.active_period?.id
-    if (!periodId) return routes.admin.recruitment.index
-    const params = new URLSearchParams({ queue })
-    return `${routes.admin.recruitment.periods.show(periodId)}?${params.toString()}`
+    const periodId = props.summary.active_period?.id;
+    if (!periodId) return routes.admin.recruitment.index;
+    const params = new URLSearchParams({ queue });
+    return `${routes.admin.recruitment.periods.show(periodId)}?${params.toString()}`;
 }
 
 /** Konfirmasi hapus periode — soft delete, data pendaftar tetap tersimpan. */
-const deleteTarget = ref<PeriodRow | null>(null)
-const deleteDialogOpen = ref(false)
-const isDeleting = ref(false)
+const deleteTarget = ref<PeriodRow | null>(null);
+const deleteDialogOpen = ref(false);
+const isDeleting = ref(false);
 
 const deleteDescription = computed<string>(() => {
-    const name = deleteTarget.value?.name
-    const base = 'Data pendaftar tetap tersimpan; periode hanya diarsipkan.'
-    return name ? `Periode “${name}” akan dihapus dari daftar. ${base}` : base
-})
+    const name = deleteTarget.value?.name;
+    const base = 'Data pendaftar tetap tersimpan; periode hanya diarsipkan.';
+    return name ? `Periode “${name}” akan dihapus dari daftar. ${base}` : base;
+});
 
 function startDelete(period: PeriodRow): void {
-    deleteTarget.value = period
-    deleteDialogOpen.value = true
+    deleteTarget.value = period;
+    deleteDialogOpen.value = true;
 }
 
 function cancelDelete(): void {
-    if (isDeleting.value) return
-    deleteDialogOpen.value = false
-    deleteTarget.value = null
+    if (isDeleting.value) return;
+    deleteDialogOpen.value = false;
+    deleteTarget.value = null;
 }
 
 function confirmDelete(): void {
-    const target: PeriodRow | null = deleteTarget.value
-    if (!target || isDeleting.value) return
-    isDeleting.value = true
+    const target: PeriodRow | null = deleteTarget.value;
+    if (!target || isDeleting.value) return;
+    isDeleting.value = true;
     router.delete(routes.admin.recruitment.periods.destroy(target.id), {
         preserveScroll: true,
         onError: () => showErrorToast('Gagal menghapus periode recruitment.'),
         onFinish: () => {
-            isDeleting.value = false
-            deleteDialogOpen.value = false
-            deleteTarget.value = null
+            isDeleting.value = false;
+            deleteDialogOpen.value = false;
+            deleteTarget.value = null;
         },
-    })
+    });
 }
 
 onMounted(() => {
-    setTopbar({ title: 'Rekrutmen', subtitle: 'OpenRecruitment DOSCOM' })
-})
+    setTopbar({ title: 'Rekrutmen', subtitle: 'OpenRecruitment DOSCOM' });
+});
 </script>
 
 <template>
@@ -226,27 +219,27 @@ onMounted(() => {
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
         <!-- Perlu tindakan (di atas: prioritas utama halaman) -->
         <section v-if="canManagePeriods && summary.active_period" aria-label="Perlu tindakan">
-            <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                Perlu tindakan
-            </h2>
+            <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Perlu tindakan</h2>
             <div v-if="actionQueues.length > 0" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
                     v-for="queue in actionQueues"
                     :key="`${queue.key}-${queue.label}`"
                     :href="applicationsQueueUrl(queue.key)"
-                    class="group rounded-2xl border border-border/70 bg-card p-5 transition-colors hover:border-primary/40 hover:bg-muted/30"
+                    class="group border-border/70 bg-card hover:border-primary/40 hover:bg-muted/30 rounded-2xl border p-5 transition-colors"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-3">
-                            <div class="bg-amber-500/10 text-amber-700 flex size-9 shrink-0 items-center justify-center rounded-lg">
+                            <div
+                                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700"
+                            >
                                 <ClipboardList class="size-4" />
                             </div>
                             <div>
-                                <p class="font-medium group-hover:text-primary">{{ queue.label }}</p>
+                                <p class="group-hover:text-primary font-medium">{{ queue.label }}</p>
                                 <p class="text-muted-foreground mt-0.5 text-sm">{{ queue.description }}</p>
                             </div>
                         </div>
-                        <Badge variant="secondary" class="shrink-0 tabular-nums text-base font-semibold">
+                        <Badge variant="secondary" class="shrink-0 text-base font-semibold tabular-nums">
                             {{ queue.count ?? 0 }}
                         </Badge>
                     </div>
@@ -256,9 +249,7 @@ onMounted(() => {
 
         <!-- Daftar periode (kartu per-periode) -->
         <section v-if="canManagePeriods || periodRows.length > 0" aria-label="Daftar periode">
-            <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                Daftar periode
-            </h2>
+            <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Daftar periode</h2>
 
             <div class="mb-4 flex flex-wrap items-center gap-3">
                 <Input
@@ -289,7 +280,7 @@ onMounted(() => {
                 <Card
                     v-for="period in periodRows"
                     :key="period.id"
-                    class="flex flex-col rounded-2xl border-border/70 shadow-xs transition-colors hover:border-primary/40"
+                    class="border-border/70 hover:border-primary/40 flex flex-col rounded-2xl shadow-xs transition-colors"
                 >
                     <CardContent class="flex flex-1 flex-col gap-4 px-5 pt-4 pb-3">
                         <div
@@ -313,7 +304,9 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="flex items-start justify-between gap-x-3 gap-y-2">
-                            <p class="min-w-0 flex-1 text-base leading-snug font-semibold tracking-tight break-words text-pretty line-clamp-2">
+                            <p
+                                class="line-clamp-2 min-w-0 flex-1 text-base leading-snug font-semibold tracking-tight text-pretty break-words"
+                            >
                                 {{ period.name }}
                             </p>
                             <Badge :class="cn('shrink-0 border', periodStatusClass(period.status))">
@@ -332,22 +325,17 @@ onMounted(() => {
                             </p>
                             <p class="flex items-center gap-2.5">
                                 <Users class="size-4 shrink-0 opacity-70" aria-hidden="true" />
-                                <span class="tabular-nums">
-                                    {{ period.applications_count }} applicant
-                                </span>
+                                <span class="tabular-nums"> {{ period.applications_count }} applicant </span>
                             </p>
                         </div>
-                        <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-border/60 pt-2.5">
-                            <div
-                                v-if="period.creator"
-                                class="mr-auto flex min-w-0 items-center gap-2"
-                            >
+                        <div class="border-border/60 mt-auto flex flex-wrap items-center gap-2 border-t pt-2.5">
+                            <div v-if="period.creator" class="mr-auto flex min-w-0 items-center gap-2">
                                 <img
                                     v-if="period.creator.avatar_url"
                                     :src="period.creator.avatar_url"
                                     :alt="period.creator.name"
                                     loading="lazy"
-                                    class="size-6 shrink-0 rounded-full border border-border/60 object-cover"
+                                    class="border-border/60 size-6 shrink-0 rounded-full border object-cover"
                                 />
                                 <span
                                     v-else
@@ -356,15 +344,13 @@ onMounted(() => {
                                 >
                                     <User class="size-3.5" />
                                 </span>
-                                <span class="text-muted-foreground min-w-0 max-w-36 truncate text-xs">
+                                <span class="text-muted-foreground max-w-36 min-w-0 truncate text-xs">
                                     {{ period.creator.name }}
                                 </span>
                             </div>
                             <div class="ml-auto flex flex-wrap items-center gap-2">
                                 <Button as-child variant="outline" size="sm">
-                                    <Link :href="routes.admin.recruitment.periods.show(period.id)">
-                                        Detail
-                                    </Link>
+                                    <Link :href="routes.admin.recruitment.periods.show(period.id)"> Detail </Link>
                                 </Button>
                                 <Button v-if="canManagePeriods || period.can_edit" as-child variant="ghost" size="sm">
                                     <Link :href="`${routes.admin.recruitment.periods.show(period.id)}?tab=settings`">
@@ -386,46 +372,28 @@ onMounted(() => {
                     </CardContent>
                 </Card>
             </div>
-            <Card v-else class="rounded-2xl border-dashed border-border/70">
+            <Card v-else class="border-border/70 rounded-2xl border-dashed">
                 <CardContent class="px-4 py-10 text-center">
                     <p class="text-muted-foreground text-sm">Belum ada periode recruitment.</p>
                 </CardContent>
             </Card>
 
-            <div v-if="periodLastPage > 1" class="mt-4 flex justify-center gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="periodCurrentPage <= 1"
-                    @click="applyPeriodFilters(periodCurrentPage - 1)"
-                >
-                    Sebelumnya
-                </Button>
-                <span class="text-muted-foreground self-center text-xs tabular-nums">
-                    {{ periodCurrentPage }} / {{ periodLastPage }} · {{ periodTotal }} periode
-                </span>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="periodCurrentPage >= periodLastPage"
-                    @click="applyPeriodFilters(periodCurrentPage + 1)"
-                >
-                    Berikutnya
-                </Button>
-            </div>
+            <AppPagination
+                v-if="periodRows.length > 0"
+                :current-page="periods?.current_page ?? 1"
+                :last-page="periods?.last_page ?? null"
+                :total="periods?.total ?? null"
+                :per-page="periods?.per_page ?? 20"
+                :per-page-options="[]"
+                @page-change="goToPage"
+            />
         </section>
 
         <!-- Today's interview sessions -->
         <section v-if="todaySessions.length > 0">
-            <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                Interview hari ini
-            </h2>
+            <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Interview hari ini</h2>
             <div class="grid gap-3">
-                <Card
-                    v-for="session in todaySessions"
-                    :key="session.id"
-                    class="rounded-2xl border-border/70"
-                >
+                <Card v-for="session in todaySessions" :key="session.id" class="border-border/70 rounded-2xl">
                     <CardContent class="flex flex-wrap items-center justify-between gap-4 p-5">
                         <div>
                             <p class="font-medium">
@@ -433,8 +401,7 @@ onMounted(() => {
                                 · {{ session.starts_at }}–{{ session.ends_at }}
                             </p>
                             <p class="text-muted-foreground text-sm">
-                                {{ session.location }} · {{ session.room }}
-                                · {{ session.interviews_count }} sudah absen
+                                {{ session.location }} · {{ session.room }} · {{ session.interviews_count }} sudah absen
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -454,10 +421,10 @@ onMounted(() => {
             v-if="actionQueues.length === 0 && (canManagePeriods || canScheduleInterviews)"
             class="grid gap-3 sm:grid-cols-2"
         >
-            <Card v-if="canManagePeriods" class="rounded-2xl border-dashed border-border/70">
+            <Card v-if="canManagePeriods" class="border-border/70 rounded-2xl border-dashed">
                 <CardContent class="flex items-center justify-between gap-4 p-5">
                     <div class="flex items-center gap-3">
-                        <Users class="size-5 text-muted-foreground" />
+                        <Users class="text-muted-foreground size-5" />
                         <div>
                             <p class="font-medium">Semua applicant</p>
                             <p class="text-muted-foreground text-sm">Tidak ada antrean tindakan saat ini.</p>
@@ -468,7 +435,7 @@ onMounted(() => {
                     </Button>
                 </CardContent>
             </Card>
-            <Card v-if="canScheduleInterviews" class="rounded-2xl border-dashed border-border/70">
+            <Card v-if="canScheduleInterviews" class="border-border/70 rounded-2xl border-dashed">
                 <CardContent class="flex items-center justify-between gap-4 p-5">
                     <div>
                         <p class="font-medium">Sesi interview</p>
@@ -480,11 +447,7 @@ onMounted(() => {
                 </CardContent>
             </Card>
         </div>
-        <DivisionListSheet
-            :open="divisionDrawerOpen"
-            :divisions="divisionRows"
-            @close="closeDivisionDrawer"
-        />
+        <DivisionListSheet :open="divisionDrawerOpen" :divisions="divisionRows" @close="closeDivisionDrawer" />
 
         <ConfirmationModal
             :open="deleteDialogOpen"
@@ -496,7 +459,11 @@ onMounted(() => {
             :loading="isDeleting"
             @confirm="confirmDelete"
             @cancel="cancelDelete"
-            @update:open="(v: boolean) => { deleteDialogOpen = v }"
+            @update:open="
+                (v: boolean) => {
+                    deleteDialogOpen = v;
+                }
+            "
         />
     </div>
 </template>

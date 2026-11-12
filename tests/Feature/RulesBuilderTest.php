@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\FormField;
+use App\Rules\SafeUploadFile;
 use App\Services\Form\RulesBuilder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -18,35 +19,33 @@ class RulesBuilderTest extends TestCase
                 'username' => ['required' => 1, 'min' => 10, 'max' => 255, 'regex' => '^adalah$'],
                 'email'    => ['required' => 1, 'min' => 10, 'max' => 255, 'email' => 1],
                 'bio'      => ['required' => null],
-                'start_date' => ['max_date' => '2026-10-10'],
+                'start_date' => ['max_date' => '2026-10-10', 'scalar_guard' => 'date'],
                 'image'    => ['required' => true, 'max_size' => 2048, 'mimes' => 'jpg', 'is_file' => true],
             ];
 
         $expectedBuiltRules = [
             'username' => [
                 'required',
+                'string',
                 'min:10',
                 'max:255',
                 'regex:/^adalah$/',
             ],
             'email' => [
                 'required',
+                'string',
                 'min:10',
                 'max:255',
                 'email'
             ],
             'bio' => [
                 'nullable',
+                'string',
             ],
             'start_date' => [
                 'nullable',
+                'date',
                 'before_or_equal:2026-10-10',
-            ],
-            'image' => [
-                'required',
-                'file',
-                'mimes:jpg',
-                'max:2048',
             ],
         ];
 
@@ -62,8 +61,16 @@ class RulesBuilderTest extends TestCase
 
         $this->assertEquals($expectedRawRules, $result);
 
-        $result = RulesBuilder::build($result);
+        $builtRules = RulesBuilder::build($result);
+        $fileRules = $builtRules['image'];
+        unset($builtRules['image']);
 
-        $this->assertEquals($expectedBuiltRules, $result);
+        $this->assertEquals($expectedBuiltRules, $builtRules);
+
+        // Field file memakai SafeUploadFile, bukan string mimes:/max: lagi.
+        $this->assertSame(['required', 'file'], array_slice($fileRules, 0, 2));
+        $this->assertCount(1, array_filter($fileRules, static fn (mixed $rule): bool => $rule instanceof SafeUploadFile));
+        $this->assertNotContains('mimes:jpg', $fileRules);
+        $this->assertNotContains('max:2048', $fileRules);
     }
 }

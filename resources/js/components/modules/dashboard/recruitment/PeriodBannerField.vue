@@ -1,179 +1,127 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, useId, watch } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-import { ImagePlus, X } from 'lucide-vue-next'
+import { computed, onUnmounted, ref, watch } from 'vue';
+import { Label } from '@/components/ui/label';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
+import { validateUploadFile } from '@/lib/uploadValidation';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
 
 const props = withDefaults(
     defineProps<{
-        modelValue: File | null
-        bannerUrl?: string | null
-        error?: string | null
-        disabled?: boolean
+        modelValue: File | null;
+        bannerUrl?: string | null;
+        error?: string | null;
+        disabled?: boolean;
     }>(),
     {
         bannerUrl: null,
         error: null,
         disabled: false,
-    },
-)
+    }
+);
 
 const emit = defineEmits<{
-    'update:modelValue': [value: File | null]
-}>()
+    'update:modelValue': [value: File | null];
+}>();
 
-const inputId = `period-banner-${useId().replace(/:/g, '')}`
-const bannerInput = ref<HTMLInputElement | null>(null)
-const bannerObjectUrl = ref<string | null>(null)
-const isDragging = ref(false)
+/** Batas & format banner di frontend; backend tetap memvalidasi. */
+const BANNER_MAX_SIZE_KB = 5120;
+const BANNER_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'] as const;
 
-/** Pratinjau compact: berkas baru (object URL) diutamakan, lalu banner lama dari server. */
-const preview = computed<string | null>(() => bannerObjectUrl.value ?? props.bannerUrl ?? null)
-const hasNewFile = computed<boolean>(() => props.modelValue !== null)
-const removeLabel = computed<string>(() =>
-    props.bannerUrl && hasNewFile.value ? 'Batalkan pilihan banner baru' : 'Hapus banner',
-)
+/** Object URL pratinjau untuk berkas yang baru dipilih (belum diunggah). */
+const previewUrl = ref<string | null>(null);
+/** Error pilih berkas (format/ukuran) — ditampilkan oleh kartu unggah. */
+const pickError = ref('');
+
+const hasNewFile = computed<boolean>(() => props.modelValue !== null);
+/** Banner tersimpan ditampilkan hanya saat tidak ada berkas baru yang menunggu submit. */
+const serverBannerUrl = computed<string | null>(() => (hasNewFile.value ? null : props.bannerUrl));
+
+const bannerCardState = computed<TFileUploadState>(() => {
+    if (pickError.value !== '') return 'error';
+    return hasNewFile.value ? 'completed' : 'idle';
+});
+
+const bannerIdleLabel = computed<string>(() => (props.bannerUrl ? 'Ganti banner' : 'Unggah banner'));
 
 watch(
     () => props.modelValue,
     (file) => {
-        releaseBannerObjectUrl()
-        if (file) bannerObjectUrl.value = URL.createObjectURL(file)
+        revokeObjectUrl(previewUrl.value);
+        previewUrl.value = file ? createObjectUrl(file) : null;
     },
-    { immediate: true },
-)
+    { immediate: true }
+);
 
-onUnmounted(releaseBannerObjectUrl)
+onUnmounted(() => {
+    revokeObjectUrl(previewUrl.value);
+});
 
-function releaseBannerObjectUrl(): void {
-    if (bannerObjectUrl.value) {
-        URL.revokeObjectURL(bannerObjectUrl.value)
-        bannerObjectUrl.value = null
+/** Pilih banner: validasi format/ukuran lalu serahkan berkas ke form induk (submit Inertia). */
+async function onBannerPick(file: File): Promise<void> {
+    pickError.value = '';
+    const validationError = await validateUploadFile(file, BANNER_EXTENSIONS);
+
+    if (validationError !== null) {
+        pickError.value = validationError;
+        return;
     }
-}
 
-function openBannerPicker(): void {
-    if (!props.disabled) bannerInput.value?.click()
-}
-
-function handleBannerChange(event: Event): void {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    if (file) emit('update:modelValue', file)
-    input.value = ''
-}
-
-function handleBannerDrop(event: DragEvent): void {
-    isDragging.value = false
-    if (props.disabled) return
-    const file = event.dataTransfer?.files?.[0]
-    if (file && file.type.startsWith('image/')) emit('update:modelValue', file)
+    emit('update:modelValue', file);
 }
 
 function removeBanner(): void {
-    emit('update:modelValue', null)
+    pickError.value = '';
+    emit('update:modelValue', null);
 }
 </script>
 
 <template>
     <div class="space-y-2">
-        <div class="flex flex-wrap items-start justify-between gap-2">
-            <div>
-                <Label :for="inputId">Banner</Label>
-                <p class="text-muted-foreground mt-1 text-xs">
-                    Opsional.<template v-if="bannerUrl">
-                        Pilih berkas baru untuk menggantikan banner saat ini.</template
-                    >
-                </p>
-            </div>
-            <div v-if="preview" class="flex items-center gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    class="h-9 text-xs"
-                    :disabled="disabled"
-                    @click="openBannerPicker"
-                >
-                    Ganti
-                </Button>
-                <Button
-                    v-if="hasNewFile"
-                    type="button"
-                    radius="icon"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    :aria-label="removeLabel"
-                    :disabled="disabled"
-                    @click="removeBanner"
-                >
-                    <X class="size-4" />
-                </Button>
-            </div>
+        <div>
+            <Label>Banner</Label>
+            <p class="text-muted-foreground mt-1 text-xs">
+                Opsional.<template v-if="bannerUrl"> Pilih berkas baru untuk menggantikan banner saat ini.</template>
+            </p>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
-            <div
-                :class="
-                    cn(
-                        'aspect-video w-full max-w-xs overflow-hidden rounded-xl border transition-colors sm:max-w-sm',
-                        preview
-                            ? 'border-border bg-muted/25'
-                            : 'border-border cursor-pointer border-dashed hover:border-primary/50 hover:bg-primary/[0.03]',
-                        isDragging && 'border-primary/60 bg-primary/5',
-                    )
-                "
-            >
-                <img
-                    v-if="preview"
-                    :src="preview"
-                    alt="Pratinjau banner"
-                    class="size-full object-cover"
-                />
+            <div class="w-full max-w-xs space-y-2 sm:max-w-sm">
                 <div
-                    v-else
-                    class="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 px-4 text-center"
-                    @dragover.prevent="isDragging = true"
-                    @dragleave="isDragging = false"
-                    @drop.prevent="handleBannerDrop"
-                    @click="openBannerPicker"
+                    v-if="serverBannerUrl !== null"
+                    class="border-border bg-muted/25 aspect-video w-full overflow-hidden rounded-xl border"
                 >
-                    <span class="bg-muted text-muted-foreground grid size-10 place-items-center rounded-full">
-                        <ImagePlus class="size-5 stroke-[1.75]" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p class="text-sm font-medium">Unggah banner</p>
-                        <p class="text-muted-foreground mt-0.5 text-xs">
-                            Klik atau seret gambar ke sini
-                        </p>
-                    </div>
+                    <img :src="serverBannerUrl" alt="Banner saat ini" class="size-full object-cover" />
                 </div>
+
+                <FileUploadCard
+                    :state="bannerCardState"
+                    :idle-label="bannerIdleLabel"
+                    accept="image/*"
+                    hint="Rasio 16:9 disarankan agar tampil penuh."
+                    :max-size-kb="BANNER_MAX_SIZE_KB"
+                    :file-name="modelValue?.name ?? ''"
+                    :file-size="modelValue?.size ?? 0"
+                    :mime="modelValue?.type ?? ''"
+                    :preview-url="previewUrl ?? ''"
+                    :error-message="pickError"
+                    :disabled="disabled"
+                    @pick="onBannerPick"
+                    @remove="removeBanner"
+                />
             </div>
             <div class="min-w-0 space-y-2">
                 <p class="text-sm font-medium">Persyaratan berkas</p>
                 <ul class="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
                     <li>Format JPG, JPEG, PNG, atau WEBP.</li>
-                    <li>Ukuran maksimal 10 MB.</li>
+                    <li>Ukuran maksimal 5 MB.</li>
                     <li>Rasio 16:9 disarankan agar tampil penuh (tidak wajib).</li>
                 </ul>
                 <p class="text-muted-foreground text-xs">
-                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 10 MB
-                    bila unggahan gagal.
+                    Tips: gunakan gambar landscape agar tidak terpotong; kompres di bawah 5 MB bila unggahan gagal.
                 </p>
             </div>
         </div>
 
         <p v-if="error" class="text-destructive text-xs">{{ error }}</p>
-        <input
-            :id="inputId"
-            ref="bannerInput"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            :disabled="disabled"
-            @change="handleBannerChange"
-        />
     </div>
 </template>

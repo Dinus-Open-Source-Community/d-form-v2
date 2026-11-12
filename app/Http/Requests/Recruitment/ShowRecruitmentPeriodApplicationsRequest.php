@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Recruitment;
 
 use App\Enums\Recruitment\ApplicationStage;
+use App\Models\Recruitment\RecruitmentPeriod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,10 @@ class ShowRecruitmentPeriodApplicationsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('recruitment.periods.view') ?? false;
+        $period = $this->route('period');
+
+        return $period instanceof RecruitmentPeriod
+            && $this->user()?->can('view', $period) === true;
     }
 
     /**

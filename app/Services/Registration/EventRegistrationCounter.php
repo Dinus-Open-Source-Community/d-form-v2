@@ -91,6 +91,10 @@ final class EventRegistrationCounter
                 ->whereKey($event->id)
                 ->update(['registered_count' => 0]);
         }
+
+        // Query builder tidak memicu EventObserver; invalidasi manual.
+        \App\Services\Event\EventCache::bump(\App\Services\Event\EventCache::BUSTER_LIST);
+        \App\Services\Event\EventCache::bump(\App\Services\Event\EventCache::BUSTER_REGISTRANTS);
     }
 
     /**

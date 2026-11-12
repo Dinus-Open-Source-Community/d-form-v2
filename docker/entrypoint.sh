@@ -82,6 +82,38 @@ else
     npm run build
 fi
 
+# Inertia SSR lokal: build sekali bila belum ada, lalu jalankan dengan loop restart
+# supaya error render langsung terlihat di log container. Tanpa proses ini Laravel
+# otomatis fallback ke render client-side.
+if [ "$APP_ENV" = "local" ]; then
+    if [ ! -f /app/bootstrap/ssr/ssr.js ]; then
+        echo "Building SSR bundle (sekali)..."
+        npm run build:ssr
+    fi
+
+    echo "Starting Inertia SSR..."
+    (
+        while true; do
+            node /app/bootstrap/ssr/ssr.js || true
+            echo "SSR process exited; restarting in 2s..." >&2
+            sleep 2
+        done
+    ) &
+fi
+
+# Worker queue OTP: email registrasi dikirim lewat queue Redis. Matikan dengan
+# QUEUE_WORKER=0 bila worker dijalankan terpisah; loop restart menjaga worker hidup.
+if [ "${QUEUE_WORKER:-1}" = "1" ]; then
+    echo "Starting queue worker..."
+    (
+        while true; do
+            php artisan queue:work redis --sleep=1 --tries=3 --timeout=90 || true
+            echo "Queue worker exited; restarting in 2s..." >&2
+            sleep 2
+        done
+    ) &
+fi
+
 echo "Starting Octane with FrankenPHP..."
 # Execute as www-data if possible, or frankenphp will handle it
 exec php artisan octane:frankenphp "$@" --host=0.0.0.0 --port=8000

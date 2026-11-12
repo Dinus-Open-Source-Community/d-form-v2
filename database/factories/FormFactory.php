@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\FormStatus;
 use App\Models\Event;
 use App\Models\Form;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +26,7 @@ class FormFactory extends Factory
             'banner_url' => null,
             'banner_caption' => null,
             'metadata' => null,
+            'status' => FormStatus::Published,
         ];
     }
 }

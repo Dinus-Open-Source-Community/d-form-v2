@@ -7,6 +7,7 @@ use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\AttendanceMethod;
 use App\Enums\Recruitment\EvaluationRecommendation;
 use App\Enums\Recruitment\InterviewStatus;
+use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentDivision;
@@ -19,6 +20,7 @@ use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RecruitmentInterviewExportTest extends TestCase
@@ -186,11 +188,182 @@ class RecruitmentInterviewExportTest extends TestCase
         self::assertSame(["'".'=CMD|calc.exe'], str_getcsv($lines[1]));
     }
 
-    public function test_export_forbidden_without_schedule_permission(): void
+    public function test_export_keeps_backslash_quote_payload_inside_one_cell(): void
+    {
+        $payload = '\\",=1+1';
+
+        $this->makeInterviewRow(fullName: $payload, withEvaluation: false);
+
+        $content = $this->exportContent(['columns' => ['registration_number', 'full_name', 'nim']]);
+        $lines = $this->csvLines($content);
+
+        self::assertCount(2, $lines);
+        // Escape backslash dimatikan sehingga `"` selalu digandakan (RFC 4180).
+        self::assertStringContainsString('"\"",=1+1"', $content);
+
+        $row = $this->parseRfc4180Row($lines[1]);
+
+        self::assertCount(3, $row);
+        self::assertSame($payload, $row[1]);
+
+        foreach ($row as $cell) {
+            self::assertFalse(str_starts_with($cell, '='), 'Sel CSV tidak boleh dimulai dengan formulir: '.$cell);
+        }
+    }
+
+    public function test_export_keeps_backslash_quote_formula_payload_inside_one_cell(): void
+    {
+        $payload = 'abc\\",=cmd|\\\' /C calc\\\'!A0';
+
+        $this->makeInterviewRow(fullName: $payload, withEvaluation: false);
+
+        $content = $this->exportContent(['columns' => ['registration_number', 'full_name', 'nim']]);
+        $lines = $this->csvLines($content);
+
+        self::assertCount(2, $lines);
+
+        $row = $this->parseRfc4180Row($lines[1]);
+
+        self::assertCount(3, $row);
+        self::assertSame($payload, $row[1]);
+
+        foreach ($row as $cell) {
+            self::assertFalse(str_starts_with($cell, '='), 'Sel CSV tidak boleh dimulai dengan formulir: '.$cell);
+        }
+    }
+
+    public function test_export_records_actor_period_scope_and_row_count_without_pii(): void
+    {
+        $interview = $this->makeInterviewRow(fullName: 'Sensitive Applicant Name', withEvaluation: true);
+        $interview->load('application');
+        $application = $interview->application;
+        self::assertInstanceOf(RecruitmentApplication::class, $application);
+
+        $this->exportContent();
+
+        $audit = RecruitmentActivityLog::query()
+            ->where('action', 'export.generated')
+            ->where('entity_type', 'recruitment_export')
+            ->firstOrFail();
+
+        self::assertSame($this->staff->id, $audit->actor_id);
+        self::assertSame($this->period->id, $audit->recruitment_period_id);
+        self::assertSame('recruitment_export', $audit->entity_type);
+        // `entity_id` is a UUID column (char(36) on MySQL/MariaDB): the 44-char scope
+        // must never land there or strict-mode inserts drop the audit row silently.
+        self::assertNull($audit->entity_id);
+        self::assertSame([
+            'scope' => 'interviews:all:secondary=included:columns=28',
+            'rows_generated' => 1,
+        ], $audit->new_values);
+        self::assertNotNull($audit->created_at);
+
+        $auditPayload = json_encode($audit->getAttributes(), JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString($application->full_name, $auditPayload);
+        self::assertStringNotContainsString($application->nim, $auditPayload);
+        self::assertStringNotContainsString($application->personal_email, $auditPayload);
+        self::assertStringNotContainsString($application->phone, $auditPayload);
+    }
+
+    public function test_be_p1_010_export_forbidden_without_schedule_permission(): void
     {
         $this->actingAs($this->interviewer)
             ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
             ->assertForbidden();
+    }
+
+    public function test_be_p1_010_export_requires_application_export_permission(): void
+    {
+        $interviewer = User::factory()->create();
+        $interviewer->assignRole('recruitment-interviewer');
+        $interviewer->givePermissionTo('recruitment.interviews.schedule');
+        $interviewer->givePermissionTo('recruitment.periods.view');
+
+        $this->actingAs($interviewer)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+            ->assertForbidden();
+    }
+
+    public function test_be_p1_010_non_owner_without_period_view_cannot_export(): void
+    {
+        $nonOwner = User::factory()->create();
+        $nonOwner->assignRole('recruitment-staff');
+
+        $this->actingAs($nonOwner)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+            ->assertForbidden();
+    }
+
+    public function test_be_p1_010_malformed_and_unknown_period_ids_return_not_found(): void
+    {
+        $this->actingAs($this->staff)
+            ->get('/admin/recruitment/periods/not-a-uuid/interviews/export.csv')
+            ->assertNotFound();
+
+        $this->actingAs($this->staff)
+            ->get('/admin/recruitment/periods/'.Str::uuid().'/interviews/export.csv')
+            ->assertNotFound();
+    }
+
+    public function test_be_p1_010_foreign_period_is_forbidden_without_leaking_its_rows(): void
+    {
+        $foreignPeriod = RecruitmentPeriod::factory()->create(['created_by' => User::factory()->create()->id]);
+        RecruitmentApplication::factory()->create([
+            'recruitment_period_id' => $foreignPeriod->id,
+            'primary_division_id' => $this->programming->id,
+            'full_name' => 'Foreign Period Applicant',
+            'stage' => ApplicationStage::Interview,
+            'result' => ApplicationResult::Pending,
+        ]);
+
+        $nonOwner = User::factory()->create();
+        $nonOwner->assignRole('recruitment-staff');
+
+        $response = $this->actingAs($nonOwner)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $foreignPeriod))
+            ->assertForbidden();
+
+        self::assertStringNotContainsString('Foreign Period Applicant', (string) $response->getContent());
+    }
+
+    public function test_be_p1_010_owner_and_super_admin_can_export(): void
+    {
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+            ->assertOk();
+
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super-admin');
+
+        $this->actingAs($superAdmin)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+            ->assertOk();
+    }
+
+    public function test_be_p1_010_soft_deleted_period_export_returns_not_found(): void
+    {
+        $period = $this->period;
+        $period->delete();
+
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $period))
+            ->assertNotFound();
+    }
+
+    public function test_export_rejects_unknown_scope_on_scope_key(): void
+    {
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period).'?scope=bogus')
+            ->assertRedirect()
+            ->assertSessionHasErrors('scope');
+    }
+
+    public function test_export_rejects_unknown_column_on_columns_key(): void
+    {
+        $this->actingAs($this->staff)
+            ->get(route('dashboard.recruitment.periods.interviews.export', $this->period).'?columns[0]=password')
+            ->assertRedirect()
+            ->assertSessionHasErrors('columns.0');
     }
 
     public function test_export_uses_period_slug_filename(): void
@@ -222,6 +395,53 @@ class RecruitmentInterviewExportTest extends TestCase
     }
 
     /**
+     * L-3: kegagalan streaming tetap meninggalkan satu audit record dengan jumlah
+     * baris yang sudah tertulis (bukan hilang seperti saat audit hanya di akhir).
+     */
+    public function test_export_audits_partial_row_count_when_the_stream_fails_mid_way(): void
+    {
+        config(['recruitment.interview_export_page_size' => 1]);
+
+        $first = $this->makeInterviewRow(fullName: 'Audit First', withEvaluation: false);
+        $second = $this->makeInterviewRow(fullName: 'Audit Second', withEvaluation: false);
+
+        RecruitmentApplication::query()->whereKey($first->recruitment_application_id)
+            ->update(['registration_number' => 'OPREC-2026-00101']);
+        RecruitmentApplication::query()->whereKey($second->recruitment_application_id)
+            ->update(['registration_number' => 'OPREC-2026-00102']);
+
+        // Status tidak valid membuat cast enum melempar saat baris kedua dibentuk,
+        // yaitu setelah baris pertama tertulis ke stream.
+        DB::table('recruitment_interviews')->where('id', $second->id)->update(['status' => 'bogus']);
+
+        $bufferLevel = ob_get_level();
+
+        try {
+            $this->actingAs($this->staff)
+                ->get(route('dashboard.recruitment.periods.interviews.export', $this->period))
+                ->assertOk()
+                ->streamedContent();
+
+            self::fail('Kegagalan stream harus diteruskan ke pemanggil.');
+        } catch (\Throwable $exception) {
+            self::assertStringContainsString('bogus', $exception->getMessage());
+        } finally {
+            // `streamedContent()` tidak menutup buffer-nya saat callback melempar.
+            while (ob_get_level() > $bufferLevel) {
+                ob_end_clean();
+            }
+        }
+
+        $audits = RecruitmentActivityLog::query()->where('action', 'export.generated')->get();
+
+        self::assertCount(1, $audits);
+        self::assertSame([
+            'scope' => 'interviews:all:secondary=included:columns=28',
+            'rows_generated' => 1,
+        ], $audits->first()->new_values);
+    }
+
+    /**
      * @return list<string>
      */
     private function csvLines(string $content): array
@@ -232,6 +452,20 @@ class RecruitmentInterviewExportTest extends TestCase
             array_map(fn (string $line): string => trim($line), explode("\n", trim($content))),
             fn (string $line): bool => $line !== ''
         ));
+    }
+
+    /**
+     * Parser RFC 4180 ketat: escape kosong berarti `"` di dalam sel selalu
+     * digandakan, sehingga payload tidak bisa memecah sel.
+     *
+     * @return list<string>
+     */
+    private function parseRfc4180Row(string $line): array
+    {
+        $cells = str_getcsv($line, ',', '"', '');
+        self::assertIsArray($cells);
+
+        return array_values(array_map(static fn (mixed $cell): string => (string) $cell, $cells));
     }
 
     /**

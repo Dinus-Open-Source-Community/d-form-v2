@@ -4,12 +4,14 @@ namespace App\Http\Requests\Recruitment;
 
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Form\RulesBuilder;
+use App\Rules\SafeUploadFile;
 use App\Services\Recruitment\OprecFormDefinition;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use App\Enums\UploadPurpose;
 
 class OprecFormRequest extends FormRequest
 {
@@ -31,7 +33,10 @@ class OprecFormRequest extends FormRequest
             return self::legacyRules();
         }
 
-        return RulesBuilder::build(RulesBuilder::extractRulesFromFields($fields));
+        return RulesBuilder::build(
+            RulesBuilder::extractRulesFromFields($fields),
+            requireScalarString: true,
+        );
     }
 
     /**
@@ -64,9 +69,9 @@ class OprecFormRequest extends FormRequest
             ],
             'portfolio_type' => ['nullable', Rule::in(['url', 'file', 'none'])],
             'portfolio_url' => ['nullable', 'required_if:portfolio_type,url', 'url', 'starts_with:http://,https://', 'max:500'],
-            'portfolio_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
-            'cv' => ['required', 'file', 'mimes:pdf', 'max:5120'],
-            'instagram_follow_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'portfolio_file' => SafeUploadFile::rules(false, UploadPurpose::RecruitmentPortfolio),
+            'cv' => SafeUploadFile::rules(true, UploadPurpose::RecruitmentCv),
+            'instagram_follow_proof' => SafeUploadFile::rules(true, UploadPurpose::InstagramProof),
             'twibbon_url' => ['required', 'url', 'starts_with:http://,https://', 'max:500'],
         ];
     }

@@ -79,31 +79,36 @@ class RecruitmentTrackingResendEndToEndTest extends TestCase
         Queue::fake();
 
         $staff = $this->staff();
-        $newToken = null;
+        $job = null;
 
         $this->actingAs($staff)
             ->post(route('dashboard.recruitment.applications.resend-tracking', $this->application))
             ->assertRedirect()
             ->assertSessionHas('message');
 
-        Queue::assertPushed(SendRecruitmentApplicationConfirmationJob::class, function (SendRecruitmentApplicationConfirmationJob $job) use (&$newToken): bool {
-            $newToken = $job->trackingToken;
+        Queue::assertPushed(SendRecruitmentApplicationConfirmationJob::class, function (SendRecruitmentApplicationConfirmationJob $queuedJob) use (&$job): bool {
+            $job = $queuedJob;
 
-            return $job->applicationId === $this->application->id
-                && strlen($job->trackingToken) === 8;
+            return $queuedJob->applicationId === $this->application->id
+                && strlen($queuedJob->trackingToken) === 8;
         });
 
-        $this->assertNotNull($newToken);
+        if (! $job instanceof SendRecruitmentApplicationConfirmationJob) {
+            self::fail('Expected a tracking confirmation job to be queued.');
+        }
 
         $this->application->refresh();
-        $this->assertFalse(Hash::check($this->originalToken, (string) $this->application->tracking_token_hash));
-        $this->assertTrue(Hash::check($newToken, (string) $this->application->tracking_token_hash));
+        $this->assertTrue(Hash::check($this->originalToken, (string) $this->application->tracking_token_hash));
+        $this->assertFalse(Hash::check($job->trackingToken, (string) $this->application->tracking_token_hash));
 
-        $job = new SendRecruitmentApplicationConfirmationJob($this->application->id, $newToken);
         $job->handle(
             app(RecruitmentEmailRenderer::class),
             app(RecruitmentTrackingPortalUrlBuilder::class),
         );
+
+        $this->application->refresh();
+        $this->assertFalse(Hash::check($this->originalToken, (string) $this->application->tracking_token_hash));
+        $this->assertTrue(Hash::check($job->trackingToken, (string) $this->application->tracking_token_hash));
 
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, function (RecruitmentApplicationConfirmationMail $mail): bool {
             return $mail->hasTo('applicant@example.com');
@@ -112,13 +117,13 @@ class RecruitmentTrackingResendEndToEndTest extends TestCase
         $authenticator = app(RecruitmentTrackingAuthenticator::class);
         $this->assertNull($authenticator->attempt($this->application->registration_number, $this->originalToken));
 
-        $authenticated = $authenticator->attempt($this->application->registration_number, $newToken);
+        $authenticated = $authenticator->attempt($this->application->registration_number, $job->trackingToken);
         $this->assertNotNull($authenticated);
         $this->assertTrue($authenticated->is($this->application));
 
         $this->post(route('recruitment.track.authenticate'), [
             'registration_number' => $this->application->registration_number,
-            'tracking_token' => $newToken,
+            'tracking_token' => $job->trackingToken,
         ])
             ->assertRedirect(route('recruitment.track.show', absolute: false));
 

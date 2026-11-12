@@ -6,19 +6,28 @@ import EventHighlight from '@/components/modules/landing/events/EventHighlight.v
 import EventList from '@/components/modules/landing/events/EventList.vue';
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import type { SharedSeoProps } from '@/types/seo';
+import type { ISharedSeoProps } from '@/types/seo';
 import { routes } from '@/lib/routes';
 
 const props = defineProps<{
     events: IEvent[];
+    highlight: IEvent[];
+    pagination?: {
+        links: { url: string | null; label: string; active: boolean }[];
+        currentPage: number;
+        hasMore: boolean;
+    };
+    filters?: { q: string | null };
+    searchError?: string | null;
+    errors?: { q?: string };
 }>();
 
 const page = usePage();
-const seo = computed(() => (page.props as { seo: SharedSeoProps }).seo);
+const seo = computed(() => (page.props as { seo: ISharedSeoProps }).seo);
 
 const listDescription = computed(
     () =>
-        'Daftar acara terpublikasi: jelajahi workshop, seminar, dan kompetisi. Daftar sebagai peserta dalam beberapa langkah.',
+        'Daftar acara terpublikasi: jelajahi workshop, seminar, dan kompetisi. Daftar sebagai peserta dalam beberapa langkah.'
 );
 
 const jsonLd = computed<Record<string, unknown>[]>(() => {
@@ -70,7 +79,13 @@ const jsonLd = computed<Record<string, unknown>[]>(() => {
             :json-ld="jsonLd"
         />
         <EventHero />
-        <EventHighlight :events="events" />
-        <EventList :events="events" />
+        <EventHighlight :events="highlight" />
+        <EventList
+            :events="events"
+            :pagination="pagination"
+            :filters="filters"
+            :search-error="searchError ?? null"
+            :errors="errors"
+        />
     </LandingLayout>
 </template>

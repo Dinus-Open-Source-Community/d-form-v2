@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -17,14 +17,19 @@ import {
     ChevronDown,
     ChevronUp,
     Eye,
+    Inbox,
 } from 'lucide-vue-next';
 import { edit as editEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
-import { handleInertiaFormErrors, humanizeErrorMessage } from '@/lib/error-message';
+import { humanizeErrorMessage } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import type { IEventFormSummary } from '@/types/form';
+
+const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
 
 const props = defineProps<{
     event: IEvent;
-    forms: { id: string; title: string }[];
+    forms: IEventFormSummary[];
     cardShadow: string;
     /** URL halaman laporan & log kehadiran untuk acara ini. */
     laporanHref?: string | null;
@@ -36,8 +41,8 @@ const visibleForms = computed(() => (showAllForms.value ? props.forms : props.fo
 const hiddenCount = computed(() => Math.max(0, props.forms.length - VISIBLE_LIMIT));
 
 const showDeleteModal = ref(false);
-const deleteTarget = ref<{ id: string; title: string } | null>(null);
-function startDelete(f: { id: string; title: string }): void {
+const deleteTarget = ref<IEventFormSummary | null>(null);
+function startDelete(f: IEventFormSummary): void {
     deleteTarget.value = f;
     showDeleteModal.value = true;
 }
@@ -46,7 +51,7 @@ function confirmDelete(): void {
     router.delete(routes.admin.events.forms.destroy(props.event.id, deleteTarget.value.id), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success(humanizeErrorMessage('Form deleted.'));
+            showSuccessToast(humanizeErrorMessage('Form deleted.'));
             showDeleteModal.value = false;
             deleteTarget.value = null;
         },
@@ -125,13 +130,22 @@ defineEmits<{
                         >
                             <Link
                                 :href="routes.admin.events.forms.show(props.event.id, form.id)"
-                                class="flex min-w-0 flex-1 items-center gap-2 py-0.5"
+                                class="flex min-w-0 flex-[3] items-center gap-2 py-0.5"
                             >
                                 <FileText class="text-muted-foreground size-3.5 shrink-0" />
                                 <span class="text-foreground truncate text-xs font-medium">{{ form.title }}</span>
+                                <Badge
+                                    v-if="form.is_draft"
+                                    variant="outline"
+                                    class="border-warning/30 bg-warning/10 text-warning shrink-0 px-1.5 py-0 text-[10px] font-semibold tracking-wide uppercase"
+                                    title="Belum dipublikasikan"
+                                >
+                                    Draf
+                                    <span class="sr-only">(belum dipublikasikan)</span>
+                                </Badge>
                             </Link>
                             <div
-                                class="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+                                class="flex min-w-0 flex-1 shrink-0 items-center justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                             >
                                 <Link
                                     :href="routes.admin.events.forms.show(props.event.id, form.id)"
@@ -139,6 +153,13 @@ defineEmits<{
                                     :aria-label="`Detail form ${form.title}`"
                                 >
                                     <Eye class="size-3.5" />
+                                </Link>
+                                <Link
+                                    :href="`${routes.admin.events.forms.show(props.event.id, form.id)}?tab=jawaban`"
+                                    class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-7 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
+                                    :aria-label="`Lihat jawaban form ${form.title}`"
+                                >
+                                    <Inbox class="size-3.5" />
                                 </Link>
                                 <Button
                                     variant="ghost"

@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '@/components/ui/accordion'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useViewportReveal } from '@/hooks/useViewportReveal';
 
 const faqs = [
     {
@@ -44,17 +39,9 @@ const faqs = [
         q: 'Apakah formulir bisa diakses dari HP?',
         a: 'Ya, seluruh halaman DForm — termasuk formulir, dasbor, dan form builder — dirancang responsif dan bisa diakses dengan nyaman dari desktop, tablet, maupun ponsel.',
     },
-]
+];
 
-const visible = ref(false)
-onMounted(() => {
-    const obs = new IntersectionObserver(
-        ([e]) => { if (e?.isIntersecting) { visible.value = true; obs.disconnect() } },
-        { threshold: 0.08 },
-    )
-    const el = document.getElementById('section-faq')
-    if (el) obs.observe(el)
-})
+const { visible } = useViewportReveal({ targetId: 'section-faq', threshold: 0.08 });
 </script>
 
 <template>
@@ -62,39 +49,34 @@ onMounted(() => {
         <div class="mx-auto max-w-3xl px-6 lg:px-10">
             <div
                 :class="[
- 'mb-12 text-center transition-all duration-500',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
- ]"
+                    'mb-12 text-center transition-all duration-500',
+                    visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+                ]"
             >
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">FAQ</p>
-                <h2 class="mt-3 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                <p class="text-primary text-xs font-semibold tracking-[0.2em] uppercase">FAQ</p>
+                <h2 class="font-display text-foreground mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
                     Pertanyaan yang sering diajukan
                 </h2>
-                <p class="mt-3 max-w-lg mx-auto text-base leading-relaxed text-muted-foreground">
+                <p class="text-muted-foreground mx-auto mt-3 max-w-lg text-base leading-relaxed">
                     Belum yakin? Temukan jawaban atas pertanyaan umum tentang DForm di bawah ini.
                 </p>
             </div>
 
             <div
                 :class="[
- 'transition-all delay-75 duration-500',
- visible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0',
- ]"
+                    'transition-all delay-75 duration-500',
+                    visible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0',
+                ]"
             >
                 <Accordion type="single" collapsible class="w-full">
-                    <AccordionItem
-                        v-for="(faq, i) in faqs"
-                        :key="faq.q"
-                        :value="`faq-${i}`"
-                        class="border-border/40"
-                    >
+                    <AccordionItem v-for="(faq, i) in faqs" :key="faq.q" :value="`faq-${i}`" class="border-border/40">
                         <AccordionTrigger
-                            class="py-5 text-left text-sm font-medium leading-snug hover:no-underline data-[state=open]:text-primary sm:text-base"
+                            class="data-[state=open]:text-primary py-5 text-left text-sm leading-snug font-medium hover:no-underline sm:text-base"
                         >
                             {{ faq.q }}
                         </AccordionTrigger>
                         <AccordionContent>
-                            <p class="pb-4 text-sm leading-relaxed text-muted-foreground">
+                            <p class="text-muted-foreground pb-4 text-sm leading-relaxed">
                                 {{ faq.a }}
                             </p>
                         </AccordionContent>

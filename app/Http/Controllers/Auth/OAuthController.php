@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\Auth\OAuthAccountLinker;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteTwoUser;
 
 class OAuthController extends Controller
 {
@@ -22,56 +26,30 @@ class OAuthController extends Controller
     /**
      * Handle Google OAuth callback
      */
-    public function handleGoogleCallback(): RedirectResponse
+    public function handleGoogleCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
             $googleUser = Socialite::driver('google')->user();
-            $emailVerified = (bool) ($googleUser->user['email_verified'] ?? false);
+            $emailVerified = $googleUser instanceof SocialiteTwoUser
+                && filter_var(
+                    $googleUser->getRaw()['email_verified'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN,
+                    FILTER_NULL_ON_FAILURE,
+                ) === true;
 
-            // First check if user exists with this Google ID
-            $user = User::where('google_id', $googleUser->getId())->first();
+            $user = $linker->resolveGoogle($googleUser, $emailVerified);
 
-            // If not found, check by email
-            if (! $user) {
-                $user = User::where('email', $googleUser->getEmail())->first();
+            if ($user === null) {
+                return $this->flashErrorAndRedirect(
+                    'Email Google belum terverifikasi. Masuk dengan kata sandi atau daftar ulang.',
+                );
             }
-
-            if ($user) {
-                // Update existing user with Google ID and avatar if not set
-                if (! $user->google_id) {
-                    $user->update([
-                        'google_id' => $googleUser->getId(),
-                    ]);
-                }
-                if (! $user->avatar) {
-                    $user->update([
-                        'avatar' => $googleUser->getAvatar(),
-                    ]);
-                }
-
-                $this->syncEmailVerifiedFromGoogle($user, $emailVerified);
-
-                Auth::login($user);
-
-                return $this->flashSuccessAndRedirectIntended();
-            }
-
-            // Create new user
-            $user = User::create([
-                'name' => $googleUser->getName(),
-                'email' => $googleUser->getEmail(),
-                'google_id' => $googleUser->getId(),
-                'avatar' => $googleUser->getAvatar(),
-                'password' => null,
-                'email_verified_at' => $emailVerified ? now() : null,
-            ]);
-
-            $user->assignRole('member');
 
             Auth::login($user);
 
             return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
+            $this->logOAuthCallbackFailure('google', $request, $e);
             Inertia::flash('toast', [
                 'type' => 'error',
                 'message' => 'Unable to login with Google. Please try again.',
@@ -92,54 +70,23 @@ class OAuthController extends Controller
     /**
      * Handle GitHub OAuth callback
      */
-    public function handleGithubCallback(): RedirectResponse
+    public function handleGithubCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
             $githubUser = Socialite::driver('github')->user();
+            $user = $linker->resolveGithub($githubUser);
 
-            // First check if user exists with this GitHub ID
-            $user = User::where('github_id', $githubUser->getId())->first();
-
-            // If not found, check by email (only if email is provided)
-            if (! $user && $githubUser->getEmail()) {
-                $user = User::where('email', $githubUser->getEmail())->first();
+            if ($user === null) {
+                return $this->flashErrorAndRedirect(
+                    'GitHub tidak mengirim email terverifikasi. Masuk dengan kata sandi atau daftar ulang.',
+                );
             }
-
-            if ($user) {
-                // Update existing user with GitHub ID and avatar if not set
-                if (! $user->github_id) {
-                    $user->update([
-                        'github_id' => $githubUser->getId(),
-                    ]);
-                }
-                if (! $user->avatar) {
-                    $user->update([
-                        'avatar' => $githubUser->getAvatar(),
-                    ]);
-                }
-
-                Auth::login($user);
-
-                return $this->flashSuccessAndRedirectIntended();
-            }
-
-            // Create new user
-            // Note: GitHub may not always provide email if user hasn't made it public
-            $user = User::create([
-                'name' => $githubUser->getName() ?? $githubUser->getNickname(),
-                'email' => $githubUser->getEmail() ?? $githubUser->getNickname().'@github.local',
-                'github_id' => $githubUser->getId(),
-                'avatar' => $githubUser->getAvatar(),
-                'password' => null,
-                'email_verified_at' => $githubUser->getEmail() ? now() : null,
-            ]);
-
-            $user->assignRole('member');
 
             Auth::login($user);
 
             return $this->flashSuccessAndRedirectIntended();
         } catch (\Exception $e) {
+            $this->logOAuthCallbackFailure('github', $request, $e);
             Inertia::flash('toast', [
                 'type' => 'error',
                 'message' => 'Unable to login with GitHub. Please try again.',
@@ -147,6 +94,16 @@ class OAuthController extends Controller
 
             return redirect()->route('auth.login');
         }
+    }
+
+    private function flashErrorAndRedirect(string $message): RedirectResponse
+    {
+        Inertia::flash('toast', [
+            'type' => 'error',
+            'message' => $message,
+        ]);
+
+        return redirect()->route('auth.login');
     }
 
     private function flashSuccessAndRedirectIntended(): RedirectResponse
@@ -161,11 +118,22 @@ class OAuthController extends Controller
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
-    private function syncEmailVerifiedFromGoogle(User $user, bool $emailVerified): void
+    /**
+     * Record safe OAuth failure metadata without logging provider payloads or exception messages.
+     */
+    private function logOAuthCallbackFailure(string $provider, Request $request, \Exception $exception): void
     {
-        if ($emailVerified && $user->email_verified_at === null) {
-            $user->email_verified_at = now();
-            $user->save();
+        $requestId = $request->header('X-Request-ID');
+
+        if (! is_string($requestId) || ! Str::isUuid($requestId)) {
+            $requestId = (string) Str::uuid();
         }
+
+        Log::error('oauth_callback_failed', [
+            'provider' => $provider,
+            'route' => $request->route()?->getName(),
+            'request_id' => $requestId,
+            'exception_class' => $exception::class,
+        ]);
     }
 }

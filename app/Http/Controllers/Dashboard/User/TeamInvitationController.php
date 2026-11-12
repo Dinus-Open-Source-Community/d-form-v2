@@ -14,8 +14,11 @@ use App\Models\FormField;
 use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
+use App\Services\Registration\FormAnswerFileStorage;
+use App\Services\Registration\FormAnswerInputMapper;
 use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\FormFieldTypeMapping;
+use App\Support\SecretAnswerInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -29,6 +32,8 @@ class TeamInvitationController extends Controller
 {
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
+        private FormAnswerFileStorage $formAnswerFiles,
+        private FormAnswerInputMapper $formAnswerInputMapper,
     ) {
     }
 
@@ -48,11 +53,11 @@ class TeamInvitationController extends Controller
         $this->applyPendingExpiry($answer);
 
         if ($answer->member_confirmation_status === MemberConfirmationStatus::Expired) {
-            throw new HttpException(403, __('This invitation has expired.'));
+            throw new HttpException(403, (string) __('This invitation has expired.'));
         }
 
         if ($answer->member_confirmation_status === MemberConfirmationStatus::Rejected) {
-            throw new HttpException(403, __('This invitation was declined.'));
+            throw new HttpException(403, (string) __('This invitation was declined.'));
         }
 
         $form->loadMissing(['formFields' => fn ($q) => $q->orderBy('order'), 'event']);
@@ -63,6 +68,12 @@ class TeamInvitationController extends Controller
             ->all();
 
         $leaderUser = $answer->teamLeaderSubmission?->user;
+        $answers = is_array($answer->answers) ? $answer->answers : [];
+        $fileFieldNames = $form->formFields
+            ->where('input_type', 'fileUpload')
+            ->pluck('name')
+            ->values()
+            ->all();
 
         return Inertia::render('Dashboard/User/TeamInvitation', [
             'event'       => [
@@ -75,7 +86,7 @@ class TeamInvitationController extends Controller
                 'title' => $form->title,
             ],
             'fields'      => $fields,
-            'answers'     => $answer->answers ?? [],
+            'answers'     => $this->formAnswerFiles->answerUrls($answer, $answers, $fileFieldNames),
             'leader'      => [
                 'name'  => $leaderUser?->name ?? '',
                 'email' => $leaderUser?->email ?? '',
@@ -85,6 +96,11 @@ class TeamInvitationController extends Controller
         ]);
     }
 
+    /**
+     * Validasi tetap inline: aturannya baru relevan setelah token terbukti milik
+     * user (403), berstatus pending, dan form-nya tim/bundle (404); Form Request
+     * akan memvalidasi lebih dulu sehingga mengubah urutan respons tersebut.
+     */
     public function update(Request $request, string $token): RedirectResponse
     {
         $answer = $this->loadInvitationAnswer($token);
@@ -113,7 +129,7 @@ class TeamInvitationController extends Controller
             'invitation_decision' => ['required', Rule::in(['accept', 'reject'])],
             'decline_reason' => [
                 'nullable',
-                Rule::requiredIf(fn () => $request->input('invitation_decision') === 'reject'),
+                Rule::requiredIf(fn (): bool => $request->input('invitation_decision') === 'reject'),
                 'string',
                 'max:2000',
             ],
@@ -124,7 +140,7 @@ class TeamInvitationController extends Controller
             $answer->forceFill([
                 'member_confirmation_status' => MemberConfirmationStatus::Rejected,
             ])->save();
-            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh());
+            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh() ?? $answer);
 
             $answerId = (string) $answer->id;
             $declineReasonForEmail = $data['decline_reason'];
@@ -179,29 +195,16 @@ class TeamInvitationController extends Controller
         if ($validator->fails()) {
             return redirect()->route('dashboard.user.team-invitations.show', ['token' => $token])
                 ->withErrors($validator)
-                ->withInput();
+                ->withInput(SecretAnswerInput::flashable($request, $appendableFields));
         }
 
-        foreach ($appendableFields as $field) {
-            $name     = $field->name;
-            $metadata = $field->metadata;
-            $meta     = $metadata instanceof \Illuminate\Support\Collection
-                ? $metadata->all()
-                : (array) $metadata;
-
-            if ($field->input_type === 'fileUpload') {
-                $file = $request->file($name);
-                if ($file !== null) {
-                    $answers[$name] = $file->store("form-uploads/{$form->id}", 'public');
-                }
-            } elseif ($field->input_type === 'checkbox') {
-                $answers[$name] = $request->input($name, []);
-            } elseif ($field->input_type === 'selectInput' && ! empty($meta['is_multiple'])) {
-                $answers[$name] = $request->input($name, []);
-            } else {
-                $answers[$name] = $request->input($name);
-            }
-        }
+        $answers = $this->formAnswerInputMapper->mergeAnswers(
+            $validator->validated(),
+            $appendableFields,
+            $form,
+            $answers,
+            preserveStoredFiles: true,
+        );
 
         $answer->forceFill([
             'answers' => $answers,
@@ -245,7 +248,7 @@ class TeamInvitationController extends Controller
             $answer->forceFill([
                 'member_confirmation_status' => MemberConfirmationStatus::Expired,
             ])->save();
-            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh());
+            $this->registrationCounter->releaseIfStoppedOccupying($before, $answer->fresh() ?? $answer);
         }
     }
 
@@ -275,7 +278,7 @@ class TeamInvitationController extends Controller
             }
 
             $laravelRules[$name] = array_map(
-                fn (string $rule) => $rule === 'required' ? 'nullable' : $rule,
+                static fn (mixed $rule): mixed => $rule === 'required' ? 'nullable' : $rule,
                 $laravelRules[$name]
             );
         }

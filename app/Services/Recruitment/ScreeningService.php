@@ -93,13 +93,15 @@ final class ScreeningService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null);
+            SendRecruitmentNotificationJob::dispatch($application->id, 'passed_screening', null, null, null, $resolvedUrl !== null && trim((string) $resolvedUrl) !== '' ? (string) $resolvedUrl : null)
+                ->afterCommit();
 
             $freshApplication = $application->fresh();
             $interview = $freshApplication !== null ? $this->autoEnroll->enroll($freshApplication) : null;
 
             if ($interview !== null) {
-                SendRecruitmentNotificationJob::dispatch($application->id, 'interview_scheduled', $interview->id);
+                SendRecruitmentNotificationJob::dispatch($application->id, 'interview_scheduled', $interview->id)
+                    ->afterCommit();
             }
 
             return $screening;
@@ -149,13 +151,15 @@ final class ScreeningService
                     'reason' => $reason->value,
                     'sections' => $sections,
                     'notes' => $notes,
+                    'notes_present' => $notes !== null && trim($notes) !== '',
                 ],
                 entityType: 'recruitment_screening',
                 entityId: $screening->id,
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'revision_required', null, $sections, $notes);
+            SendRecruitmentNotificationJob::dispatch($application->id, 'revision_required', null, $sections, $notes)
+                ->afterCommit();
 
             return $screening;
         });
@@ -220,7 +224,8 @@ final class ScreeningService
                 request: $request,
             );
 
-            SendRecruitmentNotificationJob::dispatch($application->id, 'rejected_screening');
+            SendRecruitmentNotificationJob::dispatch($application->id, 'rejected_screening')
+                ->afterCommit();
 
             return $screening;
         });

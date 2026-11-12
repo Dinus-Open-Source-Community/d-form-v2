@@ -1,17 +1,24 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
-import { useFormFillPage } from '@/utils/composables/useFormFillPage';
-import { useAutosaveSync, type AutosaveStatus as AutosaveStatusType } from '@/utils/composables/useAutosaveSync';
+import { useFormFillPage } from '@/hooks/useFormFillPage';
+import { useAutosaveSync, type TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import { readFieldRules } from '@/lib/formFieldMetadata';
-import type { FormFillPageEvent, FormFillPageForm } from '@/types/form';
+import type { IFormFillPageEvent, IFormFillPageForm } from '@/types/form';
 import { routes } from '@/lib/routes';
-import { CircleAlert } from 'lucide-vue-next';
+import { formatDateTime } from '@/lib/dateTime';
+import { CircleAlert, TriangleAlert } from 'lucide-vue-next';
+import { currentHref, currentSearchParam, pushUrl, replaceUrl } from '@/adapters/browser/navigation';
+import { focusElementById } from '@/adapters/browser/domQuery';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
+import { readStorage, removeStorage, writeStorage } from '@/adapters/browser/storage';
+import { openUrlInNewTab } from '@/adapters/browser/fileDownload';
+import { parseOprecDraft, serializeOprecDraft, toOprecDraftValue, type TJsonValue } from '@/lib/oprecDraft';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -19,32 +26,45 @@ interface ApplyPageProps {
     period: Record<string, unknown> | null;
     registration: { is_open: boolean; message: string | null };
     divisions: Array<Record<string, unknown>>;
-    oprecForm: FormFillPageForm;
-    oprecEvent: FormFillPageEvent;
+    oprecForm: IFormFillPageForm;
+    oprecEvent: IFormFillPageEvent;
     fields: IFormField[];
     submitUrl: string;
 }
 
 const props = defineProps<ApplyPageProps>();
 
-const ctx = useFormFillPage({
-    event: props.oprecEvent,
-    form: props.oprecForm,
-    fields: props.fields,
-    submitUrl: props.submitUrl,
-    accessStatus: 'allowed',
-    accessMessage: '',
-    memberSlots: 0,
-    registrationMode: 'single',
-});
+// reactive() membuka ref hasil hook agar template menerima nilai, bukan objek ComputedRef.
+const ctx = reactive(
+    useFormFillPage({
+        event: props.oprecEvent,
+        form: props.oprecForm,
+        fields: props.fields,
+        submitUrl: props.submitUrl,
+        accessStatus: 'allowed',
+        accessMessage: '',
+        memberSlots: 0,
+        registrationMode: 'single',
+    })
+);
 
 const DRAFT_KEY = 'oprec-apply-draft-v1';
+const DRAFT_STORAGE_UNAVAILABLE_MESSAGE = 'Penyimpanan browser tidak tersedia.';
+const DRAFT_CORRUPT_NOTICE = 'Draft lokal rusak dan dibersihkan. Isian baru bisa dikirim seperti biasa.';
+const DRAFT_CORRUPT_NOTICE_UNDELETED =
+    'Draft lokal rusak dan tidak bisa dibersihkan otomatis. Hapus data situs ini dari pengaturan browser.';
 const TOTAL_STEPS = 3;
 const STEP_LIST = [1, 2, 3];
 const currentStep = ref<number>(1);
 const clientErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 const savedAt = ref<Date | null>(null);
+/** Pesan kegagalan tulis draft; kosong lagi setelah draft berhasil tersimpan. */
+const draftError = ref<string>('');
+/** Notice sekali jalan saat draft lokal yang tersimpan ternyata tidak bisa dibaca. */
+const draftCorruptNotice = ref<string>('');
+/** False sampai probe mount selesai; klaim "tersimpan otomatis" menunggu bukti storage bisa ditulis. */
+const draftStorageReady = ref<boolean>(false);
 
 function stepOf(field: IFormField): number {
     return typeof field.metadata.step === 'number' ? field.metadata.step : 0;
@@ -60,10 +80,10 @@ function isEmptyValue(value: unknown): boolean {
 
 /** Sembunyikan cabang portfolio yang tak dipilih; belum pilih / none = keduanya opsional tampil. */
 function isFieldVisible(field: IFormField): boolean {
-    const portfolioType: unknown = ctx.answerForm['portfolio_type']
-    if (field.name === 'portfolio_url') return portfolioType !== 'file' && portfolioType !== 'none'
-    if (field.name === 'portfolio_file') return portfolioType !== 'url' && portfolioType !== 'none'
-    return true
+    const portfolioType: unknown = ctx.answerForm['portfolio_type'];
+    if (field.name === 'portfolio_url') return portfolioType !== 'file' && portfolioType !== 'none';
+    if (field.name === 'portfolio_file') return portfolioType !== 'url' && portfolioType !== 'none';
+    return true;
 }
 
 function validateStep(step: number): boolean {
@@ -117,19 +137,15 @@ function cardErrorClass(field: IFormField): string {
 function focusFirstInvalidField(step: number): void {
     const target = stepFields(step).find((field) => fieldHasError(field));
     if (!target) return;
-    const control = document.getElementById(target.name);
-    if (control instanceof HTMLElement) {
-        control.focus();
-        return;
-    }
-    document.getElementById(fieldCardId(target))?.focus();
+    if (focusElementById(target.name)) return;
+    focusElementById(fieldCardId(target));
 }
 
 function syncStepToUrl(step: number, replace: boolean): void {
-    const url = new URL(window.location.href);
+    const url = new URL(currentHref());
     url.searchParams.set('step', String(step));
-    if (replace) window.history.replaceState({}, '', url);
-    else window.history.pushState({}, '', url);
+    if (replace) replaceUrl(url);
+    else pushUrl(url);
 }
 
 function goToStep(step: number): void {
@@ -143,7 +159,7 @@ function goToStep(step: number): void {
 }
 
 function onPopState(): void {
-    const step = Number(new URL(window.location.href).searchParams.get('step') || '1');
+    const step = Number(currentSearchParam('step') || '1');
     if (step >= 1 && step <= TOTAL_STEPS) {
         currentStep.value = step;
         clientErrors.value = {};
@@ -151,12 +167,12 @@ function onPopState(): void {
 }
 
 function draftSnapshot(): string {
-    const values: Record<string, unknown> = {};
+    const values: Record<string, TJsonValue> = {};
     for (const [key, value] of Object.entries(ctx.answerForm.data())) {
-        if (value instanceof File) continue;
-        values[key] = value;
+        const draftValue = toOprecDraftValue(value);
+        if (draftValue !== undefined) values[key] = draftValue;
     }
-    return JSON.stringify({ step: currentStep.value, values });
+    return serializeOprecDraft({ step: currentStep.value, values });
 }
 
 const {
@@ -167,15 +183,27 @@ const {
     debounceMs: 800,
     storageKey: DRAFT_KEY,
     storage: {
-        read: (key: string): string | null => window.localStorage.getItem(key),
-        write: (key: string, value: string): void => window.localStorage.setItem(key, value),
-        remove: (key: string): void => window.localStorage.removeItem(key),
+        read: (key: string): string | null => readStorage({ area: 'local', key }),
+        write: (key: string, value: string): void => {
+            if (!writeStorage({ area: 'local', key, value })) {
+                throw new Error(DRAFT_STORAGE_UNAVAILABLE_MESSAGE);
+            }
+            // Tulis berhasil = draft kembali tersimpan, jadi status gagal dicabut di sini.
+            draftError.value = '';
+        },
+        remove: (key: string): void => {
+            removeStorage({ area: 'local', key });
+        },
     },
-    onError: () => {},
+    onError: (message: string): void => {
+        draftError.value = message;
+    },
 });
 
-watch(draftStatus, (value: AutosaveStatusType): void => {
-    if (value === 'saved') savedAt.value = new Date();
+watch(draftStatus, (value: TAutosaveStatus): void => {
+    if (value !== 'saved') return;
+    savedAt.value = new Date();
+    draftCorruptNotice.value = '';
 });
 
 /** Hapus pesan error begitu isian sudah diperbaiki, agar card-nya tidak tetap merah. */
@@ -195,35 +223,41 @@ watch(
 const draftStatusText = computed((): string => {
     if (draftStatus.value === 'saving') return 'Menyimpan…';
     if (draftStatus.value === 'saved') {
-        const time = savedAt.value?.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) ?? '';
+        const time = formatDateTime({ value: savedAt.value?.toISOString(), variant: 'time-short' });
         return `Draft tersimpan otomatis · ${time}`;
     }
     return '';
 });
 
-function isDraftShape(value: unknown): value is { step?: unknown; values?: unknown } {
-    return typeof value === 'object' && value !== null;
+/** Probe sekali saat mount: klaim "tersimpan otomatis" tidak boleh muncul sebelum storage terbukti bisa ditulis. */
+function probeDraftStorage(): void {
+    const probeKey = `${DRAFT_KEY}::probe`;
+    const writable = writeStorage({ area: 'local', key: probeKey, value: '1' });
+    removeStorage({ area: 'local', key: probeKey });
+
+    if (!writable) draftError.value = DRAFT_STORAGE_UNAVAILABLE_MESSAGE;
+    draftStorageReady.value = true;
+}
+
+/** Buang draft yang tidak bisa dibaca; notice hanya mengklaim bersih bila penghapusan benar-benar berhasil. */
+function discardCorruptDraft(): void {
+    const cleared = removeStorage({ area: 'local', key: DRAFT_KEY });
+    draftCorruptNotice.value = cleared ? DRAFT_CORRUPT_NOTICE : DRAFT_CORRUPT_NOTICE_UNDELETED;
 }
 
 function restoreDraft(): void {
-    const raw = window.localStorage.getItem(DRAFT_KEY);
+    const raw = readStorage({ area: 'local', key: DRAFT_KEY });
     if (!raw) return;
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
+    const parsed = parseOprecDraft(raw);
+    if (parsed === null) {
+        discardCorruptDraft();
         return;
     }
-    if (!isDraftShape(parsed)) return;
-    if (typeof parsed.step === 'number' && parsed.step >= 1 && parsed.step <= TOTAL_STEPS) {
+    if (parsed.step !== undefined && parsed.step >= 1 && parsed.step <= TOTAL_STEPS) {
         currentStep.value = parsed.step;
     }
-    if (typeof parsed.values === 'object' && parsed.values !== null) {
-        for (const [key, value] of Object.entries(parsed.values)) {
-            if (typeof value === 'string' && key in ctx.answerForm) {
-                ctx.answerForm[key] = value;
-            }
-        }
+    for (const [key, value] of Object.entries(parsed.values)) {
+        if (key in ctx.answerForm) Object.assign(ctx.answerForm, { [key]: value });
     }
 }
 
@@ -255,7 +289,12 @@ async function submitStep(): Promise<void> {
     await flushDraft();
     ctx.answerForm.post(props.submitUrl, {
         forceFormData: true,
-        onSuccess: () => window.localStorage.removeItem(DRAFT_KEY),
+        onSuccess: () => {
+            const cleared = removeStorage({ area: 'local', key: DRAFT_KEY });
+            draftError.value = '';
+            // Halaman berpindah ke halaman sukses; notice hanya dihapus bila key benar-benar hilang.
+            if (cleared) draftCorruptNotice.value = '';
+        },
         onError: () => {
             isSubmitting.value = false;
             const step = firstStepWithErrors();
@@ -267,14 +306,17 @@ async function submitStep(): Promise<void> {
 }
 
 function openUploadLightbox(src: string | undefined): void {
-    if (src) window.open(src, '_blank', 'noopener');
+    if (src) openUrlInNewTab(src);
 }
 
 const reviewRows = computed((): Array<{ label: string; value: string }> => {
     const get = (name: string): string => {
         const value: unknown = ctx.answerForm[name];
         if (value instanceof File) return value.name;
-        return typeof value === 'string' && value !== '' ? value : '—';
+        if (typeof value === 'string' && value !== '') return value;
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        if (Array.isArray(value) && value.length > 0) return value.join(', ');
+        return '—';
     };
     return [
         { label: 'Nama Lengkap', value: get('full_name') },
@@ -295,16 +337,19 @@ const reviewRows = computed((): Array<{ label: string; value: string }> => {
     ];
 });
 
+let releasePopState = (): void => undefined;
+
 onMounted(() => {
-    const fromUrl = Number(new URL(window.location.href).searchParams.get('step') || '1');
+    const fromUrl = Number(currentSearchParam('step') || '1');
     if (fromUrl >= 1 && fromUrl <= TOTAL_STEPS) currentStep.value = fromUrl;
+    probeDraftStorage();
     restoreDraft();
     syncStepToUrl(currentStep.value, true);
-    window.addEventListener('popstate', onPopState);
+    releasePopState = onWindowEvent('popstate', onPopState);
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener('popstate', onPopState);
+    releasePopState();
     cancelDraft();
 });
 
@@ -332,7 +377,34 @@ const periodName = computed((): string => {
             <h1 class="text-2xl font-bold tracking-tight">Formulir Pendaftaran</h1>
             <p v-if="period" class="text-muted-foreground text-sm">{{ periodName }}</p>
 
-            <AutosaveStatus :status="draftStatus" :saved-text="draftStatusText" variant="block" />
+            <AutosaveStatus :status="draftError ? 'idle' : draftStatus" :saved-text="draftStatusText" variant="block" />
+
+            <div
+                v-if="draftError || draftCorruptNotice"
+                role="status"
+                aria-live="polite"
+                class="border-warning/50 bg-warning/10 mt-2 flex items-start gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm"
+            >
+                <span
+                    class="border-warning/30 bg-warning/15 text-warning-foreground mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border"
+                >
+                    <TriangleAlert class="size-4" aria-hidden="true" />
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-foreground text-sm font-medium">
+                        <template v-if="draftError">
+                            Draft tidak tersimpan di perangkat ini — isian tetap bisa dikirim.
+                        </template>
+                        <template v-else>{{ draftCorruptNotice }}</template>
+                    </p>
+                    <p v-if="draftError" class="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                        {{ draftError }}
+                    </p>
+                    <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                        File tidak ikut tersimpan — pilih ulang CV dan file portfolio sebelum submit.
+                    </p>
+                </div>
+            </div>
         </div>
 
         <Card v-if="isBlocked" class="border-border/70 rounded-2xl">
@@ -392,14 +464,13 @@ const periodName = computed((): string => {
                 </div>
             </nav>
 
-            <div
-                class="border-border/70 bg-muted/40 mb-4 rounded-xl border border-dashed px-4 py-3 text-xs leading-relaxed"
+            <p
+                v-if="draftStorageReady && !draftError && !draftCorruptNotice"
+                class="text-muted-foreground mb-4 px-1 text-center text-xs leading-relaxed"
             >
-                <p class="text-foreground font-medium">Draft tersimpan otomatis di browser ini</p>
-                <p class="text-muted-foreground mt-0.5">
-                    File tidak ikut tersimpan — pilih ulang CV dan file portfolio sebelum submit.
-                </p>
-            </div>
+                Draft tersimpan otomatis di browser ini. File tidak ikut tersimpan — pilih ulang CV dan file portfolio
+                sebelum submit.
+            </p>
 
             <template v-for="step in STEP_LIST" :key="step">
                 <div v-show="currentStep === step" class="flex flex-col gap-4">
@@ -465,11 +536,7 @@ const periodName = computed((): string => {
                             :disabled="isSubmitting || ctx.answerForm.processing"
                             @click="submitStep"
                         >
-                            {{
-                                isSubmitting || ctx.answerForm.processing
-                                    ? 'Mengirim…'
-                                    : 'Kirim Pendaftaran'
-                            }}
+                            {{ isSubmitting || ctx.answerForm.processing ? 'Mengirim…' : 'Kirim Pendaftaran' }}
                         </Button>
                     </div>
                 </div>

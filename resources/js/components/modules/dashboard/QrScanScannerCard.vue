@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { Camera, ShieldAlert } from 'lucide-vue-next'
+import { computed } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { Camera, ShieldAlert } from 'lucide-vue-next';
 
 const props = defineProps<{
-    scannerContainerId: string
-    eventLabel: string
-    cameras: Array<{ id: string; label: string }>
-    selectedCameraId: string
-    isStartingCamera: boolean
-    isCameraReady: boolean
-    isShutterActive: boolean
-    permissionError: string
-}>()
+    scannerContainerId: string;
+    eventLabel: string;
+    cameras: Array<{ id: string; label: string }>;
+    selectedCameraId: string;
+    isStartingCamera: boolean;
+    isCameraReady: boolean;
+    isShutterActive: boolean;
+    permissionError: string;
+}>();
 
 const cameraOptions = computed<SimpleSelectOption[]>(() =>
-    props.cameras.map((camera) => ({ value: camera.id, label: camera.label })),
-)
+    props.cameras.map((camera) => ({ value: camera.id, label: camera.label }))
+);
 
 defineEmits<{
-    switchCamera: [id: string | undefined]
-    startCamera: []
-    stopCamera: []
-}>()
+    switchCamera: [id: string | undefined];
+    startCamera: [];
+    stopCamera: [];
+}>();
 </script>
 
 <template>
-    <Card class="overflow-hidden rounded-2xl border border-border/70">
-        <CardHeader class="gap-3 border-b bg-muted/20">
+    <Card class="border-border/70 overflow-hidden rounded-2xl border">
+        <CardHeader class="bg-muted/20 gap-3 border-b">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle class="text-base font-semibold">Area Scanner</CardTitle>
                 <Badge variant="outline" class="max-w-[min(100%,280px)] truncate text-[11px]" :title="eventLabel">
@@ -49,7 +49,11 @@ defineEmits<{
                     @update:model-value="$emit('switchCamera', $event)"
                 />
 
-                <Button class="md:min-w-36" :disabled="isStartingCamera || isCameraReady || !selectedCameraId" @click="$emit('startCamera')">
+                <Button
+                    class="md:min-w-36"
+                    :disabled="isStartingCamera || isCameraReady || !selectedCameraId"
+                    @click="$emit('startCamera')"
+                >
                     <Camera data-icon="inline-start" />
                     {{ isStartingCamera ? 'Menyalakan...' : 'Mulai kamera' }}
                 </Button>
@@ -61,30 +65,37 @@ defineEmits<{
             </div>
         </CardHeader>
         <CardContent class="space-y-4 p-4 md:p-5">
-            <div class="relative overflow-hidden rounded-2xl border border-dashed border-border bg-muted/30 p-3">
+            <div class="border-border bg-muted/30 relative overflow-hidden rounded-2xl border border-dashed p-3">
                 <div class="scanner-stage relative overflow-hidden rounded-xl">
-                    <div
-                        :id="scannerContainerId"
-                        class="min-h-80 w-full overflow-hidden rounded-xl bg-background"
-                    />
+                    <div :id="scannerContainerId" class="bg-background min-h-80 w-full overflow-hidden rounded-xl" />
 
                     <div class="pointer-events-none absolute inset-0 z-20">
-                        <div class="absolute inset-0 rounded-xl border-2 border-primary/25" />
-                        <span class="absolute left-0 top-0 size-7 rounded-tl-xl border-l-4 border-t-4 border-primary/70" />
-                        <span class="absolute right-0 top-0 size-7 rounded-tr-xl border-r-4 border-t-4 border-primary/70" />
-                        <span class="absolute bottom-0 left-0 size-7 rounded-bl-xl border-b-4 border-l-4 border-primary/70" />
-                        <span class="absolute bottom-0 right-0 size-7 rounded-br-xl border-b-4 border-r-4 border-primary/70" />
+                        <div class="border-primary/25 absolute inset-0 rounded-xl border-2" />
+                        <span
+                            class="border-primary/70 absolute top-0 left-0 size-7 rounded-tl-xl border-t-4 border-l-4"
+                        />
+                        <span
+                            class="border-primary/70 absolute top-0 right-0 size-7 rounded-tr-xl border-t-4 border-r-4"
+                        />
+                        <span
+                            class="border-primary/70 absolute bottom-0 left-0 size-7 rounded-bl-xl border-b-4 border-l-4"
+                        />
+                        <span
+                            class="border-primary/70 absolute right-0 bottom-0 size-7 rounded-br-xl border-r-4 border-b-4"
+                        />
 
                         <div
                             v-if="isCameraReady && !isShutterActive"
-                            class="scanner-sweep absolute inset-x-3 top-0 h-0.5 rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent"
+                            class="scanner-sweep via-primary/70 absolute inset-x-3 top-0 h-0.5 rounded-full bg-gradient-to-r from-transparent to-transparent"
                         />
 
                         <div
                             v-if="!isCameraReady && !isShutterActive"
                             class="absolute inset-x-0 bottom-3 flex justify-center px-3"
                         >
-                            <span class="bg-background/85 text-muted-foreground rounded-full px-3 py-1 text-xs font-medium shadow-sm">
+                            <span
+                                class="bg-background/85 text-muted-foreground rounded-full px-3 py-1 text-xs font-medium shadow-sm"
+                            >
                                 Arahkan QR ke seluruh area pindai
                             </span>
                         </div>
@@ -99,7 +110,7 @@ defineEmits<{
 
             <div
                 v-if="permissionError"
-                class="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                class="border-destructive/30 bg-destructive/5 text-destructive rounded-xl border px-3 py-2 text-sm"
             >
                 {{ permissionError }}
             </div>

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Dashboard\Broadcasting;
 
+use App\Enums\EmailBroadcastRecipientStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcasting\StoreBroadcastRecipientRequest;
 use App\Http\Requests\Broadcasting\UpdateBroadcastRecipientRequest;
 use App\Models\EmailBroadcast;
 use App\Models\EmailBroadcastRecipient;
 use App\Services\Broadcasting\BroadcastSnapshotService;
+use App\Support\LogRedaction;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,7 +21,9 @@ class BroadcastRecipientController extends Controller
         $this->authorize('view', $broadcast);
 
         $recipients = $broadcast->recipients()
+            ->select(['id', 'broadcast_id', 'name', 'email', 'status', 'attempts', 'sent_at', 'failed_at'])
             ->orderBy('created_at')
+            ->orderBy('id')
             ->paginate(25)
             ->through(fn (EmailBroadcastRecipient $r) => [
                 'id' => $r->id,
@@ -29,7 +33,12 @@ class BroadcastRecipientController extends Controller
                 'attempts' => $r->attempts,
                 'sent_at' => $r->sent_at?->toDateTimeString(),
                 'failed_at' => $r->failed_at?->toDateTimeString(),
-                'error_message' => $r->error_message,
+                'error_message' => $r->status === EmailBroadcastRecipientStatus::Failed
+                    ? LogRedaction::MAIL_DELIVERY_FAILURE_MESSAGE
+                    : null,
+                'error_category' => $r->status === EmailBroadcastRecipientStatus::Failed
+                    ? LogRedaction::MAIL_DELIVERY_FAILURE_CATEGORY
+                    : null,
             ]);
 
         $summary = app(BroadcastSnapshotService::class)->duplicateSummary($broadcast);

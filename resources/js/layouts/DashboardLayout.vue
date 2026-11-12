@@ -1,38 +1,57 @@
 <script setup lang="ts">
-import 'vue-sonner/style.css'
-import { watch } from 'vue'
-import { usePage } from '@inertiajs/vue3'
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
-import { Toaster } from '@/components/ui/sonner'
-import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue'
-import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue'
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast'
-import { useHttpErrorToast } from '@/utils/composables/useHttpErrorToast'
-import { clearTopbar } from '@/utils/composables/useDashboardTopbar'
+import 'vue-sonner/style.css';
+import { computed, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
+import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
+import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
+import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { useHttpErrorToast } from '@/hooks/useHttpErrorToast';
+import { provideTopbar } from '@/hooks/useDashboardTopbar';
 
-usePageFlashToast()
+const topbar = provideTopbar();
+
+usePageFlashToast();
 
 // Toast untuk submit yang gagal dan hanya berakhir di halaman Error (mis. 403/500).
-useHttpErrorToast()
+useHttpErrorToast();
 
 // Reset state topbar saat navigasi Inertia ke halaman lain,
 // supaya judul/subtitle halaman sebelumnya tidak bocor.
-const page = usePage()
+const page = usePage();
 watch(
     () => page.component,
     () => {
-        clearTopbar()
-    },
-)
+        topbar.clearTopbar();
+    }
+);
+
+/** Halaman builder formulir butuh lebar penuh, jadi sidebar navigasi tidak dirender (editor & tab jawaban). */
+const FULL_WIDTH_PAGE_COMPONENTS: ReadonlySet<string> = new Set([
+    'Dashboard/Events/Forms/Show',
+    'Dashboard/Events/Forms/Create',
+]);
+
+const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page.component));
+const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(page.component));
 </script>
 
 <template>
-    <SidebarProvider>
-        <DashboardSidebar />
-        <SidebarInset class="h-svh overflow-x-hidden bg-gradient-to-b from-background via-muted/20 to-background">
-            <DashboardTopbar />
-            <div class="flex-1 overflow-y-auto px-4 pb-10 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8">
-                <div class="w-full max-w-full">
+    <SidebarProvider data-testid="authenticated-shell">
+        <DashboardSidebar v-if="showSidebar" />
+        <SidebarInset class="from-background via-muted/20 to-background h-svh overflow-x-hidden bg-gradient-to-b">
+            <DashboardTopbar :show-navigation-trigger="showSidebar" />
+            <div
+                data-testid="dashboard-content"
+                :class="[
+                    'min-h-0 flex-1 px-4 md:px-6 lg:px-8',
+                    isFullWidthPage
+                        ? 'overflow-hidden pt-6 pb-2 md:pt-8 md:pb-2'
+                        : 'overflow-y-auto pt-6 pb-10 md:pt-8 md:pb-12',
+                ]"
+            >
+                <div :class="['w-full max-w-full', isFullWidthPage && 'h-full min-h-0']">
                     <slot />
                 </div>
             </div>

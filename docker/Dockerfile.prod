@@ -87,7 +87,9 @@ RUN php artisan package:discover --ansi
 RUN php artisan octane:install --server=frankenphp --no-interaction || true
 
 # Build frontend assets (wayfinder plugin needs php artisan)
-RUN npm ci && npm run build && rm -rf node_modules
+# The SSR bundle (`bootstrap/ssr`) is self-contained (ssr.noExternal di vite.config.js),
+# so node_modules can be removed: verified `node bootstrap/ssr/ssr.js` runs without it.
+RUN npm ci && npm run build && npm run build:ssr && rm -rf node_modules
 
 # Remove build-time .env (runtime will use .env.production via env_file)
 RUN rm -f .env

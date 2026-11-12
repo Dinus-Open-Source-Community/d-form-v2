@@ -4,15 +4,11 @@
  */
 defineProps<{
     /** HTML dari TipTap / penyimpanan server */
-    html: string | null | undefined
-}>()
+    html: string | null | undefined;
+}>();
 </script>
 
 <template>
-    <div
-        v-if="html && html.trim() !== '' && html !== '<p></p>'"
-        class="dform-rich-text text-pretty"
-        v-html="html"
-    />
-    <p v-else class="text-sm text-muted-foreground">Belum ada deskripsi untuk acara ini.</p>
+    <div v-if="html && html.trim() !== '' && html !== '<p></p>'" class="dform-rich-text text-pretty" v-html="html" />
+    <p v-else class="text-muted-foreground text-sm">Belum ada deskripsi untuk acara ini.</p>
 </template>

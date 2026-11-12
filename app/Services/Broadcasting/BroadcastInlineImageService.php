@@ -3,10 +3,15 @@
 namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
+use App\Enums\UploadPurpose;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
+use App\Support\LogRedaction;
 use App\Support\PublicStorage;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Inline image broadcast tersimpan di storage Laravel (disk `public`),
@@ -21,9 +26,9 @@ use Illuminate\Support\Str;
  */
 class BroadcastInlineImageService
 {
-    public const MAX_UPLOAD_KB = 2048; // 2 MB, selaras validasi endpoint
+    public const MAX_UPLOAD_KB = 5120; // Shared global upload limit: 5 MB.
 
-    public const MAX_UPLOAD_BYTES = 2097152;
+    public const MAX_UPLOAD_BYTES = 5242880; // Shared global upload limit: 5 MB.
 
     /** @var array<int, string> */
     public const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
@@ -44,16 +49,10 @@ class BroadcastInlineImageService
      */
     public function store(EmailBroadcast $broadcast, UploadedFile $file): array
     {
-        $extension = $this->normalizeExtension(
-            $file->getClientOriginalExtension() !== ''
-                ? $file->getClientOriginalExtension()
-                : ($file->guessExtension() ?? 'png')
-        );
-
-        $path = $file->storeAs(
-            'broadcasts/'.$broadcast->id.'/inline',
-            (string) Str::uuid().'.'.$extension,
-            'public'
+        $path = app(SafeUploadStorage::class)->store(
+            $file,
+            UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'),
+            UploadPurpose::Image,
         );
 
         return [
@@ -76,6 +75,11 @@ class BroadcastInlineImageService
      * tulis ulang src ke URL storage. Gambar yang tidak valid /
      * melebihi batas dibiarkan apa adanya dan dihitung sebagai skipped
      * agar controller bisa menolak dengan pesan yang jelas.
+     *
+     * Kegagalan storage juga dihitung skipped (data: URL dipertahankan) supaya
+     * caller tidak pernah menerima sukses palsu; kegagalannya dicatat sebagai
+     * error terstruktur dengan correlation ID. Tidak dilempar agar satu disk
+     * bermasalah tidak membatalkan seluruh migrasi konten.
      *
      * @return array{html:string, migrated:int, skipped:int}
      */
@@ -123,7 +127,7 @@ class BroadcastInlineImageService
         }
 
         return 'Konten masih mengandung gambar base64 (data: URL) yang tidak dapat dipindahkan ke storage. '
-            .'Silakan unggah ulang gambar lewat tombol unggah gambar (maks 2 MB, PNG/JPG/GIF/WebP) lalu simpan kembali.';
+            .'Silakan unggah ulang gambar lewat tombol unggah gambar (maks 5 MB, PNG/JPG/GIF/WebP) lalu simpan kembali.';
     }
 
     /**
@@ -155,15 +159,42 @@ class BroadcastInlineImageService
             return null;
         }
 
-        $extension = self::MIME_TO_EXTENSION[$subtype];
-        $path = 'broadcasts/'.$broadcast->id.'/inline/'.(string) Str::uuid().'.'.$extension;
+        try {
+            $path = app(SafeUploadStorage::class)->storeImageBytes(
+                $binary,
+                UploadStorageTarget::public('broadcasts/'.$broadcast->id.'/inline'),
+            );
+        } catch (Throwable $exception) {
+            $this->reportStorageFailure($broadcast, $exception);
 
-        Storage::disk('public')->put($path, $binary);
+            return null;
+        }
 
         return [
             'path' => $path,
             'url' => (string) PublicStorage::url($path),
         ];
+    }
+
+    /**
+     * Log a storage failure with a correlation id so it is distinguishable from
+     * invalid image input in operations. The exception message is redacted and
+     * never reaches the HTTP response.
+     */
+    private function reportStorageFailure(EmailBroadcast $broadcast, Throwable $exception): void
+    {
+        $requestId = request()->header('X-Request-ID');
+        $correlationId = is_string($requestId) && Str::isUuid($requestId)
+            ? $requestId
+            : (string) Str::uuid();
+
+        Log::error('broadcast_inline_image.storage_failed', [
+            'correlation_id' => $correlationId,
+            'broadcast_id' => (string) $broadcast->id,
+            'disk' => 'public',
+            'exception_class' => $exception::class,
+            'message' => LogRedaction::exception($exception),
+        ]);
     }
 
     private function normalizeExtension(string $extension): string

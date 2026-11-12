@@ -1,25 +1,15 @@
 <?php
 
-use App\Enums\EventStatus;
-use App\Enums\FormAccessStatus;
-use App\Enums\FormAnswerReviewStatus;
-use App\Enums\FormPurpose;
-use App\Enums\MemberConfirmationStatus;
-use App\Enums\RegistrationRole;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanController;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanExportController;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanFeedController;
 use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
+use App\Http\Controllers\Dashboard\User\UserBrowseEventsController;
+use App\Http\Controllers\Dashboard\User\UserEventPortalController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
-use App\Models\Event;
-use App\Models\Form;
-use App\Models\FormAnswer;
-use App\Services\Event\EventService;
-use App\Services\Event\UserPortalEventResolver;
-use App\Services\Form\FormAccessGuard;
-use App\Services\Registration\RegistrationQrPngGenerator;
+use App\Http\Controllers\Dashboard\User\UserJoinedEventsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
@@ -27,7 +17,7 @@ use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
-Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'));
+Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'))->name('admin.index');
 
 /** Dasbor utama — admin → organizer overview, member → member overview. */
 Route::middleware('auth')->get('/dashboard', function () {
@@ -78,50 +68,7 @@ Route::middleware(['auth', 'organizer'])->prefix('/admin')->group(function () {
 Route::middleware('auth')->get('/joined/profile', fn () => redirect()->route('dashboard.profile'))->name('dashboard.user.profile');
 
 Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard.user.')->group(function () {
-    Route::get('/', function (EventService $eventService) {
-        $userId = auth()->id();
-        $events = Event::query()
-            ->where('status', EventStatus::Published)
-            ->whereHas('forms', function ($q) use ($userId): void {
-                $q->whereHas('formAnswers', function ($aq) use ($userId): void {
-                    $aq->where('user_id', $userId)
-                        ->excludeTerminatedInvitationMembers();
-                });
-            })
-            ->orderByDesc('start_date')
-            ->get();
-
-        $pendingInviteRows = FormAnswer::query()
-            ->join('forms', 'forms.id', '=', 'form_answers.form_id')
-            ->where('form_answers.user_id', $userId)
-            ->where('form_answers.registration_role', RegistrationRole::Member->value)
-            ->where('form_answers.member_confirmation_status', MemberConfirmationStatus::Pending->value)
-            ->whereNotNull('form_answers.invitation_token')
-            ->select(['form_answers.invitation_token', 'forms.event_id'])
-            ->get();
-
-        $inviteUrlByEventId = [];
-        foreach ($pendingInviteRows as $row) {
-            $inviteUrlByEventId[$row->event_id] = route('dashboard.user.team-invitations.show', ['token' => $row->invitation_token], false);
-        }
-
-        $payload = $events
-            ->map(function (Event $e) use ($eventService, $inviteUrlByEventId): array {
-                $data = $eventService->eventToInertiaArray($e);
-                if (isset($inviteUrlByEventId[$e->id])) {
-                    $data['pending_team_invitation_url'] = $inviteUrlByEventId[$e->id];
-                }
-
-                return $data;
-            })
-            ->values()
-            ->all();
-
-        return inertia('Dashboard/User/Events', [
-            'events' => $payload,
-            'listMode' => 'mine',
-        ]);
-    })->name('events');
+    Route::get('/', UserJoinedEventsController::class)->name('events');
 
     Route::get('/{event_segment}/registration', UserEventRegistrationController::class)
         ->name('events.registration');
@@ -134,126 +81,19 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
     Route::get('/{event_segment}/register', UserEventRegistrationFormPickerController::class)
         ->name('events.register');
 
-    Route::get('/{event_segment}', function (
-        string $event_segment,
-        EventService $eventService,
-        RegistrationQrPngGenerator $qrGenerator,
-    ) {
-        $event = app(UserPortalEventResolver::class)->resolvePublished($event_segment);
-
-        $user = auth()->user();
-        $registrationBase = FormAnswer::query()
-            ->where('user_id', $user->id)
-            ->whereHas('form', function ($q) use ($event) {
-                $q->where('event_id', $event->id)
-                    ->where(function ($purposeQuery): void {
-                        $purposeQuery
-                            ->whereNull('metadata')
-                            ->orWhereNull('metadata->purpose')
-                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
-                    });
-            })
-            ->excludeTerminatedInvitationMembers();
-
-        $activeRegistration = (clone $registrationBase)
-            ->excludeRejectedSubmissions()
-            ->orderByDesc('created_at')
-            ->first();
-
-        $registration = $activeRegistration
-            ?? (clone $registrationBase)->orderByDesc('created_at')->first();
-
-        $hasPendingTeamInvitation = $registration?->isMemberPendingInvitation() ?? false;
-        $pendingTeamInvitationUrl = null;
-        if ($hasPendingTeamInvitation) {
-            $token = $registration->invitation_token;
-            if (is_string($token) && $token !== '') {
-                $pendingTeamInvitationUrl = route('dashboard.user.team-invitations.show', ['token' => $token], false);
-            }
-        }
-
-        $isPortalRegistered = $activeRegistration !== null && ! $hasPendingTeamInvitation;
-
-        $qrBase64 = null;
-        $registrationCode = null;
-        if ($isPortalRegistered && $activeRegistration->review_status === FormAnswerReviewStatus::Accepted) {
-            $registrationCode = $activeRegistration->registration_code;
-            $png = $qrGenerator->pngForSubmission($activeRegistration->id);
-            $qrBase64 = base64_encode($png);
-        }
-
-        $requiredFormIds = Form::query()
-            ->where('event_id', $event->id)
-            ->where('metadata->purpose', FormPurpose::Other->value)
-            ->get()
-            ->map(fn (Form $f) => $f->requiresFormId())
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $requiredTitles = $requiredFormIds === []
-            ? []
-            : Form::query()
-                ->whereIn('id', $requiredFormIds)
-                ->pluck('title', 'id')
-                ->all();
-
-        $participantForms = Form::query()
-            ->where('event_id', $event->id)
-            ->where('metadata->purpose', FormPurpose::Other->value)
-            ->orderBy('title')
-            ->get()
-            ->map(function (Form $form) use ($event, $user, $requiredTitles): array {
-                $status = FormAccessGuard::check($form, $event, $user);
-                $requiresId = $form->requiresFormId();
-
-                return [
-                    'id' => $form->id,
-                    'title' => $form->title,
-                    'description' => $form->description,
-                    'fill_url' => route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form], false),
-                    'access_status' => $status->value,
-                    'access_message' => $status->message(),
-                    'can_start' => $status === FormAccessStatus::Allowed,
-                    'requires_form_title' => $requiresId !== null
-                        ? ($requiredTitles[$requiresId] ?? null)
-                        : null,
-                ];
-            })
-            ->values()
-            ->all();
-
-        return inertia('Dashboard/User/EventDetail', [
-            'event' => $eventService->eventToInertiaArray($event),
-            'isRegistered' => $isPortalRegistered,
-            'pendingTeamInvitationUrl' => $pendingTeamInvitationUrl,
-            'registrationStatus' => $isPortalRegistered ? $activeRegistration?->review_status?->value : null,
-            'qr_base64' => $qrBase64,
-            'registration_code' => $registrationCode,
-            'participantForms' => $participantForms,
-        ]);
-    })->name('events.show');
+    Route::get('/{event_segment}', UserEventPortalController::class)->name('events.show');
 });
 
-Route::middleware(['auth', 'member_portal'])->get('/browse', function (EventService $eventService) {
-    $events = Event::query()
-        ->where('status', EventStatus::Published)
-        ->orderByDesc('start_date')
-        ->get()
-        ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
-        ->values()
-        ->all();
-
-    return inertia('Dashboard/User/Events', [
-        'events' => $events,
-        'listMode' => 'browse',
-    ]);
-})->name('dashboard.user.events.browse');
+Route::middleware(['auth', 'member_portal'])->get('/browse', UserBrowseEventsController::class)
+    ->name('dashboard.user.events.browse');
 
 Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
-    Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)->name('exports.registrations-csv');
-    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)->name('exports.attendance-csv');
+    Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)
+        ->middleware('throttle:recruitment-export')
+        ->name('exports.registrations-csv');
+    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)
+        ->middleware('throttle:recruitment-export')
+        ->name('exports.attendance-csv');
     Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
     Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

@@ -19,12 +19,7 @@ Route::get('/features', FeaturePageController::class)->name('features');
 
 Route::resource('/events', EventsController::class)
     ->only(['index', 'show'])
+    ->middlewareFor('index', 'throttle:event-search')
     ->where(['event' => '^(?!joined(/|$)).+']);
 
 Route::get('/docs', DocsPageController::class)->name('docs');
-
-Route::get('/flush', function () {
-    if (env('APP_ENV') === 'local') {
-        \Illuminate\Support\Facades\Cache::flush();
-    }
-})->middleware(['auth']);

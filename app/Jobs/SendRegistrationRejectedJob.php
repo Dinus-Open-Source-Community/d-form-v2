@@ -3,12 +3,14 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
-use App\Enums\EmailLogStatus;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Enums\EmailNotificationType;
+use App\Enums\EmailLogStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Mail\RegistrationRejectedMail;
-use App\Models\EmailLog;
 use App\Models\FormAnswer;
+use App\Models\EmailLog;
+use App\Models\FormReviewEmailOutbox;
 use App\Services\Registration\FormAnswerRecipientResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -19,10 +21,14 @@ class SendRegistrationRejectedJob implements ShouldQueue
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $formAnswerId,
+        ?string $deliveryKey = null,
+        public ?int $dispatchAttempt = null,
     ) {
+        $this->initializeEmailDelivery($deliveryKey);
     }
 
     public function handle(FormAnswerRecipientResolver $recipientResolver): void
@@ -32,6 +38,7 @@ class SendRegistrationRejectedJob implements ShouldQueue
             ->find($this->formAnswerId);
 
         if ($submission === null) {
+            $this->markOutboxFailed('Submission was not found.');
             Log::warning('[SendRegistrationRejectedJob] FormAnswer not found.', [
                 'form_answer_id' => $this->formAnswerId,
             ]);
@@ -40,6 +47,7 @@ class SendRegistrationRejectedJob implements ShouldQueue
         }
 
         if ($submission->review_status !== FormAnswerReviewStatus::Rejected) {
+            $this->markOutboxFailed('Submission is not rejected.');
             Log::warning('[SendRegistrationRejectedJob] Submission is not rejected.', [
                 'form_answer_id' => $submission->id,
                 'review_status' => $submission->review_status?->value,
@@ -51,17 +59,17 @@ class SendRegistrationRejectedJob implements ShouldQueue
         $recipientEmail = $recipientResolver->email($submission);
         $event = $submission->form->event;
 
+        $logAttributes = [
+            'form_answer_id' => $submission->id,
+            'event_id' => $event->id,
+            'user_id' => $recipientResolver->userIdForLog($submission),
+            'recipient_email' => $recipientEmail ?? '',
+            'notification_type' => EmailNotificationType::RegistrationRejected,
+        ];
+
         if ($recipientEmail === null || $recipientEmail === '') {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationRejected,
-                'error_message' => 'No recipient email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogUndeliverable($logAttributes, 'No recipient email address configured.');
+            $this->markOutboxFailed('No recipient email address configured.');
 
             Log::warning('[SendRegistrationRejectedJob] No recipient email.', [
                 'form_answer_id' => $submission->id,
@@ -70,44 +78,52 @@ class SendRegistrationRejectedJob implements ShouldQueue
             return;
         }
 
-        try {
-            $this->applyOutgoingEmailJitter();
+        if (FormReviewEmailOutbox::claimDelivery(
+            $this->deliveryKey,
+            $this->dispatchAttempt,
+            $logAttributes,
+        ) === false) {
+            return;
+        }
 
+        $this->applyOutgoingEmailJitter();
+
+        $log = $this->reserveEmailLog($logAttributes, null, $this->deliveryKey, true);
+
+        if ($log === null) {
+            if (EmailLog::query()
+                ->where('delivery_key', $this->deliveryKey)
+                ->where('status', EmailLogStatus::Sent)
+                ->exists()) {
+                FormReviewEmailOutbox::markSentByDeliveryKey($this->deliveryKey);
+            }
+
+            return;
+        }
+
+        try {
             Mail::to($recipientEmail)->send(new RegistrationRejectedMail($submission));
 
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::RegistrationRejected,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $recipientEmail);
+            FormReviewEmailOutbox::markSentByDeliveryKey($this->deliveryKey);
         } catch (\Throwable $e) {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationRejected,
-                'error_message' => $e->getMessage(),
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogFailed($log, $e);
+            FormReviewEmailOutbox::markFailedByDeliveryKey($this->deliveryKey, $this->safeDeliveryError($e));
 
             Log::error('[SendRegistrationRejectedJob] Email send failed.', [
                 'notification_type' => EmailNotificationType::RegistrationRejected->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
-                'recipient_email' => $recipientEmail,
+                'delivery_key' => $this->deliveryKey,
                 'exception_class' => $e::class,
-                'exception_message' => $e->getMessage(),
-                'exception' => $e,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
+    }
+
+    private function markOutboxFailed(string $reason): void
+    {
+        FormReviewEmailOutbox::markFailedByDeliveryKey($this->deliveryKey, $reason);
     }
 }

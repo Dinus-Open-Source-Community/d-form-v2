@@ -1,8 +1,8 @@
-import type { Component } from 'vue'
+import type { Component } from 'vue';
 
-export type IconComponent = Component
+export type TIconComponent = Component;
 
-export type CuratedIconName =
+export type TCuratedIconName =
     | 'arrowRight'
     | 'arrowLeft'
     | 'arrowUpRight'
@@ -53,4 +53,4 @@ export type CuratedIconName =
     | 'refresh'
     | 'star'
     | 'send'
-    | 'grip'
+    | 'grip';

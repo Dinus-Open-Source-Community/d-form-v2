@@ -5,9 +5,12 @@ namespace App\Services\Recruitment;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentCorrectionRequest;
 use App\Models\Recruitment\RecruitmentDocument;
 use Illuminate\Http\UploadedFile;
+use App\Enums\UploadPurpose;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadInspector;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -106,15 +109,17 @@ final class ApplicationEditor
         ]);
 
         $storageBase = 'recruitment/'.$application->recruitment_period_id.'/'.$application->id;
+        $storage = app(SafeUploadStorage::class);
+        $localTarget = UploadStorageTarget::local($storageBase);
 
         if ($cv !== null) {
             if (filled($document->cv_path)) {
                 Storage::disk('local')->delete($document->cv_path);
             }
 
-            $document->cv_path = $cv->store($storageBase, 'local');
+            $document->cv_path = $storage->store($cv, $localTarget, UploadPurpose::RecruitmentCv);
             $document->cv_original_name = $cv->getClientOriginalName();
-            $document->cv_mime = $cv->getMimeType() ?? 'application/pdf';
+            $document->cv_mime = UploadInspector::sniffedMime($cv) ?? 'application/pdf';
             $document->cv_size_bytes = $cv->getSize();
         }
 
@@ -137,9 +142,9 @@ final class ApplicationEditor
             }
 
             $document->portfolio_url = null;
-            $document->portfolio_path = $portfolioFile->store($storageBase, 'local');
+            $document->portfolio_path = $storage->store($portfolioFile, $localTarget, UploadPurpose::RecruitmentPortfolio);
             $document->portfolio_original_name = $portfolioFile->getClientOriginalName();
-            $document->portfolio_mime = $portfolioFile->getMimeType() ?? 'application/pdf';
+            $document->portfolio_mime = UploadInspector::sniffedMime($portfolioFile) ?? 'application/pdf';
             $document->portfolio_size_bytes = $portfolioFile->getSize();
         } elseif ($portfolioType === 'none' || ($portfolioType === 'file' && $portfolioFile === null && blank($document->portfolio_path))) {
             if (filled($document->portfolio_path)) {
@@ -160,9 +165,9 @@ final class ApplicationEditor
                 Storage::disk('local')->delete($document->instagram_follow_path);
             }
 
-            $document->instagram_follow_path = $instagramFollowProof->store($storageBase, 'local');
+            $document->instagram_follow_path = $storage->store($instagramFollowProof, $localTarget, UploadPurpose::InstagramProof);
             $document->instagram_follow_original_name = $instagramFollowProof->getClientOriginalName();
-            $document->instagram_follow_mime = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
+            $document->instagram_follow_mime = UploadInspector::sniffedMime($instagramFollowProof) ?? 'image/jpeg';
             $document->instagram_follow_size_bytes = $instagramFollowProof->getSize();
         }
 
@@ -178,13 +183,7 @@ final class ApplicationEditor
     private function snapshotApplication(RecruitmentApplication $application): array
     {
         return [
-            'full_name' => $application->full_name,
-            'nim' => $application->nim,
             'semester' => $application->semester,
-            'phone' => $application->phone,
-            'personal_email' => $application->personal_email,
-            'student_email' => $application->student_email,
-            'instagram_username' => $application->instagram_username,
             'primary_division_id' => $application->primary_division_id,
             'secondary_division_id' => $application->secondary_division_id,
             'stage' => $application->stage->value,

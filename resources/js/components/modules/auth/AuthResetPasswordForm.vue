@@ -1,45 +1,52 @@
 <script setup lang="ts">
-import { Link, useForm } from '@inertiajs/vue3'
-import { AuthSubmitButton } from '@/components/core/button'
-import { AuthField } from '@/components/core/field'
-import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController'
-import { store as resetPassword } from '@/actions/App/Http/Controllers/Auth/ResetPasswordController'
-import { getFieldError, handleInertiaFormErrors, showErrorToast } from '@/lib/error-message'
+import { Link, useForm } from '@inertiajs/vue3';
+import { AuthSubmitButton } from '@/components/core/button';
+import { AuthField } from '@/components/core/field';
+import { index as loginPage } from '@/actions/App/Http/Controllers/Auth/LoginController';
+import { store as resetPassword } from '@/actions/App/Http/Controllers/Auth/ResetPasswordController';
+import { getFieldError } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+
+const { handleInertiaFormErrors, showErrorToast } = useToastNotifications();
 
 const props = defineProps<{
-    token: string
-    email: string
-}>()
+    token: string;
+    email: string;
+}>();
 
 const form = useForm({
     email: props.email,
     password: '',
     password_confirmation: '',
-}).dontRemember('password', 'password_confirmation')
+}).dontRemember('password', 'password_confirmation');
 
 function submit(): void {
     if (form.password.length < 8) {
-        showErrorToast('Password must be at least 8 characters.')
-        return
+        showErrorToast('Password must be at least 8 characters.');
+        return;
     }
     if (form.password !== form.password_confirmation) {
-        showErrorToast('Password does not match.')
-        return
+        showErrorToast('Password does not match.');
+        return;
     }
 
     form.submit(resetPassword(props.token), {
         onError: (errors) => {
-            handleInertiaFormErrors(errors, { title: 'Gagal mengatur ulang kata sandi' })
+            handleInertiaFormErrors(errors, { title: 'Gagal mengatur ulang kata sandi' });
         },
-    })
+    });
 }
 </script>
 
 <template>
     <div>
         <div class="mb-8">
-            <h1 class="font-display text-3xl font-bold tracking-[-0.03em] text-foreground">Choose a new password</h1>
-            <p class="mt-2 text-sm text-muted-foreground">Enter and confirm your new password below.</p>
+            <h1
+                class="font-display text-foreground text-[2rem] leading-tight font-bold tracking-[-0.035em] sm:text-4xl"
+            >
+                Pilih kata sandi baru
+            </h1>
+            <p class="text-muted-foreground mt-2.5 text-sm">Masukkan dan konfirmasi kata sandi baru Anda.</p>
         </div>
 
         <form @submit.prevent="submit" class="space-y-5">
@@ -78,16 +85,16 @@ function submit(): void {
             />
 
             <AuthSubmitButton :form="form">
-                <template #processing>Updating password</template>
-                Update password
+                <template #processing>Memperbarui kata sandi</template>
+                Perbarui kata sandi
             </AuthSubmitButton>
 
-            <p class="mt-2 text-center text-sm text-muted-foreground">
+            <p class="text-muted-foreground mt-2 text-center text-sm">
                 <Link
                     :href="loginPage()"
-                    class="font-semibold text-primary underline-offset-4 transition-colors hover:underline"
+                    class="text-primary font-semibold underline-offset-4 transition-colors hover:underline"
                 >
-                    Back to sign in
+                    Kembali ke halaman masuk
                 </Link>
             </p>
         </form>

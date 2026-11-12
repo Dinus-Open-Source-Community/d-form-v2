@@ -73,10 +73,14 @@ class IndexEventRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $filter = $this->input('filter', []);
+        $filter = is_array($filter) ? $filter : [];
+
+        $sort = $this->input('sort', []);
+        $sort = is_array($sort) ? $sort : [];
 
         $this->merge([
             'search' => trim((string) $this->input('search', '')),
-            'per_page' => (int) $this->input('per_page', 10),
+            'per_page' => (int) $this->input('per_page', 8),
             'filter' => [
                 'categories' => $filter['categories'] ?? [],
                 'sessions' => $filter['sessions'] ?? [],
@@ -92,7 +96,7 @@ class IndexEventRequest extends FormRequest
                     'by' => 'title',
                     'order' => 'asc',
                 ],
-                $this->input('sort', [])
+                $sort
             ),
         ]);
     }

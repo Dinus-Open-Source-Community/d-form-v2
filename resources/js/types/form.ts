@@ -3,10 +3,10 @@
  * Keep page components thin — import from here instead of inlining large `type` blocks.
  */
 
-import type { BackendField } from '@/components/modules/builder/fieldMapping'
+import type { IBackendField, IFieldOptionEntry, IFormBuilderSection } from '@/types/form-builder';
 
 /** Access gate for the public form fill route */
-export type FormAccessStatus =
+export type TFormAccessStatus =
     | 'allowed'
     | 'not_visible'
     | 'form_closed'
@@ -17,131 +17,162 @@ export type FormAccessStatus =
     | 'invitation_closed'
     | 'already_submitted'
     | 'event_form_already_chosen'
-    | 'prerequisite_not_met'
+    | 'prerequisite_not_met';
 
-export type FormPurpose = 'registration' | 'other'
+export type TFormPurpose = 'registration' | 'other';
 
-export interface FormSiblingOption {
-    id: string
-    title: string
-}
-
-export interface FormFillPageEvent {
-    id: string
-    slug: string
-    title: string
-}
-
-export interface FormFillPageForm {
-    id: string
-    title: string
-    description: string | null
-    closed_at: string | null
-    banner_url: string | null
-    banner_caption: string | null
-}
-
-/** Values stored in the fill `useForm` map (matches file inputs + multi-select) */
-export type FormFillAnswerValue = string | string[] | File | null
-
-export type FormFillAnswerMap = Record<string, FormFillAnswerValue>
-
-/** One row in checkbox / radio / dropdown image+label choices on the fill page */
-export type FormFillOptionRow = { type: 'text' | 'image'; label: string; imageSrc?: string }
-
-/** Validation rules nested under `metadata.rules` on API fields */
-export type FormFieldRules = {
-    required?: boolean
-    in?: string
-    mimes?: string
-    max_size?: string | number
-    min?: number
-    max?: number
-} & Record<string, unknown>
-
-/** Loose JSON-like metadata bag on `IFormField.metadata` */
-export type FormFieldMetadataBag = Record<string, unknown>
-
-export interface FormRegistrationMetadata {
-    purpose: FormPurpose
-    requires_form_id: string | null
-    registration_mode: 'single' | 'bundle' | 'team' | null
-    max_team_size: number | null
-    team_size: number | null
-}
-
-/** Payload for creating a form from the dashboard builder */
-export interface CreateDashboardFormPayload {
-    title: string
-    description: string
-    success_content: string
-    closed_at: string
-    visible_for: string[]
-    banner_url: string
-    banner_caption: string
-    metadata: FormRegistrationMetadata | Record<string, unknown>
-    fields: BackendField[]
-}
-
-export function emptyFormRegistrationMetadata(): FormRegistrationMetadata {
-    return {
-        purpose: 'registration',
-        requires_form_id: null,
-        registration_mode: null,
-        max_team_size: null,
-        team_size: null,
-    }
-}
-
-export function parseFormRegistrationMetadata(raw: unknown): FormRegistrationMetadata {
-    const m =
-        raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
-    const purposeRaw = m['purpose']
-    const purpose: FormPurpose = purposeRaw === 'other' ? 'other' : 'registration'
-    const requiresRaw = m['requires_form_id']
-    const requires_form_id =
-        typeof requiresRaw === 'string' && requiresRaw !== '' ? requiresRaw : null
-    const mode = m['registration_mode']
-    const rm =
-        mode === 'single' || mode === 'bundle' || mode === 'team' ? mode : null
-    const maxTs = m['max_team_size']
-    const teamS = m['team_size']
-    return {
-        purpose,
-        requires_form_id,
-        registration_mode: purpose === 'other' ? (rm === 'team' || rm === 'bundle' ? null : rm) : rm,
-        max_team_size: maxTs != null && maxTs !== '' ? Number(maxTs) : null,
-        team_size: teamS != null && teamS !== '' ? Number(teamS) : null,
-    }
+export interface IFormSiblingOption {
+    id: string;
+    title: string;
 }
 
 /**
- * Always send all registration keys so create/update round-trip reliably
- * (Inertia may omit nulls; partial objects used to wipe unrelated metadata).
+ * Ringkasan form pada sidebar halaman detail acara. Controller `dashboard.events.show`
+ * selalu mengirim `is_draft` (draft hanya terlihat oleh pembuat acara).
  */
-export function toFormMetadataPayload(m: FormRegistrationMetadata): Record<string, unknown> {
-    const purpose = m.purpose === 'other' ? 'other' : 'registration'
-    const isOther = purpose === 'other'
-    return {
-        purpose,
-        requires_form_id:
-            typeof m.requires_form_id === 'string' && m.requires_form_id !== ''
-                ? m.requires_form_id
-                : null,
-        registration_mode: isOther
-            ? m.registration_mode === 'single'
-                ? 'single'
-                : null
-            : (m.registration_mode ?? null),
-        max_team_size: isOther
-            ? null
-            : m.max_team_size != null && !Number.isNaN(Number(m.max_team_size))
-              ? Number(m.max_team_size)
-              : null,
-        team_size: isOther
-            ? null
-            : m.team_size != null && !Number.isNaN(Number(m.team_size))
-              ? Number(m.team_size)
-              : null,
+export interface IEventFormSummary {
+    id: string;
+    title: string;
+    is_draft: boolean;
+}
+
+export interface IFormFillPageEvent {
+    id: string;
+    slug: string;
+    title: string;
+}
+
+export interface IFormFillPageForm {
+    id: string;
+    title: string;
+    description: string | null;
+    closed_at: string | null;
+    banner_url: string | null;
+    banner_caption: string | null;
+}
+
+/** Values stored in the fill `useForm` map (matches file inputs + multi-select) */
+export type TFormFillAnswerValue = string | string[] | File | File[] | null;
+
+export type TFormFillAnswerMap = Record<string, TFormFillAnswerValue>;
+
+/** One row in checkbox / radio / dropdown image+label choices on the fill page */
+export type TFormFillOptionRow = { type: 'text' | 'image'; label: string; imageSrc?: string };
+
+/** One participation slot for a fill field: `null` = the leader/primary answer, `>= 0` = bundle participant. */
+export interface IFormFieldParticipationSlot {
+    slotIndex: number | null;
+    title: string;
+}
+
+/** Access-block card copy for the fill page; `success` marks an informational (not error) block. */
+export interface IFormFillBlockCopy {
+    title: string;
+    body: string;
+    success?: boolean;
+}
+
+/** Field run rendered on the fill page: plain list or a bundle participant group. */
+export type TFormFillSegment = { type: 'linear'; fields: IFormField[] } | { type: 'bundleGroup'; fields: IFormField[] };
+
+/** Layout variant for one fill field card row. */
+export type TFormFillSlotVariant = 'linear' | 'bundleParticipant';
+
+export interface IFormFillSlotUiInput {
+    variant: TFormFillSlotVariant;
+    stackIndex: number;
+    fieldHasDescription: boolean;
+    slotHasTitle: boolean;
+    slotIndex: number | null;
+}
+
+/** Resolved presentation flags/classes for one fill field card row. */
+export interface IFormFillSlotUi {
+    showSubtitle: boolean;
+    showDescription: boolean;
+    headerBorderClass: string;
+    cardHeaderSpacingClass: string;
+    cardContentSpacingClass: string;
+    errorSpacingClass: string;
+}
+
+/** Validation rule keys the builder/API contract knows; every key is optional in a persisted bag. */
+export type TFormFieldRuleSet = {
+    required: boolean;
+    in: string;
+    mimes: string;
+    max_size: string | number;
+    min: number;
+    max: number;
+};
+
+/** Rules bag nested under `metadata.rules`; known keys stay typed, legacy keys remain readable. */
+export type TFormFieldRules = Partial<TFormFieldRuleSet> & Record<string, unknown>;
+
+/** Keys the form builder serializes into `form_fields.metadata`; legacy keys stay valid at runtime. */
+export interface IFormFieldMetadata {
+    builderType?: string;
+    /** Input subtype persisted alongside `builderType` (text, email, tel, number, ...). */
+    type?: string;
+    placeholder?: string;
+    content?: string;
+    caption?: string;
+    alt?: string;
+    imageUrl?: string;
+    bannerUrl?: string;
+    bannerFileName?: string;
+    accepts?: string;
+    /** Enables selection of more than one uploaded file. */
+    multiple?: boolean;
+    /** Maximum number of files when `multiple` is enabled. */
+    max_files?: number;
+    /** Aggregate upload limit in kilobytes. */
+    max_total_size_kb?: number;
+    /** MIME types allowed for image/file upload fields. */
+    allowed_mime_types?: string[];
+    formBanner?: boolean;
+    is_multiple?: boolean;
+    maxStars?: number;
+    maxLength?: number;
+    sectionId?: string;
+    optionChoices?: IFieldOptionEntry[];
+    rules?: TFormFieldRules;
+}
+
+/** Loose JSON-like metadata bag on `IFormField.metadata` (untrusted Inertia payload). */
+export type TFormFieldMetadataBag = Record<string, unknown>;
+
+export interface IFormRegistrationMetadata {
+    purpose: TFormPurpose;
+    requires_form_id: string | null;
+    registration_mode: 'single' | 'bundle' | 'team' | null;
+    max_team_size: number | null;
+    team_size: number | null;
+    sections: IFormBuilderSection[];
+}
+
+/**
+ * Create/update metadata payload: the same keys as `IFormRegistrationMetadata`, all always sent
+ * so Inertia null-omission cannot wipe unrelated metadata.
+ */
+export type TFormMetadataPayload = Required<
+    Pick<
+        IFormRegistrationMetadata,
+        'purpose' | 'requires_form_id' | 'registration_mode' | 'max_team_size' | 'team_size'
+    > & {
+        sections: IFormBuilderSection[];
     }
+>;
+
+/** Payload for creating a form from the dashboard builder */
+export interface ICreateDashboardFormPayload {
+    title: string;
+    description: string;
+    success_content: string;
+    closed_at: string;
+    visible_for: string[];
+    banner_url: string;
+    banner_caption: string;
+    metadata: TFormMetadataPayload | null;
+    fields: IBackendField[];
 }

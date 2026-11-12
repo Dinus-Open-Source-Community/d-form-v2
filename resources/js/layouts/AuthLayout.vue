@@ -1,44 +1,43 @@
 <script setup lang="ts">
 import 'vue-sonner/style.css';
-import AuthIllustration from '@/components/modules/auth/AuthIllustration.vue';
-import AuthOAuthButtons from '@/components/modules/auth/AuthOAuthButtons.vue';
+import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { Toaster } from '@/components/ui/sonner';
 import { routes } from '@/lib/routes';
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast';
+import { usePageFlashToast } from '@/hooks/usePageFlashToast';
 
 usePageFlashToast();
 </script>
 
 <template>
-    <div class="grid min-h-dvh w-full grid-cols-1 bg-background lg:grid-cols-2">
-        <!-- Left: Illustration -->
-        <AuthIllustration />
-
-        <!-- Right: Auth Forms -->
-        <div class="flex min-h-dvh flex-col items-center justify-center overflow-y-auto px-6 py-12 sm:px-12">
-            <div class="app-surface w-full max-w-md rounded-2xl p-7 sm:p-8">
-                <a :href="routes.home" class="group mb-9 inline-block">
+    <div class="relative min-h-dvh w-full">
+        <header class="absolute inset-x-0 top-0 z-10 w-full px-5 pt-7 sm:px-8 sm:pt-9">
+            <div class="mx-auto flex w-full max-w-xl items-center justify-between gap-4">
+                <a :href="routes.home" class="inline-flex items-center">
                     <img
-                        :src="`/${encodeURIComponent('DForm 1.png')}`"
+                        :src="DFORM_WORDMARK_SRC"
                         alt="DForm"
-                        class="h-10 w-auto select-none"
-                        width="160"
-                        height="40"
+                        class="h-9 w-auto select-none sm:h-10"
+                        width="113"
+                        height="49"
                     />
                 </a>
-
-                <!-- Forms -->
-                <slot></slot>
-
-                <!-- OAuth -->
-                <AuthOAuthButtons />
-
-                <!-- Mobile footer -->
-                <p class="mt-9 text-center text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground lg:hidden">
-                    Created by Dinus Open Source Community
-                </p>
+                <a
+                    :href="routes.home"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/40 focus-visible:ring-offset-background text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                >
+                    Beranda
+                </a>
             </div>
-        </div>
+        </header>
+
+        <!-- Anchor vertikal: blok auth di tengah; padding atas khusus mobile agar tidak menabrak header. -->
+        <main
+            class="flex min-h-dvh w-full items-center justify-center px-5 pt-24 pb-12 sm:px-8 sm:pt-20 sm:pb-12 lg:py-16"
+        >
+            <div class="motion-safe:animate-app-fade-in w-full max-w-xl">
+                <slot></slot>
+            </div>
+        </main>
     </div>
 
     <!-- Toast -->

@@ -1,38 +1,43 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
-import FormFillLayout from '@/layouts/FormFillLayout.vue'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
-import { Eye, EyeOff, Mail } from 'lucide-vue-next'
+import { computed, ref } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { readSharedError } from '@/lib/sharedErrors';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { routes } from '@/lib/routes';
+import { Eye, EyeOff, Mail } from 'lucide-vue-next';
 
-defineOptions({ layout: FormFillLayout })
+defineOptions({ layout: FormFillLayout });
 
 const props = defineProps<{
-    authenticateUrl: string
-}>()
+    authenticateUrl: string;
+}>();
 
-const page = usePage()
-const showToken = ref(false)
+const page = usePage();
+const showToken = ref(false);
 
 const queryParams =
-    typeof page.url === 'string' ? new URLSearchParams(page.url.split('?')[1] ?? '') : new URLSearchParams()
+    typeof page.url === 'string' ? new URLSearchParams(page.url.split('?')[1] ?? '') : new URLSearchParams();
 
-const prefilledReg = queryParams.get('reg') ?? ''
-const prefilledToken = queryParams.get('token') ?? ''
+const prefilledReg = queryParams.get('reg') ?? '';
+const prefilledToken = queryParams.get('token') ?? '';
+
+/** Error non-field untuk kredensial dan status tracking. */
+const credentialsError = computed(() => readSharedError(page.props, 'credentials'));
+const trackingError = computed(() => readSharedError(page.props, 'tracking'));
 
 const form = useForm({
     registration_number: prefilledReg,
     tracking_token: prefilledToken,
-})
+});
 
 function submit() {
     form.post(props.authenticateUrl, {
         preserveScroll: true,
-    })
+    });
 }
 </script>
 
@@ -48,14 +53,14 @@ function submit() {
             </p>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="p-5">
                 <form class="space-y-4" @submit.prevent="submit">
-                    <p v-if="form.errors.credentials" class="text-destructive text-sm">
-                        {{ form.errors.credentials }}
+                    <p v-if="credentialsError" class="text-destructive text-sm">
+                        {{ credentialsError }}
                     </p>
-                    <p v-if="form.errors.tracking" class="text-destructive text-sm">
-                        {{ form.errors.tracking }}
+                    <p v-if="trackingError" class="text-destructive text-sm">
+                        {{ trackingError }}
                     </p>
 
                     <div class="space-y-2">

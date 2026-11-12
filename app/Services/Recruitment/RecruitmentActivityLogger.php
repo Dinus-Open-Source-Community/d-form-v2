@@ -5,10 +5,56 @@ namespace App\Services\Recruitment;
 use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\User;
+use App\Support\LogRedaction;
+use BackedEnum;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class RecruitmentActivityLogger
 {
+    /**
+     * Fields approved for the audit trail: identifiers, enum-backed decisions, and counters.
+     *
+     * Free-text notes (`notes`, `review_notes`, `request_message`) and recipient addresses are
+     * not listed on purpose. They can carry names, phone numbers, or email addresses that
+     * pattern redaction cannot reliably detect, and their authoritative record already lives in
+     * the domain table referenced by `entity_type`/`entity_id`.
+     *
+     * @var array<string, true>
+     */
+    private const AUDIT_VALUE_KEYS = [
+        'semester' => true,
+        'primary_division_id' => true,
+        'secondary_division_id' => true,
+        'stage' => true,
+        'result' => true,
+        'revision_required' => true,
+        'is_verified' => true,
+        'verified_by' => true,
+        'method' => true,
+        'session_id' => true,
+        'correction_request_id' => true,
+        'speaking_score' => true,
+        'technical_score' => true,
+        'attitude_score' => true,
+        'recommendation' => true,
+        'save_count' => true,
+        'membership_type' => true,
+        'final_division_id' => true,
+        'final_division_name' => true,
+        'is_cross_division' => true,
+        'placement_source' => true,
+        'type' => true,
+        'template' => true,
+        'reason' => true,
+        'notes_present' => true,
+        'scope' => true,
+        'rows_generated' => true,
+    ];
+
+    private const MAX_AUDIT_VALUE_LENGTH = 200;
+
     /**
      * @param  array<string, mixed>  $oldValues
      * @param  array<string, mixed>  $newValues
@@ -24,6 +70,9 @@ final class RecruitmentActivityLogger
         ?Request $request = null,
         string $actorType = 'staff',
     ): RecruitmentActivityLog {
+        $oldValues = self::projectValues($oldValues, $action) ?? [];
+        $newValues = self::projectValues($newValues, $action) ?? [];
+
         return RecruitmentActivityLog::query()->create([
             'recruitment_application_id' => $application?->id,
             'recruitment_period_id' => $application?->recruitment_period_id,
@@ -40,6 +89,99 @@ final class RecruitmentActivityLogger
     }
 
     /**
+     * Record one PII-free event for a completed recruitment CSV export.
+     *
+     * `entity_id` is a UUID column (`char(36)` on MySQL/MariaDB strict mode), so the
+     * descriptive export scope is never written there: it lives in
+     * `new_values.scope`. A longer scope in the UUID column aborts the insert and
+     * the audit row is silently lost in production.
+     *
+     * A failed audit insert must not interrupt an already-started download; only safe metadata is
+     * sent to the application logger when the database write fails.
+     */
+    public function recordExport(User $actor, string $periodId, string $scope, int $rowsGenerated): void
+    {
+        try {
+            RecruitmentActivityLog::query()->create([
+                'recruitment_application_id' => null,
+                'recruitment_period_id' => $periodId,
+                'actor_id' => $actor->id,
+                'actor_type' => 'staff',
+                'action' => 'export.generated',
+                'entity_type' => 'recruitment_export',
+                'entity_id' => null,
+                'old_values' => null,
+                'new_values' => self::projectValues([
+                    'scope' => $scope,
+                    'rows_generated' => $rowsGenerated,
+                ], 'export.generated'),
+                'ip_address' => null,
+                'created_at' => now(),
+            ]);
+        } catch (Throwable $exception) {
+            Log::warning('recruitment_export_audit_failed', [
+                'actor_id' => $actor->id,
+                'recruitment_period_id' => $periodId,
+                'scope' => LogRedaction::text($scope, 100),
+                'exception_class' => $exception::class,
+            ]);
+        }
+    }
+
+    /**
+     * Remove fields that are not approved for the recruitment audit trail and redact values.
+     *
+     * A dropped scalar is logged by key name only when the caller supplies the action, so a new
+     * unapproved field is visible in the audit pipeline without ever writing its value.
+     *
+     * @param  array<string, mixed>|null  $values
+     * @return array<string, scalar|null>|null
+     */
+    public static function projectValues(?array $values, ?string $action = null): ?array
+    {
+        if ($values === null) {
+            return null;
+        }
+
+        $projected = [];
+
+        foreach ($values as $key => $value) {
+            if (! is_string($key) || ! isset(self::AUDIT_VALUE_KEYS[$key])) {
+                self::reportDroppedValue($action, $key, $value);
+
+                continue;
+            }
+
+            if ($value instanceof BackedEnum) {
+                $value = $value->value;
+            }
+
+            if ($value !== null && ! is_scalar($value)) {
+                continue;
+            }
+
+            $projected[$key] = is_string($value)
+                ? LogRedaction::text($value, self::MAX_AUDIT_VALUE_LENGTH)
+                : $value;
+        }
+
+        return $projected;
+    }
+
+    /** Record the key of a dropped non-allowlisted scalar without writing its value. */
+    private static function reportDroppedValue(?string $action, int|string $key, mixed $value): void
+    {
+        if ($action === null || ! is_string($key) || $value === null || ! is_scalar($value)) {
+            return;
+        }
+
+        Log::debug('activity_value_dropped', [
+            'action' => $action,
+            'key' => $key,
+        ]);
+    }
+
+    /**
      * @param  array<string, mixed>  $oldValues
      * @param  array<string, mixed>  $newValues
      */
@@ -52,6 +194,9 @@ final class RecruitmentActivityLogger
         ?string $entityId = null,
         ?Request $request = null,
     ): RecruitmentActivityLog {
+        $oldValues = self::projectValues($oldValues, $action) ?? [];
+        $newValues = self::projectValues($newValues, $action) ?? [];
+
         return RecruitmentActivityLog::query()->create([
             'recruitment_application_id' => $application->id,
             'recruitment_period_id' => $application->recruitment_period_id,

@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3'
-import FormFillLayout from '@/layouts/FormFillLayout.vue'
-import OpRecFeedbackForm from '@/components/modules/open-recruitment/OpRecFeedbackForm.vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Head, Link } from '@inertiajs/vue3';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
+import OpRecFeedbackForm from '@/components/modules/open-recruitment/OpRecFeedbackForm.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-defineOptions({ layout: FormFillLayout })
+defineOptions({ layout: FormFillLayout });
 
 defineProps<{
-    application: { full_name: string; registration_number: string }
-    storeUrl: string
-    dashboardUrl: string
-}>()
+    application: { full_name: string; registration_number: string };
+    storeUrl: string;
+    dashboardUrl: string;
+}>();
 </script>
 
 <template>
@@ -25,7 +25,7 @@ defineProps<{
             </p>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Bagaimana pengalamanmu?</CardTitle>
             </CardHeader>

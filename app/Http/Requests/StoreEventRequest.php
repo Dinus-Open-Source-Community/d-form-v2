@@ -4,16 +4,20 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\NormalizesEventCategoryRequest;
 use App\Http\Requests\Concerns\NormalizesEventSessionRequest;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Rules\CommaSeparatedEventCategories;
 use App\Rules\CommaSeparatedEventSessions;
+use App\Rules\SafeUploadFile;
 use App\Services\Event\EventService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UploadPurpose;
 
 class StoreEventRequest extends FormRequest
 {
     use NormalizesEventCategoryRequest;
     use NormalizesEventSessionRequest;
+    use SanitizesRichHtmlInput;
 
     public function authorize(): bool
     {
@@ -37,7 +41,7 @@ class StoreEventRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'session' => ['required', 'string', 'max:2048', new CommaSeparatedEventSessions()],
             'category' => ['required', 'string', 'max:2048', new CommaSeparatedEventCategories()],
-            'banner' => ['required', 'image', 'max:10240'],
+            'banner' => SafeUploadFile::rules(true, UploadPurpose::Image),
             'publish' => ['sometimes', 'boolean'],
         ];
     }
@@ -86,7 +90,7 @@ class StoreEventRequest extends FormRequest
             'category.max' => 'Event categories cannot exceed 2,048 characters.',
             'banner.required' => 'Please upload a banner image for the event.',
             'banner.image' => 'Banner must be an image file (JPG, PNG, etc.).',
-            'banner.max' => 'Banner image size cannot exceed 10 MB.',
+            'banner.max' => 'Banner image size cannot exceed 5 MB.',
             'publish.boolean' => 'Publish status must be true or false.',
         ];
     }
@@ -95,6 +99,7 @@ class StoreEventRequest extends FormRequest
     {
         $this->mergeNormalizedCategoryFromRequest();
         $this->mergeNormalizedSessionFromRequest();
+        $this->mergeSanitizedHtml(['description']);
 
         if ($this->has('price') && is_string($this->input('price'))) {
             $this->merge([

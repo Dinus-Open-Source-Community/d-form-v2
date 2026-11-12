@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, useTemplateRef } from 'vue';
+import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -12,19 +13,23 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
-import useAuth from '@/utils/composables/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
 import { LayoutDashboard, UserRound, LogOut, ChevronsUpDown } from 'lucide-vue-next';
+import { findElement } from '@/adapters/browser/domQuery';
+import { matchesMediaQuery } from '@/adapters/browser/mediaQuery';
+import { currentPathname, readScrollY } from '@/adapters/browser/navigation';
+import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const page = usePage();
 const user = useAuth(page.props);
 
 const scrolled = ref(false);
 const mobileOpen = ref(false);
-const currentPath = computed(() => window.location.pathname);
+const currentPath = computed(() => currentPathname() || '/');
 
 const accountMenuOpen = ref(false);
 let accountCloseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,7 +42,7 @@ const HOVER_CLOSE_MS = 320;
 const accountTriggerEl = useTemplateRef<HTMLButtonElement>('accountTriggerEl');
 
 function accountDropdownContentEl(): Element | null {
-    return document.querySelector('[data-slot="dropdown-menu-content"]');
+    return findElement('[data-slot="dropdown-menu-content"]');
 }
 
 function isInsideAccountDropdown(target: EventTarget | null): boolean {
@@ -105,17 +110,20 @@ function signOut() {
 }
 
 const onScroll = () => {
-    scrolled.value = window.scrollY > 10;
+    scrolled.value = readScrollY() > 10;
 };
 
+let releaseScroll: (() => void) | null = null;
+
 onMounted(() => {
-    window.addEventListener('scroll', onScroll, { passive: true });
+    releaseScroll = onWindowEvent('scroll', onScroll, { passive: true });
     onScroll();
-    hoverMenusEnabled.value = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    hoverMenusEnabled.value = matchesMediaQuery('(hover: hover) and (pointer: fine)');
 });
 
 onUnmounted(() => {
-    window.removeEventListener('scroll', onScroll);
+    releaseScroll?.();
+    releaseScroll = null;
     clearAccountCloseTimer();
 });
 
@@ -135,17 +143,19 @@ function isLinkActive(href: string): boolean {
 <template>
     <header
         :class="[
- 'fixed inset-x-0 top-0 z-50 transition-all duration-300',
- scrolled
- ? 'border-border/50 bg-background/85 border-b shadow-[0_1px_3px_rgb(0_0_0/0.04)] backdrop-blur-xl'
- : 'bg-transparent',
- ]"
+            'fixed inset-x-0 top-0 z-50 transition-all duration-300',
+            scrolled
+                ? 'border-border/50 bg-background/85 border-b shadow-[0_1px_3px_rgb(0_0_0/0.04)] backdrop-blur-xl'
+                : 'bg-transparent',
+        ]"
     >
         <div class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-10">
             <a :href="routes.home" class="group flex items-center gap-2.5">
                 <img
-                    src="/public/DForm%201.png"
+                    :src="DFORM_WORDMARK_SRC"
                     alt="DOSCOM"
+                    width="113"
+                    height="49"
                     class="h-8 w-auto transition-colors duration-200"
                 />
             </a>
@@ -156,9 +166,9 @@ function isLinkActive(href: string): boolean {
                     :key="link.href"
                     :href="link.href"
                     :class="[
- 'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150',
- isLinkActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
- ]"
+                        'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150',
+                        isLinkActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                    ]"
                 >
                     {{ link.label }}
                 </a>
@@ -210,7 +220,10 @@ function isLinkActive(href: string): boolean {
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem as-child>
-                            <Link :href="routes.dashboard.profile" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link
+                                :href="routes.dashboard.profile"
+                                class="flex w-full cursor-pointer items-center gap-2"
+                            >
                                 <UserRound class="text-muted-foreground size-4" />
                                 Profile
                             </Link>
@@ -261,11 +274,11 @@ function isLinkActive(href: string): boolean {
                             :key="link.href"
                             :href="link.href"
                             :class="[
- 'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
- isLinkActive(link.href)
- ? 'bg-primary/8 text-primary'
- : 'text-muted-foreground hover:bg-muted hover:text-foreground',
- ]"
+                                'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                                isLinkActive(link.href)
+                                    ? 'bg-primary/8 text-primary'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                            ]"
                             @click="mobileOpen = false"
                         >
                             {{ link.label }}

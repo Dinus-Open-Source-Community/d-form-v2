@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\EventFormVisibility;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Models\Event;
 use App\Support\FormFieldsRequestValidation;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -12,6 +13,8 @@ use Illuminate\Validation\Validator;
 
 class StoreEventFormRequest extends FormRequest
 {
+    use SanitizesRichHtmlInput;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -86,5 +89,11 @@ class StoreEventFormRequest extends FormRequest
             null,
             $event?->id,
         );
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->mergeSanitizedHtml(['success_content']);
+        $this->mergeSanitizedFormFieldHtml();
     }
 }

@@ -1,0 +1,17 @@
+{
+    "generated_at": "2026-10-22T15:59:00+00:00",
+    "targets": [
+        {
+            "name": "home",
+            "method": "GET",
+            "url": "/",
+            "writes": false
+        },
+        {
+            "name": "dashboard.home",
+            "method": "GET",
+            "url": "/admin/dashboard",
+            "writes": false
+        }
+    ]
+}

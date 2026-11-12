@@ -52,7 +52,9 @@ Route::middleware(['auth', 'broadcast.access'])->prefix('/admin/broadcasts')->na
     Route::post('/{broadcast}/inline-image', BroadcastInlineImageController::class)->name('inline-image.upload');
 
     Route::get('/{broadcast}/preview', BroadcastPreviewController::class)->name('preview');
-    Route::post('/{broadcast}/test', BroadcastTestController::class)->name('test');
+    Route::post('/{broadcast}/test', BroadcastTestController::class)
+        ->middleware('throttle:broadcast-test')
+        ->name('test');
 
     Route::post('/{broadcast}/schedule', [BroadcastScheduleController::class, 'schedule'])->name('schedule');
     Route::patch('/{broadcast}/schedule', [BroadcastScheduleController::class, 'update'])->name('schedule.update');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard\Recruitment;
 use App\Http\Controllers\Controller;
 use App\Models\Recruitment\RecruitmentActivityLog;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Services\Recruitment\RecruitmentActivityLogger;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -45,8 +46,8 @@ class RecruitmentActivityLogController extends Controller
                     'registration_number' => $log->application->registration_number,
                     'full_name' => $log->application->full_name,
                 ] : null,
-                'old_values' => $log->old_values,
-                'new_values' => $log->new_values,
+                'old_values' => RecruitmentActivityLogger::projectValues($log->old_values),
+                'new_values' => RecruitmentActivityLogger::projectValues($log->new_values),
                 'created_at' => $log->created_at?->toIso8601String(),
             ]),
             'periodOptions' => RecruitmentPeriod::query()

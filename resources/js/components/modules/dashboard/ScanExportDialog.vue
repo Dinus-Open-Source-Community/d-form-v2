@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import { computed, ref, watch } from 'vue'
+import type { Component } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     Dialog,
     DialogContent,
@@ -8,111 +8,113 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
-import { FileSpreadsheet, FileText } from 'lucide-vue-next'
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 
-export type ScanExportTarget = {
-    id: string
-    label: string
-    kind: 'event' | 'oprec'
-}
+export type TScanExportTarget = {
+    id: string;
+    label: string;
+    kind: 'event' | 'oprec';
+};
 
-export type ScanExportFormat = 'csv' | 'xlsx'
+export type TScanExportFormat = 'csv' | 'xlsx';
 
 const props = defineProps<{
-    open: boolean
-    options: ScanExportTarget[]
-    format: ScanExportFormat
-}>()
+    open: boolean;
+    options: TScanExportTarget[];
+    format: TScanExportFormat;
+}>();
 
 const emit = defineEmits<{
-    'update:open': [value: boolean]
-    confirm: [targets: ScanExportTarget[]]
-}>()
+    'update:open': [value: boolean];
+    confirm: [targets: TScanExportTarget[]];
+}>();
 
-const query = ref('')
-const selectedIds = ref<string[]>([])
+const query = ref('');
+const selectedIds = ref<string[]>([]);
 
-const filteredOptions = computed<ScanExportTarget[]>(() => {
-    const needle = query.value.trim().toLowerCase()
+const filteredOptions = computed<TScanExportTarget[]>(() => {
+    const needle = query.value.trim().toLowerCase();
     if (needle.length === 0) {
-        return props.options
+        return props.options;
     }
 
-    return props.options.filter((option) => `${option.label} ${option.kind}`.toLowerCase().includes(needle))
-})
+    return props.options.filter((option) => `${option.label} ${option.kind}`.toLowerCase().includes(needle));
+});
 
-const selectedCount = computed<number>(() => selectedIds.value.length)
+const selectedCount = computed<number>(() => selectedIds.value.length);
 
 const allVisibleSelected = computed<boolean>(
-    () => filteredOptions.value.length > 0 && filteredOptions.value.every((option) => selectedIds.value.includes(option.id)),
-)
+    () =>
+        filteredOptions.value.length > 0 &&
+        filteredOptions.value.every((option) => selectedIds.value.includes(option.id))
+);
 
-const formatLabel = computed<string>(() => (props.format === 'xlsx' ? 'Excel (XLSX)' : 'CSV'))
+const formatLabel = computed<string>(() => (props.format === 'xlsx' ? 'Excel (XLSX)' : 'CSV'));
 
-const formatIcon = computed<Component>(() => (props.format === 'xlsx' ? FileSpreadsheet : FileText))
+const formatIcon = computed<Component>(() => (props.format === 'xlsx' ? FileSpreadsheet : FileText));
 
 const confirmLabel = computed<string>(() => {
-    const count = selectedCount.value
+    const count = selectedCount.value;
     if (count === 0) {
-        return `Unduh ${formatLabel.value}`
+        return `Unduh ${formatLabel.value}`;
     }
 
     return count === 1
         ? `Unduh 1 file ${props.format.toUpperCase()}`
-        : `Unduh ${count} file ${props.format.toUpperCase()}`
-})
+        : `Unduh ${count} file ${props.format.toUpperCase()}`;
+});
 
 watch(
     () => props.open,
     (open) => {
         if (open) {
-            query.value = ''
-            selectedIds.value = []
+            query.value = '';
+            selectedIds.value = [];
         }
-    },
-)
+    }
+);
 
 function isSelected(id: string): boolean {
-    return selectedIds.value.includes(id)
+    return selectedIds.value.includes(id);
 }
 
 function toggle(id: string, checked: boolean): void {
     if (checked) {
         if (!selectedIds.value.includes(id)) {
-            selectedIds.value = [...selectedIds.value, id]
+            selectedIds.value = [...selectedIds.value, id];
         }
 
-        return
+        return;
     }
 
-    selectedIds.value = selectedIds.value.filter((value) => value !== id)
+    selectedIds.value = selectedIds.value.filter((value) => value !== id);
 }
 
 function toggleAllVisible(checked: boolean): void {
-    const visibleIds = filteredOptions.value.map((option) => option.id)
+    const visibleIds = filteredOptions.value.map((option) => option.id);
 
     if (checked) {
-        selectedIds.value = Array.from(new Set([...selectedIds.value, ...visibleIds]))
+        selectedIds.value = Array.from(new Set([...selectedIds.value, ...visibleIds]));
 
-        return
+        return;
     }
 
-    selectedIds.value = selectedIds.value.filter((id) => !visibleIds.includes(id))
+    selectedIds.value = selectedIds.value.filter((id) => !visibleIds.includes(id));
 }
 
 function onConfirm(): void {
-    const targets = props.options.filter((option) => selectedIds.value.includes(option.id))
+    const targets = props.options.filter((option) => selectedIds.value.includes(option.id));
     if (targets.length === 0) {
-        return
+        return;
     }
 
-    emit('confirm', targets)
-    emit('update:open', false)
+    emit('confirm', targets);
+    emit('update:open', false);
 }
 </script>
 

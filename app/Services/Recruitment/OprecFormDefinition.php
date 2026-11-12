@@ -12,7 +12,9 @@ class OprecFormDefinition
 {
     public const FORM_TITLE = 'Formulir Open Recruitment';
 
-    public function __construct(private readonly RecruitmentDivisionService $divisionService) {}
+    public function __construct(private readonly RecruitmentDivisionService $divisionService)
+    {
+    }
 
     /**
      * Future-compatible: utamakan form yang terhubung ke period bila kolom itu
@@ -23,7 +25,7 @@ class OprecFormDefinition
         $formId = $period?->form_id;
 
         if (is_string($formId) && $formId !== '') {
-            $linked = Form::query()->find($formId);
+            $linked = Form::query()->published()->find($formId);
             if ($linked !== null) {
                 return $linked;
             }
@@ -31,6 +33,7 @@ class OprecFormDefinition
 
         $form = Form::query()
             ->oprec()
+            ->published()
             ->where('title', self::FORM_TITLE)
             ->first();
         abort_if($form === null, 503, 'Formulir pendaftaran sedang dalam pemeliharaan. Coba lagi nanti.');

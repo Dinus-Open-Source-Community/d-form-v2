@@ -3,6 +3,7 @@
 namespace App\Services\Form;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\EventStatus;
 use App\Enums\FormAccessStatus;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\FormPurpose;
@@ -35,6 +36,12 @@ final class FormAccessGuard
      */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
+        // Draft belum boleh diisi siapa pun: halaman fill/submit hanya untuk form
+        // yang sudah dipublikasikan penyelenggara.
+        if ($form->isDraft()) {
+            return FormAccessStatus::NotVisible;
+        }
+
         $isAdmin = $user->can('events.list');
 
         if (! $isAdmin && ! self::isVisible($form, $user)) {
@@ -65,6 +72,19 @@ final class FormAccessGuard
 
         return self::duplicateOrInvitationStatus($form, $user)
             ?? FormAccessStatus::Allowed;
+    }
+
+    /**
+     * Tolak (404) bila event sudah dihapus atau belum dipublikasikan dan user bukan admin.
+     * Admin tetap boleh membuka form draft untuk pratinjau.
+     */
+    public static function assertEventAvailable(Event $event, User $user): void
+    {
+        if ($user->can('events.list')) {
+            return;
+        }
+
+        abort_if($event->trashed() || $event->status !== EventStatus::Published, 404);
     }
 
     /**
@@ -188,6 +208,7 @@ final class FormAccessGuard
         $requiredBelongsToEvent = Form::query()
             ->where('id', $requiresFormId)
             ->where('event_id', $event->id)
+            ->published()
             ->exists();
 
         if (! $requiredBelongsToEvent) {

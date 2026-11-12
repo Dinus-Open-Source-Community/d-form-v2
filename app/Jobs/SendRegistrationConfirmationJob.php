@@ -3,12 +3,11 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
-use App\Enums\EmailLogStatus;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\RegistrationRole;
 use App\Mail\RegistrationConfirmationMail;
-use App\Models\EmailLog;
 use App\Models\FormAnswer;
 use App\Services\Registration\FormAnswerRecipientResolver;
 use App\Services\Registration\RegistrationAnswersSummarizer;
@@ -22,10 +21,12 @@ class SendRegistrationConfirmationJob implements ShouldQueue
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $formAnswerId,
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(
@@ -48,17 +49,16 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         $recipientEmail = $recipientResolver->email($submission);
         $event = $submission->form->event;
 
+        $logAttributes = [
+            'form_answer_id' => $submission->id,
+            'event_id' => $event->id,
+            'user_id' => $recipientResolver->userIdForLog($submission),
+            'recipient_email' => $recipientEmail ?? '',
+            'notification_type' => EmailNotificationType::RegistrationSubmitted,
+        ];
+
         if ($recipientEmail === null || $recipientEmail === '') {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => '',
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
-                'error_message' => 'No recipient email address configured.',
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogUndeliverable($logAttributes, 'No recipient email address configured.');
 
             Log::warning('[SendRegistrationConfirmationJob] No recipient email.', [
                 'form_answer_id' => $submission->id,
@@ -77,46 +77,32 @@ class SendRegistrationConfirmationJob implements ShouldQueue
             ? null
             : $qrGenerator->pngForSubmission($submission->id);
 
-        try {
-            $this->applyOutgoingEmailJitter();
+        $this->applyOutgoingEmailJitter();
 
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
+
+        try {
             Mail::to($recipientEmail)->send(
                 new RegistrationConfirmationMail($submission, $answersSummary, $qrPng)
             );
 
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $e) {
-            EmailLog::query()->create([
-                'form_answer_id' => $submission->id,
-                'event_id' => $event->id,
-                'user_id' => $recipientResolver->userIdForLog($submission),
-                'recipient_email' => $recipientEmail,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => EmailNotificationType::RegistrationSubmitted,
-                'error_message' => $e->getMessage(),
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogFailed($log, $e);
 
             Log::error('[SendRegistrationConfirmationJob] Email send failed.', [
                 'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
-                'recipient_email' => $recipientEmail,
+                'delivery_key' => $this->deliveryKey,
                 'exception_class' => $e::class,
-                'exception_message' => $e->getMessage(),
-                'exception' => $e,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

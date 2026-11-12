@@ -142,7 +142,7 @@ class FormRegistrationTest extends TestCase
     /** Post-submit redirect matches {@see FormSubmissionController} (members land on submit success page). */
     private function submitSuccessRedirect(Event $event, User $user, Form $form): string
     {
-        if ($user->can('events.view')) {
+        if ($user->can('view', $event)) {
             return route('dashboard.events.show', $event);
         }
 
@@ -556,6 +556,7 @@ class FormRegistrationTest extends TestCase
 
     public function test_file_upload_field_stores_path(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
 
         $member = $this->member();
@@ -571,7 +572,7 @@ class FormRegistrationTest extends TestCase
             'metadata'   => ['rules' => ['required' => true, 'mimes' => 'pdf', 'max_size' => 2048]],
         ]);
 
-        $file = UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\n".str_repeat('x', 100)."\n%%EOF");
 
         $this->actingAs($member)
              ->post($this->submitPath($event, $form), ['cv' => $file])
@@ -579,7 +580,8 @@ class FormRegistrationTest extends TestCase
 
         $answer = FormAnswer::where('form_id', $form->id)->first();
         $this->assertStringStartsWith("form-uploads/{$form->id}/", $answer->answers['cv']);
-        Storage::disk('public')->assertExists($answer->answers['cv']);
+        Storage::disk('local')->assertExists($answer->answers['cv']);
+        Storage::disk('public')->assertMissing($answer->answers['cv']);
     }
 
     public function test_date_picker_field_is_stored_as_scalar_string(): void
@@ -630,6 +632,7 @@ class FormRegistrationTest extends TestCase
 
     public function test_file_upload_rejects_non_matching_mime(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
 
         $member = $this->member();
@@ -1749,6 +1752,160 @@ class FormRegistrationTest extends TestCase
             ->assertStatus(409);
     }
 
+    public function test_review_rejects_unknown_status_on_review_status_key(): void
+    {
+        $admin  = $this->admin();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event);
+        $member = $this->member();
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => 'unknown-status',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('review_status');
+
+        $this->assertSame(FormAnswerReviewStatus::Pending, $answer->refresh()->review_status);
+    }
+
+    public function test_invitation_keeps_invitation_decision_and_decline_reason_error_keys(): void
+    {
+        $member = $this->member();
+        $leaderUser = $this->member();
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leaderUser->id,
+            'registration_role' => RegistrationRole::Leader,
+            'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+        ]);
+
+        $token = 'validate-token-'.uniqid();
+
+        $row = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+            'invitation_expired_at' => now()->addDays(7),
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertSessionHasErrors('invitation_decision');
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'reject',
+            ])
+            ->assertSessionHasErrors('decline_reason');
+
+        $this->assertSame(MemberConfirmationStatus::Pending, $row->refresh()->member_confirmation_status);
+    }
+
+    /**
+     * Kepemilikan token dan status pending diperiksa sebelum validasi payload,
+     * supaya non-owner tetap 403 dan undangan yang sudah dijawab tetap redirect.
+     */
+    public function test_invitation_checks_ownership_and_pending_state_before_validation(): void
+    {
+        $member = $this->member();
+        $leaderUser = $this->member();
+        $outsider = $this->member();
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        $this->textField($form);
+
+        $leader = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leaderUser->id,
+            'registration_role' => RegistrationRole::Leader,
+            'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+        ]);
+
+        $token = 'precedence-token-'.uniqid();
+
+        $row = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'leader_form_answer_id' => $leader->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+            'invitation_expired_at' => now()->addDays(7),
+            'answers' => ['full_name' => 'Member'],
+        ]);
+
+        $this->actingAs($outsider)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertStatus(403);
+
+        $row->forceFill(['member_confirmation_status' => MemberConfirmationStatus::Accepted])->save();
+
+        $this->actingAs($member)
+            ->post(route('dashboard.user.team-invitations.update', ['token' => $token], false), [
+                'invitation_decision' => 'maybe',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(MemberConfirmationStatus::Accepted, $row->refresh()->member_confirmation_status);
+    }
+
+    /**
+     * `404` karena ids tidak cocok tetap menang atas `422` validasi, sama
+     * seperti urutan sebelum status review dipindah ke Form Request.
+     */
+    public function test_review_mismatched_ids_return_404_before_validation(): void
+    {
+        $admin = $this->admin();
+        $event = $this->openEvent();
+        $form = $this->openForm($event);
+        $otherEvent = $this->openEvent();
+        $otherForm = $this->openForm($otherEvent);
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $otherForm->id,
+            'user_id' => $this->member()->id,
+            'answers' => ['full_name' => 'Jane Doe'],
+            'review_status' => FormAnswerReviewStatus::Pending,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson($this->reviewPath($event, $form, $answer), [
+                'review_status' => 'unknown-status',
+            ])
+            ->assertNotFound();
+    }
+
     public function test_member_cannot_review_submission(): void
     {
         $member = $this->member();
@@ -2431,7 +2588,7 @@ class FormRegistrationTest extends TestCase
              ->post($this->submitPath($event, $form), ['full_name' => 'First Try'])
              ->assertRedirect($this->submitSuccessRedirect($event, $member, $form));
 
-        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
+        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->firstOrFail();
 
         $this->actingAs($admin)
              ->patchJson($this->reviewPath($event, $form, $firstSubmission), [
@@ -2479,7 +2636,7 @@ class FormRegistrationTest extends TestCase
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
 
-        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->first();
+        $firstSubmission = FormAnswer::query()->where('form_id', $form->id)->where('user_id', $member->id)->firstOrFail();
 
         $this->actingAs($admin)
              ->patchJson($this->reviewPath($event, $form, $firstSubmission), [
@@ -2525,7 +2682,7 @@ class FormRegistrationTest extends TestCase
 
         $counter = app(EventRegistrationCounter::class);
         $this->assertSame(1, $counter->countOccupyingSlotsForEvent($event));
-        $this->assertSame(1, $counter->reconcile($event->fresh()));
+        $this->assertSame(1, $counter->reconcile($event->fresh() ?? $event));
 
         $event->refresh();
         $this->assertSame(1, $event->registered_count);
@@ -2536,8 +2693,8 @@ class FormRegistrationTest extends TestCase
              ])
              ->assertOk();
 
-        $this->assertSame(0, $counter->countOccupyingSlotsForEvent($event->fresh()));
-        $this->assertSame(0, $counter->reconcile($event->fresh()));
+        $this->assertSame(0, $counter->countOccupyingSlotsForEvent($event->fresh() ?? $event));
+        $this->assertSame(0, $counter->reconcile($event->fresh() ?? $event));
 
         $event->refresh();
         $this->assertSame(0, $event->registered_count);

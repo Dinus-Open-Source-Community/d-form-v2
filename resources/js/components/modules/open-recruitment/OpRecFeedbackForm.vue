@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { computed } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { readSharedError } from '@/lib/sharedErrors';
 
 const props = defineProps<{
-    storeUrl: string
-    compact?: boolean
-}>()
+    storeUrl: string;
+    compact?: boolean;
+}>();
 
 const emit = defineEmits<{
-    success: []
-    cancel: []
-}>()
+    success: [];
+    cancel: [];
+}>();
 
 const ratingFields = [
     { key: 'rating_registration_ease', label: 'Kemudahan pendaftaran' },
@@ -19,7 +21,11 @@ const ratingFields = [
     { key: 'rating_tracking_ease', label: 'Kemudahan portal tracking' },
     { key: 'rating_interview_experience', label: 'Pengalaman interview' },
     { key: 'rating_staff_service', label: 'Pelayanan panitia' },
-] as const
+] as const;
+
+const page = usePage();
+/** Error non-field yang dikirim server saat feedback ditolak. */
+const feedbackError = computed(() => readSharedError(page.props, 'feedback'));
 
 const form = useForm({
     rating_registration_ease: '',
@@ -28,16 +34,16 @@ const form = useForm({
     rating_interview_experience: '',
     rating_staff_service: '',
     feedback_text: '',
-})
+});
 
 function submit() {
     form.post(props.storeUrl, {
         preserveScroll: true,
         onSuccess: () => {
-            form.reset()
-            emit('success')
+            form.reset();
+            emit('success');
         },
-    })
+    });
 }
 </script>
 
@@ -75,13 +81,19 @@ function submit() {
             />
         </div>
 
-        <p v-if="form.errors.feedback" class="text-destructive text-sm">{{ form.errors.feedback }}</p>
+        <p v-if="feedbackError" class="text-destructive text-sm">{{ feedbackError }}</p>
 
         <div class="flex flex-wrap gap-2 pt-1">
             <Button type="submit" size="sm" :disabled="form.processing">
                 {{ form.processing ? 'Mengirim...' : 'Kirim feedback' }}
             </Button>
-            <Button v-if="$attrs.onCancel !== undefined" type="button" variant="ghost" size="sm" @click="emit('cancel')">
+            <Button
+                v-if="$attrs.onCancel !== undefined"
+                type="button"
+                variant="ghost"
+                size="sm"
+                @click="emit('cancel')"
+            >
                 Batal
             </Button>
         </div>

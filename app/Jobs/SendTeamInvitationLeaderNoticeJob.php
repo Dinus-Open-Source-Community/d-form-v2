@@ -3,24 +3,25 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
-use App\Enums\EmailLogStatus;
+use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Enums\EmailNotificationType;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
 use App\Mail\RegistrationConfirmationMail;
 use App\Mail\RegistrationRejectedMail;
-use App\Models\EmailLog;
 use App\Models\FormAnswer;
 use App\Services\Registration\RegistrationAnswersSummarizer;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
+class SendTeamInvitationLeaderNoticeJob implements ShouldQueue, ShouldBeEncrypted
 {
     use AppliesOutgoingEmailDelay;
     use Queueable;
+    use TracksOutgoingEmail;
 
     public function __construct(
         public string $memberFormAnswerId,
@@ -28,6 +29,7 @@ class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
         /** Shown only in the leader decline email; not stored on FormAnswer. */
         public ?string $declineReason = null,
     ) {
+        $this->initializeEmailDelivery();
     }
 
     public function handle(RegistrationAnswersSummarizer $summarizer): void
@@ -78,21 +80,22 @@ class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
         $leaderSubmission = $memberSubmission->teamLeaderSubmission;
         $leader = $leaderSubmission?->user;
 
+        $event = $memberSubmission->form->event;
+        $notificationType = $this->decision === 'accepted'
+            ? EmailNotificationType::TeamMemberInvitationAcceptedLeaderNotice
+            : EmailNotificationType::TeamMemberInvitationDeclinedLeaderNotice;
+
+        $logAttributes = [
+            'form_answer_id' => $memberSubmission->id,
+            'event_id' => $event->id,
+            'user_id' => $leader?->id,
+            'recipient_email' => $leader?->email ?? '',
+            'notification_type' => $notificationType,
+        ];
+
         if ($leader === null || $leader->email === '') {
             if ($leader !== null && $leader->email === '') {
-                $event = $memberSubmission->form->event;
-                EmailLog::query()->create([
-                    'form_answer_id' => $memberSubmission->id,
-                    'event_id' => $event->id,
-                    'user_id' => $leader->id,
-                    'recipient_email' => '',
-                    'status' => EmailLogStatus::Failed,
-                    'notification_type' => $this->decision === 'accepted'
-                        ? EmailNotificationType::TeamMemberInvitationAcceptedLeaderNotice
-                        : EmailNotificationType::TeamMemberInvitationDeclinedLeaderNotice,
-                    'error_message' => 'Leader has no email address configured.',
-                    'sent_at' => null,
-                ]);
+                $this->markEmailLogUndeliverable($logAttributes, 'Leader has no email address configured.');
             }
 
             Log::warning('[SendTeamInvitationLeaderNoticeJob] No leader or leader email.', [
@@ -102,14 +105,15 @@ class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
             return;
         }
 
-        $event = $memberSubmission->form->event;
-        $notificationType = $this->decision === 'accepted'
-            ? EmailNotificationType::TeamMemberInvitationAcceptedLeaderNotice
-            : EmailNotificationType::TeamMemberInvitationDeclinedLeaderNotice;
+        $this->applyOutgoingEmailJitter();
+
+        $log = $this->reserveEmailLog($logAttributes);
+
+        if ($log === null) {
+            return;
+        }
 
         try {
-            $this->applyOutgoingEmailJitter();
-
             if ($this->decision === 'accepted') {
                 $answersSummary = $summarizer->summarize($memberSubmission);
                 Mail::to($leader->email)->send(
@@ -134,39 +138,19 @@ class SendTeamInvitationLeaderNoticeJob implements ShouldQueue
                 );
             }
 
-            EmailLog::query()->create([
-                'form_answer_id' => $memberSubmission->id,
-                'event_id' => $event->id,
-                'user_id' => $leader->id,
-                'recipient_email' => $leader->email,
-                'status' => EmailLogStatus::Sent,
-                'notification_type' => $notificationType,
-                'error_message' => null,
-                'sent_at' => now(),
-            ]);
+            $this->markEmailLogSent($log, $leader->email);
         } catch (\Throwable $e) {
-            EmailLog::query()->create([
-                'form_answer_id' => $memberSubmission->id,
-                'event_id' => $event->id,
-                'user_id' => $leader->id,
-                'recipient_email' => $leader->email,
-                'status' => EmailLogStatus::Failed,
-                'notification_type' => $notificationType,
-                'error_message' => $e->getMessage(),
-                'sent_at' => null,
-            ]);
+            $this->markEmailLogFailed($log, $e);
 
             Log::error('[SendTeamInvitationLeaderNoticeJob] Email send failed.', [
                 'notification_type' => $notificationType->value,
                 'form_answer_id' => $memberSubmission->id,
                 'event_id' => $event->id,
-                'recipient_email' => $leader->email,
+                'delivery_key' => $this->deliveryKey,
                 'exception_class' => $e::class,
-                'exception_message' => $e->getMessage(),
-                'exception' => $e,
             ]);
 
-            throw $e;
+            $this->throwRedacted($e);
         }
     }
 }

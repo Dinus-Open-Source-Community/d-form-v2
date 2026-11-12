@@ -188,6 +188,99 @@ class UserEventRegistrationPortalTest extends TestCase
             );
     }
 
+    public function test_BE_P3_001_event_portal_preserves_detail_props_and_accepted_qr_data(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'detail-accepted-event']);
+        $form = $this->primaryForm($event);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'DETAIL-999',
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('event.id', $event->id)
+                    ->where('isRegistered', true)
+                    ->where('pendingTeamInvitationUrl', null)
+                    ->where('registrationStatus', 'accepted')
+                    ->where('registration_code', 'DETAIL-999')
+                    ->where('qr_base64', fn ($value) => is_string($value) && strlen($value) > 50)
+                    ->has('participantForms', 0)
+            );
+    }
+
+    public function test_BE_P3_001_event_portal_preserves_pending_invitation_url(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'detail-pending-event']);
+        $form = $this->primaryForm($event);
+        $token = 'detail-pending-'.uniqid();
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'registration_role' => RegistrationRole::Member,
+            'member_confirmation_status' => MemberConfirmationStatus::Pending,
+            'invitation_token' => $token,
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('event.id', $event->id)
+                    ->where('isRegistered', false)
+                    ->where('pendingTeamInvitationUrl', route(
+                        'dashboard.user.team-invitations.show',
+                        ['token' => $token],
+                        false,
+                    ))
+                    ->where('registrationStatus', null)
+                    ->where('qr_base64', null)
+                    ->where('registration_code', null)
+                    ->has('participantForms', 0)
+            );
+    }
+
+    public function test_BE_P3_001_non_owner_can_view_published_event_without_registration_props(): void
+    {
+        $owner = $this->member();
+        $viewer = $this->member();
+        $event = $this->publishedEvent(['slug' => 'detail-non-owner-event']);
+        $form = $this->primaryForm($event);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $owner->id,
+            'answers' => [],
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('event.id', $event->id)
+                    ->where('isRegistered', false)
+                    ->where('pendingTeamInvitationUrl', null)
+                    ->where('registrationStatus', null)
+                    ->where('qr_base64', null)
+                    ->where('registration_code', null)
+            );
+    }
+
     public function test_rejected_registrant_has_no_qr(): void
     {
         $member = $this->member();

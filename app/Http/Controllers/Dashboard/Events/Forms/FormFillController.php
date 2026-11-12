@@ -20,16 +20,40 @@ class FormFillController extends Controller
     public function __invoke(Request $request, Event $event, Form $form): Response
     {
         abort_unless($form->event_id === $event->id, 404);
+        // Draft belum dipublikasikan: isi form tidak boleh dirender ke peserta
+        // walau id-nya bisa ditebak. Guard akses tetap memberi NotVisible untuk
+        // pemakai lain (submit/picker), ini menutup kebocoran konten halaman fill.
+        abort_if($form->isDraft(), 404);
 
-        $user   = $request->user();
+        $user = $request->user();
+        FormAccessGuard::assertEventAvailable($event, $user);
+
         $status = FormAccessGuard::check($form, $event, $user);
 
-        $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);
+        $fields = [];
+        if ($status === FormAccessStatus::Allowed) {
+            $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);
 
-        $fields = $form->formFields
-            ->map(fn (FormField $f) => FormFieldTypeMapping::fieldToInertia($f))
+            $fields = $form->formFields
+                ->map(fn (FormField $f) => FormFieldTypeMapping::fieldToInertia($f))
+                ->values()
+                ->all();
+        }
+
+        $metadata = is_array($form->metadata) ? $form->metadata : [];
+        $sections = collect($metadata['sections'] ?? [])
+            ->filter(fn ($section) => is_array($section) && is_string($section['id'] ?? null))
+            ->map(fn (array $section, int $index): array => [
+                'id' => $section['id'],
+                'title' => is_string($section['title'] ?? null) && $section['title'] !== ''
+                    ? $section['title']
+                    : 'Bagian '.($index + 1),
+            ])
             ->values()
             ->all();
+        if ($sections === []) {
+            $sections = [['id' => 'section-1', 'title' => 'Bagian 1']];
+        }
 
         $closed = $form->closed_at;
 
@@ -38,7 +62,6 @@ class FormFillController extends Controller
             : 0;
         $memberSlots = $teamSize >= 2 ? $teamSize - 1 : 0;
 
-        $metadata        = is_array($form->metadata) ? $form->metadata : [];
         $modeRaw         = $metadata['registration_mode'] ?? 'single';
         $registrationMode = is_string($modeRaw) && $modeRaw !== '' ? strtolower($modeRaw) : 'single';
         if (! in_array($registrationMode, ['single', 'team', 'bundle'], true)) {
@@ -62,6 +85,7 @@ class FormFillController extends Controller
                 'banner_caption'   => $form->banner_caption,
             ],
             'fields'                => $fields,
+            'sections'              => $sections,
             'submitUrl'             => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
             'accessStatus'          => $status->value,
             'accessMessage'       => $status->message(),

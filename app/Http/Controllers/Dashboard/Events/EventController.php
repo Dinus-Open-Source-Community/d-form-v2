@@ -33,7 +33,8 @@ class EventController extends Controller
     public function index(IndexEventRequest $request): Response
     {
         $validated = $request->validated();
-        $page = $request->integer('page', 1);
+        // OFFSET dalam pada 1 juta baris = lambat; batasi halaman yang bisa diminta.
+        $page = min(max(1, $request->integer('page', 1)), (int) config('events.admin.max_page', 200));
 
         $paginator = $this->eventService->paginateForAdminIndex($validated, $page, auth()->guard('web')->user());
 
@@ -128,8 +129,17 @@ class EventController extends Controller
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->visibleToEventCreator($event, auth()->user())
             ->orderBy('title')
-            ->get(['id', 'title']);
+            ->get(['id', 'title', 'status', 'created_by'])
+            ->map(fn (Form $form): array => [
+                'id' => $form->id,
+                'title' => $form->title,
+                'status' => $form->status->value,
+                'is_draft' => $form->isDraft(),
+            ])
+            ->values()
+            ->all();
 
         return Inertia::render('Dashboard/Events/Show', [
             'event' => $this->eventService->eventToInertiaArray($event),
@@ -158,6 +168,8 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event): RedirectResponse
     {
+        $this->authorize('update', $event);
+
         $data = $request->validated();
         $banner = $request->file('banner');
 

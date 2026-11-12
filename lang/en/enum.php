@@ -27,5 +27,11 @@ return [
             'participant' => 'participant',
             'admin' => 'admin'
         ]
-    ]
+    ],
+    'form' => [
+        'status' => [
+            'draft' => 'draft',
+            'published' => 'published',
+        ],
+    ],
 ];

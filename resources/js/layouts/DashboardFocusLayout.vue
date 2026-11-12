@@ -4,13 +4,13 @@ import { computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/sonner';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
-import { usePageFlashToast } from '@/utils/composables/usePageFlashToast';
-import { clearTopbar } from '@/utils/composables/useDashboardTopbar';
+import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { provideTopbar } from '@/hooks/useDashboardTopbar';
 
 usePageFlashToast();
 import {
@@ -24,16 +24,17 @@ import {
 import { LogOut, Settings } from 'lucide-vue-next';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
-import useAuth from '@/utils/composables/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 const page = usePage();
 const user = useAuth(page.props);
+const topbar = provideTopbar();
 
 // Reset state topbar saat navigasi Inertia ke halaman lain.
 watch(
     () => page.component,
     () => {
-        clearTopbar();
+        topbar.clearTopbar();
     }
 );
 
@@ -124,12 +125,6 @@ function handleLogout(): void {
                     </DropdownMenu>
                 </div>
             </header>
-            <SidebarTrigger
-                v-else
-                class="border-border/70 bg-card/95 fixed top-20 left-4 z-30 h-11! w-11! rounded-2xl border shadow-lg shadow-black/5 backdrop-blur-xl md:hidden"
-                aria-label="Buka sidebar"
-            />
-
             <main
                 class="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-14 md:px-6 lg:px-8"
                 :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-6 md:pt-8'"

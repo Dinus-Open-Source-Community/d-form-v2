@@ -4,32 +4,36 @@ namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
 use App\Models\EmailBroadcastAttachment;
+use App\Enums\UploadPurpose;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadInspector;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class BroadcastAttachmentService
 {
-    public const MAX_FILE_BYTES = 1572864; // 1.5 MB
+    public const MAX_FILE_BYTES = 5242880; // Shared global upload limit: 5 MB.
 
-    public const MAX_INLINE_IMAGE_BYTES = 1572864; // 1.5 MB ukuran file asli
+    public const MAX_INLINE_IMAGE_BYTES = 5242880; // Shared global upload limit: 5 MB.
 
     public function store(EmailBroadcast $broadcast, UploadedFile $file): EmailBroadcastAttachment
     {
         $size = $file->getSize() ?? 0;
 
-        abort_if($size > self::MAX_FILE_BYTES, 422, 'Attachment melebihi 1.5 MB.');
+        abort_if($size > self::MAX_FILE_BYTES, 422, 'Attachment melebihi 5 MB.');
 
-        $path = $file->storeAs(
-            'broadcasts/'.$broadcast->id,
-            Str::uuid()->toString().'_'.$file->getClientOriginalName(),
-            'local',
+        $path = app(SafeUploadStorage::class)->store(
+            $file,
+            UploadStorageTarget::local('broadcasts/'.$broadcast->id),
+            UploadPurpose::BroadcastAttachment,
         );
 
         return $broadcast->attachments()->create([
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'mime_type' => $file->getMimeType(),
+            // MIME hasil sniff, bukan header klien.
+            'mime_type' => UploadInspector::sniffedMime($file) ?? 'application/octet-stream',
             'file_size' => $size,
         ]);
     }
@@ -62,7 +66,7 @@ class BroadcastAttachmentService
         preg_match_all('#src="(data:image/[^"]+)"#', $html, $matches);
 
         foreach ($matches[1] ?? [] as $dataUrl) {
-            $compact = preg_replace('/\s+/', '', $dataUrl);
+            $compact = preg_replace('/\s+/', '', $dataUrl) ?? '';
             $parts = explode(',', $compact, 2);
 
             if (count($parts) !== 2) {
@@ -76,7 +80,7 @@ class BroadcastAttachmentService
             }
 
             if (strlen($binary) > self::MAX_INLINE_IMAGE_BYTES) {
-                return ['ok' => false, 'message' => 'Inline image melebihi 1.5 MB.'];
+                return ['ok' => false, 'message' => 'Inline image melebihi 5 MB.'];
             }
         }
 

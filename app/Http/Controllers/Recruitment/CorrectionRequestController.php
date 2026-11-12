@@ -7,7 +7,6 @@ use App\Http\Requests\Recruitment\StoreCorrectionRequestRequest;
 use App\Models\Recruitment\RecruitmentApplication;
 use App\Services\Recruitment\CorrectionRequestService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 
 class CorrectionRequestController extends Controller
 {

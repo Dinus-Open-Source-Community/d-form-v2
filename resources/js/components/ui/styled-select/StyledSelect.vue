@@ -3,14 +3,14 @@ import type { HTMLAttributes } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import type { FormFillOptionRow } from '@/types/form'
+import type { TFormFillOptionRow } from '@/types/form'
 import { Check, ChevronDown } from 'lucide-vue-next'
 
 const props = withDefaults(
     defineProps<{
         id?: string
         modelValue: string
-        options: FormFillOptionRow[]
+        options: TFormFillOptionRow[]
         placeholder?: string
         disabled?: boolean
         class?: HTMLAttributes['class']

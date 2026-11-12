@@ -1,52 +1,80 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { routes } from '@/lib/routes'
-import { Download, Funnel, GraduationCap, Users } from 'lucide-vue-next'
+import { computed, reactive } from 'vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
+import { routes } from '@/lib/routes';
+import { useExportDownload } from '@/hooks/useExportDownload';
+import { Download, Funnel, GraduationCap, Users } from 'lucide-vue-next';
 
 interface ReportPayload {
-    period: { id: string; name: string } | null
-    funnel: { stage: string; label: string; count: number }[]
-    by_division: { division: string; count: number }[]
-    by_semester: { semester: number; count: number }[]
-    interview_stats: Record<string, number>
-    feedback: { count: number; averages: Record<string, number | null> }
+    period: { id: string; name: string } | null;
+    funnel: { stage: string; label: string; count: number }[];
+    by_division: { division: string; count: number }[];
+    by_semester: { semester: number; count: number }[];
+    interview_stats: Record<string, number>;
+    feedback: { count: number; averages: Record<string, number | null> };
 }
 
 const props = defineProps<{
-    periodId: string
-    report: ReportPayload | null
-}>()
+    periodId: string;
+    report: ReportPayload | null;
+}>();
 
-const maxFunnel = computed(() =>
-    Math.max(1, ...(props.report?.funnel.map((row) => row.count) ?? [1])),
-)
+const maxFunnel = computed(() => Math.max(1, ...(props.report?.funnel.map((row) => row.count) ?? [1])));
+
+/** Satu state unduhan per tombol; keduanya GET download terpisah. */
+const funnelExport = reactive(useExportDownload());
+const applicantsExport = reactive(useExportDownload());
+
+function downloadFunnel(): void {
+    void funnelExport.start([routes.admin.recruitment.reports.exportFunnel(props.periodId)]);
+}
+
+function downloadApplicants(): void {
+    void applicantsExport.start([routes.admin.recruitment.reports.exportApplicants(props.periodId)]);
+}
 </script>
 
 <template>
     <div v-if="report" class="flex flex-col gap-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                Laporan periode ini
-            </h2>
-            <div class="flex flex-wrap gap-2">
-                <Button as-child size="sm" variant="outline">
-                    <a :href="routes.admin.recruitment.reports.exportFunnel(periodId)">
+            <h2 class="text-muted-foreground text-sm font-semibold tracking-wide uppercase">Laporan periode ini</h2>
+            <div class="flex flex-col items-end gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" :disabled="funnelExport.isRunning" @click="downloadFunnel">
                         <Download class="mr-2 size-4" aria-hidden="true" />
                         Export funnel CSV
-                    </a>
-                </Button>
-                <Button as-child size="sm">
-                    <a :href="routes.admin.recruitment.reports.exportApplicants(periodId)">
+                    </Button>
+                    <Button size="sm" :disabled="applicantsExport.isRunning" @click="downloadApplicants">
                         <Download class="mr-2 size-4" aria-hidden="true" />
                         Export applicant CSV
-                    </a>
-                </Button>
+                    </Button>
+                </div>
+                <ExportDownloadStatus
+                    :phase="funnelExport.phase"
+                    label="Funnel CSV"
+                    :progress="funnelExport.progress"
+                    :indeterminate="funnelExport.indeterminate"
+                    :loaded-bytes="funnelExport.loadedBytes"
+                    :direct-count="funnelExport.directCount"
+                    :error-message="funnelExport.errorMessage"
+                    @cancel="funnelExport.cancel()"
+                />
+                <ExportDownloadStatus
+                    :phase="applicantsExport.phase"
+                    label="Applicant CSV"
+                    :progress="applicantsExport.progress"
+                    :indeterminate="applicantsExport.indeterminate"
+                    :loaded-bytes="applicantsExport.loadedBytes"
+                    :direct-count="applicantsExport.directCount"
+                    :error-message="applicantsExport.errorMessage"
+                    @cancel="applicantsExport.cancel()"
+                />
             </div>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-sm font-semibold">
                     <Funnel class="text-muted-foreground size-4" aria-hidden="true" />
@@ -54,17 +82,14 @@ const maxFunnel = computed(() =>
                 </CardTitle>
             </CardHeader>
             <CardContent class="space-y-3">
-                <div v-if="report.funnel[0]" class="rounded-xl border bg-muted/30 px-4 py-3">
+                <div v-if="report.funnel[0]" class="bg-muted/30 rounded-xl border px-4 py-3">
                     <p class="text-muted-foreground text-xs uppercase">{{ report.funnel[0].label }}</p>
                     <p class="mt-0.5 text-2xl font-semibold tabular-nums">{{ report.funnel[0].count }}</p>
                 </div>
                 <div v-for="row in report.funnel.slice(1)" :key="row.stage" class="space-y-1.5">
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span>{{ row.label }}</span>
-                        <span
-                            class="font-medium tabular-nums"
-                            :class="row.count === 0 ? 'text-muted-foreground' : ''"
-                        >
+                        <span class="font-medium tabular-nums" :class="row.count === 0 ? 'text-muted-foreground' : ''">
                             {{ row.count }}
                         </span>
                     </div>
@@ -79,7 +104,7 @@ const maxFunnel = computed(() =>
         </Card>
 
         <div class="grid gap-5 lg:grid-cols-2">
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2 text-sm font-semibold">
                         <Users class="text-muted-foreground size-4" aria-hidden="true" />
@@ -87,7 +112,7 @@ const maxFunnel = computed(() =>
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="text-sm">
-                    <div v-if="report.by_division.length > 0" class="divide-y divide-border/60">
+                    <div v-if="report.by_division.length > 0" class="divide-border/60 divide-y">
                         <div
                             v-for="row in report.by_division"
                             :key="row.division"
@@ -101,7 +126,7 @@ const maxFunnel = computed(() =>
                 </CardContent>
             </Card>
 
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2 text-sm font-semibold">
                         <GraduationCap class="text-muted-foreground size-4" aria-hidden="true" />
@@ -109,7 +134,7 @@ const maxFunnel = computed(() =>
                     </CardTitle>
                 </CardHeader>
                 <CardContent class="text-sm">
-                    <div v-if="report.by_semester.length > 0" class="divide-y divide-border/60">
+                    <div v-if="report.by_semester.length > 0" class="divide-border/60 divide-y">
                         <div
                             v-for="row in report.by_semester"
                             :key="row.semester"

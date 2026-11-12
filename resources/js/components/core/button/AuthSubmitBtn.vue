@@ -4,18 +4,14 @@ import { Spinner } from '@/components/ui/spinner';
 import { InertiaForm } from '@inertiajs/vue3';
 
 type Props = {
-    form: InertiaForm<{email: string; password: string}>;
+    form: InertiaForm<{ email: string; password: string }>;
 };
 
 const { form } = defineProps<Props>();
 </script>
 
 <template>
-    <Button
-        size="lg"
-        class="w-full disabled:cursor-not-allowed"
-        :disabled="form.processing"
-    >
+    <Button size="lg" class="w-full disabled:cursor-not-allowed" :disabled="form.processing">
         <span v-if="form.processing" class="flex items-center gap-2">
             <Spinner />
             <slot name="processing"></slot>

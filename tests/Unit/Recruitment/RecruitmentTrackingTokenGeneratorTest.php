@@ -11,7 +11,7 @@ class RecruitmentTrackingTokenGeneratorTest extends TestCase
     #[Test]
     public function it_generates_eight_character_uppercase_alphanumeric_token_with_letter_and_digit(): void
     {
-        $generator = new RecruitmentTrackingTokenGenerator;
+        $generator = new RecruitmentTrackingTokenGenerator();
 
         for ($i = 0; $i < 50; $i++) {
             $token = $generator->generate();

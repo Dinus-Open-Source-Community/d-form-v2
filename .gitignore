@@ -33,6 +33,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/bootstrap/ssr
 Homestead.json
 Homestead.yaml
 Thumbs.db
@@ -58,3 +59,26 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 .superpowers/
 .playwright-cli/
+.opencode
+scripts/stress
+/database/seeders/Stress/*
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report
+/tests/e2e/.auth/
+.sokudo/
+
+# Vitest
+/coverage
+audit
+docs/big-changes
+docs/adr/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*

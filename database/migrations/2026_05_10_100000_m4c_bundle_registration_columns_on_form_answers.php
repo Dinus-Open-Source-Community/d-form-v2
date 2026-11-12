@@ -57,9 +57,31 @@ return new class () extends Migration {
 
     public function down(): void
     {
-        Schema::table('form_answers', function (Blueprint $table) {
-            $table->dropIndex('form_answers_form_id_group_token_index');
-        });
+        // InnoDB binds `form_answers_form_id_foreign` to this index (error 1553),
+        // so the key is dropped first and restored afterwards, which recreates
+        // its original auto index and leaves no extra index behind.
+        $isMysql = Schema::getConnection()->getDriverName() === 'mysql';
+
+        if ($isMysql && $this->mysqlForeignKeyExists('form_answers', 'form_answers_form_id_foreign')) {
+            Schema::table('form_answers', function (Blueprint $table) {
+                $table->dropForeign('form_answers_form_id_foreign');
+            });
+        }
+
+        if (Schema::hasIndex('form_answers', 'form_answers_form_id_group_token_index')) {
+            Schema::table('form_answers', function (Blueprint $table) {
+                $table->dropIndex('form_answers_form_id_group_token_index');
+            });
+        }
+
+        if ($isMysql && ! $this->mysqlForeignKeyExists('form_answers', 'form_answers_form_id_foreign')) {
+            Schema::table('form_answers', function (Blueprint $table) {
+                $table->foreign('form_id')
+                    ->references('id')
+                    ->on('forms')
+                    ->cascadeOnUpdate();
+            });
+        }
 
         Schema::table('form_answers', function (Blueprint $table) {
             if (Schema::hasColumn('form_answers', 'invitation_expired_at')) {
@@ -88,5 +110,14 @@ return new class () extends Migration {
                 $table->boolean('status_confirmation_member')->default(true)->after('registration_role');
             }
         });
+    }
+
+    /** Check a foreign key through information_schema (MySQL path only). */
+    private function mysqlForeignKeyExists(string $table, string $foreignKey): bool
+    {
+        return DB::selectOne(
+            "SELECT CONSTRAINT_NAME AS name FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = ?",
+            [Schema::getConnection()->getDatabaseName(), $table, $foreignKey]
+        ) !== null;
     }
 };

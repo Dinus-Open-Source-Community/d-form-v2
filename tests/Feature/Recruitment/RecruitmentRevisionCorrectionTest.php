@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Recruitment;
 
-use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\CorrectionRequestStatus;
 use App\Jobs\Recruitment\SendRecruitmentCorrectionRequestStaffJob;
@@ -227,7 +226,9 @@ class RecruitmentRevisionCorrectionTest extends TestCase
         $this->assertSame('applicant', $log->actor_type);
         $this->assertIsArray($log->old_values);
         $this->assertIsArray($log->new_values);
-        $this->assertSame('Budi Revisi', $log->new_values['full_name'] ?? null);
+        $this->assertArrayHasKey('stage', $log->new_values);
+        $this->assertArrayNotHasKey('full_name', $log->new_values);
+        $this->assertArrayNotHasKey('personal_email', $log->new_values);
     }
 
     public function test_staff_can_verify_application_after_correction_resubmit(): void

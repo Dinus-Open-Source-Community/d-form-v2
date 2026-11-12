@@ -12,6 +12,47 @@ use Illuminate\Validation\Validator;
 final class FormFieldsRequestValidation
 {
     /**
+     * Batas `metadata.maxLength` per builder type. Sumber UI: resources/js/lib/fieldMaxLength.ts.
+     */
+    public const MAX_LENGTH_LIMITS = [
+        'short_text' => 1000,
+        'long_text' => 10000,
+    ];
+
+    /** Batas atas global untuk rule `maxLength` (batas tipe terpanjang). */
+    private const MAX_LENGTH_GLOBAL_MAX = 10000;
+
+    /** MIME types supported by the form upload validator and builder allowlist. */
+    private const UPLOAD_ALLOWED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/csv',
+        'text/plain',
+    ];
+
+    /**
+     * Request keys owned by the submission boundary. A form field with one of
+     * these names would shadow (or be shadowed by) framework/registration input.
+     *
+     * @var list<string>
+     */
+    public const RESERVED_FIELD_NAMES = ['team_member_emails', '_token', '_method'];
+
+    /**
+     * Prefix reserved for bundle participant slot inputs (`bundle__name__0`).
+     */
+    public const RESERVED_FIELD_NAME_PREFIX = 'bundle__';
+
+    /** Characters Laravel validation interprets as paths/wildcards. */
+    private const PATH_SEPARATOR_CHARACTERS = ['.', '*'];
+
+    /**
      * Validation rules for each entry in the `fields` array (dashboard / API).
      *
      * @return array<string, mixed>
@@ -22,6 +63,7 @@ final class FormFieldsRequestValidation
             self::fieldBodyRules(),
             self::fieldGlobalMetadataRules(),
             self::fieldRulesMetadataRules(),
+            self::fieldUploadMetadataRules(),
         );
     }
 
@@ -78,6 +120,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.optionChoices' => 'nullable|array',
             'fields.*.metadata.content' => 'nullable',
             'fields.*.metadata.maxStars' => 'nullable',
+            'fields.*.metadata.maxLength' => 'nullable|integer|min:1|max:'.self::MAX_LENGTH_GLOBAL_MAX,
             // Hanya path storage / URL publik (hasil endpoint upload builder).
             // Data URL (data:...) ditolak di after-validation agar payload tetap kecil.
             'fields.*.metadata.bannerUrl' => 'nullable|string',
@@ -91,6 +134,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.caption' => 'nullable|string|max:500',
             'fields.*.metadata.formBanner' => 'nullable|boolean',
             'fields.*.metadata.accepts' => 'nullable|string',
+            'fields.*.metadata.sectionId' => 'nullable|string|max:100',
 
             'fields.*.metadata.rules' => 'nullable|array',
 
@@ -153,19 +197,73 @@ final class FormFieldsRequestValidation
     }
 
     /**
-     * Rules for `forms.metadata` (purpose / registration / team configuration).
+     * Validation rules for upload metadata persisted by the builder.
+     * Legacy `accepts` remains optional; typed metadata is bounded to the same
+     * server-side limits used when submission rules are built.
      *
      * @return array<string, mixed>
      */
-    public static function formMetadataRules(): array
+    public static function fieldUploadMetadataRules(): array
+    {
+        $maxFiles = max(1, (int) config('events.forms.upload_max_files', 5));
+        $maxTotalSizeKb = max(1, (int) config('events.forms.upload_max_total_size_kb', 20 * 1024));
+
+        return [
+            'fields.*.metadata.multiple' => [
+                'nullable',
+                'boolean',
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.allowed_mime_types' => [
+                'nullable',
+                'array',
+                'min:1',
+                'max:'.count(self::UPLOAD_ALLOWED_MIME_TYPES),
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.allowed_mime_types.*' => [
+                'string',
+                Rule::in(self::UPLOAD_ALLOWED_MIME_TYPES),
+            ],
+            'fields.*.metadata.max_files' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.$maxFiles,
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.max_total_size_kb' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.$maxTotalSizeKb,
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+        ];
+    }
+
+    /**
+     * Rules for `forms.metadata` (purpose / registration / team configuration).
+     *
+     * `$requirePurpose = false` dipakai autosave draft: metadata boleh dikirim
+     * sebagian (tanpa purpose) tanpa memicu error field wajib.
+     *
+     * @return array<string, mixed>
+     */
+    public static function formMetadataRules(bool $requirePurpose = true): array
     {
         return [
             'metadata' => 'nullable|array',
-            'metadata.purpose' => ['required', 'string', Rule::enum(FormPurpose::class)],
+            'metadata.purpose' => $requirePurpose
+                ? ['required', 'string', Rule::enum(FormPurpose::class)]
+                : ['nullable', Rule::enum(FormPurpose::class)],
             'metadata.requires_form_id' => ['nullable', 'uuid'],
             'metadata.registration_mode' => ['nullable', 'string', Rule::in(['single', 'bundle', 'team'])],
             'metadata.max_team_size' => 'nullable|integer|min:1|max:10000',
             'metadata.team_size' => 'nullable|integer|min:1|max:10000',
+            'metadata.sections' => 'nullable|array|min:1',
+            'metadata.sections.*.id' => 'required|string|max:100|distinct',
+            'metadata.sections.*.title' => 'required|string|max:100',
         ];
     }
 
@@ -187,6 +285,30 @@ final class FormFieldsRequestValidation
                 if (!is_array($field)) {
                     continue;
                 }
+
+                $name = $field['name'] ?? null;
+                if (is_string($name) && $name !== '') {
+                    $problem = self::fieldNameProblem($name);
+                    if ($problem !== null) {
+                        $validator->errors()->add("fields.{$index}.name", $problem);
+                    }
+                }
+
+                $maxLength = $field['metadata']['maxLength'] ?? null;
+                if (is_numeric($maxLength)) {
+                    $builderType = is_string($field['metadata']['builderType'] ?? null)
+                        ? $field['metadata']['builderType']
+                        : '';
+                    $limit = self::MAX_LENGTH_LIMITS[$builderType] ?? null;
+
+                    if ($limit !== null && (int) $maxLength > $limit) {
+                        $validator->errors()->add(
+                            "fields.{$index}.metadata.maxLength",
+                            "Maksimal karakter untuk field ini adalah {$limit}."
+                        );
+                    }
+                }
+
                 if (($field['type'] ?? '') === 'datePicker') {
                     $min = $field['metadata']['rules']['min_date'] ?? null;
                     $max = $field['metadata']['rules']['max_date'] ?? null;
@@ -266,10 +388,36 @@ final class FormFieldsRequestValidation
                     $q->where('id', '!=', $id);
                 }
                 if ($q->exists()) {
-                    $validator->errors()->add("fields.{$index}.name", __('validation.unique', ['attribute' => 'name']));
+                    $validator->errors()->add(
+                        "fields.{$index}.name",
+                        __('validation.field_name_conflict', ['value' => $name]),
+                    );
                 }
             }
         });
+    }
+
+    /**
+     * Reject names that break the validation/answer boundary. Returns a
+     * user-facing reason naming the offending field, or `null` when valid.
+     */
+    private static function fieldNameProblem(string $name): ?string
+    {
+        foreach (self::PATH_SEPARATOR_CHARACTERS as $character) {
+            if (str_contains($name, $character)) {
+                return "Field name \"{$name}\" may not contain \"{$character}\": Laravel validation treats it as a nested path or wildcard.";
+            }
+        }
+
+        if (in_array($name, self::RESERVED_FIELD_NAMES, true)) {
+            return "Field name \"{$name}\" is reserved by the form submission boundary; choose another name.";
+        }
+
+        if (str_starts_with($name, self::RESERVED_FIELD_NAME_PREFIX)) {
+            return "Field name \"{$name}\" may not start with \"".self::RESERVED_FIELD_NAME_PREFIX."\": that prefix is reserved for bundle participant slots.";
+        }
+
+        return null;
     }
 
     private static function validateFormMetadataConstraints(

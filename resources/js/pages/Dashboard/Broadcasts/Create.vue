@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head, useForm } from '@inertiajs/vue3'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { onMounted } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { routes } from '@/lib/routes';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface EventOption {
-    id: string
-    title: string
+    id: string;
+    title: string;
 }
 
-defineProps<{ events: EventOption[] }>()
+defineProps<{ events: EventOption[] }>();
 
 onMounted(() => {
-    setTopbar({ title: 'Buat Broadcast', subtitle: 'Langkah 1 — Konfigurasi' })
-})
+    setTopbar({ title: 'Buat Broadcast', subtitle: 'Langkah 1 — Konfigurasi' });
+});
 
 const form = useForm({
     name: '',
@@ -29,12 +29,12 @@ const form = useForm({
     delay_min: 5,
     delay_max: 15,
     event_id: '',
-})
+});
 
-const steps = ['01 Konfigurasi', '02 Dataset', '03 Recipients', '04 Email', '05 Preview', '06 Schedule']
+const steps = ['01 Konfigurasi', '02 Dataset', '03 Recipients', '04 Email', '05 Preview', '06 Schedule'];
 
 function submit(): void {
-    form.post(routes.admin.broadcasts.store)
+    form.post(routes.admin.broadcasts.store);
 }
 </script>
 
@@ -60,12 +60,16 @@ function submit(): void {
                     <div class="grid gap-2">
                         <Label for="schedule_date">Tanggal jadwal</Label>
                         <Input id="schedule_date" v-model="form.schedule_date" type="date" />
-                        <p v-if="form.errors.schedule_date" class="text-destructive text-sm">{{ form.errors.schedule_date }}</p>
+                        <p v-if="form.errors.schedule_date" class="text-destructive text-sm">
+                            {{ form.errors.schedule_date }}
+                        </p>
                     </div>
                     <div class="grid gap-2">
                         <Label for="schedule_time">Jam jadwal</Label>
                         <Input id="schedule_time" v-model="form.schedule_time" type="time" />
-                        <p v-if="form.errors.schedule_time" class="text-destructive text-sm">{{ form.errors.schedule_time }}</p>
+                        <p v-if="form.errors.schedule_time" class="text-destructive text-sm">
+                            {{ form.errors.schedule_time }}
+                        </p>
                     </div>
                 </div>
 
@@ -82,7 +86,10 @@ function submit(): void {
                 <p v-if="form.errors.delay_max" class="text-destructive text-sm">{{ form.errors.delay_max }}</p>
 
                 <div class="grid gap-2">
-                    <Label for="event_id">Event context (untuk <code v-pre>{{event_name}}</code>) — opsional</Label>
+                    <Label for="event_id"
+                        >Event context (untuk <code v-pre>{{ event_name }}</code
+                        >) — opsional</Label
+                    >
                     <select
                         id="event_id"
                         v-model="form.event_id"

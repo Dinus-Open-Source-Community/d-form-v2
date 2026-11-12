@@ -20,6 +20,7 @@ class FormAnswerFactory extends Factory
             'answers' => [],
             'form_id' => Form::factory(),
             'user_id' => User::factory(),
+            'is_active' => 1,
         ];
     }
 }

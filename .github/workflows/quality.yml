@@ -1,0 +1,844 @@
+name: Quality
+
+# Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
+# dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
+#
+# BLOCKING : ESLint, typecheck proyek (vue-tsc), unit test backend (PHPUnit Unit
+#            + Feature), unit test frontend (Vitest), E2E typecheck, composer
+#            audit, migration smoke, bundle budget, Laravel Pint, Prettier, dan
+#            E2E authz (403 non-super-admin + auth-guard).
+#            Baseline terakhir: ESLint 0 error, typecheck 0 error, PHPUnit Feature
+#            1005 passed/16 skipped, Vitest suite green, entry 15,33 kB gzip dan
+#            chunk page terbesar 145,58 kB gzip, Pint 694 file bersih, Prettier
+#            0 file (AUDIT-P2-001, 09-11-2026).
+# REPORT   : E2E runtime dan E2E broadcast dispatch. Report-only sampai hijau
+#            satu kali di runner GitHub.
+#
+# Cakupan format: `resources/js/components/ui` (vendored shadcn-vue, dilarang
+# diedit langsung per AGENTS.md) dan direktori generated Wayfinder dikecualikan
+# lewat `.prettierignore`, sehingga lokal dan CI memakai set file yang sama.
+# PHP      : Platform composer dipin ke PHP 8.4.27 (config.platform), minor yang
+#            sama dengan image produksi `dunglas/frankenphp:1-php8.4-alpine`.
+#            setup-php di Linux hanya menerima versi minor, jadi runner memakai
+#            `8.4`; job `test` memverifikasi minor, batas bawah patch, dan
+#            `require.php` konsisten dengan pin tersebut.
+#
+# Job formatting menggantikan .github/workflows/code_formatting.yml yang dihapus:
+# isinya sama, tetapi dipindahkan ke sini agar implementasi hanya berjalan sekali
+# per push/PR dan ikut terlihat di dev-zapp.
+
+on:
+    push:
+        branches:
+            - development
+            - dev
+            - dev-zapp
+            - temp
+    pull_request:
+        branches:
+            - development
+            - dev
+            - dev-zapp
+            - temp
+
+concurrency:
+    group: quality-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    lint:
+        name: ESLint (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run ESLint
+              run: npm run lint
+
+    test:
+        name: PHPUnit Unit (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            # PHP 8.4 menyamai platform produksi (Dockerfile.prod memakai
+            # FrankenPHP 1-php8.4-alpine). Lock mengunci paket yang mensyaratkan
+            # ^8.4 (endroid/qr-code, openspout); memakai 8.3 akan menggagalkan
+            # composer install sejak awal.
+            # Tidak perlu service MySQL: phpunit.xml memakai sqlite :memory:.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  # Composer lock dan unit tests membutuhkan XML/DOM, BCMath,
+                  # GD, ZIP, fileinfo, serta SQLite selain mbstring.
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            # setup-php di Linux hanya bisa memilih versi minor (8.4), sehingga
+            # patch runner tidak dapat di-hardcode. Guard ini menolak runtime yang
+            # minor-nya beda, runtime lebih rendah dari pin, dan manifest yang
+            # require.php tidak sejalan dengan pin `config.platform.php`.
+            - name: Verify PHP Runtime Matches Platform Pin
+              run: |
+                  php -r '$c = json_decode(file_get_contents("composer.json"), true); $pin = $c["config"]["platform"]["php"] ?? null; $require = $c["require"]["php"] ?? ""; $minor = $pin === null ? "" : substr($pin, 0, 3); if ($pin === null) { fwrite(STDERR, "config.platform.php is missing\n"); exit(1); } if (substr(PHP_VERSION, 0, 3) !== $minor) { fwrite(STDERR, "PHP ".PHP_VERSION." minor does not match pinned platform ".$pin."\n"); exit(1); } if (version_compare(PHP_VERSION, $pin, "<")) { fwrite(STDERR, "PHP ".PHP_VERSION." is lower than the pinned platform ".$pin."\n"); exit(1); } if (!str_starts_with($require, "^".$minor)) { fwrite(STDERR, "composer.json require.php ".var_export($require, true)." does not match pinned minor ".$minor."\n"); exit(1); }'
+
+            - name: Verify Platform Requirements
+              run: composer check-platform-reqs
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Run Unit Tests
+              run: php artisan test --testsuite=Unit
+
+    # Feature suite memakai SQLite. phpunit.xml memasang `<server>` (DB
+    # :memory:, queue sync, cache array), jadi env job ini adalah jaring pengaman
+    # untuk proses yang berjalan di luar PHPUnit dan menjaga driver tetap sama
+    # dengan runtime uji lain.
+    # phpunit.xml memasang `<server>` untuk seluruh suite: DB sqlite :memory:,
+    # CACHE_STORE array, QUEUE_CONNECTION sync, MAIL_MAILER array, BCRYPT_ROUNDS 4.
+    # Nilai itu mengalahkan env proses, jadi job ini sengaja tidak menyetel env DB
+    # dan tidak membuat file sqlite (file-backed migration diuji di
+    # `migration-smoke`). Menambah env di sini hanya memberi rasa aman palsu.
+    feature-tests:
+        name: PHPUnit Feature (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Run Feature Tests
+              run: php artisan test --testsuite=Feature
+
+    # Audit membaca composer.lock langsung, jadi tidak perlu vendor. `--strict`
+    # menolak warning (mis. lock hash basi terhadap composer.json). Gate gagal
+    # bila ada advisory. Paket abandoned tetap dilaporkan tetapi tidak memblokir
+    # (`--abandoned=report`); daftar itu terbatas pada 3 dependency dev-only dari
+    # rantai laravel-lang. Paket abandoned baru wajib direview dulu (hapus/ganti
+    # atau catat waiver), jangan diterima diam-diam.
+    composer-audit:
+        name: Composer audit (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  coverage: none
+
+            - name: Validate Composer Manifest and Lock
+              run: composer validate --no-interaction --strict
+
+            - name: Audit Locked Dependencies
+              run: composer audit --locked --no-interaction --abandoned=report
+
+    # Smoke test migration pada database SQLite baru: memastikan seluruh migration
+    # dapat dijalankan dari nol dan tercatat `Ran` tanpa bergantung pada data dummy.
+    migration-smoke:
+        name: Migration smoke (blocking)
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        env:
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/migrate-smoke.sqlite
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            MAIL_MAILER: log
+            BCRYPT_ROUNDS: '4'
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/migrate-smoke.sqlite
+
+            - name: Run Migrations
+              run: php artisan migrate --force --no-interaction
+
+            - name: Show Migration Status
+              run: php artisan migrate:status
+
+    frontend-unit:
+        name: Frontend unit (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            # Adapter `lib/routes.ts` mengimpor output Wayfinder yang gitignored
+            # (`.gitignore:47-49`), sehingga generated harus dibuat sebelum
+            # Vitest/tsc berjalan di clean checkout.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Generate Wayfinder Routes
+              run: php artisan wayfinder:generate
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run Unit Tests
+              run: npm run test:unit
+
+            # Typecheck subset unit test (tsconfig.vitest.json). Typecheck proyek
+            # penuh dijalankan job `typecheck`.
+            - name: Typecheck Unit Tests
+              run: npm run typecheck:unit
+
+    # vue-tsc membutuhkan output Wayfinder yang gitignored, jadi PHP + Composer
+    # + `.env` + generate harus siap sebelum `npm run typecheck`.
+    typecheck:
+        name: Typecheck (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Generate Wayfinder Routes
+              run: php artisan wayfinder:generate
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run Project Typecheck
+              run: npm run typecheck
+
+    formatting:
+        name: Formatting (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Run Laravel Pint
+              run: ./vendor/bin/pint --test
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            # .prettierignore mengecualikan components/ui (vendored shadcn-vue)
+            # dan direktori generated Wayfinder, jadi glob literal ini identik
+            # dengan set file lokal. `vite.config.js` sengaja tidak disertakan.
+            - name: Run Prettier
+              run: npx prettier --check "resources/js/**/*.{ts,vue,js}" "tests/e2e/**/*.ts" playwright.config.ts eslint.config.js "scripts/**/*.{js,mjs,ts}"
+
+    bundle-budget:
+        name: Bundle budget (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            # Build memuat plugin Wayfinder yang menjalankan `php artisan wayfinder:generate`,
+            # jadi PHP + vendor tetap diperlukan meski job ini hanya memeriksa ukuran aset.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+
+            - name: Build Assets
+              run: npm run build
+
+            - name: Check Bundle Budget
+              run: node scripts/build/check-bundle-budget.mjs
+
+    # Typecheck E2E tidak membutuhkan PHP: tsconfig.e2e.json hanya memuat
+    # tests/e2e/**/*.ts + playwright.config.ts dan satu modul TS murni.
+    e2e-types:
+        name: E2E typecheck (blocking)
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Run E2E Typecheck
+              run: npm run test:e2e:types
+
+    # Runtime memakai server + SQLite file + driver file/sync, tanpa Redis.
+    # Subset fokus: flow yang ditutup AUDIT-P1-015 + flow form submission
+    # existing. Suite penuh dikecualikan karena bergantung pada stress user,
+    # jaringan Docker/DNS, dan flag broadcast; rinciannya di
+    # docs/big-changes/patching-ticket/AUDIT-P1-015/patching-ticket.md.
+    e2e-runtime:
+        name: E2E runtime subset (report only until first green run)
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        # Gate blocking baru dipasang setelah job ini hijau satu kali di runner;
+        # lokal ekuivalen sudah hijau, runner GitHub masih Needs verification.
+        continue-on-error: true
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            # `log` (bukan array) dibutuhkan email-job-idempotency; tidak ada SMTP nyata.
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            # Pin gate broadcast: spec gate-off hanya valid bila keduanya false.
+            FEATURE_BROADCAST: 'false'
+            E2E_FEATURE_BROADCAST: 'false'
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            # Super-admin: fixture event dimiliki user marker, jadi policy update
+            # hanya lolos lewat bypass super-admin.
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            # Admin seeded dengan role `admin` (bukan super-admin) untuk proof 403.
+            E2E_NON_ADMIN_EMAIL: admin@gmail.com
+            E2E_NON_ADMIN_PASSWORD: 'admin password'
+            E2E_SESSION_COOKIE: dform-session
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentDivisionSeeder --force --no-interaction
+                  php artisan db:seed --class=OprecFormSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentPeriodSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Focused E2E
+              shell: bash
+              run: |
+                  set -uo pipefail
+
+                  # Satu runId untuk seluruh step: `test:e2e:setup` dan setiap
+                  # `playwright test --no-deps` adalah proses terpisah, dan tanpa
+                  # nilai eksplisit masing-masing membuat id sendiri sehingga
+                  # storageState admin yang ditulis setup tidak ditemukan spec.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  # Semua grup dijalankan walau ada yang gagal, supaya satu run
+                  # memperlihatkan seluruh regresi, bukan hanya grup pertama.
+                  status=0
+
+                  npm run test:e2e:setup || status=1
+
+                  # retries=0: flake harus terlihat di gate, bukan ditutupi retry.
+                  # Proof otorisasi (auth-guard + non-superadmin-403) sudah pindah ke
+                  # job blocking `e2e-authz`; jangan diduplikasi di sini.
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    builder-autosave.desktop.spec.ts \
+                    qr-scan.desktop.spec.ts \
+                    recruitment-tracking-portal.desktop.spec.ts \
+                    email-job-idempotency.desktop.spec.ts \
+                    broadcast-gated.spec.ts \
+                    session-isolation.desktop.spec.ts \
+                    environment-probe.desktop.spec.ts || status=1
+
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    form-submission-boundary.desktop.spec.ts \
+                    --grep '(single registration submits|empty single registration)' || status=1
+
+                  npx playwright test --project=chromium-mobile --no-deps --retries=0 \
+                    broadcast-gated.spec.ts || status=1
+
+                  exit "$status"
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e
+                  path: test-results
+                  retention-days: 7
+
+    # Gate otorisasi blocking (M1 AUDIT-P1-015-F5). Sebelumnya bukti 403
+    # non-super-admin hanya ada di `e2e-runtime` yang report-only, sehingga
+    # regresi otorisasi tidak memblokir merge. Job ini sengaja terpisah dan
+    # tanpa `continue-on-error`: lebih sempit dari e2e-runtime (tanpa Redis,
+    # broadcast, dan spec berat) agar cepat stabil di runner.
+    # Isinya hanya dua spec: `auth-guard.spec.ts` (kontrak storageState) dan
+    # `non-superadmin-403.desktop.spec.ts` (policy scoping 403 vs 200).
+    e2e-authz:
+        name: E2E authz (blocking)
+        runs-on: ubuntu-latest
+        # composer + npm ci + build + Chromium install memakan waktu; 30 menit
+        # memberi ruang tanpa menyembunyikan hang.
+        timeout-minutes: 30
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e-authz.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: sync
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            # Gate broadcast tetap mati: job ini tidak menguji fitur dorman.
+            FEATURE_BROADCAST: 'false'
+            E2E_FEATURE_BROADCAST: 'false'
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            # Admin seeded dengan role `admin` (bukan super-admin) untuk proof 403.
+            E2E_NON_ADMIN_EMAIL: admin@gmail.com
+            E2E_NON_ADMIN_PASSWORD: 'admin password'
+            E2E_SESSION_COOKIE: dform-session
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e-authz.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Authz E2E
+              shell: bash
+              run: |
+                  set -uo pipefail
+
+                  # Satu runId untuk setup + spec: `--no-deps` menjalankan proses
+                  # terpisah, dan tanpa nilai eksplisit storageState admin tidak ditemukan.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  status=0
+
+                  npm run test:e2e:setup || status=1
+
+                  # retries=0: flake harus terlihat di gate, bukan ditutupi retry.
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    auth-guard.spec.ts \
+                    non-superadmin-403.desktop.spec.ts || status=1
+
+                  exit "$status"
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e-authz
+                  path: test-results
+                  retention-days: 7
+
+    # AUDIT-P1-015-F5: jalur happy-path broadcast hanya valid saat flag fitur
+    # aktif. Job terpisah dari e2e-runtime agar gate-off tetap diuji apa adanya.
+    # Report-only sampai hijau satu kali di runner GitHub; jangan jadikan blocking
+    # sebelum bukti run pertama ada.
+    # Spec memakai `queue:work redis --queue=broadcasts`, jadi job ini butuh
+    # service Redis dan QUEUE_CONNECTION=redis (bukan sync seperti e2e-runtime).
+    e2e-broadcast:
+        name: E2E broadcast dispatch flag-on (report only until first green run)
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        continue-on-error: true
+
+        services:
+            redis:
+                image: redis:8.0-alpine
+                ports:
+                    # Loopback-only: service hanya perlu dijangkau step job ini.
+                    - 127.0.0.1:6379:6379
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+        env:
+            APP_ENV: local
+            APP_DEBUG: 'false'
+            APP_URL: http://127.0.0.1:8000
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/storage/app/e2e-broadcast.sqlite
+            SESSION_DRIVER: file
+            SESSION_SECURE_COOKIE: 'false'
+            CACHE_STORE: file
+            QUEUE_CONNECTION: redis
+            REDIS_HOST: 127.0.0.1
+            REDIS_PORT: '6379'
+            # `log` (bukan array) dibutuhkan email-job-idempotency; tidak ada SMTP nyata.
+            MAIL_MAILER: log
+            BROADCAST_CONNECTION: log
+            # Gate aktif: spec broadcast-dispatch-claim hanya berjalan dengan kedua flag true.
+            FEATURE_BROADCAST: 'true'
+            E2E_FEATURE_BROADCAST: 'true'
+            BCRYPT_ROUNDS: '4'
+            DEBUGBAR_ENABLED: 'false'
+            INERTIA_SSR_ENABLED: 'false'
+            E2E_BASE_URL: http://127.0.0.1:8000
+            E2E_ARTISAN: php artisan
+            E2E_ADMIN_EMAIL: superadmin@gmail.com
+            E2E_ADMIN_PASSWORD: 'superadmin password'
+            E2E_SESSION_COOKIE: dform-session
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  # `redis` wajib: spec menjalankan `queue:work redis` dan queue default
+                  # job ini redis; tanpa ekstensi phpredis job ini tidak mungkin hijau.
+                  extensions: bcmath, curl, dom, fileinfo, gd, intl, mbstring, pdo_sqlite, redis, sqlite3, xml, zip
+                  coverage: none
+
+            - name: Verify Redis Extension
+              run: php -m | grep -qi '^redis$'
+
+            - name: Install Composer Dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install NPM Dependencies
+              run: npm ci
+
+            - name: Prepare Application
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate
+                  mkdir -p storage/app
+                  touch storage/app/e2e-broadcast.sqlite
+                  php artisan migrate --force --no-interaction
+                  php artisan db:seed --class=UserSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentDivisionSeeder --force --no-interaction
+                  php artisan db:seed --class=OprecFormSeeder --force --no-interaction
+                  php artisan db:seed --class=RecruitmentPeriodSeeder --force --no-interaction
+                  php artisan storage:link
+                  php artisan cache:clear
+
+            # Build wajib: manifest Vite + generated Wayfinder dipakai server.
+            - name: Build Assets
+              run: npm run build
+
+            - name: Install Chromium
+              run: npx playwright install --with-deps chromium
+
+            # Script analytics eksternal dimuat dengan `defer` di setiap halaman;
+            # arahkan ke localhost agar kegagalan koneksi cepat, bukan menahan DOMContentLoaded.
+            - name: Stabilize External Assets
+              run: echo "127.0.0.1 seeyu.doscom.org" | sudo tee -a /etc/hosts
+
+            - name: Run Broadcast E2E
+              shell: bash
+              run: |
+                  set -uo pipefail
+
+                  # Satu runId untuk setup + spec: `--no-deps` menjalankan proses
+                  # terpisah, dan tanpa nilai eksplisit storageState admin tidak ditemukan.
+                  export E2E_RUN_ID="$(date -u +%Y%m%dT%H%M%S)-$(openssl rand -hex 3)"
+
+                  php artisan serve --host=127.0.0.1 --port=8000 --no-reload \
+                    > storage/logs/serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+                  ready=0
+                  for _ in $(seq 1 60); do
+                    if curl -fsS http://127.0.0.1:8000/up >/dev/null; then
+                      ready=1
+                      break
+                    fi
+                    sleep 1
+                  done
+                  if [ "$ready" -ne 1 ]; then
+                    echo 'Server did not become ready.'
+                    tail -n 100 storage/logs/serve.log
+                    exit 1
+                  fi
+
+                  status=0
+
+                  npm run test:e2e:setup || status=1
+
+                  npx playwright test --project=chromium-desktop --no-deps --retries=0 \
+                    broadcast-dispatch-claim.desktop.spec.ts || status=1
+
+                  exit "$status"
+
+            - name: Upload Playwright Artefacts
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-e2e-broadcast
+                  path: test-results
+                  retention-days: 7

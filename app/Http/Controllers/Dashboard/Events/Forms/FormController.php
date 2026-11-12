@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\FormStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEventFormRequest;
 use App\Http\Requests\UpdateEventFormRequest;
@@ -10,29 +11,20 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Support\FormFieldTypeMapping;
 use App\Support\LegacyFormImage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class FormController extends Controller
 {
-    public function index(Event $event): Response
+    public function __construct(private readonly FormAnswerFileStorage $formAnswerFiles)
     {
-        $this->authorize('update', $event);
-
-        $forms = $event->forms()
-            ->orderBy('title')
-            ->get()
-            ->map(fn (Form $f) => $this->formToInertia($f))
-            ->all();
-
-        return Inertia::render('Dashboard/Events/Forms/Index', [
-            'event' => $this->eventSummary($event),
-            'forms' => $forms,
-        ]);
     }
 
     public function create(Event $event): Response
@@ -106,6 +98,70 @@ class FormController extends Controller
         return redirect()->route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]);
     }
 
+    /**
+     * Titik masuk draft server-side untuk halaman "buat form" (wizard).
+     *
+     * Idempoten per user+event: draft milik user yang sudah ada dipakai ulang,
+     * sehingga reload atau dua kali klik tidak menumpuk baris draft kosong.
+     * Setiap panggilan mengembalikan snapshot lengkap (header + fields) supaya
+     * halaman create bisa melanjutkan draft setelah reload.
+     *
+     * Otorisasi: hanya pemilik event (predikat {@see Form::viewerOwnsEvent}),
+     * sama dengan batas baca/tulis draft di `guardFormOnEvent`.
+     *
+     * Kontrak: 200 JSON `{ form: {...formToInertia, edit_url}, fields: [...] }`.
+     */
+    public function storeDraft(Request $request, Event $event): JsonResponse
+    {
+        $this->authorize('update', $event);
+
+        $userId = (string) $request->user()->id;
+        abort_unless(Form::viewerOwnsEvent($event, $userId), 403);
+
+        $form = $event->forms()
+            ->where('status', FormStatus::Draft->value)
+            ->where('created_by', $userId)
+            ->with(['formFields' => fn ($query) => $query->orderBy('order')])
+            ->orderBy('created_at')
+            ->first();
+
+        if ($form === null) {
+            $form = $event->forms()->create([
+                'title' => '',
+                'description' => '',
+                'success_content' => null,
+                'closed_at' => null,
+                'visible_for' => [EventFormVisibility::Public->value],
+                'banner_url' => null,
+                'banner_caption' => null,
+                'metadata' => null,
+                'status' => FormStatus::Draft,
+                'created_by' => $userId,
+            ]);
+
+            // Draft baru tidak punya field; hindari query tambahan saat snapshot.
+            $form->setRelation('formFields', collect());
+        }
+
+        return response()->json($this->draftSnapshot($event, $form));
+    }
+
+    /**
+     * @return array{form: array<string, mixed>, fields: list<array<string, mixed>>}
+     */
+    private function draftSnapshot(Event $event, Form $form): array
+    {
+        return [
+            'form' => array_merge($this->formToInertia($form), [
+                'edit_url' => route('dashboard.events.forms.show', ['event' => $event, 'form' => $form], false),
+            ]),
+            'fields' => $form->formFields
+                ->map(fn (FormField $field): array => $this->formFieldToInertia($field))
+                ->values()
+                ->all(),
+        ];
+    }
+
     public function show(Event $event, Form $form): Response
     {
         $this->guardFormOnEvent($event, $form);
@@ -119,6 +175,12 @@ class FormController extends Controller
             ->values()
             ->all();
 
+        $fileFieldNames = $form->formFields
+            ->where('input_type', 'fileUpload')
+            ->pluck('name')
+            ->values()
+            ->all();
+
         $submissionQuery = FormAnswer::query()
             ->with(['user:id,name,email', 'reviewer:id,name,email'])
             ->where('form_id', $form->id)
@@ -127,7 +189,7 @@ class FormController extends Controller
 
         $submissions = (clone $submissionQuery)
             ->get()
-            ->map(fn (FormAnswer $answer) => $this->submissionToInertia($answer))
+            ->map(fn (FormAnswer $answer) => $this->submissionToInertia($answer, $fileFieldNames))
             ->values()
             ->all();
 
@@ -140,6 +202,7 @@ class FormController extends Controller
             'updateFormUrl' => route('dashboard.events.forms.update', ['event' => $event, 'form' => $form]),
             'submissions' => $submissions,
             'submissionsCount' => $submissionQuery->count(),
+            'formShare' => FormShareLinkController::payload($event, $form),
         ]);
     }
 
@@ -178,17 +241,13 @@ class FormController extends Controller
             ]);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($form, $data) {
-            $form->update([
-                'title' => $data['title'],
-                'description' => $data['description'],
-                'success_content' => $this->normalizeSuccessContent($data['success_content'] ?? null),
-                'closed_at' => $data['closed_at'],
-                'visible_for' => $data['visible_for'],
-                'banner_url' => $data['banner_url'] ?? null,
-                'banner_caption' => $data['banner_caption'] ?? null,
-                'metadata' => $data['metadata'] ?? null,
-            ]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($form, $data, $request) {
+            $form->update($this->formAttributesFrom(
+                $data,
+                $form,
+                $request->isDraftAutosave(),
+                $request->isStatusDraftTransition(),
+            ));
 
             if (isset($data['fields'])) {
                 $oldById = $form->formFields->keyBy('id');
@@ -224,7 +283,10 @@ class FormController extends Controller
 
         // Autosave global (background, tanpa navigasi) → JSON.
         if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
+            return response()->json([
+                'ok' => true,
+                'status' => $form->fresh()->status->value,
+            ]);
         }
 
         Inertia::flash('toast', [
@@ -245,13 +307,102 @@ class FormController extends Controller
             'message' => __('messages.form.delete.success'),
         ]);
 
-        return redirect()->route('dashboard.events.forms.index', ['event' => $event]);
+        return redirect()->route('dashboard.events.show', ['event' => $event]);
     }
 
     private function guardFormOnEvent(Event $event, Form $form): void
     {
         abort_unless($form->event_id === $event->id, 404);
+        // Draft tidak pernah terlihat di luar pembuat event: jawab 404 agar
+        // keberadaan draft tidak bisa ditebak dari status code.
+        abort_unless($form->isDraftVisibleTo($event, auth()->user()), 404);
         $this->authorize('update', $event);
+    }
+
+    /**
+     * Atribut yang ditulis ke `forms`.
+     *
+     * Jalur penuh (publish / edit biasa): semua kolom header + status.
+     * Jalur autosave draft: hanya key yang benar-benar dikirim, status tetap
+     * draft — sehingga autosave tidak menghapus header yang belum diisi.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function formAttributesFrom(
+        array $data,
+        Form $form,
+        bool $isDraftAutosave,
+        bool $isStatusDraftTransition = false,
+    ): array {
+        if ($isStatusDraftTransition) {
+            return ['status' => FormStatus::Draft];
+        }
+
+        if (! $isDraftAutosave) {
+            return [
+                'title' => $data['title'],
+                'description' => $data['description'],
+                'success_content' => $this->normalizeSuccessContent($data['success_content'] ?? null),
+                'closed_at' => $data['closed_at'],
+                'visible_for' => $data['visible_for'],
+                'banner_url' => $data['banner_url'] ?? null,
+                'banner_caption' => $data['banner_caption'] ?? null,
+                'metadata' => $data['metadata'] ?? null,
+                // Publikasi hanya terjadi setelah seluruh validasi di atas lolos.
+                'status' => $this->resolveStatus($form, $data),
+            ];
+        }
+
+        $attributes = [];
+
+        // ConvertEmptyStringsToNull mengubah '' menjadi null; `title` dan
+        // `description` NOT NULL, jadi nilai kosong disimpan sebagai ''.
+        foreach (['title', 'description'] as $key) {
+            if (array_key_exists($key, $data)) {
+                $attributes[$key] = (string) ($data[$key] ?? '');
+            }
+        }
+
+        if (array_key_exists('closed_at', $data)) {
+            $attributes['closed_at'] = $data['closed_at'];
+        }
+
+        // `visible_for` juga NOT NULL: null berarti "belum diisi", jangan ditulis.
+        if (is_array($data['visible_for'] ?? null) && $data['visible_for'] !== []) {
+            $attributes['visible_for'] = $data['visible_for'];
+        }
+
+        foreach (['banner_url', 'banner_caption'] as $key) {
+            if (array_key_exists($key, $data)) {
+                $attributes[$key] = $data[$key];
+            }
+        }
+
+        if (array_key_exists('success_content', $data)) {
+            $attributes['success_content'] = $this->normalizeSuccessContent($data['success_content']);
+        }
+
+        if (array_key_exists('metadata', $data)) {
+            $attributes['metadata'] = $data['metadata'];
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Draft tetap draft sampai `publish` dikirim; `publish=false` tidak
+     * menurunkan form yang sudah published.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveStatus(Form $form, array $data): FormStatus
+    {
+        if (isset($data['status'])) {
+            return FormStatus::from($data['status']);
+        }
+
+        return ! empty($data['publish']) ? FormStatus::Published : $form->status;
     }
 
     private function eventSummary(Event $event): array
@@ -269,7 +420,7 @@ class FormController extends Controller
      */
     private function siblingFormsPayload(Event $event, ?string $excludeFormId = null): array
     {
-        $query = $event->forms()->orderBy('title');
+        $query = $event->forms()->published()->orderBy('title');
 
         if ($excludeFormId !== null) {
             $query->where('id', '!=', $excludeFormId);
@@ -313,6 +464,8 @@ class FormController extends Controller
             'banner_caption' => $form->banner_caption,
             'metadata' => $meta,
             'purpose' => $form->purpose()->value,
+            'status' => $form->status->value,
+            'is_draft' => $form->isDraft(),
         ];
     }
 
@@ -354,6 +507,7 @@ class FormController extends Controller
     }
 
     /**
+     * @param  list<string>  $fileFieldNames
      * @return array{
      *     id: string,
      *     user: array{id: string, name: string, email: string}|null,
@@ -368,7 +522,7 @@ class FormController extends Controller
      *     group_token: string|null,
      * }
      */
-    private function submissionToInertia(FormAnswer $answer): array
+    private function submissionToInertia(FormAnswer $answer, array $fileFieldNames): array
     {
         return [
             'id' => $answer->id,
@@ -379,7 +533,11 @@ class FormController extends Controller
                     'email' => $answer->user->email,
                 ]
                 : null,
-            'answers' => $answer->answers,
+            'answers' => $this->formAnswerFiles->answerUrls(
+                $answer,
+                is_array($answer->answers) ? $answer->answers : [],
+                $fileFieldNames,
+            ),
             'submitted_at' => $answer->created_at->toISOString(),
             'review_status' => $answer->review_status?->value,
             'reviewed_at' => $answer->reviewed_at?->toIso8601String(),

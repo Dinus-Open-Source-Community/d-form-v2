@@ -44,19 +44,7 @@ final class BundleSubmissionRules
 
     public static function fieldIsDisplayOnly(FormField $field): bool
     {
-        $meta = $field->metadata;
-        $bt = null;
-        if ($meta instanceof \Illuminate\Support\Collection) {
-            $bt = $meta->get('builderType');
-        } elseif (is_array($meta)) {
-            $bt = $meta['builderType'] ?? null;
-        }
-
-        if (is_string($bt) && in_array($bt, ['heading', 'paragraph', 'divider', 'banner'], true)) {
-            return true;
-        }
-
-        return $field->input_type === 'banner';
+        return RulesBuilder::isDisplayOnlyField($field);
     }
 
     /**
@@ -64,12 +52,12 @@ final class BundleSubmissionRules
      * field for each extra participant slot.
      *
      * @param  Collection<int, FormField>  $fields
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
      */
-    public static function buildForFill(Collection $fields, int $extraMemberSlots): array
+    public static function buildForFill(Collection $fields, int $extraMemberSlots, bool $requireScalarString = true): array
     {
         $raw = RulesBuilder::extractRulesFromFields($fields);
-        $laravel = RulesBuilder::build($raw);
+        $laravel = RulesBuilder::build($raw, $requireScalarString);
 
         if ($extraMemberSlots < 1) {
             return $laravel;
@@ -84,7 +72,7 @@ final class BundleSubmissionRules
 
             for ($i = 0; $i < $extraMemberSlots; $i++) {
                 $slotKey = self::slotInputName($name, $i);
-                $slotBuilt = RulesBuilder::build([$slotKey => $raw[$name]]);
+                $slotBuilt = RulesBuilder::build([$slotKey => $raw[$name]], $requireScalarString);
                 foreach ($slotBuilt as $k => $rules) {
                     $laravel[$k] = $rules;
                 }

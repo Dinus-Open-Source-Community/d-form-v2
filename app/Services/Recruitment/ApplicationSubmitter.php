@@ -9,6 +9,10 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\Recruitment\RecruitmentDocument;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Support\Database\UniqueConstraintViolation;
+use App\Enums\UploadPurpose;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadInspector;
+use App\Services\Upload\UploadStorageTarget;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -59,13 +63,15 @@ final class ApplicationSubmitter
 
                 $storageBase = 'recruitment/'.$period->id.'/'.$application->id;
 
-                $cvPath = $cv->store($storageBase, 'local');
+                $storage = app(SafeUploadStorage::class);
+                $localTarget = UploadStorageTarget::local($storageBase);
+                $cvPath = $storage->store($cv, $localTarget, UploadPurpose::RecruitmentCv);
 
                 $documentData = [
                     'recruitment_application_id' => $application->id,
                     'cv_path' => $cvPath,
                     'cv_original_name' => $cv->getClientOriginalName(),
-                    'cv_mime' => $cv->getMimeType() ?? 'application/pdf',
+                    'cv_mime' => UploadInspector::sniffedMime($cv) ?? 'application/pdf',
                     'cv_size_bytes' => $cv->getSize(),
                     'portfolio_type' => $data['portfolio_type'] ?: 'none',
                     'twibbon_url' => $data['twibbon_url'] ?? null,
@@ -74,10 +80,10 @@ final class ApplicationSubmitter
                 if (($data['portfolio_type'] ?? 'none') === 'url') {
                     $documentData['portfolio_url'] = $data['portfolio_url'] ?? null;
                 } elseif (($data['portfolio_type'] ?? 'none') === 'file' && $portfolioFile !== null) {
-                    $portfolioPath = $portfolioFile->store($storageBase, 'local');
+                    $portfolioPath = $storage->store($portfolioFile, $localTarget, UploadPurpose::RecruitmentPortfolio);
                     $documentData['portfolio_path'] = $portfolioPath;
                     $documentData['portfolio_original_name'] = $portfolioFile->getClientOriginalName();
-                    $documentData['portfolio_mime'] = $portfolioFile->getMimeType() ?? 'application/pdf';
+                    $documentData['portfolio_mime'] = UploadInspector::sniffedMime($portfolioFile) ?? 'application/pdf';
                     $documentData['portfolio_size_bytes'] = $portfolioFile->getSize();
                 } elseif (($data['portfolio_type'] ?? 'none') === 'file' && $portfolioFile === null) {
                     // File portfolio opsional: tipe file tanpa unggahan disimpan sebagai none.
@@ -85,9 +91,9 @@ final class ApplicationSubmitter
                 }
 
                 if ($instagramFollowProof !== null) {
-                    $documentData['instagram_follow_path'] = $instagramFollowProof->store($storageBase, 'local');
+                    $documentData['instagram_follow_path'] = $storage->store($instagramFollowProof, $localTarget, UploadPurpose::InstagramProof);
                     $documentData['instagram_follow_original_name'] = $instagramFollowProof->getClientOriginalName();
-                    $documentData['instagram_follow_mime'] = $instagramFollowProof->getMimeType() ?? 'image/jpeg';
+                    $documentData['instagram_follow_mime'] = UploadInspector::sniffedMime($instagramFollowProof) ?? 'image/jpeg';
                     $documentData['instagram_follow_size_bytes'] = $instagramFollowProof->getSize();
                 }
 

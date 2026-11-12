@@ -3,18 +3,30 @@
 namespace App\Services\Event;
 
 use App\Enums\EventRegistrationStatus;
+use App\Enums\UploadPurpose;
 use App\Enums\EventStatus;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\User;
+use App\Services\Upload\SafeUploadStorage;
+use App\Services\Upload\UploadStorageTarget;
 use Carbon\Carbon;
+use Illuminate\Cache\TaggableStore;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\CursorPaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class EventService
 {
+    /** Jumlah event per halaman di halaman jelajah (/browse). */
+    public const PUBLIC_BROWSE_PER_PAGE = 5;
+
+    /** Batas event yang ditampilkan di portal "/joined" agar payload dan query tidak tumbuh tanpa batas. */
+    public const USER_JOINED_LIMIT = 60;
+
     private const LIST_CACHE_TTL_SECONDS = 3600;
 
     public static function normalizePriceInput(mixed $value): float
@@ -50,6 +62,99 @@ class EventService
         return EventRegistrationStatus::Open;
     }
 
+    /**
+     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut tanggal mulai
+     * terbaru, filter kategori/sesi di server, 5 acara per halaman.
+     *
+     * Memakai cursor (keyset): tanpa COUNT 1 juta baris (~185 ms) dan tanpa
+     * OFFSET (121 ms di halaman dalam).
+     *
+     * @param  array{category: string|null, session: string|null}  $filters
+     * @return CursorPaginator<int, Event>
+     */
+    public function paginateForPublicBrowse(array $filters): CursorPaginator
+    {
+        $query = Event::query()
+            ->where('status', EventStatus::Published)
+            ->forListPage();
+
+        if ($filters['category'] !== null) {
+            $query->forCategoryTokens([$filters['category']]);
+        }
+
+        if ($filters['session'] !== null) {
+            $query->forSessionTokens([$filters['session']]);
+        }
+
+        // cursorPaginate() dideklarasikan sebagai kontrak, instans runtime-nya CursorPaginator konkret.
+        /** @var CursorPaginator<int, Event> $paginator */
+        $paginator = $query->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->cursorPaginate(self::PUBLIC_BROWSE_PER_PAGE)
+            ->withQueryString();
+
+        return $paginator;
+    }
+
+    /**
+     * Tiga acara terbaru untuk blok highlight di halaman `/events`.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function publicListHighlight(int $limit = 3): array
+    {
+        return Event::query()
+            ->where('status', EventStatus::Published)
+            ->forListPage()
+            ->orderByDesc('start_date')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Event $event): array => $this->eventToInertiaArray($event))
+            ->all();
+    }
+
+    /**
+     * Link navigasi ringkas (sebelumnya / halaman ini / berikutnya) untuk
+     * paginasi simple maupun cursor. Nomor halaman hanya disertakan bila
+     * paginator punya nomor; cursor tidak punya.
+     *
+     * @return list<array{url: string|null, label: string, active: bool}>
+     */
+    public function paginationLinks(Paginator|CursorPaginator $paginator): array
+    {
+        $links = [];
+
+        if (! $paginator->onFirstPage()) {
+            $links[] = [
+                'url' => $paginator->previousPageUrl(),
+                'label' => 'Sebelumnya',
+                'active' => false,
+            ];
+        }
+
+        // Cursor tidak punya nomor halaman, jadi chip angka hanya untuk simple pagination.
+        if ($paginator instanceof Paginator) {
+            $links[] = [
+                'url' => null,
+                'label' => (string) $paginator->currentPage(),
+                'active' => true,
+            ];
+        }
+
+        if ($paginator->hasMorePages()) {
+            $links[] = [
+                'url' => $paginator->nextPageUrl(),
+                'label' => 'Berikutnya',
+                'active' => false,
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Registered count yang sudah dibatasi kuota; dipakai saat render kartu acara.
+     */
     public function resolveRegisteredCount(Event $event): int
     {
         return min(max(0, (int) $event->registered_count), (int) $event->quota);
@@ -60,8 +165,8 @@ class EventService
      */
     public function paginateForAdminIndex(array $queryInput, int $page, User $user): LengthAwarePaginator
     {
-        // Aturan global: 20 data per halaman; pager hanya bila total > 20.
-        $perPage = 20;
+        // Default 8 per halaman; dapat diubah dari UI (1..100).
+        $perPage = max(1, min(100, (int) ($queryInput['per_page'] ?? 8)));
         $search = $queryInput['search'] ?? '';
         $filter = $queryInput['filter'] ?? [];
         $sort = $queryInput['sort'] ?? ['by' => 'title', 'order' => 'asc'];
@@ -79,9 +184,10 @@ class EventService
                 'per_page' => $perPage,
                 'page' => $page,
             ],
-            'buster' => Cache::get('events:list:cache:buster', 0),
-            'userId' => $userId
-        ]));
+            'buster' => Cache::get(EventCache::BUSTER_LIST, 0),
+            'userId' => $userId,
+            'isSuperAdmin' => $isSuperAdmin,
+        ], JSON_THROW_ON_ERROR));
 
         return $this->rememberList(
             "list-page:events:{$hashedQuery}",
@@ -104,8 +210,11 @@ class EventService
                     $query->whereIn('status', $filter['statuses']);
                 }
 
-                if (!$isSuperAdmin) {
-                    $query->where('created_by', $userId)->orWhereNull('created_by');
+                if (! $isSuperAdmin) {
+                    // Dikelompokkan: filter status/kategori/timeline tidak boleh bocor ke baris created_by NULL.
+                    $query->where(fn ($owner) => $owner
+                        ->where('created_by', $userId)
+                        ->orWhereNull('created_by'));
                 }
 
                 $showTrashed = ! empty($filter['showTrashed']);
@@ -113,11 +222,12 @@ class EventService
                 if (! $showTrashed && is_string($timeline) && $timeline !== 'all') {
                     $today = now()->toDateString();
                     match ($timeline) {
-                        'upcoming' => $query->whereDate('start_date', '>', $today),
+                        // Kolom bertipe DATE: perbandingan langsung agar index range tetap terpakai.
+                        'upcoming' => $query->where('start_date', '>', $today),
                         'ongoing' => $query
-                            ->whereDate('start_date', '<=', $today)
-                            ->whereDate('end_date', '>=', $today),
-                        'completed' => $query->whereDate('end_date', '<', $today),
+                            ->where('start_date', '<=', $today)
+                            ->where('end_date', '>=', $today),
+                        'completed' => $query->where('end_date', '<', $today),
                         default => null,
                     };
                 }
@@ -133,6 +243,7 @@ class EventService
 
                 return $query
                     ->orderBy($sortBy, $sortOrder)
+                    ->orderBy('id', $sortOrder)
                     ->paginate($perPage, ['*'], 'page', $page);
             }
         );
@@ -145,7 +256,7 @@ class EventService
     {
         unset($data['banner']);
 
-        $path = $banner->store('events/banners', 'public');
+        $path = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'), UploadPurpose::Image);
 
         $status = ! empty($data['publish']) ? EventStatus::Published : EventStatus::Draft;
         unset($data['publish']);
@@ -174,7 +285,7 @@ class EventService
             if ($event->banner) {
                 Storage::disk('public')->delete($event->banner);
             }
-            $data['banner'] = $banner->store('events/banners', 'public');
+            $data['banner'] = app(SafeUploadStorage::class)->store($banner, UploadStorageTarget::public('events/banners'), UploadPurpose::Image);
         }
 
         if (array_key_exists('quota', $data) && ! array_key_exists('registered_count', $data)) {
@@ -183,7 +294,7 @@ class EventService
 
         $event->update($data);
 
-        return $event->fresh();
+        return $event->refresh();
     }
 
     public function delete(Event $event): void
@@ -212,12 +323,16 @@ class EventService
         );
     }
 
+    /**
+     * Simpan hasil query list event di cache; memakai tag hanya bila store mendukungnya.
+     * Deteksi dukungan tag dilakukan sebelum resolver, sehingga error query tidak pernah diulang.
+     */
     private function rememberList(string $key, \Closure $callback): mixed
     {
-        try {
+        if (Cache::getStore() instanceof TaggableStore) {
             return Cache::tags(['events'])->remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
-        } catch (\BadMethodCallException|\RuntimeException) {
-            return Cache::remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
         }
+
+        return Cache::remember($key, self::LIST_CACHE_TTL_SECONDS, $callback);
     }
 }

@@ -82,7 +82,7 @@ class OprecApplySubmitTest extends TestCase
             'secondary_division_id' => '',
             'portfolio_type' => 'url',
             'portfolio_url' => 'https://example.com/portfolio',
-            'cv' => UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+            'cv' => UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
             'instagram_follow_proof' => UploadedFile::fake()->image('follow.png', 640, 480),
             'twibbon_url' => 'https://instagram.com/p/twibbon-calon',
         ];
@@ -110,6 +110,45 @@ class OprecApplySubmitTest extends TestCase
         $response = $this->post(route('recruitment.apply.store'), $payload);
 
         $response->assertSessionHasErrors('nim');
+    }
+
+    public function test_array_value_on_scalar_field_is_rejected_without_writing_a_row(): void
+    {
+        ['divisions' => $divisions] = $this->seedBasics();
+        $payload = $this->validPayload($divisions);
+        $payload['full_name'] = ['Calon', 'Anggota'];
+
+        $response = $this->post(route('recruitment.apply.store'), $payload);
+
+        $response->assertSessionHasErrors('full_name');
+        $this->assertDatabaseCount('recruitment_applications', 0);
+    }
+
+    public function test_numeric_select_accepts_integer_and_stores_the_same_shape(): void
+    {
+        ['divisions' => $divisions] = $this->seedBasics();
+        $payload = $this->validPayload($divisions);
+        $payload['semester'] = 1;
+
+        $response = $this->post(route('recruitment.apply.store'), $payload);
+
+        $response->assertRedirect(route('recruitment.success'));
+        $this->assertDatabaseHas('recruitment_applications', [
+            'nim'      => 'A11.2026.99999',
+            'semester' => 1,
+        ]);
+    }
+
+    public function test_array_value_on_numeric_select_is_rejected_without_writing_a_row(): void
+    {
+        ['divisions' => $divisions] = $this->seedBasics();
+        $payload = $this->validPayload($divisions);
+        $payload['semester'] = ['1'];
+
+        $response = $this->post(route('recruitment.apply.store'), $payload);
+
+        $response->assertSessionHasErrors('semester');
+        $this->assertDatabaseCount('recruitment_applications', 0);
     }
 
     public function test_duplicate_nim_in_same_period_is_rejected(): void
@@ -188,7 +227,7 @@ class OprecApplySubmitTest extends TestCase
             app(ApplicationSubmitter::class)->submit(
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.99999'),
-                UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
                 null,
                 UploadedFile::fake()->image('follow.jpg'),
             );
@@ -230,7 +269,7 @@ class OprecApplySubmitTest extends TestCase
             app(ApplicationSubmitter::class)->submit(
                 $period,
                 $this->servicePayload($divisionId, 'A11.2026.77777'),
-                UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf'),
+                UploadedFile::fake()->createWithContent('cv.pdf', "%PDF-1.7\nvalid cv\n%%EOF"),
                 null,
                 UploadedFile::fake()->image('follow.jpg'),
             );

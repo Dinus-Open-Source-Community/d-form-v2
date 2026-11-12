@@ -6,21 +6,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, CalendarDays, Clock, DollarSign, Users, Send, Mail, MailOpen, FileText, ChevronRight, Lock } from 'lucide-vue-next';
 import {
-    formatDate,
-    formatDateTime,
-    statusColorMap,
-    categoryLabelMap,
-    categoryColorMap,
-    sessionLabelMap,
-} from '@/lib/dummyData';
+    MapPin,
+    CalendarDays,
+    Clock,
+    DollarSign,
+    Users,
+    Send,
+    Mail,
+    MailOpen,
+    FileText,
+    ChevronRight,
+    Lock,
+} from 'lucide-vue-next';
+import { statusColorMap, categoryLabelMap, categoryColorMap, sessionLabelMap } from '@/constants/eventDisplay';
+import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
-import EventBannerImage from '@/components/modules/dashboard/EventBannerImage.vue';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
 import { routes } from '@/lib/routes';
 import { EVENT_HERO_BANNER_ASPECT } from '@/lib/eventBannerAspect';
-import type { FormAccessStatus } from '@/types/form';
+import type { TFormAccessStatus } from '@/types/form';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -29,7 +35,7 @@ type ParticipantFormRow = {
     title: string;
     description: string | null;
     fill_url: string;
-    access_status: FormAccessStatus;
+    access_status: TFormAccessStatus;
     access_message: string;
     can_start: boolean;
     requires_form_title: string | null;
@@ -64,7 +70,7 @@ const myRegistrationLabel: Record<NonNullable<typeof props.registrationStatus>, 
     rejected: 'Tidak diterima',
 };
 
-function participantStatusLabel(s: FormAccessStatus): string {
+function participantStatusLabel(s: TFormAccessStatus): string {
     if (s === 'allowed') return 'Tersedia';
     if (s === 'already_submitted') return 'Sudah diisi';
     if (s === 'prerequisite_not_met') return 'Menunggu syarat';
@@ -75,7 +81,7 @@ function participantStatusLabel(s: FormAccessStatus): string {
 const metaBlocks = computed(() => [
     {
         title: 'Jadwal',
-        value: `${formatDate(event.start_date)} — ${formatDate(event.end_date)}`,
+        value: `${formatDateTime({ value: event.start_date })} — ${formatDateTime({ value: event.end_date })}`,
         icon: CalendarDays,
     },
     { title: 'Lokasi', value: event.location || '—', icon: MapPin },
@@ -152,7 +158,10 @@ const quotaPercent = computed(() => {
 
                 <!-- Kolom gambar: hanya visual, tanpa gradien/teks di atasnya -->
                 <div
-                    :class="[EVENT_HERO_BANNER_ASPECT, 'relative order-1 w-full lg:order-none lg:aspect-auto lg:min-h-full lg:min-w-0']"
+                    :class="[
+                        EVENT_HERO_BANNER_ASPECT,
+                        'relative order-1 w-full lg:order-none lg:aspect-auto lg:min-h-full lg:min-w-0',
+                    ]"
                 >
                     <EventBannerImage :src="event.banner_url" :alt="event.title" />
                 </div>
@@ -218,7 +227,7 @@ const quotaPercent = computed(() => {
                                     <FileText class="size-4.5" aria-hidden="true" />
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-foreground text-sm font-semibold leading-snug">{{ form.title }}</p>
+                                    <p class="text-foreground text-sm leading-snug font-semibold">{{ form.title }}</p>
                                     <p
                                         v-if="form.description"
                                         class="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed"
@@ -230,7 +239,10 @@ const quotaPercent = computed(() => {
                                             {{ participantStatusLabel(form.access_status) }}
                                         </Badge>
                                         <span
-                                            v-if="form.requires_form_title && form.access_status === 'prerequisite_not_met'"
+                                            v-if="
+                                                form.requires_form_title &&
+                                                form.access_status === 'prerequisite_not_met'
+                                            "
                                             class="text-muted-foreground text-[10px]"
                                         >
                                             Perlu diterima di: {{ form.requires_form_title }}
@@ -245,12 +257,7 @@ const quotaPercent = computed(() => {
                                         <ChevronRight class="ml-1 size-4" />
                                     </Link>
                                 </Button>
-                                <Button
-                                    v-else
-                                    variant="outline"
-                                    disabled
-                                    class="w-full sm:w-auto"
-                                >
+                                <Button v-else variant="outline" disabled class="w-full sm:w-auto">
                                     <Lock class="mr-1.5 size-3.5" aria-hidden="true" />
                                     {{ participantStatusLabel(form.access_status) }}
                                 </Button>
@@ -293,13 +300,13 @@ const quotaPercent = computed(() => {
                             <p class="flex justify-between gap-2">
                                 <span class="text-muted-foreground">Buka</span>
                                 <span class="text-foreground text-right font-medium">{{
-                                    formatDateTime(event.registration_start)
+                                    formatDateTime({ value: event.registration_start, variant: 'date-time' })
                                 }}</span>
                             </p>
                             <p class="flex justify-between gap-2">
                                 <span class="text-muted-foreground">Tutup</span>
                                 <span class="text-foreground text-right font-medium">{{
-                                    formatDateTime(event.registration_end)
+                                    formatDateTime({ value: event.registration_end, variant: 'date-time' })
                                 }}</span>
                             </p>
                         </div>
@@ -332,9 +339,7 @@ const quotaPercent = computed(() => {
                         </div>
                         <div v-else class="flex flex-col gap-4">
                             <Button class="w-full" variant="secondary" as-child>
-                                <Link :href="routes.member.event.registration(event.slug)"
-                                    >Detail pendaftaran</Link
-                                >
+                                <Link :href="routes.member.event.registration(event.slug)">Detail pendaftaran</Link>
                             </Button>
                             <div class="border-success/25 bg-success/5 rounded-xl border p-4 text-center shadow-sm">
                                 <p class="text-success text-sm font-bold">Anda terdaftar</p>

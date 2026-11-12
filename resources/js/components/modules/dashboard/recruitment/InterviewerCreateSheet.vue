@@ -1,37 +1,37 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useForm } from '@inertiajs/vue3'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
-import { routes } from '@/lib/routes'
-import { Eye, EyeOff } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue';
+import { useForm } from '@inertiajs/vue3';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
+import { routes } from '@/lib/routes';
+import { Eye, EyeOff } from 'lucide-vue-next';
 
-export interface InterviewerDivisionChoice {
-    id: string
-    name: string
-    code: string
+export interface IInterviewerDivisionChoice {
+    id: string;
+    name: string;
+    code: string;
 }
 
 const props = withDefaults(
     defineProps<{
-        open: boolean
-        divisions: InterviewerDivisionChoice[]
-        initialDivisionId?: string
+        open: boolean;
+        divisions: IInterviewerDivisionChoice[];
+        initialDivisionId?: string;
     }>(),
-    { initialDivisionId: '' },
-)
+    { initialDivisionId: '' }
+);
 
-const emit = defineEmits<{ close: []; created: [email: string] }>()
+const emit = defineEmits<{ close: []; created: [email: string] }>();
 
 const sheetOpen = computed<boolean>({
     get: () => props.open,
     set: (value: boolean) => {
-        if (!value) emit('close')
+        if (!value) emit('close');
     },
-})
+});
 
 const form = useForm({
     name: '',
@@ -39,21 +39,10 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     recruitment_division_id: '',
-})
+});
 
-const showPassword = ref<boolean>(false)
-const showPasswordConfirmation = ref<boolean>(false)
-
-type InterviewerRoutes = {
-    assign: string
-    unassign: (id: string) => string
-    store?: string
-}
-
-const interviewerRoutes = computed<InterviewerRoutes>(() => routes.admin.recruitment.interviewers)
-
-/** Selaras dengan kontrak backend lane paralel; fallback dipakai sampai helper store mendarat. */
-const storeUrl = computed<string>(() => interviewerRoutes.value.store ?? '/admin/recruitment/interviewers')
+const showPassword = ref<boolean>(false);
+const showPasswordConfirmation = ref<boolean>(false);
 
 const divisionOptions = computed<SearchableSelectOption[]>(() =>
     props.divisions.map((d) => ({
@@ -61,8 +50,8 @@ const divisionOptions = computed<SearchableSelectOption[]>(() =>
         label: d.name,
         sublabel: d.code,
         initials: d.code.slice(0, 2).toUpperCase(),
-    })),
-)
+    }))
+);
 
 const canSubmit = computed<boolean>(() => {
     return (
@@ -72,35 +61,35 @@ const canSubmit = computed<boolean>(() => {
         form.password_confirmation.length > 0 &&
         form.recruitment_division_id.length > 0 &&
         !form.processing
-    )
-})
+    );
+});
 
 watch(
     () => props.open,
     (isOpen: boolean) => {
         if (isOpen) {
-            form.clearErrors()
+            form.clearErrors();
             if (form.recruitment_division_id === '' && props.initialDivisionId !== '') {
-                form.recruitment_division_id = props.initialDivisionId
+                form.recruitment_division_id = props.initialDivisionId;
             }
         } else {
-            form.reset()
-            form.clearErrors()
-            showPassword.value = false
-            showPasswordConfirmation.value = false
+            form.reset();
+            form.clearErrors();
+            showPassword.value = false;
+            showPasswordConfirmation.value = false;
         }
-    },
-)
+    }
+);
 
 function submit(): void {
-    if (!canSubmit.value) return
-    form.post(storeUrl.value, {
+    if (!canSubmit.value) return;
+    form.post(routes.admin.recruitment.interviewers.store, {
         preserveScroll: true,
         onSuccess: () => {
-            emit('created', form.email)
-            emit('close')
+            emit('created', form.email);
+            emit('close');
         },
-    })
+    });
 }
 </script>
 
@@ -111,9 +100,9 @@ function submit(): void {
             overlay-class="bg-black/60 backdrop-blur-sm"
             class="inset-y-0 right-0 h-full w-full gap-0 p-0 sm:inset-y-3 sm:right-3 sm:h-[calc(100%-1.5rem)] sm:w-[28rem] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-2xl sm:border sm:shadow-xl"
         >
-            <SheetHeader class="shrink-0 space-y-1 border-b border-border/70 py-4 pr-12 pl-4 text-left">
+            <SheetHeader class="border-border/70 shrink-0 space-y-1 border-b py-4 pr-12 pl-4 text-left">
                 <SheetTitle class="truncate text-base">Tambah interviewer</SheetTitle>
-                <SheetDescription class="truncate text-xs text-muted-foreground">
+                <SheetDescription class="text-muted-foreground truncate text-xs">
                     Buat akun baru sekaligus tugaskan sebagai interviewer
                 </SheetDescription>
             </SheetHeader>
@@ -132,7 +121,7 @@ function submit(): void {
                                 autocomplete="name"
                                 :aria-invalid="form.errors.name ? true : undefined"
                             />
-                            <p v-if="form.errors.name" role="alert" class="text-xs text-destructive">
+                            <p v-if="form.errors.name" role="alert" class="text-destructive text-xs">
                                 {{ form.errors.name }}
                             </p>
                         </div>
@@ -146,7 +135,7 @@ function submit(): void {
                                 autocomplete="email"
                                 :aria-invalid="form.errors.email ? true : undefined"
                             />
-                            <p v-if="form.errors.email" role="alert" class="text-xs text-destructive">
+                            <p v-if="form.errors.email" role="alert" class="text-destructive text-xs">
                                 {{ form.errors.email }}
                             </p>
                         </div>
@@ -164,7 +153,7 @@ function submit(): void {
                                 />
                                 <button
                                     type="button"
-                                    class="absolute top-1/2 right-1.5 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-1.5 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md transition focus-visible:ring-2 focus-visible:outline-none"
                                     :aria-label="showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
                                     @click="showPassword = !showPassword"
                                 >
@@ -172,7 +161,7 @@ function submit(): void {
                                     <Eye v-else class="size-4" aria-hidden="true" />
                                 </button>
                             </div>
-                            <p v-if="form.errors.password" role="alert" class="text-xs text-destructive">
+                            <p v-if="form.errors.password" role="alert" class="text-destructive text-xs">
                                 {{ form.errors.password }}
                             </p>
                         </div>
@@ -190,7 +179,7 @@ function submit(): void {
                                 />
                                 <button
                                     type="button"
-                                    class="absolute top-1/2 right-1.5 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-1.5 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md transition focus-visible:ring-2 focus-visible:outline-none"
                                     :aria-label="
                                         showPasswordConfirmation
                                             ? 'Sembunyikan konfirmasi kata sandi'
@@ -202,7 +191,7 @@ function submit(): void {
                                     <Eye v-else class="size-4" aria-hidden="true" />
                                 </button>
                             </div>
-                            <p v-if="form.errors.password_confirmation" role="alert" class="text-xs text-destructive">
+                            <p v-if="form.errors.password_confirmation" role="alert" class="text-destructive text-xs">
                                 {{ form.errors.password_confirmation }}
                             </p>
                         </div>
@@ -211,7 +200,7 @@ function submit(): void {
                     <section class="space-y-3" aria-label="Tugaskan langsung">
                         <div>
                             <h3 class="text-sm font-semibold">Tugaskan langsung</h3>
-                            <p class="mt-0.5 text-xs text-muted-foreground">
+                            <p class="text-muted-foreground mt-0.5 text-xs">
                                 Interviewer baru langsung ditugaskan ke divisi ini.
                             </p>
                         </div>
@@ -225,18 +214,16 @@ function submit(): void {
                                 search-placeholder="Cari divisi…"
                                 :aria-invalid="form.errors.recruitment_division_id ? true : undefined"
                             />
-                            <p v-if="form.errors.recruitment_division_id" role="alert" class="text-xs text-destructive">
+                            <p v-if="form.errors.recruitment_division_id" role="alert" class="text-destructive text-xs">
                                 {{ form.errors.recruitment_division_id }}
                             </p>
                         </div>
                     </section>
                 </div>
 
-                <footer class="shrink-0 border-t border-border/70 p-4">
+                <footer class="border-border/70 shrink-0 border-t p-4">
                     <div class="flex gap-2">
-                        <Button variant="outline" type="button" class="flex-1" @click="emit('close')">
-                            Batal
-                        </Button>
+                        <Button variant="outline" type="button" class="flex-1" @click="emit('close')"> Batal </Button>
                         <Button type="submit" class="flex-1" :disabled="!canSubmit">
                             {{ form.processing ? 'Menyimpan…' : 'Simpan interviewer' }}
                         </Button>

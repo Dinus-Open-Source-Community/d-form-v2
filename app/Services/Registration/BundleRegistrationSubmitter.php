@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,7 @@ final class BundleRegistrationSubmitter
     public function __construct(
         private EventRegistrationCounter $registrationCounter,
         private BundleGuestDuplicateChecker $duplicateChecker,
+        private FormAnswerWriter $formAnswerWriter,
     ) {
     }
 
@@ -35,6 +37,9 @@ final class BundleRegistrationSubmitter
     /**
      * @param  list<array<string, mixed>>  $memberAnswerRows  one merged answers payload per member (same keys as leader)
      * @param  list<string>  $memberEmails  normalized lowercase emails
+     * @param  array<string, string>|null  $resolvedUserIdsByEmail  output of
+     *         BundleGuestDuplicateChecker::assertEmailsAvailableForForm() when the caller already
+     *         checked before mapping answers; null re-runs the full check in the transaction.
      * @return array{leader: FormAnswer, members: list<FormAnswer>}
      */
     public function submit(
@@ -45,6 +50,7 @@ final class BundleRegistrationSubmitter
         array $memberAnswerRows,
         array $memberEmails,
         bool $adminExemptFromQuota,
+        ?array $resolvedUserIdsByEmail = null,
     ): array {
         $teamSize = TeamRegistrationSubmitter::resolveTeamSize($form);
 
@@ -73,8 +79,16 @@ final class BundleRegistrationSubmitter
             $leaderAnswers,
             $memberAnswerRows,
             $adminExemptFromQuota,
-            $teamSize
+            $teamSize,
+            $resolvedUserIdsByEmail
         ): array {
+            // Concurrency invariant: the read view that makes the race guard
+            // correct starts after the event row lock; do not add a non-locking
+            // read before it and do not move the lock. Bundle submits for the
+            // same event serialize here, so assertEmailsStillAvailable() must be
+            // the first consistent (non-locking) read after lockForUpdate();
+            // a plain SELECT earlier would fix the snapshot before the competing
+            // submit commits and silently hide the duplicate.
             $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
             if ($lockedEvent === null) {
                 throw new \RuntimeException('Event not found.');
@@ -91,23 +105,21 @@ final class BundleRegistrationSubmitter
                 ]);
             }
 
-            foreach ($memberEmails as $i => $email) {
-                try {
-                    $this->duplicateChecker->assertEmailAvailableForForm(
-                        $form,
-                        $email,
-                        "team_member_emails.{$i}",
-                    );
-                } catch (ValidationException $e) {
-                    throw $e;
-                }
+            // The caller that already rejected duplicates before mapping answers
+            // passes its resolution, so this transaction only re-runs the race
+            // predicate (never the user lookup or the answer mapping).
+            if ($resolvedUserIdsByEmail !== null) {
+                $this->duplicateChecker->assertEmailsStillAvailable($form, $memberEmails, $resolvedUserIdsByEmail);
+                $userIdsByEmail = $resolvedUserIdsByEmail;
+            } else {
+                $userIdsByEmail = $this->duplicateChecker->assertEmailsAvailableForForm($form, $memberEmails);
             }
 
             $this->registrationCounter->assertCanReserve($lockedEvent, $teamSize, $adminExemptFromQuota);
 
             $groupToken = $this->generateUniqueGroupToken((string) $form->id);
 
-            $leader = FormAnswer::query()->create([
+            $leader = $this->formAnswerWriter->create([
                 'answers' => $leaderAnswers,
                 'form_id' => $form->id,
                 'user_id' => (string) $leaderUser->id,
@@ -124,29 +136,30 @@ final class BundleRegistrationSubmitter
             $memberRows = [];
 
             foreach ($memberEmails as $i => $email) {
-                $linkedUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+                $userId = $userIdsByEmail[mb_strtolower(trim($email))] ?? null;
 
-                $memberRows[] = FormAnswer::query()->create([
-                    'answers' => $memberAnswerRows[$i],
-                    'form_id' => $form->id,
-                    'user_id' => $linkedUser !== null ? (string) $linkedUser->id : null,
-                    'leader_form_answer_id' => $leader->id,
-                    'registration_role' => RegistrationRole::Member,
-                    'member_confirmation_status' => MemberConfirmationStatus::Accepted,
-                    'member_confirmed_at' => now(),
-                    'invitation_token' => null,
-                    'group_token' => $groupToken,
-                    'invited_email' => $email,
-                    'invitation_expired_at' => null,
-                ]);
+                try {
+                    $memberRows[] = $this->formAnswerWriter->create([
+                        'answers' => $memberAnswerRows[$i],
+                        'form_id' => $form->id,
+                        'user_id' => $userId,
+                        'leader_form_answer_id' => $leader->id,
+                        'registration_role' => RegistrationRole::Member,
+                        'member_confirmation_status' => MemberConfirmationStatus::Accepted,
+                        'member_confirmed_at' => now(),
+                        'invitation_token' => null,
+                        'group_token' => $groupToken,
+                        'invited_email' => $email,
+                        'invitation_expired_at' => null,
+                    ]);
+                } catch (QueryException $exception) {
+                    TeamRegistrationSubmitter::rethrowParticipantWriteFailure($exception, (int) $i);
+                }
             }
 
             $this->registrationCounter->reserveLocked($lockedEvent, $teamSize);
 
-            return [
-                'leader' => $leader->fresh(),
-                'members' => array_map(fn (FormAnswer $r) => $r->fresh(), $memberRows),
-            ];
+            return TeamRegistrationSubmitter::reloadSubmissionGroup($leader, $memberRows);
         });
     }
 

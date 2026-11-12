@@ -3,8 +3,8 @@
 namespace App\Services\Broadcasting;
 
 /**
- * Sanitasi HTML output Tiptap dengan allowlist.
- * Mencegah XSS tanpa menambah dependensi baru.
+ * Sanitasi HTML rich text organizer (broadcast, deskripsi event, success content)
+ * memakai allowlist; mencegah stored XSS tanpa dependensi tambahan.
  */
 class BroadcastHtmlSanitizer
 {
@@ -31,6 +31,28 @@ class BroadcastHtmlSanitizer
         'h3' => ['style'],
     ];
 
+    /**
+     * Tag yang isinya dibuang total, bukan di-unwrap — mencegah teks
+     * `<script>alert(1)</script>` berubah menjadi teks "alert(1)".
+     *
+     * @var array<int, string>
+     */
+    private const DROP_CONTENT_TAGS = [
+        'script', 'style', 'iframe', 'object', 'embed', 'noscript',
+        'template', 'svg', 'math', 'link', 'meta', 'base',
+    ];
+
+    /**
+     * Sanitasi hanya bila string mengandung tag HTML; teks biasa dikembalikan
+     * apa adanya agar entity seperti `&` tidak berubah menjadi `&amp;`.
+     */
+    public function sanitizeIfMarkup(?string $html): string
+    {
+        $html = (string) $html;
+
+        return preg_match('/<[a-z\/!][^>]*>/i', $html) === 1 ? $this->sanitize($html) : $html;
+    }
+
     public function sanitize(?string $html): string
     {
         $html = (string) $html;
@@ -40,9 +62,15 @@ class BroadcastHtmlSanitizer
         }
 
         $doc = new \DOMDocument('1.0', 'UTF-8');
-        libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="utf-8" ?><div>'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
+        // Simpan state global libxml agar proses lain di request yang sama tidak terpengaruh.
+        $previousUseErrors = libxml_use_internal_errors(true);
+
+        try {
+            $doc->loadHTML('<?xml encoding="utf-8" ?><div>'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousUseErrors);
+        }
 
         $wrapper = $doc->getElementsByTagName('div')->item(0);
 
@@ -72,6 +100,12 @@ class BroadcastHtmlSanitizer
         foreach ($children as $child) {
             if ($child instanceof \DOMElement) {
                 $tag = strtolower($child->tagName);
+
+                if (in_array($tag, self::DROP_CONTENT_TAGS, true)) {
+                    $node->removeChild($child);
+
+                    continue;
+                }
 
                 if (! in_array($tag, self::ALLOWED_TAGS, true)) {
                     // Unwrap: pindahkan children ke parent lalu hapus elemen.

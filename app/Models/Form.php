@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EventFormVisibility;
 use App\Enums\FormPurpose;
+use App\Enums\FormStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -19,6 +20,21 @@ class Form extends Model
     use HasFactory;
     use SoftDeletes;
     use HasUuids;
+    /**
+     * Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`.
+     */
+    public const ROUTE_BINDING_COLUMNS = [
+        'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
+        'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'created_at',
+        'updated_at', 'deleted_at', 'created_by', 'share_slug',
+    ];
+
+    /** Resolve route binding `{form}` dengan daftar kolom eksplisit. */
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        return parent::resolveRouteBindingQuery($query, $value, $field)
+            ->select(self::ROUTE_BINDING_COLUMNS);
+    }
 
     protected $keyType = 'string';
 
@@ -34,6 +50,9 @@ class Form extends Model
         'banner_url',
         'banner_caption',
         'metadata',
+        'status',
+        'created_by',
+        'share_slug',
     ];
 
     public function casts(): array
@@ -42,7 +61,92 @@ class Form extends Model
             'closed_at' => 'datetime',
             'visible_for' => AsEnumCollection::of(EventFormVisibility::class),
             'metadata' => 'array',
+            'status' => FormStatus::class,
         ];
+    }
+
+    /**
+     * Draft adalah form yang masih disusun penyelenggara: tidak pernah masuk
+     * daftar publik/peserta dan hanya boleh dibuka pembuat event.
+     */
+    public function isDraft(): bool
+    {
+        return $this->status === FormStatus::Draft;
+    }
+
+    /**
+     * Hanya baris published yang boleh dibaca peserta/publik/pelaporan.
+     *
+     * @param  Builder<Form>  $query
+     * @return Builder<Form>
+     */
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', FormStatus::Published->value);
+    }
+
+    /**
+     * Daftar form level-admin: published selalu ikut; draft hanya untuk pembuat
+     * event. Event tanpa `created_by` (data lama) jatuh ke pembuat draft itu
+     * sendiri agar draft tidak menjadi yatim yang tak bisa dibuka siapa pun.
+     *
+     * @param  Builder<Form>  $query
+     * @return Builder<Form>
+     */
+    public function scopeVisibleToEventCreator(Builder $query, Event $event, ?User $viewer): Builder
+    {
+        $viewerId = $viewer?->id;
+
+        return $query->where(function (Builder $scopeQuery) use ($event, $viewerId): void {
+            $scopeQuery->where('status', FormStatus::Published->value);
+
+            if (! self::viewerOwnsEvent($event, $viewerId)) {
+                return;
+            }
+
+            $scopeQuery->orWhere(function (Builder $draftQuery) use ($event, $viewerId): void {
+                $draftQuery->where('status', FormStatus::Draft->value);
+
+                if ($event->created_by === null) {
+                    $draftQuery->where('created_by', $viewerId);
+                }
+            });
+        });
+    }
+
+    /**
+     * Boleh tidaknya viewer membuka draft ini (404 di level controller).
+     */
+    public function isDraftVisibleTo(Event $event, ?User $viewer): bool
+    {
+        if (! $this->isDraft()) {
+            return true;
+        }
+
+        $viewerId = $viewer?->id;
+
+        if (! self::viewerOwnsEvent($event, $viewerId)) {
+            return false;
+        }
+
+        return $event->created_by !== null || $this->created_by === $viewerId;
+    }
+
+    /**
+     * Predikat tunggal "viewer adalah pemilik event": dipakai daftar admin
+     * ({@see scopeVisibleToEventCreator}), akses draft ({@see isDraftVisibleTo}),
+     * dan pembuatan draft ({@see \App\Http\Controllers\Dashboard\Events\Forms\FormController::storeDraft}).
+     *
+     * Event tanpa `created_by` (data lama) dianggap dimiliki setiap organizer;
+     * batas baris draft-nya tetap `forms.created_by`.
+     */
+    public static function viewerOwnsEvent(Event $event, int|string|null $viewerId): bool
+    {
+        if ($viewerId === null) {
+            return false;
+        }
+
+        return $event->created_by === null || $event->created_by === $viewerId;
     }
 
     /**

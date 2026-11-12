@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Auth\CancelPendingRegistrationController;
+use App\Http\Controllers\Auth\EmailAvailabilityController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -7,17 +9,15 @@ use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\VerifyOtpController;
 use App\Http\Middleware\PreventAuthPageCaching;
 use Illuminate\Support\Facades\Route;
 
-// use App\Http\Controllers\Auth\PageController as AuthPageController;
-
-Route::redirect('/auth', '/auth/login');
+Route::redirect('/auth', '/auth/login')
+    ->middleware([PreventAuthPageCaching::class, 'guest']);
 
 // Routes for login and register
 Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
-    // Route::get('/auth', AuthPageController::class)->middleware('guest')->name('auth.login');
-
     /**
      * Routes for login
      * GET: index [auth/login]
@@ -25,6 +25,7 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
      */
     Route::resource('/auth/login', LoginController::class)
     ->middleware('guest')
+    ->middlewareFor('store', 'throttle:auth-login')
     ->names([
         'index' => 'auth.login',
         'store' => 'auth.login.store',
@@ -37,10 +38,35 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
      */
     Route::resource('/auth/register', RegisterController::class)
     ->middleware('guest')
+    ->middlewareFor('store', ['throttle:auth-register', 'throttle:auth-otp-address'])
     ->names([
         'index' => 'auth.register',
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
+
+    /**
+     * Verifikasi OTP registrasi (spec §7)
+     * GET: index [auth/verify-otp]
+     * POST: verify [auth/verify-otp]
+     * POST: resend [auth/verify-otp/resend]
+     * POST: cancel [auth/verify-otp/cancel]
+     */
+    Route::get('/auth/verify-otp', [VerifyOtpController::class, 'index'])->name('auth.otp.show');
+
+    Route::post('/auth/verify-otp', [VerifyOtpController::class, 'verify'])
+        ->middleware('throttle:auth-otp-verify')
+        ->name('auth.otp.verify');
+
+    Route::post('/auth/verify-otp/resend', [VerifyOtpController::class, 'resend'])
+        ->middleware('throttle:auth-otp-resend')
+        ->name('auth.otp.resend');
+
+    Route::post('/auth/verify-otp/cancel', CancelPendingRegistrationController::class)->name('auth.otp.cancel');
+
+    // Dipanggil debounce dari form register untuk menandai email yang sudah terpakai.
+    Route::post('/auth/email-availability', EmailAvailabilityController::class)
+        ->middleware('throttle:auth-email-check')
+        ->name('auth.email.availability');
 
     Route::get('/auth/google', [OAuthController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('/auth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
@@ -49,15 +75,15 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
 
     Route::get('/auth/forgot-password', [ForgotPasswordController::class, 'index'])->name('auth.password.request');
     Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-email')
+        ->middleware('throttle:auth-password-email')
         ->name('auth.password.email');
     Route::post('/auth/password-reset-link', [PasswordResetLinkController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-email')
+        ->middleware('throttle:auth-password-link')
         ->name('auth.password.reset-link');
 
     Route::get('/auth/reset-password/{token}', [ResetPasswordController::class, 'index'])->name('password.reset');
     Route::post('/auth/reset-password/{token}', [ResetPasswordController::class, 'store'])
-        ->middleware('throttle:5,1,auth-password-reset')
+        ->middleware('throttle:auth-password-reset')
         ->name('auth.password.update');
 });
 

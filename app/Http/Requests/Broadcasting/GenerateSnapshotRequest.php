@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Broadcasting;
 
 use App\Enums\EmailDatasetSourceType;
+use App\Enums\UploadPurpose;
+use App\Rules\SafeUploadFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +27,7 @@ class GenerateSnapshotRequest extends FormRequest
             'manual' => ['sometimes', 'array', 'max:500'],
             'manual.*.name' => ['nullable', 'string', 'max:150'],
             'manual.*.email' => ['required_with:manual', 'email:rfc', 'max:255'],
-            'csv_file' => ['nullable', 'file', 'mimes:csv,txt', 'max:2048'],
+            'csv_file' => SafeUploadFile::rules(false, UploadPurpose::DatasetCsv),
         ];
     }
 }

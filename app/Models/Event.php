@@ -22,6 +22,16 @@ class Event extends Model
     use HasFactory;
     use HasUuids;
     use SoftDeletes;
+    /**
+     * Kolom saat event di-resolve dari route (`/admin/events/{event}`) — eksplisit,
+     * bukan `select *`; dipakai halaman show/edit/forms sehingga semua kolom diperlukan.
+     */
+    public const ROUTE_BINDING_COLUMNS = [
+        'id', 'title', 'slug', 'description', 'start_date', 'end_date',
+        'registration_start', 'registration_end', 'location', 'quota',
+        'registered_count', 'banner', 'price', 'session', 'status', 'category',
+        'created_at', 'updated_at', 'deleted_at', 'created_by',
+    ];
 
     public $keyType = 'string';
 
@@ -119,7 +129,8 @@ class Event extends Model
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        $query = $this->where($field ?? $this->getRouteKeyName(), $value);
+        $query = $this->where($field ?? $this->getRouteKeyName(), $value)
+            ->select(self::ROUTE_BINDING_COLUMNS);
 
         if (request()->routeIs('dashboard.events.*')) {
             $query->withTrashed();

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DateValue } from 'reka-ui'
-import { ref, watch } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import { Calendar as CalendarIcon } from 'lucide-vue-next'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,8 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
-const selected = ref<DateValue | undefined>(undefined)
+// shallowRef: DateValue punya private field; ref() akan mem-flatten tipenya.
+const selected = shallowRef<DateValue | undefined>(undefined)
 
 watch(
     () => props.modelValue,

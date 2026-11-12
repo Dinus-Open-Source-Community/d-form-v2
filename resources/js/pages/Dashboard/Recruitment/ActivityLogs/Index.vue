@@ -1,37 +1,38 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { routes } from '@/lib/routes'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { onMounted } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { routes } from '@/lib/routes';
+import { formatDateTime } from '@/lib/dateTime';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface LogRow {
-    id: string
-    action: string
-    actor_type: string
-    actor: { id: string; name: string } | null
+    id: string;
+    action: string;
+    actor_type: string;
+    actor: { id: string; name: string } | null;
     application: {
-        id: string
-        recruitment_period_id: string | null
-        registration_number: string
-        full_name: string
-    } | null
-    created_at: string | null
+        id: string;
+        recruitment_period_id: string | null;
+        registration_number: string;
+        full_name: string;
+    } | null;
+    created_at: string | null;
 }
 
-const props = defineProps<{
-    logs: { data: LogRow[]; links: { url: string | null; label: string; active: boolean }[] }
-    periodOptions: { id: string; name: string }[]
-    query: { period_id: string | null; action: string | null }
-}>()
+defineProps<{
+    logs: { data: LogRow[]; links: { url: string | null; label: string; active: boolean }[] };
+    periodOptions: { id: string; name: string }[];
+    query: { period_id: string | null; action: string | null };
+}>();
 
 onMounted(() => {
-    setTopbar({ title: 'Activity log Open Recruitment', subtitle: 'Audit trail keputusan staff' })
-})
+    setTopbar({ title: 'Activity log Open Recruitment', subtitle: 'Audit trail keputusan staff' });
+});
 
 function applyFilters(periodId: string, action: string) {
     router.get(
@@ -40,8 +41,8 @@ function applyFilters(periodId: string, action: string) {
             period_id: periodId || undefined,
             action: action || undefined,
         },
-        { preserveState: true },
-    )
+        { preserveState: true }
+    );
 }
 </script>
 
@@ -49,9 +50,10 @@ function applyFilters(periodId: string, action: string) {
     <Head title="Activity Log Open Recruitment" />
 
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="flex flex-wrap gap-3 p-4">
                 <select
+                    aria-label="Filter periode"
                     class="border-input bg-background h-9 rounded-md border px-3 text-sm"
                     :value="query.period_id ?? ''"
                     @change="applyFilters(($event.target as HTMLSelectElement).value, query.action ?? '')"
@@ -63,6 +65,7 @@ function applyFilters(periodId: string, action: string) {
                 </select>
                 <input
                     type="search"
+                    aria-label="Filter aksi"
                     class="border-input bg-background h-9 min-w-[200px] flex-1 rounded-md border px-3 text-sm"
                     placeholder="Filter action..."
                     :value="query.action ?? ''"
@@ -71,13 +74,13 @@ function applyFilters(periodId: string, action: string) {
             </CardContent>
         </Card>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="divide-y p-0">
                 <div v-for="log in logs.data" :key="log.id" class="space-y-1 p-4 text-sm">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <p class="font-medium">{{ log.action }}</p>
                         <p class="text-muted-foreground text-xs">
-                            {{ log.created_at ? new Date(log.created_at).toLocaleString('id-ID') : '—' }}
+                            {{ formatDateTime({ value: log.created_at, variant: 'date-time-numeric' }) || '—' }}
                         </p>
                     </div>
                     <p class="text-muted-foreground text-xs">

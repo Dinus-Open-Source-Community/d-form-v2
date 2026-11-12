@@ -1,7 +1,11 @@
 <?php
 
+use App\Console\Commands\DispatchRecruitmentQrOutboxCommand;
+use App\Console\Commands\DispatchFormReviewEmailOutboxCommand;
 use App\Exceptions\QuotaExceededException;
+use App\Http\Middleware\AssignRequestCorrelationId;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\SafeExceptionReporter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,11 +21,31 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        DispatchRecruitmentQrOutboxCommand::class,
+        DispatchFormReviewEmailOutboxCommand::class,
+    ])
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
+        $schedule->command('recruitment:dispatch-qr-outbox')->everyMinute();
+        $schedule->command('forms:dispatch-review-email-outbox')->everyMinute();
         $schedule->command('broadcast:dispatch-scheduled')->everyMinute();
+        $schedule->command('otp:prune')->hourly();
+        $schedule->command('queue:prune-failed --hours='.(int) config('queue.failed.retention_hours'))->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        // Prepended so the response phase runs after every other global middleware:
+        // responses short-circuited earlier (503, redirects, 404s) still get headers.
+        $middleware->prepend([
+            \App\Http\Middleware\SecurityHeaders::class,
+            AssignRequestCorrelationId::class,
+        ]);
+
+        // Appended so it runs after TrustProxies (which applies the trusted proxy
+        // list per request) and therefore sees X-Forwarded-Host, while the prepended
+        // SecurityHeaders still wraps the plain 400 returned for an untrusted host.
+        $middleware->append(\App\Http\Middleware\EnforceTrustedHost::class);
+
         $middleware->redirectGuestsTo(fn () => route('auth.login'));
 
         $middleware->redirectUsersTo(fn () => route('home', absolute: false));
@@ -29,8 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             \App\Http\Middleware\AddRobotsTagForPrivateAreas::class,
+            \App\Http\Middleware\DisableSsrForPrivatePages::class,
         ]);
 
+        // TLS terminates at the ingress, so client IP/scheme/host only resolve correctly
+        // through trusted X-Forwarded-* headers. The list is applied by
+        // TrustedProxyServiceProvider::boot() so it also runs for every artisan command.
         $middleware->alias([
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,
@@ -41,6 +69,25 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(static function (\Throwable $exception): bool {
+            return SafeExceptionReporter::report($exception);
+        });
+
+        // Inertia membuang header rate limit; salin ulang agar klien tahu kapan boleh mencoba lagi.
+        $copyThrottleHeaders = static function (Response $source, Response $target): Response {
+            $headers = ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'];
+
+            foreach ($headers as $header) {
+                $value = $source->headers->get($header);
+
+                if ($value !== null) {
+                    $target->headers->set($header, $value);
+                }
+            }
+
+            return $target;
+        };
+
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             Log::warning('http_429_throttle', [
                 'route' => $request->route()?->getName(),
@@ -65,7 +112,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['message' => $e->getMessage()], 409);
         });
 
-        $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
+        $exceptions->respond(function (Response $response, Throwable $exception, Request $request) use ($copyThrottleHeaders) {
             if ($request->expectsJson()) {
                 return $response;
             }
@@ -86,8 +133,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            return Inertia::render('Error', ['status' => $status])
+            // Permintaan Inertia butuh respons non-Inertia agar event `invalid` terpicu:
+            // klien menahan navigasi (preventDefault), menampilkan pesan ramah, dan
+            // memulai cooldown dari header Retry-After alih-alih swap ke halaman Error.
+            if ($status === 429 && $request->header('X-Inertia')) {
+                return $copyThrottleHeaders(
+                    $response,
+                    response()->json(['message' => 'Terlalu banyak pencarian. Tunggu sebentar lalu coba lagi.'], 429),
+                );
+            }
+
+            $rendered = Inertia::render('Error', ['status' => $status])
                 ->toResponse($request)
                 ->setStatusCode($status);
+
+            if ($status === 429) {
+                return $copyThrottleHeaders($response, $rendered);
+            }
+
+            return $rendered;
         });
     })->create();

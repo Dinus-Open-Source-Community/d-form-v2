@@ -15,13 +15,19 @@ use App\Models\Recruitment\RecruitmentAttendance;
 use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentPeriod;
+use App\Models\Recruitment\RecruitmentQrDispatchOutbox;
 use App\Models\User;
 use App\Services\Recruitment\RecruitmentQrBulkService;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Contracts\Bus\Dispatcher as BusDispatcher;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Mockery;
+use RuntimeException;
 use Tests\TestCase;
 
 class RecruitmentQrBulkServiceTest extends TestCase
@@ -37,12 +43,16 @@ class RecruitmentQrBulkServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['registration.email_send_delay_seconds' => 0]);
 
         $this->seed(RoleSeeder::class);
         $this->seed(RecruitmentDivisionSeeder::class);
 
         $this->staff = User::factory()->create();
         $this->staff->assignRole('recruitment-staff');
+
+        // Aksi tulis periode (sendQr/sendGroupLink) membutuhkan permission, bukan ownership.
+        $this->staff->givePermissionTo('recruitment.periods.edit');
 
         $this->period = RecruitmentPeriod::factory()->create([
             'created_by' => $this->staff->id,
@@ -185,7 +195,7 @@ class RecruitmentQrBulkServiceTest extends TestCase
 
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
 
-        self::assertSame(['dispatched' => 1, 'skipped' => 0], $result);
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $result);
 
         Queue::assertPushed(SendRecruitmentNotificationJob::class, 1);
 
@@ -196,6 +206,33 @@ class RecruitmentQrBulkServiceTest extends TestCase
             'sent_at' => null,
         ]);
         $this->assertDatabaseCount('email_logs', 1);
+    }
+
+    public function test_bulk_qr_reports_scheduled_recipients_separately_from_queued_jobs(): void
+    {
+        Queue::fake();
+        config([
+            'registration.email_send_delay_seconds' => 7,
+            'recruitment.qr_dispatch_horizon_seconds' => 60,
+        ]);
+
+        foreach (range(1, 10) as $_sequence) {
+            $this->makeApplicant(['stage' => ApplicationStage::Interview]);
+        }
+
+        $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
+
+        // EP-02: `scheduled` menghitung reservasi, dan setiap reservasi langsung di-enqueue.
+        // Repo tidak punya scheduler, jadi tidak boleh ada baris yang tertahan `pending`
+        // menunggu poll recovery.
+        self::assertSame(['scheduled' => 10, 'skipped' => 0], $result);
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 10);
+        self::assertSame(10, RecruitmentQrDispatchOutbox::query()
+            ->where('status', RecruitmentQrDispatchOutbox::STATUS_QUEUED)
+            ->count());
+        self::assertSame(0, RecruitmentQrDispatchOutbox::query()
+            ->where('status', RecruitmentQrDispatchOutbox::STATUS_PENDING)
+            ->count());
     }
 
     public function test_bulk_qr_job_flips_queued_row_to_sent(): void
@@ -233,7 +270,7 @@ class RecruitmentQrBulkServiceTest extends TestCase
         );
     }
 
-    public function test_bulk_qr_reclick_skips_already_sent(): void
+    public function test_be_p2_019_bulk_qr_reclick_skips_already_sent(): void
     {
         Mail::fake();
 
@@ -253,7 +290,7 @@ class RecruitmentQrBulkServiceTest extends TestCase
 
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
 
-        self::assertSame(['dispatched' => 1, 'skipped' => 1], $result);
+        self::assertSame(['scheduled' => 1, 'skipped' => 1], $result);
 
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
 
@@ -266,6 +303,146 @@ class RecruitmentQrBulkServiceTest extends TestCase
             'notification_type' => EmailNotificationType::RecruitmentInterviewScheduled->value,
             'status' => EmailLogStatus::Sent->value,
         ]);
+    }
+
+    public function test_be_p2_019_queued_qr_is_skipped_until_job_completes(): void
+    {
+        Queue::fake();
+        $application = $this->makeApplicant(['stage' => ApplicationStage::Interview]);
+        $service = app(RecruitmentQrBulkService::class);
+
+        $firstSend = $service->send($this->staff, $this->period);
+        $secondSend = $service->send($this->staff, $this->period);
+
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $firstSend);
+        self::assertSame(['scheduled' => 0, 'skipped' => 1], $secondSend);
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 1);
+        self::assertSame(1, EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
+            ->count());
+    }
+
+    public function test_be_p2_019_failed_qr_remains_eligible_for_resubmission(): void
+    {
+        Queue::fake();
+        $application = $this->makeApplicant(['stage' => ApplicationStage::Interview]);
+
+        EmailLog::query()->create([
+            'recruitment_application_id' => $application->id,
+            'event_id' => null,
+            'user_id' => null,
+            'recipient_email' => (string) $application->personal_email,
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::RecruitmentInterviewScheduled,
+            'error_message' => 'Temporary mail failure',
+            'sent_at' => null,
+        ]);
+
+        $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
+
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $result);
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 1);
+    }
+
+    public function test_bulk_qr_dispatch_failure_leaves_reservation_for_durable_recovery(): void
+    {
+        Queue::fake();
+        $application = $this->makeApplicant(['stage' => ApplicationStage::Interview]);
+        $previousFailure = EmailLog::query()->create([
+            'recruitment_application_id' => $application->id,
+            'event_id' => null,
+            'user_id' => null,
+            'recipient_email' => (string) $application->personal_email,
+            'status' => EmailLogStatus::Failed,
+            'notification_type' => EmailNotificationType::RecruitmentInterviewScheduled,
+            'error_message' => 'Previous delivery failure',
+            'sent_at' => null,
+        ]);
+        $originalDispatcher = app(BusDispatcher::class);
+        $failingDispatcher = Mockery::mock(BusDispatcher::class);
+        $failingDispatcher->shouldReceive('dispatch')
+            ->andThrow(new RuntimeException('private queue connection details'));
+        $this->app->instance(BusDispatcher::class, $failingDispatcher);
+
+        // Push yang gagal tidak menggagalkan bulk send; reservasi tetap durable dan `pending`
+        // sampai recovery poll menjalankannya.
+        $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
+
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $result);
+        Queue::assertNothingPushed();
+
+        $pendingReservation = EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled)
+            ->where('id', '!=', $previousFailure->id)
+            ->firstOrFail();
+
+        self::assertSame(EmailLogStatus::Queued, $pendingReservation->status);
+        self::assertNull($pendingReservation->error_message);
+        $this->assertDatabaseHas('recruitment_qr_dispatch_outboxes', [
+            'email_log_id' => $pendingReservation->id,
+            'status' => RecruitmentQrDispatchOutbox::STATUS_PENDING,
+        ]);
+        $this->assertDatabaseHas('email_logs', [
+            'id' => $previousFailure->id,
+            'status' => EmailLogStatus::Failed->value,
+            'error_message' => 'Previous delivery failure',
+        ]);
+        self::assertSame(2, EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled)
+            ->count());
+
+        $this->app->instance(BusDispatcher::class, $originalDispatcher);
+        $this->artisan('recruitment:dispatch-qr-outbox')->assertExitCode(0);
+
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 1);
+        $this->assertDatabaseHas('recruitment_qr_dispatch_outboxes', [
+            'email_log_id' => $pendingReservation->id,
+            'status' => RecruitmentQrDispatchOutbox::STATUS_QUEUED,
+        ]);
+    }
+
+    public function test_be_p2_020_competing_qr_claim_does_not_dispatch_a_stale_candidate(): void
+    {
+        Queue::fake();
+        $application = $this->makeApplicant(['stage' => ApplicationStage::Interview]);
+        $competingClaimInserted = false;
+
+        // Inject the competing claim after selection, before the service reserves the candidate.
+        DB::listen(function (QueryExecuted $query) use ($application, &$competingClaimInserted): void {
+            $sql = strtolower($query->sql);
+
+            if ($competingClaimInserted
+                || ! str_contains($sql, 'recruitment_applications')
+                || ! str_contains($sql, 'email_logs')
+                || ! str_contains($sql, 'not exists')) {
+                return;
+            }
+
+            $competingClaimInserted = true;
+            EmailLog::query()->create([
+                'recruitment_application_id' => $application->id,
+                'event_id' => null,
+                'user_id' => null,
+                'recipient_email' => (string) $application->personal_email,
+                'status' => EmailLogStatus::Queued,
+                'notification_type' => EmailNotificationType::RecruitmentInterviewScheduled,
+                'error_message' => null,
+                'sent_at' => null,
+            ]);
+        });
+
+        $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
+
+        self::assertTrue($competingClaimInserted);
+        self::assertSame(['scheduled' => 0, 'skipped' => 1], $result);
+        Queue::assertNothingPushed();
+        self::assertSame(1, EmailLog::query()
+            ->where('recruitment_application_id', $application->id)
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
+            ->count());
     }
 
     public function test_bulk_qr_status_endpoint_aggregates_latest_log_per_application(): void
@@ -311,7 +488,7 @@ class RecruitmentQrBulkServiceTest extends TestCase
 
         foreach ($recipients as $recipient) {
             self::assertSame(
-                ['application_id', 'full_name', 'registration_number', 'status', 'error', 'sent_at'],
+                ['application_id', 'full_name', 'registration_number', 'status', 'error', 'error_category', 'sent_at'],
                 array_keys($recipient)
             );
         }
@@ -319,7 +496,8 @@ class RecruitmentQrBulkServiceTest extends TestCase
         $byId = array_column($recipients, null, 'application_id');
         self::assertSame('sent', $byId[$sent->id]['status']);
         self::assertSame('failed', $byId[$failed->id]['status']);
-        self::assertSame('smtp down', $byId[$failed->id]['error']);
+        self::assertSame('Pengiriman email gagal.', $byId[$failed->id]['error']);
+        self::assertSame('mail_delivery_failed', $byId[$failed->id]['error_category']);
         self::assertSame('queued', $byId[$queued->id]['status']);
         self::assertNull($byId[$queued->id]['sent_at']);
         self::assertArrayNotHasKey($silent->id, $byId);
@@ -344,7 +522,7 @@ class RecruitmentQrBulkServiceTest extends TestCase
 
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period, true);
 
-        self::assertSame(['dispatched' => 1, 'skipped' => 0], $result);
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $result);
 
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
 
@@ -375,7 +553,12 @@ class RecruitmentQrBulkServiceTest extends TestCase
 
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period, true);
 
-        self::assertSame(['dispatched' => 1, 'skipped' => 0], $result);
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $result);
+
+        $repeatedResult = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period, true);
+
+        self::assertSame(['scheduled' => 0, 'skipped' => 0], $repeatedResult);
+        Queue::assertPushed(SendRecruitmentNotificationJob::class, 1);
 
         $this->assertDatabaseHas('email_logs', [
             'recruitment_application_id' => $alreadySent->id,
@@ -388,10 +571,16 @@ class RecruitmentQrBulkServiceTest extends TestCase
             'status' => EmailLogStatus::Queued->value,
             'sent_at' => null,
         ]);
+        self::assertSame(1, EmailLog::query()
+            ->where('recruitment_application_id', $alreadySent->id)
+            ->where('notification_type', EmailNotificationType::RecruitmentInterviewScheduled->value)
+            ->where('status', EmailLogStatus::Queued->value)
+            ->count());
     }
 
     public function test_bulk_qr_send_route_accepts_include_sent_flag(): void
     {
+        config(['recruitment.qr_send_rate_limit_per_minute' => 2]);
         Mail::fake();
 
         $alreadySent = $this->makeApplicant(['stage' => ApplicationStage::Interview]);
@@ -422,7 +611,14 @@ class RecruitmentQrBulkServiceTest extends TestCase
         Mail::assertSent(RecruitmentApplicationConfirmationMail::class, 1);
     }
 
-    public function test_bulk_qr_skipped_count_matches_resendable_pool(): void
+    public function test_bulk_qr_send_route_rejects_non_boolean_include_sent(): void
+    {
+        $this->actingAs($this->staff)
+            ->post(route('dashboard.recruitment.periods.send-qr', $this->period), ['include_sent' => 'bukan-boolean'])
+            ->assertSessionHasErrors('include_sent');
+    }
+
+    public function test_be_p2_019_skipped_count_matches_in_flight_pool(): void
     {
         Queue::fake();
 
@@ -444,14 +640,14 @@ class RecruitmentQrBulkServiceTest extends TestCase
             ]);
         }
 
-        // checkedIn tidak masuk pool (sudah absen) → skipped hanya $sent, dispatched hanya yang fresh.
+        // checked-in applicants are outside the pool; the fresh applicant is scheduled by this send.
         $result = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period);
 
-        self::assertSame(['dispatched' => 1, 'skipped' => 1], $result);
+        self::assertSame(['scheduled' => 1, 'skipped' => 1], $result);
 
         $resend = app(RecruitmentQrBulkService::class)->send($this->staff, $this->period, true);
 
-        self::assertSame(['dispatched' => 2, 'skipped' => 0], $resend);
+        self::assertSame(['scheduled' => 1, 'skipped' => 0], $resend);
     }
 
     /** @param array<string, mixed> $overrides */

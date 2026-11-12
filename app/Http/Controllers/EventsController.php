@@ -3,27 +3,58 @@
 namespace App\Http\Controllers;
 
 use App\Enums\EventFormVisibility;
-use App\Enums\EventStatus;
+use App\Http\Requests\PublicEventSearchRequest;
 use App\Models\Event;
 use App\Models\Form;
 use App\Services\Event\EventService;
+use App\Services\Event\PublicEventSearch;
 use App\Services\Event\UserPortalEventResolver;
 
 class EventsController extends Controller
 {
-    public function index(EventService $eventService)
+    /**
+     * Daftar acara publik: 10 per halaman, kata kunci `q` dicari di server.
+     */
+    public function index(PublicEventSearchRequest $request, EventService $eventService, PublicEventSearch $eventSearch)
     {
-        $events = Event::query()
-            ->where('status', EventStatus::Published)
-            ->whereNull('deleted_at')
-            ->orderByDesc('start_date')
-            ->get()
-            ->map(fn (Event $e) => $eventService->eventToInertiaArray($e))
-            ->values()
-            ->all();
+        $validated = $request->validated();
+
+        $search = trim((string) ($validated['q'] ?? ''));
+
+        // Halaman dalam pada hasil pencarian tidak berguna (dan mahal): kembali ke halaman 1.
+        $maxPage = (int) config('events.search.max_page', PublicEventSearch::MAX_PAGE);
+
+        if ($search !== '' && (int) ($validated['page'] ?? 1) > $maxPage) {
+            return redirect()->route('events.index', ['q' => $search]);
+        }
+
+        $paginator = $eventSearch->page($search === '' ? null : $search);
+
+        if ($paginator === null) {
+            return inertia('Event', [
+                'events' => [],
+                'highlight' => $eventService->publicListHighlight(),
+                'pagination' => ['links' => [], 'currentPage' => null, 'hasMore' => false],
+                'filters' => ['q' => $search],
+                'searchError' => 'Kata kunci terlalu umum, coba lebih spesifik.',
+            ]);
+        }
 
         return inertia('Event', [
-            'events' => $events,
+            'events' => array_map(
+                fn (Event $event): array => $eventService->eventToInertiaArray($event),
+                $paginator->items(),
+            ),
+            'highlight' => $eventService->publicListHighlight(),
+            'pagination' => [
+                'links' => $eventService->paginationLinks($paginator),
+                'currentPage' => $paginator instanceof \Illuminate\Pagination\Paginator
+                    ? $paginator->currentPage()
+                    : null,
+                'hasMore' => $paginator->hasMorePages(),
+            ],
+            'filters' => ['q' => $search === '' ? null : $search],
+            'searchError' => null,
         ]);
     }
 
@@ -37,6 +68,7 @@ class EventsController extends Controller
 
         $forms = Form::query()
             ->where('event_id', $event->id)
+            ->published()
             ->orderBy('title')
             ->get()
             ->filter(fn (Form $form): bool => $form->visible_for?->contains(EventFormVisibility::Public) ?? false)

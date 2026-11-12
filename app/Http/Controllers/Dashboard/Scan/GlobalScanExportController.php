@@ -7,7 +7,14 @@ use App\Models\Event;
 use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Services\Registration\BundleGuestDisplayNameResolver;
 use App\Services\Registration\FormAnswerRecipientResolver;
+use App\Support\CsvCellSanitizer;
+use App\Support\EventExportAuditLogger;
+use App\Support\Export\CsvStream;
+use App\Support\Export\KeysetPage;
+use App\Support\Export\KeysetPageIterator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
@@ -39,10 +46,11 @@ class GlobalScanExportController extends Controller
     public function __construct(
         private readonly BundleGuestDisplayNameResolver $displayNameResolver,
         private readonly FormAnswerRecipientResolver $recipientResolver,
+        private readonly EventExportAuditLogger $auditLogger,
     ) {
     }
 
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request): StreamedResponse|JsonResponse
     {
         $user = $request->user();
         abort_unless(
@@ -50,11 +58,30 @@ class GlobalScanExportController extends Controller
             403
         );
 
-        $kind = (string) $request->query('kind', '');
-        $format = strtolower((string) $request->query('format', 'csv'));
-        $target = (string) $request->query('target', '');
+        $query = $request->query();
+        $requestedFormat = $query['format'] ?? 'csv';
 
-        abort_unless(in_array($format, ['csv', 'xlsx'], true), 422);
+        if (is_string($requestedFormat)) {
+            $query['format'] = strtolower($requestedFormat);
+        }
+
+        $parameters = Validator::make($query, [
+            'kind' => ['required', 'string', 'in:event,oprec'],
+            'format' => ['required', 'string', 'in:csv,xlsx'],
+            'target' => ['required', 'string', 'uuid'],
+        ]);
+
+        if ($parameters->fails()) {
+            return response()->json([
+                'message' => 'Invalid export parameters.',
+                'errors' => $parameters->errors(),
+            ], 422);
+        }
+
+        $valid = $parameters->validated();
+        $kind = (string) $valid['kind'];
+        $format = (string) $valid['format'];
+        $target = (string) $valid['target'];
 
         return match ($kind) {
             'event' => $this->exportEvent($request, $target, $format),
@@ -73,10 +100,21 @@ class GlobalScanExportController extends Controller
 
         $slug = $this->slug($event->slug !== null && $event->slug !== '' ? $event->slug : $event->title);
         $fileName = 'attendance-'.$slug.'-'.now()->format('Ymd-His').'.'.$format;
+        $actorId = $request->user()?->getAuthIdentifier();
+        $exportType = 'scan_event_'.$format;
 
         return response()->streamDownload(
-            function () use ($event, $format): void {
-                $this->write($format, self::EVENT_HEADER, $this->eventRows($event));
+            function () use ($event, $format, $target, $actorId, $exportType): void {
+                $rowCount = 0;
+
+                try {
+                    $this->write($format, self::EVENT_HEADER, $this->eventRows($event), $rowCount);
+                } finally {
+                    // PII-free trail, recorded even when the generator throws or the
+                    // client disconnects mid-stream. The logger swallows its own
+                    // failures so the download is never aborted by auditing.
+                    $this->auditLogger->record($actorId, $target, $exportType, $rowCount);
+                }
             },
             $fileName,
             $this->headers($format),
@@ -95,10 +133,20 @@ class GlobalScanExportController extends Controller
         $division = $this->slug($session->division?->name ?? 'oprec');
         $sessionDate = $session->session_date?->format('Y-m-d') ?? 'no-date';
         $fileName = 'attendance-oprec-'.$division.'-'.$sessionDate.'-'.now()->format('Ymd-His').'.'.$format;
+        $actorId = $request->user()?->getAuthIdentifier();
+        $exportType = 'scan_oprec_'.$format;
 
         return response()->streamDownload(
-            function () use ($session, $format): void {
-                $this->write($format, self::OPREC_HEADER, $this->oprecRows($session));
+            function () use ($session, $format, $target, $actorId, $exportType): void {
+                $rowCount = 0;
+
+                try {
+                    $this->write($format, self::OPREC_HEADER, $this->oprecRows($session), $rowCount);
+                } finally {
+                    // OPREC export carries applicant names, NIM, and emails too, so it
+                    // leaves the same PII-free trail keyed by interview session id.
+                    $this->auditLogger->record($actorId, $target, $exportType, $rowCount);
+                }
             },
             $fileName,
             $this->headers($format),
@@ -106,18 +154,25 @@ class GlobalScanExportController extends Controller
     }
 
     /**
+     * Write the body for the requested format and count the data rows actually
+     * written, so the caller can audit partial output after a mid-stream failure.
+     *
      * @param  list<string>  $header
      * @param  iterable<int, list<string|int|null>>  $rows
+     * @param  int  $rowCount  data rows written, header excluded
      */
-    private function write(string $format, array $header, iterable $rows): void
+    private function write(string $format, array $header, iterable $rows, int &$rowCount): void
     {
+        $rowCount = 0;
+
         if ($format === 'xlsx') {
             $writer = new XlsxWriter();
             $writer->openToFile('php://output');
             $writer->addRow(Row::fromValues($header));
 
-            foreach ($rows as $row) {
+            foreach ($this->sanitizeRows($rows) as $row) {
                 $writer->addRow(Row::fromValues($row));
+                ++$rowCount;
             }
 
             $writer->close();
@@ -130,14 +185,24 @@ class GlobalScanExportController extends Controller
             return;
         }
 
-        fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, $header, ',', '"', '');
-
-        foreach ($rows as $row) {
-            fputcsv($out, $row, ',', '"', '');
+        try {
+            CsvStream::write($out, $header, $rows, $rowCount);
+        } finally {
+            fclose($out);
         }
+    }
 
-        fclose($out);
+    /**
+     * Menyaring setiap sel data sebelum ditulis ke CSV maupun XLSX.
+     *
+     * @param  iterable<int, list<string|int|null>>  $rows
+     * @return \Generator<int, list<string>>
+     */
+    private function sanitizeRows(iterable $rows): \Generator
+    {
+        foreach ($rows as $row) {
+            yield array_map(CsvCellSanitizer::sanitize(...), $row);
+        }
     }
 
     /**
@@ -145,12 +210,13 @@ class GlobalScanExportController extends Controller
      */
     private function eventRows(Event $event): \Generator
     {
-        $attendances = $event->attendances()
+        $query = $event->attendances()
             ->with(['formAnswer.user:id,name,email', 'formAnswer.form:id,title', 'scannedBy:id,name,email'])
-            ->orderBy('scanned_at')
-            ->lazy();
+            ->getQuery();
 
-        foreach ($attendances as $row) {
+        $page = new KeysetPage('scanned_at', 'id', pageSize: $this->exportPageSize());
+
+        foreach ((new KeysetPageIterator($query))->iterate($page) as $row) {
             $submission = $row->formAnswer;
             $scanner = $row->scannedBy;
 
@@ -171,12 +237,13 @@ class GlobalScanExportController extends Controller
      */
     private function oprecRows(RecruitmentInterviewSession $session): \Generator
     {
-        $attendances = $session->attendances()
+        $query = $session->attendances()
             ->with(['application.primaryDivision:id,name', 'checkedInByUser:id,name'])
-            ->orderBy('checked_in_at')
-            ->lazy();
+            ->getQuery();
 
-        foreach ($attendances as $row) {
+        $page = new KeysetPage('checked_in_at', 'id', pageSize: $this->exportPageSize());
+
+        foreach ((new KeysetPageIterator($query))->iterate($page) as $row) {
             $application = $row->application;
             $division = $session->division?->name ?? $application?->primaryDivision?->name ?? '';
 
@@ -192,6 +259,12 @@ class GlobalScanExportController extends Controller
             ];
         }
     }
+
+    private function exportPageSize(): int
+    {
+        return max(1, min(5000, (int) config('scan.export_page_size', 1000)));
+    }
+
 
     /**
      * @return array<string, string>

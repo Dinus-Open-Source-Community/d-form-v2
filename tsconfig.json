@@ -1,6 +1,5 @@
 {
     "compilerOptions": {
-        "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "target": "ESNext",
         "useDefineForClassFields": true,
@@ -29,8 +28,7 @@
         "resources/js/**/*.ts",
         "resources/js/**/*.tsx",
         "resources/js/**/*.vue",
-        "resources/js/types/global.d.ts",
         "resources/js/types/**/*.d.ts"
     ],
-    "exclude": ["node_modules", "public", "vendor"]
+    "exclude": ["node_modules", "public", "vendor", "resources/js/**/__tests__/**"]
 }

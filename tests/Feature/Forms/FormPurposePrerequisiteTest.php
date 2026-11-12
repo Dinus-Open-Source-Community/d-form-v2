@@ -114,7 +114,7 @@ class FormPurposePrerequisiteTest extends TestCase
 
     private function submitSuccessRedirect(Event $event, User $user, Form $form): string
     {
-        if ($user->can('events.view')) {
+        if ($user->can('view', $event)) {
             return route('dashboard.events.show', $event);
         }
 

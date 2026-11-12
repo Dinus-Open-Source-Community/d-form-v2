@@ -1,105 +1,215 @@
 <script setup lang="ts">
-/* eslint-disable vue/no-mutating-props -- ctx.answerForm is parent Inertia form state */
-import { computed } from 'vue'
-import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { StyledSelect } from '@/components/ui/styled-select'
-import type { UnwrapNestedRefs } from 'vue'
-import { Star, ImagePlus, Upload, X } from 'lucide-vue-next'
-import type { FormFillPageContext } from '@/utils/composables/useFormFillPage'
-import { formatParagraphContentToHtml } from '@/lib/formParagraphContent'
+import { computed, type UnwrapNestedRefs } from 'vue';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { StyledSelect } from '@/components/ui/styled-select';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
+import FormFillUploadField from '@/components/modules/dashboard/FormFillUploadField.vue';
+import { Star } from 'lucide-vue-next';
+import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
+import { formFillSlotUi } from '@/lib/formFillSlotUi';
+import { readMetaBoolean } from '@/lib/formFieldMetadata';
+import { DEFAULT_MULTIPLE_UPLOAD_MAX_FILES, DEFAULT_MULTIPLE_UPLOAD_MAX_TOTAL_SIZE_KB } from '@/lib/uploadValidation';
+import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
+import type { IFormFieldParticipationSlot, TFormFillSlotVariant } from '@/types/form';
 
 const props = withDefaults(
     defineProps<{
-        ctx: UnwrapNestedRefs<FormFillPageContext>
-        field: IFormField
-        participationSlot: { slotIndex: number | null; title: string }
-        storageKey: string
+        ctx: UnwrapNestedRefs<TFormFillPageContext>;
+        field: IFormField;
+        participationSlot: IFormFieldParticipationSlot;
+        storageKey: string;
         /** 'linear' = legacy one field / card; 'bundleParticipant' = stacked in per-person card */
-        variant: 'linear' | 'bundleParticipant'
-        stackIndex?: number
-        imageUploadFillReadyFn: (key: string) => boolean
+        variant: TFormFillSlotVariant;
+        stackIndex?: number;
+        imageUploadFillReadyFn: (key: string) => boolean;
     }>(),
-    { stackIndex: 0 },
-)
+    { stackIndex: 0 }
+);
 
 const emit = defineEmits<{
-    openLightbox: [src: string | undefined, title: string]
-}>()
+    openLightbox: [src: string | undefined, title: string];
+}>();
+
+const ui = computed(() =>
+    formFillSlotUi({
+        variant: props.variant,
+        stackIndex: props.stackIndex,
+        fieldHasDescription: Boolean(props.field.description),
+        slotHasTitle: Boolean(props.participationSlot.title),
+        slotIndex: props.participationSlot.slotIndex,
+    })
+);
+
+const descriptionHtml = computed(() =>
+    props.field.description ? formatParagraphContentToHtml(props.field.description) : ''
+);
+
+/** Field yang jawabannya berkas: kartu unggah menggantikan dropzone lama. */
+const isFileField = computed(() =>
+    ['file_upload', 'image_upload', 'fileUpload'].includes(props.ctx.builderType(props.field))
+);
+
+/** Berkas yang menunggu submit; nilai awal field file selalu `null`. */
+const selectedFile = computed<File | null>(() => {
+    const value = props.ctx.answerForm[props.storageKey];
+
+    return typeof File !== 'undefined' && value instanceof File ? value : null;
+});
+
+const isMultipleUpload = computed(() => readMetaBoolean(props.ctx.metadata(props.field), 'multiple'));
+
+const selectedFiles = computed<File[]>(() => {
+    const value = props.ctx.answerForm[props.storageKey];
+    if (typeof File === 'undefined' || !Array.isArray(value)) return [];
+
+    return value.filter((item): item is File => item instanceof File);
+});
+
+const multipleFilePreviewUrls = computed(() => props.ctx.multiFilePreviewUrls[props.storageKey] ?? []);
+
+const multipleUploadLimits = computed(() => {
+    const metadata = props.ctx.metadata(props.field);
+
+    return {
+        maxFiles: positiveIntegerLimit(metadata.max_files, DEFAULT_MULTIPLE_UPLOAD_MAX_FILES),
+        maxTotalSizeKb: positiveNumberLimit(metadata.max_total_size_kb, DEFAULT_MULTIPLE_UPLOAD_MAX_TOTAL_SIZE_KB),
+    };
+});
+
+/** Progres milik visit submit yang sama, jadi angkanya nyata dan bisa dibatalkan. */
+const fileCardState = computed<TFileUploadState>(() => {
+    if (props.ctx.answerForm.processing && (selectedFile.value || selectedFiles.value.length > 0)) return 'uploading';
+    if (props.ctx.fieldError(props.storageKey)) return 'error';
+
+    return selectedFile.value || selectedFiles.value.length > 0 ? 'completed' : 'idle';
+});
+
+const multipleFileRowState = computed<TFileUploadState>(() => {
+    if (props.ctx.answerForm.processing && selectedFiles.value.length > 0) return 'uploading';
+
+    return selectedFiles.value.length > 0 ? 'completed' : 'idle';
+});
+
+const multipleFileRowErrorMessages = computed(() =>
+    selectedFiles.value.map((_file, index) => props.ctx.fieldError(`${props.storageKey}.${index}`) ?? '')
+);
+
+const multipleFileRowStates = computed<TFileUploadState[]>(() =>
+    selectedFiles.value.map((_file, index) =>
+        multipleFileRowErrorMessages.value[index] ? 'error' : multipleFileRowState.value
+    )
+);
+
+const fileCardIdleLabel = computed(() =>
+    props.ctx.builderType(props.field) === 'image_upload' ? 'Pilih foto' : 'Pilih berkas'
+);
+
+/** Pratinjau hanya dari object URL yang dikelola hook upload (tanpa base64). */
+const filePreviewUrl = computed(() => (fillReady() ? props.ctx.filePreviewUrls[props.storageKey] : ''));
+
+const uploadAllowedFormats = computed<readonly string[] | undefined>(() => {
+    const metadata = props.ctx.metadata(props.field);
+    const declaredMimeTypes = metadata.allowed_mime_types;
+    if (Array.isArray(declaredMimeTypes)) {
+        const formats = declaredMimeTypes.filter((mimeType): mimeType is string => typeof mimeType === 'string');
+        return formats.length > 0 ? formats : undefined;
+    }
+
+    const rules = metadata.rules;
+    if (typeof rules !== 'object' || rules === null || !('mimes' in rules) || typeof rules.mimes !== 'string') {
+        return undefined;
+    }
+
+    const formats = rules.mimes
+        .split(',')
+        .map((format) => format.trim())
+        .filter((format) => format !== '');
+    return formats.length > 0 ? formats : undefined;
+});
+
+const uploadAcceptValue = computed(() => {
+    const declaredMimeTypes = props.ctx.metadata(props.field).allowed_mime_types;
+    if (Array.isArray(declaredMimeTypes)) {
+        const mimeTypes = declaredMimeTypes.filter((mimeType): mimeType is string => typeof mimeType === 'string');
+        if (mimeTypes.length > 0) return mimeTypes.join(',');
+    }
+
+    return props.ctx.acceptValue(props.field);
+});
 
 function textAnswer(name: string): string {
-    const v = props.ctx.answerForm[name]
-    return typeof v === 'string' ? v : ''
+    const value = props.ctx.answerForm[name];
+    return typeof value === 'string' ? value : '';
 }
 
 function setTextAnswer(name: string, value: string | number): void {
-    props.ctx.answerForm[name] = String(value)
+    props.ctx.setAnswer(name, String(value));
 }
-
-const showSubtitle = computed(() => props.variant === 'linear' && Boolean(props.participationSlot.title))
-
-const headerBorderClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'border-t border-border' : ''
-    }
-    return ''
-})
-
-/** Tighter vertical rhythm when multiple fields stack in one participant card */
-const cardHeaderSpacingClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return props.stackIndex > 0 ? 'gap-0.5 pt-2 pb-0.5' : 'gap-0.5 pt-2.5 pb-0.5'
-    }
-    return 'gap-1 pb-1.5 pt-3'
-})
-
-const cardContentSpacingClass = computed(() => {
-    if (props.variant === 'bundleParticipant') {
-        return 'pb-2 pt-0'
-    }
-    return 'pb-3 pt-0'
-})
-
-const fieldErrorSpacingClass = computed(() =>
-    props.variant === 'bundleParticipant' ? 'mt-1' : 'mt-1.5',
-)
-
-const showDescription = computed(() => {
-    if (!props.field.description) return false
-    if (props.variant === 'bundleParticipant') return true
-    return props.participationSlot.slotIndex === null
-})
-
-const descriptionHtml = computed(() =>
-    props.field.description ? formatParagraphContentToHtml(props.field.description) : '',
-)
 
 function fillReady(): boolean {
-    return props.imageUploadFillReadyFn(props.storageKey)
+    return props.imageUploadFillReadyFn(props.storageKey);
 }
 
+function positiveIntegerLimit(value: unknown, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+
+    return Math.max(1, Math.floor(value));
+}
+
+function positiveNumberLimit(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function openLightbox(): void {
+    emit('openLightbox', props.ctx.filePreviewUrls[props.storageKey], props.ctx.fileAnswerName(props.storageKey));
+}
+
+/**
+ * Menyimpan berkas pilihan kartu lewat jalur yang sama dengan input file lama
+ * (`applyFileSelection`): validasi klien, object URL pratinjau, dan nilai form identik.
+ * Galat lama dibersihkan hanya setelah berkas lolos agar kartu keluar dari state error.
+ */
+async function pickFile(file: File): Promise<void> {
+    const accepted = await props.ctx.applyFileSelection(props.storageKey, file, {
+        allowedFormats: uploadAllowedFormats.value,
+    });
+    if (accepted) props.ctx.answerForm.clearErrors(props.storageKey);
+}
+
+async function pickFiles(files: File[]): Promise<void> {
+    const accepted = await props.ctx.applyFileSelection(props.storageKey, files, {
+        multiple: true,
+        allowedFormats: uploadAllowedFormats.value,
+        maxFiles: multipleUploadLimits.value.maxFiles,
+        maxTotalSizeKb: multipleUploadLimits.value.maxTotalSizeKb,
+    });
+    if (accepted) props.ctx.answerForm.clearErrors(props.storageKey);
+}
 </script>
 
 <template>
-    <CardHeader :class="[headerBorderClass, cardHeaderSpacingClass]">
-        <CardTitle class="flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em] text-foreground">
+    <CardHeader :class="[ui.headerBorderClass, ui.cardHeaderSpacingClass]">
+        <CardTitle class="text-foreground flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em]">
             <span class="flex items-start gap-1">
                 {{ field.label }}
                 <span v-if="ctx.isRequired(field)" class="text-destructive">*</span>
             </span>
-            <span v-if="showSubtitle" class="text-xs font-normal text-muted-foreground">{{ participationSlot.title }}</span>
+            <span v-if="ui.showSubtitle" class="text-muted-foreground text-xs font-normal">{{
+                participationSlot.title
+            }}</span>
         </CardTitle>
         <p
-            v-if="showDescription"
-            class="text-xs text-muted-foreground"
+            v-if="ui.showDescription"
+            class="text-muted-foreground text-xs"
             :class="variant === 'bundleParticipant' ? 'mt-0 leading-snug' : 'leading-relaxed'"
             v-html="descriptionHtml"
         />
     </CardHeader>
-    <CardContent :class="cardContentSpacingClass">
+    <CardContent :class="ui.cardContentSpacingClass">
         <template
             v-if="
                 ['short_text', 'email', 'phone', 'number', 'time', 'input'].includes(ctx.builderType(field)) &&
@@ -116,7 +226,7 @@ function fillReady(): boolean {
             />
             <p
                 v-if="ctx.maxLengthForField(field)"
-                class="mt-1 text-right text-[10px] tabular-nums text-muted-foreground"
+                class="text-muted-foreground mt-1 text-right text-[10px] tabular-nums"
             >
                 {{ textAnswer(storageKey).length }} / {{ ctx.maxLengthForField(field) }}
             </p>
@@ -128,25 +238,27 @@ function fillReady(): boolean {
                     v-for="rating in Number(ctx.metadata(field).maxStars ?? 5)"
                     :key="rating"
                     type="button"
-                    class=" p-1"
-                    @click="ctx.answerForm[storageKey] = String(rating)"
+                    class="p-1"
+                    @click="ctx.setAnswer(storageKey, String(rating))"
                 >
                     <Star
                         class="size-7 transition-colors"
                         :class="
- Number(ctx.answerForm[storageKey] || 0) >= rating
- ? 'fill-amber-400 text-amber-400'
- : 'text-muted-foreground/50'
- "
+                            Number(ctx.answerForm[storageKey] || 0) >= rating
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-muted-foreground/50'
+                        "
                     />
                 </button>
             </div>
-            <p class="text-xs text-muted-foreground">Choose one rating.</p>
+            <p class="text-muted-foreground text-xs">Choose one rating.</p>
         </div>
 
         <template
             v-else-if="
-                ctx.builderType(field) === 'long_text' || ctx.builderType(field) === 'address' || field.type === 'textarea'
+                ctx.builderType(field) === 'long_text' ||
+                ctx.builderType(field) === 'address' ||
+                field.type === 'textarea'
             "
         >
             <Textarea
@@ -159,7 +271,7 @@ function fillReady(): boolean {
             />
             <p
                 v-if="ctx.maxLengthForField(field)"
-                class="mt-1 text-right text-[10px] tabular-nums text-muted-foreground"
+                class="text-muted-foreground mt-1 text-right text-[10px] tabular-nums"
             >
                 {{ textAnswer(storageKey).length }} / {{ ctx.maxLengthForField(field) }}
             </p>
@@ -177,7 +289,7 @@ function fillReady(): boolean {
             <label
                 v-for="row in ctx.getOptionRows(field)"
                 :key="row.label"
-                class="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/30 hover:bg-muted/40"
+                class="border-border bg-card text-foreground hover:border-primary/30 hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
                 <Checkbox
                     :id="`${storageKey}-${row.label}`"
@@ -187,7 +299,10 @@ function fillReady(): boolean {
                             ctx.onCheckboxToggle(storageKey, row.label, value === true)
                     "
                 />
-                <div v-if="row.type === 'image' && row.imageSrc" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
+                <div
+                    v-if="row.type === 'image' && row.imageSrc"
+                    class="border-border size-16 shrink-0 overflow-hidden rounded-md border"
+                >
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />
                 </div>
                 <span v-else>{{ row.label }}</span>
@@ -198,17 +313,20 @@ function fillReady(): boolean {
             <label
                 v-for="row in ctx.getOptionRows(field)"
                 :key="row.label"
-                class="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/30 hover:bg-muted/40"
+                class="border-border bg-card text-foreground hover:border-primary/30 hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium shadow-xs transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
                 <input
                     type="radio"
                     :name="`${field.name}-${participationSlot.slotIndex ?? 'lead'}`"
                     :value="row.label"
-                    :checked="(ctx.answerForm[storageKey] as string) === row.label"
-                    class="size-4 accent-primary"
-                    @change="() => (ctx.answerForm[storageKey] = row.label)"
+                    :checked="textAnswer(storageKey) === row.label"
+                    class="accent-primary size-4"
+                    @change="() => ctx.setAnswer(storageKey, row.label)"
                 />
-                <div v-if="row.type === 'image' && row.imageSrc" class="size-16 shrink-0 overflow-hidden rounded-md border border-border">
+                <div
+                    v-if="row.type === 'image' && row.imageSrc"
+                    class="border-border size-16 shrink-0 overflow-hidden rounded-md border"
+                >
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />
                 </div>
                 <span v-else>{{ row.label }}</span>
@@ -223,98 +341,60 @@ function fillReady(): boolean {
             :model-value="textAnswer(storageKey)"
             :options="ctx.getOptionRows(field)"
             :placeholder="ctx.getPlaceholder(field) || 'Select an option'"
-            class="min-h-11 h-11"
+            class="h-11 min-h-11"
             @update:model-value="setTextAnswer(storageKey, $event)"
         />
 
-        <div
-            v-else-if="['file_upload', 'image_upload', 'fileUpload'].includes(ctx.builderType(field))"
-            class="relative overflow-hidden rounded-xl border border-dashed border-border bg-muted/20 transition-colors hover:border-primary/30"
-            :class="fillReady() ? 'p-0' : variant === 'bundleParticipant' ? 'p-4 text-center hover:bg-muted/30' : 'p-6 text-center hover:bg-muted/30'"
-        >
-            <div v-if="fillReady()" class="relative aspect-video w-full bg-muted/30 sm:aspect-[4/3]">
-                <button
-                    type="button"
-                    class="absolute inset-0 z-10 flex w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    @click="
-                        emit(
-                            'openLightbox',
-                            ctx.filePreviewUrls[storageKey],
-                            (ctx.answerForm[storageKey] as File).name,
-                        )
-                    "
-                >
-                    <img
-                        :src="ctx.filePreviewUrls[storageKey]"
-                        :alt="(ctx.answerForm[storageKey] as File).name"
-                        class="h-full w-full object-cover"
-                    />
-                    <span class="sr-only">View full size</span>
-                </button>
-                <button
-                    type="button"
-                    class="absolute right-2 top-2 z-20 grid size-9 place-items-center border border-border/80 bg-background/95 text-destructive shadow-md backdrop-blur-sm"
-                    :aria-label="`Remove ${(ctx.answerForm[storageKey] as File).name}`"
-                    @click.stop="ctx.clearFileUpload(storageKey)"
-                >
-                    <X class="size-4" />
-                </button>
-                <div
-                    class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-1 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-3 pb-3 pt-14 text-center"
-                >
-                    <label
-                        class="pointer-events-auto cursor-pointer border border-white/20 bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-                    >
-                        Choose another file
-                        <input
-                            type="file"
-                            :accept="ctx.acceptValue(field)"
-                            class="sr-only"
-                            @change="ctx.onFileChange(storageKey, $event)"
-                            @click.stop
-                        />
-                    </label>
-                    <p class="text-[10px] font-medium text-white drop-shadow">Click image to view full size</p>
-                </div>
-            </div>
-
-            <div v-else class="flex flex-col items-center gap-2">
-                <div class="grid size-12 place-items-center rounded-full border border-border bg-card shadow-xs">
-                    <component
-                        :is="ctx.builderType(field) === 'image_upload' ? ImagePlus : Upload"
-                        class="size-5 text-muted-foreground"
-                    />
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-foreground">Click to upload</p>
-                    <p class="mt-0.5 text-[10px] text-muted-foreground">{{ ctx.fileHint(field) }}</p>
-                </div>
-                <input
-                    type="file"
-                    :accept="ctx.acceptValue(field)"
-                    class="absolute inset-0 cursor-pointer opacity-0"
-                    @change="ctx.onFileChange(storageKey, $event)"
-                />
-            </div>
-
-            <div
-                v-if="ctx.answerForm[storageKey] && !fillReady()"
-                class="relative z-10 mt-4 flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 shadow-xs"
+        <div v-else-if="isFileField" class="space-y-1.5">
+            <FormFillUploadField
+                v-if="isMultipleUpload"
+                :files="selectedFiles"
+                :preview-urls="fillReady() ? multipleFilePreviewUrls : []"
+                :image="ctx.builderType(field) === 'image_upload'"
+                :accept="uploadAcceptValue"
+                :hint="ctx.fileHint(field)"
+                :row-state="multipleFileRowState"
+                :row-states="multipleFileRowStates"
+                :row-error-messages="multipleFileRowErrorMessages"
+                :field-error="ctx.fieldError(storageKey) ?? ''"
+                :max-files="multipleUploadLimits.maxFiles"
+                :max-total-size-kb="multipleUploadLimits.maxTotalSizeKb"
+                :progress="ctx.submitProgress"
+                :disabled="ctx.answerForm.processing"
+                @select-files="pickFiles"
+                @remove-file="ctx.removeFileUpload(storageKey, $event)"
+            />
+            <FileUploadCard
+                v-else
+                :state="fileCardState"
+                :idle-label="fileCardIdleLabel"
+                :hint="ctx.fileHint(field)"
+                :accept="uploadAcceptValue"
+                :file-name="selectedFile?.name ?? ''"
+                :file-size="selectedFile?.size ?? 0"
+                :mime="selectedFile?.type ?? ''"
+                :progress="ctx.submitProgress"
+                :preview-url="filePreviewUrl"
+                :error-message="ctx.fieldError(storageKey) ?? ''"
+                :disabled="ctx.answerForm.processing"
+                @pick="pickFile"
+                @cancel="ctx.cancelSubmit"
+                @remove="ctx.clearFileUpload(storageKey)"
+            />
+            <button
+                v-if="filePreviewUrl"
+                type="button"
+                class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/30 rounded-md text-xs underline-offset-2 outline-none hover:underline focus-visible:ring-[3px]"
+                @click="openLightbox"
             >
-                <span class="max-w-[200px] truncate text-xs font-medium text-foreground">{{
-                    (ctx.answerForm[storageKey] as File).name
-                }}</span>
-                <button
-                    type="button"
-                    class="text-destructive"
-                    @click="ctx.clearFileUpload(storageKey)"
-                >
-                    <X class="size-4" />
-                </button>
-            </div>
+                Lihat ukuran penuh
+            </button>
         </div>
 
-        <p v-if="ctx.fieldError(storageKey)" :class="[fieldErrorSpacingClass, 'text-xs font-medium text-destructive']">
+        <p
+            v-if="!isFileField && ctx.fieldError(storageKey)"
+            :class="[ui.errorSpacingClass, 'text-destructive text-xs font-medium']"
+        >
             {{ ctx.fieldError(storageKey) }}
         </p>
     </CardContent>

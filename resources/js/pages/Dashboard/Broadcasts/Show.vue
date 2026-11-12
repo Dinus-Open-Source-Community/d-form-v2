@@ -1,226 +1,312 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { Head, router, useForm } from '@inertiajs/vue3'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import BroadcastContentEditor from '@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { routes } from '@/lib/routes'
-import { showErrorToast } from '@/lib/error-message'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import type { CancelToken, Progress } from '@inertiajs/core';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import DeferredRender from '@/components/core/DeferredRender.vue';
+import FileUploadCard from '@/components/core/FileUploadCard.vue';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { routes } from '@/lib/routes';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { ACCEPTED_CSV_EXTENSIONS, MAX_UPLOAD_BYTES, validateUploadFile } from '@/lib/uploadValidation';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+/** Editor broadcast (Tiptap + upload gambar) tetap async agar vendor Tiptap tidak masuk chunk page ini. */
+const LazyBroadcastContentEditor = defineAsyncComponent(
+    () => import('@/components/modules/dashboard/broadcasts/BroadcastContentEditor.vue')
+);
+
+defineOptions({ layout: DashboardLayout });
 
 interface Attachment {
-    id: string
-    file_name: string
-    mime_type: string | null
-    file_size: number
+    id: string;
+    file_name: string;
+    mime_type: string | null;
+    file_size: number;
 }
 
 interface Broadcast {
-    id: string
-    name: string
-    status: string
-    scheduled_at: string | null
-    schedule_date: string | null
-    schedule_time: string | null
-    delay_min: number
-    delay_max: number
-    event_id: string | null
-    event_title: string | null
-    subject: string | null
-    content: string | null
-    datasets: Array<{ type: string; id?: string | null; event_id?: string | null; period_id?: string | null }>
-    total_recipients: number
-    total_sent: number
-    total_failed: number
-    sent_count: number
-    failed_count: number
-    pending_count: number
-    processing_count: number
-    cancelled_count: number
-    recipients_count: number
-    attachments: Attachment[]
+    id: string;
+    name: string;
+    status: string;
+    scheduled_at: string | null;
+    schedule_date: string | null;
+    schedule_time: string | null;
+    delay_min: number;
+    delay_max: number;
+    event_id: string | null;
+    event_title: string | null;
+    subject: string | null;
+    content: string | null;
+    datasets: Array<{ type: string; id?: string | null; event_id?: string | null; period_id?: string | null }>;
+    total_recipients: number;
+    total_sent: number;
+    total_failed: number;
+    sent_count: number;
+    failed_count: number;
+    pending_count: number;
+    processing_count: number;
+    cancelled_count: number;
+    recipients_count: number;
+    attachments: Attachment[];
 }
 
 interface RecipientRow {
-    id: string
-    name: string | null
-    email: string
-    status: string
-    attempts: number
-    sent_at: string | null
-    error_message: string | null
+    id: string;
+    name: string | null;
+    email: string;
+    status: string;
+    attempts: number;
+    sent_at: string | null;
+    error_message: string | null;
 }
 
 interface EventOption {
-    id: string
-    title: string
+    id: string;
+    title: string;
 }
 
 const props = defineProps<{
-    broadcast: Broadcast
-    events: EventOption[]
-    recipients?: { data: RecipientRow[]; current_page: number; last_page: number; total: number }
-    duplicateSummary?: { total: number; unique: number; duplicates: number; duplicate_emails: string[] }
-    preview?: { from: string; subject: string; content: string; sample_name: string; event_name: string; attachments: string[] }
-}>()
+    broadcast: Broadcast;
+    events: EventOption[];
+    recipients?: { data: RecipientRow[]; current_page: number; last_page: number; total: number };
+    duplicateSummary?: { total: number; unique: number; duplicates: number; duplicate_emails: string[] };
+    preview?: {
+        from: string;
+        subject: string;
+        content: string;
+        sample_name: string;
+        event_name: string;
+        attachments: string[];
+    };
+}>();
+
+const { showErrorToast } = useToastNotifications();
 
 onMounted(() => {
-    setTopbar({ title: props.broadcast.name, subtitle: `Status: ${props.broadcast.status}` })
-})
+    setTopbar({ title: props.broadcast.name, subtitle: `Status: ${props.broadcast.status}` });
+});
 
-const isDraft = computed(() => props.broadcast.status === 'draft')
-const isScheduled = computed(() => props.broadcast.status === 'scheduled')
-const canCancel = computed(() => ['scheduled', 'processing'].includes(props.broadcast.status))
+const isDraft = computed(() => props.broadcast.status === 'draft');
+const isScheduled = computed(() => props.broadcast.status === 'scheduled');
+const canCancel = computed(() => ['scheduled', 'processing'].includes(props.broadcast.status));
 
 // --- Dataset / snapshot ---
-const selectedSources = ref<string[]>(['users'])
-const manualRows = ref('')
+const selectedSources = ref<string[]>(['users']);
+const manualRows = ref('');
 
 const snapshotForm = useForm({
     datasets: [] as Array<Record<string, string>>,
     manual: [] as Array<{ name: string | null; email: string }>,
     csv_file: null as File | null,
-})
+});
+
+const MAX_CSV_SIZE_KB = MAX_UPLOAD_BYTES / 1024;
+
+/**
+ * Fase kartu CSV. `completed` = file sudah menempel di form (belum dikirim);
+ * visit snapshot yang mengirim multipart memakai `uploading` + progres byte Inertia.
+ */
+const csvPhase = ref<'idle' | 'uploading' | 'completed' | 'error'>('idle');
+const csvProgress = ref(0);
+const csvError = ref('');
+let cancelSnapshotVisit: (() => void) | null = null;
 
 function generateSnapshot(): void {
-    const datasets = selectedSources.value.map((t) => ({ type: t }))
+    const datasets = selectedSources.value.map((t) => ({ type: t }));
     const manual = manualRows.value
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => {
-            const parts = line.split(',').map((s) => s.trim())
+            const parts = line.split(',').map((s) => s.trim());
             if (parts.length >= 2 && parts[1]?.includes('@')) {
-                return { name: parts[0] || null, email: parts[1] as string }
+                return { name: parts[0] || null, email: parts[1] as string };
             }
-            return { name: null, email: line }
-        })
-    snapshotForm.datasets = datasets
-    snapshotForm.manual = manual
+            return { name: null, email: line };
+        });
+    snapshotForm.datasets = datasets;
+    snapshotForm.manual = manual;
+    csvProgress.value = 0;
+    if (snapshotForm.csv_file !== null) {
+        csvPhase.value = 'uploading';
+        csvError.value = '';
+    }
     snapshotForm.post(routes.admin.broadcasts.snapshot(props.broadcast.id), {
         preserveScroll: true,
         forceFormData: true,
-        onError: () => showErrorToast('Gagal generate snapshot.'),
-    })
+        onProgress: (event: Progress | undefined): void => {
+            csvProgress.value = event?.percentage ?? 0;
+        },
+        onCancelToken: (token: CancelToken): void => {
+            cancelSnapshotVisit = token.cancel;
+        },
+        onFinish: (): void => {
+            cancelSnapshotVisit = null;
+            csvProgress.value = 0;
+            if (csvPhase.value === 'uploading') {
+                csvPhase.value = snapshotForm.csv_file === null ? 'idle' : 'completed';
+            }
+        },
+        onError: (errors: Record<string, string>): void => {
+            const message = Object.values(errors)[0] ?? 'Gagal generate snapshot.';
+            csvError.value = message;
+            csvPhase.value = snapshotForm.csv_file === null ? 'idle' : 'error';
+            showErrorToast('Gagal generate snapshot.');
+        },
+    });
 }
 
-function onCsv(e: Event): void {
-    const input = e.target as HTMLInputElement
-    snapshotForm.csv_file = input.files?.[0] ?? null
+/** Validasi sama seperti sebelumnya (ekstensi + isi), tetapi pesannya tampil di kartu. */
+async function onCsvPick(file: File): Promise<void> {
+    const validationError = await validateUploadFile(file, ACCEPTED_CSV_EXTENSIONS);
+    csvError.value = validationError ?? '';
+
+    if (validationError !== null) {
+        snapshotForm.csv_file = null;
+        csvPhase.value = 'error';
+
+        return;
+    }
+
+    snapshotForm.csv_file = file;
+    csvPhase.value = 'completed';
+}
+
+function removeCsv(): void {
+    snapshotForm.csv_file = null;
+    csvPhase.value = 'idle';
+    csvProgress.value = 0;
+    csvError.value = '';
+}
+
+/** Batalkan visit snapshot yang berjalan; file tetap terpilih di form. */
+function cancelCsvUpload(): void {
+    cancelSnapshotVisit?.();
+    csvProgress.value = 0;
 }
 
 // --- Recipients manual ---
-const recipientForm = useForm({ name: '', email: '' })
+const recipientForm = useForm({ name: '', email: '' });
 
 function addRecipient(): void {
     recipientForm.post(routes.admin.broadcasts.recipients(props.broadcast.id), {
         preserveScroll: true,
         onSuccess: () => recipientForm.reset(),
         onError: () => showErrorToast('Gagal menambah recipient.'),
-    })
+    });
 }
 
 function deleteRecipient(id: string): void {
     router.delete(`${routes.admin.broadcasts.recipients(props.broadcast.id)}/${id}`, {
         preserveScroll: true,
         onError: () => showErrorToast('Gagal menghapus recipient.'),
-    })
+    });
 }
 
 function loadRecipients(): void {
     router.get(
         routes.admin.broadcasts.show(props.broadcast.id),
         { tab: 'recipients' },
-        { preserveState: true, preserveScroll: true, only: ['recipients', 'duplicateSummary', 'broadcast'] },
-    )
+        { preserveState: true, preserveScroll: true, only: ['recipients', 'duplicateSummary', 'broadcast'] }
+    );
 }
 
 // --- Email content ---
 // Endpoint upload inline image broadcast: POST {id}/inline-image (field `file`).
-// Lihat route `dashboard.broadcasts.inline-image.upload` di routes/web/admin/broadcasting.php.
-const inlineImageUploadUrl = `/admin/broadcasts/${props.broadcast.id}/inline-image`
+// Broadcast dorman tidak di-generate Wayfinder; path tetap diadaptasi oleh `lib/routes.ts`.
+const inlineImageUploadUrl = routes.admin.broadcasts.inlineImage(props.broadcast.id);
 
 const contentForm = useForm({
     subject: props.broadcast.subject ?? '',
     content: props.broadcast.content ?? '',
     event_id: props.broadcast.event_id ?? '',
-})
+});
 
 function saveContent(): void {
     contentForm.post(routes.admin.broadcasts.content(props.broadcast.id), {
         preserveScroll: true,
         onError: () => showErrorToast('Gagal menyimpan email. Periksa variable {{name}}/{{event_name}}.'),
-    })
+    });
 }
 
 // --- Attachments ---
-const attachForm = useForm({ file: null as File | null })
+const attachForm = useForm({ file: null as File | null });
+
+async function onAttachmentFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    if (file && !(await validateUploadFile(file, ['pdf', 'jpg', 'jpeg', 'png']))) attachForm.file = file;
+    else if (file) input.value = '';
+}
 
 function uploadAttachment(): void {
     attachForm.post(routes.admin.broadcasts.attachments(props.broadcast.id), {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => attachForm.reset(),
-        onError: () => showErrorToast('Attachment maks 1.5 MB.'),
-    })
+        onError: () => showErrorToast('Attachment maksimal 5 MB.'),
+    });
 }
 
 function deleteAttachment(id: string): void {
-    router.delete(`${routes.admin.broadcasts.attachments(props.broadcast.id)}/${id}`, { preserveScroll: true })
+    router.delete(`${routes.admin.broadcasts.attachments(props.broadcast.id)}/${id}`, { preserveScroll: true });
 }
 
 // --- Schedule / actions ---
 const scheduleForm = useForm({
     schedule_date: props.broadcast.schedule_date ?? '',
     schedule_time: props.broadcast.schedule_time ?? '',
-})
+});
 
-const testForm = useForm({ email: '' })
+const testForm = useForm({ email: '' });
 
 function doSchedule(): void {
-    router.post(routes.admin.broadcasts.schedule(props.broadcast.id), {}, { preserveScroll: true })
+    router.post(routes.admin.broadcasts.schedule(props.broadcast.id), {}, { preserveScroll: true });
 }
 
 function updateSchedule(): void {
-    scheduleForm.patch(routes.admin.broadcasts.schedule(props.broadcast.id), { preserveScroll: true })
+    scheduleForm.patch(routes.admin.broadcasts.schedule(props.broadcast.id), { preserveScroll: true });
 }
 
 function sendTest(): void {
     testForm.post(routes.admin.broadcasts.test(props.broadcast.id), {
         preserveScroll: true,
         onSuccess: () => testForm.reset(),
-    })
+    });
 }
 
 function cancelBroadcast(): void {
-    router.post(routes.admin.broadcasts.cancel(props.broadcast.id), {}, { preserveScroll: true })
+    router.post(routes.admin.broadcasts.cancel(props.broadcast.id), {}, { preserveScroll: true });
 }
 
 function retryFailed(): void {
-    router.post(routes.admin.broadcasts.retry(props.broadcast.id), {}, { preserveScroll: true })
+    router.post(routes.admin.broadcasts.retry(props.broadcast.id), {}, { preserveScroll: true });
 }
 
 function deleteBroadcast(): void {
-    if (!confirm('Hapus broadcast beserta recipients & attachments?')) return
-    router.delete(routes.admin.broadcasts.destroy(props.broadcast.id))
+    if (!confirm('Hapus broadcast beserta recipients & attachments?')) return;
+    router.delete(routes.admin.broadcasts.destroy(props.broadcast.id));
 }
 
 function loadPreview(): void {
-    router.get(routes.admin.broadcasts.preview(props.broadcast.id), {}, { preserveState: true, preserveScroll: true, only: ['preview'] })
+    router.get(
+        routes.admin.broadcasts.preview(props.broadcast.id),
+        {},
+        { preserveState: true, preserveScroll: true, only: ['preview'] }
+    );
 }
 
 const progress = computed(() => {
-    const total = props.broadcast.recipients_count || 0
-    if (total === 0) return 0
-    return Math.round(((props.broadcast.sent_count || 0) / total) * 100)
-})
+    const total = props.broadcast.recipients_count || 0;
+    if (total === 0) return 0;
+    return Math.round(((props.broadcast.sent_count || 0) / total) * 100);
+});
 </script>
 
 <template>
@@ -238,7 +324,9 @@ const progress = computed(() => {
             <div class="flex flex-wrap gap-2">
                 <Button v-if="isDraft" variant="default" @click="doSchedule">Schedule Broadcast</Button>
                 <Button v-if="canCancel" variant="destructive" @click="cancelBroadcast">Cancel</Button>
-                <Button v-if="broadcast.failed_count > 0" variant="outline" @click="retryFailed">Retry Failed ({{ broadcast.failed_count }})</Button>
+                <Button v-if="broadcast.failed_count > 0" variant="outline" @click="retryFailed"
+                    >Retry Failed ({{ broadcast.failed_count }})</Button
+                >
                 <Button variant="ghost" @click="deleteBroadcast">Hapus</Button>
             </div>
         </div>
@@ -248,11 +336,26 @@ const progress = computed(() => {
             <CardHeader><CardTitle>Monitoring</CardTitle></CardHeader>
             <CardContent>
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    <div class="rounded-xl border p-3 text-center"><div class="text-2xl font-bold">{{ broadcast.recipients_count }}</div><div class="text-muted-foreground text-xs">Total</div></div>
-                    <div class="rounded-xl border p-3 text-center"><div class="text-2xl font-bold">{{ broadcast.sent_count }}</div><div class="text-muted-foreground text-xs">Sent</div></div>
-                    <div class="rounded-xl border p-3 text-center"><div class="text-2xl font-bold">{{ broadcast.failed_count }}</div><div class="text-muted-foreground text-xs">Failed</div></div>
-                    <div class="rounded-xl border p-3 text-center"><div class="text-2xl font-bold">{{ broadcast.pending_count }}</div><div class="text-muted-foreground text-xs">Pending</div></div>
-                    <div class="rounded-xl border p-3 text-center"><div class="text-2xl font-bold">{{ progress }}%</div><div class="text-muted-foreground text-xs">Progress</div></div>
+                    <div class="rounded-xl border p-3 text-center">
+                        <div class="text-2xl font-bold">{{ broadcast.recipients_count }}</div>
+                        <div class="text-muted-foreground text-xs">Total</div>
+                    </div>
+                    <div class="rounded-xl border p-3 text-center">
+                        <div class="text-2xl font-bold">{{ broadcast.sent_count }}</div>
+                        <div class="text-muted-foreground text-xs">Sent</div>
+                    </div>
+                    <div class="rounded-xl border p-3 text-center">
+                        <div class="text-2xl font-bold">{{ broadcast.failed_count }}</div>
+                        <div class="text-muted-foreground text-xs">Failed</div>
+                    </div>
+                    <div class="rounded-xl border p-3 text-center">
+                        <div class="text-2xl font-bold">{{ broadcast.pending_count }}</div>
+                        <div class="text-muted-foreground text-xs">Pending</div>
+                    </div>
+                    <div class="rounded-xl border p-3 text-center">
+                        <div class="text-2xl font-bold">{{ progress }}%</div>
+                        <div class="text-muted-foreground text-xs">Progress</div>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -262,25 +365,51 @@ const progress = computed(() => {
             <CardHeader><CardTitle>02–03 · Dataset & Snapshot</CardTitle></CardHeader>
             <CardContent class="flex flex-col gap-4">
                 <div class="flex flex-wrap gap-4 text-sm">
-                    <label v-for="opt in ['event_participants', 'recruitment_applicants', 'users']" :key="opt" class="flex items-center gap-2">
+                    <label
+                        v-for="opt in ['event_participants', 'recruitment_applicants', 'users']"
+                        :key="opt"
+                        class="flex items-center gap-2"
+                    >
                         <input v-model="selectedSources" type="checkbox" :value="opt" class="size-4" />
                         {{ opt }}
                     </label>
                 </div>
                 <div class="grid gap-2">
                     <Label>Manual (satu per baris: <code>Nama,email</code> atau <code>email</code>)</Label>
-                    <textarea v-model="manualRows" rows="3" class="border-input bg-background rounded-md border p-2 text-sm" placeholder="Nafan,nafan@gmail.com&#10;budi@gmail.com" />
+                    <textarea
+                        v-model="manualRows"
+                        rows="3"
+                        class="border-input bg-background rounded-md border p-2 text-sm"
+                        placeholder="Nafan,nafan@gmail.com&#10;budi@gmail.com"
+                    />
                 </div>
                 <div class="grid gap-2">
-                    <Label>CSV (header <code>name,email</code> atau <code>email</code>, maks 2 MB)</Label>
-                    <Input type="file" accept=".csv,.txt" @change="onCsv" />
+                    <Label>CSV (header <code>name,email</code> atau <code>email</code>, maks 5 MB)</Label>
+                    <FileUploadCard
+                        :state="csvPhase"
+                        idle-label="Pilih file CSV"
+                        accept=".csv,.txt"
+                        :max-size-kb="MAX_CSV_SIZE_KB"
+                        hint="Header name,email atau email."
+                        :file-name="snapshotForm.csv_file?.name ?? ''"
+                        :file-size="snapshotForm.csv_file?.size ?? 0"
+                        :mime="snapshotForm.csv_file?.type ?? ''"
+                        :progress="csvProgress"
+                        :error-message="csvError"
+                        @pick="onCsvPick"
+                        @cancel="cancelCsvUpload"
+                        @remove="removeCsv"
+                    />
                 </div>
                 <Button :disabled="snapshotForm.processing" @click="generateSnapshot">
                     {{ snapshotForm.processing ? 'Memproses…' : 'Generate Snapshot' }}
                 </Button>
-                <div v-if="duplicateSummary && duplicateSummary.duplicates > 0" class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                    {{ duplicateSummary.duplicates }} duplicate terdeteksi (tidak dihapus otomatis).
-                    Contoh: {{ duplicateSummary.duplicate_emails.slice(0, 5).join(', ') }}
+                <div
+                    v-if="duplicateSummary && duplicateSummary.duplicates > 0"
+                    class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                >
+                    {{ duplicateSummary.duplicates }} duplicate terdeteksi (tidak dihapus otomatis). Contoh:
+                    {{ duplicateSummary.duplicate_emails.slice(0, 5).join(', ') }}
                 </div>
             </CardContent>
         </Card>
@@ -293,18 +422,30 @@ const progress = computed(() => {
             </CardHeader>
             <CardContent class="flex flex-col gap-4">
                 <div v-if="isDraft" class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div class="grid flex-1 gap-2"><Label>Nama</Label><Input v-model="recipientForm.name" placeholder="Opsional" /></div>
-                    <div class="grid flex-1 gap-2"><Label>Email</Label><Input v-model="recipientForm.email" placeholder="nama@email.com" /></div>
+                    <div class="grid flex-1 gap-2">
+                        <Label>Nama</Label><Input v-model="recipientForm.name" placeholder="Opsional" />
+                    </div>
+                    <div class="grid flex-1 gap-2">
+                        <Label>Email</Label><Input v-model="recipientForm.email" placeholder="nama@email.com" />
+                    </div>
                     <Button @click="addRecipient">+ Tambah</Button>
                 </div>
                 <div v-if="recipients?.data?.length" class="overflow-x-auto">
                     <Table>
-                        <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Email</TableHead><TableHead>Status</TableHead><TableHead class="text-right">Attempt</TableHead><TableHead v-if="isDraft" class="text-right">Aksi</TableHead></TableRow></TableHeader>
+                        <TableHeader
+                            ><TableRow
+                                ><TableHead>Nama</TableHead><TableHead>Email</TableHead><TableHead>Status</TableHead
+                                ><TableHead class="text-right">Attempt</TableHead
+                                ><TableHead v-if="isDraft" class="text-right">Aksi</TableHead></TableRow
+                            ></TableHeader
+                        >
                         <TableBody>
                             <TableRow v-for="r in recipients.data" :key="r.id">
                                 <TableCell>{{ r.name ?? '—' }}</TableCell>
                                 <TableCell class="font-mono text-xs">{{ r.email }}</TableCell>
-                                <TableCell><Badge variant="outline">{{ r.status }}</Badge></TableCell>
+                                <TableCell
+                                    ><Badge variant="outline">{{ r.status }}</Badge></TableCell
+                                >
                                 <TableCell class="text-right">{{ r.attempts }}</TableCell>
                                 <TableCell v-if="isDraft" class="text-right">
                                     <Button variant="ghost" size="sm" @click="deleteRecipient(r.id)">Hapus</Button>
@@ -313,7 +454,9 @@ const progress = computed(() => {
                         </TableBody>
                     </Table>
                 </div>
-                <p v-else class="text-muted-foreground text-sm">Klik “Muat recipients” untuk melihat snapshot. Status awal: <code>pending</code>.</p>
+                <p v-else class="text-muted-foreground text-sm">
+                    Klik “Muat recipients” untuk melihat snapshot. Status awal: <code>pending</code>.
+                </p>
             </CardContent>
         </Card>
 
@@ -322,33 +465,50 @@ const progress = computed(() => {
             <CardHeader><CardTitle>04 · Email (Tiptap)</CardTitle></CardHeader>
             <CardContent class="flex flex-col gap-4">
                 <div class="grid gap-2">
-                    <Label>Subject (mendukung <code v-pre>{{name}}</code> <code v-pre>{{event_name}}</code>)</Label>
+                    <Label
+                        >Subject (mendukung <code v-pre>{{ name }}</code> <code v-pre>{{ event_name }}</code
+                        >)</Label
+                    >
                     <Input v-model="contentForm.subject" placeholder="Pengumuman Hasil Seleksi" />
                 </div>
                 <div class="grid gap-2">
                     <Label>Event context</Label>
-                    <select v-model="contentForm.event_id" class="border-input bg-background rounded-md border px-3 py-2 text-sm">
+                    <select
+                        v-model="contentForm.event_id"
+                        class="border-input bg-background rounded-md border px-3 py-2 text-sm"
+                    >
                         <option value="">— Tanpa event —</option>
                         <option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }}</option>
                     </select>
                 </div>
                 <div class="grid gap-2">
                     <Label>Konten</Label>
-                    <BroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
-                    <p class="text-muted-foreground text-xs">Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 2 MB/gambar. Hanya <code v-pre>{{name}}</code> dan <code v-pre>{{event_name}}</code> yang didukung.</p>
+                    <DeferredRender min-height="14rem">
+                        <LazyBroadcastContentEditor v-model="contentForm.content" :upload-url="inlineImageUploadUrl" />
+                    </DeferredRender>
+                    <p class="text-muted-foreground text-xs">
+                        Gambar (paste/drop/unggah) otomatis tersimpan di storage, maks 5 MB/gambar. Hanya
+                        <code v-pre>{{ name }}</code> dan <code v-pre>{{ event_name }}</code> yang didukung.
+                    </p>
                 </div>
                 <Button :disabled="contentForm.processing" @click="saveContent">Simpan email</Button>
 
                 <div class="border-t pt-4">
-                    <Label>Attachments (masing-masing maks 1.5 MB)</Label>
+                    <Label>Attachments (masing-masing maks 5 MB)</Label>
                     <ul class="mt-2 flex flex-col gap-1 text-sm">
-                        <li v-for="a in broadcast.attachments" :key="a.id" class="flex items-center justify-between gap-2">
-                            <span class="font-mono text-xs">{{ a.file_name }} ({{ (a.file_size / 1024).toFixed(1) }} KB)</span>
+                        <li
+                            v-for="a in broadcast.attachments"
+                            :key="a.id"
+                            class="flex items-center justify-between gap-2"
+                        >
+                            <span class="font-mono text-xs"
+                                >{{ a.file_name }} ({{ (a.file_size / 1024).toFixed(1) }} KB)</span
+                            >
                             <Button variant="ghost" size="sm" @click="deleteAttachment(a.id)">Hapus</Button>
                         </li>
                     </ul>
                     <div class="mt-2 flex gap-2">
-                        <Input type="file" @change="(e: Event) => { attachForm.file = (e.target as HTMLInputElement).files?.[0] ?? null }" />
+                        <Input type="file" @change="onAttachmentFile" />
                         <Button variant="outline" @click="uploadAttachment">Upload</Button>
                     </div>
                 </div>
@@ -366,13 +526,19 @@ const progress = computed(() => {
                     <p><strong>From:</strong> {{ preview.from }}</p>
                     <p><strong>Subject:</strong> {{ preview.subject }}</p>
                     <div class="prose mt-2 max-w-none" v-html="preview.content" />
-                    <p class="text-muted-foreground mt-2 text-xs">Attachments: {{ preview.attachments.join(', ') || '—' }}</p>
+                    <p class="text-muted-foreground mt-2 text-xs">
+                        Attachments: {{ preview.attachments.join(', ') || '—' }}
+                    </p>
                 </div>
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div class="grid flex-1 gap-2"><Label>Test email</Label><Input v-model="testForm.email" placeholder="admin@example.com" /></div>
+                    <div class="grid flex-1 gap-2">
+                        <Label>Test email</Label><Input v-model="testForm.email" placeholder="admin@example.com" />
+                    </div>
                     <Button variant="outline" @click="sendTest">Kirim test</Button>
                 </div>
-                <p class="text-muted-foreground text-xs">Test email tidak masuk snapshot & tidak memengaruhi statistik.</p>
+                <p class="text-muted-foreground text-xs">
+                    Test email tidak masuk snapshot & tidak memengaruhi statistik.
+                </p>
             </CardContent>
         </Card>
 

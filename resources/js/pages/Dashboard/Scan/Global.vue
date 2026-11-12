@@ -1,47 +1,47 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
-import { toast } from 'vue-sonner';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import QrScanScannerCard from '@/components/modules/dashboard/QrScanScannerCard.vue';
 import QrScanSidebar from '@/components/modules/dashboard/QrScanSidebar.vue';
 import ScanExportDialog, {
-    type ScanExportFormat,
-    type ScanExportTarget,
+    type TScanExportFormat,
+    type TScanExportTarget,
 } from '@/components/modules/dashboard/ScanExportDialog.vue';
+import ExportDownloadStatus from '@/components/modules/dashboard/ExportDownloadStatus.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { FileSpreadsheet, FileText } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
-import { useGlobalQrScanPage } from '@/utils/composables/useGlobalQrScanPage';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { useGlobalQrScanPage } from '@/hooks/useGlobalQrScanPage';
+import { useExportDownload } from '@/hooks/useExportDownload';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import type { IScanTargetEvent, IScanTargetSession } from '@/types/scan';
 
 defineOptions({ layout: DashboardFocusLayout });
 
-/** Jeda antar-unduhan agar browser tidak menganggapnya spam unduhan otomatis. */
-const EXPORT_DOWNLOAD_STAGGER_MS = 400;
-
 const props = defineProps<{
     targets: {
-        sessions: Array<{ id: string } & Record<string, unknown>>;
-        events: Array<{ id: string | number } & Record<string, unknown>>;
+        sessions: IScanTargetSession[];
+        events: IScanTargetEvent[];
     };
     globalScanStoreUrl: string;
-    globalScanFeedUrl?: string;
+    globalScanFeedUrl: string;
 }>();
 
-const feedUrl = computed<string>(() => {
-    const explicit = props.globalScanFeedUrl?.trim() ?? '';
-    if (explicit.length > 0) {
-        return explicit;
-    }
+const { showSuccessToast } = useToastNotifications();
 
-    return `${props.globalScanStoreUrl.replace(/\/+$/, '')}/feed`;
-});
+const feedUrl = computed<string>(() => props.globalScanFeedUrl.trim());
 
 const s = reactive(
-    useGlobalQrScanPage('global-qr-scanner-region', props.globalScanStoreUrl, feedUrl.value, () => props.targets)
+    useGlobalQrScanPage({
+        scannerContainerId: 'global-qr-scanner-region',
+        storeUrl: props.globalScanStoreUrl,
+        feedUrl: feedUrl.value,
+        getTargets: () => props.targets,
+    })
 );
 
 const targetFilterOptions = computed<SimpleSelectOption[]>(() => [
@@ -59,53 +59,41 @@ const heroEmptyMessage = computed<string>(() =>
 );
 
 const exportDialogOpen = ref(false);
-const exportFormat = ref<ScanExportFormat>('xlsx');
-const isExporting = ref(false);
+const exportFormat = ref<TScanExportFormat>('xlsx');
+const exportLabel = ref('Export scan');
+const exportDownload = reactive(useExportDownload());
 
-function triggerBrowserDownload(url: string): void {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = '';
-    link.rel = 'noopener';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    window.setTimeout(() => link.remove(), 1500);
-}
-
-function downloadScanExports(targets: ScanExportTarget[], format: ScanExportFormat): void {
+async function downloadScanExports(targets: TScanExportTarget[], format: TScanExportFormat): Promise<void> {
     if (targets.length === 0) {
         return;
     }
 
-    isExporting.value = true;
+    exportLabel.value = `Export ${format.toUpperCase()}`;
 
-    targets.forEach((target, index) => {
-        window.setTimeout(() => {
-            triggerBrowserDownload(routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
+    const urls = targets.map((target) => routes.admin.scan.export({ kind: target.kind, target: target.id, format }));
+    const summary = await exportDownload.start(urls);
 
-            if (index === targets.length - 1) {
-                isExporting.value = false;
-                toast.success(
-                    targets.length === 1
-                        ? `Export ${format.toUpperCase()} diunduh.`
-                        : `${targets.length} file ${format.toUpperCase()} sedang diunduh.`,
-                    {
-                        description:
-                            targets.length > 1
-                                ? 'Jika browser meminta izin, pilih "Allow" agar semua file terunduh.'
-                                : undefined,
-                    }
-                );
-            }
-        }, index * EXPORT_DOWNLOAD_STAGGER_MS);
-    });
+    if (summary === null) {
+        return;
+    }
+
+    const started = summary.directCount > 0;
+
+    showSuccessToast(
+        targets.length === 1
+            ? `Export ${format.toUpperCase()} ${started ? 'mulai diunduh' : 'diunduh'}.`
+            : `${targets.length} file ${format.toUpperCase()} ${started ? 'mulai diunduh' : 'sedang diunduh'}.`,
+        {
+            description:
+                targets.length > 1 ? 'Jika browser meminta izin, pilih "Allow" agar semua file terunduh.' : undefined,
+        }
+    );
 }
 
-function requestScanExport(format: ScanExportFormat): void {
+function requestScanExport(format: TScanExportFormat): void {
     const selected = s.selectedTargetOption;
     if (selected !== null) {
-        downloadScanExports([selected], format);
+        void downloadScanExports([selected], format);
 
         return;
     }
@@ -114,8 +102,8 @@ function requestScanExport(format: ScanExportFormat): void {
     exportDialogOpen.value = true;
 }
 
-function confirmScanExport(targets: ScanExportTarget[]): void {
-    downloadScanExports(targets, exportFormat.value);
+function confirmScanExport(targets: TScanExportTarget[]): void {
+    void downloadScanExports(targets, exportFormat.value);
 }
 
 function toggleLog(): void {
@@ -158,7 +146,7 @@ onMounted(() => {
                     <Button
                         variant="outline"
                         class="md:min-w-32"
-                        :disabled="isExporting"
+                        :disabled="exportDownload.isRunning"
                         @click="requestScanExport('xlsx')"
                     >
                         <FileSpreadsheet data-icon="inline-start" />
@@ -167,12 +155,24 @@ onMounted(() => {
                     <Button
                         variant="outline"
                         class="md:min-w-32"
-                        :disabled="isExporting"
+                        :disabled="exportDownload.isRunning"
                         @click="requestScanExport('csv')"
                     >
                         <FileText data-icon="inline-start" />
                         Export CSV
                     </Button>
+                    <ExportDownloadStatus
+                        :phase="exportDownload.phase"
+                        :label="exportLabel"
+                        :progress="exportDownload.progress"
+                        :indeterminate="exportDownload.indeterminate"
+                        :loaded-bytes="exportDownload.loadedBytes"
+                        :current-index="exportDownload.currentIndex"
+                        :total-files="exportDownload.totalFiles"
+                        :direct-count="exportDownload.directCount"
+                        :error-message="exportDownload.errorMessage"
+                        @cancel="exportDownload.cancel()"
+                    />
                 </div>
             </div>
 
@@ -216,6 +216,8 @@ onMounted(() => {
                 :scan-busy="s.scanBusy"
                 :log-expanded="s.logExpanded"
                 :log-query="s.logQuery"
+                :feed-stale="s.feedState === 'stale'"
+                :feed-failure-count="s.feedFailureCount"
                 @toggle-log="toggleLog"
                 @update:logQuery="handleLogQuery"
                 @clear-history="s.clearHistory"

@@ -2,7 +2,9 @@
 
 namespace App\Services\Auth;
 
+use App\Exceptions\RedactedMailDeliveryException;
 use Illuminate\Support\Facades\Password;
+use Throwable;
 
 class PasswordResetService
 {
@@ -13,6 +15,10 @@ class PasswordResetService
      */
     public function sendResetLink(string $email): void
     {
-        Password::sendResetLink(['email' => $email]);
+        try {
+            Password::sendResetLink(['email' => $email]);
+        } catch (Throwable $exception) {
+            report(RedactedMailDeliveryException::fromThrowable($exception));
+        }
     }
 }

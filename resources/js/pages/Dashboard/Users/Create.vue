@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select'
-import { routes } from '@/lib/routes'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { onMounted } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { routes } from '@/lib/routes';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface RoleOption {
-    value: string
-    label: string
+    value: string;
+    label: string;
 }
 
 const props = defineProps<{
-    roleOptions: RoleOption[]
-}>()
+    roleOptions: RoleOption[];
+}>();
 
 const form = useForm({
     name: '',
@@ -27,18 +27,19 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     role: props.roleOptions[0]?.value ?? 'member',
-})
+});
 
-const selectOptions = props.roleOptions.map(
-    (option): SimpleSelectOption => ({ value: option.value, label: option.label }),
-)
+const selectOptions = props.roleOptions.map((option): SimpleSelectOption => ({
+    value: option.value,
+    label: option.label,
+}));
 
 onMounted(() => {
-    setTopbar({ title: 'Buat akun', subtitle: 'User management' })
-})
+    setTopbar({ title: 'Buat akun', subtitle: 'User management' });
+});
 
 function submit(): void {
-    form.post(routes.admin.users.store)
+    form.post(routes.admin.users.store);
 }
 </script>
 
@@ -57,18 +58,13 @@ function submit(): void {
                 <Button as-child variant="outline" class="w-full sm:w-auto">
                     <Link :href="routes.admin.users.index">Batal</Link>
                 </Button>
-                <Button
-                    type="submit"
-                    form="user-create-form"
-                    :disabled="form.processing"
-                    class="w-full sm:w-auto"
-                >
+                <Button type="submit" form="user-create-form" :disabled="form.processing" class="w-full sm:w-auto">
                     Simpan
                 </Button>
             </div>
         </div>
 
-        <Card class="rounded-2xl border-border/70">
+        <Card class="border-border/70 rounded-2xl">
             <CardContent class="p-6">
                 <form id="user-create-form" class="space-y-4" @submit.prevent="submit">
                     <div class="space-y-2">
@@ -79,13 +75,7 @@ function submit(): void {
 
                     <div class="space-y-2">
                         <Label for="email">Email</Label>
-                        <Input
-                            id="email"
-                            v-model="form.email"
-                            type="email"
-                            placeholder="user@example.com"
-                            required
-                        />
+                        <Input id="email" v-model="form.email" type="email" placeholder="user@example.com" required />
                         <p v-if="form.errors.email" class="text-destructive text-xs">{{ form.errors.email }}</p>
                     </div>
 
@@ -110,12 +100,7 @@ function submit(): void {
 
                     <div class="space-y-2">
                         <Label for="role">Role</Label>
-                        <SimpleSelect
-                            id="role"
-                            v-model="form.role"
-                            :options="selectOptions"
-                            placeholder="Pilih role"
-                        />
+                        <SimpleSelect id="role" v-model="form.role" :options="selectOptions" placeholder="Pilih role" />
                         <p v-if="form.errors.role" class="text-destructive text-xs">{{ form.errors.role }}</p>
                     </div>
                 </form>

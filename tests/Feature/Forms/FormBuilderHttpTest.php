@@ -6,9 +6,12 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
 use App\Models\User;
+use App\Http\Middleware\HandleInertiaRequests;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class FormBuilderHttpTest extends TestCase
@@ -66,6 +69,58 @@ class FormBuilderHttpTest extends TestCase
         ]);
     }
 
+    public function test_upload_metadata_survives_field_save_and_reload(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $fieldId = (string) Str::uuid();
+        $metadata = [
+            'builderType' => 'file_upload',
+            'multiple' => true,
+            'allowed_mime_types' => [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+            'accepts' => 'pdf,docx',
+            'max_files' => 4,
+            'max_total_size_kb' => 8192,
+            'rules' => [
+                'mimes' => 'pdf,docx',
+                'max_size' => 5120,
+            ],
+        ];
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $fieldId,
+                    'label' => 'Documents',
+                    'type' => 'fileUpload',
+                    'name' => 'documents',
+                    'order' => 1,
+                    'metadata' => $metadata,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $stored = FormField::query()->whereKey($fieldId)->firstOrFail();
+        $this->assertEquals($metadata, $stored->metadata->toArray());
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Forms/Show')
+                ->where('fields.0.id', $fieldId)
+                ->where('fields.0.metadata.multiple', true)
+                ->where('fields.0.metadata.allowed_mime_types', $metadata['allowed_mime_types'])
+                ->where('fields.0.metadata.max_files', 4)
+                ->where('fields.0.metadata.max_total_size_kb', 8192));
+    }
+
     public function test_rejects_duplicate_field_names_in_same_request(): void
     {
         $admin = User::factory()->create();
@@ -121,7 +176,9 @@ class FormBuilderHttpTest extends TestCase
                     ],
                 ],
             ])
-            ->assertInvalid(['fields.0.name']);
+            ->assertSessionHasErrors([
+                'fields.0.name' => __('validation.field_name_conflict', ['value' => 'taken']),
+            ]);
     }
 
     public function test_member_cannot_save_fields(): void
@@ -145,6 +202,217 @@ class FormBuilderHttpTest extends TestCase
                 ],
             ])
             ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_invalid_field_payload_returns_validation_error_without_writing(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'type' => 'input',
+                    'name' => 'missing_label',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['fields.0.label']);
+
+        $this->assertDatabaseCount('form_fields', 0);
+    }
+
+    public function test_unexpected_database_failure_returns_json_500_with_request_id(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $otherForm = Form::factory()->create(['event_id' => $event->id]);
+        $existingField = FormField::factory()->create(['form_id' => $otherForm->id]);
+        $requestId = (string) Str::uuid();
+
+        Log::spy();
+
+        $response = $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $existingField->id,
+                    'label' => 'Duplicate ID',
+                    'type' => 'input',
+                    'name' => 'duplicate_id',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ], ['X-Request-ID' => $requestId]);
+
+        $response
+            ->assertInternalServerError()
+            ->assertJson([
+                'ok' => false,
+                'message' => 'Fields cannot be saved',
+                'request_id' => $requestId,
+            ])
+            ->assertHeader('X-Request-ID', $requestId);
+
+        Log::shouldHaveReceived('error')->once()->withArgs(
+            fn (string $message, array $context): bool => $message === 'form_fields_save_failed'
+                && ($context['request_id'] ?? null) === $requestId
+                && isset($context['exception_class']),
+        );
+
+        $this->assertDatabaseCount('form_fields', 1);
+        $this->assertDatabaseHas('form_fields', [
+            'id' => $existingField->id,
+            'form_id' => $existingField->form_id,
+        ]);
+    }
+
+    public function test_unexpected_failure_returns_inertia_500_with_request_id(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $otherForm = Form::factory()->create(['event_id' => $event->id]);
+        $existingField = FormField::factory()->create(['form_id' => $otherForm->id]);
+        $requestId = (string) Str::uuid();
+
+        $response = $this->actingAs($admin)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+                'X-Request-ID' => $requestId,
+            ])
+            ->post($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $existingField->id,
+                    'label' => 'Duplicate ID',
+                    'type' => 'input',
+                    'name' => 'duplicate_id',
+                    'order' => 1,
+                    'metadata' => ['type' => 'text', 'rules' => []],
+                ]],
+            ]);
+
+        $response
+            ->assertStatus(500)
+            ->assertHeader('X-Request-ID', $requestId)
+            ->assertHeader('X-Inertia', 'true')
+            ->assertJsonPath('component', 'Error')
+            ->assertJsonPath('props.status', 500);
+    }
+
+    public function test_empty_fields_array_removes_every_field_and_keeps_form_settings(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Keep My Title',
+            'metadata' => [
+                'purpose' => 'registration',
+                'registration_mode' => 'single',
+                'sections' => [['id' => 'section-1', 'title' => 'Bagian 1']],
+            ],
+            'banner_url' => 'form-banners/keep.jpg',
+            'banner_caption' => 'Keep caption',
+        ]);
+
+        foreach (['a', 'b'] as $index => $name) {
+            FormField::factory()->create([
+                'form_id' => $form->id,
+                'name' => $name,
+                'label' => strtoupper($name),
+                'input_type' => 'input',
+                'order' => $index + 1,
+                'metadata' => ['type' => 'text', 'rules' => []],
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => []])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertSame(0, FormField::query()->where('form_id', $form->id)->count());
+        $this->assertSame(2, FormField::onlyTrashed()->where('form_id', $form->id)->count());
+
+        $form->refresh();
+        $this->assertSame('Keep My Title', $form->title);
+        $this->assertSame('registration', $form->metadata['purpose'] ?? null);
+        $this->assertSame('single', $form->metadata['registration_mode'] ?? null);
+        $this->assertSame(
+            [['id' => 'section-1', 'title' => 'Bagian 1']],
+            $form->metadata['sections'] ?? null,
+        );
+        $this->assertSame('form-banners/keep.jpg', $form->banner_url);
+        $this->assertSame('Keep caption', $form->banner_caption);
+    }
+
+    public function test_fields_key_must_be_present_even_though_it_may_be_empty(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'kept',
+            'label' => 'Kept',
+            'input_type' => 'input',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['fields']);
+
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
+    }
+
+    public function test_empty_fields_array_still_validates_each_row_and_rejects_malformed_rows(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'kept',
+            'label' => 'Kept',
+            'input_type' => 'input',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'label' => '',
+                    'name' => '',
+                    'type' => 'not-a-type',
+                    'order' => -1,
+                    'metadata' => 'not-an-array',
+                ]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'fields.0.label',
+                'fields.0.name',
+                'fields.0.type',
+                'fields.0.order',
+                'fields.0.metadata',
+            ]);
+
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
     }
 
     private function fieldSavePath(Event $event, Form $form): string

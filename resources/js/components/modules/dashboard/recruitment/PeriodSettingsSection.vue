@@ -8,9 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker, SplitDateTimeField } from '@/components/ui/date-picker';
 import PeriodBannerField from '@/components/modules/dashboard/recruitment/PeriodBannerField.vue';
 import { routes } from '@/lib/routes';
-import { showErrorToast } from '@/lib/error-message';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { cn } from '@/lib/utils';
-import { toast } from 'vue-sonner';
 
 interface PeriodSettings {
     id: string;
@@ -30,6 +29,8 @@ interface PeriodSettings {
 const props = defineProps<{ period: PeriodSettings }>();
 
 const emit = defineEmits<{ saved: [] }>();
+
+const { showErrorToast, showSuccessToast } = useToastNotifications();
 
 function toDatetimeLocal(value: string | null): string {
     if (!value) return '';
@@ -102,7 +103,7 @@ function submit(): void {
         preserveScroll: true,
         onSuccess: () => {
             emit('saved');
-            toast.success('Perubahan periode disimpan.');
+            showSuccessToast('Perubahan periode disimpan.');
         },
     });
 }
@@ -189,7 +190,8 @@ function submit(): void {
                         :aria-invalid="!!form.errors.whatsapp_group_member_url || !!whatsappMemberError"
                     />
                     <p class="text-muted-foreground text-xs">
-                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan Member bila diisi.
+                        Format undangan https:// (mis. chat.whatsapp.com/…). Tampil di email penerimaan Member bila
+                        diisi.
                     </p>
                     <p v-if="whatsappMemberError" class="text-destructive text-xs">{{ whatsappMemberError }}</p>
                     <p v-if="form.errors.whatsapp_group_member_url" class="text-destructive text-xs">

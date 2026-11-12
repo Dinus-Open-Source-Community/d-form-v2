@@ -23,31 +23,43 @@ Route::middleware(['auth', 'recruitment.access'])
         Route::get('/', RecruitmentDashboardController::class)->name('index');
 
         Route::get('reports/export/funnel.csv', [RecruitmentReportController::class, 'exportFunnel'])
+            ->middleware('throttle:recruitment-export')
             ->name('reports.export.funnel');
         Route::get('reports/export/applicants.csv', [RecruitmentReportController::class, 'exportApplicants'])
+            ->middleware('throttle:recruitment-export')
             ->name('reports.export.applicants');
 
         Route::get('activity-logs', [RecruitmentActivityLogController::class, 'index'])->name('activity-logs.index');
 
         Route::get('interview-sessions', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('interview-sessions.redirect');
         Route::get('reports', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('reports.redirect');
         Route::get('periods', RedirectController::class)
             ->defaults('destination', '/admin/recruitment')
-            ->defaults('status', 302);
+            ->defaults('status', 302)
+            ->name('periods.redirect');
 
-        Route::resource('periods', RecruitmentPeriodController::class)->except(['index', 'edit']);
+        Route::resource('periods', RecruitmentPeriodController::class)->except(['index', 'edit', 'show']);
+        Route::get('periods/{period}', [RecruitmentPeriodController::class, 'show'])
+            ->middleware('throttle:recruitment-application-search')
+            ->name('periods.show');
         Route::get('periods/{period}/applications/{application}', [RecruitmentPeriodController::class, 'application'])
             ->name('periods.applications.show');
         Route::post('periods/{period}/open', [RecruitmentPeriodController::class, 'open'])->name('periods.open');
         Route::post('periods/{period}/close', [RecruitmentPeriodController::class, 'close'])->name('periods.close');
         Route::post('periods/{period}/send-group-link', [RecruitmentPeriodController::class, 'sendGroupLink'])->name('periods.send-group-link');
-        Route::post('periods/{period}/send-qr', [RecruitmentPeriodController::class, 'sendQr'])->name('periods.send-qr');
+        Route::post('periods/{period}/send-qr', [RecruitmentPeriodController::class, 'sendQr'])
+            ->middleware('throttle:recruitment-send-qr')
+            ->name('periods.send-qr');
         Route::get('periods/{period}/qr-status', [RecruitmentPeriodController::class, 'qrStatus'])->name('periods.qr-status');
-        Route::get('periods/{period}/interviews/export.csv', RecruitmentInterviewExportController::class)->name('periods.interviews.export');
+        Route::get('periods/{period}/interviews/export.csv', RecruitmentInterviewExportController::class)
+            ->middleware('throttle:recruitment-export')
+            ->name('periods.interviews.export');
 
         Route::put('divisions/{division}', [RecruitmentDivisionController::class, 'update'])->name('divisions.update');
         Route::post('interviewers/assign', [RecruitmentDivisionController::class, 'assignInterviewer'])->name('interviewers.assign');

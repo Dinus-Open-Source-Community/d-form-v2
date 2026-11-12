@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Broadcasting\StoreCustomDatasetRequest;
 use App\Models\EmailDataset;
 use App\Services\Broadcasting\BroadcastDatasetResolver;
+use App\Support\CsvRows;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,6 +14,8 @@ use Inertia\Response;
 
 class BroadcastDatasetController extends Controller
 {
+    private const PREVIEW_SAMPLE_SIZE = 5;
+
     public function index(): Response
     {
         $this->authorize('viewAny', \App\Models\EmailBroadcast::class);
@@ -20,6 +23,7 @@ class BroadcastDatasetController extends Controller
         $datasets = EmailDataset::query()
             ->withCount('recipients')
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(15);
 
         return Inertia::render('Dashboard/Broadcasts/Datasets', [
@@ -67,20 +71,45 @@ class BroadcastDatasetController extends Controller
         $datasetId = $request->input('dataset_id');
 
         $rows = match ($type) {
-            'event_participants' => $resolver->eventParticipants($eventId ?: null),
-            'recruitment_applicants' => $resolver->recruitmentApplicants($periodId ?: null),
-            'users' => $resolver->users(),
-            'custom' => $datasetId ? $resolver->customDataset((string) $datasetId) : [],
-            default => [],
+            'event_participants' => $resolver->streamEventParticipants($eventId ?: null),
+            'recruitment_applicants' => $resolver->streamRecruitmentApplicants($periodId ?: null),
+            'users' => $resolver->streamUsers(),
+            'custom' => $datasetId ? $resolver->streamCustomDataset((string) $datasetId) : $this->emptyRows(),
+            default => $this->emptyRows(),
         };
 
+        // Single streaming pass: count everything, keep only the preview sample.
+        $total = 0;
+        $sample = [];
+
+        foreach ($rows as $row) {
+            $total++;
+
+            if (count($sample) < self::PREVIEW_SAMPLE_SIZE) {
+                $sample[] = $row;
+            }
+        }
+
         return response()->json([
-            'total' => count($rows),
-            'sample' => array_slice($rows, 0, 5),
+            'total' => $total,
+            'sample' => $sample,
         ]);
     }
 
-    /** @return array{valid:array<int,array{name:string|null,email:string}>} */
+    /** @return \Generator<int, array{name:string|null, email:string}> */
+    private function emptyRows(): \Generator
+    {
+        yield from [];
+    }
+
+    /**
+     * Parse CSV baris demi baris (tanpa menampung seluruh file di memori).
+     *
+     * Ukuran file divalidasi `UploadPurpose::DatasetCsv` (2 MB); batas jumlah
+     * baris, panjang baris, dan penolakan baris biner ditangani {@see CsvRows}.
+     *
+     * @return array{valid:array<int,array{name:string|null,email:string}>}
+     */
     private function parseCsvEmails(?\Illuminate\Http\UploadedFile $file): array
     {
         if ($file === null) {
@@ -88,39 +117,44 @@ class BroadcastDatasetController extends Controller
         }
 
         $valid = [];
-        $handle = fopen($file->getRealPath(), 'r');
+        $emailColumn = 0;
+        $nameColumn = null;
+        $headerChecked = false;
 
-        if ($handle === false) {
-            return ['valid' => []];
-        }
+        CsvRows::each($file, function (array $row, int $index) use (&$valid, &$emailColumn, &$nameColumn, &$headerChecked): void {
+            if ($index === 0 && ! $headerChecked) {
+                $headerChecked = true;
+                $lower = array_map(fn ($cell) => strtolower(trim((string) $cell)), $row);
 
-        $header = fgetcsv($handle);
-        $lower = $header !== false ? array_map(fn ($h) => strtolower(trim((string) $h)), $header) : [];
-        $hasHeader = in_array('email', $lower, true);
-        $emailIdx = $hasHeader ? array_search('email', $lower, true) : 0;
-        $nameIdx = $hasHeader ? array_search('name', $lower, true) : null;
+                if (in_array('email', $lower, true)) {
+                    $emailColumn = (int) array_search('email', $lower, true);
+                    $nameIndex = array_search('name', $lower, true);
+                    $nameColumn = is_int($nameIndex) ? $nameIndex : null;
 
-        $dataRows = $hasHeader ? [] : [$header];
-
-        while (($row = fgetcsv($handle)) !== false) {
-            $dataRows[] = $row;
-        }
-
-        fclose($handle);
-
-        foreach ($dataRows as $row) {
-            $email = strtolower(trim((string) ($row[$emailIdx] ?? '')));
-
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-                continue;
+                    return;
+                }
             }
 
-            $valid[] = [
-                'name' => $nameIdx !== false && $nameIdx !== null ? trim((string) ($row[$nameIdx] ?? '')) ?: null : null,
-                'email' => $email,
-            ];
-        }
+            $this->appendEmailRow($row, $emailColumn, $nameColumn, $valid);
+        });
 
         return ['valid' => $valid];
+    }
+
+    /**
+     * @param  array<int, mixed>  $row
+     * @param  array<int, array{name:string|null,email:string}>  $valid
+     */
+    private function appendEmailRow(array $row, int $emailColumn, ?int $nameColumn, array &$valid): void
+    {
+        $email = strtolower(trim((string) ($row[$emailColumn] ?? '')));
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return;
+        }
+
+        $valid[] = [
+            'name' => $nameColumn !== null ? (trim((string) ($row[$nameColumn] ?? '')) ?: null) : null,
+            'email' => $email,
+        ];
     }
 }

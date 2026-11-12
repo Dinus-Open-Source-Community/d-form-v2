@@ -274,6 +274,57 @@ class FieldOperationTest extends TestCase
     }
 
     #[Test]
+    #[TestDox('Validasi upload metadata membatasi MIME dan batas multi-upload')]
+    public function validation_menolak_upload_metadata_di_luar_allowlist_dan_batas_server(): void
+    {
+        $data = [
+            'fields' => [[
+                'label' => 'Dokumen',
+                'type' => 'fileUpload',
+                'name' => 'documents',
+                'order' => 1,
+                'metadata' => [
+                    'multiple' => true,
+                    'allowed_mime_types' => ['application/pdf', 'application/zip'],
+                    'max_files' => 6,
+                    'max_total_size_kb' => 20 * 1024 + 1,
+                    'accepts' => 'pdf,docx',
+                    'rules' => [],
+                ],
+            ]],
+        ];
+
+        $validator = Validator::make($data, $this->getRules());
+
+        $this->assertFalse($validator->passes());
+        $this->assertArrayHasKey('fields.0.metadata.allowed_mime_types.1', $validator->errors()->toArray());
+        $this->assertArrayHasKey('fields.0.metadata.max_files', $validator->errors()->toArray());
+        $this->assertArrayHasKey('fields.0.metadata.max_total_size_kb', $validator->errors()->toArray());
+    }
+
+    #[Test]
+    #[TestDox('Validasi tetap menerima metadata accepts legacy')]
+    public function validation_berhasil_untuk_upload_dengan_accepts_legacy(): void
+    {
+        $data = [
+            'fields' => [[
+                'label' => 'Dokumen',
+                'type' => 'fileUpload',
+                'name' => 'document',
+                'order' => 1,
+                'metadata' => [
+                    'accepts' => 'pdf,docx',
+                    'rules' => ['mimes' => 'pdf,docx', 'max_size' => 5120],
+                ],
+            ]],
+        ];
+
+        $validator = Validator::make($data, $this->getRules());
+
+        $this->assertTrue($validator->passes(), $validator->errors()->first());
+    }
+
+    #[Test]
     #[TestDox('Validation gagal: FileUpload dilarang menggunakan metadata min atau max angka')]
     public function validation_gagal_jika_fileupload_pakai_min_max_numeric(): void
     {

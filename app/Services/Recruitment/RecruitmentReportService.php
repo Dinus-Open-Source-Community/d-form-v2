@@ -6,11 +6,9 @@ use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
 use App\Enums\Recruitment\InterviewStatus;
 use App\Models\Recruitment\RecruitmentApplication;
-use App\Models\Recruitment\RecruitmentDivision;
 use App\Models\Recruitment\RecruitmentFeedback;
 use App\Models\Recruitment\RecruitmentInterview;
 use App\Models\Recruitment\RecruitmentPeriod;
-use Illuminate\Support\Collection;
 
 final class RecruitmentReportService
 {
@@ -19,7 +17,7 @@ final class RecruitmentReportService
      */
     public function build(?string $periodId = null): array
     {
-        $period = $this->resolvePeriod($periodId);
+        $period = $this->findReportPeriod($periodId);
 
         if ($period === null) {
             return [
@@ -32,17 +30,12 @@ final class RecruitmentReportService
             ];
         }
 
-        $applications = RecruitmentApplication::query()
-            ->where('recruitment_period_id', $period->id);
-
-        $applicationIds = (clone $applications)->pluck('id');
-
         return [
             'period' => app(RecruitmentPeriodService::class)->toInertiaArray($period),
             'funnel' => $this->buildFunnel($period->id),
             'by_division' => $this->buildByDivision($period->id),
             'by_semester' => $this->buildBySemester($period->id),
-            'interview_stats' => $this->buildInterviewStats($applicationIds),
+            'interview_stats' => $this->buildInterviewStats($period->id),
             'feedback' => $this->buildFeedbackStats($period->id),
         ];
     }
@@ -90,7 +83,17 @@ final class RecruitmentReportService
         return $funnel;
     }
 
-    private function resolvePeriod(?string $periodId): ?RecruitmentPeriod
+    /**
+     * Resolve the period that a report section would use without building the
+     * full report. Explicit id wins; otherwise the newest open period, falling
+     * back to the newest period.
+     */
+    public function resolvePeriodModel(?string $periodId = null): ?RecruitmentPeriod
+    {
+        return $this->findReportPeriod($periodId);
+    }
+
+    private function findReportPeriod(?string $periodId): ?RecruitmentPeriod
     {
         if ($periodId !== null) {
             return RecruitmentPeriod::query()->find($periodId);
@@ -141,48 +144,67 @@ final class RecruitmentReportService
     }
 
     /**
-     * @param  Collection<int, string>  $applicationIds
+     * Counts interviews of a period with one aggregate query so no application
+     * ID list is materialised in PHP. `total` sums every grouped status, which
+     * preserves the previous count(*) semantics for unknown status values.
+     *
      * @return array<string, int>
      */
-    private function buildInterviewStats(Collection $applicationIds): array
+    private function buildInterviewStats(string $periodId): array
     {
-        if ($applicationIds->isEmpty()) {
-            return $this->emptyInterviewStats();
+        $statusTotals = RecruitmentInterview::query()
+            ->whereIn(
+                'recruitment_application_id',
+                RecruitmentApplication::query()
+                    ->select('id')
+                    ->where('recruitment_period_id', $periodId)
+            )
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $stats = $this->emptyInterviewStats();
+
+        foreach (InterviewStatus::cases() as $status) {
+            $stats[$status->value] = (int) ($statusTotals[$status->value] ?? 0);
         }
 
-        $interviews = RecruitmentInterview::query()
-            ->whereIn('recruitment_application_id', $applicationIds);
+        $stats['total'] = (int) $statusTotals->sum();
 
-        return [
-            'waiting' => (clone $interviews)->where('status', InterviewStatus::Waiting)->count(),
-            'in_progress' => (clone $interviews)->where('status', InterviewStatus::InProgress)->count(),
-            'completed' => (clone $interviews)->where('status', InterviewStatus::Completed)->count(),
-            'cancelled' => (clone $interviews)->where('status', InterviewStatus::Cancelled)->count(),
-            'total' => (clone $interviews)->count(),
-        ];
+        return $stats;
     }
 
     /**
+     * One aggregate query replaces the previous count + five separate AVG
+     * queries. Averages are aliased because the model casts the rating
+     * columns to integer and would truncate an AVG value.
+     *
      * @return array<string, mixed>
      */
     private function buildFeedbackStats(string $periodId): array
     {
-        $feedbacks = RecruitmentFeedback::query()->where('recruitment_period_id', $periodId);
+        $row = RecruitmentFeedback::query()
+            ->where('recruitment_period_id', $periodId)
+            ->selectRaw('COUNT(*) as feedback_count')
+            ->selectRaw('AVG(rating_registration_ease) as avg_registration_ease')
+            ->selectRaw('AVG(rating_info_clarity) as avg_info_clarity')
+            ->selectRaw('AVG(rating_tracking_ease) as avg_tracking_ease')
+            ->selectRaw('AVG(rating_interview_experience) as avg_interview_experience')
+            ->selectRaw('AVG(rating_staff_service) as avg_staff_service')
+            ->first();
 
-        $count = (clone $feedbacks)->count();
-
-        if ($count === 0) {
+        if ($row === null || (int) $row->feedback_count === 0) {
             return $this->emptyFeedbackStats();
         }
 
         return [
-            'count' => $count,
+            'count' => (int) $row->feedback_count,
             'averages' => [
-                'registration_ease' => round((float) (clone $feedbacks)->avg('rating_registration_ease'), 2),
-                'info_clarity' => round((float) (clone $feedbacks)->avg('rating_info_clarity'), 2),
-                'tracking_ease' => round((float) (clone $feedbacks)->avg('rating_tracking_ease'), 2),
-                'interview_experience' => round((float) (clone $feedbacks)->avg('rating_interview_experience'), 2),
-                'staff_service' => round((float) (clone $feedbacks)->avg('rating_staff_service'), 2),
+                'registration_ease' => round((float) $row->avg_registration_ease, 2),
+                'info_clarity' => round((float) $row->avg_info_clarity, 2),
+                'tracking_ease' => round((float) $row->avg_tracking_ease, 2),
+                'interview_experience' => round((float) $row->avg_interview_experience, 2),
+                'staff_service' => round((float) $row->avg_staff_service, 2),
             ],
         ];
     }

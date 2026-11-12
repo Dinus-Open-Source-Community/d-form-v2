@@ -10,15 +10,6 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        // Schema::create('event_categories', function (Blueprint $table) {
-        //     $table->uuid('id')->primary();
-
-        //     $table->string('name', 100);
-        //     $table->text('description');
-
-        //     $table->timestamps();
-        // });
-
         Schema::create('events', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('title', 100);
@@ -34,13 +25,6 @@ return new class () extends Migration {
             $table->string('session', 50);
             $table->string('status', 20);
             $table->string('category', 20);
-            // $table->uuid('event_category_id');
-
-            // $table->foreign('event_category_id')
-            //     ->references('id')
-            //     ->on('event_categories')
-            //     ->cascadeOnUpdate()
-            //     ->restrictOnDelete();
 
             $table->timestamps();
             $table->softDeletes();
@@ -53,6 +37,5 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::dropIfExists('events');
-        // Schema::dropIfExists('event_categories');2
     }
 };

@@ -1,6 +1,10 @@
 <?php
 
+use App\Support\Security\SecurityEnvironment;
 use Illuminate\Support\Str;
+
+// Produksi default HTTPS-only; nilai kosong dianggap tidak diisi, bukan dimatikan.
+$isProductionEnvironment = SecurityEnvironment::isProduction();
 
 return [
 
@@ -169,7 +173,7 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => SecurityEnvironment::flag(env('SESSION_SECURE_COOKIE'), $isProductionEnvironment),
 
     /*
     |--------------------------------------------------------------------------
@@ -182,7 +186,7 @@ return [
     |
     */
 
-    'http_only' => env('SESSION_HTTP_ONLY', true),
+    'http_only' => SecurityEnvironment::flag(env('SESSION_HTTP_ONLY'), true),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,7 +203,7 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'same_site' => SecurityEnvironment::sameSite(env('SESSION_SAME_SITE')),
 
     /*
     |--------------------------------------------------------------------------

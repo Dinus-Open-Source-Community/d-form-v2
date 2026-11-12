@@ -10,14 +10,22 @@ import { resolveNavbarFallbackBackHref, pathWithoutQuery, routes } from '@/lib/r
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
-import UserAvatarFallback from '@/components/modules/user/UserAvatarFallback.vue';
+import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
-import useAuth from '@/utils/composables/useAuth';
-import { useTopbar } from '@/utils/composables/useDashboardTopbar';
+import { useAuth } from '@/hooks/useAuth';
+import { clearTopbar, useTopbar } from '@/hooks/useDashboardTopbar';
+import { readDocumentTitle } from '@/adapters/browser/documentState';
+import { onDocumentCustomEvent } from '@/adapters/browser/domEvents';
+import { goBack as navigateBack } from '@/adapters/browser/navigation';
 
 const page = usePage();
 const user = useAuth(page.props);
 const topbar = useTopbar();
+
+/** Tombol buka sidebar disembunyikan saat halaman memakai layout tanpa sidebar (mis. builder formulir). */
+const props = withDefaults(defineProps<{ showNavigationTrigger?: boolean }>(), {
+    showNavigationTrigger: true,
+});
 
 const siteName = computed(() => page.props.appName || 'DForm');
 
@@ -27,15 +35,15 @@ function escapeRegExp(s: string): string {
 
 /** Ekstrak judul halaman dari <title> ("Judul · DForm" → "Judul"). */
 function titleFromDocument(): string {
-    if (typeof document === 'undefined') return 'Dashboard';
     const suffix = `\\s*·\\s*${escapeRegExp(siteName.value)}\\s*$`;
-    return document.title.replace(new RegExp(suffix), '').trim() || 'Dashboard';
+    return readDocumentTitle().replace(new RegExp(suffix), '').trim() || 'Dashboard';
 }
 
 const fallbackTitle = ref(titleFromDocument());
 const search = ref('');
 
 let titlePollId: number | null = null;
+let releaseTitleEvent: () => void = () => undefined;
 
 function syncTitle(): void {
     fallbackTitle.value = titleFromDocument();
@@ -43,22 +51,21 @@ function syncTitle(): void {
 
 onMounted(() => {
     syncTitle();
-    // `titlechange` (Chrome 136+, 2025). Fallback: poll tiap 500ms saat navigasi Inertia.
-    if (typeof document.addEventListener === 'function' && 'onTitleChange' in document) {
-        document.addEventListener('titlechange', syncTitle);
-    } else {
-        titlePollId = window.setInterval(syncTitle, 500);
-    }
+    // Event `titlechange` native tetap dipasang lewat adapter, tetapi poll 500ms
+    // tetap berjalan karena adapter tidak mengekspos deteksi dukungan event.
+    releaseTitleEvent = onDocumentCustomEvent('titlechange', syncTitle);
+    titlePollId = setInterval(syncTitle, 500);
 });
 
 onUnmounted(() => {
-    if ('onTitleChange' in document) {
-        document.removeEventListener('titlechange', syncTitle);
-    }
+    releaseTitleEvent();
     if (titlePollId !== null) {
-        window.clearInterval(titlePollId);
+        clearInterval(titlePollId);
+        titlePollId = null;
     }
 });
+
+const primaryRole = computed<string | null>(() => user.value?.roles?.[0] ?? null);
 
 /** "super-admin" → "Super Admin". */
 function formatRole(r: string): string {
@@ -68,14 +75,14 @@ function formatRole(r: string): string {
         .join(' ');
 }
 
-/** Judul dari halaman (eksplisit) jika ada; fallback ke parsing document.title. */
+/** Judul dari halaman (eksplisit) jika ada; fallback ke parsing judul dokumen. */
 const pageTitle = computed(() => topbar.title.value ?? fallbackTitle.value);
 
 /** Breadcrumb dibangun dari lib terpisah (pure function). */
 const breadcrumbItems = computed(() => buildBreadcrumbs(page.url, pageTitle.value));
 
 /** Base pages (halaman utama) — back button disembunyikan di sini. */
-const BASE_PAGE_PATHS = new Set([
+const BASE_PAGE_PATHS = new Set<string>([
     routes.dashboard.index,
     routes.admin.index,
     routes.admin.events.index,
@@ -91,10 +98,7 @@ const showBackButton = computed(() => {
 });
 
 function goBack(): void {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-        window.history.back();
-        return;
-    }
+    if (navigateBack()) return;
     router.visit(resolveNavbarFallbackBackHref(page.url));
 }
 
@@ -106,6 +110,7 @@ function closeProfileMenu(): void {
 
 function handleLogout(): void {
     profileMenuOpen.value = false;
+    clearTopbar();
     router.post(logout().url);
 }
 </script>
@@ -116,13 +121,14 @@ function handleLogout(): void {
     >
         <!-- Kiri: toggle sidebar (mobile) + back + judul + subtitle (judul hidden di mobile) -->
         <div class="flex min-w-0 items-center gap-1.5">
-            <SidebarTrigger class="shrink-0 md:hidden" aria-label="Buka sidebar" />
-            <Button radius="icon"
+            <SidebarTrigger v-if="props.showNavigationTrigger" class="shrink-0 md:hidden" aria-label="Buka sidebar" />
+            <Button
+                radius="icon"
                 v-if="showBackButton"
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Kembali"
-                class="shrink-0 transition-colors duration-150 hover:bg-accent hover:text-foreground"
+                class="hover:bg-accent hover:text-foreground shrink-0 transition-colors duration-150"
                 @click="goBack"
             >
                 <ChevronLeft class="size-4 shrink-0 stroke-[1.75]" />
@@ -138,7 +144,7 @@ function handleLogout(): void {
         </div>
 
         <!-- Tengah: search bar -->
-        <div class="relative w-full min-w-0 max-w-[10rem] shrink sm:max-w-sm">
+        <div class="relative w-full max-w-[10rem] min-w-0 shrink sm:max-w-sm">
             <Search class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
                 v-model="search"
@@ -153,12 +159,7 @@ function handleLogout(): void {
         <div class="flex shrink-0 items-center gap-1.5">
             <Popover v-model:open="profileMenuOpen" :modal="false">
                 <PopoverTrigger as-child>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Menu profil"
-                        class="rounded-full sm:hidden"
-                    >
+                    <Button variant="ghost" size="icon" aria-label="Menu profil" class="rounded-full sm:hidden">
                         <UserAvatarFallback
                             :src="user?.avatar ?? null"
                             :seed="userAvatarSeed(user)"
@@ -170,7 +171,7 @@ function handleLogout(): void {
                 <PopoverContent align="end" :side-offset="8" class="w-48 rounded-xl p-1">
                     <Link
                         :href="routes.dashboard.profile"
-                        class="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0"
+                        class="hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none [&>svg]:size-4 [&>svg]:shrink-0"
                         @click="closeProfileMenu"
                     >
                         <User class="size-4" aria-hidden="true" />
@@ -178,7 +179,7 @@ function handleLogout(): void {
                     </Link>
                     <button
                         type="button"
-                        class="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive [&>svg]:size-4 [&>svg]:shrink-0"
+                        class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none [&>svg]:size-4 [&>svg]:shrink-0"
                         @click="handleLogout"
                     >
                         <LogOut class="size-4" aria-hidden="true" />
@@ -204,7 +205,7 @@ function handleLogout(): void {
                             {{ user?.name }}
                         </span>
                         <span class="text-muted-foreground max-w-[140px] truncate text-xs leading-tight">
-                            {{ user?.roles?.length ? formatRole(user.roles[0]!) : user?.email }}
+                            {{ primaryRole ? formatRole(primaryRole) : user?.email }}
                         </span>
                     </span>
                 </Link>
@@ -214,7 +215,7 @@ function handleLogout(): void {
                     size="sm"
                     aria-label="Keluar"
                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive shadow-none transition-colors duration-150 hover:shadow-none"
-                    @click="router.post(logout().url)"
+                    @click="handleLogout"
                 >
                     <LogOut class="size-4" />
                     <span>Keluar</span>

@@ -18,7 +18,7 @@ defineProps<{
             <span
                 v-if="i > 0"
                 aria-hidden="true"
-                class="mx-2.5 h-px w-6 shrink-0 bg-border transition-colors duration-500 sm:mx-3 sm:w-8"
+                class="bg-border mx-2.5 h-px w-6 shrink-0 transition-colors duration-500 sm:mx-3 sm:w-8"
                 :class="i <= activeIndex ? 'bg-success/50' : ''"
             />
             <span
@@ -28,16 +28,16 @@ defineProps<{
                 <span class="grid w-4 shrink-0 place-items-center">
                     <Check
                         v-if="i < activeIndex"
-                        class="size-3.5 text-success"
+                        class="text-success size-3.5"
                         :stroke-width="2.75"
                         aria-hidden="true"
                     />
                     <span
                         v-else-if="i === activeIndex"
-                        class="size-2 rounded-full bg-primary ring-4 ring-primary/10"
+                        class="bg-primary ring-primary/10 size-2 rounded-full ring-4"
                         aria-hidden="true"
                     />
-                    <span v-else class="size-1.5 rounded-full bg-muted-foreground/30" aria-hidden="true" />
+                    <span v-else class="bg-muted-foreground/30 size-1.5 rounded-full" aria-hidden="true" />
                 </span>
                 <span
                     class="truncate text-[13px] leading-none tracking-[-0.01em]"

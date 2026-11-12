@@ -4,6 +4,7 @@ namespace Tests\Feature\Recruitment;
 
 use App\Enums\Recruitment\ApplicationResult;
 use App\Enums\Recruitment\ApplicationStage;
+use App\Exceptions\RedactedMailDeliveryException;
 use App\Jobs\Recruitment\SendRecruitmentApplicationConfirmationJob;
 use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Models\Recruitment\RecruitmentApplication;
@@ -62,7 +63,8 @@ class RecruitmentEmailDeliveryTest extends TestCase
             );
             $this->fail('Expected RuntimeException was not thrown.');
         } catch (RuntimeException $exception) {
-            $this->assertSame('SMTP unavailable', $exception->getMessage());
+            $this->assertInstanceOf(RedactedMailDeliveryException::class, $exception);
+            $this->assertSame('SMTP unavailable', $exception->getPrevious()?->getMessage());
         }
 
         $this->assertDatabaseHas('email_logs', [
@@ -88,7 +90,8 @@ class RecruitmentEmailDeliveryTest extends TestCase
             );
             $this->fail('Expected RuntimeException was not thrown.');
         } catch (RuntimeException $exception) {
-            $this->assertSame('Mail transport error', $exception->getMessage());
+            $this->assertInstanceOf(RedactedMailDeliveryException::class, $exception);
+            $this->assertSame('Mail transport error', $exception->getPrevious()?->getMessage());
         }
 
         $this->assertDatabaseHas('email_logs', [

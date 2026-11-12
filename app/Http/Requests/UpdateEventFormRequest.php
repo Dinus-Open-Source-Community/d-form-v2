@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Enums\EventFormVisibility;
+use App\Http\Requests\Concerns\ConvertsLegacyDataUrls;
+use App\Http\Requests\Concerns\SanitizesRichHtmlInput;
 use App\Models\Event;
 use App\Models\Form;
 use App\Support\FormFieldsRequestValidation;
@@ -13,21 +15,17 @@ use Illuminate\Validation\Validator;
 
 class UpdateEventFormRequest extends FormRequest
 {
+    use ConvertsLegacyDataUrls;
+    use SanitizesRichHtmlInput;
+
     public function authorize(): bool
     {
         $user = $this->user();
         if (!$user) {
             return false;
         }
-        $eventParam = $this->route('event');
-        $event = $eventParam instanceof Event
-            ? $eventParam
-            : Event::query()->find($eventParam);
-
-        $formParam = $this->route('form');
-        $form = $formParam instanceof Form
-            ? $formParam
-            : Form::query()->find($formParam);
+        $event = $this->resolvedEvent();
+        $form = $this->resolvedForm();
         if (!$event || !$form || $form->event_id !== $event->id) {
             return false;
         }
@@ -36,10 +34,54 @@ class UpdateEventFormRequest extends FormRequest
     }
 
     /**
+     * Autosave parsial hanya untuk draft: builder menyimpan header yang belum
+     * lengkap, jadi field wajib (title/description/closed_at) tidak boleh
+     * dipaksakan. `publish` selalu memakai aturan penuh, dan `autosave` pada
+     * form published diabaikan (aturan penuh seperti sebelumnya).
+     */
+    public function isDraftAutosave(): bool
+    {
+        if ($this->boolean('publish') || $this->has('status') || ! $this->boolean('autosave')) {
+            return false;
+        }
+
+        return $this->resolvedForm()?->isDraft() ?? false;
+    }
+
+    /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        if ($this->isStatusDraftTransition()) {
+            return [
+                'status' => ['required', Rule::in(['draft'])],
+            ];
+        }
+
+        if ($this->isDraftAutosave()) {
+            return array_merge(
+                [
+                    'autosave' => 'sometimes|boolean',
+                    'publish' => 'sometimes|boolean',
+                    'status' => ['sometimes', Rule::in(['published'])],
+                    'title' => 'nullable|string|max:100',
+                    'description' => 'nullable|string',
+                    'success_content' => 'nullable|string',
+                    'closed_at' => 'nullable|date',
+                    // `min:1` hanya berlaku bila key dikirim; key yang tidak ada
+                    // tidak divalidasi sama sekali oleh Validator.
+                    'visible_for' => 'nullable|array|min:1',
+                    'visible_for.*' => [Rule::enum(EventFormVisibility::class)],
+                    'banner_url' => 'nullable|string',
+                    'banner_caption' => 'nullable|string|max:255',
+                    'fields' => 'nullable|array',
+                ],
+                FormFieldsRequestValidation::formMetadataRules(requirePurpose: false),
+                FormFieldsRequestValidation::nestedFieldRules(),
+            );
+        }
+
         return array_merge(
             [
                 'title' => 'required|string|max:100',
@@ -51,6 +93,11 @@ class UpdateEventFormRequest extends FormRequest
                 'banner_url' => 'nullable|string',
                 'banner_caption' => 'nullable|string|max:255',
                 'fields' => 'nullable|array',
+                // Sama seperti EventService::create/update: `publish` memindahkan status
+                // form ke Published hanya setelah seluruh validasi di request ini lolos.
+                'publish' => 'sometimes|boolean',
+                'status' => ['sometimes', Rule::in(['published'])],
+                'autosave' => 'sometimes|boolean',
             ],
             FormFieldsRequestValidation::formMetadataRules(),
             FormFieldsRequestValidation::nestedFieldRules(),
@@ -84,15 +131,14 @@ class UpdateEventFormRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $eventParam = $this->route('event');
-        $event = $eventParam instanceof Event
-            ? $eventParam
-            : Event::query()->find($eventParam);
+        $validator->after(function (Validator $current): void {
+            if ($this->has('status') && $this->has('publish')) {
+                $current->errors()->add('status', 'Status dan publish tidak dapat dikirim bersamaan.');
+            }
+        });
 
-        $formParam = $this->route('form');
-        $form = $formParam instanceof Form
-            ? $formParam
-            : Form::query()->find($formParam);
+        $event = $this->resolvedEvent();
+        $form = $this->resolvedForm();
 
         FormFieldsRequestValidation::afterForFields(
             $validator,
@@ -100,5 +146,38 @@ class UpdateEventFormRequest extends FormRequest
             $form,
             $event?->id ?? $form?->event_id,
         );
+    }
+
+    /** Status draft dapat diturunkan tanpa mengirim ulang header lengkap. */
+    public function isStatusDraftTransition(): bool
+    {
+        return $this->input('status') === 'draft'
+            && ! $this->has('publish')
+            && ! $this->boolean('autosave');
+    }
+
+    private function resolvedEvent(): ?Event
+    {
+        $eventParam = $this->route('event');
+
+        return $eventParam instanceof Event
+            ? $eventParam
+            : Event::query()->select(['id', 'created_by'])->find($eventParam);
+    }
+
+    private function resolvedForm(): ?Form
+    {
+        $formParam = $this->route('form');
+
+        return $formParam instanceof Form
+            ? $formParam
+            : Form::query()->select(['id', 'event_id', 'status'])->find($formParam);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->convertLegacyDataUrlsInRequest();
+        $this->mergeSanitizedHtml(['success_content']);
+        $this->mergeSanitizedFormFieldHtml();
     }
 }

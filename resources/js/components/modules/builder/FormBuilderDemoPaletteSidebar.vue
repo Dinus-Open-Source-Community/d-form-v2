@@ -1,41 +1,45 @@
 <script setup lang="ts">
-import DraggableItem from '@/components/modules/builder/DraggableItem.vue'
-import FormBannerSettings from '@/components/modules/builder/FormBannerSettings.vue'
-import { Search, Sparkles, ChevronRight } from 'lucide-vue-next'
-import type { FormBannerState } from '@/components/modules/builder/formBanner'
-import type { FormBuilderPaletteCategory, FormBuilderPaletteField } from '@/components/modules/builder/formBuilderPalette'
+import DraggableItem from '@/components/modules/builder/DraggableItem.vue';
+import FormBannerSettings from '@/components/modules/builder/FormBannerSettings.vue';
+import { Search, Sparkles, ChevronRight } from 'lucide-vue-next';
+import type { IFormBannerState } from '@/components/modules/builder/formBanner';
+import type {
+    IFormBuilderPaletteCategory,
+    IFormBuilderPaletteField,
+} from '@/components/modules/builder/formBuilderPalette';
 
-const searchQuery = defineModel<string>('searchQuery', { required: true })
+const searchQuery = defineModel<string>('searchQuery', { required: true });
 
 defineProps<{
-    categories: FormBuilderPaletteCategory[]
-    banner: FormBannerState
-}>()
+    categories: IFormBuilderPaletteCategory[];
+    banner: IFormBannerState;
+}>();
 
 const emit = defineEmits<{
-    patchBanner: [v: FormBannerState]
-    toggleCategory: [index: number]
-    sidebarDragStart: [e: DragEvent, field: FormBuilderPaletteField]
-}>()
+    patchBanner: [v: IFormBannerState];
+    toggleCategory: [index: number];
+    sidebarDragStart: [e: DragEvent, field: IFormBuilderPaletteField];
+}>();
 </script>
 
 <template>
-    <aside class="hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div class="border-b border-border px-4 pt-4 pb-3">
-            <h2 class="font-display flex items-center gap-1.5 text-sm font-semibold tracking-[-0.01em] text-foreground">
-                <Sparkles class="size-4 text-primary" />
+    <aside class="border-border bg-card hidden w-[260px] shrink-0 flex-col border-r lg:flex">
+        <div class="border-border border-b px-4 pt-4 pb-3">
+            <h2 class="font-display text-foreground flex items-center gap-1.5 text-sm font-semibold tracking-[-0.01em]">
+                <Sparkles class="text-primary size-4" />
                 Components
             </h2>
-            <p class="mt-0.5 text-[10px] text-muted-foreground">Drag a component to the form canvas</p>
+            <p class="text-muted-foreground mt-0.5 text-[10px]">Drag a component to the form canvas</p>
             <div class="relative mt-3">
                 <Search
-                    class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+                    class="text-muted-foreground/70 pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
                 />
                 <input
                     v-model="searchQuery"
                     type="text"
+                    aria-label="Cari komponen"
                     placeholder="Search components..."
-                    class="w-full rounded-lg border border-border bg-card py-2 pr-3 pl-8 text-xs font-medium text-foreground shadow-xs transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/15"
+                    class="border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15 w-full rounded-lg border py-2 pr-3 pl-8 text-xs font-medium shadow-xs transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] focus:ring-3 focus:outline-none"
                 />
             </div>
         </div>
@@ -46,7 +50,7 @@ const emit = defineEmits<{
             <div v-for="(category, catIdx) in categories" :key="category.name" class="mb-3 last:mb-0">
                 <button
                     type="button"
-                    class="mb-1.5 flex w-full items-center gap-2 px-1 py-1 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground mb-1.5 flex w-full items-center gap-2 px-1 py-1 text-left text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors"
                     @click="emit('toggleCategory', catIdx)"
                 >
                     <ChevronRight
@@ -55,7 +59,7 @@ const emit = defineEmits<{
                     />
                     <component :is="category.icon" class="size-3.5 shrink-0" />
                     {{ category.name }}
-                    <span class="ml-auto text-[10px] font-medium text-muted-foreground">
+                    <span class="text-muted-foreground ml-auto text-[10px] font-medium">
                         {{ category.fields.length }}
                     </span>
                 </button>
@@ -67,14 +71,14 @@ const emit = defineEmits<{
                         :label="f.label"
                         :icon="f.icon"
                         :description="f.description"
-                        @dragstart="(e) => emit('sidebarDragStart', e, f)"
+                        @dragstart="(e: DragEvent) => emit('sidebarDragStart', e, f)"
                     />
                 </div>
             </div>
             <div v-if="categories.length === 0" class="flex flex-col items-center py-8 text-center">
-                <Search class="mb-2 size-8 text-muted-foreground/50" />
-                <p class="text-xs font-medium text-muted-foreground">No components found</p>
-                <p class="mt-0.5 text-[10px] text-muted-foreground/70">Try a different search term</p>
+                <Search class="text-muted-foreground/50 mb-2 size-8" />
+                <p class="text-muted-foreground text-xs font-medium">No components found</p>
+                <p class="text-muted-foreground/70 mt-0.5 text-[10px]">Try a different search term</p>
             </div>
         </div>
     </aside>

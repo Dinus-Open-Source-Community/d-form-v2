@@ -1,0 +1,27 @@
+{
+    "builderTypes": {
+        "short_text": { "displayOnly": false, "apiType": "input" },
+        "long_text": { "displayOnly": false, "apiType": "textarea" },
+        "email": { "displayOnly": false, "apiType": "input" },
+        "phone": { "displayOnly": false, "apiType": "input" },
+        "number": { "displayOnly": false, "apiType": "input" },
+        "time": { "displayOnly": false, "apiType": "input" },
+        "dropdown": { "displayOnly": false, "apiType": "select" },
+        "checkbox": { "displayOnly": false, "apiType": "checkbox" },
+        "radio": { "displayOnly": false, "apiType": "radio" },
+        "image_upload": { "displayOnly": false, "apiType": "fileUpload" },
+        "file_upload": { "displayOnly": false, "apiType": "fileUpload" },
+        "date": { "displayOnly": false, "apiType": "datePicker" },
+        "rating": { "displayOnly": false, "apiType": "input" },
+        "heading": { "displayOnly": true, "apiType": "input" },
+        "paragraph": { "displayOnly": true, "apiType": "textarea" },
+        "divider": { "displayOnly": true, "apiType": "input" },
+        "banner": { "displayOnly": true, "apiType": "fileUpload" },
+        "confirmation": { "displayOnly": false, "apiType": "input" },
+        "image": { "displayOnly": true, "apiType": "input" },
+        "url": { "displayOnly": false, "apiType": "input" },
+        "address": { "displayOnly": false, "apiType": "input" },
+        "yes_no": { "displayOnly": false, "apiType": "input" }
+    },
+    "apiTypes": ["input", "select", "textarea", "datePicker", "fileUpload", "radio", "checkbox"]
+}

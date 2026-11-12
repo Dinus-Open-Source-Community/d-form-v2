@@ -14,6 +14,7 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 use App\Models\Recruitment\RecruitmentInterviewerDivision;
 use App\Models\Recruitment\RecruitmentPeriod;
 use App\Models\User;
+use Database\Factories\Recruitment\RecruitmentInterviewSessionFactory;
 use Database\Seeders\RecruitmentDivisionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,15 +57,9 @@ class EvaluationBudgetTest extends TestCase
             'recruitment_division_id' => $this->programming->id,
         ]);
 
-        $this->session = RecruitmentInterviewSession::query()->create([
+        $this->session = RecruitmentInterviewSessionFactory::new()->create([
             'recruitment_period_id' => $this->period->id,
             'recruitment_division_id' => $this->programming->id,
-            'session_date' => now()->toDateString(),
-            'starts_at' => '09:00:00',
-            'ends_at' => '12:00:00',
-            'location' => 'Lab DOSCOM',
-            'room' => 'A101',
-            'is_active' => true,
         ]);
     }
 

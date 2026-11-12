@@ -30,7 +30,9 @@ class AuthPageAccessTest extends TestCase
             ->get(route('password.reset', ['token' => 'dummy-token']))
             ->assertRedirect('/');
 
-        $this->get('/auth')->assertRedirect(route('auth.login'));
+        $response = $this->actingAs($user)->get('/auth');
+        $response->assertRedirect('/');
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
     }
 
     public function test_guest_can_still_open_auth_pages(): void

@@ -1,39 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
-import { handleInertiaFormErrors } from '@/lib/error-message';
-import { toast } from 'vue-sonner';
+import { resolveBuilderImageUploadUrl } from '@/adapters/http/forms';
+import { removeStorage } from '@/adapters/browser/storage';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardFocusLayout from '@/layouts/DashboardFocusLayout.vue';
 import EventDashboardForm from '@/components/modules/dashboard/events/EventDashboardForm.vue';
 import EventWizardStepper from '@/components/modules/dashboard/events/EventWizardStepper.vue';
+import FormBuilderEditorTabs from '@/components/modules/builder/FormBuilderEditorTabs.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import { Button } from '@/components/ui/button';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import { Loader2 } from 'lucide-vue-next';
-import { setTopbar } from '@/utils/composables/useDashboardTopbar';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { destroy as destroyEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { update as updateForm } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FormController';
 import { __invoke as postFields } from '@/actions/App/Http/Controllers/Dashboard/Events/Forms/FieldOperationController';
-import { useAutosaveSync } from '@/utils/composables/useAutosaveSync';
-import {
-    builderPendingUploads,
-    cleanStoredImageUrl,
-    resolveBuilderImageUploadUrl,
-    sanitizeBuilderSnapshot,
-} from '@/utils/composables/useBuilderImageUpload';
-import { fromBackendField, toBackendFields, type BackendField } from '@/components/modules/builder/fieldMapping';
-import {
-    defaultFormBannerState,
-    prependFormBannerToBackendPayload,
-    extractFormBannerFromBuilderFields,
-} from '@/components/modules/builder/formBanner';
-import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata, toFormMetadataPayload } from '@/types/form';
-import type { BuilderField } from '@/types/form-builder';
+import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
+import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
+import { fromBackendField, type IBackendField } from '@/components/modules/builder/fieldMapping';
+import { defaultFormBannerState, extractFormBannerFromBuilderFields } from '@/components/modules/builder/formBanner';
+import { emptyFormRegistrationMetadata, parseFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
+import type { IBuilderField } from '@/types/form-builder';
 import { routes } from '@/lib/routes';
 
 defineOptions({ layout: DashboardFocusLayout });
+
+const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast } = useToastNotifications();
 
 interface WizardDraftForm {
     id: string;
@@ -45,7 +39,7 @@ interface WizardDraftForm {
     banner_url: string | null;
     banner_caption: string | null;
     metadata: unknown;
-    fields: BackendField[];
+    fields: IBackendField[];
 }
 
 interface WizardDraftEvent extends IEvent {
@@ -91,13 +85,19 @@ watch(
 );
 
 // ── Step forms: builder state (hydrate dari draftForm) ──────────
+/** Tab step formulir: kanvas editor atau pengaturan form (tanpa tab jawaban). */
+type TWizardFormTab = 'editor' | 'settings';
+
+const activeFormTab = ref<TWizardFormTab>('editor');
+/** Ref workspace: Pratinjau dipicu dari bar aksi wizard, bukan dari toolbar builder. */
+const workspaceRef = ref<InstanceType<typeof FormBuilderWorkspace> | null>(null);
 const formTitle = ref<string>('');
 const formDescription = ref<string>('');
 const successContent = ref<string>('');
 const closedAt = ref<string>('');
 const visibleFor = ref<string[]>([]);
 const bannerState = ref(defaultFormBannerState());
-const formFields = ref<BuilderField[]>([]);
+const formFields = ref<IBuilderField[]>([]);
 const formMetadata = ref(emptyFormRegistrationMetadata());
 
 function hydrateBuilder(): void {
@@ -110,7 +110,7 @@ function hydrateBuilder(): void {
     visibleFor.value = [...(f.visible_for ?? [])];
     formMetadata.value = parseFormRegistrationMetadata(f.metadata);
 
-    const raw: BackendField[] = JSON.parse(JSON.stringify(f.fields ?? []));
+    const raw: IBackendField[] = JSON.parse(JSON.stringify(f.fields ?? []));
     raw.sort((a, b) => a.order - b.order);
     const mapped = raw.map((bf) => fromBackendField(bf));
     const { banner: syntheticBanner, canvasFields } = extractFormBannerFromBuilderFields(mapped);
@@ -130,66 +130,31 @@ watch(
 );
 
 // ── Autosave global (optimistik + debounce 800ms): SEMUA mutasi builder ──
-function buildBuilderSnapshot(): string {
-    return sanitizeBuilderSnapshot(
-        JSON.stringify({
-            fields: formFields.value,
-            title: formTitle.value,
-            description: formDescription.value,
-            bannerUrl: bannerState.value.bannerUrl,
-            bannerCaption: bannerState.value.caption,
-            success: successContent.value,
-            closedAt: closedAt.value,
-            visibleFor: visibleFor.value,
-            metadata: formMetadata.value,
-        }),
-    );
-}
-
-/** Header valid → boleh PUT update; kalau belum lengkap, simpan fields saja (hindari spam 422). */
-function isHeaderComplete(): boolean {
-    return (
-        formTitle.value.trim() !== '' &&
-        formDescription.value.trim() !== '' &&
-        closedAt.value.trim() !== '' &&
-        visibleFor.value.length > 0
-    );
-}
-
-async function saveBuilderSnapshot(): Promise<void> {
-    const formId = draftForm.value?.id;
+// Bentuk snapshot/payload dan seluruh glue simpan ada di `useFormBuilderAutosave`
+// (satu implementasi untuk halaman create, edit, dan wizard ini).
+const autosaveEndpoints = computed<IFormBuilderAutosaveEndpoints | null>(() => {
     const eventId = draftEvent.value?.id;
-    if (!formId || !eventId) return;
-    const merged = prependFormBannerToBackendPayload(formFields.value, bannerState.value);
-    const backend = toBackendFields(merged) as unknown as Record<string, unknown>[];
-    await axios.post(
-        postFields({ event: eventId, form: formId }).url,
-        { fields: backend },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
-    if (!isHeaderComplete()) return;
-    await axios.put(
-        updateForm({ event: eventId, form: formId }).url,
-        {
-            title: formTitle.value,
-            description: formDescription.value,
-            success_content: successContent.value,
-            closed_at: closedAt.value,
-            visible_for: visibleFor.value,
-            banner_url: cleanStoredImageUrl(bannerState.value.bannerUrl) || null,
-            banner_caption: bannerState.value.caption || null,
-            metadata: toFormMetadataPayload(formMetadata.value),
-        },
-        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
-}
+    const formId = draftForm.value?.id;
+    if (!eventId || !formId) return null;
+    return {
+        fieldsUrl: postFields({ event: eventId, form: formId }).url,
+        settingsUrl: updateForm({ event: eventId, form: formId }).url,
+    };
+});
 
-const autosaveEnabled = computed(() => step.value === 'forms' && !!draftForm.value?.id);
-const autosave = useAutosaveSync(buildBuilderSnapshot, saveBuilderSnapshot, {
-    debounceMs: 800,
-    enabled: autosaveEnabled,
-    isBlocked: () => builderPendingUploads.value > 0,
-    onError: () => toast.error('Gagal menyimpan otomatis. Perubahan tetap ada di kanvas.'),
+const autosave = useFormBuilderAutosave({
+    models: {
+        formTitle,
+        formDescription,
+        successContent,
+        closedAt,
+        visibleFor,
+        banner: bannerState,
+        formFields,
+        formMetadata,
+    },
+    endpoints: autosaveEndpoints,
+    onError: (message) => notifyAutosaveFailure(message, () => void autosave.retry()),
 });
 /** Endpoint upload gambar builder `POST {form}/images` (multipart field `image`). */
 const builderImageUploadUrl = computed(() => {
@@ -198,18 +163,54 @@ const builderImageUploadUrl = computed(() => {
     if (!eventId || !formId) return '';
     return resolveBuilderImageUploadUrl(eventId, formId);
 });
+
 const saveState = autosave.status;
 const flushPending = (): Promise<void> => autosave.flush();
 
+/**
+ * Semua jalan keluar dari step form wajib menunggu `flush()` autosave (single-flight).
+ * Perubahan yang masih di debounce 800 ms tidak boleh hilang karena `router.get`/`visit`;
+ * bila save gagal, navigasi diblokir agar user sempat retry dari status autosave.
+ */
+type TLeaveStepAction = 'back' | 'next' | 'skip' | 'finish';
+
+const leavingFormStep = ref(false);
+const activeExitAction = ref<TLeaveStepAction | null>(null);
+
+async function afterFinalFlush(action: TLeaveStepAction, navigate: () => void): Promise<boolean> {
+    if (leavingFormStep.value) return false;
+
+    leavingFormStep.value = true;
+    activeExitAction.value = action;
+    try {
+        await flushPending();
+        if (saveState.value === 'error') {
+            showErrorToast('Perubahan terakhir belum tersimpan. Periksa koneksi lalu coba lagi.', {
+                title: 'Gagal menyimpan',
+            });
+            return false;
+        }
+        navigate();
+        return true;
+    } finally {
+        leavingFormStep.value = false;
+        activeExitAction.value = null;
+    }
+}
+
 onUnmounted(() => {
+    // Jaring pengaman untuk keluar tanpa tombol eksplisit (mis. tombol back browser).
+    // No-op saat tidak ada edit tertunda, sehingga tidak menggandakan save navigasi.
     void autosave.flush();
 });
 
 // ── Navigasi ────────────────────────────────────────────────────
 function goBackToEvent(): void {
-    const params: Record<string, string> = { step: 'event' };
-    if (draftEvent.value?.id) params.draftId = String(draftEvent.value.id);
-    router.get(routes.admin.events.create, params, { preserveState: false });
+    void afterFinalFlush('back', () => {
+        const params: Record<string, string> = { step: 'event' };
+        if (draftEvent.value?.id) params.draftId = String(draftEvent.value.id);
+        router.get(routes.admin.events.create, params, { preserveState: false });
+    });
 }
 
 function goToForms(): void {
@@ -228,17 +229,15 @@ function goToForms(): void {
 
     const eventId = draftEvent.value?.id;
     if (!eventId) return;
-    router.get(routes.admin.events.create, { step: 'forms', draftId: String(eventId) }, { preserveState: false });
+    void afterFinalFlush('next', () => {
+        router.get(routes.admin.events.create, { step: 'forms', draftId: String(eventId) }, { preserveState: false });
+    });
 }
 
 function clearDraftCache(): void {
     const id = draftEvent.value?.id;
     if (!id) return;
-    try {
-        localStorage.removeItem(`dform:draft:form:${id}`);
-    } catch {
-        /* localStorage tidak tersedia */
-    }
+    removeStorage({ area: 'local', key: `dform:draft:form:${id}` });
 }
 
 // ── Selesai ─────────────────────────────────────────────────────
@@ -248,21 +247,21 @@ function finishWizard(): void {
     const eventId = draftEvent.value?.id;
     if (!eventId || finishing.value) return;
     finishing.value = true;
-    void flushPending()
-        .then(() => {
-            clearDraftCache();
-            router.visit(routes.admin.events.show(eventId));
-        })
-        .finally(() => {
-            finishing.value = false;
-        });
+    void afterFinalFlush('finish', () => {
+        clearDraftCache();
+        router.visit(routes.admin.events.show(eventId));
+    }).finally(() => {
+        finishing.value = false;
+    });
 }
 
 function skipWizard(): void {
     const eventId = draftEvent.value?.id;
     if (!eventId) return;
-    clearDraftCache();
-    router.visit(routes.admin.events.show(eventId));
+    void afterFinalFlush('skip', () => {
+        clearDraftCache();
+        router.visit(routes.admin.events.show(eventId));
+    });
 }
 
 // ── Batalkan ────────────────────────────────────────────────────
@@ -298,6 +297,12 @@ const steps = [
 ];
 const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
 
+/** Sama dengan `wb.isEmpty` di workspace: kanvas belum punya field. */
+const builderEmpty = computed<boolean>(() => formFields.value.length === 0);
+
+function requestPreview(): void {
+    workspaceRef.value?.showPreview();
+}
 </script>
 
 <template>
@@ -337,42 +342,64 @@ const currentIndex = computed(() => (step.value === 'forms' ? 1 : 0));
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div class="flex min-w-0 items-center gap-4">
                     <EventWizardStepper :steps="steps" :active-index="currentIndex" />
-                    <AutosaveStatus :status="saveState" variant="inline" />
+                    <AutosaveStatus :status="saveState" variant="inline" @retry="autosave.retry" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" @click="goBackToEvent">Kembali ke event</Button>
-                    <Button variant="outline" @click="skipWizard">Lewati</Button>
+                    <Button variant="outline" :disabled="leavingFormStep" @click="goBackToEvent">
+                        <Loader2 v-if="activeExitAction === 'back'" class="size-4 animate-spin" aria-hidden="true" />
+                        Kembali ke event
+                    </Button>
+                    <Button variant="outline" :disabled="leavingFormStep" @click="skipWizard">
+                        <Loader2 v-if="activeExitAction === 'skip'" class="size-4 animate-spin" aria-hidden="true" />
+                        Lewati
+                    </Button>
                     <Button
                         variant="outline"
                         class="border-destructive/30 text-destructive hover:bg-destructive/10"
+                        :disabled="leavingFormStep"
                         @click="showCancelModal = true"
                     >
                         Batalkan
                     </Button>
-                    <Button :disabled="finishing" @click="finishWizard">
+                    <Button
+                        variant="outline"
+                        class="border-border/80 bg-background/90"
+                        :disabled="builderEmpty"
+                        aria-label="Pratinjau formulir"
+                        @click="requestPreview"
+                    >
+                        Pratinjau
+                    </Button>
+                    <Button :disabled="finishing || leavingFormStep" @click="finishWizard">
                         <Loader2 v-if="finishing" class="size-4 animate-spin" aria-hidden="true" />
                         <template v-else>Selesai</template>
                     </Button>
                 </div>
             </div>
 
-            <FormBuilderWorkspace
-                v-model:form-title="formTitle"
-                v-model:form-description="formDescription"
-                v-model:success-content="successContent"
+            <FormBuilderEditorTabs
+                v-model:active-tab="activeFormTab"
                 v-model:closed-at="closedAt"
                 v-model:visible-for="visibleFor"
-                v-model:banner="bannerState"
-                v-model:form-fields="formFields"
                 v-model:form-metadata="formMetadata"
-                :event="{ id: draftEvent.id, title: draftEvent.title }"
-                :toolbar-subtitle="`Formulir pendaftaran · ${draftEvent.title}`"
-                :image-upload-url="builderImageUploadUrl"
-                save-label="Selesai"
-                :processing="finishing"
-                :hide-toolbar-titles="true"
-                @save="finishWizard"
-            />
+                id-prefix="wizard"
+            >
+                <FormBuilderWorkspace
+                    ref="workspaceRef"
+                    v-model:form-title="formTitle"
+                    v-model:form-description="formDescription"
+                    v-model:success-content="successContent"
+                    v-model:closed-at="closedAt"
+                    v-model:visible-for="visibleFor"
+                    v-model:banner="bannerState"
+                    v-model:form-fields="formFields"
+                    v-model:form-metadata="formMetadata"
+                    :image-upload-url="builderImageUploadUrl"
+                    :processing="finishing"
+                    @save="finishWizard"
+                    @open-settings="activeFormTab = 'settings'"
+                />
+            </FormBuilderEditorTabs>
         </template>
     </div>
 

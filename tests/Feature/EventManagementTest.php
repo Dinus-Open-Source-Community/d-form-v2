@@ -48,9 +48,69 @@ class EventManagementTest extends TestCase
         $this->actingAs($member)
             ->get(route('dashboard.user.events'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
+            ->assertInertia(
+                fn ($page) => $page
                 ->component('Dashboard/User/Events')
                 ->where('listMode', 'mine')
+            );
+    }
+
+    public function test_BE_P3_001_member_only_portal_redirects_organizer(): void
+    {
+        $organizer = User::factory()->create();
+        $organizer->assignRole('admin');
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.user.events'))
+            ->assertRedirect(route('dashboard'));
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.user.events.browse'))
+            ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_BE_P3_001_browse_rejects_invalid_filter_values(): void
+    {
+        $member = User::factory()->create();
+        $member->assignRole('member');
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.browse', [
+                'category' => 'invalid-category',
+                'session' => 'invalid-session',
+                'page' => 0,
+            ]))
+            ->assertSessionHasErrors(['category', 'session', 'page']);
+    }
+
+    public function test_BE_P3_001_browse_returns_expected_inertia_component_and_props(): void
+    {
+        $member = User::factory()->create();
+        $member->assignRole('member');
+        $event = Event::factory()->create([
+            'status' => EventStatus::Published,
+            'category' => 'rkt',
+            'session' => 'general',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.browse', [
+                'category' => 'rkt',
+                'session' => 'general',
+                'page' => 1,
+            ]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/Events')
+                    ->has('events', 1)
+                    ->where('events.0.id', $event->id)
+                    ->has('pagination.links')
+                    ->where('pagination.currentPage', null)
+                    ->where('pagination.hasMore', false)
+                    ->where('filters.category', 'rkt')
+                    ->where('filters.session', 'general')
+                    ->where('listMode', 'browse')
             );
     }
 
@@ -72,7 +132,8 @@ class EventManagementTest extends TestCase
 
         $this->get(route('events.show', $event->slug))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
+            ->assertInertia(
+                fn ($page) => $page
                 ->component('EventDetail')
                 ->where('memberPortalEventUrl', route('dashboard.user.events.show', [
                     'event_segment' => $event->slug,

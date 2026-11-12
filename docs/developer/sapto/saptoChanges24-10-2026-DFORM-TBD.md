@@ -1,0 +1,369 @@
+# Sapto Changes — 24 Oktober 2026 (DFORM-TBD)
+
+Optimasi halaman auth berdasarkan audit `docs/big-changes/auth/report.md`: bundle per halaman, vendor berat keluar dari entry, lottie lazy, rate limit login/register, handler 429 di frontend, serta aset font/favicon.
+
+> **Nomor tiket:** `DFORM-TBD` — belum ada tiket Jira saat dikerjakan. Ganti `<N>` pada nama file dan baris ini sebelum push/PR.
+
+| Kolom   | Isi                                                                 |
+| ------- | ------------------------------------------------------------------- |
+| Issue   | DFORM-TBD (belum dibuat)                                            |
+| Commit  | `258c421` — `perf(auth): pecah bundle per halaman dan batasi laju login/register` |
+| Branch  | `dev-zapp`                                                          |
+| Dasar   | `docs/big-changes/auth/report.md` + `plan-optimasi-auth.md` (ignored) |
+
+---
+
+## Ringkasan (TL;DR)
+
+| Area                    | Sebelum                                  | Sesudah                                        | Δ              |
+| ----------------------- | ---------------------------------------- | ---------------------------------------------- | -------------- |
+| Entry JS (gzip)         | 886.150 B                                | **18.230 B**                                   | **−97,9%**     |
+| Entry JS (raw)          | 3.437.979 B                              | 58.090 B                                       | −98,3%         |
+| Chunk `Auth/Login`      | tidak ada (semua di entry)               | 536 B gzip                                     | baru           |
+| Jumlah chunk JS         | 1                                        | 205 file, 59 dynamic entry                     | route-level    |
+| Payload login (app)     | ±1.033 kB                                | **356 kB** desktop / 254 kB mobile             | **−65%**       |
+| DCL login (median)      | 569 ms                                   | **244 ms**                                     | −57%           |
+| Load login (median)     | 618 ms                                   | **251 ms**                                     | −59%           |
+| FCP login (median)      | 236 ms                                   | 224 ms                                         | ≈0 (CSS-bound)  |
+| Throttle login/register | tidak ada                                | 5/menit (email+IP) · 3/menit (IP)              | baru           |
+| 429 Inertia             | header `Retry-After` hilang              | header disalin + toast hitung mundur           | fix            |
+| Favicon                 | 370.070 B                                | 7.406 B (ICO 16/32/48) + PNG 192 + apple-touch | −98%           |
+| SEO & meta auth         | tanpa `<title>`, `description`, `noindex` | title + description + `noindex, nofollow` di 4 halaman auth | +UX & crawl |
+| SSR Inertia             | HTML mentah tanpa title/meta/OG/JSON-LD | dirender server (`bootstrap/ssr`) di container app, fallback CSR tetap jalan | +SEO |
+| Semantik HTML5          | logo 404, 2 `<main>` di docs, auth tanpa `<main>`, 15 heading skip | semua diperbaiki, skip-link + label pencarian ditambah | +a11y/SEO |
+| Google Fonts            | `@import` di baris pertama CSS           | `<link>` + `preconnect` di root view           | non-blocking   |
+
+Angka diukur di localhost tanpa throttle jaringan dan tanpa concurrency, dengan `APP_DEBUG=true` (Debugbar aktif ±490 kB, tidak dihitung di "payload app"). Jangan diekstrapolasi ke 3G/4G tanpa menyebutnya estimasi.
+
+---
+
+## 1. T1 — Code splitting level route
+
+| File                    | Perubahan                                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `resources/js/app.js`   | `import.meta.glob('./pages/**/*.vue')` dipindah ke module scope tanpa `eager`; resolver mengembalikan promise dan melempar error jelas bila page tidak ada |
+
+**Keputusan:** dynamic import di resolver (pola resmi Inertia untuk Vue) dipilih daripada 57 wrapper `defineAsyncComponent`. Satu titik perubahan, tidak ada duplikasi, dan tidak mengubah kontrak `createInertiaApp`.
+
+**Bukti:** `public/build/manifest.json` naik dari 3 entri menjadi 210 entri (59 `isDynamicEntry`); tiap page punya file sendiri.
+
+## 2. T2 — Vendor berat hanya di chunk pemakainya
+
+| Vendor              | Lokasi                                          | Tindakan                                                            |
+| ------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `vue3-lottie`       | `components/core/LocalLottie.vue:3` (terlarang) | `defineAsyncComponent(() => import('vue3-lottie')...)`              |
+| `html5-qrcode`      | `utils/composables/useGlobalQrScanPage.ts:4`    | `import type` + `loadHtml5Qrcode()` yang `await import()` saat start |
+| Tiptap / ProseMirror | `modules/dashboard/**` (bukan lokasi terlarang) | tidak diubah — sudah terisolasi ke chunk page setelah T1            |
+| `chart.js`          | `modules/dashboard/*Chart.vue`                  | tidak diubah — hanya dipakai `pages/Dashboard/Index.vue`            |
+| `xlsx`              | tidak terpasang                                 | tidak ada pekerjaan; hanya string format ekspor                     |
+
+**Keputusan:** aturan melarang impor statis dari `app.js`, `bootstrap.js`, layout, dan `components/core/`. Hanya lottie yang melanggar; Tiptap/chart berada di `components/modules/` sehingga async tambahan hanya menambah state loading tanpa manfaat untuk first paint auth. Alasan ini dicatat sebagai penolakan opsi "semua vendor async".
+
+**Bukti:** `grep -c` pada entry final → `tiptap 0`, `prosemirror 0`, `html5-qrcode 0`, `vue3-lottie 0`, `chart.js 0`. Chunk terbesar yang tersisa: Tiptap 134,4 kB gzip, html5-qrcode 99,8 kB gzip, lottie 80,8 kB gzip — semuanya lazy.
+
+## 3. T3 — manualChunks vendor bersama
+
+`vite.config.js`: `build.rollupOptions.output.manualChunks` = `vendor-vue` (34,6 kB gzip), `vendor-inertia` (61,1 kB), `vendor-ui` (54,8 kB). Tidak ada pemecahan per page.
+
+**Keputusan:** bentuk objek dipilih (deterministik, mudah diaudit) daripada fungsi `id =>`. Usulan reviewer menggabungkan `vue` + `@inertiajs/vue3` menjadi satu chunk **ditolak** karena instruksi tiket menetapkan tiga chunk tersebut; penggabungan dicatat sebagai follow-up.
+
+## 4. T4 — Lottie lazy di halaman auth
+
+- `AuthIllustration.vue:23`: `:lazy="false"` dihapus, animasi dimuat lewat IntersectionObserver **setelah** form tampil.
+- Placeholder: root `LocalLottie` sudah memakai `sizeStyle` (260 px); wrapper `height: 260px` menjaga ruang.
+- **Bukti no-CLS & laziness:** viewport mobile 390×844 → `lottie: false` (tidak ada request `auth-secure.json`/`vue3-lottie`), payload 254 kB; desktop 1280×900 → lottie dimuat setelah mount, FCP tetap 224–260 ms.
+
+## 5. T5 — Rate limit login & register
+
+| File                            | Perubahan                                                                                                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config/auth_throttle.php`      | baru — limit dari env: `AUTH_LOGIN_*`, `AUTH_REGISTER_*`, `AUTH_PASSWORD_{EMAIL,LINK,RESET}_*` (default 5/1, 3/1, 5/1)                                                                    |
+| `app/Providers/AppServiceProvider.php` | 5 named limiter: `auth-login` (email+IP), `auth-register` (IP), `auth-password-email`/`-link`/`-reset` (IP); helper `authThrottleLimit()`                                                                 |
+| `routes/web/auth.php`           | login/register dapat throttle pertama kali; `forgot-password` & `password-reset-link` dipisah ke kunci berbeda                                                                             |
+| `bootstrap/app.php`             | response Inertia 429 menyalin `Retry-After` + `X-RateLimit-*` dari response asli (sebelumnya dibuang karena render ulang halaman `Error`)                                                  |
+| `tests/Feature/Auth/AuthThrottleTest.php` | 6 test: limit login, isolasi per email, register, bucket password terpisah, header pada 429 HTML, `email[]=` bukan 500                                                                            |
+
+**Keputusan:** memakai `RateLimiter` + alias `throttle` yang sudah menjadi layer lintas-pakai. Middleware limiter baru ditolak karena menduplikasi mekanisme framework. Angka di config/env, bukan magic number di route.
+
+**Perbaikan dari security review:** `(string) $request->input('email')` pada array memicu `E_WARNING` → 500 dan tidak tercatat limiter. Sekarang `is_string()` guard; request `email[]=` menjadi 302 validasi, bukan 500 (ada test regresi).
+
+**Tidak dikerjakan (keputusan user):** limit agregat per-IP untuk login (anti password-spraying). Dicatat sebagai rekomendasi §9.
+
+## 6. T6 — Handler 429 di frontend
+
+| File                                            | Perubahan                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `resources/js/lib/http-retry-after.ts`          | baru — `parseRetryAfterSeconds()` + `formatRetryAfterMessage()` (murni)                        |
+| `resources/js/hooks/useGlobalHttpStatusToast.ts` | baru — satu listener `router.on('invalid')` untuk 419/429/≥500, `preventDefault()`, toast 429 dengan hitung mundur |
+| `resources/js/app.js`                           | handler inline dihapus, hook dipanggil sekali sebelum `createInertiaApp`                       |
+
+Pesan 429: `Terlalu banyak percobaan. Coba lagi dalam 58 detik.`; tanpa header → `Terlalu banyak percobaan. Coba lagi sebentar lagi.`; fallback tanpa detik → `showHttpErrorToast(429)`.
+
+**Keputusan:** parsing header = fungsi murni di `lib/`, registrasi listener = hook di `hooks/` (folder target `AGENTS.md`, sebelumnya belum ada). Pembuatan folder `hooks/` dicatat sebagai folder baru resmi.
+
+## 7. T7 — Fonts & favicon
+
+- `resources/css/app.css`: `@import` Google Fonts dihapus (baris 1).
+- `resources/views/app.blade.php`: `preconnect` ×2 + stylesheet Poppins (query string identik) + `rel="icon"` (ICO & PNG 192) + `apple-touch-icon`.
+- `public/favicon.ico`: 370.070 B → **7.406 B** (ICO 16/32/48); baru `favicon-192.png` (28.181 B) dan `apple-touch-icon.png` (180×180, 14.002 B). `favicon.ico.bak` (0 byte) dihapus.
+- Sumber: `public/DForm 1.png` (wordmark "DForm v2" 113×49). Wordmark utuh tidak terbaca di 16 px, jadi glyph mark di-crop dan ditaruh di kanvas persegi — tanpa artwork/ warna baru.
+
+## 8. T8 — Debugbar (verifikasi saja)
+
+- `config/debugbar.php:15` → `env('DEBUGBAR_ENABLED')` (null = ikut `APP_DEBUG`).
+- `.env.example:4` → `APP_DEBUG=true` (contoh lokal), tidak ada `DEBUGBAR_ENABLED`.
+- Dampak lokal terukur: Debugbar menambah ±490 kB per halaman dan pada load 30 rps menyebabkan `Allowed memory size of 268435456 bytes exhausted` (2 dari 600 request). **Tidak ada file `.env`/config yang diubah**; produksi memakai `APP_DEBUG=false` (entrypoint `Dockerfile.prod`) sehingga Debugbar mati.
+
+---
+
+## 9. Pengukuran before/after (build produksi, localhost)
+
+Metode sama dengan audit §7.4: `public/hot` dipindah sementara agar Laravel menyajikan `public/build`, diukur dengan Chromium, lalu `public/hot` dipulihkan (trap `EXIT`, terverifikasi).
+
+| Metrik                  | Sebelum (audit) | Sesudah run 1–3          |
+| ----------------------- | --------------- | ------------------------ |
+| Entry JS gzip           | 886.150 B       | 18.230 B                 |
+| TTFB                    | 19–25 ms        | 15 / 15 / 15 ms          |
+| FCP                     | 236–260 ms      | 224 / 260 / 224 ms       |
+| DCL                     | 569–591 ms      | 244 / 277 / 241 ms       |
+| Load                    | 618–635 ms      | 251 / 287 / 251 ms       |
+| Payload app (tanpa Debugbar) | ±1.033 kB  | 356 kB                   |
+| Request app             | 10              | 30 (chunk lebih kecil)   |
+| Mobile 390×844          | —               | 254 kB, lottie tidak dimuat, FCP 228 / DCL 250 / load 258 ms |
+
+**Budget:** entry 18,2 kB gzip ≤ 350 kB ✔; chunk page terbesar (`Dashboard/Index`) 63,9 kB gzip ≤ 200 kB ✔. Chunk lazy terbesar (Tiptap) 134,4 kB gzip, masih di bawah 200 kB.
+
+Catatan jujur: FCP hampir tidak berubah karena ditentukan HTML+CSS (44 kB), bukan JS; perbaikan besar ada di DCL/load dan byte yang diunduh.
+
+## 10. Stress test k6
+
+Skrip baru `scripts/stress/k6/auth-throttle.js` (login flood + register flood, CSRF per iterasi, `redirects: 0`) — **tidak ikut commit** karena `scripts/stress` ada di `.gitignore`; ini artefak harness lokal seperti skrip k6 lain di folder yang sama. k6 v2.3.0 (dipasang di `~/.local/bin`, bukan paket sistem).
+
+| Run                          | Hasil                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 20 rps login + 10 rps register, 30 s, 150 VU | 600 iterasi / 1.200 request; **97,83% 429**, 0,33% 5xx (2× memory_limit 256 MB di worker lokal dengan Debugbar), p95 5,52 s, 301 dropped |
+| 5 rps login + 3 rps register, 15 s           | median POST 33 ms (login) / 36 ms (register), p95 272 ms, tanpa 5xx                                                                  |
+| CPU container                                | 18,3–19,3% saat flood vs **19,3% idle** — tidak ada kenaikan terukur; baseline didominasi Vite `usePolling`, jadi angka ini bukan batas CPU aplikasi |
+
+Kesimpulan jujur: limiter bekerja (429 dominan, tanpa lonjakan CPU), tetapi kapasitas lokal ±30 rps dengan Debugbar aktif; angka produksi harus diukur ulang tanpa Debugbar. 5xx berasal dari `memory_limit`, bukan dari logika throttle.
+
+## 11. Verifikasi
+
+| Cek                                                       | Hasil                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| E2E Playwright (`tests/e2e/auth.spec.ts`)                 | **8/8 lulus** (sebelum implementasi: 3 lulus, 5 merah)                    |
+| Test backend `AuthThrottleTest`                           | 6 lulus, 44 assertion                                                    |
+| Test backend `tests/Feature/Auth`                         | 22 lulus, 120 assertion                                                  |
+| Suite penuh (`php artisan test`)                          | 665 lulus, 36 skipped, 11 gagal — semuanya `EventListPaginationTest` (WIP lain: `EventService::paginateForPublicList()`/`SEARCH_MAX_PAGE` belum ada), bukan area auth |
+| `php artisan test --filter='^(?!.*EventListPagination)'`  | 665 lulus, 36 skipped, 0 gagal                                           |
+| Pint (`--test`, file yang disentuh)                       | PASS                                                                     |
+| ESLint (`npm run lint`)                                   | 0 error, 5 warning lama di file yang tidak disentuh                      |
+| `npm run build`                                           | sukses, 205 chunk, entry 58.090 B raw / 18.230 B gzip                    |
+| `BCRYPT_ROUNDS`, Timebox, query, index, migrasi            | tidak berubah (diff hanya config/limit/route/exception/asset/frontend)     |
+
+Perbaikan state test: bucket limiter di-reset deterministik lewat `RateLimiter::clear(md5('<limiter>'.'127.0.0.1'))` di `tests/e2e/support/artisan.ts`, jadi tidak ada lagi `test.skip` karena bucket "hangat".
+
+## 12. Ditunda / butuh keputusan
+
+| #   | Item                                                                                                    | Alasan                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | Limit agregat per-IP untuk login (anti password spraying)                                               | Di luar spec tiket; user memilih tetap `email+IP` 5/menit               |
+| 2   | `trustProxies` / IP asli di belakang LB/CDN                                                             | Deployment-dependent; tanpa itu semua user berbagi satu bucket IP       |
+| 3   | Rotasi IPv6 /64 melewati limiter per-IP                                                                 | Butuh normalisasi prefix; belum ada bukti trafik IPv6                   |
+| 4   | `STRESS_BYPASS_THROTTLE` memakai `!App::isProduction()` (staging bisa lolos)                             | Pre-existing; disarankan allow-list `local`/`testing`                   |
+| 5   | Konsolidasi `useGlobalHttpStatusToast` + `useHttpErrorToast`                                            | Event source berbeda (invalid vs Error page POST); butuh perubahan layout dashboard |
+| 6   | Pesan `email.unique` register membocorkan status akun                                                   | Perubahan perilaku/produk — hanya dicatat, tidak dikerjakan             |
+| 7   | E2E login sukses bergantung pada user stress `stress-user-1@stress.test` (dataset tidak di-commit)      | Butuh seeder fixture untuk CI                                           |
+| 8   | Debugbar `memory_limit` pada load lokal                                                                  | Lingkungan; ukur ulang dengan `APP_DEBUG=false`                          |
+
+## 13. File yang berubah
+
+**Backend:** `config/auth_throttle.php` (baru), `app/Providers/AppServiceProvider.php`, `routes/web/auth.php`, `bootstrap/app.php`, `tests/Feature/Auth/AuthThrottleTest.php` (baru).
+
+**Frontend:** `resources/js/app.js`, `resources/js/hooks/useGlobalHttpStatusToast.ts` (baru), `resources/js/lib/http-retry-after.ts` (baru), `resources/js/components/core/LocalLottie.vue`, `resources/js/components/modules/auth/AuthIllustration.vue`, `resources/js/utils/composables/useGlobalQrScanPage.ts`.
+
+**Build & aset:** `vite.config.js` (blok `build`), `resources/css/app.css`, `resources/views/app.blade.php`, `public/favicon.ico`, `public/favicon-192.png` (baru), `public/apple-touch-icon.png` (baru), `public/favicon.ico.bak` (dihapus, 0 byte).
+
+**SEO:** `resources/js/components/seo/SeoHead.vue`, `resources/js/pages/Auth/{Login,Register,ForgotPassword,ResetPassword}.vue`.
+
+**SSR:** `resources/js/ssr.js` (baru), `vite.config.js`, `package.json`, `docker/Dockerfile.prod`, `docker-compose.prod.yml`, `.gitignore`.
+
+**Redesign auth:** `resources/js/layouts/AuthLayout.vue`, `resources/js/components/modules/auth/{AuthTabs(baru),AuthLoginForm,AuthRegisterForm,AuthForgotPasswordForm,AuthResetPasswordForm,AuthOAuthButtons}.vue`, `resources/js/pages/Auth/{Login,Register}.vue`, `resources/js/pages/Auth.vue`, `resources/js/hooks/useAuthTabs.ts` (baru), `resources/js/lib/authTabs.ts` (baru), `app/Http/Middleware/DisableSsrForPrivatePages.php` (baru), `bootstrap/app.php`.
+
+**Semantik:** `resources/js/layouts/{LandingLayout,AuthLayout}.vue`, `resources/js/pages/Docs.vue`, `resources/js/components/modules/landing/{Navbar,Footer}.vue`, `resources/js/components/modules/landing/home/HomeShowcase.vue`, `resources/js/components/modules/landing/features/FeaturesIntegrations.vue`, `resources/js/components/modules/landing/events/EventList.vue`.
+
+**Test & harness:** `playwright.config.ts` (baru), `tests/e2e/auth.spec.ts` (baru), `tests/e2e/support/artisan.ts` (baru), `package.json`/`package-lock.json` (devDependency `@playwright/test` + script `test:e2e` yang sudah ada di working tree sebelum tiket ini), `scripts/stress/k6/auth-throttle.js` (baru, ignored).
+
+## 14. Follow-up: SEO & meta halaman auth
+
+Halaman auth sebelumnya tidak punya `<title>`, `description`, maupun penanda robots — tab browser hanya menampilkan URL dan crawler mengandalkan header `X-Robots-Tag` saja.
+
+| File                                        | Perubahan                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| `resources/js/components/seo/SeoHead.vue`   | prop opsional `noindex` (default `false`): render `<meta name="robots" content="noindex, nofollow">` dan **tidak** merender canonical (canonical pada halaman noindex saling bertentangan) |
+| `resources/js/pages/Auth/Login.vue`         | `SeoHead title="Masuk"` + description + `/auth/login` + `noindex`          |
+| `resources/js/pages/Auth/Register.vue`      | `SeoHead title="Daftar"` + description + `/auth/register` + `noindex`      |
+| `resources/js/pages/Auth/ForgotPassword.vue`| `SeoHead title="Lupa kata sandi"` + description + `noindex`                |
+| `resources/js/pages/Auth/ResetPassword.vue` | `SeoHead title="Atur ulang kata sandi"` + description + `noindex`          |
+
+**Bukti runtime (Chromium):**
+
+| URL                        | `document.title`                     | robots                 | canonical |
+| -------------------------- | ------------------------------------ | ---------------------- | --------- |
+| `/auth/login`              | `Masuk · DForm`                      | `noindex, nofollow`    | —         |
+| `/auth/register`           | `Daftar · DForm`                     | `noindex, nofollow`    | —         |
+| `/auth/forgot-password`    | `Lupa kata sandi · DForm`            | `noindex, nofollow`    | —         |
+| `/auth/reset-password/{t}` | `Atur ulang kata sandi · DForm`      | `noindex, nofollow`    | —         |
+| `/` (regresi)              | `Kelola acara & formulir… · DForm`   | —                      | tetap ada |
+
+**Tidak diubah:** `SitemapController` sudah hanya memuat `/`, `/events`, `/features`, `/docs`, dan detail event published — halaman auth tidak pernah masuk sitemap. Header `X-Robots-Tag` dari `AddRobotsTagForPrivateAreas` tetap berlaku sebagai lapisan kedua.
+
+**Sisa peluang performa (perlu keputusan produk/desain, tidak dikerjakan):** animasi lottie auth ±99 kB (chunk 80,8 kB + JSON 18,7 kB) untuk elemen dekoratif; Google Fonts masih dari domain pihak ketiga (bisa self-host untuk menghapus 2 RTT). Sisanya sudah batas wajar: `vendor-inertia` 64,8 kB, `vendor-ui` 57 kB, CSS 43,8 kB.
+
+## 15. Follow-up: SSR Inertia (server-rendered HTML)
+
+Temuan audit: HTML dari server berisi **0 `<title>`, 0 meta description, 0 OG, 0 JSON-LD** — semua meta dibuat JS. Sekarang dirender di server.
+
+| File                                   | Perubahan                                                                                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resources/js/ssr.js` (baru)           | entry SSR: `createServer` + `createInertiaApp({ page, render: renderToString, resolve, setup })`; glob page lazy; directive `focus` versi `getSSRProps` (tanpa DOM) karena dipakai input inti |
+| `vite.config.js`                       | `laravel({ ssr: 'resources/js/ssr.js' })` + `ssr.noExternal: true` (bundle self-contained; tanpa ini build SSR gagal karena `manualChunks`)  |
+| `package.json`                         | script `build:ssr` (`vite build --ssr`)                                                                                                      |
+| `docker/Dockerfile.prod`               | build client + SSR, lalu `rm -rf node_modules` (bundle terbukti jalan tanpa `node_modules`)                                                   |
+| `docker/entrypoint.prod.sh`            | menjalankan `node bootstrap/ssr/ssr.js` di background dengan loop restart (2 dtk); log ke stdout container. Tidak menambah service/container baru |
+| `.gitignore`                           | `/bootstrap/ssr`                                                                                                                              |
+
+**Bukti HTML mentah (curl, proses SSR hidup):**
+
+| Path                       | title | description | og:title | JSON-LD | canonical |
+| -------------------------- | ----: | ----------: | -------: | ------: | --------: |
+| `/`                        | 1     | 1           | 1        | 1       | 1         |
+| `/features`                | 1     | 1           | 1        | 1       | 1         |
+| `/events`                  | 1     | 1           | 1        | 1       | 1         |
+| `/events/stress-event-839549` | 1  | 1           | 1        | 1 (`Event`) | 1     |
+| `/auth/login`              | 1     | 1           | 1        | 0 (tidak ada schema) | 0 (noindex, by design) |
+
+- Bundle SSR: `bootstrap/ssr/ssr.js` 84,43 kB + `assets/` (total 12 MB); dijalankan dari salinan tanpa `node_modules` → `{"status":"OK"}` pada `/health`.
+- Fallback: proses node dimatikan → semua halaman tetap **200**, `title=0` di HTML mentah, client merender normal (`HttpGateway` mengembalikan null saat koneksi gagal).
+- Supervisor: `kill` pada proses node → SSR hidup lagi ≤6 dtk (`title` kembali 1); setelah semua proses dimatikan, halaman tetap 200 dengan fallback CSR. RSS node terukur **79 MB** di container app.
+- **Tanpa container baru:** SSR berjalan di dalam container `app` yang sama (localhost:13714), `docker-compose.prod.yml` tetap 3 service (`db`, `redis`, `app`).
+- **Dev/local:** SSR ikut jalan di container `app` (`docker/entrypoint.sh`): build sekali bila `bootstrap/ssr/ssr.js` belum ada, lalu supervisor loop seperti prod. Tujuannya agar error render terlihat langsung di `podman logs d_form_app`.
+  - Bundle SSR statis, jadi setelah mengubah komponen: `podman exec -i -w /app d_form_app npm run build:ssr` lalu `podman restart d_form_app`. Tanpa rebuild, HTML mentah bisa tertinggal satu versi; tampilan tetap benar karena client merender ulang (tanpa hydration).
+  - Bukti error terlihat: `POST /render` dengan komponen tidak ada → `Error: Halaman Inertia tidak ditemukan: Does/NotExist` muncul di log container, response 200 body kosong, Laravel fallback CSR.
+  - Bukti tidak mengganggu: E2E auth 8/8 hijau dengan SSR aktif, console browser bersih, CLS 0 (FCP dev 208–340 ms).
+
+**Keputusan: hydration TIDAK diaktifkan.** Percobaan mengganti `createApp` → `createSSRApp` di `app.js` menghasilkan hydration mismatch sistematis (class/node/style) di 4/4 halaman yang diuji (`/`, `/features`, `/auth/login`, `/docs`) karena komponen memakai state client-only (IntersectionObserver lottie, path aktif navbar). Dikembalikan ke `createApp`: SSR dipakai untuk HTML crawler, client merender ulang. CLS terukur **0** dengan SSR aktif, jadi tidak ada flash terukur. Hydration dicatat sebagai follow-up yang butuh audit per komponen.
+
+**Test E2E disesuaikan:** atribut `novalidate` dipasang lewat `MutationObserver` (node form SSR diganti saat mount), dan reset bucket limiter memakai `Cache::flush()` karena aplikasi melihat IP NAT podman (`10.89.0.9`), bukan `127.0.0.1`.
+
+## 16. Follow-up: semantik HTML5 & aksesibilitas
+
+| Temuan (audit DOM)                                        | Sebelum              | Sesudah                                  |
+| --------------------------------------------------------- | -------------------- | ---------------------------------------- |
+| Logo navbar/footer `src="/public/DForm%201.png"`           | 404 (gambar rusak)   | 200, `width=113 height=49`                |
+| Skip-link + `main#main` (publik)                           | tidak ada            | ada di 5 halaman publik                  |
+| `<main>` di `/docs`                                        | 2 (nested, invalid)  | 1                                        |
+| Landmark `<main>` di layout auth                           | 0                    | 1                                        |
+| Input pencarian `/events`                                  | tanpa label          | `aria-label="Cari acara"`                |
+| Heading skip (landing / features / docs)                   | 1 / 1 / 13           | 0 / 0 / 0                                |
+| Dimensi intrinsik logo auth                                | 160×40 (salah)       | 113×49                                   |
+
+Tidak diubah: `width`/`height` banner event — container sudah memakai `aspect-[4/3]` / `aspect-[16/10]` (`lib/eventBannerAspect.ts`), jadi CLS sudah dicegah tanpa menebak dimensi gambar upload.
+
+## 17. Redesign halaman auth (tab Masuk/Daftar)
+
+| Aspek | Sebelum | Sesudah |
+| :--- | :--- | :--- |
+| Layout | dua kolom, ilustrasi lottie kiri, kartu `app-surface` | satu kolom, tanpa ilustrasi/kartu/background, tanpa footer |
+| Posisi | vertikal center (`items-center`) | horizontal center + anchor atas (`items-start` + `pt-28/36`); tablist `top` tetap saat pindah tab |
+| Navigasi | link "Sign up" di bawah judul | 2 tab `flex-1`, underline biru 3px, switch in-place |
+| Copy | campuran Inggris/Indonesia | Indonesia konsisten (Masuk/Daftar, "Selamat datang kembali", "atau lanjutkan dengan") |
+| Lottie auth | `AuthIllustration` + `authSecure` | dihapus; `LocalLottie` tetap untuk halaman lain |
+
+**Perilaku tab (terukur):** `pushState` `/auth/login` ↔ `/auth/register`, `popstate`/back benar; kedua panel `force-mount` sehingga nilai form tidak hilang (email login tetap setelah pindah tab dan kembali); `role=tablist/tab/tabpanel`, `aria-selected`, panah kiri/kanan, Home/End, fokus terlihat.
+
+**Bukti tidak ada pergeseran (Playwright):** desktop 1280×900 → tablist `top` 144 pada login & register (Δ0), panel `height` 399 → 515 (tumbuh ke bawah); mobile 390×844 → tablist `top` 105 (Δ0). Footer `0` node; semua leluhur judul `background-color: rgba(0,0,0,0)`.
+
+**SSR dimatikan untuk area privat** — `app/Http/Middleware/DisableSsrForPrivatePages.php` (auth, admin, dashboard, joined, recruitment). Alasan: halaman privat `noindex` (tanpa manfaat SEO) dan form dari HTML SSR bisa ter-submit native sebelum Vue mount (klik/Enter sebelum JS siap → 419). Halaman publik tetap SSR. Bukti: `/auth/login` `title=0` di HTML mentah, `/features` dan `/` `title=1`.
+
+**E2E disesuaikan:** locator di-scope ke `#login-email`/`#login-password` karena panel Daftar ikut ter-mount (`getByLabel(/email/i)` menjadi ambigu). Suite auth **8/8 lulus**, Pint PASS, ESLint 0 error.
+
+**Build:** entry **57.668 B / 18.142 B gzip**; chunk `Auth/Login` 1.430 B (691 gzip), `Auth/Register` 1.433 B (692 gzip), chunk bersama `useAuthTabs` 11,5 kB.
+
+## 18. Penyetelan lanjutan halaman auth
+
+| Perubahan | Detail |
+| :--- | :--- |
+| Blok auth di tengah | `min-h-dvh` + `items-center`; kedua panel di-stack pada satu sel `grid` dan panel non-aktif `invisible` + `inert` + `aria-hidden` (bukan `display:none`) sehingga tinggi sel = panel tertinggi |
+| Posisi atas stabil | `tablist.top` identik antar tab: desktop **85px**, mobile **106px** (Δ0); hanya isi bawah yang berbeda/berubah tinggi |
+| Spacing mobile | `pt-24 pb-12 sm:pt-20 lg:py-16`; header absolute tidak lagi menimpa tab (header bottom 60 ≤ tablist top 106; desktop 76 ≤ 85) |
+| Lebar input mobile | font kontrol form dipaksa **16px** pada viewport <640px (root mobile 15px) → mencegah auto-zoom iOS saat fokus; desktop tetap 14px (`text-sm`) |
+| Kekuatan kata sandi | 4 segmen garis (`h-1`, gap 6px) terisi kiri→kanan (`transition-colors 300ms ease-out`), selalu tampil termasuk saat kosong, tanpa badge/label per langkah |
+| Hint & kecocokan | satu baris "Minimal 8 karakter dengan huruf besar dan angka."; indikator "Kata sandi cocok / belum cocok" dipindah ke bawah input Confirm password (`aria-live="polite"`, tinggi tetap agar tidak menggeser layout) |
+
+**A11y:** track `role="progressbar"` + `aria-valuemin/max/now` + `aria-describedby` ke hint; indikator kecocokan live region; panel non-aktif `inert` sehingga tidak masuk tab order.
+
+**Verifikasi:** E2E auth **8/8 lulus**; ESLint 0 error; build entry **57.657 B / 18.164 B gzip**, `Auth/Login` 1.401 B (687 gzip), `Auth/Register` 1.404 B (690 gzip). `scrollHeight` desktop 932 vs viewport 900 — selisih 32px berasal dari `body { margin-bottom: 32px }` milik Debugbar (dev-only), bukan layout auth.
+
+## 19. Cek ketersediaan email saat mengetik (register)
+
+| Bagian | Detail |
+| :--- | :--- |
+| Endpoint | `POST /auth/email-availability` (name `auth.email.availability`), guest, throttle `auth-email-check` 20/menit/IP, `{ email }` → `{ available: bool }` |
+| Query | `select exists(select 1 from users where email = ?)` via `DB::table('users')->selectRaw('1')->exists()`; tanpa scope soft-delete agar konsisten dengan `unique:users,email`; EXPLAIN: const lookup lewat `users_email_unique` |
+| Hook | `resources/js/hooks/useEmailAvailability.ts` — debounce **500 ms**, abort request lama, abaikan respons usang, 422→idle, 429/network→error, cleanup saat unmount |
+| UI | Slot `trailing` baru di `EmailInput`/`AuthField`: spinner saat cek, centang (`success`) bila tersedia, X (`destructive`) bila terpakai; live region `sr-only` (tanpa tambah tinggi) |
+| Spacing | gap Name→Email = 16 px, Email→Password = 16 px (selisih 0); tinggi ketiga field 40 px |
+| Test | `tests/e2e/email-availability.spec.ts` 4 test (X, centang, debounce ≤2 request untuk 5 ketikan, regresi spacing); backend `EmailAvailabilityTest` 7 test |
+
+## 20. Optimasi entry bundle lanjutan
+
+- Tabel pesan `resources/js/lib/error-message.ts` (419 baris) tidak lagi masuk entry: `useGlobalHttpStatusToast` memuatnya lewat `import()` hanya saat ada respons 4xx/5xx.
+- Entry **18.164 B → 6.696 B gzip** (23.332 B raw); chunk `Auth/Login` 697 B, `Auth/Register` 700 B gzip.
+
+## 21. Catatan memory di perangkat mobile
+
+Diukur 10× refresh berturut (viewport 390×844): heap stabil, tanpa pertumbuhan — dev (Vite + Debugbar) 17 MB, build produksi **10 MB**, landing dev 69 MB; `localStorage` 0 kB. Jadi kenaikan 10→100 MB yang terlihat di HP berasal dari cache proses browser saat menguji **dev server** (≈250 modul belum diminify + Debugbar), bukan kebocoran JS. Rekomendasi: uji performa HP memakai build produksi (`APP_DEBUG=false`, tanpa `public/hot`).
+
+## 22. Registrasi dengan verifikasi email (OTP)
+
+Akun baru tidak lagi dibuat saat submit register; user diarahkan ke halaman OTP dan akun baru dibuat setelah kode benar.
+
+**Alur:** submit → `pending_registrations` (email unik, password hashed, OTP terenkripsi) → job `SendRegistrationOtpJob` masuk queue → halaman `/auth/verify-otp` → kode benar → user dibuat (`email_verified_at`) + role `member` + login → dashboard.
+
+| Aturan | Nilai |
+| :--- | :--- |
+| Kode | 6 digit, disimpan terenkripsi (`APP_KEY`), tidak pernah di log/payload queue |
+| Masa berlaku | 5 menit (hitung mundur dari `expiresAt` server; offset `serverNow` dihitung sekali) |
+| Percobaan salah | maks 3 per kode; ke-3 menghanguskan kode |
+| Kuota kirim | maks 3 total **termasuk kiriman pertama**; setelahnya lock 15 menit, lalu jatah pulih |
+| Cooldown | 60 detik antar-kirim |
+| Lock | hanya memblokir kirim ulang, bukan verifikasi |
+| Resume | submit ulang email pending hanya mengirim OTP baru bila password cocok; nama/password pending tidak ditimpa |
+| Endpoint | `GET/POST /auth/verify-otp`, `POST /auth/verify-otp/resend`, `POST /auth/verify-otp/cancel` |
+| Sesi | verify/resend/cancel memakai email dari sesi (`otp.pending_email`), cancel wajib `otp.cancel_token` |
+| Limiter | verify 10/menit (IP+email sesi), resend 5/menit (IP), register cap 5/jam per email |
+| Worker | supervisor `queue:work` di entrypoint dev/prod (`QUEUE_WORKER=0` untuk mematikan) |
+| Prune | `otp:prune` hourly, hapus pending > 24 jam |
+
+**Bukti uji:** suite `tests/Feature/Auth` **90 lulus (494 assertion)**; E2E `auth` + `email-availability` + `otp-verification` **20 lulus**; uji manual HTTP: register → 302 `/auth/verify-otp`, halaman 200, `otp:current` mengeluarkan kode, submit → 302 `/dashboard`, baris user `email_verified_at` terisi dan pending terhapus. Build: entry 7.126 B gzip, chunk `Auth/VerifyOtp` 4.689 B gzip.
+
+**Catatan operasional:** worker memproses queue `default` yang juga dipakai job lama (dev sempat berisi ±106 job); pastikan worker produksi hanya berjalan setelah antrean bersih. Worker berjalan sebagai root (mengikuti pola SSR).
+
+## 23. Penyempurnaan halaman OTP
+
+| Perilaku | Detail |
+| :--- | :--- |
+| Layout | Mengikuti referensi: judul "Check your messages" center, email di bawahnya, hitung mundur halus, 6 kotak, "Tidak mendapatkan OTP? Kirim ulang OTP", "Ganti akun" |
+| Auto-submit | Begitu 6 digit terisi (ketik/paste) langsung verifikasi tanpa klik; tombol tetap ada sebagai fallback |
+| Sukses | 6 kotak hijau (`success`) dipertahankan ±600 ms, lalu pindah ke dashboard |
+| Gagal | Kotak merah + pesan server, kode dikosongkan dan fokus kembali ke kotak pertama |
+| 3× salah | Kode hangus, hitung mundur 00:00, pesan "Kode sudah kedaluwarsa. Kirim ulang OTP." |
+| Kirim ulang | Hitung mundur kembali 5 menit; tombol terkunci 60 detik (kuota total tetap 3 termasuk kiriman pertama) |
+| 429 | Pesan sisa waktu dari `Retry-After`, kotak tidak diberi state merah |
+
+**Jalur JSON:** `POST /auth/verify-otp` dengan `Accept: application/json` → `200 {verified, redirect}` / `422 {message}`; dipakai auto-submit agar state hijau sempat tampil sebelum navigasi. Pemanggil non-JSON tetap mendapat redirect.
+
+**Anti-spam test:** alamat `.test` di `local`/`testing` tidak lagi mengantrekan job OTP (guard di service + job), sehingga E2E tidak membanjiri queue/worker. Queue dev sempat berisi ±106 job sisa test; sudah habis diproses dan tidak terulang.
+
+**Verifikasi:** `tests/Feature/Auth` **91 lulus (497 assertion)**; E2E `auth`+`email`+`otp` **21 lulus, 1 gagal sementara** karena PHP `memory_limit` habis di Debugbar (bukan kode) — `auth` dijalankan ulang **8/8 lulus**. Chunk `Auth/VerifyOtp` **4.983 B gzip**.

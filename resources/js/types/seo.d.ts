@@ -1,4 +1,4 @@
-export interface SharedSeoProps {
+export interface ISharedSeoProps {
     siteName: string;
     siteUrl: string;
     defaultDescription: string;

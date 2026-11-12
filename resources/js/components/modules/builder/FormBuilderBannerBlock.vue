@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
-import { ImageUp, Loader2, RefreshCw, X } from 'lucide-vue-next';
-import type { FormBannerState } from './formBanner';
-import { normalizeBannerSrc } from './formBanner';
-import {
-    createLocalImagePreviewUrl,
-    revokeLocalImagePreviewUrl,
-    useBuilderImageUpload,
-} from '@/utils/composables/useBuilderImageUpload';
+import { X } from 'lucide-vue-next';
+import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
+import type { IFormBannerState } from './formBanner';
+import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
+import { ACCEPTED_IMAGE_EXTENSIONS, validateUploadFile } from '@/lib/uploadValidation';
+import { uploadBuilderImage } from '@/adapters/http/forms';
+import { describeRequestErrorMessage } from '@/adapters/http/httpError';
+import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
+import { useUploadedFileState, type IUploadedFileResult, type TUploader } from '@/hooks/useUploadedFileState';
 
-const banner = defineModel<FormBannerState>('banner', { required: true });
+const banner = defineModel<IFormBannerState>('banner', { required: true });
 
 /** `frame` = kartu mandiri (border + shadow sendiri); `plain` = panel di dalam section induk */
 const props = withDefaults(
@@ -24,202 +26,165 @@ const props = withDefaults(
         variant: 'frame',
         bannerPreviewSrc: '',
         uploadUrl: '',
-    },
+    }
 );
 
-const isDragging = ref(false);
-const bannerUploadError = ref('');
-const fileInput = ref<HTMLInputElement | null>(null);
-/** Object URL sementara untuk preview instan; direvoke setelah upload selesai. */
-const localPreviewUrl = ref('');
+/** MIME yang diterima tombol pilih banner; pesan error dipertahankan seperti sebelumnya. */
+const ALLOWED_BANNER_MIME_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif'];
+const BANNER_MAX_SIZE_KB = 5120;
 
-const { uploading: bannerUploading, uploadImage } = useBuilderImageUpload({
-    uploadUrl: () => props.uploadUrl,
-    onError: (message) => {
-        bannerUploadError.value = message;
-    },
-});
+/** Object URL sementara untuk preview draf lokal (tanpa endpoint upload). */
+const localPreviewUrl = ref('');
+const hasUploadEndpoint = computed<boolean>(() => props.uploadUrl.trim() !== '');
 
 const previewSrc = computed(
-    () => localPreviewUrl.value || props.bannerPreviewSrc || normalizeBannerSrc(banner.value.bannerUrl),
+    () => localPreviewUrl.value || props.bannerPreviewSrc || normalizePublicStorageUrl(banner.value.bannerUrl)
 );
 const hasImage = computed(() => previewSrc.value !== '');
-const isUploading = computed(() => bannerUploading.value);
 
-function patch(partial: Partial<FormBannerState>): void {
+function patch(partial: Partial<IFormBannerState>): void {
     Object.assign(banner.value, partial);
 }
 
-async function applyFile(file: File | null | undefined): Promise<void> {
-    bannerUploadError.value = '';
-    if (!file) return;
+/**
+ * Upload banner lewat adapter axios (`POST {form}/images`) sehingga progres byte dan
+ * `AbortSignal` Batalkan benar-benar diteruskan ke request.
+ * `builderPendingUploads` dinaikkan selama request agar autosave menunggu upload selesai.
+ */
+const uploader: TUploader = async (file, { signal, onProgress }): Promise<IUploadedFileResult> => {
+    if (!ALLOWED_BANNER_MIME_TYPES.includes(file.type)) {
+        throw new Error('Gunakan PNG, JPG, JPEG, atau GIF.');
+    }
 
-    const ok = ['image/png', 'image/jpeg', 'image/gif'];
-    if (!ok.includes(file.type)) {
-        bannerUploadError.value = 'Gunakan PNG, JPG, JPEG, atau GIF.';
+    const validationError = await validateUploadFile(file, ACCEPTED_IMAGE_EXTENSIONS);
+    if (validationError !== null) throw new Error(validationError);
+
+    builderPendingUploads.value += 1;
+
+    try {
+        const result = await uploadBuilderImage(props.uploadUrl.trim(), file, 'file', { signal, onProgress });
+        const storedValue = result.url.trim() !== '' ? result.url : result.path;
+
+        if (storedValue.trim() === '') {
+            throw new Error('Respons upload tidak membawa path/url gambar.');
+        }
+
+        return {
+            fileName: file.name,
+            fileSize: file.size,
+            mime: file.type,
+            previewUrl: normalizePublicStorageUrl(storedValue),
+            storedValue,
+        };
+    } catch (error) {
+        // Batalkan bukan kegagalan: state machine mengembalikan kartu ke idle.
+        if (error instanceof Error && error.name === 'AbortError') throw error;
+
+        throw new Error(describeRequestErrorMessage(error, 'Gagal mengunggah gambar.'));
+    } finally {
+        builderPendingUploads.value = Math.max(0, builderPendingUploads.value - 1);
+    }
+};
+
+const {
+    phase: uploadPhase,
+    progress: uploadProgress,
+    fileName: uploadFileName,
+    fileSize: uploadFileSize,
+    mime: uploadMime,
+    errorMessage: uploadErrorMessage,
+    start: startUpload,
+    cancel: cancelUpload,
+    reset: resetUpload,
+} = useUploadedFileState({
+    upload: uploader,
+    onCompleted: (result) => {
+        patch({ bannerUrl: result.storedValue ?? '', bannerFileName: result.fileName });
+    },
+});
+
+/** Tanpa endpoint `{form}/images` tidak ada request: preview lokal dipakai sampai save. */
+function applyDraftPreview(file: File): void {
+    revokeObjectUrl(localPreviewUrl.value);
+    localPreviewUrl.value = createObjectUrl(file);
+    patch({ bannerUrl: localPreviewUrl.value, bannerFileName: file.name });
+}
+
+async function onBannerPick(file: File): Promise<void> {
+    if (!hasUploadEndpoint.value) {
+        applyDraftPreview(file);
         return;
     }
 
-    const previousUrl = banner.value.bannerUrl;
-    const previousName = banner.value.bannerFileName;
-
-    // Preview instan (object URL) — tidak pernah base64, tidak pernah ke DB apa adanya.
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
-    const localUrl = createLocalImagePreviewUrl(file);
-    localPreviewUrl.value = localUrl;
-    patch({ bannerUrl: localUrl, bannerFileName: file.name });
-
-    const result = await uploadImage(file);
-    if (result) {
-        localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
-        patch({ bannerUrl: result.url, bannerFileName: file.name });
-        return;
-    }
-
-    if (props.uploadUrl.trim() !== '') {
-        // Upload gagal → kembalikan state semula agar snapshot tetap konsisten.
-        localPreviewUrl.value = '';
-        revokeLocalImagePreviewUrl(localUrl);
-        patch({ bannerUrl: previousUrl, bannerFileName: previousName });
-        if (!bannerUploadError.value) bannerUploadError.value = 'Gagal mengunggah gambar. Coba lagi.';
-    }
-    // Tanpa uploadUrl: pertahankan preview lokal (sanitizer membuangnya sebelum save).
-}
-
-function openPicker(): void {
-    fileInput.value?.click();
-}
-
-function onBannerFile(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    void applyFile(input.files?.[0]);
-    input.value = '';
-}
-
-function onDrop(e: DragEvent): void {
-    isDragging.value = false;
-    void applyFile(e.dataTransfer?.files?.[0]);
+    await startUpload(file);
 }
 
 function clearImage(): void {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    resetUpload();
+    revokeObjectUrl(localPreviewUrl.value);
     localPreviewUrl.value = '';
     patch({ bannerUrl: '', bannerFileName: '' });
 }
 
+/** Hasil upload ditampilkan oleh pratinjau 3:1, jadi kartu kembali ke idle setelah selesai. */
+const cardState = computed<TFileUploadState>(() => (uploadPhase.value === 'completed' ? 'idle' : uploadPhase.value));
+const idleLabel = computed(() => (hasImage.value ? 'Ganti banner' : 'Tambahkan banner form'));
+const isUploading = computed<boolean>(() => uploadPhase.value === 'uploading');
+
 onUnmounted(() => {
-    revokeLocalImagePreviewUrl(localPreviewUrl.value);
+    revokeObjectUrl(localPreviewUrl.value);
 });
 </script>
 
 <template>
     <div
         class="overflow-hidden transition-[border-color,box-shadow] duration-200"
-        :class="[
+        :class="
             variant === 'plain'
                 ? 'rounded-none border-0 bg-transparent shadow-none'
-                : 'border-border bg-card rounded-2xl border shadow-sm',
-            isDragging ? 'border-primary/60 ring-primary/15 ring-2' : '',
-        ]"
+                : 'border-border bg-card rounded-2xl border shadow-sm'
+        "
     >
-        <!-- Belum ada banner → area unggah -->
-        <button
-            v-if="!hasImage"
-            type="button"
-            class="group hover:bg-muted/25 flex w-full cursor-pointer items-center gap-3 px-5 py-6 text-left transition-colors duration-200 sm:px-7"
-            @click="openPicker"
-            @dragover.prevent="isDragging = true"
-            @dragleave="isDragging = false"
-            @drop.prevent="onDrop"
+        <div v-if="hasImage" class="relative aspect-[3/1] w-full overflow-hidden">
+            <img :src="previewSrc" alt="Pratinjau banner form" class="size-full object-cover" />
+        </div>
+        <div
+            v-if="hasImage"
+            class="border-border/70 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t px-5 py-2.5 sm:px-7"
         >
-            <span
-                class="bg-muted text-muted-foreground group-hover:border-primary/40 group-hover:text-primary border-border/70 grid size-10 shrink-0 place-items-center rounded-xl border shadow-xs transition-[color,border-color] duration-200"
-            >
-                <ImageUp class="size-5" aria-hidden="true" />
+            <span class="text-muted-foreground min-w-0 truncate text-xs font-medium">
+                {{ banner.bannerFileName || 'banner-form' }}
             </span>
-            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span class="text-foreground text-sm font-semibold">Tambahkan banner form</span>
-                <span class="text-muted-foreground text-xs leading-snug">
-                    Gambar sampul di bagian atas form — rasio 3:1
-                </span>
-            </span>
-            <span
-                class="border-border bg-background text-muted-foreground/80 rounded-full border px-2.5 py-1 text-[10px] font-semibold sm:hidden"
+            <Button
+                radius="icon"
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Hapus banner"
+                :disabled="isUploading"
+                @click="clearImage"
             >
-                PNG · JPG · GIF
-            </span>
-            <span
-                class="text-muted-foreground hidden shrink-0 text-[10px] font-semibold tracking-wide uppercase sm:block"
-            >
-                Klik atau seret
-            </span>
-        </button>
-        <!-- Ada banner → pratinjau + aksi -->
-        <div v-else>
-            <div class="relative aspect-[3/1] w-full overflow-hidden">
-                <img :src="previewSrc" alt="Pratinjau banner form" class="size-full object-cover" />
-                <span
-                    v-if="isUploading"
-                    class="bg-foreground/55 text-background absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 py-1 text-[11px] font-semibold"
-                >
-                    <Loader2 class="size-3 animate-spin" aria-hidden="true" />
-                    Mengunggah…
-                </span>
-            </div>
-            <div
-                class="border-border/70 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t px-5 py-2.5 sm:px-7"
-            >
-                <div class="flex min-w-0 items-center gap-2">
-                    <span class="text-muted-foreground truncate text-xs font-medium">
-                        {{ banner.bannerFileName || 'banner-form' }}
-                    </span>
-                    <span
-                        v-if="isUploading"
-                        class="border-primary/20 bg-primary/8 text-primary shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-                    >
-                        mengunggah…
-                    </span>
-                    <span
-                        v-else-if="localPreviewUrl"
-                        class="border-primary/20 bg-primary/8 text-primary shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-                    >
-                        baru
-                    </span>
-                </div>
-                <div class="flex shrink-0 items-center gap-1.5">
-                    <Button variant="outline" size="sm" type="button" class="h-8 gap-1.5 text-xs" @click="openPicker">
-                        <RefreshCw class="size-3.5" aria-hidden="true" />
-                        Ganti
-                    </Button>
-                    <Button
-                        radius="icon"
-                        variant="ghost"
-                        size="icon-sm"
-                        type="button"
-                        class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Hapus banner"
-                        @click="clearImage"
-                    >
-                        <X class="size-4" aria-hidden="true" />
-                    </Button>
-                </div>
-            </div>
+                <X class="size-4" aria-hidden="true" />
+            </Button>
         </div>
 
-        <p
-            v-if="bannerUploadError"
-            class="bg-destructive/5 text-destructive border-border/70 border-t px-5 py-2 text-xs font-medium sm:px-7"
-        >
-            {{ bannerUploadError }}
-        </p>
-
-        <input
-            ref="fileInput"
-            type="file"
-            accept="image/png,image/jpeg,image/gif"
-            class="hidden"
-            @change="onBannerFile"
-        />
+        <div class="px-5 py-3 sm:px-7">
+            <FileUploadCard
+                :state="cardState"
+                :idle-label="idleLabel"
+                accept="image/png,image/jpeg,image/gif"
+                hint="Gambar sampul di bagian atas form — rasio 3:1."
+                :max-size-kb="BANNER_MAX_SIZE_KB"
+                :file-name="uploadFileName"
+                :file-size="uploadFileSize"
+                :mime="uploadMime"
+                :progress="uploadProgress"
+                :error-message="uploadErrorMessage"
+                @pick="onBannerPick"
+                @cancel="cancelUpload"
+                @remove="clearImage"
+            />
+        </div>
     </div>
 </template>

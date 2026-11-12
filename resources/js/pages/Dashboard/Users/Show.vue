@@ -1,23 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import ConfirmationModal from '@/components/core/ConfirmationModal.vue'
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
-import { showErrorToast } from '@/lib/error-message'
-import { routes } from '@/lib/routes'
-import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import { setTopbar } from '@/utils/composables/useDashboardTopbar'
+import { computed, onMounted, ref } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { routes } from '@/lib/routes';
+import { formatDateTime } from '@/lib/dateTime';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { setTopbar } from '@/hooks/useDashboardTopbar';
 import {
     ArrowLeft,
     CalendarDays,
@@ -29,89 +23,91 @@ import {
     ScanLine,
     Trash2,
     UserRound,
-} from 'lucide-vue-next'
+} from 'lucide-vue-next';
 
-defineOptions({ layout: DashboardLayout })
+defineOptions({ layout: DashboardLayout });
 
 interface DetailUser {
-    id: string
-    name: string
-    email: string
-    avatar_url: string | null
-    email_verified_at: string | null
-    created_at: string | null
-    updated_at: string | null
-    deleted_at: string | null
-    roles: string[]
-    has_local_password: boolean
-    oauth: { google: boolean; github: boolean }
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string | null;
+    email_verified_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    deleted_at: string | null;
+    roles: string[];
+    has_local_password: boolean;
+    oauth: { google: boolean; github: boolean };
 }
 
 interface Stats {
-    events_joined: number
-    registrations_pending: number
-    registrations_accepted: number
-    attendances_as_participant: number
-    events_created: number
-    recruitment_applications: number
-    scans_recorded: number
-    interviews_assigned: number
+    events_joined: number;
+    registrations_pending: number;
+    registrations_accepted: number;
+    attendances_as_participant: number;
+    events_created: number;
+    recruitment_applications: number;
+    scans_recorded: number;
+    interviews_assigned: number;
 }
 
 interface RegistrationRow {
-    form_answer_id: string
-    registration_code: string | null
-    review_status: string | null
-    registration_role: string | null
-    member_confirmation_status: string | null
-    created_at: string | null
-    attended_at: string | null
+    form_answer_id: string;
+    registration_code: string | null;
+    review_status: string | null;
+    registration_role: string | null;
+    member_confirmation_status: string | null;
+    created_at: string | null;
+    attended_at: string | null;
     event: {
-        id: string
-        title: string
-        slug: string
-        start_date: string | null
-        status: string | null
-    } | null
-    form: { id: string; title: string | null } | null
+        id: string;
+        title: string;
+        slug: string;
+        start_date: string | null;
+        status: string | null;
+    } | null;
+    form: { id: string; title: string | null } | null;
 }
 
 interface EventCreatedRow {
-    id: string
-    title: string
-    slug: string
-    status: string | null
-    start_date: string | null
-    created_at: string | null
+    id: string;
+    title: string;
+    slug: string;
+    status: string | null;
+    start_date: string | null;
+    created_at: string | null;
 }
 
 interface RecruitmentAppRow {
-    id: string
-    registration_number: string
-    full_name: string
-    stage: string | null
-    result: string | null
-    submitted_at: string | null
-    match: 'personal_email' | 'student_email'
-    period: { id: string; name: string } | null
-    primary_division: string | null
+    id: string;
+    registration_number: string;
+    full_name: string;
+    stage: string | null;
+    result: string | null;
+    submitted_at: string | null;
+    match: 'personal_email' | 'student_email';
+    period: { id: string; name: string } | null;
+    primary_division: string | null;
 }
 
 interface StaffInfo {
-    interviewer_divisions: Array<{ id: string; name: string | null; code: string | null }>
-    interviews_assigned_count: number
-    scans_recorded_count: number
+    interviewer_divisions: Array<{ id: string; name: string | null; code: string | null }>;
+    interviews_assigned_count: number;
+    scans_recorded_count: number;
 }
 
 const props = defineProps<{
-    user: DetailUser
-    stats: Stats
-    registrations: RegistrationRow[]
-    events_created: EventCreatedRow[]
-    recruitment_applications: RecruitmentAppRow[]
-    staff: StaffInfo
-    permissions: { can_edit: boolean; can_delete: boolean }
-}>()
+    user: DetailUser;
+    stats: Stats;
+    registrations: RegistrationRow[];
+    events_created: EventCreatedRow[];
+    recruitment_applications: RecruitmentAppRow[];
+    staff: StaffInfo;
+    permissions: { can_edit: boolean; can_delete: boolean };
+}>();
+
+const { showErrorToast } = useToastNotifications();
 
 const roleLabels: Record<string, string> = {
     'super-admin': 'Super Admin',
@@ -119,67 +115,43 @@ const roleLabels: Record<string, string> = {
     member: 'Member',
     'recruitment-staff': 'Recruitment Staff',
     'recruitment-interviewer': 'Recruitment Interviewer',
-}
+};
 
-const isDeleting = ref(false)
-const showDeleteModal = ref(false)
+const isDeleting = ref(false);
+const showDeleteModal = ref(false);
 
 const hasStaffActivity = computed(
     () =>
         props.staff.interviewer_divisions.length > 0 ||
         props.staff.interviews_assigned_count > 0 ||
         props.staff.scans_recorded_count > 0 ||
-        props.events_created.length > 0,
-)
+        props.events_created.length > 0
+);
 
 onMounted(() => {
-    setTopbar({ title: props.user.name, subtitle: 'Detail pengguna' })
-})
-
-function formatDate(value: string | null | undefined): string {
-    if (!value) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    })
-}
-
-function formatDateTime(value: string | null | undefined): string {
-    if (!value) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
-}
+    setTopbar({ title: props.user.name, subtitle: 'Detail pengguna' });
+});
 
 function reviewLabel(status: string | null): string {
-    if (!status) return '—'
+    if (!status) return '—';
     const map: Record<string, string> = {
         pending: 'Menunggu',
         accepted: 'Diterima',
         rejected: 'Ditolak',
-    }
-    return map[status] ?? status
+    };
+    return map[status] ?? status;
 }
 
 function confirmDelete(): void {
-    if (isDeleting.value || !props.permissions.can_delete) return
-    isDeleting.value = true
+    if (isDeleting.value || !props.permissions.can_delete) return;
+    isDeleting.value = true;
     router.delete(routes.admin.users.destroy(props.user.id), {
         onError: () => showErrorToast('Gagal menghapus akun.'),
         onFinish: () => {
-            isDeleting.value = false
-            showDeleteModal.value = false
+            isDeleting.value = false;
+            showDeleteModal.value = false;
         },
-    })
+    });
 }
 </script>
 
@@ -245,7 +217,7 @@ function confirmDelete(): void {
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardContent class="flex items-center gap-3 p-4">
                     <span class="bg-muted grid size-10 place-items-center rounded-xl">
                         <CalendarDays class="size-4" aria-hidden="true" />
@@ -256,7 +228,7 @@ function confirmDelete(): void {
                     </div>
                 </CardContent>
             </Card>
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardContent class="flex items-center gap-3 p-4">
                     <span class="bg-muted grid size-10 place-items-center rounded-xl">
                         <CheckCircle2 class="size-4" aria-hidden="true" />
@@ -267,7 +239,7 @@ function confirmDelete(): void {
                     </div>
                 </CardContent>
             </Card>
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardContent class="flex items-center gap-3 p-4">
                     <span class="bg-muted grid size-10 place-items-center rounded-xl">
                         <ClipboardList class="size-4" aria-hidden="true" />
@@ -278,7 +250,7 @@ function confirmDelete(): void {
                     </div>
                 </CardContent>
             </Card>
-            <Card class="rounded-2xl border-border/70">
+            <Card class="border-border/70 rounded-2xl">
                 <CardContent class="flex items-center gap-3 p-4">
                     <span class="bg-muted grid size-10 place-items-center rounded-xl">
                         <ScanLine class="size-4" aria-hidden="true" />
@@ -292,14 +264,18 @@ function confirmDelete(): void {
         </div>
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <Card class="rounded-2xl border-border/70 lg:col-span-1">
+            <Card class="border-border/70 rounded-2xl lg:col-span-1">
                 <CardHeader class="pb-3">
                     <CardTitle class="text-base">Informasi akun</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3 text-sm">
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Email terverifikasi</span>
-                        <span>{{ user.email_verified_at ? formatDateTime(user.email_verified_at) : 'Belum' }}</span>
+                        <span>{{
+                            user.email_verified_at
+                                ? formatDateTime({ value: user.email_verified_at, variant: 'date-time-medium' })
+                                : 'Belum'
+                        }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Password lokal</span>
@@ -318,11 +294,15 @@ function confirmDelete(): void {
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Dibuat</span>
-                        <span>{{ formatDateTime(user.created_at) }}</span>
+                        <span>{{
+                            formatDateTime({ value: user.created_at, variant: 'date-time-medium' }) || '—'
+                        }}</span>
                     </div>
                     <div class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Diperbarui</span>
-                        <span>{{ formatDateTime(user.updated_at) }}</span>
+                        <span>{{
+                            formatDateTime({ value: user.updated_at, variant: 'date-time-medium' }) || '—'
+                        }}</span>
                     </div>
                     <div v-if="stats.registrations_pending > 0" class="flex justify-between gap-3">
                         <span class="text-muted-foreground">Registrasi pending</span>
@@ -336,7 +316,7 @@ function confirmDelete(): void {
             </Card>
 
             <div class="flex flex-col gap-6 lg:col-span-2">
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardHeader class="pb-3">
                         <CardTitle class="text-base">Event yang diikuti</CardTitle>
                     </CardHeader>
@@ -359,15 +339,23 @@ function confirmDelete(): void {
                                                     <Link
                                                         v-if="row.event"
                                                         :href="routes.admin.events.show(row.event.id)"
-                                                        class="text-foreground hover:underline font-medium"
+                                                        class="text-foreground font-medium hover:underline"
                                                     >
                                                         {{ row.event.title }}
                                                     </Link>
-                                                    <span v-else class="text-muted-foreground">Event tidak tersedia</span>
+                                                    <span v-else class="text-muted-foreground"
+                                                        >Event tidak tersedia</span
+                                                    >
                                                     <p class="text-muted-foreground mt-0.5 text-xs">
                                                         {{ row.form?.title || 'Form' }}
                                                         <span v-if="row.event?.start_date">
-                                                            · {{ formatDate(row.event.start_date) }}
+                                                            ·
+                                                            {{
+                                                                formatDateTime({
+                                                                    value: row.event.start_date,
+                                                                    variant: 'date-medium',
+                                                                }) || row.event.start_date
+                                                            }}
                                                         </span>
                                                     </p>
                                                 </div>
@@ -379,7 +367,14 @@ function confirmDelete(): void {
                                                 {{ row.registration_code || '—' }}
                                             </TableCell>
                                             <TableCell class="text-sm">
-                                                {{ row.attended_at ? formatDateTime(row.attended_at) : '—' }}
+                                                {{
+                                                    row.attended_at
+                                                        ? formatDateTime({
+                                                              value: row.attended_at,
+                                                              variant: 'date-time-medium',
+                                                          })
+                                                        : '—'
+                                                }}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -395,7 +390,7 @@ function confirmDelete(): void {
                     </CardContent>
                 </Card>
 
-                <Card class="rounded-2xl border-border/70">
+                <Card class="border-border/70 rounded-2xl">
                     <CardHeader class="pb-3">
                         <CardTitle class="text-base">Pendaftaran Open Recruitment</CardTitle>
                     </CardHeader>
@@ -455,23 +450,23 @@ function confirmDelete(): void {
                     </CardContent>
                 </Card>
 
-                <Card v-if="hasStaffActivity" class="rounded-2xl border-border/70">
+                <Card v-if="hasStaffActivity" class="border-border/70 rounded-2xl">
                     <CardHeader class="pb-3">
                         <CardTitle class="text-base">Aktivitas staf</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <div class="grid gap-3 sm:grid-cols-3">
-                            <div class="rounded-xl border border-border/60 p-3">
+                            <div class="border-border/60 rounded-xl border p-3">
                                 <p class="text-muted-foreground text-xs">Event dibuat</p>
                                 <p class="text-lg font-semibold tabular-nums">{{ stats.events_created }}</p>
                             </div>
-                            <div class="rounded-xl border border-border/60 p-3">
+                            <div class="border-border/60 rounded-xl border p-3">
                                 <p class="text-muted-foreground text-xs">Interview ditugaskan</p>
                                 <p class="text-lg font-semibold tabular-nums">
                                     {{ staff.interviews_assigned_count }}
                                 </p>
                             </div>
-                            <div class="rounded-xl border border-border/60 p-3">
+                            <div class="border-border/60 rounded-xl border p-3">
                                 <p class="text-muted-foreground text-xs">Scan sebagai operator</p>
                                 <p class="text-lg font-semibold tabular-nums">{{ staff.scans_recorded_count }}</p>
                             </div>
@@ -501,12 +496,16 @@ function confirmDelete(): void {
                                 >
                                     <Link
                                         :href="routes.admin.events.show(event.id)"
-                                        class="hover:underline font-medium"
+                                        class="font-medium hover:underline"
                                     >
                                         {{ event.title }}
                                     </Link>
                                     <span class="text-muted-foreground text-xs">
-                                        {{ event.status }} · {{ formatDate(event.start_date) }}
+                                        {{ event.status }} ·
+                                        {{
+                                            formatDateTime({ value: event.start_date, variant: 'date-medium' }) ||
+                                            event.start_date
+                                        }}
                                     </span>
                                 </li>
                             </ul>
@@ -526,7 +525,11 @@ function confirmDelete(): void {
             :loading="isDeleting"
             @confirm="confirmDelete"
             @cancel="showDeleteModal = false"
-            @update:open="(v: boolean) => { showDeleteModal = v }"
+            @update:open="
+                (v: boolean) => {
+                    showDeleteModal = v;
+                }
+            "
         />
     </div>
 </template>

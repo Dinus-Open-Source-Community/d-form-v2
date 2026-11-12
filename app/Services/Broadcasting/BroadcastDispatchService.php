@@ -6,6 +6,7 @@ use App\Enums\EmailBroadcastRecipientStatus;
 use App\Enums\EmailBroadcastStatus;
 use App\Jobs\Broadcasting\SendBroadcastRecipientJob;
 use App\Models\EmailBroadcast;
+use App\Models\EmailBroadcastRecipient;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,7 +27,7 @@ class BroadcastDispatchService
 
     /**
      * Dipanggil scheduler tiap menit: dispatch broadcast yang waktunya tiba.
-     * @return array<int, string> broadcast ids yang diproses
+     * @return array<int, string> broadcast ids yang berhasil diklaim dan diproses
      */
     public function dispatchDue(): array
     {
@@ -40,37 +41,35 @@ class BroadcastDispatchService
         $processed = [];
 
         foreach ($due as $broadcast) {
-            $this->dispatch($broadcast);
-            $processed[] = $broadcast->id;
+            if ($this->dispatch($broadcast)) {
+                $processed[] = $broadcast->id;
+            }
         }
 
         return $processed;
     }
 
-    public function dispatch(EmailBroadcast $broadcast): void
+    /**
+     * Klaim broadcast scheduled secara atomik lalu dispatch job per recipient.
+     *
+     * Claim memakai conditional update supaya dua worker tidak memproses
+     * broadcast yang sama. Job hanya di-dispatch bila claim menang.
+     *
+     * @return bool true bila broadcast berhasil diklaim oleh pemanggil ini
+     */
+    public function dispatch(EmailBroadcast $broadcast): bool
     {
-        $broadcast->refresh();
-
-        if ($broadcast->status !== EmailBroadcastStatus::Scheduled) {
-            return;
-        }
-
-        DB::transaction(function () use ($broadcast): void {
-            $locked = EmailBroadcast::query()
-                ->whereKey($broadcast->id)
-                ->where('status', EmailBroadcastStatus::Scheduled->value)
-                ->lockForUpdate()
-                ->first();
-
-            if ($locked === null) {
-                return;
-            }
-
-            $locked->forceFill([
-                'status' => EmailBroadcastStatus::Processing,
+        $claimed = EmailBroadcast::query()
+            ->whereKey($broadcast->getKey())
+            ->where('status', EmailBroadcastStatus::Scheduled->value)
+            ->update([
+                'status' => EmailBroadcastStatus::Processing->value,
                 'started_at' => now(),
-            ])->save();
-        });
+            ]);
+
+        if ($claimed === 0) {
+            return false;
+        }
 
         $broadcast->refresh();
 
@@ -93,6 +92,8 @@ class BroadcastDispatchService
         if ($ids->isEmpty()) {
             $this->maybeComplete($broadcast);
         }
+
+        return true;
     }
 
     public function cancel(EmailBroadcast $broadcast): void
@@ -123,7 +124,13 @@ class BroadcastDispatchService
     }
 
     /**
-     * @return int jumlah recipient yang di-retry
+     * Reset recipient failed → pending dan dispatch ulang.
+     *
+     * Reset memakai conditional update supaya dua pemanggil bersamaan tidak
+     * meng-queue job yang sama dua kali; job hanya di-dispatch untuk baris
+     * yang benar-benar berhasil di-reset oleh pemanggil ini.
+     *
+     * @return int jumlah recipient yang benar-benar di-retry
      */
     public function retryFailed(EmailBroadcast $broadcast): int
     {
@@ -146,14 +153,24 @@ class BroadcastDispatchService
         $min = max(0, (int) $broadcast->delay_min);
         $max = max($min, (int) $broadcast->delay_max);
 
-        foreach ($failedIds as $recipientId) {
-            EmailBroadcastRecipient::query()->whereKey($recipientId)->update([
-                'status' => EmailBroadcastRecipientStatus::Pending->value,
-                'error_message' => null,
-                'failed_at' => null,
-                'updated_at' => now(),
-            ]);
+        $retried = 0;
 
+        foreach ($failedIds as $recipientId) {
+            $reset = EmailBroadcastRecipient::query()
+                ->whereKey($recipientId)
+                ->where('status', EmailBroadcastRecipientStatus::Failed->value)
+                ->update([
+                    'status' => EmailBroadcastRecipientStatus::Pending->value,
+                    'error_message' => null,
+                    'failed_at' => null,
+                    'updated_at' => now(),
+                ]);
+
+            if ($reset === 0) {
+                continue;
+            }
+
+            $retried++;
             $delaySeconds = $max === $min ? $min : random_int($min, $max);
 
             SendBroadcastRecipientJob::dispatch((string) $recipientId)
@@ -161,7 +178,7 @@ class BroadcastDispatchService
                 ->onQueue('broadcasts');
         }
 
-        return $failedIds->count();
+        return $retried;
     }
 
     public function maybeComplete(EmailBroadcast $broadcast): void
