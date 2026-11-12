@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\DispatchRecruitmentQrOutboxCommand;
+use App\Console\Commands\DispatchFormReviewEmailOutboxCommand;
 use App\Exceptions\QuotaExceededException;
 use App\Http\Middleware\AssignRequestCorrelationId;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -20,10 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([DispatchRecruitmentQrOutboxCommand::class])
+    ->withCommands([
+        DispatchRecruitmentQrOutboxCommand::class,
+        DispatchFormReviewEmailOutboxCommand::class,
+    ])
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('recruitment:send-interview-reminders')->everyFifteenMinutes();
         $schedule->command('recruitment:dispatch-qr-outbox')->everyMinute();
+        $schedule->command('forms:dispatch-review-email-outbox')->everyMinute();
         $schedule->command('broadcast:dispatch-scheduled')->everyMinute();
         $schedule->command('otp:prune')->hourly();
         $schedule->command('queue:prune-failed --hours='.(int) config('queue.failed.retention_hours'))->daily();

@@ -1,4 +1,5 @@
 import { createShortId, createUuid } from '@/lib/uuid';
+import { formatDefaultUploadFormats } from '@/lib/formUploadFormats';
 
 /**
  * Default field baru untuk entry point demo (`pages/FormBuilder.vue`).
@@ -16,8 +17,8 @@ export function createDemoBuilderField(type: TFormBuilderType, label: string): I
         dropdown: { options: 'Option 1, Option 2' },
         checkbox: { options: 'Choice A, Choice B, Choice C' },
         radio: { options: 'Option 1, Option 2, Option 3' },
-        image_upload: { accepts: 'png, jpg, jpeg' },
-        file_upload: { accepts: 'pdf, doc, xls' },
+        image_upload: { accepts: formatDefaultUploadFormats('image_upload') },
+        file_upload: { accepts: formatDefaultUploadFormats('file_upload') },
         rating: { maxStars: 5 },
         heading: { content: 'Section Heading' },
         paragraph: { content: '' },

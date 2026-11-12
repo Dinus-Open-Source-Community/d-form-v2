@@ -12,6 +12,7 @@ export interface IUseFormFillFieldsListOptions {
     registrationMode: string;
     answerForm: InertiaForm<TFormFillAnswerMap>;
     filePreviewUrls: Record<string, string>;
+    multiFilePreviewUrls?: Record<string, readonly string[]>;
     validateSection: (fields: IFormField[]) => boolean;
     isBundleDuplicatable: (field: IFormField) => boolean;
     isBlocked: () => boolean;
@@ -69,7 +70,7 @@ export function useFormFillFieldsList(options: IUseFormFillFieldsListOptions): I
         return (
             formFillBuilderType(field) === 'image_upload' &&
             Boolean(options.answerForm[storageKey]) &&
-            Boolean(options.filePreviewUrls[storageKey])
+            Boolean(options.filePreviewUrls[storageKey] || options.multiFilePreviewUrls?.[storageKey]?.length)
         );
     }
 

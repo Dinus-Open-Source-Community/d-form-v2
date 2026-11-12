@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import FileTypeTile from '@/components/core/FileTypeTile.vue';
 import InterviewSessionSummary from '@/components/modules/dashboard/recruitment/InterviewSessionSummary.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { isHttpUrl } from '@/lib/isHttpUrl';
 import { formatDateTime } from '@/lib/dateTime';
 import { focusElementById } from '@/adapters/browser/domQuery';
 import type { IInterviewDetailPayload } from '@/types/recruitmentInterview';
-import { Check, CheckCircle2, Circle, Download, ExternalLink, FileText, Minus, Plus, XCircle } from 'lucide-vue-next';
+import { Check, CheckCircle2, Circle, Download, ExternalLink, Minus, Plus, XCircle } from 'lucide-vue-next';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -433,7 +434,7 @@ function confirmSave(): void {
                             <div v-if="cvAvailable" class="space-y-3">
                                 <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                                     <div class="flex min-w-0 items-center gap-3">
-                                        <FileText class="text-muted-foreground size-5 shrink-0" aria-hidden="true" />
+                                        <FileTypeTile :file-name="cvOriginalName" />
                                         <div class="min-w-0">
                                             <p class="truncate font-medium">{{ cvOriginalName }}</p>
                                             <p class="text-muted-foreground text-xs">{{ cvMetaLabel }}</p>
@@ -539,7 +540,7 @@ function confirmSave(): void {
                             >
                                 <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                                     <div class="flex min-w-0 items-center gap-3">
-                                        <FileText class="text-muted-foreground size-5 shrink-0" aria-hidden="true" />
+                                        <FileTypeTile :file-name="portfolioOriginalName" />
                                         <div class="min-w-0">
                                             <p class="truncate font-medium">{{ portfolioOriginalName }}</p>
                                             <p class="text-muted-foreground text-xs">{{ portfolioMetaLabel }}</p>
@@ -624,7 +625,7 @@ function confirmSave(): void {
                             >
                                 <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                                     <div class="flex min-w-0 items-center gap-3">
-                                        <FileText class="text-muted-foreground size-5 shrink-0" aria-hidden="true" />
+                                        <FileTypeTile :file-name="instagramFollowOriginalName" />
                                         <div class="min-w-0">
                                             <p class="truncate font-medium">{{ instagramFollowOriginalName }}</p>
                                             <p class="text-muted-foreground text-xs">{{ instagramFollowMetaLabel }}</p>

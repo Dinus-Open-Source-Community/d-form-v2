@@ -9,6 +9,7 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
+use App\Services\Registration\FormAnswerFileStorage;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -125,6 +126,50 @@ class FormUploadPrivacyTest extends TestCase
         $response->assertOk();
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertSame('%PDF-1.7 test content', $response->streamedContent());
+    }
+
+    public function test_owner_downloads_the_requested_indexed_file_from_a_multiple_answer(): void
+    {
+        Storage::fake('local');
+
+        $owner = $this->member();
+        $event = $this->event($owner);
+        $form = $this->form($event);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'input_type' => 'fileUpload',
+            'name' => 'documents',
+            'label' => 'Documents',
+            'order' => 1,
+            'metadata' => ['multiple' => true],
+        ]);
+
+        $first = 'form-uploads/'.$form->id.'/first.pdf';
+        $second = 'form-uploads/'.$form->id.'/second.pdf';
+        Storage::disk('local')->put($first, 'first content');
+        Storage::disk('local')->put($second, 'second content');
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $owner->id,
+            'answers' => ['documents' => [$first, $second]],
+        ]);
+
+        $url = route('dashboard.form-answers.files', [
+            'formAnswer' => $answer->id,
+            'field' => 'documents',
+            'filename' => 'second.pdf',
+        ], false);
+
+        $this->actingAs($owner)
+            ->get(route('dashboard.form-answers.files', [
+                'formAnswer' => $answer->id,
+                'field' => 'documents',
+                'filename' => 'first.pdf',
+            ], false))
+            ->assertOk()
+            ->assertStreamedContent('first content');
+
+        $this->actingAs($owner)->get($url)->assertOk()->assertStreamedContent('second content');
     }
 
     public function test_event_owner_can_download_participant_upload(): void
@@ -320,5 +365,66 @@ class FormUploadPrivacyTest extends TestCase
 
         $this->actingAs($owner)->get($fixture['url'])->assertOk();
         $this->assertContains($this->get('/storage/'.$fixture['path'])->status(), [403, 404]);
+    }
+
+    public function test_legacy_string_answer_serializes_to_one_authorized_url(): void
+    {
+        Storage::fake('local');
+
+        $owner = $this->member();
+        $event = $this->event($owner);
+        $form = $this->form($event);
+        $fixture = $this->answerWithFile($event, $form, $owner);
+
+        $serialized = app(FormAnswerFileStorage::class)->answerUrls(
+            $fixture['answer'],
+            $fixture['answer']->answers,
+            ['cv'],
+        );
+
+        self::assertIsString($serialized['cv']);
+        self::assertSame($fixture['url'], $serialized['cv']);
+    }
+    public function test_multiple_answer_serialization_drops_raw_storage_paths_and_authorizes_each_url(): void
+    {
+        Storage::fake('local');
+
+        $owner = $this->member();
+        $intruder = $this->member();
+        $event = $this->event($owner);
+        $form = $this->form($event);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'input_type' => 'fileUpload',
+            'name' => 'documents',
+            'label' => 'Documents',
+            'order' => 1,
+            'metadata' => ['multiple' => true],
+        ]);
+
+        $first = 'form-uploads/'.$form->id.'/first.pdf';
+        $second = 'form-uploads/'.$form->id.'/second.pdf';
+        $unrelated = 'form-uploads/other-form/secret.pdf';
+        Storage::disk('local')->put($first, 'first content');
+        Storage::disk('local')->put($second, 'second content');
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $owner->id,
+            'answers' => ['documents' => [$first, $second, $unrelated]],
+        ]);
+
+        $serialized = app(FormAnswerFileStorage::class)->answerUrls($answer, $answer->answers, ['documents']);
+
+        self::assertIsArray($serialized['documents']);
+        self::assertCount(2, $serialized['documents']);
+        self::assertNotContains($unrelated, $serialized['documents']);
+        foreach ($serialized['documents'] as $url) {
+            self::assertIsString($url);
+            self::assertStringContainsString('/form-answers/'.$answer->id.'/files/documents/', $url);
+            self::assertStringNotContainsString('form-uploads/', $url);
+            $this->actingAs($owner)->get($url)->assertOk();
+            $this->actingAs($intruder)->get($url)->assertForbidden();
+        }
     }
 }

@@ -94,6 +94,22 @@ class FormSubmissionBoundaryTest extends TestCase
         ]);
     }
 
+    private function multipleFileField(Form $form, string $name = 'documents'): FormField
+    {
+        return FormField::factory()->create([
+            'form_id' => $form->id,
+            'input_type' => 'fileUpload',
+            'name' => $name,
+            'label' => 'Documents',
+            'order' => 2,
+            'metadata' => [
+                'multiple' => true,
+                'allowed_mime_types' => ['application/pdf'],
+                'rules' => ['required' => true, 'mimes' => 'pdf'],
+            ],
+        ]);
+    }
+
     private function duplicatableTextField(Form $form, string $name = 'full_name'): FormField
     {
         return FormField::factory()->create([
@@ -289,6 +305,24 @@ class FormSubmissionBoundaryTest extends TestCase
         $this->assertDatabaseCount('form_answers', 0);
     }
 
+    public function test_team_participant_validation_cleans_files_stored_before_the_failure(): void
+    {
+        Storage::fake('local');
+        $leader = $this->member();
+        $event = $this->openEvent();
+        $form = $this->teamForm($event, 2);
+        $this->multipleFileField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'documents' => [UploadedFile::fake()->createWithContent('document.pdf', "%PDF-1.7\n%%EOF")],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails');
+
+        self::assertSame([], Storage::disk('local')->allFiles());
+    }
+
     public function test_team_submission_rejects_an_unknown_member_account(): void
     {
         $leader = $this->member();
@@ -305,6 +339,25 @@ class FormSubmissionBoundaryTest extends TestCase
             ->assertSessionHasErrors('team_member_emails.0');
 
         $this->assertDatabaseCount('form_answers', 0);
+    }
+
+    public function test_team_unknown_member_validation_cleans_mapped_uploads(): void
+    {
+        Storage::fake('local');
+        $leader = $this->member();
+        $event = $this->openEvent();
+        $form = $this->teamForm($event, 2);
+        $this->multipleFileField($form);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'documents' => [UploadedFile::fake()->createWithContent('document.pdf', "%PDF-1.7\n%%EOF")],
+                'team_member_emails' => ['nobody-'.uniqid().'@example.com'],
+            ])
+            ->assertRedirect($this->fillPath($event, $form))
+            ->assertSessionHasErrors('team_member_emails.0');
+
+        self::assertSame([], Storage::disk('local')->allFiles());
     }
 
     public function test_team_submission_rejects_the_leader_as_member(): void

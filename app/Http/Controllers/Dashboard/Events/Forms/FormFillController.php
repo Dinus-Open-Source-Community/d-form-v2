@@ -30,12 +30,15 @@ class FormFillController extends Controller
 
         $status = FormAccessGuard::check($form, $event, $user);
 
-        $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);
+        $fields = [];
+        if ($status === FormAccessStatus::Allowed) {
+            $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);
 
-        $fields = $form->formFields
-            ->map(fn (FormField $f) => FormFieldTypeMapping::fieldToInertia($f))
-            ->values()
-            ->all();
+            $fields = $form->formFields
+                ->map(fn (FormField $f) => FormFieldTypeMapping::fieldToInertia($f))
+                ->values()
+                ->all();
+        }
 
         $metadata = is_array($form->metadata) ? $form->metadata : [];
         $sections = collect($metadata['sections'] ?? [])

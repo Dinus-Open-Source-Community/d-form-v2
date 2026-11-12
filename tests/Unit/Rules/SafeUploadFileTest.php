@@ -96,4 +96,40 @@ final class SafeUploadFileTest extends TestCase
 
         self::assertFalse($validator->fails());
     }
+
+    public function test_pdf_with_encryption_and_embedded_file_is_rejected(): void
+    {
+        $file = UploadedFile::fake()->createWithContent(
+            'official-document.pdf',
+            "%PDF-1.7\n1 0 obj\n<< /Encrypt 2 0 R /EmbeddedFile 3 0 R >>\nendobj\n%%EOF",
+        );
+
+        $validator = Validator::make(['file' => $file], ['file' => SafeUploadFile::rules(true, ['pdf'])]);
+
+        self::assertTrue($validator->fails());
+    }
+
+    public function test_encrypted_pdf_without_embedded_file_is_rejected(): void
+    {
+        $file = UploadedFile::fake()->createWithContent(
+            'encrypted-document.pdf',
+            "%PDF-1.7\n1 0 obj\n<< /Encrypt 2 0 R >>\nendobj\n%%EOF",
+        );
+
+        $validator = Validator::make(['file' => $file], ['file' => SafeUploadFile::rules(true, ['pdf'])]);
+
+        self::assertTrue($validator->fails());
+    }
+
+    public function test_pdf_with_embedded_file_is_rejected(): void
+    {
+        $file = UploadedFile::fake()->createWithContent(
+            'document-with-attachment.pdf',
+            "%PDF-1.7\n1 0 obj\n<< /EmbeddedFile 3 0 R >>\nendobj\n%%EOF",
+        );
+
+        $validator = Validator::make(['file' => $file], ['file' => SafeUploadFile::rules(true, ['pdf'])]);
+
+        self::assertTrue($validator->fails());
+    }
 }

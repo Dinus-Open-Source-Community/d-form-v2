@@ -4,6 +4,15 @@ import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { createUuid } from '@/lib/uuid';
 import {
+    DEFAULT_ALLOWED_MIME_TYPES,
+    DEFAULT_UPLOAD_LIMITS,
+    formatAllowedMimeTypesAsExtensions,
+    normalizeUploadLimit,
+    setUploadMultipleMetadata,
+    toggleAllowedMimeType,
+    UPLOAD_FORMAT_OPTIONS,
+} from '@/components/modules/builder/fieldMapping';
+import {
     fieldMaxLengthLimits,
     formatMaxLengthNumber,
     maxLengthHint,
@@ -222,6 +231,55 @@ const isContent = computed(() => ['heading', 'paragraph', 'divider', 'image'].in
 const hasAdvancedFlags = computed(
     () => !['heading', 'paragraph', 'divider', 'banner', 'image'].includes(props.field.type)
 );
+const uploadType = computed((): 'image_upload' | 'file_upload' | null =>
+    props.field.type === 'image_upload' || props.field.type === 'file_upload' ? props.field.type : null
+);
+const uploadFormats = computed(() => (uploadType.value === null ? [] : UPLOAD_FORMAT_OPTIONS[uploadType.value]));
+const allowedMimeTypes = computed(() => {
+    if (uploadType.value === null) return [];
+    const raw = props.field.metadata.allowed_mime_types;
+    const values = Array.isArray(raw) ? raw.filter((value): value is string => typeof value === 'string') : [];
+    const supported = DEFAULT_ALLOWED_MIME_TYPES[uploadType.value].filter((mimeType) => values.includes(mimeType));
+
+    return supported.length > 0 ? supported : [...DEFAULT_ALLOWED_MIME_TYPES[uploadType.value]];
+});
+
+function setAllowedMimeType(mimeType: string, enabled: boolean): void {
+    const next = toggleAllowedMimeType(allowedMimeTypes.value, mimeType, enabled);
+    emit('update:field', {
+        ...props.field,
+        metadata: {
+            ...(props.field.metadata || {}),
+            allowed_mime_types: next,
+            accepts: formatAllowedMimeTypesAsExtensions(next),
+        },
+    });
+}
+
+function setUploadMultiple(enabled: boolean): void {
+    const metadata = setUploadMultipleMetadata(props.field.metadata, enabled);
+    emit('update:field', { ...props.field, metadata });
+}
+
+function onFormatChange(event: Event, mimeType: string): void {
+    if (event.target instanceof HTMLInputElement) {
+        setAllowedMimeType(mimeType, event.target.checked);
+    }
+}
+
+function onMultipleChange(event: Event): void {
+    if (event.target instanceof HTMLInputElement) {
+        setUploadMultiple(event.target.checked);
+    }
+}
+
+function setUploadLimit(key: 'max_files' | 'max_total_size_mb', value: string | number): void {
+    updateMeta(key, normalizeUploadLimit(key, value));
+}
+
+function readUploadLimit(value: unknown): number | string | undefined {
+    return typeof value === 'number' || typeof value === 'string' ? value : undefined;
+}
 </script>
 
 <template>
@@ -374,16 +432,37 @@ const hasAdvancedFlags = computed(
             />
         </div>
 
-        <!-- File types (image / file / banner) -->
-        <div v-if="['image_upload', 'file_upload'].includes(field.type)" class="flex flex-col gap-1.5">
-            <Label class="text-xs font-semibold">Ekstensi file yang diizinkan</Label>
-            <Input
-                :model-value="String(field.metadata?.accepts ?? '')"
-                :placeholder="field.type === 'banner' ? 'gif, png, jpg' : 'pdf, jpg, png'"
-                class="text-xs"
-                @update:model-value="(v) => updateMeta('accepts', String(v))"
-            />
-            <p class="text-muted-foreground text-[10px]">Pisahkan dengan koma (tanpa titik di depan).</p>
+        <!-- Upload formats -->
+        <fieldset v-if="uploadType !== null" class="flex flex-col gap-3">
+            <legend class="text-xs font-semibold">Format yang diizinkan</legend>
+            <p class="text-muted-foreground text-xs">Pilih format file yang dapat diunggah.</p>
+            <div class="grid grid-cols-2 gap-2">
+                <label
+                    v-for="format in uploadFormats"
+                    :key="format.mimeType"
+                    class="border-border bg-muted/20 has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm transition-colors"
+                >
+                    <span class="font-medium">{{ format.label }}</span>
+                    <span class="flex items-center gap-2">
+                        <span class="text-muted-foreground text-[10px] font-semibold">
+                            {{ allowedMimeTypes.includes(format.mimeType) ? 'ON' : 'OFF' }}
+                        </span>
+                        <input
+                            type="checkbox"
+                            class="peer sr-only"
+                            :aria-label="format.label"
+                            :checked="allowedMimeTypes.includes(format.mimeType)"
+                            :disabled="allowedMimeTypes.length === 1 && allowedMimeTypes.includes(format.mimeType)"
+                            @change="(event) => onFormatChange(event, format.mimeType)"
+                        />
+                        <span
+                            aria-hidden="true"
+                            class="bg-muted after:bg-background peer-checked:bg-primary peer-focus-visible:ring-ring relative h-5 w-9 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"
+                        />
+                    </span>
+                </label>
+            </div>
+            <p class="text-muted-foreground text-xs">Minimal satu format harus tetap aktif.</p>
             <div v-if="field.type === 'image_upload'" class="flex flex-wrap gap-1.5">
                 <span
                     class="border-primary/20 bg-primary/8 text-primary rounded-full border px-2 py-0.5 text-[10px] font-semibold"
@@ -401,7 +480,57 @@ const hasAdvancedFlags = computed(
                     area tengah aman
                 </span>
             </div>
-        </div>
+            <div
+                class="border-border/60 bg-muted/20 flex items-center justify-between gap-4 rounded-xl border px-4 py-3"
+            >
+                <div>
+                    <p class="text-sm font-medium">Izinkan beberapa file</p>
+                    <p class="text-muted-foreground text-xs">Pengisi dapat memilih lebih dari satu file.</p>
+                </div>
+                <label class="flex items-center gap-2 text-xs font-semibold">
+                    <span>{{ field.metadata.multiple === true ? 'ON' : 'OFF' }}</span>
+                    <input
+                        type="checkbox"
+                        class="peer sr-only"
+                        aria-label="Izinkan beberapa file"
+                        :checked="field.metadata.multiple === true"
+                        @change="onMultipleChange"
+                    />
+                    <span
+                        aria-hidden="true"
+                        class="bg-muted after:bg-background peer-checked:bg-primary peer-focus-visible:ring-ring relative h-5 w-9 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"
+                    />
+                </label>
+            </div>
+            <div v-if="field.metadata.multiple === true" class="grid gap-3 sm:grid-cols-2">
+                <label class="text-xs font-medium">
+                    Maksimal jumlah file
+                    <Input
+                        type="number"
+                        min="1"
+                        :max="DEFAULT_UPLOAD_LIMITS.max_files"
+                        step="1"
+                        class="mt-1.5 h-10 text-sm"
+                        :model-value="normalizeUploadLimit('max_files', readUploadLimit(field.metadata.max_files))"
+                        @update:model-value="(value) => setUploadLimit('max_files', value)"
+                    />
+                </label>
+                <label class="text-xs font-medium">
+                    Batas total ukuran (MB)
+                    <Input
+                        type="number"
+                        min="1"
+                        :max="DEFAULT_UPLOAD_LIMITS.max_total_size_mb"
+                        step="1"
+                        class="mt-1.5 h-10 text-sm"
+                        :model-value="
+                            normalizeUploadLimit('max_total_size_mb', readUploadLimit(field.metadata.max_total_size_mb))
+                        "
+                        @update:model-value="(value) => setUploadLimit('max_total_size_mb', value)"
+                    />
+                </label>
+            </div>
+        </fieldset>
 
         <!-- Options editor (dropdown / checkbox / radio) -->
         <div v-if="hasOptions" class="flex flex-col gap-2">

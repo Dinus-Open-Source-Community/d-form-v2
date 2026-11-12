@@ -40,7 +40,9 @@ export function useFormFillSubmit(options: IUseFormFillSubmitOptions): IUseFormF
         const accountEmail = readAccountEmail();
         if (accountEmail && options.memberSlots > 0) {
             const emails = options.answerForm.team_member_emails;
-            const memberEmails = Array.isArray(emails) ? emails : [];
+            const memberEmails = Array.isArray(emails)
+                ? emails.filter((email): email is string => typeof email === 'string')
+                : [];
             if (containsAccountEmail(memberEmails, accountEmail)) {
                 const message = 'Email anggota tidak boleh sama dengan email akun Anda. Gunakan email peserta lain.';
                 options.answerForm.setError('team_member_emails', message);

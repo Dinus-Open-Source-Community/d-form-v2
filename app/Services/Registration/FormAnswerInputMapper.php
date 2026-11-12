@@ -89,7 +89,9 @@ final class FormAnswerInputMapper
         foreach ($fields as $field) {
             $value = $this->valueFor($validated, $field, $form, $field->name);
 
-            if ($preserveStoredFiles && $field->input_type === 'fileUpload' && $value === null) {
+            if ($preserveStoredFiles
+                && $field->input_type === 'fileUpload'
+                && ($value === null || ($this->isMultipleUpload($field) && $value === []))) {
                 continue;
             }
 
@@ -129,6 +131,17 @@ final class FormAnswerInputMapper
         if ($field->input_type === 'fileUpload') {
             $file = Arr::get($validated, $inputName);
 
+            if ($this->isMultipleUpload($field)) {
+                if (! is_array($file)) {
+                    return [];
+                }
+
+                /** @var list<UploadedFile> $files */
+                $files = array_values(array_filter($file, static fn (mixed $item): bool => $item instanceof UploadedFile));
+
+                return $files === [] ? [] : $this->fileStorage->storeMany($files, $form);
+            }
+
             return $file instanceof UploadedFile ? $this->fileStorage->store($file, $form) : null;
         }
 
@@ -150,6 +163,16 @@ final class FormAnswerInputMapper
         $isMultiple = $metadata instanceof Collection
             ? $metadata->get('is_multiple')
             : (is_array($metadata) ? ($metadata['is_multiple'] ?? null) : null);
+
+        return filter_var($isMultiple, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function isMultipleUpload(FormField $field): bool
+    {
+        $metadata = $field->metadata;
+        $isMultiple = $metadata instanceof Collection
+            ? ($metadata->get('multiple') ?? $metadata->get('is_multiple'))
+            : (is_array($metadata) ? ($metadata['multiple'] ?? $metadata['is_multiple'] ?? null) : null);
 
         return filter_var($isMultiple, FILTER_VALIDATE_BOOLEAN);
     }

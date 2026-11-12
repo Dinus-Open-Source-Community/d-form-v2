@@ -213,7 +213,72 @@ class UploadContentValidationTest extends TestCase
             UploadPurpose::RecruitmentCv,
         );
         $this->assertTrue($javascript->fails());
-        $this->assertStringContainsString('active or embedded', (string) $javascript->errors()->first('file'));
+        $this->assertStringContainsString('active content', (string) $javascript->errors()->first('file'));
+    }
+
+    public function test_default_document_policy_accepts_safe_docx_and_rejects_zip(): void
+    {
+        $docx = $this->officeDocument('docx', false, false);
+        $this->assertFalse($this->validateFile($docx, UploadPurpose::FormAnswerFile)->fails());
+
+        $zip = $this->zipUpload('archive.zip', ['payload.txt' => 'safe']);
+        $this->assertTrue($this->validateFile($zip, UploadPurpose::FormAnswerFile)->fails());
+    }
+
+    public function test_ooxml_macro_traversal_and_malformed_packages_are_rejected(): void
+    {
+        $macro = $this->officeDocument('docx', true, false);
+        self::assertTrue($this->validateFile($macro, UploadPurpose::FormAnswerFile)->fails());
+
+        $traversal = $this->officeDocument('docx', false, true);
+        self::assertTrue($this->validateFile($traversal, UploadPurpose::FormAnswerFile)->fails());
+
+        $malformed = UploadedFile::fake()->createWithContent('broken.docx', "PK\x03\x04not-a-zip");
+        self::assertTrue($this->validateFile($malformed, UploadPurpose::FormAnswerFile)->fails());
+    }
+
+    public function test_ooxml_expanded_size_is_capped_before_reading_entries(): void
+    {
+        config(['events.forms.upload_max_expanded_size_kb' => 1]);
+        $expanded = $this->zipUpload('large.docx', [
+            '[Content_Types].xml' => str_repeat('x', 700),
+            'word/document.xml' => str_repeat('x', 700),
+        ]);
+
+        self::assertTrue($this->validateFile($expanded, UploadPurpose::FormAnswerFile)->fails());
+    }
+
+    public function test_ooxml_rejects_malformed_required_xml_inside_a_valid_zip(): void
+    {
+        $malformedXml = $this->zipUpload('broken.xml.docx', [
+            '[Content_Types].xml' => '<Types></Types>',
+            'word/document.xml' => '<document>',
+        ]);
+
+        self::assertTrue($this->validateFile($malformedXml, UploadPurpose::FormAnswerFile)->fails());
+    }
+
+    public function test_ooxml_rejects_symlink_entries_using_zip_external_attributes(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'upload-symlink-');
+        self::assertIsString($path);
+        $zip = new \ZipArchive();
+        self::assertSame(true, $zip->open($path, \ZipArchive::CREATE));
+        $zip->addFromString('[Content_Types].xml', '<Types></Types>');
+        $zip->addFromString('word/document.xml', '<document />');
+        $zip->addFromString('word/link', 'target');
+        self::assertTrue($zip->setExternalAttributesName(
+            'word/link',
+            \ZipArchive::OPSYS_UNIX,
+            (0120000 | 0777) << 16,
+        ));
+        $zip->close();
+        $contents = file_get_contents($path);
+        unlink($path);
+
+        $symlink = UploadedFile::fake()->createWithContent('symlink.docx', (string) $contents);
+
+        self::assertTrue($this->validateFile($symlink, UploadPurpose::FormAnswerFile)->fails());
     }
 
     public function test_broadcast_attachment_purpose_rejects_gif_and_accepts_png_pdf(): void
@@ -350,5 +415,43 @@ class UploadContentValidationTest extends TestCase
             ['file' => $file],
             ['file' => SafeUploadFile::rules(true, $purpose)],
         );
+    }
+
+    /** @param array<string, string> $entries */
+    private function zipUpload(string $name, array $entries): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'upload-test-');
+        self::assertIsString($path);
+        $zip = new \ZipArchive();
+        self::assertSame(true, $zip->open($path, \ZipArchive::CREATE));
+        foreach ($entries as $entry => $contents) {
+            $zip->addFromString($entry, $contents);
+        }
+        $zip->close();
+        $contents = file_get_contents($path);
+        unlink($path);
+
+        return UploadedFile::fake()->createWithContent($name, (string) $contents);
+    }
+
+    private function officeDocument(string $extension, bool $macro, bool $traversal): UploadedFile
+    {
+        $required = match ($extension) {
+            'xlsx' => 'xl/workbook.xml',
+            'pptx' => 'ppt/presentation.xml',
+            default => 'word/document.xml',
+        };
+        $entries = [
+            '[Content_Types].xml' => '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>',
+            $required => '<document />',
+        ];
+        if ($macro) {
+            $entries['word/vbaProject.bin'] = 'macro';
+        }
+        if ($traversal) {
+            $entries['../escape.txt'] = 'escape';
+        }
+
+        return $this->zipUpload("document.{$extension}", $entries);
     }
 }

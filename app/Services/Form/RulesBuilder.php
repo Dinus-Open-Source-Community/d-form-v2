@@ -4,6 +4,8 @@ namespace App\Services\Form;
 
 use App\Models\FormField;
 use App\Rules\SafeUploadFile;
+use Closure;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
@@ -120,6 +122,27 @@ class RulesBuilder
 
             if ($field->input_type === 'fileUpload') {
                 $ruleSet['is_file'] = true;
+                if (array_key_exists('allowed_mime_types', $metadata)) {
+                    $ruleSet['allowed_mime_types'] = $metadata['allowed_mime_types'];
+                } elseif (is_string($builderType)) {
+                    $defaultMimes = self::defaultUploadMimeTypes($builderType);
+                    if ($defaultMimes !== []) {
+                        $ruleSet['allowed_mime_types'] = $defaultMimes;
+                    }
+                }
+                $isMultipleUpload = filter_var(
+                    $metadata['multiple'] ?? $metadata['is_multiple'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN,
+                );
+                if ($isMultipleUpload) {
+                    $ruleSet['is_multiple_file'] = true;
+                    if (array_key_exists('max_files', $metadata)) {
+                        $ruleSet['max_files'] = $metadata['max_files'];
+                    }
+                    if (array_key_exists('max_total_size_kb', $metadata)) {
+                        $ruleSet['max_total_size_kb'] = $metadata['max_total_size_kb'];
+                    }
+                }
             }
 
             $result[(string) $field->name] = $ruleSet;
@@ -138,7 +161,7 @@ class RulesBuilder
      *        untuk select/number numerik, `date` untuk datePicker). Default aman
      *        untuk jawaban user; `false` hanya untuk caller yang memang butuh
      *        rules mentah (mis. payload non-jawaban).
-     * @return array<string, array<int, string|\App\Rules\SafeUploadFile|\Illuminate\Validation\Rules\In>>
+     * @return array<string, array<int, string|Closure|\App\Rules\SafeUploadFile|\Illuminate\Validation\Rules\In>>
      */
     public static function build(array $customRules, bool $requireScalarString = true): array
     {
@@ -150,6 +173,7 @@ class RulesBuilder
             $isRequired   = filter_var($rules['required'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $isCheckbox   = !empty($rules['is_checkbox']);
             $isMultiple   = !empty($rules['is_multiple']);
+            $isMultipleFile = !empty($rules['is_multiple_file']);
 
             if ($isCheckbox) {
                 $mappedRules[] = $isRequired ? 'required' : 'nullable';
@@ -170,23 +194,11 @@ class RulesBuilder
             $isFile = ! empty($rules['is_file']);
 
             if ($isFile) {
-                $mappedRules   = [];
-                $mappedRules[] = $isRequired ? 'required' : 'nullable';
-                $mappedRules[] = 'file';
-                $mimesVal = $rules['mimes'] ?? (string) config('events.forms.upload_allowed_mimes', 'pdf,jpg,jpeg,png');
-                $extensions = [];
-                if ($mimesVal !== '') {
-                    $extensions = array_map(
-                        'trim',
-                        explode(',', str_replace(' ', '', (string) $mimesVal))
-                    );
-                    $extensions = array_filter($extensions);
-                }
-                $mappedRules[] = new SafeUploadFile(
-                    $extensions !== [] ? array_values($extensions) : SafeUploadFile::DEFAULT_FORMATS,
-                    is_numeric($rules['max_size'] ?? null) ? (int) $rules['max_size'] : null
-                );
+                $mappedRules = self::fileRules($rules, $isRequired, $isMultipleFile);
                 $laravelRules[$fieldName] = $mappedRules;
+                if ($isMultipleFile) {
+                    $laravelRules["{$fieldName}.*"] = self::fileElementRules($rules);
+                }
                 continue;
             }
 
@@ -231,6 +243,150 @@ class RulesBuilder
         }
 
         return $laravelRules;
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     * @return array<int, string|Closure>
+     */
+    private static function fileRules(array $rules, bool $required, bool $multiple): array
+    {
+        $mappedRules = [$required ? 'required' : 'nullable'];
+
+        if (! $multiple) {
+            $mappedRules[] = 'file';
+
+            return array_merge($mappedRules, [self::safeUploadRule($rules)]);
+        }
+
+        $mappedRules[] = 'array';
+        $mappedRules[] = 'max:'.self::boundedMaxFiles($rules['max_files'] ?? null);
+        $mappedRules[] = self::totalSizeRule(self::boundedMaxTotalSizeKb($rules['max_total_size_kb'] ?? null));
+
+        return $mappedRules;
+    }
+
+    /**
+     * @param array<string, mixed> $rules
+     * @return array<int, string|SafeUploadFile>
+     */
+    private static function fileElementRules(array $rules): array
+    {
+        return ['file', self::safeUploadRule($rules)];
+    }
+
+    /** @param array<string, mixed> $rules */
+    private static function safeUploadRule(array $rules): SafeUploadFile
+    {
+        $extensions = self::extensionsFromRules($rules);
+
+        return new SafeUploadFile(
+            $extensions !== [] ? $extensions : SafeUploadFile::DEFAULT_FORMATS,
+            is_numeric($rules['max_size'] ?? null) ? (int) $rules['max_size'] : null,
+        );
+    }
+
+    /** @param array<string, mixed> $rules @return list<string> */
+    private static function extensionsFromRules(array $rules): array
+    {
+        $mimeTypes = self::normalizeMimeTypes($rules['allowed_mime_types'] ?? null);
+        $extensions = [];
+        foreach ($mimeTypes as $mimeType) {
+            $extensions = array_merge($extensions, match ($mimeType) {
+                'image/jpeg' => ['jpg', 'jpeg'],
+                'image/png' => ['png'],
+                'image/webp' => ['webp'],
+                'image/gif' => ['gif'],
+                'application/pdf' => ['pdf'],
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => ['docx'],
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation' => ['pptx'],
+                'text/csv' => ['csv'],
+                'text/plain' => ['txt'],
+                default => [],
+            });
+        }
+        if ($extensions !== []) {
+            return array_values(array_unique($extensions));
+        }
+
+        $mimesVal = $rules['mimes'] ?? config('events.forms.upload_allowed_mimes', 'pdf,jpg,jpeg,png,webp,gif');
+        if (! is_string($mimesVal) || trim($mimesVal) === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (string $extension): string => strtolower(trim($extension)),
+            explode(',', str_replace(' ', '', $mimesVal)),
+        )));
+    }
+
+    /** @return list<string> */
+    private static function normalizeMimeTypes(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, static fn (mixed $mime): bool => is_string($mime) && trim($mime) !== ''));
+    }
+
+    /** @return list<string> */
+    private static function defaultUploadMimeTypes(string $builderType): array
+    {
+        return match ($builderType) {
+            'image_upload' => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+            'file_upload' => [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'text/csv',
+                'text/plain',
+            ],
+            default => [],
+        };
+    }
+
+    private static function boundedMaxFiles(mixed $value): int
+    {
+        $maximum = max(1, min(5, (int) config('events.forms.upload_max_files', 5)));
+        $configured = is_numeric($value) ? (int) $value : $maximum;
+
+        return max(1, min($maximum, $configured));
+    }
+
+    private static function boundedMaxTotalSizeKb(mixed $value): int
+    {
+        $maximum = max(1, min(20 * 1024, (int) config('events.forms.upload_max_total_size_kb', 20 * 1024)));
+        $configured = is_numeric($value) ? (int) $value : $maximum;
+
+        return max(1, min($maximum, $configured));
+    }
+
+    private static function totalSizeRule(int $maxTotalSizeKb): Closure
+    {
+        return static function (string $attribute, mixed $value, Closure $fail) use ($maxTotalSizeKb): void {
+            if (! is_array($value)) {
+                return;
+            }
+
+            $totalBytes = 0;
+            foreach ($value as $file) {
+                if ($file instanceof UploadedFile) {
+                    $totalBytes += (int) ($file->getSize() ?? 0);
+                }
+            }
+
+            if ($totalBytes > $maxTotalSizeKb * 1024) {
+                $fail('The total uploaded files may not be greater than '.self::formatSizeLimit($maxTotalSizeKb).'.');
+            }
+        };
+    }
+
+    private static function formatSizeLimit(int $kilobytes): string
+    {
+        return intdiv($kilobytes, 1024).' MB';
     }
 
     /**

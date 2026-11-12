@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Check, Eye, FileText, X } from 'lucide-vue-next';
+import { Check, Eye, X } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
+import FileTypeTile from '@/components/core/FileTypeTile.vue';
 import {
     answerPreview,
     formSubmissionReviewIsPending,
@@ -15,6 +17,8 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 
 const props = defineProps<{
     submission: IFormSubmission;
+    rowNumber: number;
+    selected: boolean;
     answerKeys: string[];
     fileFieldNames: string[];
     humanizeKey: (key: string) => string;
@@ -24,17 +28,48 @@ const props = defineProps<{
 const emit = defineEmits<{
     detail: [submission: IFormSubmission];
     review: [payload: { action: 'accept' | 'reject'; submission: IFormSubmission }];
+    select: [checked: boolean | 'indeterminate'];
 }>();
 
 const displayAnswerKeys = computed(() => [
     ...props.answerKeys.filter((key) => !props.fileFieldNames.includes(key)).slice(0, 4),
     ...props.answerKeys.filter((key) => props.fileFieldNames.includes(key)),
 ]);
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+    return target instanceof Element && target.closest('button, a, input, [role="checkbox"]') !== null;
+}
+
+function openCardFromClick(event: MouseEvent): void {
+    if (isInteractiveTarget(event.target)) return;
+    emit('detail', props.submission);
+}
+
+function openCardFromKeyboard(event: KeyboardEvent): void {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    emit('detail', props.submission);
+}
 </script>
 
 <template>
-    <article data-testid="form-answer-mobile-card" class="border-border/70 bg-card rounded-2xl border p-4 shadow-sm">
+    <article
+        data-testid="form-answer-mobile-card"
+        tabindex="0"
+        :aria-label="`Lihat detail jawaban nomor ${rowNumber} dari ${submission.user?.name ?? 'pengirim'}`"
+        class="border-border/70 bg-card focus-visible:ring-ring/70 cursor-pointer rounded-xl border p-4 shadow-xs focus-visible:ring-2 focus-visible:outline-none"
+        @click="openCardFromClick"
+        @keydown="openCardFromKeyboard"
+    >
         <header class="flex min-w-0 items-start gap-3">
+            <div class="flex shrink-0 items-center gap-2 pt-1">
+                <Checkbox
+                    :model-value="selected"
+                    :aria-label="`Pilih jawaban nomor ${rowNumber} dari ${submission.user?.name ?? 'pengirim'}`"
+                    @update:model-value="emit('select', $event)"
+                />
+                <span class="text-muted-foreground text-xs tabular-nums">{{ rowNumber }}</span>
+            </div>
             <UserAvatarFallback
                 :src="submission.user?.avatar ?? null"
                 :seed="userAvatarSeed(submission.user)"
@@ -62,10 +97,10 @@ const displayAnswerKeys = computed(() => [
                 <dt class="text-muted-foreground text-[11px] font-medium">{{ humanizeKey(key) }}</dt>
                 <dd
                     v-if="fileFieldNames.includes(key) && submissionFileUrl(submission.answers?.[key])"
-                    class="text-foreground/85 flex items-center gap-1.5 text-xs"
+                    class="text-foreground/85 flex min-w-0 items-center gap-1.5 text-xs"
                 >
-                    <FileText class="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                    <span class="truncate">{{ fileNameOf(String(submission.answers?.[key] ?? '')) }}</span>
+                    <FileTypeTile :file-name="fileNameOf(String(submission.answers?.[key] ?? ''))" />
+                    <span class="min-w-0 truncate">{{ fileNameOf(String(submission.answers?.[key] ?? '')) }}</span>
                 </dd>
                 <dd v-else class="text-foreground/85 line-clamp-2 text-xs break-words">
                     {{ answerPreview(submission.answers?.[key]) }}
@@ -76,25 +111,36 @@ const displayAnswerKeys = computed(() => [
             <template v-if="formSubmissionReviewIsPending(submission)">
                 <Button
                     type="button"
-                    variant="outline"
-                    class="border-success/35 text-success h-10 flex-1 gap-1.5"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-success hover:bg-success/10 hover:text-success focus-visible:ring-success/40 rounded-md"
                     :disabled="reviewing"
+                    :aria-label="`Terima jawaban dari ${submission.user?.name ?? 'pengirim'}`"
                     @click="emit('review', { action: 'accept', submission })"
                 >
-                    <Check class="size-4" aria-hidden="true" /> Terima
+                    <Check class="size-4" aria-hidden="true" />
                 </Button>
                 <Button
                     type="button"
-                    variant="outline"
-                    class="border-destructive/35 text-destructive h-10 flex-1 gap-1.5"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/40 rounded-md"
                     :disabled="reviewing"
+                    :aria-label="`Tolak jawaban dari ${submission.user?.name ?? 'pengirim'}`"
                     @click="emit('review', { action: 'reject', submission })"
                 >
-                    <X class="size-4" aria-hidden="true" /> Tolak
+                    <X class="size-4" aria-hidden="true" />
                 </Button>
             </template>
-            <Button type="button" variant="ghost" class="h-10 gap-1.5" @click="emit('detail', submission)">
-                <Eye class="size-4" aria-hidden="true" /> Detail
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="hover:bg-primary/10 hover:text-primary rounded-md"
+                :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
+                @click="emit('detail', submission)"
+            >
+                <Eye class="size-4" aria-hidden="true" />
             </Button>
         </footer>
     </article>

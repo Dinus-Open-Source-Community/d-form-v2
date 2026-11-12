@@ -192,6 +192,14 @@ class FormAnswer extends Model
     }
 
     /**
+     * @return HasMany<FormReviewEmailOutbox, $this>
+     */
+    public function formReviewEmailOutboxes(): HasMany
+    {
+        return $this->hasMany(FormReviewEmailOutbox::class, 'form_answer_id');
+    }
+
+    /**
      * @return HasMany<EventAttendance, $this>
      */
     public function attendances(): HasMany

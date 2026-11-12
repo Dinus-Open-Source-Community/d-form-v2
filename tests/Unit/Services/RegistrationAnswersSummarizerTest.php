@@ -131,4 +131,37 @@ class RegistrationAnswersSummarizerTest extends TestCase
             $summary['Bukti pembayaran'],
         );
     }
+    public function test_multiple_file_upload_summary_uses_one_authorized_url_per_file_and_explicit_delimiter(): void
+    {
+        Storage::fake('local');
+
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $first = 'form-uploads/'.$form->id.'/first.pdf';
+        $second = 'form-uploads/'.$form->id.'/second.pdf';
+        Storage::disk('local')->put($first, 'first');
+        Storage::disk('local')->put($second, 'second');
+
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'documents',
+            'label' => 'Documents',
+            'order' => 1,
+            'input_type' => 'fileUpload',
+            'metadata' => ['multiple' => true],
+        ]);
+
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'answers' => ['documents' => [$first, $second]],
+        ]);
+
+        $summary = app(RegistrationAnswersSummarizer::class)->summarize($answer);
+
+        self::assertStringContainsString('/form-answers/'.$answer->id.'/files/documents/first.pdf', $summary['Documents']);
+        self::assertStringContainsString('/form-answers/'.$answer->id.'/files/documents/second.pdf', $summary['Documents']);
+        self::assertSame(2, substr_count($summary['Documents'], 'signature='));
+        self::assertStringContainsString('; ', $summary['Documents']);
+        self::assertStringNotContainsString('form-uploads/', $summary['Documents']);
+    }
 }

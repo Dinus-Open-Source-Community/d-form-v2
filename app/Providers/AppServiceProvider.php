@@ -216,6 +216,16 @@ class AppServiceProvider extends ServiceProvider
                 ));
         });
 
+        RateLimiter::for('form-review-bulk', function (Request $request): Limit {
+            return Limit::perMinute((int) config('events.forms.bulk_review_rate_limit_per_minute', 30))
+                ->by(sprintf(
+                    '%s|%s|%s',
+                    $request->user()?->id ?? $request->ip(),
+                    $this->routeParameterKey($request, 'event'),
+                    $this->routeParameterKey($request, 'form'),
+                ));
+        });
+
         RateLimiter::for('auth-login', function (Request $request): Limit {
             $input = $request->input('email');
             $email = is_string($input) ? strtolower($input) : '';

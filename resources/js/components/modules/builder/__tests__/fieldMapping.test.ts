@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { fromBackendField, toBackendFields } from '@/components/modules/builder/fieldMapping';
+import {
+    DEFAULT_ALLOWED_MIME_TYPES,
+    DEFAULT_UPLOAD_LIMITS,
+    fromBackendField,
+    normalizeUploadLimit,
+    setUploadMultipleMetadata,
+    toggleAllowedMimeType,
+    toBackendFields,
+} from '@/components/modules/builder/fieldMapping';
 import { prependFormBannerToBackendPayload, defaultFormBannerState } from '@/components/modules/builder/formBanner';
 import type { IBackendField, IBuilderField } from '@/types/form-builder';
 
@@ -187,3 +195,180 @@ describe('toBackendFields — heading content', () => {
         expect(backendMetaOf(backend, 'field_3').content).toBe('Judul');
     });
 });
+
+describe('upload field metadata', () => {
+    it('hydrates image and file allowlists with their format defaults', () => {
+        const image = fromBackendField({ ...backendUploadField(), metadata: { builderType: 'image_upload' } });
+        const file = fromBackendField({ ...backendUploadField(), metadata: { builderType: 'file_upload' } });
+
+        expect(image.metadata.allowed_mime_types).toEqual(DEFAULT_ALLOWED_MIME_TYPES.image_upload);
+        expect(file.metadata.allowed_mime_types).toEqual(DEFAULT_ALLOWED_MIME_TYPES.file_upload);
+        expect(DEFAULT_ALLOWED_MIME_TYPES.file_upload).not.toEqual(expect.arrayContaining(['application/zip']));
+        expect(DEFAULT_ALLOWED_MIME_TYPES.file_upload).not.toEqual(
+            expect.arrayContaining(['application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint'])
+        );
+    });
+
+    it('preserves independent multiple settings and upload limits across hydration and mapping', () => {
+        const hydrated = fromBackendField({
+            ...backendUploadField(),
+            metadata: {
+                builderType: 'file_upload',
+                multiple: true,
+                max_files: 4,
+                max_total_size_kb: 20480,
+                allowed_mime_types: ['application/pdf'],
+            },
+        });
+
+        expect(hydrated.metadata).toMatchObject({ multiple: true, max_files: 4, max_total_size_mb: 20 });
+        expect(hydrated.metadata.max_total_size_kb).toBe(20480);
+        const serialized = toBackendFields([hydrated])[0];
+        expect(serialized?.metadata).toMatchObject({
+            multiple: true,
+            max_files: 4,
+            max_total_size_kb: 20480,
+            allowed_mime_types: ['application/pdf'],
+        });
+        expect(serialized?.metadata.max_total_size_mb).toBeUndefined();
+
+        const single = fromBackendField({
+            ...backendUploadField(),
+            metadata: { builderType: 'file_upload', multiple: false, allowed_mime_types: ['text/plain'] },
+        });
+        expect(single.metadata.multiple).toBe(false);
+        expect(toBackendFields([single])[0]?.metadata.multiple).toBe(false);
+    });
+
+    it('maps legacy accepts into the typed allowlist while retaining the legacy value', () => {
+        const hydrated = fromBackendField({
+            ...backendUploadField(),
+            metadata: { builderType: 'image_upload', accepts: 'png, jpg, gif' },
+        });
+
+        expect(hydrated.metadata.allowed_mime_types).toEqual(['image/jpeg', 'image/png', 'image/gif']);
+        expect(hydrated.metadata.accepts).toBe('png, jpg, gif');
+        const serialized = toBackendFields([hydrated])[0];
+        expect(serialized?.metadata.accepts).toBe('jpg,jpeg,png,gif');
+        expect(serialized?.metadata.rules).toMatchObject({ mimes: 'jpg,jpeg,png,gif' });
+    });
+
+    it('uses typed MIME allowlists over stale legacy accepts when serializing', () => {
+        const hydrated = fromBackendField({
+            ...backendUploadField(),
+            metadata: {
+                builderType: 'file_upload',
+                allowed_mime_types: ['application/pdf'],
+                accepts: 'doc, xls',
+                rules: { mimes: 'doc,xls' },
+            },
+        });
+
+        const serialized = toBackendFields([hydrated])[0];
+
+        expect(serialized?.metadata.allowed_mime_types).toEqual(['application/pdf']);
+        expect(serialized?.metadata.accepts).toBe('pdf');
+        expect(serialized?.metadata.rules).toMatchObject({ mimes: 'pdf' });
+    });
+
+    it('defaults, clamps, serializes and resets multiple-upload limits', () => {
+        const hydrated = fromBackendField({
+            ...backendUploadField(),
+            metadata: { builderType: 'file_upload', multiple: true },
+        });
+
+        expect(hydrated.metadata).toMatchObject({
+            multiple: true,
+            max_files: DEFAULT_UPLOAD_LIMITS.max_files,
+            max_total_size_mb: DEFAULT_UPLOAD_LIMITS.max_total_size_mb,
+        });
+        expect(normalizeUploadLimit('max_files', 99)).toBe(5);
+        expect(normalizeUploadLimit('max_total_size_mb', 50)).toBe(20);
+        expect(normalizeUploadLimit('max_files', '')).toBe(DEFAULT_UPLOAD_LIMITS.max_files);
+        expect(normalizeUploadLimit('max_total_size_mb', '')).toBe(DEFAULT_UPLOAD_LIMITS.max_total_size_mb);
+
+        const reset = {
+            ...hydrated,
+            metadata: {
+                ...hydrated.metadata,
+                max_files: normalizeUploadLimit('max_files', ''),
+                max_total_size_mb: normalizeUploadLimit('max_total_size_mb', ''),
+            },
+        };
+        expect(toBackendFields([reset])[0]?.metadata).toMatchObject({
+            max_files: DEFAULT_UPLOAD_LIMITS.max_files,
+            max_total_size_kb: DEFAULT_UPLOAD_LIMITS.max_total_size_kb,
+        });
+
+        const outOfRange = {
+            ...hydrated,
+            metadata: { ...hydrated.metadata, max_files: 99, max_total_size_mb: 50 },
+        };
+        const serialized = toBackendFields([outOfRange])[0];
+        expect(serialized?.metadata).toMatchObject({
+            max_files: 5,
+            max_total_size_kb: 20480,
+        });
+    });
+
+    it('hydrates legacy kilobyte limits as megabytes and serializes only the legacy KB key', () => {
+        const hydrated = fromBackendField({
+            ...backendUploadField(),
+            metadata: { builderType: 'file_upload', multiple: true, max_total_size_kb: 5120 },
+        });
+
+        expect(hydrated.metadata.max_total_size_mb).toBe(5);
+
+        const serialized = toBackendFields([hydrated])[0];
+
+        expect(serialized?.metadata.max_total_size_kb).toBe(5120);
+        expect(serialized?.metadata.max_total_size_mb).toBeUndefined();
+    });
+
+    it('clears multiple-file limits after disabling and preserves legacy single-file metadata', () => {
+        const enabledMetadata = setUploadMultipleMetadata({}, true);
+        const configuredMetadata = { ...enabledMetadata, max_files: 3, max_total_size_mb: 8 };
+        const singleMetadata = setUploadMultipleMetadata(configuredMetadata, false);
+
+        expect(singleMetadata).toMatchObject({ multiple: false });
+        expect(singleMetadata.max_files).toBeUndefined();
+        expect(singleMetadata.max_total_size_mb).toBeUndefined();
+        expect(singleMetadata.max_total_size_kb).toBeUndefined();
+
+        const legacySingle = fromBackendField({
+            ...backendUploadField(),
+            metadata: {
+                builderType: 'file_upload',
+                multiple: false,
+                accepts: 'pdf',
+                max_total_size_kb: 1024,
+            },
+        });
+        const serialized = toBackendFields([
+            { ...legacySingle, metadata: { ...legacySingle.metadata, ...singleMetadata, accepts: 'pdf' } },
+        ])[0];
+
+        expect(serialized?.metadata.multiple).toBe(false);
+        expect(serialized?.metadata.accepts).toBe('pdf');
+        expect(serialized?.metadata.max_total_size_kb).toBeUndefined();
+        expect(serialized?.metadata.max_files).toBeUndefined();
+    });
+
+    it('toggles a format off and refuses to turn off the final enabled format', () => {
+        expect(toggleAllowedMimeType(['image/jpeg', 'image/png'], 'image/png', false)).toEqual(['image/jpeg']);
+        expect(toggleAllowedMimeType(['image/jpeg'], 'image/jpeg', false)).toEqual(['image/jpeg']);
+        expect(toggleAllowedMimeType(['image/jpeg'], 'image/png', true)).toEqual(['image/jpeg', 'image/png']);
+    });
+});
+
+function backendUploadField(): IBackendField {
+    return {
+        id: 'upload-field',
+        type: 'fileUpload',
+        label: 'Upload',
+        description: null,
+        name: 'upload',
+        order: 1,
+        metadata: {},
+    };
+}

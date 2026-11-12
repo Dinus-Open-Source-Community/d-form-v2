@@ -55,6 +55,7 @@ trait TracksOutgoingEmail
         array $attributes,
         ?callable $adoptQueued = null,
         ?string $deliveryKey = null,
+        bool $allowQueued = false,
     ): ?EmailLog {
         $key = $deliveryKey ?? $this->deliveryKey;
         $existing = EmailLog::query()->where('delivery_key', $key)->first();
@@ -71,6 +72,10 @@ trait TracksOutgoingEmail
             }
 
             if ($existing->status === EmailLogStatus::Queued) {
+                if ($allowQueued) {
+                    return $existing;
+                }
+
                 // The previous attempt reached the transport and died before confirming it.
                 // Resending would risk a duplicate, so record the ambiguity and stop.
                 $existing->forceFill([

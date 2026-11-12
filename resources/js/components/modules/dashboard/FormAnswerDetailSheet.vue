@@ -52,7 +52,10 @@ const answerSections = computed(() => {
 
 <template>
     <Sheet v-model:open="open">
-        <SheetContent side="right" class="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md lg:max-w-lg">
+        <SheetContent
+            side="right"
+            class="bg-background pointer-events-auto z-[60] flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md lg:max-w-lg"
+        >
             <SheetHeader class="border-border/70 shrink-0 gap-0 border-b px-5 pt-5 pb-4 text-left sm:px-6">
                 <div class="flex items-start gap-3.5 pr-8">
                     <UserAvatarFallback
@@ -103,7 +106,11 @@ const answerSections = computed(() => {
                                 <p class="border-border/60 text-foreground mb-3 border-b pb-2 text-sm font-semibold">
                                     {{ humanizeKey(key) }}
                                 </p>
-                                <FormFieldAnswerDisplay :field="fieldForKey(key)" :value="submission.answers?.[key]" />
+                                <FormFieldAnswerDisplay
+                                    :field="fieldForKey(key)"
+                                    :value="submission.answers?.[key]"
+                                    file-action-alignment="end"
+                                />
                             </div>
                         </div>
                     </div>

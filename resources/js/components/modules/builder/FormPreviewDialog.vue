@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { X, Star, Upload, ImagePlus, Send } from 'lucide-vue-next';
 import { optionLabel, optionImageUrl, type IFieldOptionEntry } from '@/components/modules/builder/fieldMapping';
+import { formatDefaultUploadFormats } from '@/lib/formUploadFormats';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { createUuid } from '@/lib/uuid';
 import PageHeader from '@/components/modules/builder/PageHeader.vue';
@@ -400,7 +401,10 @@ function ratingStars(field: IFormPreviewField): number[] {
                                                     Image upload (preview)
                                                 </p>
                                                 <p class="text-muted-foreground/70 mt-0.5 text-[10px]">
-                                                    {{ metaString(field, 'accepts') || 'png, jpg, jpeg' }}
+                                                    {{
+                                                        metaString(field, 'accepts') ||
+                                                        formatDefaultUploadFormats('image_upload')
+                                                    }}
                                                 </p>
                                             </div>
 
@@ -413,7 +417,10 @@ function ratingStars(field: IFormPreviewField): number[] {
                                                     File upload (preview)
                                                 </p>
                                                 <p class="text-muted-foreground/70 mt-0.5 text-[10px]">
-                                                    {{ metaString(field, 'accepts') || 'pdf, doc, xls' }}
+                                                    {{
+                                                        metaString(field, 'accepts') ||
+                                                        formatDefaultUploadFormats('file_upload')
+                                                    }}
                                                 </p>
                                             </div>
 

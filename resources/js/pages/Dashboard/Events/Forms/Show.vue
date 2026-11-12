@@ -20,9 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
-import { Check, Eye, FileText, Inbox, PenLine, Settings, X } from 'lucide-vue-next';
+import { Check, Eye, FileText, Inbox, PenLine, Settings, Share2, X } from 'lucide-vue-next';
 import {
     isDisplayOnlyBuilderType,
     type IBackendField,
@@ -33,21 +32,29 @@ import { hydrateFormBuilderState } from '@/components/modules/builder/formBuilde
 import type { IFormSiblingOption } from '@/types/form';
 import {
     answerPreview,
+    formSubmissionReviewActionLabel,
     formSubmissionReviewIsPending,
     humanizeSubmissionKey,
     submissionFileUrl,
     submissionReviewBadge,
 } from '@/lib/formSubmissionsUi';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
+import BulkFormAnswerReviewDialog from '@/components/modules/dashboard/BulkFormAnswerReviewDialog.vue';
 import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
 import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
 import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
+import { useFormSubmissionBulkReview } from '@/hooks/useFormSubmissionBulkReview';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { formatDateTime } from '@/lib/dateTime';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
+import { Checkbox } from '@/components/ui/checkbox';
+import FormShareDialog from '@/components/modules/dashboard/FormShareDialog.vue';
+import { useFormShareActions } from '@/hooks/useFormShareActions';
+import type { IFormSharePayload } from '@/types/formShare';
+import { FORM_ANSWER_BULK_REVIEW_MAX_SELECTION } from '@/constants/formAnswerReview';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -55,6 +62,7 @@ type TShowTab = 'editor' | 'jawaban' | 'settings';
 const props = defineProps<{
     event: { id: string; title: string };
     form: IForm;
+    formShare: IFormSharePayload;
     fields: IBackendField[];
     siblingForms?: IFormSiblingOption[];
     saveFieldsUrl: string;
@@ -75,6 +83,18 @@ function tabFromQuery(): TShowTab {
 const activeTab = ref<TShowTab>(tabFromQuery());
 const formStatus = ref<'draft' | 'published'>(props.form.status ?? 'published');
 const isChangingStatus = ref(false);
+const isShareDialogOpen = ref(false);
+const formShareActions = useFormShareActions(props.formShare);
+
+watch(
+    () => props.formShare.can_share_participant,
+    (canShareParticipant: boolean): void => {
+        formShareActions.payload.value = {
+            ...formShareActions.payload.value,
+            can_share_participant: canShareParticipant,
+        };
+    }
+);
 
 const statusActionLabel = computed<string>(() => (formStatus.value === 'draft' ? 'Publish form' : 'Jadikan draft'));
 
@@ -217,7 +237,7 @@ const showAutosave = useFormBuilderAutosave({
     },
     endpoints: autosaveEndpoints,
     // Draf boleh belum lengkap: autosave parsial (`autosave: true`) alih-alih 422.
-    isDraft: computed<boolean>(() => props.form.is_draft === true || props.form.status === 'draft'),
+    isDraft: computed<boolean>(() => formStatus.value === 'draft'),
     onError: (message) => notifyAutosaveFailure(message, () => void showAutosave.retry()),
 });
 const showSaveState = showAutosave.status;
@@ -278,6 +298,8 @@ async function toggleFormStatus(): Promise<void> {
     if (isChangingStatus.value || settingsForm.processing || manualSaving.value) return;
 
     const nextStatus = formStatus.value === 'draft' ? 'published' : 'draft';
+    const hadUnsavedBuilderChanges = showAutosave.hasUnsavedChanges.value;
+    let builderStatePersisted = false;
     isChangingStatus.value = true;
     showAutosave.suspend();
 
@@ -297,7 +319,10 @@ async function toggleFormStatus(): Promise<void> {
                 preserveScroll: true,
                 onSuccess: () => {
                     formStatus.value = nextStatus;
-                    showAutosave.markSaved();
+                    if (nextStatus === 'published') {
+                        showAutosave.markSaved();
+                        builderStatePersisted = true;
+                    }
                     showSuccessToast(
                         nextStatus === 'published' ? 'Form berhasil dipublish.' : 'Form dikembalikan menjadi draft.'
                     );
@@ -307,8 +332,10 @@ async function toggleFormStatus(): Promise<void> {
                 },
                 onFinish: () => {
                     showAutosave.resume();
+                    if (hadUnsavedBuilderChanges && !builderStatePersisted) showAutosave.schedule();
                     isChangingStatus.value = false;
                 },
+                only: ['formShare'],
             });
     } catch {
         showAutosave.resume();
@@ -375,6 +402,30 @@ const fileFieldNames = computed(() => new Set((props.fields ?? []).filter(isFile
 const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
 
 const submissionRows = computed(() => props.submissions ?? []);
+const {
+    selectedSubmissionIds,
+    selectedCount,
+    visibleSelectionState,
+    ineligibleSelectedCount,
+    isSubmitting: isBulkReviewSubmitting,
+    actionStatus: bulkReviewActionStatus,
+    actionError: bulkReviewActionError,
+    isConfirmOpen: isBulkReviewConfirmOpen,
+    pendingDecision: bulkReviewPendingDecision,
+    isSelected: isSubmissionSelected,
+    setVisibleSelection,
+    setSubmissionSelection,
+    clearSelection,
+    requestBulkReview,
+    setDialogOpen: setBulkReviewDialogOpen,
+    confirmBulkReview,
+    cancelBulkReview,
+} = useFormSubmissionBulkReview({
+    eventId: props.event.id,
+    formId: props.form.id,
+    submissions: submissionRows,
+    reloadOnly: ['submissions'],
+});
 const mobileAnswerView = useFormAnswerMobileView();
 const mobileAnswerKeys = computed(() => answerKeys.value);
 const mobileFileFieldNames = computed(() => [...fileFieldNames.value]);
@@ -436,20 +487,42 @@ function openSubmissionDetail(submission: IFormSubmission): void {
     isDetailOpen.value = true;
 }
 
+function isRowInteractiveTarget(target: EventTarget | null): boolean {
+    return (
+        target instanceof Element &&
+        target.closest('button, a, input, [role="checkbox"], [data-row-interactive]') !== null
+    );
+}
+
+function onSubmissionRowClick(event: MouseEvent, submission: IFormSubmission): void {
+    if (isRowInteractiveTarget(event.target)) return;
+    openSubmissionDetail(submission);
+}
+
+function onSubmissionRowKeydown(event: KeyboardEvent, submission: IFormSubmission): void {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    openSubmissionDetail(submission);
+}
+
 function onDetailReview(payload: { action: 'accept' | 'reject'; submission: IFormSubmission }): void {
     reviewSubmission(payload.action, payload.submission);
 }
 
 function acceptLabel(submission: IFormSubmission): string {
-    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
-    if (submission.review_status === 'accepted') return 'Sudah diterima';
-    return 'Terima';
+    return formSubmissionReviewActionLabel(
+        'accept',
+        isSubmissionReviewing(submission.id),
+        submission.user?.name ?? 'pengirim'
+    );
 }
 
 function rejectLabel(submission: IFormSubmission): string {
-    if (isSubmissionReviewing(submission.id)) return 'Memproses...';
-    if (submission.review_status === 'rejected') return 'Sudah ditolak';
-    return 'Tolak';
+    return formSubmissionReviewActionLabel(
+        'reject',
+        isSubmissionReviewing(submission.id),
+        submission.user?.name ?? 'pengirim'
+    );
 }
 </script>
 
@@ -505,9 +578,21 @@ function rejectLabel(submission: IFormSubmission): string {
 
                 <div class="flex shrink-0 items-center gap-2">
                     <Button
+                        v-if="activeTab === 'editor'"
+                        type="button"
                         variant="outline"
                         size="sm"
-                        class="inline-flex px-2.5 text-xs font-medium sm:px-3 sm:text-sm"
+                        class="hidden px-2.5 text-xs font-medium sm:inline-flex sm:px-3 sm:text-sm"
+                        aria-haspopup="dialog"
+                        @click="isShareDialogOpen = true"
+                    >
+                        <Share2 class="mr-1.5 size-4" aria-hidden="true" />
+                        Bagikan
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="hidden px-2.5 text-xs font-medium sm:inline-flex sm:px-3 sm:text-sm"
                         :disabled="isChangingStatus || settingsForm.processing || manualSaving"
                         :aria-label="statusActionLabel"
                         @click="toggleFormStatus"
@@ -552,7 +637,30 @@ function rejectLabel(submission: IFormSubmission): string {
                     :processing="settingsForm.processing || manualSaving"
                     @save="onSave"
                     @open-settings="activeTab = 'settings'"
-                />
+                >
+                    <template #mobile-actions>
+                        <div class="grid grid-cols-2 gap-2">
+                            <Button
+                                variant="outline"
+                                class="border-border/80 bg-background h-11 min-w-0 gap-1.5 px-3 text-sm font-medium whitespace-nowrap shadow-sm"
+                                aria-haspopup="dialog"
+                                @click="isShareDialogOpen = true"
+                            >
+                                <Share2 class="size-4 shrink-0" aria-hidden="true" />
+                                Bagikan
+                            </Button>
+                            <Button
+                                variant="outline"
+                                class="border-border/80 bg-background h-11 min-w-0 px-3 text-sm font-medium whitespace-nowrap shadow-sm"
+                                :disabled="isChangingStatus || settingsForm.processing || manualSaving"
+                                :aria-label="statusActionLabel"
+                                @click="toggleFormStatus"
+                            >
+                                {{ isChangingStatus ? 'Memproses…' : statusActionLabel }}
+                            </Button>
+                        </div>
+                    </template>
+                </FormBuilderWorkspace>
             </TabsContent>
 
             <TabsContent value="settings" class="mt-0 min-h-0 flex-1 overflow-y-auto">
@@ -588,203 +696,308 @@ function rejectLabel(submission: IFormSubmission): string {
                 </div>
 
                 <div v-else class="app-surface overflow-hidden rounded-2xl p-0">
-                    <div class="border-border/60 flex items-center gap-2.5 border-b px-5 py-4">
-                        <div class="bg-primary/10 text-primary grid size-9 place-items-center rounded-full">
-                            <Inbox class="size-4" aria-hidden="true" />
+                    <div
+                        class="border-border/60 flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+                    >
+                        <div class="flex min-w-0 items-center gap-2.5">
+                            <div
+                                class="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-full"
+                            >
+                                <Inbox class="size-4" aria-hidden="true" />
+                            </div>
+                            <div class="min-w-0">
+                                <h2 class="text-foreground text-sm font-semibold">Daftar jawaban</h2>
+                                <p class="text-muted-foreground text-xs">
+                                    Total {{ submissionsCount ?? submissionRows.length }} jawaban masuk.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 class="text-foreground text-sm font-semibold">Daftar jawaban</h2>
-                            <p class="text-muted-foreground text-xs">
-                                Total {{ submissionsCount ?? submissionRows.length }} jawaban masuk.
+                        <div v-if="selectedCount > 0" class="flex min-w-0 flex-wrap items-center gap-2">
+                            <span class="text-muted-foreground mr-auto text-sm font-medium tabular-nums sm:mr-1">
+                                {{ selectedCount }} dipilih
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="h-10 min-w-0 flex-1 px-3 text-sm font-medium sm:flex-none"
+                                :disabled="
+                                    isBulkReviewSubmitting ||
+                                    ineligibleSelectedCount > 0 ||
+                                    selectedCount > FORM_ANSWER_BULK_REVIEW_MAX_SELECTION
+                                "
+                                @click="requestBulkReview('accepted')"
+                            >
+                                Terima
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                class="border-destructive/35 text-destructive hover:bg-destructive/10 hover:text-destructive h-10 min-w-0 flex-1 px-3 text-sm font-medium sm:flex-none"
+                                :disabled="
+                                    isBulkReviewSubmitting ||
+                                    ineligibleSelectedCount > 0 ||
+                                    selectedCount > FORM_ANSWER_BULK_REVIEW_MAX_SELECTION
+                                "
+                                @click="requestBulkReview('rejected')"
+                            >
+                                Tolak
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                class="h-10 basis-full px-2 text-sm font-medium sm:basis-auto"
+                                :disabled="isBulkReviewSubmitting"
+                                @click="clearSelection"
+                            >
+                                Batalkan pilihan
+                            </Button>
+                            <p
+                                v-if="ineligibleSelectedCount > 0"
+                                class="text-muted-foreground basis-full text-xs leading-relaxed"
+                            >
+                                {{ ineligibleSelectedCount }} jawaban terpilih tidak bisa diproses massal.
+                            </p>
+                            <p
+                                v-else-if="selectedCount > FORM_ANSWER_BULK_REVIEW_MAX_SELECTION"
+                                class="text-muted-foreground basis-full text-xs leading-relaxed"
+                            >
+                                Pilih maksimal {{ FORM_ANSWER_BULK_REVIEW_MAX_SELECTION }} jawaban sekaligus.
                             </p>
                         </div>
+                        <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                            {{ selectedCount > 0 ? `${selectedCount} dipilih` : 'Tidak ada jawaban dipilih' }}
+                        </span>
                     </div>
 
+                    <BulkFormAnswerReviewDialog
+                        :open="isBulkReviewConfirmOpen"
+                        :selected-count="selectedCount"
+                        :decision="bulkReviewPendingDecision"
+                        :loading="isBulkReviewSubmitting"
+                        :error="bulkReviewActionError"
+                        @confirm="confirmBulkReview"
+                        @cancel="cancelBulkReview"
+                        @update:open="setBulkReviewDialogOpen"
+                    />
+                    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                        <template v-if="bulkReviewActionStatus === 'success'">Review massal berhasil.</template>
+                        <template v-else-if="bulkReviewActionStatus === 'error'">{{ bulkReviewActionError }}</template>
+                        <template v-else-if="bulkReviewActionStatus === 'submitting'"
+                            >Review massal sedang diproses.</template
+                        >
+                    </p>
+
                     <div v-if="mobileAnswerView.isDesktop.value" class="overflow-x-auto md:block">
-                        <TooltipProvider>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow class="hover:bg-transparent">
-                                        <TableHead
-                                            class="bg-muted/40 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                        >
-                                            Pengirim
-                                        </TableHead>
-                                        <TableHead
-                                            class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                        >
-                                            Status review
-                                        </TableHead>
-                                        <TableHead
-                                            v-for="key in tableAnswerKeys"
-                                            :key="key"
-                                            class="bg-muted/30 text-muted-foreground h-11 min-w-[160px] px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                        >
-                                            {{ humanizeKey(key) }}
-                                        </TableHead>
-                                        <TableHead
-                                            class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                        >
-                                            Dikirim
-                                        </TableHead>
-                                        <TableHead
-                                            class="bg-muted/30 text-muted-foreground h-11 px-5 text-right text-[10px] font-semibold tracking-[0.14em] uppercase"
-                                        >
-                                            Aksi
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <TableRow
-                                        v-for="submission in submissionRows"
-                                        :key="submission.id"
-                                        class="border-border/60 hover:bg-muted/30 border-b transition-colors"
+                        <Table>
+                            <TableHeader>
+                                <TableRow class="hover:bg-transparent">
+                                    <TableHead class="bg-muted/40 h-11 w-12 px-4">
+                                        <Checkbox
+                                            :model-value="visibleSelectionState"
+                                            aria-label="Pilih semua jawaban di halaman ini"
+                                            @update:model-value="setVisibleSelection"
+                                        />
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/40 text-muted-foreground h-11 w-14 px-3 text-[10px] font-semibold tracking-[0.14em] uppercase"
                                     >
-                                        <TableCell class="border-border/60 bg-card border-r px-5 py-3.5">
-                                            <div class="flex items-center gap-3">
-                                                <UserAvatarFallback
-                                                    :src="submission.user?.avatar ?? null"
-                                                    :seed="userAvatarSeed(submission.user)"
-                                                    avatar-class="size-8 rounded-lg border border-border"
-                                                    fallback-round-class="rounded-lg"
-                                                />
-                                                <div class="min-w-0">
-                                                    <p
-                                                        class="text-foreground truncate text-sm font-semibold tracking-[-0.005em]"
-                                                    >
-                                                        {{ submission.user?.name ?? 'Tanpa nama' }}
-                                                    </p>
-                                                    <p class="text-muted-foreground truncate text-[10px]">
-                                                        {{ submission.user?.email ?? '—' }}
-                                                    </p>
-                                                </div>
+                                        No.
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/40 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        Pengirim
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        Status review
+                                    </TableHead>
+                                    <TableHead
+                                        v-for="key in tableAnswerKeys"
+                                        :key="key"
+                                        class="bg-muted/30 text-muted-foreground h-11 min-w-[160px] px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        {{ humanizeKey(key) }}
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        Dikirim
+                                    </TableHead>
+                                    <TableHead
+                                        class="bg-muted/30 text-muted-foreground h-11 px-5 text-right text-[10px] font-semibold tracking-[0.14em] uppercase"
+                                    >
+                                        Aksi
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow
+                                    v-for="(submission, index) in submissionRows"
+                                    :key="submission.id"
+                                    :tabindex="0"
+                                    :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
+                                    class="border-border/60 hover:bg-muted/30 focus-visible:ring-ring/70 cursor-pointer border-b transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                                    @click="onSubmissionRowClick($event, submission)"
+                                    @keydown="onSubmissionRowKeydown($event, submission)"
+                                >
+                                    <TableCell class="border-border/60 bg-card border-r px-4 py-3.5">
+                                        <Checkbox
+                                            :model-value="isSubmissionSelected(submission.id)"
+                                            :aria-label="`Pilih jawaban nomor ${index + 1} dari ${submission.user?.name ?? 'pengirim'}`"
+                                            @update:model-value="setSubmissionSelection(submission.id, $event)"
+                                        />
+                                    </TableCell>
+                                    <TableCell class="text-muted-foreground px-3 py-3.5 text-xs tabular-nums">
+                                        {{ index + 1 }}
+                                    </TableCell>
+                                    <TableCell class="border-border/60 bg-card border-r px-5 py-3.5">
+                                        <div class="flex items-center gap-3">
+                                            <UserAvatarFallback
+                                                :src="submission.user?.avatar ?? null"
+                                                :seed="userAvatarSeed(submission.user)"
+                                                avatar-class="size-8 rounded-lg border border-border"
+                                                fallback-round-class="rounded-lg"
+                                            />
+                                            <div class="min-w-0">
+                                                <p
+                                                    class="text-foreground truncate text-sm font-semibold tracking-[-0.005em]"
+                                                >
+                                                    {{ submission.user?.name ?? 'Tanpa nama' }}
+                                                </p>
+                                                <p class="text-muted-foreground truncate text-[10px]">
+                                                    {{ submission.user?.email ?? '—' }}
+                                                </p>
                                             </div>
-                                        </TableCell>
-                                        <TableCell class="px-5 py-3.5 whitespace-nowrap">
-                                            <Badge
-                                                variant="outline"
-                                                :class="[
-                                                    'font-medium',
-                                                    submissionReviewBadge(submission.review_status).class,
-                                                ]"
-                                            >
-                                                {{ submissionReviewBadge(submission.review_status).label }}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell
-                                            v-for="key in tableAnswerKeys"
-                                            :key="key"
-                                            class="text-muted-foreground max-w-[220px] px-5 py-3.5 text-xs leading-relaxed"
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="px-5 py-3.5 whitespace-nowrap">
+                                        <Badge
+                                            variant="outline"
+                                            :class="[
+                                                'font-medium',
+                                                submissionReviewBadge(submission.review_status).class,
+                                            ]"
                                         >
-                                            <span
-                                                v-if="submissionFileUrlOf(submission.answers?.[key])"
-                                                class="flex items-center gap-1.5"
-                                                :title="fileNameOf(submission.answers?.[key])"
-                                            >
-                                                <FileText
-                                                    class="text-muted-foreground size-3.5 shrink-0"
-                                                    aria-hidden="true"
-                                                />
-                                                <span class="text-foreground/85 line-clamp-2 font-normal break-all">
-                                                    {{ fileNameOf(submission.answers?.[key]) }}
-                                                </span>
-                                            </span>
-                                            <span v-else class="text-foreground/85 line-clamp-2">
-                                                {{ answerPreviewOf(submission.answers?.[key]) }}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell
-                                            class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap"
+                                            {{ submissionReviewBadge(submission.review_status).label }}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell
+                                        v-for="key in tableAnswerKeys"
+                                        :key="key"
+                                        class="text-muted-foreground max-w-[220px] px-5 py-3.5 text-xs leading-relaxed"
+                                    >
+                                        <span
+                                            v-if="submissionFileUrlOf(submission.answers?.[key])"
+                                            class="flex items-center gap-1.5"
+                                            :title="fileNameOf(submission.answers?.[key])"
                                         >
-                                            {{
-                                                formatDateTime({
-                                                    value: submission.submitted_at,
-                                                    variant: 'date-time-medium',
-                                                })
-                                            }}
-                                        </TableCell>
-                                        <TableCell class="px-5 py-3.5 text-right whitespace-nowrap">
-                                            <div class="flex items-center justify-end gap-1">
-                                                <Tooltip v-if="formSubmissionReviewIsPending(submission)">
-                                                    <TooltipTrigger as-child>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            radius="icon"
-                                                            size="icon-sm"
-                                                            class="text-success hover:bg-success/10 hover:text-success"
-                                                            :aria-label="`${acceptLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                            :disabled="isSubmissionReviewing(submission.id)"
-                                                            @click="reviewSubmission('accept', submission)"
-                                                        >
-                                                            <Check class="size-4" aria-hidden="true" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>{{ acceptLabel(submission) }}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip v-if="formSubmissionReviewIsPending(submission)">
-                                                    <TooltipTrigger as-child>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            radius="icon"
-                                                            size="icon-sm"
-                                                            class="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            :aria-label="`${rejectLabel(submission)} jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                            :disabled="isSubmissionReviewing(submission.id)"
-                                                            @click="reviewSubmission('reject', submission)"
-                                                        >
-                                                            <X class="size-4" aria-hidden="true" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>{{ rejectLabel(submission) }}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger as-child>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            radius="icon"
-                                                            size="icon-sm"
-                                                            class="hover:bg-primary/10 hover:text-primary"
-                                                            :aria-label="`Lihat detail jawaban dari ${submission.user?.name ?? 'pengirim'}`"
-                                                            @click="openSubmissionDetail(submission)"
-                                                        >
-                                                            <Eye class="size-4" aria-hidden="true" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>Lihat detail</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </TooltipProvider>
+                                            <FileText
+                                                class="text-muted-foreground size-3.5 shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                            <span class="text-foreground/85 line-clamp-2 font-normal break-all">
+                                                {{ fileNameOf(submission.answers?.[key]) }}
+                                            </span>
+                                        </span>
+                                        <span v-else class="text-foreground/85 line-clamp-2">
+                                            {{ answerPreviewOf(submission.answers?.[key]) }}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell class="text-muted-foreground px-5 py-3.5 text-[11px] whitespace-nowrap">
+                                        {{
+                                            formatDateTime({
+                                                value: submission.submitted_at,
+                                                variant: 'date-time-medium',
+                                            })
+                                        }}
+                                    </TableCell>
+                                    <TableCell class="px-5 py-3.5 text-right whitespace-nowrap">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <Button
+                                                v-if="formSubmissionReviewIsPending(submission)"
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                class="text-success hover:bg-success/10 hover:text-success focus-visible:ring-success/40 rounded-md"
+                                                :aria-label="acceptLabel(submission)"
+                                                :disabled="isSubmissionReviewing(submission.id)"
+                                                @click="reviewSubmission('accept', submission)"
+                                            >
+                                                <Check class="size-4" aria-hidden="true" />
+                                            </Button>
+                                            <Button
+                                                v-if="formSubmissionReviewIsPending(submission)"
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/40 rounded-md"
+                                                :aria-label="rejectLabel(submission)"
+                                                :disabled="isSubmissionReviewing(submission.id)"
+                                                @click="reviewSubmission('reject', submission)"
+                                            >
+                                                <X class="size-4" aria-hidden="true" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                class="hover:bg-primary/10 hover:text-primary rounded-md"
+                                                :aria-label="
+                                                    formSubmissionReviewActionLabel(
+                                                        'detail',
+                                                        false,
+                                                        submission.user?.name ?? 'pengirim'
+                                                    )
+                                                "
+                                                @click="openSubmissionDetail(submission)"
+                                            >
+                                                <Eye class="size-4" aria-hidden="true" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
                     </div>
 
                     <div v-else class="space-y-4 p-3 md:hidden">
+                        <div class="border-border/60 bg-muted/20 flex items-center gap-2 rounded-lg border px-3 py-2">
+                            <Checkbox
+                                :model-value="visibleSelectionState"
+                                aria-label="Pilih semua jawaban di halaman ini"
+                                @update:model-value="setVisibleSelection"
+                            />
+                            <span class="text-muted-foreground text-xs">Pilih semua jawaban di halaman ini</span>
+                        </div>
                         <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
                             <FormAnswerMobileCard
-                                v-for="submission in submissionRows"
+                                v-for="(submission, index) in submissionRows"
                                 :key="submission.id"
+                                :row-number="index + 1"
                                 :submission="submission"
                                 :answer-keys="mobileAnswerKeys"
                                 :file-field-names="mobileFileFieldNames"
                                 :humanize-key="humanizeKey"
                                 :file-name-of="fileNameOf"
                                 :reviewing="isSubmissionReviewing(submission.id)"
+                                :selected="isSubmissionSelected(submission.id)"
                                 @detail="openSubmissionDetail"
                                 @review="onDetailReview"
+                                @select="setSubmissionSelection(submission.id, $event)"
                             />
                         </div>
-                        <FormAnswerMobileList v-else :submissions="submissionRows" @detail="openSubmissionDetail" />
+                        <FormAnswerMobileList
+                            v-else
+                            :submissions="submissionRows"
+                            :selected-submission-ids="selectedSubmissionIds"
+                            @detail="openSubmissionDetail"
+                            @select="setSubmissionSelection"
+                        />
                     </div>
                 </div>
 
@@ -799,5 +1012,6 @@ function rejectLabel(submission: IFormSubmission): string {
                 />
             </TabsContent>
         </Tabs>
+        <FormShareDialog v-model:open="isShareDialogOpen" :form-title="formTitle" :actions="formShareActions" />
     </div>
 </template>

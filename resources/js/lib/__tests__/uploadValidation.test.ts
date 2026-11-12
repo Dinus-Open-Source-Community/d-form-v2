@@ -99,4 +99,50 @@ describe('validateUploadFile', () => {
         );
         await expect(validateUploadFile(new File(['a,b'], 'data.csv'), ['csv'])).resolves.toBeNull();
     });
+
+    it('honors MIME allowlists from field metadata', async () => {
+        const pdfBytes = new TextEncoder().encode('%PDF-1.4');
+        const pdf = new File([pdfBytes], 'document.pdf', { type: 'application/pdf' });
+
+        await expect(validateUploadFile(pdf, ['application/pdf'])).resolves.toBeNull();
+        await expect(validateUploadFile(pdf, ['image/*'])).resolves.toBe('Format file tidak didukung.');
+    });
+
+    it.each([
+        ['document.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        ['workbook.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        ['slides.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    ])('accepts allowlisted Office document %s without image decoding', async (name, mime) => {
+        const officeFile = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], name, { type: mime });
+        const decodeMock = vi.fn();
+        vi.stubGlobal('createImageBitmap', decodeMock);
+
+        await expect(validateUploadFile(officeFile, [mime])).resolves.toBeNull();
+        expect(decodeMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['document.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ''],
+        [
+            'workbook.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/octet-stream',
+        ],
+        ['slides.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+    ])('uses Office extension mapping for %s when MIME is empty or generic', async (name, allowedMime, fileMime) => {
+        const officeFile = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], name, { type: fileMime });
+
+        await expect(validateUploadFile(officeFile, [allowedMime])).resolves.toBeNull();
+    });
+
+    it('does not use Office MIME fallbacks for unsupported extensions or generic allowlists', async () => {
+        const genericOfficeMime = new File(['zip bytes'], 'archive.zip', { type: 'application/octet-stream' });
+        const genericMimeAllowlist = new File(['bytes'], 'payload.exe', { type: 'application/octet-stream' });
+        const officeMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+        await expect(validateUploadFile(genericOfficeMime, [officeMime])).resolves.toBe('Format file tidak didukung.');
+        await expect(validateUploadFile(genericMimeAllowlist, ['application/octet-stream'])).resolves.toBe(
+            'Format file tidak didukung.'
+        );
+    });
 });

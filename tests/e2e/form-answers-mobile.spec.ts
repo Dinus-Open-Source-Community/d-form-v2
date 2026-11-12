@@ -72,7 +72,7 @@ test.describe('jawaban mobile', () => {
 
         await list.click();
         await expect(list).toHaveAttribute('aria-pressed', 'true');
-        await expect(page.getByRole('button', { name: /Lihat detail jawaban dari e2e-mobile-/ })).toHaveCount(3);
+        await expect(page.getByRole('listitem', { name: /Lihat detail jawaban nomor/ })).toHaveCount(3);
         await page.screenshot({ path: '/tmp/task-212-mobile-list.png', fullPage: true });
         await page.reload();
         await expect(list).toHaveAttribute('aria-pressed', 'true');
@@ -89,6 +89,84 @@ test.describe('jawaban mobile', () => {
         await expect(page.getByRole('group', { name: 'Tampilan daftar jawaban' })).toHaveCount(0);
         await page.screenshot({ path: '/tmp/task-212-mobile-empty.png', fullPage: true });
     });
+
+    test('pilihan halaman, aksi kartu, buka detail lewat isi baris, dan tanpa overflow', async ({ page }) => {
+        const fixture = createFixture();
+        await signIn(page);
+        await page.goto(fixture.url);
+
+        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' });
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'true');
+
+        const firstRowCheckbox = page.getByRole('checkbox', { name: /Pilih jawaban nomor 1/ });
+        await firstRowCheckbox.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'mixed');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await page.route('**/submissions/*/review', (route) =>
+            route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({}) })
+        );
+        await page
+            .getByRole('button', { name: /Terima jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page
+            .getByRole('button', { name: /Tolak jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page
+            .getByRole('button', { name: /Lihat detail jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        await page.getByText('Contoh jawaban 1').click();
+        const detailDrawer = page.getByRole('dialog');
+        await expect(detailDrawer).toBeVisible();
+        const openFileLink = detailDrawer.getByRole('link', { name: 'Buka' }).first();
+        const downloadFileLink = detailDrawer.getByRole('link', { name: 'Unduh' }).first();
+        await expect(openFileLink).toHaveAttribute('href', /storage/);
+        await expect(downloadFileLink).toHaveAttribute('download');
+        const actionGroup = openFileLink.locator('..');
+        await expect(actionGroup.getByRole('link')).toHaveCount(2);
+        expect((await actionGroup.getByRole('link').allTextContents()).map((label) => label.trim())).toEqual([
+            'Buka',
+            'Unduh',
+        ]);
+        await expect(actionGroup).toHaveCSS('justify-content', 'flex-end');
+        const actionGroupMetrics = await actionGroup.evaluate((element) => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+        }));
+        expect(actionGroupMetrics.scrollWidth).toBeLessThanOrEqual(actionGroupMetrics.clientWidth);
+        await page.screenshot({ path: '/tmp/submissions-redesign-file-actions.png', fullPage: true });
+        await page.keyboard.press('Escape');
+
+        const firstCard = page.getByTestId('form-answer-mobile-card').first();
+        await firstCard.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        await page.getByRole('button', { name: 'Daftar' }).click();
+        const listRow = page.getByRole('listitem', { name: /Lihat detail jawaban nomor 1/ });
+        const listCheckbox = listRow.getByRole('checkbox');
+        await listCheckbox.click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await listRow.click({ position: { x: 180, y: 32 } });
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        const viewport = await page.evaluate(() => ({
+            clientWidth: document.documentElement.clientWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth);
+        await page.screenshot({ path: '/tmp/submissions-redesign-mobile.png', fullPage: true });
+    });
 });
 
 test.describe('jawaban desktop', () => {
@@ -96,10 +174,11 @@ test.describe('jawaban desktop', () => {
 
     test('tabel tetap tampil dan tidak ada error console', async ({ page }) => {
         const errors: string[] = [];
+        await page.route('**/_boost/browser-logs', (route) => route.fulfill({ status: 204, body: '' }));
         await page.route('https://seeyu.doscom.org/script.js', (route) =>
             route.fulfill({ contentType: 'application/javascript', body: '' })
         );
-        await page.route('**/storage/events/banners/placeholder.jpg', (route) =>
+        await page.route('**/storage/events/banners/**', (route) =>
             route.fulfill({
                 contentType: 'image/png',
                 body: Buffer.from(PLACEHOLDER_PNG),
@@ -112,12 +191,77 @@ test.describe('jawaban desktop', () => {
         await signIn(page);
         await page.goto(fixture.url);
         await expect(page.locator('main table')).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: 'No.' })).toBeVisible();
         await expect(page.getByRole('group', { name: 'Tampilan daftar jawaban' })).toHaveCount(0);
         await expect(
             page.locator('[data-testid="form-answer-mobile-card"], [data-testid="form-answer-mobile-list"]')
         ).toHaveCount(0);
         await page.screenshot({ path: '/tmp/task-212-desktop-table.png', fullPage: true });
         expect(errors).toEqual([]);
+    });
+
+    test('pilihan halaman, klik baris, kontrol aksi, label aksesibel, dan tanpa chip', async ({ page }) => {
+        const fixture = createFixture();
+        await signIn(page);
+        await page.goto(fixture.url);
+
+        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' });
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'true');
+
+        const rowCheckbox = page.getByRole('checkbox', { name: /Pilih jawaban nomor 1/ });
+        await rowCheckbox.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'mixed');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        const actionButtons = page.getByRole('button', { name: /(?:Terima|Tolak|Lihat detail) jawaban dari/i });
+        await expect(actionButtons).toHaveCount(5);
+        for (const actionButton of await actionButtons.all()) {
+            await expect(actionButton).toHaveAttribute('data-size', 'icon-sm');
+            await expect(actionButton).not.toHaveClass(/rounded-full|rounded-lg|rounded-xl/);
+        }
+
+        const acceptButton = page.getByRole('button', { name: /Terima jawaban dari/i });
+        await expect(acceptButton).not.toHaveAttribute('title');
+        await acceptButton.hover();
+        await expect(page.getByRole('tooltip')).toHaveCount(0);
+        await expect(page.getByText(/^Terima jawaban dari/)).toHaveCount(0);
+
+        await page.route('**/submissions/*/review', (route) =>
+            route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({}) })
+        );
+        await page
+            .getByRole('button', { name: /Terima jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page
+            .getByRole('button', { name: /Tolak jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await page
+            .getByRole('button', { name: /Lihat detail jawaban dari/i })
+            .first()
+            .click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        await page.getByText('Contoh jawaban 2').click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        const answerRow = page.getByRole('row').filter({ hasText: 'Contoh jawaban 2' });
+        await answerRow.focus();
+        await page.keyboard.press('Space');
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        const viewport = await page.evaluate(() => ({
+            clientWidth: document.documentElement.clientWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth);
+        await page.screenshot({ path: '/tmp/submissions-redesign-desktop.png', fullPage: true });
     });
 
     test('pengaturan form menjadi tab tingkat atas', async ({ page }) => {

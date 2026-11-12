@@ -22,6 +22,20 @@ final class FormFieldsRequestValidation
     /** Batas atas global untuk rule `maxLength` (batas tipe terpanjang). */
     private const MAX_LENGTH_GLOBAL_MAX = 10000;
 
+    /** MIME types supported by the form upload validator and builder allowlist. */
+    private const UPLOAD_ALLOWED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/csv',
+        'text/plain',
+    ];
+
     /**
      * Request keys owned by the submission boundary. A form field with one of
      * these names would shadow (or be shadowed by) framework/registration input.
@@ -49,6 +63,7 @@ final class FormFieldsRequestValidation
             self::fieldBodyRules(),
             self::fieldGlobalMetadataRules(),
             self::fieldRulesMetadataRules(),
+            self::fieldUploadMetadataRules(),
         );
     }
 
@@ -176,6 +191,52 @@ final class FormFieldsRequestValidation
                 'nullable',
                 'integer',
                 'min:1',
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+        ];
+    }
+
+    /**
+     * Validation rules for upload metadata persisted by the builder.
+     * Legacy `accepts` remains optional; typed metadata is bounded to the same
+     * server-side limits used when submission rules are built.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fieldUploadMetadataRules(): array
+    {
+        $maxFiles = max(1, (int) config('events.forms.upload_max_files', 5));
+        $maxTotalSizeKb = max(1, (int) config('events.forms.upload_max_total_size_kb', 20 * 1024));
+
+        return [
+            'fields.*.metadata.multiple' => [
+                'nullable',
+                'boolean',
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.allowed_mime_types' => [
+                'nullable',
+                'array',
+                'min:1',
+                'max:'.count(self::UPLOAD_ALLOWED_MIME_TYPES),
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.allowed_mime_types.*' => [
+                'string',
+                Rule::in(self::UPLOAD_ALLOWED_MIME_TYPES),
+            ],
+            'fields.*.metadata.max_files' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.$maxFiles,
+                'prohibited_unless:fields.*.type,fileUpload',
+            ],
+            'fields.*.metadata.max_total_size_kb' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.$maxTotalSizeKb,
                 'prohibited_unless:fields.*.type,fileUpload',
             ],
         ];

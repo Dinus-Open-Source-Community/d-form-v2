@@ -15,15 +15,16 @@ final class FormSubmissionOrchestrator
     public function __construct(
         private FormAnswerInputMapper $formAnswerInputMapper,
         private BundleGuestDuplicateChecker $bundleGuestDuplicateChecker,
+        private FormAnswerFileStorage $formAnswerFileStorage,
     ) {
     }
 
     /**
      * Validate and map the submitted payload for the configured mode.
      *
-     * Mapping order is intentional: team mapping retains its historical order,
-     * while bundle duplicate preflight runs before file mapping so rejected
-     * duplicates do not create new upload paths.
+     * Team mapping retains its existing order and cleans files if participant
+     * validation fails; bundle duplicate preflight runs before file mapping so
+     * rejected guests do not create new upload paths.
      *
      * @throws ValidationException
      */
@@ -45,17 +46,23 @@ final class FormSubmissionOrchestrator
             $answers = $this->formAnswerInputMapper->map($validated, $context->fields, $context->form);
         }
 
-        if (in_array($context->mode, [FormSubmissionMode::Bundle, FormSubmissionMode::Team], true)) {
-            $validatedParticipantInput = Validator::make(
-                ['team_member_emails' => $context->input['team_member_emails'] ?? null],
-                MemberEmailListRules::validationRules($context->teamSize - 1),
-            )->validate();
+        try {
+            if (in_array($context->mode, [FormSubmissionMode::Bundle, FormSubmissionMode::Team], true)) {
+                $validatedParticipantInput = Validator::make(
+                    ['team_member_emails' => $context->input['team_member_emails'] ?? null],
+                    MemberEmailListRules::validationRules($context->teamSize - 1),
+                )->validate();
 
-            $participantEmails = MemberEmailListRules::resolve(
-                $validatedParticipantInput['team_member_emails'],
-                $context->user->email,
-                $context->teamSize - 1,
-            );
+                $participantEmails = MemberEmailListRules::resolve(
+                    $validatedParticipantInput['team_member_emails'],
+                    $context->user->email,
+                    $context->teamSize - 1,
+                );
+            }
+        } catch (ValidationException $exception) {
+            $this->formAnswerFileStorage->discardMappedUploads($context->form, $answers['leader']);
+
+            throw $exception;
         }
 
         if ($context->mode === FormSubmissionMode::Bundle) {

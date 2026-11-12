@@ -102,6 +102,19 @@ export function useFormBuilderAutosave(options: IUseFormBuilderAutosaveOptions):
         };
     }
 
+    /** Header snapshot dipisahkan dari fields agar autosave field-only tidak mengulang PUT settings. */
+    function buildHeaderSnapshot(state: IFormBuilderDraftState): string {
+        return JSON.stringify({
+            title: state.title,
+            description: state.description,
+            successContent: state.successContent,
+            closedAt: state.closedAt,
+            visibleFor: state.visibleFor,
+            banner: state.banner,
+            metadata: state.metadata,
+        });
+    }
+
     /** Banner punya endpoint/form-header sendiri; field sync hanya mengirim canvas fields. */
     const buildFieldsPayload = (): IBackendField[] => toBackendFields([...options.models.formFields.value]);
     const isHeaderComplete = (): boolean => isFormBuilderHeaderComplete(readState());
@@ -109,6 +122,7 @@ export function useFormBuilderAutosave(options: IUseFormBuilderAutosaveOptions):
         settingsOptions: { publish?: boolean; autosave?: boolean; fields?: unknown[] } = {}
     ) => buildFormBuilderSettingsPayload(readState(), settingsOptions);
     const enabled = computed<boolean>(() => options.endpoints.value !== null && (options.enabled?.value ?? true));
+    let savedHeaderSnapshot = buildHeaderSnapshot(readState());
 
     function handleFailure(error: unknown): void {
         const status = isHttpRequestError(error) ? error.status : null;
@@ -131,8 +145,14 @@ export function useFormBuilderAutosave(options: IUseFormBuilderAutosaveOptions):
             await saveFormFields(endpoints.fieldsUrl, buildFieldsPayload());
             if (isDraftForm()) {
                 await updateFormSettings(endpoints.settingsUrl, buildHeaderAutosavePayload(readState()));
-            } else if (isHeaderComplete()) {
-                await updateFormSettings(endpoints.settingsUrl, buildSettingsPayload());
+            } else {
+                const state = readState();
+                const headerSnapshot = buildHeaderSnapshot(state);
+
+                if (headerSnapshot !== savedHeaderSnapshot && isFormBuilderHeaderComplete(state)) {
+                    await updateFormSettings(endpoints.settingsUrl, buildFormBuilderSettingsPayload(state));
+                    savedHeaderSnapshot = headerSnapshot;
+                }
             }
         } catch (error) {
             handleFailure(error);
@@ -147,8 +167,17 @@ export function useFormBuilderAutosave(options: IUseFormBuilderAutosaveOptions):
             fieldsUrl: endpoints.fieldsUrl,
             fields: buildFieldsPayload(),
             settingsUrl: endpoints.settingsUrl,
-            ...buildHeaderKeepalivePayload(state, endpoints, { isDraft: isDraftForm() }),
+            ...(isDraftForm()
+                ? buildHeaderKeepalivePayload(state, endpoints, { isDraft: true })
+                : buildHeaderSnapshot(state) !== savedHeaderSnapshot
+                  ? buildHeaderKeepalivePayload(state, endpoints, { isDraft: false })
+                  : {}),
         });
+    }
+
+    function markSaved(): void {
+        savedHeaderSnapshot = buildHeaderSnapshot(readState());
+        sync.markSaved();
     }
 
     const sync = useAutosaveSync(() => JSON.stringify(readState()), saveSnapshot, {
@@ -169,7 +198,7 @@ export function useFormBuilderAutosave(options: IUseFormBuilderAutosaveOptions):
         waitForIdle: sync.waitForIdle,
         suspend: sync.suspend,
         resume: sync.resume,
-        markSaved: sync.markSaved,
+        markSaved,
         schedule: sync.schedule,
         buildSnapshot: () => JSON.stringify(readState()),
         buildSettingsPayload,

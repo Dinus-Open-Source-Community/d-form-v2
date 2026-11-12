@@ -111,6 +111,20 @@ final class UploadInspector
             return 'The uploaded file type is not allowed.';
         }
 
+        $clientMime = strtolower(trim($file->getClientMimeType()));
+
+        if ($family === 'zip' && in_array($clientExtension, ['docx', 'xlsx', 'pptx'], true)) {
+            if (in_array($clientExtension, $extensions, true) === false) {
+                return 'The uploaded file format is not allowed.';
+            }
+
+            if (self::clientMimeMatches($clientMime, $mime) === false) {
+                return 'The uploaded file type does not match its content.';
+            }
+
+            return self::inspectOfficeOpenXml($file, $clientExtension);
+        }
+
         $canonical = self::extensionForMime($mime);
         if ($canonical === null) {
             return 'The uploaded file type is not allowed.';
@@ -126,7 +140,6 @@ final class UploadInspector
             return 'The uploaded file type does not match its content.';
         }
 
-        $clientMime = strtolower(trim($file->getClientMimeType()));
         if (in_array($clientMime, self::NEUTRAL_CLIENT_MIMES, true) === false
             && self::clientMimeMatches($clientMime, $mime) === false) {
             return 'The uploaded file type does not match its content.';
@@ -176,6 +189,20 @@ final class UploadInspector
         };
     }
 
+    /** Return the safe stored extension after package-aware content inspection. */
+    public static function extensionForUpload(UploadedFile $file): ?string
+    {
+        $mime = self::sniffedMime($file);
+        if ($mime === 'application/zip') {
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (in_array($extension, ['docx', 'xlsx', 'pptx'], true)) {
+                return $extension;
+            }
+        }
+
+        return $mime === null ? null : self::extensionForMime($mime);
+    }
+
     /** @return list<string> */
     private static function normalizeExtensions(array $extensions): array
     {
@@ -199,6 +226,7 @@ final class UploadInspector
                 'gif' => ['image/gif'],
                 'pdf' => ['application/pdf'],
                 'zip' => ['application/zip'],
+                'docx', 'xlsx', 'pptx' => ['application/zip'],
                 'csv', 'txt' => ['text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel'],
                 default => [],
             };
@@ -228,6 +256,9 @@ final class UploadInspector
             'image/pjpeg' => 'image/jpeg',
             'application/x-pdf' => 'application/pdf',
             'application/acrobat' => 'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'application/zip',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'application/zip',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'application/zip',
             'text/x-csv' => 'text/csv',
             'application/vnd.ms-excel' => 'text/csv',
             'application/csv' => 'text/csv',
@@ -287,7 +318,10 @@ final class UploadInspector
     }
 
     /**
-     * PDF: magic `%PDF-`, EOF, tanpa konten aktif/tertanam.
+     * PDF: magic `%PDF-`, EOF, dan tanpa action aktif yang dapat mengeksekusi
+     * kode atau mengirim data. `/EmbeddedFile` dan `/Encrypt` ditolak fail-closed
+     * karena isi lampiran atau isi yang dilindungi tidak dapat diperiksa dari
+     * byte mentah.
      *
      * Batas baca 10 MB: berkas lebih besar sudah ditolak pada cek ukuran, jadi
      * `file_get_contents` di sini tidak bisa membaca berkas raksasa.
@@ -308,8 +342,12 @@ final class UploadInspector
             return 'The PDF is incomplete.';
         }
 
-        if (preg_match('/\/(?:JavaScript|JS|OpenAction|AA|Launch|EmbeddedFile|RichMedia|SubmitForm|ImportData|GoToR|XFA|Encrypt)\b/i', $contents) === 1) {
-            return 'The PDF contains active or embedded content that is not allowed.';
+        if (preg_match('/\/(?:Encrypt|EmbeddedFile)\b/i', $contents) === 1) {
+            return 'Encrypted or embedded PDF content is not allowed.';
+        }
+
+        if (preg_match('/\/(?:JavaScript|JS|OpenAction|AA|Launch|RichMedia|SubmitForm|ImportData|GoToR|XFA)\b/i', $contents) === 1) {
+            return 'The PDF contains active content that is not allowed.';
         }
 
         return null;
@@ -329,6 +367,127 @@ final class UploadInspector
         }
 
         return null;
+    }
+
+    private static function inspectOfficeOpenXml(UploadedFile $file, string $extension): ?string
+    {
+        if (class_exists(\ZipArchive::class) === false) {
+            return 'The Office document could not be inspected safely.';
+        }
+
+        $path = $file->getRealPath();
+        if ($path === false) {
+            return 'The Office document content is invalid.';
+        }
+
+        $archive = new \ZipArchive();
+        if ($archive->open($path) !== true) {
+            return 'The Office document package is malformed.';
+        }
+
+        $expandedBytes = 0;
+        $maxExpandedBytes = max(1, (int) config('events.forms.upload_max_expanded_size_kb', 20 * 1024)) * 1024;
+        $hasContentTypes = false;
+        $hasRequiredPart = false;
+        $requiredPart = match ($extension) {
+            'xlsx' => 'xl/workbook.xml',
+            'pptx' => 'ppt/presentation.xml',
+            default => 'word/document.xml',
+        };
+
+        for ($index = 0; $index < $archive->numFiles; $index++) {
+            $entry = $archive->statIndex($index);
+            $name = is_array($entry) ? ($entry['name'] ?? null) : null;
+            if (! is_string($name) || self::hasUnsafeArchiveEntryName($name)) {
+                $archive->close();
+
+                return 'The Office document package contains an unsafe path.';
+            }
+
+            if (preg_match('/(?:^|\/)(?:vbaProject\.bin|vbaData\.xml)$/i', $name) === 1) {
+                $archive->close();
+
+                return 'Macro-enabled Office documents are not allowed.';
+            }
+
+            $operationsSystem = 0;
+            $externalAttributes = 0;
+            if ($archive->getExternalAttributesIndex($index, $operationsSystem, $externalAttributes)
+                && $operationsSystem === \ZipArchive::OPSYS_UNIX
+                && ((($externalAttributes >> 16) & 0170000) === 0120000)) {
+                $archive->close();
+
+                return 'The Office document package contains an unsafe entry.';
+            }
+
+            $uncompressedSize = is_array($entry) ? (int) ($entry['size'] ?? 0) : 0;
+            $expandedBytes += $uncompressedSize;
+            if ($uncompressedSize < 0 || $expandedBytes > $maxExpandedBytes) {
+                $archive->close();
+
+                return 'The Office document expands beyond the safety limit.';
+            }
+
+            $hasContentTypes = $hasContentTypes || $name === '[Content_Types].xml';
+            $hasRequiredPart = $hasRequiredPart || $name === $requiredPart;
+        }
+
+        $contentTypes = $archive->getFromName('[Content_Types].xml');
+        $requiredContents = $archive->getFromName($requiredPart);
+        $archive->close();
+
+        if (! $hasContentTypes
+            || ! $hasRequiredPart
+            || ! is_string($contentTypes)
+            || ! is_string($requiredContents)
+            || preg_match('/<Types\b/i', $contentTypes) !== 1
+            || preg_match('/<\/Types>/i', $contentTypes) !== 1
+            || preg_match('/macroEnabled|vbaProject/i', $contentTypes) === 1
+            || ! self::isWellFormedXml($contentTypes)
+            || ! self::isWellFormedXml($requiredContents)) {
+            return 'The Office document package is malformed.';
+        }
+
+        return null;
+    }
+
+    private static function isWellFormedXml(string $contents): bool
+    {
+        if (! class_exists(\DOMDocument::class)) {
+            return false;
+        }
+
+        $previousErrorHandling = libxml_use_internal_errors(true);
+
+        try {
+            $document = new \DOMDocument();
+            $document->resolveExternals = false;
+            $document->substituteEntities = false;
+
+            return $document->loadXML($contents, LIBXML_NONET | LIBXML_NOBLANKS);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrorHandling);
+        }
+    }
+
+    private static function hasUnsafeArchiveEntryName(string $name): bool
+    {
+        if ($name === ''
+            || str_starts_with($name, '/')
+            || str_starts_with($name, '\\')
+            || str_contains($name, ':')
+            || str_contains($name, "\0")) {
+            return true;
+        }
+
+        foreach (preg_split('/[\\\\\/]/', $name) ?: [] as $segment) {
+            if ($segment === '..' || $segment === '.') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -7,9 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StyledSelect } from '@/components/ui/styled-select';
 import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
+import FormFillUploadField from '@/components/modules/dashboard/FormFillUploadField.vue';
 import { Star } from 'lucide-vue-next';
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
 import { formFillSlotUi } from '@/lib/formFillSlotUi';
+import { readMetaBoolean } from '@/lib/formFieldMetadata';
+import { DEFAULT_MULTIPLE_UPLOAD_MAX_FILES, DEFAULT_MULTIPLE_UPLOAD_MAX_TOTAL_SIZE_KB } from '@/lib/uploadValidation';
 import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
 import type { IFormFieldParticipationSlot, TFormFillSlotVariant } from '@/types/form';
 
@@ -57,13 +60,49 @@ const selectedFile = computed<File | null>(() => {
     return typeof File !== 'undefined' && value instanceof File ? value : null;
 });
 
+const isMultipleUpload = computed(() => readMetaBoolean(props.ctx.metadata(props.field), 'multiple'));
+
+const selectedFiles = computed<File[]>(() => {
+    const value = props.ctx.answerForm[props.storageKey];
+    if (typeof File === 'undefined' || !Array.isArray(value)) return [];
+
+    return value.filter((item): item is File => item instanceof File);
+});
+
+const multipleFilePreviewUrls = computed(() => props.ctx.multiFilePreviewUrls[props.storageKey] ?? []);
+
+const multipleUploadLimits = computed(() => {
+    const metadata = props.ctx.metadata(props.field);
+
+    return {
+        maxFiles: positiveIntegerLimit(metadata.max_files, DEFAULT_MULTIPLE_UPLOAD_MAX_FILES),
+        maxTotalSizeKb: positiveNumberLimit(metadata.max_total_size_kb, DEFAULT_MULTIPLE_UPLOAD_MAX_TOTAL_SIZE_KB),
+    };
+});
+
 /** Progres milik visit submit yang sama, jadi angkanya nyata dan bisa dibatalkan. */
 const fileCardState = computed<TFileUploadState>(() => {
-    if (props.ctx.answerForm.processing && selectedFile.value) return 'uploading';
+    if (props.ctx.answerForm.processing && (selectedFile.value || selectedFiles.value.length > 0)) return 'uploading';
     if (props.ctx.fieldError(props.storageKey)) return 'error';
 
-    return selectedFile.value ? 'completed' : 'idle';
+    return selectedFile.value || selectedFiles.value.length > 0 ? 'completed' : 'idle';
 });
+
+const multipleFileRowState = computed<TFileUploadState>(() => {
+    if (props.ctx.answerForm.processing && selectedFiles.value.length > 0) return 'uploading';
+
+    return selectedFiles.value.length > 0 ? 'completed' : 'idle';
+});
+
+const multipleFileRowErrorMessages = computed(() =>
+    selectedFiles.value.map((_file, index) => props.ctx.fieldError(`${props.storageKey}.${index}`) ?? '')
+);
+
+const multipleFileRowStates = computed<TFileUploadState[]>(() =>
+    selectedFiles.value.map((_file, index) =>
+        multipleFileRowErrorMessages.value[index] ? 'error' : multipleFileRowState.value
+    )
+);
 
 const fileCardIdleLabel = computed(() =>
     props.ctx.builderType(props.field) === 'image_upload' ? 'Pilih foto' : 'Pilih berkas'
@@ -71,6 +110,36 @@ const fileCardIdleLabel = computed(() =>
 
 /** Pratinjau hanya dari object URL yang dikelola hook upload (tanpa base64). */
 const filePreviewUrl = computed(() => (fillReady() ? props.ctx.filePreviewUrls[props.storageKey] : ''));
+
+const uploadAllowedFormats = computed<readonly string[] | undefined>(() => {
+    const metadata = props.ctx.metadata(props.field);
+    const declaredMimeTypes = metadata.allowed_mime_types;
+    if (Array.isArray(declaredMimeTypes)) {
+        const formats = declaredMimeTypes.filter((mimeType): mimeType is string => typeof mimeType === 'string');
+        return formats.length > 0 ? formats : undefined;
+    }
+
+    const rules = metadata.rules;
+    if (typeof rules !== 'object' || rules === null || !('mimes' in rules) || typeof rules.mimes !== 'string') {
+        return undefined;
+    }
+
+    const formats = rules.mimes
+        .split(',')
+        .map((format) => format.trim())
+        .filter((format) => format !== '');
+    return formats.length > 0 ? formats : undefined;
+});
+
+const uploadAcceptValue = computed(() => {
+    const declaredMimeTypes = props.ctx.metadata(props.field).allowed_mime_types;
+    if (Array.isArray(declaredMimeTypes)) {
+        const mimeTypes = declaredMimeTypes.filter((mimeType): mimeType is string => typeof mimeType === 'string');
+        if (mimeTypes.length > 0) return mimeTypes.join(',');
+    }
+
+    return props.ctx.acceptValue(props.field);
+});
 
 function textAnswer(name: string): string {
     const value = props.ctx.answerForm[name];
@@ -85,6 +154,16 @@ function fillReady(): boolean {
     return props.imageUploadFillReadyFn(props.storageKey);
 }
 
+function positiveIntegerLimit(value: unknown, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+
+    return Math.max(1, Math.floor(value));
+}
+
+function positiveNumberLimit(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 function openLightbox(): void {
     emit('openLightbox', props.ctx.filePreviewUrls[props.storageKey], props.ctx.fileAnswerName(props.storageKey));
 }
@@ -95,7 +174,19 @@ function openLightbox(): void {
  * Galat lama dibersihkan hanya setelah berkas lolos agar kartu keluar dari state error.
  */
 async function pickFile(file: File): Promise<void> {
-    const accepted = await props.ctx.applyFileSelection(props.storageKey, file);
+    const accepted = await props.ctx.applyFileSelection(props.storageKey, file, {
+        allowedFormats: uploadAllowedFormats.value,
+    });
+    if (accepted) props.ctx.answerForm.clearErrors(props.storageKey);
+}
+
+async function pickFiles(files: File[]): Promise<void> {
+    const accepted = await props.ctx.applyFileSelection(props.storageKey, files, {
+        multiple: true,
+        allowedFormats: uploadAllowedFormats.value,
+        maxFiles: multipleUploadLimits.value.maxFiles,
+        maxTotalSizeKb: multipleUploadLimits.value.maxTotalSizeKb,
+    });
     if (accepted) props.ctx.answerForm.clearErrors(props.storageKey);
 }
 </script>
@@ -255,11 +346,30 @@ async function pickFile(file: File): Promise<void> {
         />
 
         <div v-else-if="isFileField" class="space-y-1.5">
+            <FormFillUploadField
+                v-if="isMultipleUpload"
+                :files="selectedFiles"
+                :preview-urls="fillReady() ? multipleFilePreviewUrls : []"
+                :image="ctx.builderType(field) === 'image_upload'"
+                :accept="uploadAcceptValue"
+                :hint="ctx.fileHint(field)"
+                :row-state="multipleFileRowState"
+                :row-states="multipleFileRowStates"
+                :row-error-messages="multipleFileRowErrorMessages"
+                :field-error="ctx.fieldError(storageKey) ?? ''"
+                :max-files="multipleUploadLimits.maxFiles"
+                :max-total-size-kb="multipleUploadLimits.maxTotalSizeKb"
+                :progress="ctx.submitProgress"
+                :disabled="ctx.answerForm.processing"
+                @select-files="pickFiles"
+                @remove-file="ctx.removeFileUpload(storageKey, $event)"
+            />
             <FileUploadCard
+                v-else
                 :state="fileCardState"
                 :idle-label="fileCardIdleLabel"
                 :hint="ctx.fileHint(field)"
-                :accept="ctx.acceptValue(field)"
+                :accept="uploadAcceptValue"
                 :file-name="selectedFile?.name ?? ''"
                 :file-size="selectedFile?.size ?? 0"
                 :mime="selectedFile?.type ?? ''"

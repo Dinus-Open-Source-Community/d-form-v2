@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Collection;
 
 final class RegistrationAnswersSummarizer
 {
+    private const ARRAY_VALUE_SEPARATOR = ', ';
+    private const FILE_VALUE_SEPARATOR = '; ';
+
     /**
      * Field definitions memoized per form id for the lifetime of this instance.
      *
@@ -71,7 +74,7 @@ final class RegistrationAnswersSummarizer
             }
 
             if (is_array($value)) {
-                $lines[$field->label] = implode(', ', array_map(fn ($v) => (string) $v, $value));
+                $lines[$field->label] = implode(self::ARRAY_VALUE_SEPARATOR, array_map(fn (mixed $v): string => (string) $v, $value));
 
                 continue;
             }
@@ -106,14 +109,22 @@ final class RegistrationAnswersSummarizer
         mixed $value,
         bool $temporary,
     ): string {
-        if (! is_string($value) || $value === '') {
+        $hasValue = is_array($value)
+            ? $value !== []
+            : is_string($value) && $value !== '';
+        if (! $hasValue) {
             return '—';
         }
 
         try {
-            return $temporary
-                ? $this->files->temporaryUrl($submission, $field)
-                : $this->files->relativeUrl($submission, $field);
+            $serialized = $temporary
+                ? $this->files->temporaryAnswerUrls($submission, [$field => $value], [$field])
+                : $this->files->answerUrls($submission, [$field => $value], [$field]);
+            $urls = $serialized[$field] ?? null;
+            $values = is_array($urls) ? $urls : [$urls];
+            $urls = array_values(array_filter($values, 'is_string'));
+
+            return $urls === [] ? __('File uploaded') : implode(self::FILE_VALUE_SEPARATOR, $urls);
         } catch (\Throwable) {
             return __('File uploaded');
         }

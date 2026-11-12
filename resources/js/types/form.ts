@@ -52,7 +52,7 @@ export interface IFormFillPageForm {
 }
 
 /** Values stored in the fill `useForm` map (matches file inputs + multi-select) */
-export type TFormFillAnswerValue = string | string[] | File | null;
+export type TFormFillAnswerValue = string | string[] | File | File[] | null;
 
 export type TFormFillAnswerMap = Record<string, TFormFillAnswerValue>;
 
@@ -122,6 +122,14 @@ export interface IFormFieldMetadata {
     bannerUrl?: string;
     bannerFileName?: string;
     accepts?: string;
+    /** Enables selection of more than one uploaded file. */
+    multiple?: boolean;
+    /** Maximum number of files when `multiple` is enabled. */
+    max_files?: number;
+    /** Aggregate upload limit in kilobytes. */
+    max_total_size_kb?: number;
+    /** MIME types allowed for image/file upload fields. */
+    allowed_mime_types?: string[];
     formBanner?: boolean;
     is_multiple?: boolean;
     maxStars?: number;

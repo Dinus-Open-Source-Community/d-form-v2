@@ -27,7 +27,7 @@ class FormAnswerFileController extends Controller
 
         abort_unless($authorized, 403);
 
-        $located = $files->locate($formAnswer, $field);
+        $located = $files->locate($formAnswer, $field, $filename);
         abort_if($located === null, 404);
 
         $downloadName = str_replace(["\r", "\n", '"'], '', basename(rawurldecode($filename)));

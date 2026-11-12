@@ -8,10 +8,143 @@ import type { TFormFieldMetadataBag } from '@/types/form';
 import { DEFAULT_FORM_SECTION_ID } from '@/lib/formRegistrationMetadata';
 import { cleanStoredImageUrl, stripLocalImageUrlsDeep } from '@/lib/builderImageSanitizer';
 import { readMetadataBag, readMetaNumber, readMetaText, readRuleSet } from '@/lib/formFieldMetadata';
+import { formatAllowedMimeTypesAsExtensions } from '@/lib/formUploadFormats';
 import { isRecord } from '@/lib/isRecord';
 import { createUuid } from '@/lib/uuid';
+import { DEFAULT_ALLOWED_MIME_TYPES, DEFAULT_UPLOAD_LIMITS } from '@/constants/formUpload';
 
 export type { IBackendField, IBuilderField, IFieldOptionEntry };
+export { DEFAULT_ALLOWED_MIME_TYPES, DEFAULT_UPLOAD_LIMITS, UPLOAD_FORMAT_OPTIONS } from '@/constants/formUpload';
+
+const EXTENSION_MIME_TYPES: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    csv: 'text/csv',
+    txt: 'text/plain',
+};
+
+type TUploadFieldType = keyof typeof DEFAULT_ALLOWED_MIME_TYPES;
+type TUploadLimitKey = keyof typeof DEFAULT_UPLOAD_LIMITS;
+
+/** Clamp upload limits to their field-level bounds; an empty value restores its default. */
+export function normalizeUploadLimit(key: TUploadLimitKey, value: number | string | undefined): number {
+    const parsed = value === '' || value === undefined ? DEFAULT_UPLOAD_LIMITS[key] : Number(value);
+    if (!Number.isFinite(parsed)) return DEFAULT_UPLOAD_LIMITS[key];
+
+    return Math.max(1, Math.min(DEFAULT_UPLOAD_LIMITS[key], Math.floor(parsed)));
+}
+
+/** Update multiple-file metadata and discard its limits when the field becomes single-file. */
+export function setUploadMultipleMetadata(
+    metadata: IBuilderField['metadata'],
+    enabled: boolean
+): IBuilderField['metadata'] {
+    const next: IBuilderField['metadata'] = { ...metadata, multiple: enabled };
+
+    if (enabled) {
+        next.max_files = normalizeUploadLimit('max_files', readLimitValue(next.max_files));
+        next.max_total_size_mb = normalizeUploadLimit(
+            'max_total_size_mb',
+            readLimitValue(next.max_total_size_mb) ?? convertKilobytesToMegabytes(next.max_total_size_kb)
+        );
+        return next;
+    }
+
+    delete next.max_files;
+    delete next.max_total_size_mb;
+    delete next.max_total_size_kb;
+
+    return next;
+}
+
+/** Return the supported MIME allowlist, migrating legacy comma-separated extensions when needed. */
+function allowedMimeTypes(metadata: TFormFieldMetadataBag, type: TUploadFieldType): string[] {
+    const available = DEFAULT_ALLOWED_MIME_TYPES[type];
+    const rawTyped = metadata.allowed_mime_types;
+    if (Array.isArray(rawTyped)) {
+        const typed = rawTyped.filter((value): value is string => typeof value === 'string');
+        const supportedTyped = available.filter((mimeType) => typed.includes(mimeType));
+
+        return supportedTyped.length > 0 ? supportedTyped : [...available];
+    }
+
+    const legacy = typeof metadata.accepts === 'string' ? metadata.accepts : '';
+    const normalizedLegacy = legacy
+        .split(',')
+        .map((extension) => EXTENSION_MIME_TYPES[extension.trim().replace(/^\./, '').toLowerCase()])
+        .filter((mimeType): mimeType is string => mimeType !== undefined);
+    const supported = available.filter((mimeType) => normalizedLegacy.includes(mimeType));
+
+    return supported.length > 0 ? supported : [...available];
+}
+
+function toBackendUploadMetadata(
+    field: IBuilderField,
+    type: TUploadFieldType,
+    rules: Record<string, unknown>
+): Record<string, unknown> {
+    const allowed = allowedMimeTypes(field.metadata, type);
+    const typedAllowlistPresent = Array.isArray(field.metadata.allowed_mime_types);
+    const legacyMimes = readMetaText(field.metadata, 'accepts').trim().replace(/\s+/g, '');
+    const mimes = typedAllowlistPresent
+        ? formatAllowedMimeTypesAsExtensions(allowed)
+        : legacyMimes || formatAllowedMimeTypesAsExtensions(allowed);
+    const includeLimits = field.metadata.multiple === true;
+
+    const metadata = withMeta(field, {
+        rules: { ...rules, mimes, max_size: 5120 },
+        builderType: type,
+        multiple: field.metadata.multiple === true,
+        allowed_mime_types: allowed,
+        accepts: mimes,
+        ...(includeLimits
+            ? {
+                  max_files: normalizeUploadLimit('max_files', readLimitValue(field.metadata.max_files)),
+                  max_total_size_kb:
+                      normalizeUploadLimit(
+                          'max_total_size_mb',
+                          readLimitValue(field.metadata.max_total_size_mb) ??
+                              convertKilobytesToMegabytes(field.metadata.max_total_size_kb)
+                      ) * 1024,
+              }
+            : {}),
+    });
+
+    delete metadata.max_total_size_mb;
+
+    if (field.metadata.multiple !== true) {
+        delete metadata.max_files;
+        delete metadata.max_total_size_kb;
+    }
+
+    return metadata;
+}
+
+function readLimitValue(value: unknown): number | string | undefined {
+    return typeof value === 'number' || typeof value === 'string' ? value : undefined;
+}
+
+function convertKilobytesToMegabytes(value: unknown): number | string | undefined {
+    const kilobytes = readLimitValue(value);
+
+    return kilobytes === undefined ? undefined : Number(kilobytes) / 1024;
+}
+
+export { formatAllowedMimeTypesAsExtensions } from '@/lib/formUploadFormats';
+
+/** Toggle one format while keeping at least one supported format enabled. */
+export function toggleAllowedMimeType(current: string[], mimeType: string, enabled: boolean): string[] {
+    const next = enabled ? [...new Set([...current, mimeType])] : current.filter((value) => value !== mimeType);
+
+    return next.length > 0 ? next : current;
+}
 
 /**
  * Daftar display-only dimiliki `@/lib/formFieldContract` (satu sumber lintas sisi).
@@ -279,22 +412,18 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
 
         case 'date':
             return { ...base, type: 'datePicker', metadata: withMeta(f, { rules: req, builderType: 'date' }) };
-        case 'image_upload': {
-            const mimes = readMetaText(f.metadata, 'accepts').trim().replace(/\s+/g, '') || 'png,jpg,jpeg';
+        case 'image_upload':
             return {
                 ...base,
                 type: 'fileUpload',
-                metadata: withMeta(f, { rules: { ...req, mimes, max_size: 5120 }, builderType: 'image_upload' }),
+                metadata: toBackendUploadMetadata(f, 'image_upload', req),
             };
-        }
-        case 'file_upload': {
-            const mimes = readMetaText(f.metadata, 'accepts').trim().replace(/\s+/g, '') || 'pdf,doc,xls';
+        case 'file_upload':
             return {
                 ...base,
                 type: 'fileUpload',
-                metadata: withMeta(f, { rules: { ...req, mimes, max_size: 5120 }, builderType: 'file_upload' }),
+                metadata: toBackendUploadMetadata(f, 'file_upload', req),
             };
-        }
         case 'banner':
             return {
                 ...base,
@@ -369,6 +498,32 @@ export function fromBackendField(bf: IBackendField): IBuilderField {
 
     const sectionIdRaw = readMetaText(m, 'sectionId');
     const sectionId = sectionIdRaw.trim() !== '' ? sectionIdRaw : DEFAULT_FORM_SECTION_ID;
+    const uploadType = bt === 'image_upload' || bt === 'file_upload' ? bt : null;
+    const uploadMetadata =
+        uploadType === null
+            ? {}
+            : {
+                  multiple: m.multiple === true,
+                  allowed_mime_types: allowedMimeTypes(
+                      typeof rules.mimes === 'string' && typeof m.accepts !== 'string'
+                          ? { ...m, accepts: rules.mimes }
+                          : m,
+                      uploadType
+                  ),
+                  ...(m.multiple === true || readLimitValue(m.max_files) !== undefined
+                      ? { max_files: normalizeUploadLimit('max_files', readLimitValue(m.max_files)) }
+                      : {}),
+                  ...(m.multiple === true ||
+                  readLimitValue(m.max_total_size_kb) !== undefined ||
+                  readLimitValue(m.max_total_size_mb) !== undefined
+                      ? {
+                            max_total_size_mb: normalizeUploadLimit(
+                                'max_total_size_mb',
+                                readLimitValue(m.max_total_size_mb) ?? convertKilobytesToMegabytes(m.max_total_size_kb)
+                            ),
+                        }
+                      : {}),
+              };
 
     return {
         id: bf.id,
@@ -382,9 +537,11 @@ export function fromBackendField(bf: IBackendField): IBuilderField {
         is_append: bf.is_append === true,
         metadata: {
             ...m,
+            ...uploadMetadata,
             sectionId,
             maxStars: readMetaNumber(m, 'maxStars', 5) || 5,
-            accepts: (typeof rules.mimes === 'string' ? rules.mimes : '').replace(/,/g, ', '),
+            accepts:
+                readMetaText(m, 'accepts') || (typeof rules.mimes === 'string' ? rules.mimes : '').replace(/,/g, ', '),
             formBanner: m.formBanner === true,
             ...(maxLengthForMeta != null ? { maxLength: maxLengthForMeta } : {}),
             ...(bt === 'image'

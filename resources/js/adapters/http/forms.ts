@@ -1,7 +1,14 @@
 import { HttpRequestError, isRecord } from '@/adapters/http/httpError';
 import { requestBlob, requestJson, requestJsonWithStatus, sendJsonKeepalive } from '@/adapters/http/httpClient';
 import { createPercentProgressReporter } from '@/adapters/http/upload';
-import type { TFormReviewStatus, IFormReviewErrorBody, IFormReviewSuccessResponse } from '@/types/forms';
+import type {
+    IBulkFormReviewErrorBody,
+    IBulkFormReviewResult,
+    IBulkFormReviewSuccessResponse,
+    IFormReviewErrorBody,
+    IFormReviewSuccessResponse,
+    TFormReviewStatus,
+} from '@/types/forms';
 import type { IBackendField, TBackendFieldType } from '@/types/form-builder';
 import type { THttpMethod, IUploadTransferOptions } from '@/types/http';
 import { isPersistableImageUrl } from '@/lib/urlPolicy';
@@ -323,6 +330,90 @@ export async function reviewFormSubmission(options: {
     }
 
     return { status: result.status, message: null, data: result.data.data, currentStatus: null };
+}
+
+function parseBulkReviewSuccess(
+    payload: Record<string, unknown>,
+    expectedRequestedCount: number
+): IBulkFormReviewSuccessResponse | null {
+    const readCount = (value: unknown): number | null =>
+        typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+    const requested = readCount(payload.requested);
+    const processed = readCount(payload.processed);
+    const skipped = readCount(payload.skipped);
+    const conflicts = readCount(payload.conflicts);
+    const queuedIntents = readCount(payload.queued_intents);
+
+    if (
+        requested === null ||
+        processed === null ||
+        skipped === null ||
+        conflicts === null ||
+        queuedIntents === null ||
+        expectedRequestedCount < 1 ||
+        requested !== expectedRequestedCount ||
+        processed !== requested ||
+        skipped !== 0 ||
+        conflicts !== 0 ||
+        queuedIntents !== processed
+    ) {
+        return null;
+    }
+
+    return {
+        requested,
+        processed,
+        skipped,
+        conflicts,
+        queued_intents: queuedIntents,
+    };
+}
+
+/** Kirim satu batch explicit submission IDs untuk review atomik. */
+export async function reviewFormSubmissionsBulk(options: {
+    url: string;
+    submissionIds: string[];
+    reviewStatus: 'accepted' | 'rejected';
+}): Promise<IBulkFormReviewResult> {
+    const result = await requestJsonWithStatus(
+        {
+            url: options.url,
+            method: 'PATCH',
+            body: { submission_ids: options.submissionIds, review_status: options.reviewStatus },
+        },
+        (payload) => {
+            if (!isRecord(payload)) return null;
+
+            const success = parseBulkReviewSuccess(payload, options.submissionIds.length);
+            if (success !== null) return { kind: 'success' as const, data: success };
+
+            const body: IBulkFormReviewErrorBody = {
+                message: typeof payload.message === 'string' ? payload.message : undefined,
+            };
+
+            return { kind: 'error' as const, body, raw: payload };
+        }
+    );
+    const isSuccess = result.status >= 200 && result.status < 300;
+
+    if (!isSuccess) {
+        return {
+            status: result.status,
+            message: result.data?.kind === 'error' ? (result.data.body.message ?? null) : null,
+            data: null,
+        };
+    }
+
+    if (result.data?.kind !== 'success') {
+        throw new HttpRequestError({
+            kind: 'invalid_response',
+            status: result.status,
+            message: 'Respons server tidak sesuai kontrak.',
+            body: result.data?.kind === 'error' ? result.data.raw : null,
+        });
+    }
+
+    return { status: result.status, message: null, data: result.data.data };
 }
 
 /** Cek apakah email peserta sudah punya akun. `url` sudah memuat query email. */

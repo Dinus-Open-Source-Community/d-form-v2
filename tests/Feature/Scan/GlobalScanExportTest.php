@@ -509,6 +509,20 @@ class GlobalScanExportTest extends TestCase
     {
         [$event, $admin] = $this->eventWithAttendance();
 
+        Log::spy();
+        Log::shouldReceive('error')->zeroOrMoreTimes()->withArgs(
+            static function (string $message, array $context): bool {
+                return $message === 'unhandled_exception'
+                    && ($context['exception_class'] ?? null) === RuntimeException::class
+                    && ($context['message'] ?? null) === RuntimeException::class.': [message redacted]'
+                    && is_string($context['file'] ?? null)
+                    && is_int($context['line'] ?? null)
+                    && is_array($context['frames'] ?? null)
+                    && is_string($context['correlation_id'] ?? null)
+                    && Str::isUuid($context['correlation_id'])
+                    && array_keys($context) === ['exception_class', 'message', 'file', 'line', 'frames', 'correlation_id'];
+            },
+        );
         Log::shouldReceive('info')->once()->andThrow(new RuntimeException('Logger unavailable'));
         Log::shouldReceive('warning')->once()->withArgs(
             static fn (string $message, array $context): bool => $message === 'event_csv_export_audit_failed'

@@ -47,6 +47,7 @@ const {
     registrationMode: props.ctx.registrationMode,
     answerForm: props.ctx.answerForm,
     filePreviewUrls: props.ctx.filePreviewUrls,
+    multiFilePreviewUrls: props.ctx.multiFilePreviewUrls,
     validateSection: props.ctx.validateSection,
     isBundleDuplicatable: props.ctx.isBundleDuplicatableField,
     isBlocked: () => props.ctx.isBlocked,

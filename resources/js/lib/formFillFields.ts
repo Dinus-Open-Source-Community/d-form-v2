@@ -2,6 +2,7 @@ import { formFieldBuilderType } from '@/lib/formFieldOptions';
 import { FORM_FILL_DISPLAY_ONLY_TYPES } from '@/lib/formFieldContract';
 import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { formatAllowedUploadFormats } from '@/lib/formUploadFormats';
 import type {
     IFormFieldParticipationSlot,
     IFormFillBlockCopy,
@@ -199,9 +200,15 @@ function positiveInteger(value: unknown): number | undefined {
 /** Upload helper line: aspect hint for images, allowed mimes, and max size. */
 export function formFieldFileHint(field: IFormField): string {
     const parts: string[] = [];
+    const metadata = readFieldMetadata(field);
     const fieldRules = readFieldRules(field);
     if (formFillBuilderType(field) === 'image_upload') parts.push('Recommended: 1200 x 900 px (4:3)');
-    if (fieldRules.mimes) parts.push(`Allowed: ${String(fieldRules.mimes)}`);
+    const allowedMimeTypes = metadata.allowed_mime_types;
+    const allowedFormats = Array.isArray(allowedMimeTypes)
+        ? formatAllowedUploadFormats(allowedMimeTypes.filter((value): value is string => typeof value === 'string'))
+        : '';
+    const rulesFormats = fieldRules.mimes ? String(fieldRules.mimes) : '';
+    if (allowedFormats || rulesFormats) parts.push(`Allowed: ${allowedFormats || rulesFormats}`);
     if (fieldRules.max_size) parts.push(`Max size: ${String(fieldRules.max_size)} KB`);
     return parts.join(' · ');
 }

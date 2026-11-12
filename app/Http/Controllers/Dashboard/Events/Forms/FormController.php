@@ -202,6 +202,7 @@ class FormController extends Controller
             'updateFormUrl' => route('dashboard.events.forms.update', ['event' => $event, 'form' => $form]),
             'submissions' => $submissions,
             'submissionsCount' => $submissionQuery->count(),
+            'formShare' => FormShareLinkController::payload($event, $form),
         ]);
     }
 

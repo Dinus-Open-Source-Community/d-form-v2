@@ -33,6 +33,9 @@ return [
 
     'forms' => [
         'upload_max_size_kb' => max(1, min(5120, (int) env('FORMS_UPLOAD_MAX_SIZE_KB', 5120))),
+        'upload_max_files' => max(1, min(5, (int) env('FORMS_UPLOAD_MAX_FILES', 5))),
+        'upload_max_total_size_kb' => max(1, min(20 * 1024, (int) env('FORMS_UPLOAD_MAX_TOTAL_SIZE_KB', 20 * 1024))),
+        'upload_max_expanded_size_kb' => max(1, min(20 * 1024, (int) env('FORMS_UPLOAD_MAX_EXPANDED_SIZE_KB', 20 * 1024))),
         /*
          * Cap piksel 12 juta dan dimensi 8000 px diperiksa dari header gambar
          * sebelum decode. Worst case decode ~48 MB (4 byte/piksel) + buffer
@@ -49,6 +52,8 @@ return [
          * menampung retry validasi (field wajib terlewat, unggahan terlalu besar).
          */
         'submit_rate_limit_per_minute' => (int) env('FORMS_SUBMIT_RATE_LIMIT_PER_MINUTE', 10),
+        /* Bulk review is bounded by selected IDs and additionally throttled per organizer/form. */
+        'bulk_review_rate_limit_per_minute' => max(1, (int) env('FORMS_BULK_REVIEW_RATE_LIMIT_PER_MINUTE', 30)),
         /*
          * TTL URL bertanda tangan untuk berkas jawaban yang dikirim lewat email
          * atau CSV. Halaman web memakai route terautentikasi tanpa kedaluwarsa.

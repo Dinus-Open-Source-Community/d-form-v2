@@ -5,6 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import EventBannerImage from '@/components/core/EventBannerImage.vue';
+import FormFieldAnswerDisplay from '@/components/modules/dashboard/FormFieldAnswerDisplay.vue';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
 import { eventHeroBannerContainerClass } from '@/lib/eventBannerAspect';
 import { CalendarDays, MapPin } from 'lucide-vue-next';
@@ -44,6 +45,7 @@ const props = defineProps<{
 }>();
 
 const bundleParticipants = computed(() => props.bundle_participants ?? []);
+const eventBannerUrl = computed(() => props.event.banner_url?.trim() ?? '');
 
 const successContent = computed(() => {
     const html = props.form?.success_content;
@@ -56,15 +58,15 @@ const isBundleLeader = computed(
 );
 
 const participantStatusLabels: Record<BundleParticipant['review_status'], string> = {
-    pending: 'Awaiting review',
-    accepted: 'Accepted',
-    rejected: 'Not accepted',
+    pending: 'Menunggu ditinjau',
+    accepted: 'Diterima',
+    rejected: 'Tidak diterima',
 };
 
 const statusLabels: Record<(typeof props.registration)['review_status'], string> = {
-    pending: 'Awaiting review',
-    accepted: 'Accepted',
-    rejected: 'Not accepted',
+    pending: 'Menunggu ditinjau',
+    accepted: 'Diterima',
+    rejected: 'Tidak diterima',
 };
 
 const participationLabel = computed(() => {
@@ -91,21 +93,12 @@ onMounted(() => {
         subtitle: `Registration — ${props.event.title}`,
     });
 });
-
-function isFileLink(value: string): boolean {
-    return /^https?:\/\//i.test(value) || value.startsWith('/storage/');
-}
-
-function isImageFileUrl(value: string): boolean {
-    const path = (value.split('?')[0] ?? '').toLowerCase();
-    return /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i.test(path);
-}
 </script>
 
 <template>
     <Head :title="`Registration — ${props.event.title}`" />
 
-    <div class="flex flex-col gap-6">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-5 sm:gap-6">
         <div v-if="participationLabel" class="flex flex-wrap items-center gap-2">
             <Badge variant="outline" class="text-[11px] font-medium">{{ participationLabel }}</Badge>
         </div>
@@ -120,82 +113,85 @@ function isImageFileUrl(value: string): boolean {
         </Card>
 
         <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
-            <div :class="eventHeroBannerContainerClass()">
-                <EventBannerImage :src="props.event.banner_url" :alt="props.event.title" />
+            <div
+                v-if="eventBannerUrl"
+                data-testid="event-registration-banner"
+                :class="eventHeroBannerContainerClass('mx-auto h-40 max-h-80 max-w-5xl sm:h-56 md:h-72')"
+            >
+                <EventBannerImage :src="eventBannerUrl" :alt="props.event.title" />
             </div>
             <div class="border-border border-t px-4 py-4 sm:px-6">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Status</p>
-                        <Badge
-                            variant="secondary"
-                            class="mt-1 text-[11px] capitalize"
-                            :style="{ color: statusColorMap[props.registration.review_status] }"
-                        >
-                            {{ statusLabels[props.registration.review_status] }}
-                        </Badge>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <h2 class="text-foreground min-w-0 text-lg leading-tight font-semibold break-words">
+                                {{ props.event.title }}
+                            </h2>
+                            <Badge
+                                variant="secondary"
+                                class="shrink-0 text-[11px]"
+                                :style="{ color: statusColorMap[props.registration.review_status] }"
+                            >
+                                {{ statusLabels[props.registration.review_status] }}
+                            </Badge>
+                        </div>
+                        <p v-if="props.form?.title" class="text-muted-foreground mt-1 text-sm break-words">
+                            {{ props.form.title }}
+                        </p>
                     </div>
-                    <div class="text-muted-foreground text-right text-xs">
-                        <p>
-                            Submitted
+                    <div
+                        class="text-muted-foreground flex shrink-0 flex-col gap-1 text-left text-xs sm:items-end sm:text-right"
+                    >
+                        <p class="leading-snug">
+                            Dikirim
                             <span class="text-foreground font-medium">{{
                                 formatDateTime({ value: props.registration.submitted_at, variant: 'date-time' })
                             }}</span>
                         </p>
-                        <p v-if="props.registration.reviewed_at" class="mt-1">
-                            Updated
+                        <p v-if="props.registration.reviewed_at" class="leading-snug">
+                            Diperbarui
                             <span class="text-foreground font-medium">{{
                                 formatDateTime({ value: props.registration.reviewed_at, variant: 'date-time' })
                             }}</span>
                         </p>
                     </div>
                 </div>
-                <div class="text-muted-foreground mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                    <p class="flex items-center gap-2">
-                        <CalendarDays class="text-primary size-4 shrink-0" />
-                        {{ formatDateTime({ value: props.event.start_date }) }} —
-                        {{ formatDateTime({ value: props.event.end_date }) }}
-                    </p>
-                    <p class="flex items-center gap-2">
-                        <MapPin class="text-primary size-4 shrink-0" />
-                        {{ props.event.location }}
-                    </p>
+                <div class="border-border/60 mt-4 grid min-w-0 gap-x-6 gap-y-3 border-t pt-3 text-sm sm:grid-cols-2">
+                    <div class="flex min-w-0 items-start gap-2.5">
+                        <CalendarDays class="text-primary mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                        <div class="min-w-0">
+                            <p class="text-muted-foreground text-xs">Tanggal</p>
+                            <p class="text-foreground mt-0.5 break-words">
+                                {{ formatDateTime({ value: props.event.start_date }) }} —
+                                {{ formatDateTime({ value: props.event.end_date }) }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex min-w-0 items-start gap-2.5">
+                        <MapPin class="text-primary mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                        <div class="min-w-0">
+                            <p class="text-muted-foreground text-xs">Lokasi</p>
+                            <p class="text-foreground mt-0.5 break-words">{{ props.event.location }}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <Card v-if="Object.keys(props.registration.answers_summary).length > 0" class="rounded-xl border shadow-xs">
             <CardHeader class="pb-3">
-                <CardTitle class="text-sm font-medium">Your answers</CardTitle>
+                <CardTitle class="text-sm font-medium">Jawaban Anda</CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3 pt-0">
+            <CardContent class="grid min-w-0 grid-cols-1 gap-3 pt-0 lg:grid-cols-2">
                 <div
                     v-for="(value, label) in props.registration.answers_summary"
                     :key="label"
-                    class="border-border/60 bg-muted/15 rounded-lg border px-3 py-2"
+                    class="border-border/60 bg-muted/15 min-w-0 rounded-lg border p-3 sm:p-4"
                 >
-                    <p class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{{ label }}</p>
-                    <template v-if="isFileLink(value)">
-                        <div class="mt-2 space-y-2">
-                            <a
-                                :href="value"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="text-primary inline-flex text-sm font-medium underline-offset-4 hover:underline"
-                            >
-                                Buka / unduh berkas
-                            </a>
-                            <div v-if="isImageFileUrl(value)" class="pt-1">
-                                <img
-                                    :src="value"
-                                    alt=""
-                                    class="border-border bg-background max-h-56 max-w-full rounded-md border object-contain"
-                                    loading="lazy"
-                                />
-                            </div>
-                        </div>
-                    </template>
-                    <p v-else class="text-foreground mt-1 text-sm">{{ value }}</p>
+                    <p class="text-muted-foreground mb-2 text-[11px] font-semibold tracking-wide uppercase">
+                        {{ label }}
+                    </p>
+                    <FormFieldAnswerDisplay :field="null" :value="value" />
                 </div>
             </CardContent>
         </Card>

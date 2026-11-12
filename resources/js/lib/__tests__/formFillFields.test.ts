@@ -227,6 +227,21 @@ describe('formFillFields: field presentation helpers', () => {
         expect(formFieldAcceptAttribute(makeFormField({ name: 'plain' }))).toBeUndefined();
     });
 
+    it('uses the typed upload allowlist when rendering the allowed-format hint', () => {
+        const field = makeFormField({
+            name: 'documents',
+            metadata: {
+                builderType: 'file_upload',
+                allowed_mime_types: [
+                    'application/pdf',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                ],
+            },
+        });
+
+        expect(formFieldFileHint(field)).toContain('Allowed: pdf, docx');
+    });
+
     it('resolves display-only image sources and metadata text', () => {
         const field = makeFormField({
             name: 'diagram',

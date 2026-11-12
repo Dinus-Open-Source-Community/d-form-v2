@@ -253,6 +253,31 @@ describe('autosave fields dan header bersama', () => {
         expect(saveFormFields.mock.calls[0]?.[1]).toEqual([]);
         expect(updateFormSettings).toHaveBeenCalledTimes(1);
     });
+
+    it('form published hanya mengirim fields saat metadata field berubah', async () => {
+        const harness = createHarness(false);
+
+        harness.models.formTitle.value = 'Form Pendaftaran';
+        harness.models.formDescription.value = 'Deskripsi singkat';
+        harness.models.closedAt.value = '2026-12-01T10:00';
+        harness.models.visibleFor.value = ['public'];
+        await settle();
+
+        saveFormFields.mockClear();
+        updateFormSettings.mockClear();
+
+        harness.models.formFields.value = [
+            {
+                ...FIELD,
+                type: 'file_upload',
+                metadata: { multiple: true },
+            },
+        ];
+        await settle();
+
+        expect(saveFormFields).toHaveBeenCalledTimes(1);
+        expect(updateFormSettings).not.toHaveBeenCalled();
+    });
 });
 
 describe('agregasi status', () => {

@@ -11,14 +11,14 @@ defineProps<{
 <template>
     <div>
         <div
-            v-if="formBannerImageSrc || formBannerCaption"
-            class="border-border bg-card mb-5 overflow-hidden rounded-2xl border shadow-sm"
+            v-if="formBannerImageSrc.trim() || formBannerCaption.trim()"
+            class="border-border bg-card mx-auto mb-5 w-full max-w-4xl overflow-hidden rounded-2xl border shadow-sm"
         >
             <img
-                v-if="formBannerImageSrc"
+                v-if="formBannerImageSrc.trim()"
                 :src="formBannerImageSrc"
                 :alt="formTitle"
-                class="aspect-[3/1] w-full object-cover"
+                class="mx-auto max-h-72 w-full object-contain"
             />
             <p
                 v-if="formBannerCaption"

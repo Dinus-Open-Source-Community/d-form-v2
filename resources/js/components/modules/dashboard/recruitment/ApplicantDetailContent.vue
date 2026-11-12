@@ -4,6 +4,7 @@ import type { ComponentPublicInstance } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import FileTypeTile from '@/components/core/FileTypeTile.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -33,7 +34,6 @@ import {
     ClipboardCheck,
     Download,
     ExternalLink,
-    FileText,
     Lock,
     Mail,
     PencilLine,
@@ -858,7 +858,10 @@ const defaultTab = computed(() => {
                             <div class="space-y-3 pb-5">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div class="flex items-center gap-3">
-                                        <FileText class="text-muted-foreground size-5" />
+                                        <FileTypeTile
+                                            :mime="application.document.cv_mime"
+                                            :file-name="application.document.cv_original_name"
+                                        />
                                         <div>
                                             <p class="font-medium">{{ application.document.cv_original_name }}</p>
                                             <p class="text-muted-foreground text-xs">
@@ -953,7 +956,10 @@ const defaultTab = computed(() => {
                                 <div v-else-if="application.document.has_portfolio_file" class="space-y-3">
                                     <div class="flex flex-wrap items-center justify-between gap-3">
                                         <div class="flex items-center gap-3">
-                                            <FileText class="text-muted-foreground size-5" />
+                                            <FileTypeTile
+                                                :mime="application.document.portfolio_mime ?? ''"
+                                                :file-name="application.document.portfolio_original_name ?? ''"
+                                            />
                                             <div>
                                                 <p class="text-sm font-medium">
                                                     {{ application.document.portfolio_original_name }}

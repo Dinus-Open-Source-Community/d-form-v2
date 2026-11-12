@@ -16,7 +16,7 @@ enum UploadPurpose: string
     /** Bukti follow Instagram (tanpa GIF) pada form OPRec. */
     case InstagramProof = 'instagram_proof';
 
-    /** Lampiran jawaban form (PDF atau gambar), disk lokal. */
+    /** Lampiran jawaban form (PDF, Office Open XML, teks, atau gambar), disk lokal. */
     case FormAnswerFile = 'form_answer_file';
 
     /** Lampiran email broadcast (PDF atau gambar), disk lokal. */
@@ -37,7 +37,19 @@ enum UploadPurpose: string
         return match ($this) {
             self::Image => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
             self::InstagramProof => ['image/jpeg', 'image/png', 'image/webp'],
-            self::FormAnswerFile => ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+            self::FormAnswerFile => [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'text/csv',
+                'text/plain',
+                'application/zip',
+                'image/jpeg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+            ],
             self::BroadcastAttachment => ['application/pdf', 'image/jpeg', 'image/png'],
             self::RecruitmentCv, self::RecruitmentPortfolio => ['application/pdf'],
             self::DatasetCsv => ['text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel'],
@@ -50,7 +62,7 @@ enum UploadPurpose: string
         return match ($this) {
             self::Image => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
             self::InstagramProof => ['jpg', 'jpeg', 'png', 'webp'],
-            self::FormAnswerFile => ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'],
+            self::FormAnswerFile => ['pdf', 'docx', 'xlsx', 'pptx', 'csv', 'txt', 'jpg', 'jpeg', 'png', 'webp', 'gif'],
             self::BroadcastAttachment => ['pdf', 'jpg', 'jpeg', 'png'],
             self::RecruitmentCv, self::RecruitmentPortfolio => ['pdf'],
             self::DatasetCsv => ['csv', 'txt'],

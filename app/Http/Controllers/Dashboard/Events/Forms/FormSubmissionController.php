@@ -15,6 +15,7 @@ use App\Services\Form\FormAccessGuard;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\FormAnswerWriter;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Services\Registration\FormSubmissionContext;
 use App\Services\Registration\FormSubmissionOrchestrator;
 use App\Services\Registration\FormSubmissionRules;
@@ -34,6 +35,7 @@ class FormSubmissionController extends Controller
         private EventRegistrationCounter $registrationCounter,
         private FormAnswerWriter $formAnswerWriter,
         private FormSubmissionOrchestrator $formSubmissionOrchestrator,
+        private FormAnswerFileStorage $formAnswerFileStorage,
     ) {
     }
 
@@ -112,6 +114,8 @@ class FormSubmissionController extends Controller
                     $resolvedGuestIdsByEmail,
                 );
             } catch (ValidationException $exception) {
+                $this->formAnswerFileStorage->discardMappedUploads($form, $answers);
+
                 return $this->fillRedirect($event, $form)
                     ->withErrors($exception->errors())
                     ->withInput(SecretAnswerInput::flashable($request, $fields, $this->extraMemberSlots($mode, $teamSize)));
@@ -131,39 +135,55 @@ class FormSubmissionController extends Controller
         }
 
         if ($mode === FormSubmissionMode::Other) {
-            return $this->submitOtherForm($answers['leader'], $form, $user, $event);
+            try {
+                return $this->submitOtherForm($answers['leader'], $form, $user, $event);
+            } catch (ValidationException $exception) {
+                $this->formAnswerFileStorage->discardMappedUploads($form, $answers['leader']);
+
+                return $this->fillRedirect($event, $form)
+                    ->withErrors($exception->errors())
+                    ->withInput(SecretAnswerInput::flashable($request, $fields, 0));
+            }
         }
 
-        $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
-            $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
+        try {
+            $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
+                $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
 
-            if ($lockedEvent === null) {
-                throw new \RuntimeException('Event not found.');
-            }
+                if ($lockedEvent === null) {
+                    throw new \RuntimeException('Event not found.');
+                }
 
-            if (FormAnswer::query()
-                ->where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->excludeRejectedSubmissions()
-                ->lockForUpdate()
-                ->exists()) {
-                throw ValidationException::withMessages([
-                    'form' => __('You have already submitted this form.'),
+                if (FormAnswer::query()
+                    ->where('form_id', $form->id)
+                    ->where('user_id', $user->id)
+                    ->excludeRejectedSubmissions()
+                    ->lockForUpdate()
+                    ->exists()) {
+                    throw ValidationException::withMessages([
+                        'form' => __('You have already submitted this form.'),
+                    ]);
+                }
+
+                $this->registrationCounter->assertCanReserve($lockedEvent, 1, $isAdmin);
+
+                $submission = $this->formAnswerWriter->create([
+                    'answers' => $answers['leader'],
+                    'form_id' => $form->id,
+                    'user_id' => (string) $user->id,
                 ]);
-            }
 
-            $this->registrationCounter->assertCanReserve($lockedEvent, 1, $isAdmin);
+                $this->registrationCounter->reserveLocked($lockedEvent, 1);
 
-            $submission = $this->formAnswerWriter->create([
-                'answers' => $answers['leader'],
-                'form_id' => $form->id,
-                'user_id' => (string) $user->id,
-            ]);
+                return $submission;
+            });
+        } catch (ValidationException $exception) {
+            $this->formAnswerFileStorage->discardMappedUploads($form, $answers['leader']);
 
-            $this->registrationCounter->reserveLocked($lockedEvent, 1);
-
-            return $submission;
-        });
+            return $this->fillRedirect($event, $form)
+                ->withErrors($exception->errors())
+                ->withInput(SecretAnswerInput::flashable($request, $fields, 0));
+        }
 
         SendRegistrationConfirmationJob::dispatch($submission->id)->afterCommit();
 
@@ -273,6 +293,8 @@ class FormSubmissionController extends Controller
             $memberUser = $usersByEmail[$email] ?? null;
 
             if ($memberUser === null) {
+                $this->formAnswerFileStorage->discardMappedUploads($form, $answers);
+
                 return $this->fillRedirect($event, $form)
                     ->withErrors(["team_member_emails.{$index}" => __('No account exists for this email. The teammate must register first.')])
                     ->withInput($flashableInput);
@@ -281,14 +303,22 @@ class FormSubmissionController extends Controller
             $memberUsers[] = $memberUser;
         }
 
-        $result = $this->teamRegistrationSubmitter->submit(
-            $form,
-            $event,
-            $leaderUser,
-            $answers,
-            $memberUsers,
-            $isAdmin,
-        );
+        try {
+            $result = $this->teamRegistrationSubmitter->submit(
+                $form,
+                $event,
+                $leaderUser,
+                $answers,
+                $memberUsers,
+                $isAdmin,
+            );
+        } catch (ValidationException $exception) {
+            $this->formAnswerFileStorage->discardMappedUploads($form, $answers);
+
+            return $this->fillRedirect($event, $form)
+                ->withErrors($exception->errors())
+                ->withInput($flashableInput);
+        }
 
         SendRegistrationConfirmationJob::dispatch($result['leader']->id)->afterCommit();
 

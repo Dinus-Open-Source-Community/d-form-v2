@@ -54,7 +54,7 @@ final class SafeUploadStorage
             return $this->storeImageBytes($contents, $target, $purpose);
         }
 
-        $extension = UploadInspector::extensionForMime($mime);
+        $extension = UploadInspector::extensionForUpload($file);
         if ($extension === null) {
             throw ValidationException::withMessages(['file' => 'The uploaded file type is not allowed.']);
         }

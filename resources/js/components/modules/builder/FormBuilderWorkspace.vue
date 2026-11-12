@@ -91,7 +91,11 @@ defineExpose({
 <template>
     <div
         data-testid="form-builder-workspace"
-        :class="['relative flex min-h-0 flex-col overflow-hidden', shellHeightClass]"
+        :class="[
+            'relative flex min-h-0 flex-col overflow-hidden',
+            shellHeightClass,
+            '[--builder-fab-offset:9.25rem] sm:[--builder-fab-offset:5.25rem]',
+        ]"
     >
         <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
             <FormBuilderPalettePanel
@@ -146,7 +150,10 @@ defineExpose({
                 />
             </main>
 
-            <div class="mx-auto w-full max-w-[480px] px-4 pb-6 sm:hidden">
+            <div
+                class="mx-auto flex w-full max-w-[480px] flex-col gap-2 px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:hidden"
+            >
+                <slot name="mobile-actions" />
                 <div class="grid grid-cols-2 gap-2">
                     <Button
                         variant="outline"

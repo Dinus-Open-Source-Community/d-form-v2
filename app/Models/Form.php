@@ -26,7 +26,7 @@ class Form extends Model
     public const ROUTE_BINDING_COLUMNS = [
         'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
         'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'created_at',
-        'updated_at', 'deleted_at', 'created_by',
+        'updated_at', 'deleted_at', 'created_by', 'share_slug',
     ];
 
     /** Resolve route binding `{form}` dengan daftar kolom eksplisit. */
@@ -52,6 +52,7 @@ class Form extends Model
         'metadata',
         'status',
         'created_by',
+        'share_slug',
     ];
 
     public function casts(): array

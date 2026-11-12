@@ -925,164 +925,171 @@ function closePeriod(): void {
 
     <div class="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-5 pb-8 sm:pb-10">
         <Card class="border-border/70 overflow-hidden rounded-xl shadow-sm">
-            <CardContent class="p-4 sm:p-5">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-                    <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                            <h1 class="min-w-0 text-lg font-semibold tracking-tight break-words sm:text-xl">
-                                {{ period.name }}
-                            </h1>
-                            <Badge :class="cn('shrink-0 border text-[11px] font-medium', statusClasses[period.status])">
-                                {{ statusLabel(period.status) }}
-                            </Badge>
+            <CardContent class="p-0">
+                <div class="px-4 py-4 sm:px-6 sm:py-5">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                                <h1 class="min-w-0 text-lg font-semibold tracking-tight break-words sm:text-xl">
+                                    {{ period.name }}
+                                </h1>
+                                <Badge
+                                    :class="cn('shrink-0 border text-[11px] font-medium', statusClasses[period.status])"
+                                >
+                                    {{ statusLabel(period.status) }}
+                                </Badge>
+                            </div>
+                            <p class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <span class="inline-flex max-w-full min-w-0 items-center">
+                                    <span class="truncate font-mono text-[11px]" :title="period.slug">{{
+                                        period.slug
+                                    }}</span>
+                                </span>
+                                <span v-if="countdown" class="inline-flex flex-wrap items-center gap-x-2">
+                                    <span aria-hidden="true" class="select-none">·</span>
+                                    <span>{{ countdown }}</span>
+                                </span>
+                                <span v-if="applicantTotal > 0" class="inline-flex items-center gap-x-2">
+                                    <span aria-hidden="true" class="select-none">·</span>
+                                    <span class="tabular-nums">{{ participantCountLabel }} pendaftar</span>
+                                </span>
+                            </p>
                         </div>
-                        <p class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                            <span class="inline-flex max-w-full min-w-0 items-center">
-                                <span class="truncate font-mono text-[11px]" :title="period.slug">{{
-                                    period.slug
-                                }}</span>
-                            </span>
-                            <span v-if="countdown" class="inline-flex flex-wrap items-center gap-x-2">
-                                <span aria-hidden="true" class="select-none">·</span>
-                                <span>{{ countdown }}</span>
-                            </span>
-                            <span v-if="applicantTotal > 0" class="inline-flex items-center gap-x-2">
-                                <span aria-hidden="true" class="select-none">·</span>
-                                <span class="tabular-nums">{{ participantCountLabel }} pendaftar</span>
-                            </span>
-                        </p>
-                    </div>
 
-                    <div class="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            :disabled="!canSendQr || isSendingQr"
-                            :title="qrButtonTitle"
-                            :aria-label="qrButtonTitle"
-                            @click="openQr"
-                        >
-                            <QrCode class="mr-2 size-4" aria-hidden="true" />
-                            {{ isSendingQr ? 'Mengirim…' : 'Kirim QR' }}
-                        </Button>
-                        <div
-                            v-if="hasQrActivity"
-                            role="status"
-                            :aria-label="qrStatusLabel"
-                            class="flex items-center gap-1.5"
-                        >
-                            <span
-                                class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 tabular-nums"
-                                title="Menunggu giliran pengiriman QR"
-                            >
-                                Antrean {{ qrSummary.queued.toLocaleString('id-ID') }}
-                            </span>
-                            <Badge variant="secondary" class="shrink-0 tabular-nums" title="QR sudah terkirim">
-                                Terkirim {{ qrSummary.sent.toLocaleString('id-ID') }}
-                            </Badge>
-                            <Badge
-                                :variant="qrSummary.failed > 0 ? 'destructive' : 'outline'"
-                                class="shrink-0 tabular-nums"
-                                :title="
-                                    qrSummary.failed > 0
-                                        ? 'Sebagian pengiriman gagal. Kirim ulang untuk mencoba lagi.'
-                                        : 'Belum ada pengiriman yang gagal'
-                                "
-                            >
-                                Gagal {{ qrSummary.failed.toLocaleString('id-ID') }}
-                            </Badge>
+                        <div class="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
                             <Button
-                                variant="ghost"
-                                size="icon"
-                                class="size-8"
-                                title="Perbarui status pengiriman QR"
-                                aria-label="Perbarui status pengiriman QR"
-                                :disabled="isRefreshingQr"
-                                @click="refreshQrStatus"
+                                size="sm"
+                                variant="outline"
+                                :disabled="!canSendQr || isSendingQr"
+                                :title="qrButtonTitle"
+                                :aria-label="qrButtonTitle"
+                                @click="openQr"
                             >
-                                <RefreshCw
-                                    class="size-4"
-                                    :class="isRefreshingQr && 'animate-spin'"
-                                    aria-hidden="true"
-                                />
+                                <QrCode class="mr-2 size-4" aria-hidden="true" />
+                                {{ isSendingQr ? 'Mengirim…' : 'Kirim QR' }}
+                            </Button>
+                            <div
+                                v-if="hasQrActivity"
+                                role="status"
+                                :aria-label="qrStatusLabel"
+                                class="flex items-center gap-1.5"
+                            >
+                                <span
+                                    class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 tabular-nums"
+                                    title="Menunggu giliran pengiriman QR"
+                                >
+                                    Antrean {{ qrSummary.queued.toLocaleString('id-ID') }}
+                                </span>
+                                <Badge variant="secondary" class="shrink-0 tabular-nums" title="QR sudah terkirim">
+                                    Terkirim {{ qrSummary.sent.toLocaleString('id-ID') }}
+                                </Badge>
+                                <Badge
+                                    :variant="qrSummary.failed > 0 ? 'destructive' : 'outline'"
+                                    class="shrink-0 tabular-nums"
+                                    :title="
+                                        qrSummary.failed > 0
+                                            ? 'Sebagian pengiriman gagal. Kirim ulang untuk mencoba lagi.'
+                                            : 'Belum ada pengiriman yang gagal'
+                                    "
+                                >
+                                    Gagal {{ qrSummary.failed.toLocaleString('id-ID') }}
+                                </Badge>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-8"
+                                    title="Perbarui status pengiriman QR"
+                                    aria-label="Perbarui status pengiriman QR"
+                                    :disabled="isRefreshingQr"
+                                    @click="refreshQrStatus"
+                                >
+                                    <RefreshCw
+                                        class="size-4"
+                                        :class="isRefreshingQr && 'animate-spin'"
+                                        aria-hidden="true"
+                                    />
+                                </Button>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                :disabled="!hasGroupLink || isSendingGroupLink"
+                                :title="
+                                    hasGroupLink
+                                        ? 'Kirim link grup WA ke applicant yang lolos'
+                                        : 'Isi link grup WA di tab Settings dulu'
+                                "
+                                :aria-label="'Kirim link grup WA ke applicant yang lolos'"
+                                @click="openGroupLink"
+                            >
+                                <Send class="mr-2 size-4" aria-hidden="true" />
+                                {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
+                            </Button>
+                            <Button
+                                v-if="canOpen"
+                                size="sm"
+                                :aria-label="'Buka pendaftaran ' + period.name"
+                                @click="openPeriod"
+                            >
+                                Buka pendaftaran
+                            </Button>
+                            <Button
+                                v-if="canClose"
+                                size="sm"
+                                variant="destructive"
+                                :aria-label="'Tutup pendaftaran ' + period.name"
+                                @click="closePeriod"
+                            >
+                                Tutup pendaftaran
                             </Button>
                         </div>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            :disabled="!hasGroupLink || isSendingGroupLink"
-                            :title="
-                                hasGroupLink
-                                    ? 'Kirim link grup WA ke applicant yang lolos'
-                                    : 'Isi link grup WA di tab Settings dulu'
-                            "
-                            :aria-label="'Kirim link grup WA ke applicant yang lolos'"
-                            @click="openGroupLink"
-                        >
-                            <Send class="mr-2 size-4" aria-hidden="true" />
-                            {{ isSendingGroupLink ? 'Mengirim…' : 'Kirim Link Grup' }}
-                        </Button>
-                        <Button
-                            v-if="canOpen"
-                            size="sm"
-                            :aria-label="'Buka pendaftaran ' + period.name"
-                            @click="openPeriod"
-                        >
-                            Buka pendaftaran
-                        </Button>
-                        <Button
-                            v-if="canClose"
-                            size="sm"
-                            variant="destructive"
-                            :aria-label="'Tutup pendaftaran ' + period.name"
-                            @click="closePeriod"
-                        >
-                            Tutup pendaftaran
-                        </Button>
                     </div>
-                </div>
 
-                <div v-if="period.description" class="border-border/60 mt-3 border-t pt-3">
-                    <h2 class="sr-only">Deskripsi periode</h2>
-                    <p
-                        id="period-description"
-                        class="text-muted-foreground text-sm leading-relaxed"
-                        :class="!descriptionExpanded && 'line-clamp-2'"
-                    >
-                        {{ period.description }}
-                    </p>
-                    <button
-                        v-if="showDescriptionToggle"
-                        type="button"
-                        :aria-expanded="descriptionExpanded"
-                        aria-controls="period-description"
-                        class="text-foreground mt-1 text-xs font-medium underline-offset-4 hover:underline"
-                        @click="descriptionExpanded = !descriptionExpanded"
-                    >
-                        {{ descriptionExpanded ? 'Ringkas' : 'Selengkapnya' }}
-                    </button>
-                </div>
+                    <div v-if="period.description" class="border-border/60 mt-3 border-t pt-3">
+                        <h2 class="sr-only">Deskripsi periode</h2>
+                        <p
+                            id="period-description"
+                            class="text-muted-foreground text-sm leading-relaxed"
+                            :class="!descriptionExpanded && 'line-clamp-2'"
+                        >
+                            {{ period.description }}
+                        </p>
+                        <button
+                            v-if="showDescriptionToggle"
+                            type="button"
+                            :aria-expanded="descriptionExpanded"
+                            aria-controls="period-description"
+                            class="text-foreground mt-1 text-xs font-medium underline-offset-4 hover:underline"
+                            @click="descriptionExpanded = !descriptionExpanded"
+                        >
+                            {{ descriptionExpanded ? 'Ringkas' : 'Selengkapnya' }}
+                        </button>
+                    </div>
 
-                <div class="border-border/60 mt-3 border-t pt-3">
-                    <h2 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Jadwal</h2>
-                    <ol
-                        class="mt-2 flex gap-5 overflow-x-auto pb-0.5 sm:grid sm:grid-cols-5 sm:gap-4 sm:overflow-visible"
-                    >
-                        <li v-for="node in scheduleNodes" :key="node.key" class="min-w-[136px] flex-1 sm:min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <span aria-hidden="true" :class="cn('size-1.5 shrink-0 rounded-full', node.dotClass)" />
-                                <p class="text-foreground truncate text-xs font-medium">{{ node.label }}</p>
-                            </div>
-                            <p
-                                class="mt-1 pl-3 text-[11px] tabular-nums"
-                                :class="
-                                    node.isUnscheduled ? 'text-muted-foreground/80 italic' : 'text-muted-foreground'
-                                "
-                            >
-                                {{ node.display }}
-                            </p>
-                        </li>
-                    </ol>
+                    <div class="border-border/60 mt-3 border-t pt-3">
+                        <h2 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Jadwal</h2>
+                        <ol
+                            class="mt-2 flex gap-5 overflow-x-auto pb-0.5 sm:grid sm:grid-cols-5 sm:gap-4 sm:overflow-visible"
+                        >
+                            <li v-for="node in scheduleNodes" :key="node.key" class="min-w-[136px] flex-1 sm:min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        aria-hidden="true"
+                                        :class="cn('size-1.5 shrink-0 rounded-full', node.dotClass)"
+                                    />
+                                    <p class="text-foreground truncate text-xs font-medium">{{ node.label }}</p>
+                                </div>
+                                <p
+                                    class="mt-1 pl-3 text-[11px] tabular-nums"
+                                    :class="
+                                        node.isUnscheduled ? 'text-muted-foreground/80 italic' : 'text-muted-foreground'
+                                    "
+                                >
+                                    {{ node.display }}
+                                </p>
+                            </li>
+                        </ol>
+                    </div>
                 </div>
             </CardContent>
         </Card>

@@ -11,6 +11,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class FormBuilderHttpTest extends TestCase
@@ -66,6 +67,58 @@ class FormBuilderHttpTest extends TestCase
             'name' => 'note',
             'input_type' => 'textarea',
         ]);
+    }
+
+    public function test_upload_metadata_survives_field_save_and_reload(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $fieldId = (string) Str::uuid();
+        $metadata = [
+            'builderType' => 'file_upload',
+            'multiple' => true,
+            'allowed_mime_types' => [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+            'accepts' => 'pdf,docx',
+            'max_files' => 4,
+            'max_total_size_kb' => 8192,
+            'rules' => [
+                'mimes' => 'pdf,docx',
+                'max_size' => 5120,
+            ],
+        ];
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), [
+                'fields' => [[
+                    'id' => $fieldId,
+                    'label' => 'Documents',
+                    'type' => 'fileUpload',
+                    'name' => 'documents',
+                    'order' => 1,
+                    'metadata' => $metadata,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $stored = FormField::query()->whereKey($fieldId)->firstOrFail();
+        $this->assertEquals($metadata, $stored->metadata->toArray());
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Forms/Show')
+                ->where('fields.0.id', $fieldId)
+                ->where('fields.0.metadata.multiple', true)
+                ->where('fields.0.metadata.allowed_mime_types', $metadata['allowed_mime_types'])
+                ->where('fields.0.metadata.max_files', 4)
+                ->where('fields.0.metadata.max_total_size_kb', 8192));
     }
 
     public function test_rejects_duplicate_field_names_in_same_request(): void

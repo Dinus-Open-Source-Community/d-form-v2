@@ -53,6 +53,18 @@ export function formSubmissionReviewIsPending(submission: {
     return submission.review_status == null || submission.review_status === 'pending';
 }
 
+/** Returns the accessible name for a submission review or detail action. */
+export function formSubmissionReviewActionLabel(
+    action: 'accept' | 'reject' | 'detail',
+    isReviewing: boolean,
+    senderName: string
+): string {
+    if (isReviewing) return `Memproses jawaban dari ${senderName}`;
+    if (action === 'accept') return `Terima jawaban dari ${senderName}`;
+    if (action === 'reject') return `Tolak jawaban dari ${senderName}`;
+    return `Lihat detail jawaban dari ${senderName}`;
+}
+
 /** Label + kelas untuk badge status review (Bahasa Indonesia). */
 export function submissionReviewBadge(status: TFormAnswerReviewStatus | null | undefined): {
     label: string;

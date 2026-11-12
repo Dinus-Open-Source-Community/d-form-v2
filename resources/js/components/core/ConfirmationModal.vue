@@ -29,7 +29,7 @@ const emit = defineEmits<{
 
 <template>
     <AlertDialog :open="open" @update:open="(v) => emit('update:open', v)">
-        <AlertDialogContent :disable-outside-pointer-events="false" class="rounded-2xl">
+        <AlertDialogContent :disable-outside-pointer-events="false" class="pointer-events-auto rounded-2xl">
             <AlertDialogHeader>
                 <AlertDialogTitle class="font-display text-xl font-bold tracking-[-0.02em]">{{
                     title
@@ -40,10 +40,11 @@ const emit = defineEmits<{
                 <slot name="extra" />
             </AlertDialogHeader>
             <AlertDialogFooter class="gap-2">
-                <AlertDialogCancel @click="emit('cancel')">
+                <AlertDialogCancel type="button" @click="emit('cancel')">
                     {{ cancelText ?? 'Cancel' }}
                 </AlertDialogCancel>
                 <AlertDialogAction
+                    type="button"
                     :class="
                         variant === 'destructive'
                             ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive/30'
