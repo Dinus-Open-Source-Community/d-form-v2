@@ -20,6 +20,16 @@ test.describe('FE-AUDIT-003 composable migration', () => {
         // `useDashboardTopbar.setTopbar` drives the shell heading: if the moved
         // module graph broke, this title would not render.
         await expect(page.getByRole('heading', { name: 'Ringkasan acara', exact: true })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Acara terbaru', exact: true })).toBeVisible();
+
+        for (const text of ['Aktivitas & kalender', 'Kalender acara', 'Linimasa acara', 'Sekarang']) {
+            await expect(page.getByText(text, { exact: true })).toHaveCount(0);
+        }
+
+        for (const label of ['Bulan', 'Minggu', 'Bulan sebelumnya', 'Bulan berikutnya']) {
+            await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+        }
+
         expect(pageErrors, pageErrors.join('\n')).toEqual([]);
     });
 

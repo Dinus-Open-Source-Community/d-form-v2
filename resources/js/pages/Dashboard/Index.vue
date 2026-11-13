@@ -5,8 +5,6 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import DeferredRender from '@/components/core/DeferredRender.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vue';
-import MiniCalendar from '@/components/modules/dashboard/MiniCalendar.vue';
-import EventCalendar from '@/components/modules/dashboard/EventCalendar.vue';
 import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { routes } from '@/lib/routes';
@@ -67,17 +65,12 @@ onMounted(() => {
         </section>
 
         <section class="space-y-4">
-            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Aktivitas & kalender</h2>
-            <div class="grid gap-5 lg:grid-cols-3 lg:items-start">
-                <div class="lg:col-span-2">
-                    <RecentEventsCard
-                        :events="events"
-                        :view-all-href="routes.admin.events.index"
-                        :event-base-href="routes.admin.events.index"
-                    />
-                </div>
-                <MiniCalendar :events="events" />
-            </div>
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Aktivitas terbaru</h2>
+            <RecentEventsCard
+                :events="events"
+                :view-all-href="routes.admin.events.index"
+                :event-base-href="routes.admin.events.index"
+            />
         </section>
 
         <section v-if="adminCharts" class="space-y-4">
@@ -90,9 +83,5 @@ onMounted(() => {
             </DeferredRender>
         </section>
 
-        <section class="space-y-4">
-            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Linimasa acara</h2>
-            <EventCalendar />
-        </section>
     </div>
 </template>
