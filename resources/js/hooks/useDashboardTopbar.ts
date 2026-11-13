@@ -53,9 +53,9 @@ export function clearTopbar(): void {
 }
 
 /** Baca state topbar global (ref bersama di level modul). */
-export function useTopbar(): { title: Ref<string | null>; subtitle: Ref<string | null> } {
+export function useTopbar(): Pick<ITopbarContext, 'title' | 'subtitle' | 'clearTopbar'> {
     const context = requireTopbarContext();
-    return { title: context.title, subtitle: context.subtitle };
+    return { title: context.title, subtitle: context.subtitle, clearTopbar: context.clearTopbar };
 }
 
 function requireTopbarContext(): ITopbarContext {

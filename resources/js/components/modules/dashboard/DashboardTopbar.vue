@@ -13,7 +13,7 @@ import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
-import { clearTopbar, useTopbar } from '@/hooks/useDashboardTopbar';
+import { useTopbar } from '@/hooks/useDashboardTopbar';
 import { readDocumentTitle } from '@/adapters/browser/documentState';
 import { onDocumentCustomEvent } from '@/adapters/browser/domEvents';
 import { goBack as navigateBack } from '@/adapters/browser/navigation';
@@ -110,7 +110,7 @@ function closeProfileMenu(): void {
 
 function handleLogout(): void {
     profileMenuOpen.value = false;
-    clearTopbar();
+    topbar.clearTopbar();
     router.post(logout().url);
 }
 </script>
