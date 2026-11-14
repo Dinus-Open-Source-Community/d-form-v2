@@ -5,9 +5,10 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import DeferredRender from '@/components/core/DeferredRender.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vue';
-import { CalendarDays, Zap, Users, TrendingUp } from 'lucide-vue-next';
+import { CalendarCheck2, CalendarDays, Gauge, UsersRound } from 'lucide-vue-next';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { routes } from '@/lib/routes';
+import type { IWeeklyKpiTrends } from '@/types/kpi';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -27,6 +28,7 @@ const props = defineProps<{
         registrationTrend: { key: string; label: string; count: number }[];
         categoryBreakdown: { token: string; count: number }[];
     } | null;
+    weeklyKpiTrends: IWeeklyKpiTrends;
 }>();
 
 const events = computed(() => props.recentEvents);
@@ -48,19 +50,39 @@ onMounted(() => {
 <template>
     <Head title="Beranda" />
 
-    <div class="flex flex-col gap-10 md:gap-12">
+    <div data-slot="dashboard-section-stack" class="flex flex-col gap-6 md:gap-8">
         <section class="space-y-4">
-            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Metrik utama</h2>
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard label="Total acara" :value="totalEvents" :icon="CalendarDays" color="primary" />
-                <KpiCard label="Acara aktif" :value="activeEvents" :icon="Zap" color="warning" />
+            <h2 class="font-display text-foreground text-base font-bold tracking-tight">KPI</h2>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                    label="Total acara"
+                    :value="totalEvents"
+                    :icon="CalendarDays"
+                    color="primary"
+                    :weekly-trend="weeklyKpiTrends.totalEvents"
+                />
+                <KpiCard
+                    label="Acara aktif"
+                    :value="activeEvents"
+                    :icon="CalendarCheck2"
+                    color="warning"
+                    :weekly-trend="weeklyKpiTrends.activeEvents"
+                />
                 <KpiCard
                     label="Total pendaftar"
                     :value="totalRegistrants.toLocaleString('id-ID')"
-                    :icon="Users"
+                    :icon="UsersRound"
                     color="success"
+                    :weekly-trend="weeklyKpiTrends.totalRegistrants"
                 />
-                <KpiCard label="Tingkat isi kuota" :value="completionRate + '%'" :icon="TrendingUp" color="primary" />
+                <KpiCard
+                    label="Tingkat isi kuota"
+                    :value="completionRate + '%'"
+                    :icon="Gauge"
+                    color="primary"
+                    :weekly-trend="weeklyKpiTrends.completionRate"
+                    weekly-trend-absolute-delta-unit="percentagePoints"
+                />
             </div>
         </section>
 
@@ -82,6 +104,5 @@ onMounted(() => {
                 </div>
             </DeferredRender>
         </section>
-
     </div>
 </template>

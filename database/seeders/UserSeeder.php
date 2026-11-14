@@ -11,12 +11,7 @@ class UserSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed users only (admin, super-admin, members).
-     *
-     * Roles come from RoleSeeder; run it first when they don't exist yet
-     * so this seeder also works standalone.
-     */
+    /** Seed users only (admin, super-admin, members). */
     public function run(): void
     {
         if (!Role::query()->where('guard_name', 'web')->exists()) {

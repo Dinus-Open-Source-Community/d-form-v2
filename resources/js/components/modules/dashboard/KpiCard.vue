@@ -1,71 +1,136 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown } from 'lucide-vue-next';
+import { Minus, TrendingDown, TrendingUp } from 'lucide-vue-next';
 import type { TIconComponent } from '@/types/icons';
+import type { IWeeklyKpiPoint, TWeeklyKpiColor } from '@/types/kpi';
+
+const WeeklyKpiBarChart = defineAsyncComponent(() => import('./WeeklyKpiBarChart.vue'));
+
+type TWeeklyKpiDirection = 'up' | 'down' | 'flat';
+type TWeeklyKpiAbsoluteDeltaUnit = 'count' | 'percentagePoints';
 
 const props = defineProps<{
     label: string;
     value: string | number;
     trend?: number;
     icon: TIconComponent;
-    color?: 'primary' | 'success' | 'warning' | 'destructive';
+    color?: TWeeklyKpiColor;
+    weeklyTrend?: IWeeklyKpiPoint[];
+    weeklyTrendAbsoluteDeltaUnit?: TWeeklyKpiAbsoluteDeltaUnit;
 }>();
-
-const visible = ref(false);
-onMounted(() => requestAnimationFrame(() => (visible.value = true)));
 
 const isPositive = computed(() => (props.trend ?? 0) >= 0);
 
-const colorClasses = computed(() => {
-    const map: Record<string, string> = {
-        primary: 'border-primary/15 bg-primary/10 text-primary',
-        success: 'border-success/15 bg-success/10 text-success',
-        warning: 'border-warning/20 bg-warning/10 text-warning-foreground',
-        destructive: 'border-destructive/15 bg-destructive/10 text-destructive',
+const iconColorClass = computed(() => {
+    const map: Record<TWeeklyKpiColor, string> = {
+        primary: 'text-primary',
+        success: 'text-success',
+        warning: 'text-warning-foreground',
+        destructive: 'text-destructive',
     };
     return map[props.color ?? 'primary'];
+});
+
+const weeklyCurrentValue = computed<number>(() => {
+    const points = props.weeklyTrend ?? [];
+    return points[points.length - 1]?.value ?? 0;
+});
+
+const weeklyPreviousValue = computed<number>(() => {
+    const points = props.weeklyTrend ?? [];
+    return points[points.length - 2]?.value ?? 0;
+});
+
+const weeklyDirection = computed<TWeeklyKpiDirection>(() => {
+    if (weeklyCurrentValue.value === weeklyPreviousValue.value) return 'flat';
+    return weeklyCurrentValue.value > weeklyPreviousValue.value ? 'up' : 'down';
+});
+
+const weeklyChangePercent = computed<number | null>(() => {
+    if (weeklyPreviousValue.value === 0) return null;
+    return Math.round(((weeklyCurrentValue.value - weeklyPreviousValue.value) / weeklyPreviousValue.value) * 100);
+});
+
+const weeklyAbsoluteDelta = computed<string>(() => {
+    const value = `+${weeklyCurrentValue.value.toLocaleString('id-ID')}`;
+    return props.weeklyTrendAbsoluteDeltaUnit === 'percentagePoints' ? `${value} pp` : value;
+});
+
+const weeklyTrendIcon = computed<TIconComponent>(() => {
+    if (weeklyDirection.value === 'up') return TrendingUp;
+    if (weeklyDirection.value === 'down') return TrendingDown;
+    return Minus;
+});
+
+const weeklyTrendClass = computed<string>(() => {
+    if (weeklyDirection.value === 'up') return 'text-success';
+    if (weeklyDirection.value === 'down') return 'text-destructive';
+    return 'text-muted-foreground';
+});
+
+const weeklyTrendLabel = computed<string>(() => {
+    if (weeklyPreviousValue.value === 0) {
+        return weeklyCurrentValue.value === 0
+            ? 'Belum ada aktivitas minggu ini'
+            : `Baru minggu ini · ${weeklyAbsoluteDelta.value}`;
+    }
+
+    if (weeklyDirection.value === 'flat') return 'Tetap · 0% dari minggu lalu';
+
+    const direction = weeklyDirection.value === 'up' ? 'Naik' : 'Turun';
+    const changePercent = weeklyChangePercent.value;
+
+    return changePercent === null
+        ? direction
+        : `${direction} ${Math.abs(changePercent)}% dari minggu lalu`;
 });
 </script>
 
 <template>
     <Card
-        :class="
-            cn(
-                'border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] transition-all duration-500 dark:ring-white/[0.06]',
-                visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
-            )
-        "
+        data-slot="kpi-card"
+        class="border-border/70 gap-0 rounded-xl py-0 shadow-sm"
     >
-        <CardContent class="p-5 sm:p-6">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0 flex-1">
-                    <p class="text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase">
-                        {{ label }}
-                    </p>
-                    <p class="font-display mt-2 text-4xl font-semibold tracking-[-0.04em]">{{ value }}</p>
-                    <div v-if="trend !== undefined" class="mt-2 flex items-center gap-1">
-                        <component
-                            :is="isPositive ? TrendingUp : TrendingDown"
-                            :class="cn('size-3.5', isPositive ? 'text-success' : 'text-destructive')"
-                        />
-                        <span :class="cn('text-xs font-semibold', isPositive ? 'text-success' : 'text-destructive')">
-                            {{ isPositive ? '+' : '' }}{{ trend }}%
-                        </span>
-                        <span class="text-muted-foreground text-xs">vs last month</span>
-                    </div>
-                </div>
+        <CardContent class="p-3.5 sm:p-4">
+            <div class="flex items-center justify-between gap-3">
+                <p class="text-muted-foreground min-w-0 text-sm leading-5 font-medium">{{ label }}</p>
                 <div
-                    :class="
-                        cn(
-                            'flex size-12 shrink-0 items-center justify-center rounded-full border shadow-xs',
-                            colorClasses
-                        )
-                    "
+                    data-slot="kpi-icon"
+                    :class="cn('flex size-8 shrink-0 items-center justify-center', iconColorClass)"
                 >
-                    <component :is="icon" class="size-5" />
+                    <component :is="icon" class="size-[18px]" aria-hidden="true" />
                 </div>
+            </div>
+            <div class="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                <p class="font-display text-foreground text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{{ value }}</p>
+                <div
+                    v-if="weeklyTrend !== undefined && weeklyTrend.length > 0"
+                    data-slot="weekly-kpi-trend"
+                    class="flex items-center gap-1 text-[11px] leading-4 font-semibold"
+                    :class="weeklyTrendClass"
+                >
+                    <component :is="weeklyTrendIcon" class="size-3.5 shrink-0" aria-hidden="true" />
+                    <span>{{ weeklyTrendLabel }}</span>
+                </div>
+                <div v-else-if="trend !== undefined" class="flex items-center gap-1">
+                    <component
+                        :is="isPositive ? TrendingUp : TrendingDown"
+                        :class="cn('size-3.5', isPositive ? 'text-success' : 'text-destructive')"
+                    />
+                    <span :class="cn('text-xs font-semibold', isPositive ? 'text-success' : 'text-destructive')">
+                        {{ isPositive ? '+' : '' }}{{ trend }}%
+                    </span>
+                    <span class="text-muted-foreground text-xs">vs last month</span>
+                </div>
+            </div>
+            <div v-if="weeklyTrend !== undefined && weeklyTrend.length > 0" class="border-border/60 mt-2 border-t pt-2">
+                <WeeklyKpiBarChart
+                    :points="weeklyTrend"
+                    :metric-label="label"
+                    :color="color ?? 'primary'"
+                />
             </div>
         </CardContent>
     </Card>

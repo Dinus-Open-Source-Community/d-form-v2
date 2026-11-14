@@ -6,6 +6,8 @@ use App\Enums\EventCategory;
 use App\Enums\EventSession;
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Services\Event\EventCache;
+use App\Services\Event\EventCategoryCounter;
 use App\Services\Event\EventSlugGenerator;
 use Illuminate\Database\Seeder;
 
@@ -204,5 +206,8 @@ class EventSeeder extends Seeder
         }
 
         Event::query()->where('title', 'Hackathon: Code for Good')->first()?->delete();
+
+        app(EventCategoryCounter::class)->rebuild();
+        EventCache::bump(EventCache::BUSTER_CATEGORY);
     }
 }

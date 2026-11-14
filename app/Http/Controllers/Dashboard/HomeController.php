@@ -46,11 +46,13 @@ class HomeController extends Controller
             'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
             'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
         ];
+        $weeklyKpiTrends = $this->reportingQuery->dashboardWeeklyKpiTrends(6);
 
         return inertia('Dashboard/Index', [
             'recentEvents' => $recentEvents,
             'stats' => $stats,
             'adminCharts' => $adminCharts,
+            'weeklyKpiTrends' => $weeklyKpiTrends,
         ]);
     }
 }
