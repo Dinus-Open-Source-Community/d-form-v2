@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import 'vue-sonner/style.css';
 import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { computed } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
-import { Toaster } from '@/components/ui/sonner';
+import AppToaster from '@/components/core/AppToaster.vue';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
@@ -55,5 +54,5 @@ function goBackToPreviousPage(): void {
             </div>
         </main>
     </div>
-    <Toaster position="top-right" richColors />
+    <AppToaster />
 </template>

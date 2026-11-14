@@ -25,6 +25,12 @@ export interface IToastFlash {
 }
 
 /**
+ * Toast beraksi (`Coba lagi`, `Muat ulang`) butuh waktu untuk diklik; durasi
+ * bawaan sonner 4 detik menghilangkan aksi sebelum sempat dipakai.
+ */
+const ACTION_TOAST_DURATION_MS = 12_000;
+
+/**
  * Seam toast aplikasi: satu-satunya modul kode aplikasi yang memanggil
  * `vue-sonner`.
  *
@@ -36,7 +42,7 @@ export interface IToastFlash {
  * Pengecualian yang disengaja: fallback `useGlobalHttpStatusToast` tetap
  * memanggil `toast.error` langsung karena modul ini diimpor secara lazy di
  * jalur tersebut; bila chunk ini gagal dimuat, fallback harus tetap hidup.
- * `components/ui/sonner/Sonner.vue` adalah komponen library (tidak diedit).
+ * Tampilan dan tombol aksi toast dimiliki `components/core/AppToaster.vue`.
  */
 export interface IToastNotifications {
     /** Tampilkan toast error validasi; durasi menyesuaikan jumlah error. */
@@ -165,6 +171,7 @@ const notifications: IToastNotifications = {
 
     notifyAutosaveFailure(message, retry) {
         toast.error(buildAutosaveFailureMessage(message), {
+            duration: ACTION_TOAST_DURATION_MS,
             action: {
                 label: 'Coba lagi',
                 onClick: retry,
@@ -176,6 +183,7 @@ const notifications: IToastNotifications = {
         const options: Parameters<typeof toast.error>[1] =
             decision.action === 'reload'
                 ? {
+                      duration: ACTION_TOAST_DURATION_MS,
                       action: {
                           label: 'Muat ulang',
                           onClick: reloadPage,

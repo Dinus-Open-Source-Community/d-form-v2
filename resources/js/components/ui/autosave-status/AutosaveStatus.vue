@@ -65,7 +65,7 @@ function requestRetry(): void {
             <button
                 v-if="isError || props.status === 'saving'"
                 type="button"
-                class="focus-visible:ring-destructive/40 rounded-sm underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:outline-none disabled:no-underline disabled:opacity-60"
+                class="focus-visible:ring-destructive/40 border-destructive/25 bg-card text-destructive hover:bg-destructive/10 inline-flex h-[1.375rem] items-center rounded-md border px-1.5 text-[0.6875rem] font-semibold leading-none shadow-xs transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
                 aria-label="Coba lagi menyimpan otomatis"
                 :disabled="props.status === 'saving'"
                 @click="requestRetry"

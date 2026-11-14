@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import 'vue-sonner/style.css';
 import { DFORM_WORDMARK_SRC } from '@/lib/brand';
-import { Toaster } from '@/components/ui/sonner';
+import AppToaster from '@/components/core/AppToaster.vue';
 import { routes } from '@/lib/routes';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
 
@@ -41,5 +40,5 @@ usePageFlashToast();
     </div>
 
     <!-- Toast -->
-    <Toaster position="top-right" richColors />
+    <AppToaster />
 </template>

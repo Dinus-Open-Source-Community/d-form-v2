@@ -137,6 +137,7 @@ describe('useToastNotifications', () => {
 
         expect(action.label).toBe('Coba lagi');
         expect(typeof action.onClick).toBe('function');
+        expect(options?.duration).toBe(12_000);
     });
 
     it('shows success, info, and warning toasts with passthrough options', () => {

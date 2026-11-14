@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import 'vue-sonner/style.css';
 import { computed, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { Toaster } from '@/components/ui/sonner';
+import AppToaster from '@/components/core/AppToaster.vue';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
@@ -57,5 +56,5 @@ const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(p
             </div>
         </SidebarInset>
     </SidebarProvider>
-    <Toaster position="top-right" richColors />
+    <AppToaster />
 </template>

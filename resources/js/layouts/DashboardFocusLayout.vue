@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import 'vue-sonner/style.css';
 import { computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Toaster } from '@/components/ui/sonner';
+import AppToaster from '@/components/core/AppToaster.vue';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
@@ -135,5 +134,5 @@ function handleLogout(): void {
             </main>
         </SidebarInset>
     </SidebarProvider>
-    <Toaster position="top-right" richColors />
+    <AppToaster />
 </template>
