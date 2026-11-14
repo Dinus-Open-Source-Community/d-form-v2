@@ -121,10 +121,10 @@ useEventListener('keydown', (e) => {
 </script>
 
 <template>
+    <!-- Header and banner stay outside the detail link. -->
     <div
         class="border-border/60 bg-card hover:border-border/80 relative flex h-full min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-[0_2px_8px_-4px_rgb(0_0_0/0.06),0_1px_2px_rgb(0_0_0/0.04)] transition-colors duration-150 hover:shadow-[0_4px_16px_-6px_rgb(0_0_0/0.08)] sm:p-5"
     >
-        <!-- Header row: badge kategori + alert + kebab (di luar Link) -->
         <div class="relative flex items-center justify-between gap-3">
             <div class="flex min-w-0 flex-wrap gap-1">
                 <Badge
@@ -224,12 +224,10 @@ useEventListener('keydown', (e) => {
             </Transition>
         </div>
 
-        <!-- Banner bersih (di luar Link — tidak redirect) -->
         <div class="bg-muted relative aspect-[16/7] w-full overflow-hidden rounded-xl">
             <EventBannerImage :src="event.banner_url" :alt="event.title" img-class="size-full object-cover" />
         </div>
 
-        <!-- Konten: hanya ini yang redirect ke detail -->
         <Link
             :href="href"
             class="focus-visible:ring-ring block min-w-0 flex-1 rounded-b-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"

@@ -16,10 +16,7 @@ class OprecFormDefinition
     {
     }
 
-    /**
-     * Future-compatible: utamakan form yang terhubung ke period bila kolom itu
-     * tersedia, fallback ke form bertanda metadata.oprec.
-     */
+    /** Future-compatible: utamakan form yang terhubung ke period bila kolom itu tersedia, fallback ke form bertanda metadata.oprec. */
     public function requiredForm(?RecruitmentPeriod $period = null): Form
     {
         $formId = $period?->form_id;

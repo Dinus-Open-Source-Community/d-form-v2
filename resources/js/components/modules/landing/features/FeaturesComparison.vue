@@ -50,7 +50,6 @@ const { visible } = useViewportReveal({ targetId: 'features-compare', threshold:
                     visible ? 'opacity-100' : 'opacity-0',
                 ]"
             >
-                <!-- Header -->
                 <div
                     class="border-border/40 bg-muted/30 grid grid-cols-[1fr_100px_100px] items-center border-b px-6 py-4 sm:grid-cols-[1fr_120px_120px]"
                 >
@@ -61,7 +60,6 @@ const { visible } = useViewportReveal({ targetId: 'features-compare', threshold:
                     >
                 </div>
 
-                <!-- Rows -->
                 <div
                     v-for="(row, i) in rows"
                     :key="row.feature"
@@ -99,7 +97,6 @@ const { visible } = useViewportReveal({ targetId: 'features-compare', threshold:
                 </div>
             </div>
 
-            <!-- Legend -->
             <div class="text-muted-foreground mt-6 flex flex-wrap items-center justify-center gap-6 text-xs">
                 <span class="flex items-center gap-2">
                     <div class="flex size-5 items-center justify-center rounded-full bg-green-500/10">

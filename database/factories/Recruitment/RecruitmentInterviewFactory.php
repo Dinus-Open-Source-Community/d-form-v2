@@ -8,7 +8,9 @@ use App\Models\Recruitment\RecruitmentInterview;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
+ *
  * @extends Factory<RecruitmentInterview>
+ *
  */
 class RecruitmentInterviewFactory extends Factory
 {

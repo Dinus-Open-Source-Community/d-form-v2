@@ -11,9 +11,6 @@ class RoleSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $permissions = [

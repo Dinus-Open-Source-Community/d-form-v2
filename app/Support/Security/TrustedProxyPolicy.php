@@ -4,13 +4,7 @@ namespace App\Support\Security;
 
 use RuntimeException;
 
-/**
- * Resolve and validate the trusted proxy list used by Laravel's TrustProxies middleware.
- *
- * A bad entry silently widens the set of peers whose X-Forwarded-* headers are
- * believed, so invalid input fails fast at boot instead of degrading request
- * context (client IP, scheme, host) at runtime.
- */
+/** Resolve and validate the trusted proxy list used by Laravel's TrustProxies middleware. */
 final class TrustedProxyPolicy
 {
     public function __construct(private readonly bool $isProduction)
@@ -18,6 +12,7 @@ final class TrustedProxyPolicy
     }
 
     /**
+     *
      * Build the trusted proxy list and header mask for the middleware.
      *
      * @param  array<int, mixed>|string|bool|null  $configuredProxies  `TRUSTED_PROXIES` value
@@ -25,8 +20,9 @@ final class TrustedProxyPolicy
      * @return array{proxies: list<string>, headers: int}
      *
      * @throws RuntimeException when the value is boolean, an entry is not a valid IP/CIDR,
-     *                          a wildcard or /0 prefix is used in production, the header mask
-     *                          is not positive, or the fallback list is missing/empty
+     * a wildcard or /0 prefix is used in production, the header mask
+     * is not positive, or the fallback list is missing/empty
+     *
      */
     public function resolve(array|string|bool|null $configuredProxies, int $configuredHeaders): array
     {
@@ -69,7 +65,9 @@ final class TrustedProxyPolicy
     }
 
     /**
+     *
      * @return list<string>
+     *
      */
     private function normalize(array|string|null $configuredProxies): array
     {
@@ -93,9 +91,11 @@ final class TrustedProxyPolicy
     }
 
     /**
+     *
      * @return list<string>
      *
      * @throws RuntimeException when the fallback list is missing or empty
+     *
      */
     private function defaultProxies(): array
     {

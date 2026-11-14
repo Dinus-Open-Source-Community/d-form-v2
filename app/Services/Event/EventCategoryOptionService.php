@@ -13,11 +13,10 @@ class EventCategoryOptionService
     public const RAW_CACHE_KEY = 'event-options:categories:raw';
 
     /**
-     * Category options for dashboard forms, built from distinct values in `events.category`
-     * (comma-separated tokens are split and deduplicated). Includes all enum options plus any
-     * valid custom tokens found in the database (e.g. legacy values like "must").
      *
+     * Category options for dashboard forms, built from distinct values in `events.category` (comma-separated tokens are split and deduplicated).
      * @return array<int, array{value: string, label: string}>
+     *
      */
     public function forForm(): array
     {
@@ -28,10 +27,12 @@ class EventCategoryOptionService
     }
 
     /**
+     *
      * Same resolution as {@see forForm()} but from raw strings (for tests and reuse).
      *
      * @param  iterable<int|string, mixed>  $rawCategoryRows
      * @return array<int, array{value: string, label: string}>
+     *
      */
     public function optionsForRawCategoryRows(iterable $rawCategoryRows): array
     {
@@ -100,7 +101,9 @@ class EventCategoryOptionService
     }
 
     /**
+     *
      * @return array<int, array{value: string, label: string}>
+     *
      */
     private function allEnumOptions(): array
     {

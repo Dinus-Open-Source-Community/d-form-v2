@@ -23,9 +23,7 @@ class RegisterController extends Controller
         return inertia('Auth/Register');
     }
 
-    /**
-     * Mulai pendaftaran tertunda lalu arahkan ke verifikasi OTP; user belum dibuat dan belum login.
-     */
+    /** Mulai pendaftaran tertunda lalu arahkan ke verifikasi OTP; user belum dibuat dan belum login. */
     public function store(RegisterStoreRequest $request, RegistrationOtpService $service): RedirectResponse
     {
         $data = $request->validated();
@@ -54,9 +52,11 @@ class RegisterController extends Controller
     }
 
     /**
+     *
      * Panggil start() dan ulangi sekali bila request paralel lebih dulu membuat baris pending.
      *
      * @param  array<string, mixed>  $data
+     *
      */
     private function startPending(RegistrationOtpService $service, array $data): OtpOutcome
     {

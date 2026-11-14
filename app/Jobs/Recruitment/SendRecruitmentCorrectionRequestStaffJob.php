@@ -103,7 +103,9 @@ class SendRecruitmentCorrectionRequestStaffJob implements ShouldQueue
     }
 
     /**
+     *
      * @return list<string>
+     *
      */
     private function resolveStaffRecipients(): array
     {

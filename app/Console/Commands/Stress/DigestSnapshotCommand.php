@@ -8,12 +8,7 @@ use Illuminate\Support\Facades\File;
 use stdClass;
 use Throwable;
 
-/**
- * Snapshot dan diff performance_schema.events_statements_summary_by_digest.
- *
- * Dipakai harness stress untuk mengukur query apa yang dijalankan beban k6
- * (snapshot sebelum → beban → diff), lalu EXPLAIN query teratas.
- */
+/** Snapshot dan diff performance_schema.events_statements_summary_by_digest. */
 final class DigestSnapshotCommand extends Command
 {
     private const DEFAULT_EXPLAIN_LIMIT = 10;
@@ -51,9 +46,7 @@ final class DigestSnapshotCommand extends Command
         return $this->writeDiff($diffPath, $this->pathOption('out') ?? storage_path('app/stress/digests-diff.json'));
     }
 
-    /**
-     * Tulis snapshot seluruh digest milik schema aplikasi ke file JSON.
-     */
+    /** Tulis snapshot seluruh digest milik schema aplikasi ke file JSON. */
     private function writeSnapshot(string $path): int
     {
         $digests = $this->readDigests();
@@ -73,9 +66,7 @@ final class DigestSnapshotCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Hitung selisih counter terhadap snapshot pembanding, lalu EXPLAIN delta teratas.
-     */
+    /** Hitung selisih counter terhadap snapshot pembanding, lalu EXPLAIN delta teratas. */
     private function writeDiff(string $beforePath, string $outPath): int
     {
         $before = $this->readSnapshot($beforePath);
@@ -120,9 +111,11 @@ final class DigestSnapshotCommand extends Command
     }
 
     /**
+     *
      * Baca digest dari performance_schema untuk schema koneksi aktif (global, bukan per-schema).
      *
      * @return list<array{digest:string,digest_text:string,count_star:int,sum_timer_wait:int,sum_rows_examined:int,sum_rows_sent:int,sum_no_index_used:int,sum_created_tmp_tables:int}>
+     *
      */
     private function readDigests(): array
     {
@@ -146,9 +139,11 @@ final class DigestSnapshotCommand extends Command
     }
 
     /**
+     *
      * Baca snapshot pembanding; null (plus pesan error) bila file tidak valid.
      *
      * @return list<array{digest:string,count_star:int,sum_timer_wait:int,sum_rows_examined:int,sum_rows_sent:int,sum_no_index_used:int,sum_created_tmp_tables:int}>|null
+     *
      */
     private function readSnapshot(string $path): ?array
     {
@@ -188,11 +183,13 @@ final class DigestSnapshotCommand extends Command
     }
 
     /**
+     *
      * Hitung delta counter per digest dan urutkan dari total waktu terbesar.
      *
      * @param  list<array{digest:string,count_star:int,sum_timer_wait:int,sum_rows_examined:int,sum_rows_sent:int,sum_no_index_used:int,sum_created_tmp_tables:int}>  $before
      * @param  list<array{digest:string,digest_text:string,count_star:int,sum_timer_wait:int,sum_rows_examined:int,sum_rows_sent:int,sum_no_index_used:int,sum_created_tmp_tables:int}>  $after
      * @return list<array{digest:string,digest_text:string,calls:int,total_ms:float,avg_ms:float,rows_examined:int,rows_sent:int,no_index_used:int,explain:array<mixed>|null,explain_error:string|null}>
+     *
      */
     private function buildDeltas(array $before, array $after): array
     {
@@ -245,10 +242,12 @@ final class DigestSnapshotCommand extends Command
     }
 
     /**
+     *
      * Jalankan EXPLAIN FORMAT=JSON hanya untuk delta teratas; kegagalan dicatat, bukan menghentikan command.
      *
      * @param  list<array{digest:string,digest_text:string,calls:int,total_ms:float,avg_ms:float,rows_examined:int,rows_sent:int,no_index_used:int,explain:array<mixed>|null,explain_error:string|null}>  $deltas
      * @return list<array{digest:string,digest_text:string,calls:int,total_ms:float,avg_ms:float,rows_examined:int,rows_sent:int,no_index_used:int,explain:array<mixed>|null,explain_error:string|null}>
+     *
      */
     private function attachExplains(array $deltas, int $limit): array
     {
@@ -262,9 +261,11 @@ final class DigestSnapshotCommand extends Command
     }
 
     /**
+     *
      * Ambil rencana akses satu digest_text; digest ber-placeholder biasanya gagal dan dicatat sebagai explain_error.
      *
      * @return array{explain:array<mixed>|null,explain_error:string|null}
+     *
      */
     private function explainDigest(string $digestText): array
     {
@@ -289,10 +290,7 @@ final class DigestSnapshotCommand extends Command
         return ['explain' => $decoded, 'explain_error' => null];
     }
 
-    /**
-     * Buang digest yang bukan kandidat analisis: EXPLAIN dari command ini, serta
-     * USE/SET yang selalu muncul saat koneksi baru dibuka dan waktunya ~0 ms.
-     */
+    /** Buang digest yang bukan kandidat analisis: EXPLAIN dari command ini, serta USE/SET yang selalu muncul saat koneksi baru dibuka dan waktunya ~0 ms. */
     private function isIgnoredDigest(string $digestText): bool
     {
         $normalised = strtoupper(ltrim($digestText));
@@ -306,19 +304,18 @@ final class DigestSnapshotCommand extends Command
         return false;
     }
 
-    /**
-     * Rapikan digest_text sebelum EXPLAIN: MySQL 9 menolak spasi sebelum "(" yang
-     * dihasilkan normalisasi miliknya sendiri (mis. "COUNT ( * )").
-     */
+    /** Normalize digest SQL before EXPLAIN so MySQL accepts generated function spacing. */
     private function explainSql(string $digestText): string
     {
         return (string) preg_replace('/\s+\(/', '(', $digestText);
     }
 
     /**
+     *
      * Tampilkan beberapa delta terlambat agar terlihat langsung di terminal.
      *
      * @param  list<array{digest_text:string,calls:int,total_ms:float,avg_ms:float,explain_error:string|null}>  $deltas
+     *
      */
     private function renderSlowest(array $deltas): void
     {
@@ -340,9 +337,7 @@ final class DigestSnapshotCommand extends Command
         $this->table(['Total ms', 'Avg ms', 'Calls', 'Digest'], $rows);
     }
 
-    /**
-     * Path hasil opsi command; null bila opsi tidak diisi.
-     */
+    /** Path hasil opsi command; null bila opsi tidak diisi. */
     private function pathOption(string $name): ?string
     {
         $value = $this->option($name);
@@ -354,17 +349,13 @@ final class DigestSnapshotCommand extends Command
         return trim($value);
     }
 
-    /**
-     * Batas jumlah EXPLAIN; minimal satu.
-     */
+    /** Batas jumlah EXPLAIN; minimal satu. */
     private function explainLimit(): int
     {
         return max(1, (int) ($this->option('limit') ?? self::DEFAULT_EXPLAIN_LIMIT));
     }
 
-    /**
-     * Tolak driver non-MySQL karena performance_schema tidak tersedia di sana.
-     */
+    /** Tolak driver non-MySQL karena performance_schema tidak tersedia di sana. */
     private function ensureMysql(): bool
     {
         $driver = DB::connection()->getDriverName();
@@ -378,18 +369,18 @@ final class DigestSnapshotCommand extends Command
         return true;
     }
 
-    /**
-     * Nama schema aktif, dipakai sebagai nilai "schema" di snapshot.
-     */
+    /** Nama schema aktif, dipakai sebagai nilai "schema" di snapshot. */
     private function schemaName(): string
     {
         return (string) DB::connection()->getDatabaseName();
     }
 
     /**
+     *
      * Tulis payload JSON (pretty print) dan pastikan direktori tujuan ada.
      *
      * @param  array<string,mixed>  $payload
+     *
      */
     private function writeJson(string $path, array $payload): bool
     {

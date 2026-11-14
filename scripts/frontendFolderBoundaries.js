@@ -1,9 +1,4 @@
-/**
- * AGENTS.md: factory dan guard murni yang terikat siklus hidup form builder boleh
- * co-locate di `resources/js/components/modules/builder/`. Daftar ini adalah sumber
- * tunggal untuk aturan ESLint hooks dan harus identik dengan set di
- * `resources/js/__tests__/importBoundaries.test.ts`.
- */
+/** Builder modules allowed to co-locate; mirrored by the import-boundary tests. */
 export const BUILDER_COLOCATED_MODULES = [
     'autosaveGuard',
     'dirtyFields',
@@ -14,15 +9,11 @@ export const BUILDER_COLOCATED_MODULES = [
     'optionImage',
 ];
 
-/**
- * Paket murni (nilai/fungsi tanpa DOM maupun efek samping) yang sah dipakai `lib/`.
- * Tambahkan hanya bila paketnya deterministik dan tidak menyentuh runtime UI.
- */
+/** Deterministic packages allowed in `lib/`. */
 export const LIB_PURE_PACKAGE_ALLOWLIST = ['@internationalized/date', 'clsx', 'tailwind-merge'];
 
 /**
- * Pengecualian sementara per file untuk paket runtime yang belum bisa dipindah dari `lib/`.
- * Setiap entri wajib menyebut alasan + tiket lanjutan agar bisa dihapus saat migrasinya mendarat.
+ * Temporary per-file runtime exceptions; each entry carries its migration reason.
  * @type {Array<{file: string, packages: string[], reason: string}>}
  */
 export const LIB_RUNTIME_IMPORT_EXCEPTIONS = [
@@ -44,7 +35,6 @@ export const LIB_RUNTIME_IMPORT_EXCEPTIONS = [
 ];
 
 /**
- * Normalisasi path absolut ESLint/OS menjadi path repo relatif (`resources/js/...`).
  * @param {string} filePath
  * @returns {string}
  */
@@ -58,7 +48,6 @@ export function normalizeRepoPath(filePath) {
 }
 
 /**
- * `true` bila specifier adalah paket (bukan relative path dan bukan alias `@/`).
  * @param {string} specifier
  * @returns {boolean}
  */
@@ -76,7 +65,6 @@ function packageMatches(specifier, packageName) {
 }
 
 /**
- * `true` bila impor paket runtime diizinkan untuk file `lib/` tertentu.
  * @param {{
  *   file: string,
  *   specifier: string,

@@ -16,7 +16,6 @@ export interface IScanFeedPolling {
     isRunning: () => boolean;
 }
 
-/** Creates the timer/abort state machine used by the scan feed. */
 export function createScanFeedPolling(options: IScanFeedPollingOptions): IScanFeedPolling {
     let running = false;
     let timer: ReturnType<typeof setTimeout> | null = null;

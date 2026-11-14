@@ -4,15 +4,10 @@ namespace App\Console\Commands\E2e\Concerns;
 
 use App\Support\E2e\FixtureIdentity;
 
-/**
- * Membaca identitas fixture dari `--marker` (kanonik) atau `--run-id` + `--owner-id`.
- * Dipakai semua command e2e agar hanya ada satu cara membentuk marker.
- */
+/** Membaca identitas fixture dari `--marker` (kanonik) atau `--run-id` + `--owner-id`. */
 trait ResolvesFixtureIdentity
 {
-    /**
-     * Identitas dari opsi command; melempar bila tidak ada bentuk yang cocok.
-     */
+    /** Identitas dari opsi command; melempar bila tidak ada bentuk yang cocok. */
     protected function resolveIdentity(): FixtureIdentity
     {
         $marker = (string) ($this->option('marker') ?? '');
@@ -34,11 +29,7 @@ trait ResolvesFixtureIdentity
     }
 
     /**
-     * Baca payload JSON dari stdin; `--payload` hanya diizinkan di environment testing.
-     *
-     * Opsi inline sengaja test-only: argumen command terlihat di `ps` dan bisa memuat
-     * tracking token/registration code. Jalur nyata (local/e2e) tetap stdin.
-     *
+     * Baca payload JSON from stdin; inline `--payload` stays test-only to keep tokens out of process listings.
      * @return array<string, mixed>
      */
     protected function readPayload(): array

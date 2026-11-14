@@ -72,7 +72,6 @@ const { visible } = useViewportReveal({ targetId: 'features-how', threshold: 0.1
                     ]"
                     :style="{ transitionDelay: `${100 + i * 120}ms` }"
                 >
-                    <!-- Lottie card — alternates position -->
                     <div :class="['order-2', i % 2 === 0 ? 'lg:order-2' : 'lg:order-1']">
                         <div
                             class="border-border/30 bg-background/80 overflow-hidden rounded-2xl border p-6 shadow-sm sm:p-8"
@@ -81,7 +80,6 @@ const { visible } = useViewportReveal({ targetId: 'features-how', threshold: 0.1
                         </div>
                     </div>
 
-                    <!-- Text content -->
                     <div :class="['order-1', i % 2 === 0 ? 'lg:order-1' : 'lg:order-2']">
                         <div class="mb-4 flex items-center gap-3">
                             <div

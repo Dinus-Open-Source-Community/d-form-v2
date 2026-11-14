@@ -6,9 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Akses modul OpRec: recruitment.dashboard.view atau super-admin.
- */
+/** Akses modul OpRec: recruitment.dashboard.view atau super-admin. */
 class EnsureRecruitmentAccess
 {
     public function handle(Request $request, Closure $next): Response

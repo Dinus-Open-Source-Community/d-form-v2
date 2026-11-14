@@ -26,7 +26,9 @@ enum ScreeningReason: string
     }
 
     /**
+     *
      * @return list<array{value: string, label: string}>
+     *
      */
     public static function options(): array
     {

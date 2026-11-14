@@ -24,12 +24,7 @@ final class RecruitmentQrBulkService
     }
 
     /**
-     * Kirim QR interview ke applicant tahap Interview yang belum absen; yang sudah
-     * terkirim dilewati kecuali $includeSent.
-     *
-     * Setiap reservasi langsung di-enqueue dengan delay slotnya sendiri: repo ini tidak
-     * menjalankan scheduler, jadi hasil request tidak boleh bergantung pada poll recovery.
-     *
+     * Enqueue each reserved QR immediately; this request path does not depend on a scheduler or recovery poll.
      * @return array{scheduled:int,skipped:int}
      */
     public function send(User $actor, RecruitmentPeriod $period, bool $includeSent = false): array

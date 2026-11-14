@@ -5,20 +5,15 @@ namespace App\Services\Upload;
 use App\Enums\UploadPurpose;
 use Illuminate\Http\UploadedFile;
 
-/**
- * Satu-satunya implementasi validasi isi unggahan.
- *
- * Dipakai oleh rule HTTP ({@see \App\Rules\SafeUploadFile}, menghasilkan 422 per
- * field) dan oleh penyimpanan ({@see SafeUploadStorage}, pertahanan terakhir bila
- * ada jalur yang melewati rule). Sniff memakai `finfo_file` pada file sementara;
- * MIME dari klien dan ekstensi nama hanya dipakai sebagai pembanding.
- */
+/** Satu-satunya implementasi validasi isi unggahan. */
 final class UploadInspector
 {
     /**
+     *
      * MIME yang tidak pernah boleh masuk, apa pun hasil sniff-nya.
      *
      * @var list<string>
+     *
      */
     private const BLOCKED_MIMES = [
         'text/html',
@@ -35,10 +30,12 @@ final class UploadInspector
     ];
 
     /**
+     *
      * Ekstensi aktif/executable yang ditolak walau muncul sebagai ekstensi
      * tengah pada nama ganda (`shell.php.jpg`).
      *
      * @var list<string>
+     *
      */
     private const BLOCKED_EXTENSIONS = [
         'php', 'php3', 'php4', 'php5', 'php7', 'phtml', 'phar', 'pht', 'inc',
@@ -47,18 +44,22 @@ final class UploadInspector
     ];
 
     /**
+     *
      * MIME klien yang generik dan karena itu tidak dipakai sebagai pembanding.
      *
      * @var list<string>
+     *
      */
     private const NEUTRAL_CLIENT_MIMES = ['', 'application/octet-stream', 'binary/octet-stream', 'application/unknown'];
 
     /**
+     *
      * Validasi satu unggahan. Mengembalikan pesan error publik atau null bila sah.
      *
      * @param  list<string>|null  $allowedExtensions  Override dinamis (form field);
-     *                                                null berarti pakai daftar purpose.
+     * null berarti pakai daftar purpose.
      * @param  int|null  $maxSizeKb  Batas per field; selalu di-clamp ke batas purpose.
+     *
      */
     public static function inspect(
         UploadedFile $file,
@@ -212,8 +213,10 @@ final class UploadInspector
     }
 
     /**
+     *
      * @param  list<string>  $extensions
      * @return list<string>
+     *
      */
     private static function mimesForExtensions(array $extensions): array
     {
@@ -317,15 +320,7 @@ final class UploadInspector
         return is_string($head) && hash_equals($magic, $head);
     }
 
-    /**
-     * PDF: magic `%PDF-`, EOF, dan tanpa action aktif yang dapat mengeksekusi
-     * kode atau mengirim data. `/EmbeddedFile` dan `/Encrypt` ditolak fail-closed
-     * karena isi lampiran atau isi yang dilindungi tidak dapat diperiksa dari
-     * byte mentah.
-     *
-     * Batas baca 10 MB: berkas lebih besar sudah ditolak pada cek ukuran, jadi
-     * `file_get_contents` di sini tidak bisa membaca berkas raksasa.
-     */
+    /** PDF must have valid magic/EOF and no active actions; `/EmbeddedFile` and `/Encrypt` are rejected because contents cannot be inspected. */
     private static function inspectPdf(UploadedFile $file): ?string
     {
         $path = $file->getRealPath();
@@ -490,13 +485,7 @@ final class UploadInspector
         return false;
     }
 
-    /**
-     * Gambar: cek header dulu (`getimagesize`, tanpa decode) agar decompression
-     * bomb tidak pernah mencapai decoder, baru decode penuh sebagai bukti isi.
-     *
-     * Memori terburuk: cap 12M piksel × 4 byte truecolor ≈ 48 MB, ditambah
-     * buffer sumber (≤5 MB) dan hasil re-encode (≤5 MB) → puncak ~58 MB/request.
-     */
+    /** Gambar: cek header dulu (`getimagesize`, tanpa decode) agar decompression bomb tidak pernah mencapai decoder, baru decode penuh sebagai bukti isi. */
     private static function inspectImage(UploadedFile $file, string $mime): ?string
     {
         $path = $file->getRealPath();

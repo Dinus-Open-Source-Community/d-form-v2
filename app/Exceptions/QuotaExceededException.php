@@ -4,10 +4,7 @@ namespace App\Exceptions;
 
 use RuntimeException;
 
-/**
- * Thrown inside a DB transaction when the quota re-check (post-lock) fails.
- * Caught by the global exception handler and converted to an Inertia redirect.
- */
+/** Thrown inside a DB transaction when the quota re-check (post-lock) fails. */
 class QuotaExceededException extends RuntimeException
 {
     public function __construct()

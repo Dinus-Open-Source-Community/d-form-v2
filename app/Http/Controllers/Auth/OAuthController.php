@@ -15,17 +15,11 @@ use Laravel\Socialite\Two\User as SocialiteTwoUser;
 
 class OAuthController extends Controller
 {
-    /**
-     * Redirect to Google OAuth provider
-     */
     public function redirectToGoogle(): RedirectResponse
     {
         return Socialite::driver('google')->redirect();
     }
 
-    /**
-     * Handle Google OAuth callback
-     */
     public function handleGoogleCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
@@ -59,17 +53,11 @@ class OAuthController extends Controller
         }
     }
 
-    /**
-     * Redirect to GitHub OAuth provider
-     */
     public function redirectToGithub(): RedirectResponse
     {
         return Socialite::driver('github')->redirect();
     }
 
-    /**
-     * Handle GitHub OAuth callback
-     */
     public function handleGithubCallback(Request $request, OAuthAccountLinker $linker): RedirectResponse
     {
         try {
@@ -118,9 +106,7 @@ class OAuthController extends Controller
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
-    /**
-     * Record safe OAuth failure metadata without logging provider payloads or exception messages.
-     */
+    /** Record safe OAuth failure metadata without logging provider payloads or exception messages. */
     private function logOAuthCallbackFailure(string $provider, Request $request, \Exception $exception): void
     {
         $requestId = $request->header('X-Request-ID');

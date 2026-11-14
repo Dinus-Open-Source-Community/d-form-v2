@@ -5,9 +5,7 @@ namespace App\Support;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-/**
- * Satu pintu key sesi pendaftaran tertunda, dipakai penulis (register) dan pembaca (OTP).
- */
+/** Satu pintu key sesi pendaftaran tertunda, dipakai penulis (register) dan pembaca (OTP). */
 final class PendingRegistrationSession
 {
     private const EMAIL_KEY = 'otp.pending_email';

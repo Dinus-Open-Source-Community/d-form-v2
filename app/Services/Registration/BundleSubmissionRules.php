@@ -9,8 +9,10 @@ use Illuminate\Support\Collection;
 final class BundleSubmissionRules
 {
     /**
+     *
      * @param  Collection<int, FormField>  $fields
      * @return list<string>
+     *
      */
     public static function duplicatableFieldNames(Collection $fields): array
     {
@@ -48,11 +50,13 @@ final class BundleSubmissionRules
     }
 
     /**
+     *
      * Rules for bundle fill: base field names (leader) plus one validated input per duplicatable
      * field for each extra participant slot.
      *
      * @param  Collection<int, FormField>  $fields
      * @return array<string, array<int, string|\App\Rules\SafeUploadFile>>
+     *
      */
     public static function buildForFill(Collection $fields, int $extraMemberSlots, bool $requireScalarString = true): array
     {

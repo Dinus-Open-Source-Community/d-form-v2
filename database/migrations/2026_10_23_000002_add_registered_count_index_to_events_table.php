@@ -4,10 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Covering index untuk SUM(registered_count) di dashboard: menghindari
- * full table scan pada tabel `events`.
- */
+/** Covering index untuk SUM(registered_count) di dashboard: menghindari full table scan pada tabel `events`. */
 return new class () extends Migration {
     public function up(): void
     {

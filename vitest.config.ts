@@ -2,12 +2,7 @@ import { fileURLToPath } from 'node:url';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vitest/config';
 
-/**
- * Runner unit test frontend. Environment `node` dipakai karena adapter diuji
- * dengan global browser yang di-stub per test; tidak perlu jsdom. Komponen
- * `.vue` dirender lewat `@vue/server-renderer`, jadi plugin Vue tetap wajib
- * aktif agar SFC bisa dikompilasi.
- */
+/** Node runner; browser globals are stubbed and Vue SFCs are compiled by the plugin. */
 export default defineConfig({
     plugins: [vue()],
     resolve: {
@@ -20,8 +15,7 @@ export default defineConfig({
         include: ['resources/js/**/*.test.ts'],
         clearMocks: true,
         restoreMocks: true,
-        // Baseline FE-AUDIT-002: hanya surface yang memang punya test harness
-        // (lib murni, adapter, hook). File test dan deklarasi tipe tidak dihitung.
+        // Coverage includes only tested runtime surfaces, not tests or declarations.
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json-summary'],

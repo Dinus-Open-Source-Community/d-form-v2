@@ -4,16 +4,7 @@ namespace App\Support\E2e;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * Satu-satunya pembaca/pemilik baris fixture e2e.
- *
- * Semua penghapusan memakai id hasil resolusi (predikat exact), bukan wildcard pada DELETE.
- * Urutan anak→induk: email log, dataset/broadcast, recruitment (anak dulu), attendance, answer,
- * field, form, event, user.
- *
- * `email_logs` wajib lebih dulu: review submission membuat log email yang
- * mereferensikan event/form_answer/user/recruitment_application dengan `restrict`/`nullOnDelete`.
- */
+/** Satu-satunya pembaca/pemilik baris fixture e2e. */
 final class FixtureScope
 {
     public const DELETE_ORDER = [
@@ -48,18 +39,18 @@ final class FixtureScope
     {
     }
 
-    /**
-     * Bentuk scope dari marker kanonik.
-     */
+    /** Bentuk scope dari marker kanonik. */
     public static function forMarker(string $marker): self
     {
         return new self(FixtureIdentity::fromMarker($marker));
     }
 
     /**
+     *
      * ID baris milik marker ini, dikelompokkan per tabel (induk lebih dulu).
      *
      * @return array<string, list<string>>
+     *
      */
     public function ids(): array
     {
@@ -71,9 +62,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * Jumlah baris per tabel milik marker ini.
      *
      * @return array<string, int>
+     *
      */
     public function counts(): array
     {
@@ -84,9 +77,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * Hapus persis baris milik marker ini dalam satu transaksi; idempoten.
      *
      * @return array<string, int>
+     *
      */
     public function delete(): array
     {
@@ -94,10 +89,12 @@ final class FixtureScope
     }
 
     /**
+     *
      * Hapus seluruh baris satu run (dipakai hanya global teardown dan sweep).
      * Predikat awal memakai prefix marker run, bukan nama tabel sembarang.
      *
      * @return array<string, int>
+     *
      */
     public static function deleteRun(string $markerPrefix, string $slugPrefix): array
     {
@@ -117,9 +114,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * Catat baris yang hanya masuk lewat klausa induk sehingga marker miliknya bukan milik run ini.
      *
      * @param  array<string, list<string>>  $ids
+     *
      */
     private static function auditCrossRun(string $markerPrefix, string $slugPrefix, array $ids): void
     {
@@ -149,9 +148,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * ID baris yang kolom marker miliknya sendiri berada di bawah prefix run.
      *
      * @return array<string, list<string>>
+     *
      */
     private static function ownMarkerIds(string $markerPrefix, string $slugPrefix): array
     {
@@ -262,10 +263,12 @@ final class FixtureScope
     }
 
     /**
+     *
      * Normalisasi koleksi id menjadi list<string> agar perbandingan antar tabel konsisten.
      *
      * @param  iterable<int, mixed>  $ids
      * @return list<string>
+     *
      */
     private static function stringIds(iterable $ids): array
     {
@@ -279,10 +282,12 @@ final class FixtureScope
     }
 
     /**
+     *
      * Id anak yang menempel pada daftar id induk; query dilewati bila induk kosong.
      *
      * @param  list<string>  $parentIds
      * @return list<string>
+     *
      */
     private static function childIds(string $table, string $column, array $parentIds): array
     {
@@ -294,19 +299,12 @@ final class FixtureScope
     }
 
     /**
+     *
      * ID form milik marker: event marker ATAU dibuat user marker, lalu fallback LIKE.
-     *
-     * Bentuk lama `event_id IN (...) OR title LIKE '% [marker]'` tidak bisa memakai index
-     * `forms_event_id_foreign` (OR lintas kolom + wildcard awalan) dan memindai seluruh tabel
-     * `forms` (±9,2 detik pada 1 juta baris). Fixture selalu menempelkan form ke event run dan
-     * `created_by` selalu user run, jadi dua kolom ber-index itu sudah exact: `EXPLAIN` memakai
-     * index_merge `forms_event_id_foreign` + `forms_created_by_foreign` (±22 ms). LIKE tetap
-     * dijalankan hanya saat kedua induk tidak ditemukan (sisa cleanup parsial), supaya baris
-     * ber-marker yang induknya sudah terhapus tidak tertinggal.
-     *
      * @param  list<string>  $eventIds
      * @param  list<string>  $userIds
      * @return list<string>
+     *
      */
     private static function resolveFormIds(array $eventIds, array $userIds, string $markerLike): array
     {
@@ -327,13 +325,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * ID field milik form marker; LIKE hanya dipakai saat form-nya sudah tidak ada.
-     *
-     * Field selalu anak dari form run, sehingga `form_id` (ber-index) sudah exact. Fallback
-     * label dipakai untuk sisa cleanup parsial ketika baris form sudah lebih dulu terhapus.
-     *
      * @param  list<string>  $formIds
      * @return list<string>
+     *
      */
     private static function resolveFieldIds(array $formIds, string $markerLike): array
     {
@@ -349,9 +345,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * Jumlah baris satu run tanpa menghapus; dipakai `check:row-ownership`.
      *
      * @return array<string, int>
+     *
      */
     public static function countRun(string $markerPrefix, string $slugPrefix): array
     {
@@ -368,9 +366,7 @@ final class FixtureScope
         );
     }
 
-    /**
-     * Identitas dummy valid untuk operasi berbasis prefix (marker run, bukan marker owner).
-     */
+    /** Identitas dummy valid untuk operasi berbasis prefix (marker run, bukan marker owner). */
     private static function prefixIdentity(string $markerPrefix, string $slugPrefix): FixtureIdentity
     {
         if (preg_match('/^e2e\+[0-9A-Za-z-]{1,22}\+$/', $markerPrefix) !== 1) {
@@ -390,9 +386,11 @@ final class FixtureScope
     }
 
     /**
+     *
      * Resolve id per tabel dari predikat yang diberikan.
      *
      * @return array<string, list<string>>
+     *
      */
     private function resolve(
         string $email,
@@ -507,10 +505,12 @@ final class FixtureScope
     }
 
     /**
+     *
      * Hapus id per tabel dalam satu transaksi, anak lebih dulu, per 500 baris.
      *
      * @param  array<string, list<string>>  $ids
      * @return array<string, int>
+     *
      */
     private function deleteIds(array $ids): array
     {

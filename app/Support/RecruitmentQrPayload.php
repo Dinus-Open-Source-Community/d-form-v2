@@ -4,15 +4,15 @@ namespace App\Support;
 
 use Illuminate\Support\Str;
 
-/**
- * QR payload contract for OpRec interview attendance.
- */
+/** QR payload contract for OpRec interview attendance. */
 final class RecruitmentQrPayload
 {
     public const VERSION = 1;
 
     /**
+     *
      * @throws \JsonException
+     *
      */
     public static function encode(string $applicationId): string
     {

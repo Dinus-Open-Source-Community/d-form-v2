@@ -14,17 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * Tulis fixture e2e (user, event, form, field, answer, attendance) yang seluruhnya ber-marker.
- * Payload JSON dibaca dari stdin; setiap baris dicatat di journal agar kegagalan parsial
- * dibersihkan terbalik dalam satu transaksi. `ownerEmail` opsional hanya memakai user yang
- * sudah ada sebagai `events.created_by`; marker user tetap dibuat/dijurnal sebagai anchor sweep.
- *
- * Section opsional: `recruitment` (periode + aplikasi + dokumen), `acceptedAnswers`
- * (submission `review_status=accepted` dengan `registration_code`, opsional attendance), dan
- * `broadcasts` (email_broadcasts + recipients). Section yang tidak dikirim tidak mengubah
- * kontrak lama: `users/events/forms/fields/answers/attendance`.
- */
+/** Tulis fixture e2e (user, event, form, field, answer, attendance) yang seluruhnya ber-marker. */
 final class FixtureCommand extends Command
 {
     use ResolvesFixtureIdentity;
@@ -69,11 +59,13 @@ final class FixtureCommand extends Command
     }
 
     /**
+     *
      * Buat seluruh baris fixture dan kembalikan id yang dipakai spec.
      *
      * @param  array<string, mixed>  $payload
      * @param  list<array{title: string, fields: list<array{label: string, name: string, input_type: string, required: bool}>, submissions: int}>  $forms
      * @return array<string, mixed>
+     *
      */
     private function create(FixtureIdentity $identity, array $payload, array $forms): array
     {
@@ -184,10 +176,12 @@ final class FixtureCommand extends Command
     }
 
     /**
+     *
      * Buat satu form beserta field dan submission-nya (idempoten per judul ber-marker).
      *
      * @param  array{title: string, fields: list<array{label: string, name: string, input_type: string, required: bool}>, submissions: int}  $request
      * @return array{formId: string, fieldIds: list<string>, submissionIds: list<string>}
+     *
      */
     private function createForm(
         FixtureIdentity $identity,
@@ -252,9 +246,11 @@ final class FixtureCommand extends Command
     }
 
     /**
+     *
      * Buat answer + attendance pemilik; baris answer yang sudah ada dipakai ulang.
      *
      * @return list<string>
+     *
      */
     private function createSubmissions(
         FixtureIdentity $identity,
@@ -329,9 +325,11 @@ final class FixtureCommand extends Command
     }
 
     /**
+     *
      * Cari id pertama untuk predikat exact; `null` bila belum ada.
      *
      * @param  array<string, mixed>  $where
+     *
      */
     private function firstId(string $table, array $where): ?string
     {
@@ -341,10 +339,12 @@ final class FixtureCommand extends Command
     }
 
     /**
+     *
      * Normalisasi payload `forms` dengan default yang aman untuk spec.
      *
      * @param  array<string, mixed>  $payload
      * @return list<array{title: string, fields: list<array{label: string, name: string, input_type: string, required: bool}>, submissions: int}>
+     *
      */
     private function normalizeForms(array $payload): array
     {

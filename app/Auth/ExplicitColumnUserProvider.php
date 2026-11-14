@@ -5,10 +5,7 @@ namespace App\Auth;
 use App\Models\User;
 use Illuminate\Auth\EloquentUserProvider;
 
-/**
- * Provider user dengan daftar kolom eksplisit. Dipakai guard `web` agar query
- * pemulihan sesi (setiap request) tidak memakai `select *`.
- */
+/** Provider user dengan daftar kolom eksplisit. */
 class ExplicitColumnUserProvider extends EloquentUserProvider
 {
     /** Ambil user dari sesi berdasarkan id dengan kolom eksplisit. */

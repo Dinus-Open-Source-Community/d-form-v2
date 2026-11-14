@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-/** Identitas satu percobaan test: pemilik data e2e yang tidak bertabrakan dengan run/proses lain. */
 export interface IOwnerIdentity {
     ownerId: string;
     ownerKey: string;
@@ -9,7 +8,6 @@ export interface IOwnerIdentity {
     slug: string;
 }
 
-/** Bahan pembentuk `ownerId`; slug sudah dipisahkan dari judul test oleh pemanggil. */
 export interface IOwnerIdParts {
     project: string;
     specSlug: string;
@@ -47,7 +45,6 @@ export function createRunId(now: Date = new Date(), randomHex: string = randomBy
     return `${stamp}-${randomHex}`;
 }
 
-/** Ubah satu segmen judul/file menjadi `[a-z0-9-.]` agar aman dipakai di `ownerId`. */
 export function slugifySegment(value: string): string {
     return (
         value
@@ -58,14 +55,13 @@ export function slugifySegment(value: string): string {
     );
 }
 
-/** Bentuk `ownerId` = `<project>.<specSlug>.<testSlug>.r<retry>` yang sudah disanitasi. */
 export function createOwnerId(parts: IOwnerIdParts): string {
     const retry = Number.isFinite(parts.retry) && parts.retry > 0 ? Math.trunc(parts.retry) : 0;
 
     return [parts.project, parts.specSlug, parts.testSlug].map(slugifySegment).join('.') + `.r${retry}`;
 }
 
-/** `ownerKey` = `o` + 12 hex pertama sha256(ownerId), satu-satunya pembentuk kunci pemilik. */
+/** Hash the owner ID into the canonical fixture key. */
 export function createOwnerKey(ownerId: string): string {
     return 'o' + createHash('sha256').update(ownerId).digest('hex').slice(0, 12);
 }
@@ -81,7 +77,7 @@ export function createMarker(runId: string, ownerKey: string): string {
     return marker;
 }
 
-/** Bentuk identitas lengkap dari komponen test; dipakai fixture dan teardown sebagai satu pintu. */
+/** Build the identity shared by fixture creation and teardown. */
 export function createOwnerIdentity(runId: string, parts: IOwnerIdParts): IOwnerIdentity {
     const ownerId = createOwnerId(parts);
     const ownerKey = createOwnerKey(ownerId);
@@ -90,17 +86,14 @@ export function createOwnerIdentity(runId: string, parts: IOwnerIdParts): IOwner
     return { ownerId, ownerKey, runId, marker, slug: markerToSlug(marker) };
 }
 
-/** Turunkan slug `[a-z0-9-]` dari marker; hanya untuk kolom yang tidak menerima `+`. */
 export function markerToSlug(marker: string): string {
     return marker.toLowerCase().replaceAll('+', '-');
 }
 
-/** Email pemilik fixture: local part adalah marker, domain tetap `e2e.invalid`. */
 export function ownerEmail(marker: string): string {
     return `${marker}@e2e.invalid`;
 }
 
-/** Ambil `runId` dari marker kanonik; `null` bila marker tidak sesuai format. */
 export function runIdFromMarker(marker: string): string | null {
     if (!MARKER_PATTERN.test(marker)) {
         return null;
@@ -109,12 +102,10 @@ export function runIdFromMarker(marker: string): string | null {
     return marker.split('+')[1] ?? null;
 }
 
-/** Prefix `LIKE` untuk marker milik satu run; dipakai hanya oleh teardown/sweep ber-scope run. */
 export function runMarkerPrefix(runId: string): string {
     return `e2e+${runId}+`;
 }
 
-/** Prefix `LIKE` untuk slug milik satu run; pasangan dari `runMarkerPrefix`. */
 export function runSlugPrefix(runId: string): string {
     return markerToSlug(runMarkerPrefix(runId));
 }

@@ -7,19 +7,7 @@ use App\Models\Form;
 use App\Support\LegacyFormImage;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Rescue `data:` URL legacy (era base64) SEBELUM validasi berjalan.
- *
- * Latar: after-validation menolak `data:` URL (422). Tanpa konversi di sini,
- * payload autosave form yang bannernya masih base64 di DB selalu 422 —
- * dan auto-convert di controller tidak pernah tercapai karena validasi
- * gagal duluan. Konversi di `prepareForValidation` membuat data legacy
- * terselamatkan sebagai file storage, bukan hilang.
- *
- * Guard hak akses dicek di dalam trait karena `prepareForValidation`
- * berjalan sebelum `authorize()` — request anonim / tanpa hak update
- * tidak boleh bisa menulis file ke storage.
- */
+/** Rescue `data:` URL legacy (era base64) SEBELUM validasi berjalan. */
 trait ConvertsLegacyDataUrls
 {
     protected function convertLegacyDataUrlsInRequest(): void

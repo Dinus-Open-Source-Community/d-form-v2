@@ -94,10 +94,12 @@ class RecruitmentApplicationController extends Controller
     }
 
     /**
+     *
      * Header unduhan berkas pelamar: tipe dari hasil sniff saat disimpan dan
      * `nosniff` agar browser tidak menebak tipe lain dari isi berkas.
      *
      * @return array<string, string>
+     *
      */
     private function streamHeaders(string $contentType): array
     {

@@ -35,7 +35,7 @@ function onIconError(): void {
 </script>
 
 <template>
-    <!-- Ikon dekoratif: nama berkas di sebelahnya adalah label aksesibelnya. -->
+    <!-- Decorative icon; the adjacent filename provides the accessible name. -->
     <img
         v-if="!iconFailed"
         :src="iconSource"

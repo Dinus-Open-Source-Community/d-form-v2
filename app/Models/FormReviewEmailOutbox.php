@@ -30,10 +30,7 @@ class FormReviewEmailOutbox extends Model
 
     public const STATUS_FAILED = 'failed';
 
-    /**
-     * The queue boundary was ambiguous. This state is intentionally not automatically retried:
-     * an operator must verify the queue before requesting a manual retry.
-     */
+    /** Ambiguous queue state is never retried automatically; an operator must verify it first. */
     public const STATUS_MANUAL_REVIEW = 'manual_review';
 
     public $incrementing = false;
@@ -68,12 +65,7 @@ class FormReviewEmailOutbox extends Model
     }
 
     /**
-     * Claim one recipient delivery and reserve its EmailLog in the same transaction.
-     *
-     * Reserving the log before releasing the outbox lock gives stale-sending recovery a reliable
-     * boundary: a sending row without a log is a legacy row that never reached the transport.
-     * A second recipient job fails closed while the first owns the sending state.
-     *
+     * Claim delivery and reserve its EmailLog atomically; a second job fails closed while the first owns `sending`.
      * @param array<string, mixed> $emailLogAttributes
      */
     public static function claimDelivery(

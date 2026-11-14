@@ -8,10 +8,7 @@ use App\Models\EmailBroadcast;
 use Generator;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Generate snapshot recipient dari dataset terpilih + manual + CSV rows.
- * Snapshot adalah source of truth; dataset setelahnya tidak memengaruhi broadcast.
- */
+/** Generate snapshot recipient dari dataset terpilih + manual + CSV rows. */
 class BroadcastSnapshotService
 {
     private const INSERT_BATCH_SIZE = 500;
@@ -25,17 +22,12 @@ class BroadcastSnapshotService
     }
 
     /**
-     * Stream resolved + extra rows into bounded batches instead of merging the
-     * whole dataset in memory. Row order (datasets first, then extras) and the
-     * resulting recipient rows are unchanged.
      *
-     * All counts come from aggregate SQL over the rows just inserted, so memory
-     * stays constant regardless of dataset size and `generate()` can never
-     * disagree with {@see self::duplicateSummary()}.
-     *
+     * Stream resolved + extra rows into bounded batches instead of merging the whole dataset in memory.
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @param  array<int, array{name?:string|null, email:string}>  $extraRows manual/CSV yang sudah tervalidasi
      * @return array{total:int, unique:int, duplicates:int, duplicate_emails:array<int,string>}
+     *
      */
     public function generate(EmailBroadcast $broadcast, array $datasets, array $extraRows = []): array
     {
@@ -96,8 +88,10 @@ class BroadcastSnapshotService
     }
 
     /**
+     *
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @param  array<int, array{name?:string|null, email:string}>  $extraRows
+     *
      */
     private function insertRecipients(EmailBroadcast $broadcast, array $datasets, array $extraRows, \DateTimeInterface $now): void
     {
@@ -127,12 +121,14 @@ class BroadcastSnapshotService
     }
 
     /**
+     *
      * Merge resolver stream and extra rows in the historical order, dropping
      * invalid emails exactly like the previous array_merge + array_filter.
      *
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @param  array<int, array{name?:string|null, email:string}>  $extraRows
      * @return Generator<int, array{name:string|null, email:string}>
+     *
      */
     private function mergedRows(array $datasets, array $extraRows): Generator
     {

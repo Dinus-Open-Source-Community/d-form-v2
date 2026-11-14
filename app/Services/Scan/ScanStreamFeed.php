@@ -12,34 +12,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Feed gabungan attendance event + recruitment untuk halaman global scan.
- *
- * Kursor adalah keyset komposit `ts|eventId|recruitmentId` yang di-encode
- * base64url supaya client memperlakukannya sebagai opaque. Setiap domain punya
- * id tie-break sendiri karena kedua tabel punya PK berbeda dan timestamp-nya
- * hanya presisi detik: memakai `ts` saja akan membuang baris yang berbagi
- * detik terakhir halaman sebelumnya. Id kosong berarti "belum ada baris domain
- * itu yang dikonsumsi pada `ts` tersebut", sehingga predikat domain itu menjadi
- * `ts >= cursorTs`. String ISO lama tetap diterima sebagai "ts tanpa id".
- *
- * Invariant liveness: baris yang sudah diambil lalu dibuang permanen (form/event
- * ter-soft-delete sehingga tidak bisa dipetakan) tetap dihitung sebagai
- * "dikonsumsi" saat menghitung kursor, sedangkan baris yang hanya tertahan
- * `limit` tidak. Tanpa itu, satu jendela poll yang seluruhnya tidak bisa
- * dipetakan akan menghasilkan halaman kosong dan kursor yang tidak bergerak —
- * feed membeku untuk semua meja.
- *
- * ACCEPTED RISK (M-2, kept by owner decision 11-11-2026): feed mengembalikan
- * baris kedua domain kepada pemegang `events.list` ATAU
- * `recruitment.attendance.scan`. Payload per baris memuat `name` dan
- * `identifier` (email peserta event, atau nomor registrasi + nama applicant
- * OPREC) serta `interviewStatus` untuk baris recruitment. Konsekuensinya
- * pemegang `events.list` dapat membaca PII applicant OPREC, dan sebaliknya
- * pemegang `recruitment.attendance.scan` dapat membaca nama + email peserta
- * event. Ini keputusan produk: satu meja scan harus melayani semua jenis QR.
- * Perilaku ini sengaja dipertahankan; mengubah bentuk payload atau memfilter
- * per domain wajib persetujuan ulang pemilik produk.
- * Spec: docs/superpowers/specs/2026-09-15-scan-oprec-hardening-spec.md
+ * Feed gabungan event/recruitment; cursor harus melewati baris yang sudah dikonsumsi agar polling tidak macet.
+ * Output sengaja memuat nama/email peserta dan status recruitment; perubahan exposure wajib mendapat persetujuan owner.
  */
 final class ScanStreamFeed
 {
@@ -47,10 +21,7 @@ final class ScanStreamFeed
 
     private const CURSOR_PARTS = 3;
 
-    /**
-     * Batas atas ukuran halaman; controller juga memotong, ini pertahanan
-     * berlapis karena service ini menerima nilai dari input pengguna.
-     */
+    /** Batas atas ukuran halaman; controller juga memotong, ini pertahanan berlapis karena service ini menerima nilai dari input pengguna. */
     private const MAX_LIMIT = 100;
 
     public function __construct(
@@ -59,7 +30,7 @@ final class ScanStreamFeed
     ) {
     }
 
-    /**
+    /** Return rows while preserving the opaque cross-domain cursor contract.
      * @return array<int, array{id:string,ts:string,type:string,eventTitle:string,name:string,identifier:string,queueNumber:int|null,interviewStatus?:string|null}>
      */
     public function since(?string $cursor, int $limit = 50): array
@@ -68,13 +39,10 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * Satu halaman feed beserta kursor opaque baris terakhir yang dikirim.
-     *
-     * Kursor selalu maju melewati baris yang sudah diambil lalu dibuang permanen
-     * (relasi event/form ter-soft-delete), tetapi tidak pernah melewati baris yang
-     * hanya tertahan oleh `limit` di jendela gabungan.
-     *
      * @return array{rows: list<array{id:string,ts:string,type:string,eventTitle:string,name:string,identifier:string,queueNumber:int|null,interviewStatus?:string|null}>, cursor: string|null}
+     *
      */
     public function page(?string $cursor, int $limit = 50): array
     {
@@ -114,10 +82,7 @@ final class ScanStreamFeed
         ];
     }
 
-    /**
-     * Normalisasi nilai `since` dari request menjadi token kanonik, atau null
-     * bila nilai tidak dapat diparse sama sekali.
-     */
+    /** Normalisasi nilai `since` dari request menjadi token kanonik, atau null bila nilai tidak dapat diparse sama sekali. */
     public static function normalizeCursor(string $value): ?string
     {
         $position = self::decodeCursor($value);
@@ -133,13 +98,7 @@ final class ScanStreamFeed
         );
     }
 
-    /**
-     * Kursor halaman. Tiap domain memakai PK baris terakhir yang sudah
-     * dikonsumsi pada `ts` batas; baris domain tersebut selalu prefix dari
-     * urutan SQL-nya, sehingga PK itu adalah nilai maksimum yang aman dilewati.
-     * Domain tanpa baris terkonsumsi pada `ts` batas mempertahankan id dari
-     * kursor masuk (bila detiknya sama) supaya domain lain tidak diputar ulang.
-     *
+    /** Keep same-timestamp rows from being skipped; rows held only by the page limit remain in the cursor boundary.
      * @param  list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>  $slots
      * @param  list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>  $page
      * @param  array{at: Carbon, eventId: string|null, recruitmentId: string|null}|null  $incoming
@@ -192,14 +151,7 @@ final class ScanStreamFeed
         return self::encodeCursor($boundaryTs, $primaryKeys['event'], $primaryKeys['recruitment']);
     }
 
-    /**
-     * Epoch `ts` paling tinggi yang aman dijadikan batas kursor.
-     *
-     * Domain yang jendelanya penuh (`limit` baris) mungkin masih punya baris
-     * pada atau setelah epoch terakhirnya, jadi batas kursor tidak boleh
-     * melewati epoch itu. Domain yang jendelanya tidak penuh sudah habis dan
-     * tidak membatasi. `null` berarti tidak ada batas (semua domain habis).
-     *
+    /** Bound the cursor by the fullest domain so a domain with more rows is never skipped.
      * @param  list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>  $slots
      */
     private static function safeBoundaryEpoch(array $slots, int $limit): ?int
@@ -232,16 +184,7 @@ final class ScanStreamFeed
         return $safe;
     }
 
-    /**
-     * `ts` batas kursor.
-     *
-     * Halaman tidak kosong: epoch terbesar baris terkirim (baris di bawahnya
-     * pasti ikut halaman, jadi aman dilewati).
-     *
-     * Halaman kosong: semua baris yang terambil dibuang permanen, jadi kursor
-     * wajib maju. Dipakai `safeEpoch` bila ada; bila semua domain sudah habis,
-     * epoch terbesar baris yang terambil.
-     *
+    /** Advance past consumed rows, including unmappable rows, without passing rows held by the limit.
      * @param  list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>  $slots
      * @param  list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>  $page
      * @return array{0: int, 1: string}|null
@@ -281,7 +224,9 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * @return array{at: Carbon, eventId: string|null, recruitmentId: string|null}|null
+     *
      */
     private static function parseCursor(?string $cursor): ?array
     {
@@ -293,7 +238,9 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * @return array{at: Carbon, eventId: string|null, recruitmentId: string|null}|null
+     *
      */
     private static function decodeCursor(string $cursor): ?array
     {
@@ -323,7 +270,9 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * @return array{at: Carbon, eventId: null, recruitmentId: null}|null
+     *
      */
     private static function parseLegacyTimestamp(string $cursor): ?array
     {
@@ -332,11 +281,7 @@ final class ScanStreamFeed
         return $at === null ? null : ['at' => $at, 'eventId' => null, 'recruitmentId' => null];
     }
 
-    /**
-     * Parse timestamp absolut saja. `Carbon::parse('now')`, `'next monday'`,
-     * atau string kosong sengaja ditolak supaya token/kursor rusak tidak
-     * diam-diam berubah menjadi "sekarang" dan memutar ulang feed.
-     */
+    /** Parse timestamp absolut saja. */
     private static function parseTimestamp(string $value): ?Carbon
     {
         $absolute = '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/';
@@ -353,11 +298,13 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * Baris attendance event pada jendela poll, termasuk baris yang tidak bisa
      * dipetakan (`entry` null) supaya progres kursor tetap terlihat.
      *
      * @param  array{at: Carbon, eventId: string|null, recruitmentId: string|null}|null  $position
      * @return list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>
+     *
      */
     private function eventSlots(?array $position, int $limit): array
     {
@@ -414,11 +361,11 @@ final class ScanStreamFeed
     }
 
     /**
-     * Baris check-in recruitment pada jendela poll. Relasi pendukung hanya
-     * di-query bila ada baris (empty window tidak boleh memicu `whereIn([])`).
      *
+     * Baris check-in recruitment pada jendela poll.
      * @param  array{at: Carbon, eventId: string|null, recruitmentId: string|null}|null  $position
      * @return list<array{entry: array<string, string|int|null>|null, domain: string, domainRank: int, position: int, epoch: int, ts: string, primaryKey: string}>
+     *
      */
     private function recruitmentSlots(?array $position, int $limit): array
     {
@@ -485,8 +432,10 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * @param  list<string>  $ids
      * @return Collection<string, RecruitmentApplication>
+     *
      */
     private function applicationsFor(array $ids): Collection
     {
@@ -502,8 +451,10 @@ final class ScanStreamFeed
     }
 
     /**
+     *
      * @param  list<string>  $ids
      * @return Collection<string, RecruitmentInterviewSession>
+     *
      */
     private function sessionsFor(array $ids): Collection
     {

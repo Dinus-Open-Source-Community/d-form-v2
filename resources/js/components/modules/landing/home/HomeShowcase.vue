@@ -45,7 +45,6 @@ const advantages: Advantage[] = [
 
         <div class="relative mx-auto max-w-7xl px-6 lg:px-10">
             <div class="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-                <!-- Lottie illustration -->
                 <div
                     :class="[
                         'order-2 transition-all duration-600 lg:order-1',
@@ -59,7 +58,6 @@ const advantages: Advantage[] = [
                     </div>
                 </div>
 
-                <!-- Text content -->
                 <div
                     :class="[
                         'order-1 transition-all delay-75 duration-600 lg:order-2',

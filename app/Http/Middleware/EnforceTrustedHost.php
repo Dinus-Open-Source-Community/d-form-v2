@@ -10,25 +10,12 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Exception\SuspiciousOperationException;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Reject requests whose effective host is not on the allowlist.
- *
- * Laravel's trustHosts() middleware is a no-op in local/testing, so this one calls
- * Symfony's Request::setTrustedHosts() directly and therefore always runs. It is
- * appended to the global stack (not prepended) so it runs after TrustProxies and
- * sees the host resolved through trusted X-Forwarded-Host headers.
- */
+/** Reject requests whose effective host is not on the allowlist. */
 final class EnforceTrustedHost
 {
     private const MAX_LOGGED_VALUE_LENGTH = 255;
 
-    /**
-     * Validate the request host before routing, then reset the static allowlist.
-     *
-     * The eager getHost() call matters: getHost() is lazy, so without it a route
-     * that never builds an absolute URL would go unvalidated. The finally block
-     * keeps the static state from leaking into the next request (Octane) or test.
-     */
+    /** Validate the request host before routing, then reset the static allowlist. */
     public function handle(Request $request, Closure $next): Response
     {
         try {
@@ -67,9 +54,7 @@ final class EnforceTrustedHost
         }
     }
 
-    /**
-     * Plain 400 without reflecting the request host; JSON clients get a JSON body.
-     */
+    /** Plain 400 without reflecting the request host; JSON clients get a JSON body. */
     private function rejectionResponse(Request $request): Response
     {
         if ($request->expectsJson()) {

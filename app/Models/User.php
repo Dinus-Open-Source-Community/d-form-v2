@@ -1,8 +1,6 @@
 <?php
 
 namespace App\Models;
-
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -25,10 +23,7 @@ class User extends Authenticatable implements CanResetPasswordContract
     use Notifiable;
     use SoftDeletes;
 
-    /**
-     * Kolom yang dibaca pada setiap request terautentikasi (guard sesi).
-     * Password TIDAK ikut: hanya boolean `has_local_password` yang dihitung di SQL.
-     */
+    /** Session columns selected on every authenticated request; password is intentionally excluded. */
     public const AUTH_SESSION_COLUMNS = [
         'id',
         'name',
@@ -56,9 +51,11 @@ class User extends Authenticatable implements CanResetPasswordContract
     public $keyType = 'string';
 
     /**
+     *
      * The attributes that are mass assignable.
      *
      * @var list<string>
+     *
      */
     protected $fillable = [
         'id',
@@ -72,9 +69,11 @@ class User extends Authenticatable implements CanResetPasswordContract
     ];
 
     /**
+     *
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
+     *
      */
     protected $hidden = [
         'password',
@@ -83,9 +82,11 @@ class User extends Authenticatable implements CanResetPasswordContract
     ];
 
     /**
+     *
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
+     *
      */
     protected function casts(): array
     {
@@ -97,13 +98,10 @@ class User extends Authenticatable implements CanResetPasswordContract
     }
 
     /**
+     *
      * Restrict the query to users whose generated normalized email is listed.
-     *
-     * `email_normalized` is a database-maintained generated column (see
-     * 2026_11_10_000008_users_email_lookup_index) so the predicate stays
-     * index-usable while remaining case-insensitive on every supported engine.
-     *
      * @param  list<string>  $normalizedEmails  lowercase, trimmed emails
+     *
      */
     public function scopeWhereNormalizedEmailIn(Builder $query, array $normalizedEmails): Builder
     {
@@ -111,15 +109,11 @@ class User extends Authenticatable implements CanResetPasswordContract
     }
 
     /**
+     *
      * Resolve users from emails that are already lowercase and trimmed.
-     *
-     * The fast path uses the indexed generated column. Inputs that only match
-     * through the database collation (accent-insensitive or PAD SPACE on
-     * MySQL/MariaDB) fall back to the historical `LOWER(email) = ?` predicate,
-     * so every account that resolved before EP-04 still resolves.
-     *
      * @param  array<array-key, string>  $emails  lowercase, trimmed emails
      * @return array<string, self> input email => historical first matching user
+     *
      */
     public static function resolveByNormalizedEmails(array $emails, bool $withTrashed = false): array
     {
@@ -177,18 +171,18 @@ class User extends Authenticatable implements CanResetPasswordContract
     }
 
     /**
+     *
      * Attendance scans recorded by this user (as operator).
      *
      * @return HasMany<EventAttendance, $this>
+     *
      */
     public function attendanceScansRecorded(): HasMany
     {
         return $this->hasMany(EventAttendance::class, 'scanned_by_user_id');
     }
 
-    /**
-     * Send the password reset notification.
-     */
+    /** Send the password reset notification. */
     public function sendPasswordResetNotification(#[\SensitiveParameter] mixed $token): void
     {
         $this->notify(new ResetPasswordNotification($token));

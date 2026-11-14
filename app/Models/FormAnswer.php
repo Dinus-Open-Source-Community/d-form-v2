@@ -45,7 +45,9 @@ class FormAnswer extends Model
     ];
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     protected function casts(): array
     {
@@ -61,9 +63,7 @@ class FormAnswer extends Model
         ];
     }
 
-    /**
-     * Return whether this submission participates in active uniqueness constraints.
-     */
+    /** Return whether this submission participates in active uniqueness constraints. */
     public function isActiveSubmission(): bool
     {
         if ($this->review_status === FormAnswerReviewStatus::Rejected) {
@@ -95,9 +95,7 @@ class FormAnswer extends Model
         ], true);
     }
 
-    /**
-     * Daftar peserta untuk panitia: ketua / pendaftar tunggal selalu; anggota tim & bundle hanya setelah menerima undangan.
-     */
+    /** Daftar peserta untuk panitia: ketua / pendaftar tunggal selalu; anggota tim & bundle hanya setelah menerima undangan. */
     public function scopeWhereListedForOrganizerParticipantRoster(Builder $query): Builder
     {
         return $query->where(function (Builder $w): void {
@@ -113,9 +111,7 @@ class FormAnswer extends Model
         });
     }
 
-    /**
-     * Omit teammate rows whose invitation ended without participating (participant portal summaries only).
-     */
+    /** Omit teammate rows whose invitation ended without participating (participant portal summaries only). */
     public function scopeExcludeTerminatedInvitationMembers(Builder $query): Builder
     {
         return $query->where(static function (Builder $w): void {
@@ -129,13 +125,7 @@ class FormAnswer extends Model
         });
     }
 
-    /**
-     * Exclude rejected submissions from duplicate registration checks.
-     *
-     * Allows users to re-register after:
-     * - Admin rejection (review_status = rejected)
-     * - Invitation decline/expiry (member_confirmation_status = rejected/expired for members)
-     */
+    /** Exclude rejected submissions from duplicate registration checks. */
     public function scopeExcludeRejectedSubmissions(Builder $query): Builder
     {
         return $query->where(static function (Builder $w): void {
@@ -166,7 +156,9 @@ class FormAnswer extends Model
     }
 
     /**
+     *
      * @return HasMany<FormAnswer, $this>
+     *
      */
     public function teamMemberSubmissions(): HasMany
     {
@@ -184,7 +176,9 @@ class FormAnswer extends Model
     }
 
     /**
+     *
      * @return HasMany<EmailLog, $this>
+     *
      */
     public function emailLogs(): HasMany
     {
@@ -192,7 +186,9 @@ class FormAnswer extends Model
     }
 
     /**
+     *
      * @return HasMany<FormReviewEmailOutbox, $this>
+     *
      */
     public function formReviewEmailOutboxes(): HasMany
     {
@@ -200,7 +196,9 @@ class FormAnswer extends Model
     }
 
     /**
+     *
      * @return HasMany<EventAttendance, $this>
+     *
      */
     public function attendances(): HasMany
     {

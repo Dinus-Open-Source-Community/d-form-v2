@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
+ *
  * @extends Factory<RecruitmentDivision>
+ *
  */
 class RecruitmentDivisionFactory extends Factory
 {

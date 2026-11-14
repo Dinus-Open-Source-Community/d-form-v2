@@ -2,10 +2,7 @@
 
 namespace App\Services\Registration;
 
-/**
- * Generates a human-friendly registration code when an answer is accepted.
- * Crockford-style alphabet: excludes 0, O, 1, I.
- */
+/** Generates a human-friendly registration code when an answer is accepted. */
 final class RegistrationCodeIssuer
 {
     private const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';

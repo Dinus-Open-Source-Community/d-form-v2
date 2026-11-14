@@ -4,23 +4,10 @@ namespace App\Support\Security;
 
 use InvalidArgumentException;
 
-/**
- * Single seam for environment and boolean interpretation.
- *
- * Config files and the production policy both use it so that `APP_ENV`,
- * `SESSION_*` and `SECURITY_*` values are interpreted identically everywhere:
- * case and surrounding whitespace are ignored, blank values mean "unset", and
- * only recognized boolean spellings are accepted.
- */
+/** Shared normalization seam for cached environment and security settings. */
 final class SecurityEnvironment
 {
-    /**
-     * Resolve the application environment.
-     *
-     * Prefers the (cache-safe) configured value so behaviour survives
-     * `php artisan config:cache`, where `.env` is no longer loaded at runtime.
-     * Falls back to the raw env value while config files are being evaluated.
-     */
+    /** Resolve the application environment. */
     public static function environment(): string
     {
         $configured = config('app.env');
@@ -40,33 +27,19 @@ final class SecurityEnvironment
         return $fromEnv;
     }
 
-    /**
-     * Whether the app runs in production.
-     *
-     * Normalized so `PRODUCTION`, `Production ` and ` production` cannot silently
-     * disable production-only protections.
-     */
+    /** Whether the app runs in production. */
     public static function isProduction(): bool
     {
         return self::environment() === 'production';
     }
 
-    /**
-     * Whether the app runs in the local environment (dev allowances enabled).
-     */
+    /** Whether the app runs in the local environment (dev allowances enabled). */
     public static function isLocal(): bool
     {
         return self::environment() === 'local';
     }
 
-    /**
-     * Interpret an environment value as a boolean.
-     *
-     * Returns $default for null, booleans as-is, and the default for blank strings
-     * (`''`), because an empty `.env` entry means "not configured", not `false`.
-     * Values such as `no`, `off`, `1` and `0` are parsed by FILTER_VALIDATE_BOOLEAN;
-     * anything unrecognized also falls back to $default.
-     */
+    /** Interpret recognized environment boolean spellings; blank or unknown values use the default. */
     public static function flag(mixed $value, bool $default): bool
     {
         if ($value === null || is_bool($value)) {
@@ -80,14 +53,7 @@ final class SecurityEnvironment
         return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 
-    /**
-     * Normalize the Content-Security-Policy mode.
-     *
-     * Returns exactly one of `enforce`, `report-only` or `off`. Null or blank means
-     * "unset" and returns $default. Anything else throws instead of falling back,
-     * because a silent fallback on a security switch turns a typo (or a boolean from
-     * the Env mapper) into a disabled CSP.
-     *
+    /** Normalize CSP mode and reject unknown values instead of silently disabling protection.
      * @throws InvalidArgumentException when the value is not a supported CSP mode
      */
     public static function cspMode(mixed $value, string $default = 'enforce'): string
@@ -117,13 +83,7 @@ final class SecurityEnvironment
         return $normalized;
     }
 
-    /**
-     * Normalize a SameSite cookie policy value.
-     *
-     * Null or blank means "unset" and returns $default. Accepted values are
-     * `lax`, `strict` and `none`; anything else throws instead of reaching
-     * Symfony, which would fail on every cookie-setting response.
-     *
+    /** Normalize SameSite mode and reject values Symfony would fail to apply.
      * @throws InvalidArgumentException when the value is not a supported SameSite policy
      */
     public static function sameSite(mixed $value, ?string $default = 'lax'): ?string

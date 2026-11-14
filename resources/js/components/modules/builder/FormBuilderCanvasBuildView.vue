@@ -113,7 +113,6 @@ const showDropChrome = computed(
                 <span>grip kiri untuk urutan</span>
             </div>
 
-            <!-- Section utama: banner + judul/deskripsi + field, dipisah divider -->
             <section
                 class="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-2xl border shadow-sm"
                 :class="showDropChrome && !isEmpty ? 'ring-primary/25 ring-2 ring-inset' : ''"
@@ -123,7 +122,6 @@ const showDropChrome = computed(
                 @dragleave="$emit('canvasDragLeave', $event)"
                 @drop="$emit('canvasDrop', $event)"
             >
-                <!-- Banner -->
                 <div class="border-border/70 border-b">
                     <FormBuilderBannerBlock
                         v-model:banner="banner"
@@ -133,7 +131,6 @@ const showDropChrome = computed(
                     />
                 </div>
 
-                <!-- Formulir Pendaftaran: judul + deskripsi (editable di kanvas) -->
                 <section class="border-border/70 border-b">
                     <div class="space-y-3 px-4 py-4 sm:px-5 sm:py-5">
                         <div class="flex flex-col gap-1.5">
@@ -194,7 +191,6 @@ const showDropChrome = computed(
                     </div>
                 </section>
 
-                <!-- Field form -->
                 <section>
                     <div class="px-5 py-7 sm:px-7 sm:py-8">
                         <div class="mb-5 flex items-center justify-between gap-3">

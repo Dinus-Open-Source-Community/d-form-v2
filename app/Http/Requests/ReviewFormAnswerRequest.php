@@ -10,16 +10,10 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Review satu submission form: status review hanya boleh nilai enum yang sah.
- * Otorisasi sama seperti controller sebelumnya (policy review + update event).
- */
+/** Review satu submission form: status review hanya boleh nilai enum yang sah. */
 class ReviewFormAnswerRequest extends FormRequest
 {
-    /**
-     * `403` policy tetap lebih dulu, lalu `404` bila form/answer tidak cocok
-     * dengan URL, baru validasi — urutan yang sama dengan controller sebelumnya.
-     */
+    /** `403` policy tetap lebih dulu, lalu `404` bila form/answer tidak cocok dengan URL, baru validasi — urutan yang sama dengan controller sebelumnya. */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -45,7 +39,9 @@ class ReviewFormAnswerRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {

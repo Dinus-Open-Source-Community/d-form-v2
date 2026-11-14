@@ -5,10 +5,7 @@ namespace App\Console\Commands\E2e;
 use App\Support\E2e\FixtureIdentity;
 use Illuminate\Console\Command;
 
-/**
- * Turunkan ownerKey, marker, slug, dan email dari ownerId + runId.
- * Satu implementasi derivasi untuk debugging dan reproduksi marker.
- */
+/** Turunkan ownerKey, marker, slug, dan email dari ownerId + runId. */
 final class DeriveKeyCommand extends Command
 {
     protected $signature = 'e2e:derive-key

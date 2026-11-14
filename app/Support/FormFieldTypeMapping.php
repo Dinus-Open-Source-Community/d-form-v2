@@ -4,21 +4,12 @@ namespace App\Support;
 
 use App\Models\FormField;
 
-/**
- * API / kontrak memakai `select`; kolom DB `form_fields.input_type` memakai `selectInput`.
- * `radio` dan `checkbox` tersimpan dengan nama yang sama di API dan DB.
- * `banner` sengaja tidak ada di `API_TYPES`: banner nyata disimpan sebagai
- * `fileUpload` + `metadata.builderType = banner`.
- */
+/** API / kontrak memakai `select`; kolom DB `form_fields.input_type` memakai `selectInput`. */
 final class FormFieldTypeMapping
 {
     public const API_TYPES = ['input', 'select', 'textarea', 'datePicker', 'fileUpload', 'radio', 'checkbox'];
 
-    /**
-     * Konten gambar builder TIDAK menambah API type / enum DB baru:
-     * simpan sebagai `input` + `metadata.builderType = image`
-     * (kolom `form_fields.input_type` tetap tanpa migrasi).
-     */
+    /** Konten gambar builder TIDAK menambah API type / enum DB baru: simpan sebagai `input` + `metadata.builderType = image` (kolom `form_fields.input_type` tetap tanpa migrasi). */
     public static function toInputType(string $apiType): string
     {
         return match ($apiType) {
@@ -35,9 +26,7 @@ final class FormFieldTypeMapping
         };
     }
 
-    /**
-     * Bentuk field untuk Inertia (sama seperti halaman isi formulir): `type` API + metadata lengkap.
-     */
+    /** Bentuk field untuk Inertia (sama seperti halaman isi formulir): `type` API + metadata lengkap. */
     public static function fieldToInertia(FormField $field): array
     {
         $meta = $field->metadata;

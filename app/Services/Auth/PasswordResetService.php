@@ -8,11 +8,7 @@ use Throwable;
 
 class PasswordResetService
 {
-    /**
-     * Send a password reset link to the given email address.
-     *
-     * Always completes without revealing whether the account exists.
-     */
+    /** Send a password reset link to the given email address. */
     public function sendResetLink(string $email): void
     {
         try {

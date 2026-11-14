@@ -9,36 +9,18 @@ use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
 
-/**
- * Pages an Eloquent query with keyset (seek) pagination instead of OFFSET.
- *
- * Every page applies `(sortColumn, identifierColumn) > cursor` (or `<` when
- * descending), so the database reads a bounded index range: page N costs the same
- * as page 1 and never re-materializes the ordered result. The query is cloned per
- * page, so cursor predicates do not accumulate and eager loads are preserved.
- *
- * Ordering and paging are owned here: the base query must not carry
- * `orderBy`/`limit`/`offset`, and is rejected in the constructor otherwise.
- *
- * Precondition: `identifierColumn` is unique and every row has a non-NULL
- * `sortColumn` selected. Rows with a NULL sort value sit outside that order, so
- * the iterator filters them out (`whereNotNull`) instead of looping or returning
- * them twice; a caller that must export such legacy rows streams them in a
- * separate pass.
- *
- * Progress is enforced at runtime: when a full page produces the same cursor as
- * the previous page (lost precision between database value and binding, or a
- * non-unique identifier) a {@see RuntimeException} aborts the stream instead of
- * looping forever.
- *
+/** Keyset pagination requires stable sort values and a unique identifier tie-breaker instead of OFFSET.
+ * NULL sort rows are excluded; a non-advancing cursor throws rather than looping forever.
  * @template TModel of Model
  */
 final class KeysetPageIterator
 {
     /**
+     *
      * @param  Builder<TModel>  $query
      *
      * @throws InvalidArgumentException when the base query already has ordering or paging
+     *
      */
     public function __construct(private readonly Builder $query)
     {
@@ -54,12 +36,10 @@ final class KeysetPageIterator
     }
 
     /**
+     *
      * Yield every matching model exactly once, in the configured order.
-     *
-     * Rows inserted ahead of the cursor after the first page are not returned;
-     * rows already read are never emitted twice.
-     *
      * @return \Generator<int, TModel>
+     *
      */
     public function iterate(KeysetPage $page): \Generator
     {
@@ -70,12 +50,9 @@ final class KeysetPageIterator
         }
     }
 
-    /**
-     * Yield the pages themselves, for callers that batch a second query per page.
-     *
-     * The last page may be shorter than `pageSize`; iteration stops there.
-     *
+    /** Yield pages and stop on a short page; a non-advancing full page throws instead of looping.
      * @return \Generator<int, Collection<int, TModel>>
+     * @throws RuntimeException when the cursor does not advance
      */
     public function pages(KeysetPage $page): \Generator
     {
@@ -109,7 +86,9 @@ final class KeysetPageIterator
     }
 
     /**
+     *
      * @return Collection<int, TModel>
+     *
      */
     private function fetch(KeysetPage $page, ?array $cursor): Collection
     {
@@ -128,7 +107,9 @@ final class KeysetPageIterator
     }
 
     /**
+     *
      * @param  Builder<TModel>  $query
+     *
      */
     private function applyCursor(Builder $query, KeysetPage $page, string $sortValue, string $identifier): void
     {
@@ -143,16 +124,9 @@ final class KeysetPageIterator
         });
     }
 
-    /**
-     * Build the next cursor from the last row of a full page.
-     *
-     * Fails fast (before the next query) when the page does not expose the sort or
-     * identifier column, which would otherwise produce an empty cursor token and a
-     * confusing failure several pages later.
-     *
+    /** Build the next cursor and fail before the next query if required columns are missing.
      * @param  TModel  $last
      * @return array{0: string, 1: string}
-     *
      * @throws LogicException when `sortColumn`/`identifierColumn` is not selected
      */
     private function nextCursor(Model $last, KeysetPage $page): array

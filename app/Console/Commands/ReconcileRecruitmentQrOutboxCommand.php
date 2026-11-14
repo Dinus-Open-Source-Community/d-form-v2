@@ -9,14 +9,7 @@ use App\Support\LogRedaction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Operator reconciliation for an ambiguous QR delivery.
- *
- * A `sending` intent means the job claimed the delivery and the process stopped before the
- * transport outcome was recorded. The system never resends it automatically (ADR-0001). This
- * command is the missing operation: it records the real outcome so the linked `email_logs` row
- * stops being `queued` and the applicant leaves the stuck in-flight state.
- */
+/** Operator reconciliation for an ambiguous QR delivery. */
 class ReconcileRecruitmentQrOutboxCommand extends Command
 {
     protected $signature = 'recruitment:reconcile-qr-outbox

@@ -45,7 +45,9 @@ class RecruitmentApplicationConfirmationMail extends Mailable
     }
 
     /**
+     *
      * @return array<int, Attachment>
+     *
      */
     public function attachments(): array
     {

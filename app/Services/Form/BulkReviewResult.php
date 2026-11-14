@@ -8,8 +8,10 @@ use Illuminate\Support\Collection;
 final class BulkReviewResult
 {
     /**
+     *
      * @param  Collection<int, FormAnswer>  $answers
      * @param  Collection<int, string>  $outboxIds
+     *
      */
     public function __construct(
         public Collection $answers,

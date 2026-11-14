@@ -12,7 +12,9 @@ class StoreCorrectionRequestRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {
@@ -22,7 +24,9 @@ class StoreCorrectionRequestRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

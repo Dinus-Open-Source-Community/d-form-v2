@@ -142,7 +142,6 @@ function builderImageAlt(f: IBuilderField): string {
         ]"
         @click="emit('select')"
     >
-        <!-- Type badge + actions bar -->
         <div class="group/head flex items-center gap-2.5 px-4 pt-3.5 sm:px-5">
             <GripVertical
                 class="text-muted-foreground/40 group-hover:text-muted-foreground/80 hidden size-3.5 cursor-grab transition-colors lg:block"
@@ -171,7 +170,6 @@ function builderImageAlt(f: IBuilderField): string {
                 {{ config.label }}
             </span>
             <div class="ml-auto flex shrink-0 items-center gap-0.5">
-                <!-- Aksi langsung (pola sama dengan baris Forms di card event) -->
                 <div
                     class="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                 >
@@ -206,9 +204,7 @@ function builderImageAlt(f: IBuilderField): string {
             </div>
         </div>
 
-        <!-- Field content -->
         <div class="space-y-3 px-4 pt-3 pb-4 sm:px-5 sm:pb-5">
-            <!-- Label -->
             <label class="group/label flex items-center gap-0.5">
                 <input
                     :value="field.label"
@@ -225,9 +221,7 @@ function builderImageAlt(f: IBuilderField): string {
                 @input="patch({ description: ($event.target as HTMLInputElement).value })"
             />
 
-            <!-- Preview by type -->
             <div class="mt-1">
-                <!-- Short text / Email / Phone / Number -->
                 <div
                     v-if="['short_text', 'email', 'phone', 'number'].includes(field.type)"
                     class="border-border/70 bg-muted/20 rounded-xl border p-1.5"
@@ -251,7 +245,6 @@ function builderImageAlt(f: IBuilderField): string {
                     />
                 </div>
 
-                <!-- Long text -->
                 <div
                     v-else-if="field.type === 'long_text'"
                     class="border-border/70 bg-muted/20 rounded-xl border p-1.5"
@@ -269,7 +262,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </div>
                 </div>
 
-                <!-- Dropdown -->
                 <div v-else-if="field.type === 'dropdown'" class="space-y-2">
                     <div
                         class="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border px-4 py-3"
@@ -296,7 +288,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </div>
                 </div>
 
-                <!-- Checkbox -->
                 <div v-else-if="field.type === 'checkbox'" class="flex flex-col gap-2">
                     <label
                         v-for="(opt, i) in choiceOptions"
@@ -316,7 +307,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </label>
                 </div>
 
-                <!-- Radio -->
                 <div v-else-if="field.type === 'radio'" class="flex flex-col gap-2">
                     <label
                         v-for="(opt, i) in choiceOptions"
@@ -336,7 +326,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </label>
                 </div>
 
-                <!-- Image upload -->
                 <div
                     v-else-if="field.type === 'image_upload'"
                     class="border-border/80 bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed py-6"
@@ -356,7 +345,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </div>
                 </div>
 
-                <!-- File upload -->
                 <div
                     v-else-if="field.type === 'file_upload'"
                     class="border-border/80 bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed py-6"
@@ -370,7 +358,6 @@ function builderImageAlt(f: IBuilderField): string {
                     <p class="text-muted-foreground/60 mt-0.5 text-[10px]">PDF, JPG, PNG hingga 5 MB</p>
                 </div>
 
-                <!-- Date -->
                 <div v-else-if="field.type === 'date'" class="border-border/70 bg-muted/20 rounded-xl border p-1.5">
                     <input
                         type="text"
@@ -382,7 +369,6 @@ function builderImageAlt(f: IBuilderField): string {
                     />
                 </div>
 
-                <!-- Time -->
                 <div v-else-if="field.type === 'time'" class="border-border/70 bg-muted/20 rounded-xl border p-1.5">
                     <input
                         type="text"
@@ -394,7 +380,6 @@ function builderImageAlt(f: IBuilderField): string {
                     />
                 </div>
 
-                <!-- Rating -->
                 <div v-else-if="field.type === 'rating'" class="flex flex-col gap-2">
                     <div class="flex items-center gap-2">
                         <Star
@@ -407,14 +392,12 @@ function builderImageAlt(f: IBuilderField): string {
                     <p class="text-muted-foreground/80 text-[10px]">Tap bintang untuk nilai</p>
                 </div>
 
-                <!-- Heading -->
                 <div v-else-if="field.type === 'heading'">
                     <h3 class="font-display text-foreground text-lg font-bold">
                         {{ field.metadata?.content || 'Judul bagian' }}
                     </h3>
                 </div>
 
-                <!-- Image (display-only) -->
                 <div v-else-if="field.type === 'image'">
                     <div v-if="builderImageSrc(field)" class="border-border/70 overflow-hidden rounded-xl border">
                         <img :src="builderImageSrc(field)" :alt="builderImageAlt(field)" class="w-full object-cover" />
@@ -439,7 +422,6 @@ function builderImageAlt(f: IBuilderField): string {
                     </div>
                 </div>
 
-                <!-- Paragraph -->
                 <div v-else-if="field.type === 'paragraph'">
                     <FormParagraphContent
                         :content="String(field.metadata?.content ?? '')"
@@ -447,7 +429,6 @@ function builderImageAlt(f: IBuilderField): string {
                     />
                 </div>
 
-                <!-- Divider -->
                 <div v-else-if="field.type === 'divider'" class="py-1">
                     <hr class="app-divider" />
                 </div>

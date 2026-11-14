@@ -6,11 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Portal /joined/* — peserta; penyelenggara murni diarahkan ke dasbor utama.
- * Akun yang hanya penyelenggara (punya events.list, tanpa peran member/super-admin)
- * diarahkan ke dasbor utama agar tidak campur alur admin.
- */
+/** Portal /joined/* — peserta; penyelenggara murni diarahkan ke dasbor utama. */
 class EnsureMemberPortalAccess
 {
     public function handle(Request $request, Closure $next): Response

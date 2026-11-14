@@ -6,10 +6,7 @@ use App\Support\E2e\FixtureIdentity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Lakukan satu HTTP request ke base URL e2e dan kembalikan status + header.
- * Dipakai spec observasi agar assertion header tidak bergantung pada log server.
- */
+/** Lakukan satu HTTP request ke base URL e2e dan kembalikan status + header. */
 final class HttpCommand extends Command
 {
     protected $signature = 'e2e:http

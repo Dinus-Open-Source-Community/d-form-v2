@@ -8,7 +8,9 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
+ *
  * @extends Factory<FormAnswer>
+ *
  */
 class FormAnswerFactory extends Factory
 {

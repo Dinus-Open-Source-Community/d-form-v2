@@ -96,11 +96,7 @@ class TeamInvitationController extends Controller
         ]);
     }
 
-    /**
-     * Validasi tetap inline: aturannya baru relevan setelah token terbukti milik
-     * user (403), berstatus pending, dan form-nya tim/bundle (404); Form Request
-     * akan memvalidasi lebih dulu sehingga mengubah urutan respons tersebut.
-     */
+    /** Keep validation inline so authorization and status errors retain their established order. */
     public function update(Request $request, string $token): RedirectResponse
     {
         $answer = $this->loadInvitationAnswer($token);
@@ -253,12 +249,14 @@ class TeamInvitationController extends Controller
     }
 
     /**
+     *
      * If the leader already stored a file path, allow confirming without re-uploading.
      *
      * @param  \Illuminate\Support\Collection<int, FormField>  $appendableFields
      * @param  array<string, array<int, string>>  $laravelRules
      * @param  array<string, mixed>  $answers
      * @return array<string, array<int, string>>
+     *
      */
     private function relaxFileRulesWhenPathExists($appendableFields, array $laravelRules, array $answers): array
     {

@@ -10,11 +10,7 @@ use Illuminate\Http\Request;
 
 class FormSubmissionsController extends Controller
 {
-    /**
-     * Halaman pengiriman mandiri sudah tidak dipakai: daftar jawaban kini
-     * dirender langsung di tab "Jawaban" halaman detail form. Rute dipertahankan
-     * agar tautan lama tetap berfungsi dan diarahkan (301) ke tab Jawaban.
-     */
+    /** Halaman pengiriman mandiri sudah tidak dipakai: daftar jawaban kini dirender langsung di tab "Jawaban" halaman detail form. */
     public function __invoke(Request $request, Event $event, Form $form): RedirectResponse
     {
         $this->authorize('view', $event);

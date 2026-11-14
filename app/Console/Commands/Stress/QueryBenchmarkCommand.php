@@ -13,12 +13,7 @@ use RuntimeException;
 use stdClass;
 use Throwable;
 
-/**
- * Benchmark query produksi (read-only) terhadap dataset stress 1 juta baris.
- *
- * Dipakai setelah `stress:seed` untuk menemukan slow query, full scan, dan N+1
- * sebelum endpoint yang memakainya diuji dengan k6.
- */
+/** Benchmark query produksi (read-only) terhadap dataset stress 1 juta baris. */
 final class QueryBenchmarkCommand extends Command
 {
     private const WARN_MILLISECONDS = 100;
@@ -116,9 +111,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Daftar query yang meniru service/controller aktif, dikelompokkan per domain.
      *
      * @return list<array{name:string,sql:string,bindings:list<string|int|null>,skip?:string|null}>
+     *
      */
     private function benchmarkCatalog(): array
     {
@@ -133,7 +130,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return list<array{name:string,sql:string,bindings:list<string|null>}>
+     *
      */
     private function eventBenchmarks(): array
     {
@@ -177,7 +176,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return list<array{name:string,sql:string,bindings:list<string|null>}>
+     *
      */
     private function formBenchmarks(): array
     {
@@ -240,7 +241,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return list<array{name:string,sql:string,bindings:list<string>}>
+     *
      */
     private function scanBenchmarks(): array
     {
@@ -278,7 +281,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return list<array{name:string,sql:string,bindings:list<string>}>
+     *
      */
     private function reportingBenchmarks(): array
     {
@@ -331,7 +336,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return list<array{name:string,sql:string,bindings:list<string>}>
+     *
      */
     private function recruitmentBenchmarks(): array
     {
@@ -411,9 +418,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Query broadcast hanya diukur bila FEATURE_BROADCAST aktif (default: dorman).
      *
      * @return list<array{name:string,sql:string,bindings:list<string|null>,skip:string|null}>
+     *
      */
     private function broadcastBenchmarks(): array
     {
@@ -448,10 +457,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Terapkan filter --only, batas --limit, dan penanda skip.
      *
      * @param  list<array{name:string,sql:string,bindings:list<string|int|null>,skip?:string|null}>  $catalog
      * @return array{run:list<array{name:string,sql:string,bindings:list<string|int|null>}>,skipped:list<array{name:string,reason:string}>}
+     *
      */
     private function selectBenchmarks(array $catalog): array
     {
@@ -489,10 +500,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Ukur median eksekusi, rencana akses, dan warning untuk satu query.
      *
      * @param  array{name:string,sql:string,bindings:list<string|int|null>}  $benchmark
      * @return array{name:string,sql:string,median_ms:float,rows_returned:int,rows_examined:int|null,access:string|null,warnings:list<string>}
+     *
      */
     private function measure(array $benchmark): array
     {
@@ -517,10 +530,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Jalankan query beberapa kali dan ambil median durasi dalam milidetik.
      *
      * @param  array{name:string,sql:string,bindings:list<string|int|null>}  $benchmark
      * @return array{median_ms:float,rows_returned:int}
+     *
      */
     private function measureExecution(array $benchmark): array
     {
@@ -544,10 +559,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Ambil EXPLAIN ANALYZE (bila didukung) atau EXPLAIN biasa untuk satu query.
      *
      * @param  array{name:string,sql:string,bindings:list<string|int|null>}  $benchmark
      * @return array{rows_examined:int|null,access:string|null,full_scan_rows:int|null,note:string|null}
+     *
      */
     private function inspectPlan(array $benchmark): array
     {
@@ -573,9 +590,7 @@ final class QueryBenchmarkCommand extends Command
         return $analysis;
     }
 
-    /**
-     * Deteksi dukungan EXPLAIN ANALYZE sekali per eksekusi command.
-     */
+    /** Deteksi dukungan EXPLAIN ANALYZE sekali per eksekusi command. */
     private function detectExplainMode(): string
     {
         try {
@@ -588,9 +603,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * MySQL 8 mengembalikan satu kolom EXPLAIN berisi pohon rencana.
      *
      * @param  list<stdClass>  $rows
+     *
      */
     private function isTreePlan(array $rows): bool
     {
@@ -598,10 +615,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Ringkas pohon EXPLAIN ANALYZE MySQL: total baris aktual, akses terburuk, dan baris full scan.
      *
      * @param  list<stdClass>  $rows
      * @return array{rows_examined:int|null,access:string|null,full_scan_rows:int|null}
+     *
      */
     private function analyseTreePlan(array $rows): array
     {
@@ -634,9 +653,7 @@ final class QueryBenchmarkCommand extends Command
         ];
     }
 
-    /**
-     * Petakan teks pohon rencana (tanpa full scan) ke jenis akses range/index.
-     */
+    /** Petakan teks pohon rencana (tanpa full scan) ke jenis akses range/index. */
     private function treeAccess(string $planText): ?string
     {
         $text = strtolower($planText);
@@ -653,10 +670,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Ringkas EXPLAIN tabular (MySQL fallback / MariaDB): jumlah baris dan tipe akses.
      *
      * @param  list<stdClass>  $rows
      * @return array{rows_examined:int|null,access:string|null,full_scan_rows:int|null}
+     *
      */
     private function analyseTabularPlan(array $rows): array
     {
@@ -693,9 +712,7 @@ final class QueryBenchmarkCommand extends Command
         ];
     }
 
-    /**
-     * Normalisasi tipe akses EXPLAIN MySQL/MariaDB ke ALL/range/index.
-     */
+    /** Normalisasi tipe akses EXPLAIN MySQL/MariaDB ke ALL/range/index. */
     private function normaliseAccess(string $type): string
     {
         return match (strtolower(trim($type))) {
@@ -707,9 +724,7 @@ final class QueryBenchmarkCommand extends Command
         };
     }
 
-    /**
-     * Bandingkan dua jenis akses; ALL selalu dianggap paling buruk.
-     */
+    /** Bandingkan dua jenis akses; ALL selalu dianggap paling buruk. */
     private function isWorseAccess(string $candidate, ?string $current): bool
     {
         $rank = ['ALL' => 4, 'unknown' => 3, 'range' => 2, 'index' => 1];
@@ -720,10 +735,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Susun warning dari hasil ukur: lambat (>100 ms) dan full scan tabel besar.
      *
      * @param  array{median_ms:float,access:string|null,rows_examined:int|null,full_scan_rows:int|null,note:string|null}  $measurement
      * @return list<string>
+     *
      */
     private function buildWarnings(array $measurement): array
     {
@@ -749,9 +766,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Hitung jumlah query per pemanggilan service (indikasi N+1).
      *
      * @return list<array{target:string,queries:int,note:string|null}>
+     *
      */
     private function probeQueryCounts(): array
     {
@@ -780,10 +799,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Jalankan satu probe dengan query log aktif, kembalikan jumlah query aktualnya.
      *
      * @param  Closure():array<mixed>  $run
      * @return array{target:string,queries:int,note:string|null}
+     *
      */
     private function runProbe(string $target, Closure $run): array
     {
@@ -803,9 +824,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Baca identifier sampel dari manifest stress; fallback ke baris pertama tabel.
      *
      * @return array<string, string|null>
+     *
      */
     private function resolveSampleIdentifiers(): array
     {
@@ -821,7 +844,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @return array<mixed>
+     *
      */
     private function loadManifest(): array
     {
@@ -837,10 +862,12 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Cari nilai identifier pertama pada manifest untuk salah satu alias kunci.
      *
      * @param  array<mixed>  $tree
      * @param  list<string>  $aliases
+     *
      */
     private function findIdentifierInManifest(array $tree, array $aliases): ?string
     {
@@ -870,9 +897,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Ambil string pertama yang tidak kosong dari struktur manifest bersarang.
      *
      * @param  array<mixed>  $tree
+     *
      */
     private function scalarFromTree(array $tree): ?string
     {
@@ -893,9 +922,7 @@ final class QueryBenchmarkCommand extends Command
         return null;
     }
 
-    /**
-     * Ambil id baris pertama sebuah tabel sebagai sampel; null bila tabel tidak ada.
-     */
+    /** Ambil id baris pertama sebuah tabel sebagai sampel; null bila tabel tidak ada. */
     private function firstIdentifier(string $table): ?string
     {
         if (! Schema::hasTable($table)) {
@@ -908,9 +935,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Daftar filter --only (dipisah koma, case-insensitive).
      *
      * @return list<string>
+     *
      */
     private function onlyFilters(): array
     {
@@ -927,9 +956,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Cocokkan nama query dengan salah satu filter --only.
      *
      * @param  list<string>  $filters
+     *
      */
     private function matchesOnly(string $name, array $filters): bool
     {
@@ -942,9 +973,7 @@ final class QueryBenchmarkCommand extends Command
         return false;
     }
 
-    /**
-     * Jaga command tetap read-only: hanya pernyataan SELECT yang boleh diukur.
-     */
+    /** Jaga command tetap read-only: hanya pernyataan SELECT yang boleh diukur. */
     private function assertReadOnly(string $sql): void
     {
         if (preg_match('/^\s*SELECT\b/i', $sql) !== 1) {
@@ -952,9 +981,7 @@ final class QueryBenchmarkCommand extends Command
         }
     }
 
-    /**
-     * Rapikan SQL multi-baris menjadi satu baris; potong bila melebihi batas tampilan.
-     */
+    /** Rapikan SQL multi-baris menjadi satu baris; potong bila melebihi batas tampilan. */
     private function compactSql(string $sql, int $maxLength = 0): string
     {
         $compact = (string) preg_replace('/\s+/', ' ', trim($sql));
@@ -966,9 +993,7 @@ final class QueryBenchmarkCommand extends Command
         return substr($compact, 0, $maxLength - 1).'…';
     }
 
-    /**
-     * Ekspresi bulan yang sesuai driver untuk query tren registrasi.
-     */
+    /** Ekspresi bulan yang sesuai driver untuk query tren registrasi. */
     private function monthExpression(): string
     {
         return DB::connection()->getDriverName() === 'sqlite'
@@ -977,7 +1002,9 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * @param  list<array{name:string,sql:string,median_ms:float,rows_returned:int,rows_examined:int|null,access:string|null,warnings:list<string>}>  $results
+     *
      */
     private function hasWarnings(array $results): bool
     {
@@ -991,9 +1018,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Tampilkan progres singkat ke stderr agar tidak mengganggu output tabel.
      *
      * @param  array{current:int,total:int,name:string}  $progress
+     *
      */
     private function renderProgress(array $progress): void
     {
@@ -1005,9 +1034,11 @@ final class QueryBenchmarkCommand extends Command
     }
 
     /**
+     *
      * Render laporan default dalam bentuk tabel teks yang mudah dibaca.
      *
      * @param  array<string, mixed>  $payload
+     *
      */
     private function renderTextReport(array $payload): void
     {

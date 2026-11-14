@@ -13,9 +13,7 @@ class EventSessionOptionService
     public const RAW_CACHE_KEY = 'event-options:sessions:raw';
 
     /**
-     * Session options for dashboard forms, built from distinct values in `events.session`.
-     * Includes all enum options plus any valid custom tokens found in the database.
-     *
+     * Session options include enum values and valid custom tokens found in `events.session`.
      * @return array<int, array{value: string, label: string}>
      */
     public function forForm(): array
@@ -27,10 +25,12 @@ class EventSessionOptionService
     }
 
     /**
+     *
      * Same resolution as {@see forForm()} but from raw strings (for tests and reuse).
      *
      * @param  iterable<int|string, mixed>  $rawSessionRows
      * @return array<int, array{value: string, label: string}>
+     *
      */
     public function optionsForRawSessionRows(iterable $rawSessionRows): array
     {
@@ -99,7 +99,9 @@ class EventSessionOptionService
     }
 
     /**
+     *
      * @return array<int, array{value: string, label: string}>
+     *
      */
     private function allEnumOptions(): array
     {

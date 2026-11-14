@@ -8,15 +8,7 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\UploadedFile;
 
-/**
- * Rule HTTP untuk unggahan: menerjemahkan hasil {@see UploadInspector} menjadi
- * error validasi per field (422).
- *
- * Dua mode:
- * - purpose (`UploadPurpose`): kebijakan tetap per tujuan unggahan (disarankan).
- * - daftar ekstensi dinamis: dipakai form field yang allow-list-nya berasal dari
- *   metadata field; batas ukurannya tetap tunduk pada batas global.
- */
+/** Rule HTTP untuk unggahan: menerjemahkan hasil {@see UploadInspector} menjadi error validasi per field (422). */
 final class SafeUploadFile implements ValidationRule
 {
     /** Format yang dipakai bila pemanggil tidak menyebut daftar ekstensi sendiri. */
@@ -37,8 +29,10 @@ final class SafeUploadFile implements ValidationRule
     private readonly ?array $allowedExtensions;
 
     /**
+     *
      * @param  UploadPurpose|list<string>  $purposeOrFormats  Purpose atau daftar ekstensi dinamis.
      * @param  int|null  $maxSizeKb  Batas per field (KB); selalu di-clamp ke batas purpose.
+     *
      */
     public function __construct(
         UploadPurpose|array $purposeOrFormats = UploadPurpose::Image,

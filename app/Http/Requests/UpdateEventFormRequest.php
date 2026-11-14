@@ -33,12 +33,7 @@ class UpdateEventFormRequest extends FormRequest
         return $user->can('update', $event);
     }
 
-    /**
-     * Autosave parsial hanya untuk draft: builder menyimpan header yang belum
-     * lengkap, jadi field wajib (title/description/closed_at) tidak boleh
-     * dipaksakan. `publish` selalu memakai aturan penuh, dan `autosave` pada
-     * form published diabaikan (aturan penuh seperti sebelumnya).
-     */
+    /** Autosave parsial hanya untuk draft: builder menyimpan header yang belum lengkap, jadi field wajib (title/description/closed_at) tidak boleh dipaksakan. */
     public function isDraftAutosave(): bool
     {
         if ($this->boolean('publish') || $this->has('status') || ! $this->boolean('autosave')) {
@@ -49,7 +44,9 @@ class UpdateEventFormRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -105,9 +102,10 @@ class UpdateEventFormRequest extends FormRequest
     }
 
     /**
-     * Get custom validation messages.
+     *
      *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

@@ -13,11 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Throwable;
 
-/**
- * Stores registration uploads on the private disk and resolves routed access
- * URLs. The public disk is read only as a legacy fallback so files uploaded
- * before the private-disk change stay reachable through the authorized route.
- */
+/** Stores registration uploads on the private disk and resolves routed access URLs. */
 final class FormAnswerFileStorage
 {
     private const DIRECTORY_PREFIX = 'form-uploads';
@@ -37,11 +33,13 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Store every file for one answer field, removing earlier paths when any
      * later write fails so a field can never be partially persisted.
      *
      * @param list<UploadedFile> $files
      * @return list<string>
+     *
      */
     public function storeMany(array $files, Form $form): array
     {
@@ -61,9 +59,11 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Remove mapped upload paths after a later submission validation failure.
      *
      * @param  array<string, mixed>  $answers
+     *
      */
     public function discardMappedUploads(Form $form, array $answers): void
     {
@@ -89,9 +89,11 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Resolve the disk and path for a stored answer field.
      *
      * @return array{disk: string, path: string}|null
+     *
      */
     public function locate(FormAnswer $answer, string $field, ?string $filename = null): ?array
     {
@@ -119,11 +121,13 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Replace stored private paths with URLs for an already authenticated page.
      *
      * @param  array<string, mixed>  $answers
      * @param  list<string>  $fileFieldNames
      * @return array<string, mixed>
+     *
      */
     public function answerUrls(FormAnswer $answer, array $answers, array $fileFieldNames): array
     {
@@ -131,12 +135,14 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Replace every stored path with an individually signed URL for exports
      * and email summaries.
      *
      * @param  array<string, mixed>  $answers
      * @param  list<string>  $fileFieldNames
      * @return array<string, mixed>
+     *
      */
     public function temporaryAnswerUrls(FormAnswer $answer, array $answers, array $fileFieldNames): array
     {
@@ -160,9 +166,11 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * @param  array<string, mixed>  $answers
      * @param  list<string>  $fileFieldNames
      * @return array<string, mixed>
+     *
      */
     private function replacePaths(FormAnswer $answer, array $answers, array $fileFieldNames, bool $temporary): array
     {
@@ -196,7 +204,9 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * @return array{formAnswer: string, field: string, filename: string}
+     *
      */
     private function routeParameters(FormAnswer $answer, string $field, ?string $filename = null): array
     {
@@ -267,10 +277,12 @@ final class FormAnswerFileStorage
     }
 
     /**
+     *
      * Delete paths independently so cleanup failures never replace the
      * exception that caused the original upload operation to fail.
      *
      * @param  list<string>  $paths
+     *
      */
     private function deletePaths(array $paths): void
     {

@@ -21,9 +21,7 @@ final class TeamRegistrationSubmitter
     ) {
     }
 
-    /**
-     * Total participants including leader (from form metadata).
-     */
+    /** Total participants including leader (from form metadata). */
     public static function resolveTeamSize(Form $form): int
     {
         $metadata = $form->metadata;
@@ -57,8 +55,10 @@ final class TeamRegistrationSubmitter
     }
 
     /**
+     *
      * @param  list<User>  $memberUsers
      * @return array{leader: FormAnswer, members: list<FormAnswer>}
+     *
      */
     public function submit(
         Form $form,
@@ -153,14 +153,11 @@ final class TeamRegistrationSubmitter
     }
 
     /**
+     *
      * Re-read one leader plus its members in a single query.
-     *
-     * `fresh()` per row would hydrate the same values but costs one query per
-     * row; the rows returned by the writer already carry id, timestamps and all
-     * submitted attributes, so this keeps DB defaults without the N+1.
-     *
      * @param  list<FormAnswer>  $memberRows
      * @return array{leader: FormAnswer, members: list<FormAnswer>}
+     *
      */
     public static function reloadSubmissionGroup(FormAnswer $leader, array $memberRows): array
     {
@@ -192,13 +189,10 @@ final class TeamRegistrationSubmitter
     }
 
     /**
-     * Translate a participant-row unique violation into the same field error
-     * used by the pre-insert duplicate checks, instead of surfacing a 500.
      *
-     * Only participant unique constraints are translated; any other query error
-     * is rethrown untouched.
-     *
+     * Translate a participant-row unique violation into the same field error used by the pre-insert duplicate checks, instead of surfacing a 500.
      * @throws QueryException|ValidationException
+     *
      */
     public static function rethrowParticipantWriteFailure(QueryException $exception, int $index): never
     {
@@ -226,10 +220,10 @@ final class TeamRegistrationSubmitter
     }
 
     /**
-     * Generate one invitation token per member, validating the whole batch with
-     * a single collision query and retrying only when a collision is found.
      *
+     * Generate one invitation token per member, validating the whole batch with a single collision query and retrying only when a collision is found.
      * @return list<string>
+     *
      */
     private function generateUniqueInvitationTokens(int $count): array
     {

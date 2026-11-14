@@ -5,7 +5,6 @@ cd /app
 
 echo "=== D-Form Production Entrypoint ==="
 
-# Ensure necessary directories exist
 echo "Preparing directories..."
 mkdir -p storage/app/public \
          storage/framework/cache/data \
@@ -15,12 +14,10 @@ mkdir -p storage/app/public \
          bootstrap/cache \
          bootstrap/cache/filament
 
-# Fix permissions
 echo "Setting permissions..."
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
 
-# Wait for database
 if [ -n "$DB_HOST" ]; then
     echo "Waiting for database ($DB_HOST:${DB_PORT:-3306})..."
     until nc -z -v -w30 "$DB_HOST" "${DB_PORT:-3306}"; do
@@ -30,7 +27,6 @@ if [ -n "$DB_HOST" ]; then
     echo "Database is up!"
 fi
 
-# Wait for Redis
 if [ -n "$REDIS_HOST" ]; then
     echo "Waiting for Redis ($REDIS_HOST:${REDIS_PORT:-6379})..."
     until nc -z -v -w30 "$REDIS_HOST" "${REDIS_PORT:-6379}"; do
@@ -40,17 +36,10 @@ if [ -n "$REDIS_HOST" ]; then
     echo "Redis is up!"
 fi
 
-# Storage symlink
 echo "Ensuring storage link..."
 php artisan storage:link --force 2>/dev/null || true
 
-# ---------------------------------------------------------------
-# Write a custom worker file that catches boot exceptions.
-# The default Octane worker has no try/catch around ->boot(),
-# so PHP exceptions during app bootstrap are swallowed silently
-# by FrankenPHP, causing the cryptic "has not reached
-# frankenphp_handle_request()" error with no trace in docker logs.
-# ---------------------------------------------------------------
+# The custom worker logs boot exceptions; the default worker swallows them.
 echo "Writing diagnostic FrankenPHP worker..."
 cat > public/frankenphp-worker.php << 'WORKER_PHP'
 <?php
@@ -62,14 +51,11 @@ use Laravel\Octane\Stream;
 use Laravel\Octane\Worker;
 use Symfony\Component\HttpFoundation\Response;
 
-// ── File-based trace log — writes to the PERSISTENT Docker volume so the file
-// survives container restarts (storage/app is mounted as a volume).
+// Keep traces on the persistent Docker volume across restarts.
 $_traceLog = '/app/storage/app/worker-trace.log';
 $_trace = function (string $msg) use ($_traceLog): void {
     $line = '[' . date('H:i:s') . '][pid=' . getmypid() . '] ' . $msg . PHP_EOL;
-    // NOTE: Do NOT use fwrite(STDERR, ...) here!
-    // In FrankenPHP's embedded PHP ZTS (threaded) mode, STDERR is not a valid
-    // stream handle for PHP threads and causes a segfault, killing all workers.
+    // STDERR is unsafe in FrankenPHP's threaded PHP runtime.
     file_put_contents($_traceLog, $line, FILE_APPEND | LOCK_EX);
 };
 
@@ -121,8 +107,6 @@ try {
     usleep(200000);
     exit(1);
 }
-// ─────────────────────────────────────────────────────────────────────────
-
 $requestCount = 0;
 $debugMode = $_ENV['APP_DEBUG'] ?? $_SERVER['APP_DEBUG'] ?? 'false';
 $maxRequests = $_ENV['MAX_REQUESTS'] ?? $_SERVER['MAX_REQUESTS'] ?? 1000;
@@ -170,11 +154,9 @@ WORKER_PHP
 
 echo "Worker file written."
 
-# Run migrations
 echo "Running migrations..."
 php artisan migrate --force
 
-# Optimize Laravel for production
 echo "Optimizing Laravel..."
 php artisan config:cache
 php artisan route:cache

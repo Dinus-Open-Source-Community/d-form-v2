@@ -13,9 +13,7 @@ final class InterviewAutoEnrollService
     ) {
     }
 
-    /**
-     * Sesi aktif terdekat milik divisi primer applicant pada periode yang sama.
-     */
+    /** Sesi aktif terdekat milik divisi primer applicant pada periode yang sama. */
     public function resolveNearestSession(RecruitmentApplication $application): ?RecruitmentInterviewSession
     {
         if ($application->primary_division_id === null) {
@@ -32,10 +30,7 @@ final class InterviewAutoEnrollService
             ->first();
     }
 
-    /**
-     * Daftarkan applicant ke sesi primer terdekat. Idempoten: kembalikan
-     * primary interview yang sudah ada bila tersedia; null bila tak ada sesi.
-     */
+    /** Daftarkan applicant ke sesi primer terdekat. */
     public function enroll(RecruitmentApplication $application): ?RecruitmentInterview
     {
         $application->loadMissing('primaryInterview');

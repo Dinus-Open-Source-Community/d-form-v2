@@ -3,9 +3,6 @@ import { BookOpen, Rocket, FormInput, BarChart3, ShieldCheck } from 'lucide-vue-
 </script>
 
 <template>
-    <!-- ============================================== -->
-    <!-- INTRODUCTION -->
-    <!-- ============================================== -->
     <section id="introduction" data-doc-section class="scroll-mt-24">
         <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
             <BookOpen class="text-primary size-6" />
@@ -38,9 +35,6 @@ import { BookOpen, Rocket, FormInput, BarChart3, ShieldCheck } from 'lucide-vue-
 
     <hr class="border-border/30 my-12" />
 
-    <!-- ============================================== -->
-    <!-- QUICK START -->
-    <!-- ============================================== -->
     <section id="quick-start" data-doc-section class="scroll-mt-24">
         <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
             <Rocket class="text-primary size-6" />

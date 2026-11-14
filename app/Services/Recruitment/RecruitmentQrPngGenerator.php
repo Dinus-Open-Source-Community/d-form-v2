@@ -12,7 +12,9 @@ use Endroid\QrCode\Writer\PngWriter;
 final class RecruitmentQrPngGenerator
 {
     /**
+     *
      * @throws \JsonException
+     *
      */
     public function pngForApplication(string $applicationId): string
     {

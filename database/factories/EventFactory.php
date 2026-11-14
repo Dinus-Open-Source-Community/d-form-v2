@@ -10,7 +10,9 @@ use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
+ *
  * @extends Factory<Event>
+ *
  */
 class EventFactory extends Factory
 {

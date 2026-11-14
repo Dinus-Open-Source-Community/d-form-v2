@@ -350,7 +350,6 @@ const attachmentKindLabel = computed((): string => {
                 </div>
             </div>
 
-            <!-- Gambar: toolbar + area pratinjau terpisah, tanpa footer tebal -->
             <div v-else-if="preferImagePreview" data-testid="form-answer-image-card" :class="attachmentCardClass">
                 <div :class="attachmentToolbarClass">
                     <div class="flex min-w-0 items-start gap-3 @md:flex-1">
@@ -448,7 +447,6 @@ const attachmentKindLabel = computed((): string => {
                 </div>
             </div>
 
-            <!-- PDF: toolbar + viewport iframe -->
             <div v-else-if="isPdfPreview" data-testid="form-answer-pdf-card" :class="attachmentCardClass">
                 <div :class="attachmentToolbarClass">
                     <div class="flex min-w-0 items-start gap-3 sm:flex-1">
@@ -505,7 +503,6 @@ const attachmentKindLabel = computed((): string => {
                 </div>
             </div>
 
-            <!-- Berkas lain: kartu kompak satu baris aksi -->
             <div v-else-if="fileItems.length === 1 && publicFileUrl" :class="attachmentCardClass">
                 <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
                     <div class="flex min-w-0 flex-1 items-start gap-3">

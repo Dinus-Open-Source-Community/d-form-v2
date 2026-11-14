@@ -17,14 +17,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentInterviewExportController extends Controller
 {
-    /**
-     * Batas atas ukuran halaman: satu halaman 500 baris terukur ±25 MB, jadi
-     * nilai env yang terlalu besar akan berakhir sebagai 500 memory limit.
-     */
+    /** Batas atas ukuran halaman: satu halaman 500 baris terukur ±25 MB, jadi nilai env yang terlalu besar akan berakhir sebagai 500 memory limit. */
     private const MAX_PAGE_SIZE = 2000;
 
     /**
+     *
      * @var array<string, string>
+     *
      */
     private const COLUMN_LABELS = [
         'registration_number' => 'Nomor Pendaftaran',
@@ -126,21 +125,11 @@ class RecruitmentInterviewExportController extends Controller
     }
 
     /**
+     *
      * Baris CSV seluruh periode, dipaginasi keyset `registration_number`.
-     *
-     * Offset chunking tidak dipakai karena query ini menyaring satu periode lalu
-     * mengurutkan `registration_number`, sehingga OFFSET besar mematerialisasi ulang
-     * hasil terurut pada setiap chunk.
-     * `registration_number` unik global, jadi kolom yang sama dipakai sebagai sort
-     * key sekaligus tie-breaker dan urutan global tetap
-     * `(registration_number, interview_kind, id)`.
-     *
-     * Interview diambil satu query per halaman aplikasi; kursor maju per aplikasi
-     * terakhir halaman, bukan per baris interview terakhir yang tertulis, sehingga
-     * halaman yang seluruh barisnya terfilter tetap maju.
-     *
      * @param  array{period: RecruitmentPeriod, scope: string, includeSecondary: bool, columns: list<string>}  $options
      * @return \Generator<int, list<string>>
+     *
      */
     private function rows(array $options): \Generator
     {
@@ -174,11 +163,13 @@ class RecruitmentInterviewExportController extends Controller
     }
 
     /**
+     *
      * Interview milik satu halaman aplikasi, dikelompokkan per id aplikasi agar
      * baris ditulis sesuai urutan halaman lalu `(interview_kind, id)`.
      *
      * @param  list<string>  $applicationIds
      * @return array<string, list<RecruitmentInterview>>
+     *
      */
     private function interviewsForPage(array $applicationIds, string $scope, bool $includeSecondary): array
     {
@@ -217,8 +208,10 @@ class RecruitmentInterviewExportController extends Controller
     }
 
     /**
+     *
      * @param  list<string>  $columns
      * @return list<string>
+     *
      */
     private static function row(RecruitmentInterview $interview, array $columns): array
     {

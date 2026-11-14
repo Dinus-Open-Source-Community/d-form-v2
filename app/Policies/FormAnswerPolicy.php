@@ -13,10 +13,7 @@ class FormAnswerPolicy
         return $user->can('events.view');
     }
 
-    /**
-     * Allow access to a submission file for its owner, an organizer who can
-     * view the event, or the team leader of the same group.
-     */
+    /** Allow access to a submission file for its owner, an organizer who can view the event, or the team leader of the same group. */
     public function viewFile(User $user, FormAnswer $formAnswer): bool
     {
         if ((string) $formAnswer->user_id === (string) $user->id) {

@@ -9,12 +9,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Backfill the portable active marker without deleting or changing answer data.
- *
- * Rows are scanned by the UUID primary key so an interrupted run can resume
- * with the last printed ID. Re-running from the beginning is also idempotent.
- */
+/** Backfill the portable active marker without deleting or changing answer data. */
 final class BackfillActiveMarkerCommand extends Command
 {
     protected $signature = 'form-answers:backfill-active-marker
@@ -85,9 +80,11 @@ final class BackfillActiveMarkerCommand extends Command
     }
 
     /**
+     *
      * Update only the marker column for one batch; all other form answer data is untouched.
      *
      * @param  list<string>  $answerIds
+     *
      */
     private function setMarker(array $answerIds, ?int $marker): int
     {

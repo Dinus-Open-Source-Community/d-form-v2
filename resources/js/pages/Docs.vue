@@ -156,7 +156,6 @@ onUnmounted(() => {
             :canonical-path="routes.landing.docs"
             :json-ld="docsJsonLd"
         />
-        <!-- Hero -->
         <section class="border-border/30 bg-muted/20 relative overflow-hidden border-b pt-32 pb-16 md:pt-40 md:pb-20">
             <div class="app-noise pointer-events-none absolute inset-0 opacity-30" aria-hidden="true" />
             <div class="relative mx-auto max-w-7xl px-6 lg:px-10">
@@ -183,10 +182,8 @@ onUnmounted(() => {
             </div>
         </section>
 
-        <!-- Body: Sidebar + Content -->
         <div class="mx-auto max-w-7xl px-6 lg:px-10">
             <div class="relative flex gap-10 py-12 lg:py-16">
-                <!-- Mobile nav toggle -->
                 <button
                     class="bg-primary text-primary-foreground fixed right-6 bottom-6 z-50 flex size-12 items-center justify-center shadow-sm lg:hidden"
                     @click="mobileNavOpen = !mobileNavOpen"
@@ -195,7 +192,6 @@ onUnmounted(() => {
                     <X v-else class="size-5" />
                 </button>
 
-                <!-- Sidebar -->
                 <aside
                     :class="[
                         'border-border/30 bg-background fixed inset-y-0 left-0 z-40 w-72 overflow-y-auto border-r px-6 pt-24 pb-10 transition-transform duration-300 lg:sticky lg:top-24 lg:z-auto lg:h-[calc(100vh-6rem)] lg:w-56 lg:shrink-0 lg:translate-x-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0',
@@ -226,23 +222,18 @@ onUnmounted(() => {
                     </nav>
                 </aside>
 
-                <!-- Overlay for mobile -->
                 <div
                     v-if="mobileNavOpen"
                     class="fixed inset-0 z-30 bg-black/40 lg:hidden"
                     @click="mobileNavOpen = false"
                 />
 
-                <!-- Content -->
                 <div class="min-w-0 flex-1">
                     <div class="prose-doc mx-auto max-w-3xl">
                         <DocsGettingStarted />
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- AUTH -->
-                        <!-- ============================================== -->
                         <section id="auth" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <UserPlus class="text-primary size-6" />
@@ -278,9 +269,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- BROWSE EVENTS -->
-                        <!-- ============================================== -->
                         <section id="browse-events" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Search class="text-primary size-6" />
@@ -300,9 +288,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- FILL FORM -->
-                        <!-- ============================================== -->
                         <section id="fill-form" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <PenTool class="text-primary size-6" />
@@ -341,9 +326,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- TEAM REGISTRATION -->
-                        <!-- ============================================== -->
                         <section id="team-registration" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Users class="text-primary size-6" />
@@ -381,9 +363,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- MY REGISTRATION -->
-                        <!-- ============================================== -->
                         <section id="my-registration" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <CheckCircle2 class="text-primary size-6" />
@@ -433,9 +412,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- PROFILE -->
-                        <!-- ============================================== -->
                         <section id="profile" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Settings class="text-primary size-6" />
@@ -461,9 +437,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- ORGANIZER DASHBOARD -->
-                        <!-- ============================================== -->
                         <section id="organizer-dashboard" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <BarChart3 class="text-primary size-6" />
@@ -498,9 +471,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- EVENT MANAGEMENT -->
-                        <!-- ============================================== -->
                         <section id="event-management" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <CalendarPlus class="text-primary size-6" />
@@ -539,9 +509,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- FORM BUILDER -->
-                        <!-- ============================================== -->
                         <section id="form-builder" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Palette class="text-primary size-6" />
@@ -583,9 +550,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- FIELD TYPES -->
-                        <!-- ============================================== -->
                         <section id="field-types" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <FormInput class="text-primary size-6" />
@@ -806,9 +770,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- FORM SETTINGS -->
-                        <!-- ============================================== -->
                         <section id="form-settings" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <ToggleRight class="text-primary size-6" />
@@ -860,9 +821,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- SUBMISSIONS -->
-                        <!-- ============================================== -->
                         <section id="submissions" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Eye class="text-primary size-6" />
@@ -895,9 +853,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- REGISTRANTS -->
-                        <!-- ============================================== -->
                         <section id="registrants" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Layers class="text-primary size-6" />
@@ -912,9 +867,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- QR SCAN -->
-                        <!-- ============================================== -->
                         <section id="qr-scan" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <QrCode class="text-primary size-6" />
@@ -944,9 +896,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- EXPORT -->
-                        <!-- ============================================== -->
                         <section id="export" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Download class="text-primary size-6" />
@@ -975,9 +924,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- REPORTING -->
-                        <!-- ============================================== -->
                         <section id="reporting" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <FileText class="text-primary size-6" />
@@ -1005,9 +951,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- TECH STACK -->
-                        <!-- ============================================== -->
                         <section id="tech-stack" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Code2 class="text-primary size-6" />
@@ -1077,9 +1020,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- AUTH SYSTEM -->
-                        <!-- ============================================== -->
                         <section id="auth-system" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Lock class="text-primary size-6" />
@@ -1137,9 +1077,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- ROLES & PERMISSIONS -->
-                        <!-- ============================================== -->
                         <section id="roles-permissions" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <ShieldCheck class="text-primary size-6" />
@@ -1176,9 +1113,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- DATABASE SCHEMA -->
-                        <!-- ============================================== -->
                         <section id="database-schema" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Database class="text-primary size-6" />
@@ -1245,9 +1179,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- REGISTRATION MODES -->
-                        <!-- ============================================== -->
                         <section id="registration-modes" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Users class="text-primary size-6" />
@@ -1300,9 +1231,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- FIELD METADATA -->
-                        <!-- ============================================== -->
                         <section id="field-metadata" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Settings class="text-primary size-6" />
@@ -1381,9 +1309,6 @@ onUnmounted(() => {
 
                         <hr class="border-border/30 my-12" />
 
-                        <!-- ============================================== -->
-                        <!-- SERVICES -->
-                        <!-- ============================================== -->
                         <section id="services" data-doc-section class="scroll-mt-24">
                             <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
                                 <Layers class="text-primary size-6" />
@@ -1480,7 +1405,6 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <!-- Scroll to top -->
         <button
             v-if="showScrollTop"
             class="border-border/50 bg-card text-muted-foreground hover:text-primary fixed right-20 bottom-6 z-40 flex size-10 items-center justify-center border shadow-sm transition-all lg:right-6"

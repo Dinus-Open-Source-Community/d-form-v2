@@ -10,9 +10,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Validates an explicitly selected, bounded batch of form-answer review decisions.
- */
+/** Validates an explicitly selected, bounded batch of form-answer review decisions. */
 final class BulkFormAnswerReviewRequest extends FormRequest
 {
     /** Authorize the organizer and reject a form from another event before validation. */
@@ -38,9 +36,11 @@ final class BulkFormAnswerReviewRequest extends FormRequest
     }
 
     /**
+     *
      * Validate only explicit, unique UUIDs and an accepted/rejected decision.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {

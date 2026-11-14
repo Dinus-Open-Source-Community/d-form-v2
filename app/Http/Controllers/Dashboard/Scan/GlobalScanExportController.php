@@ -154,12 +154,12 @@ class GlobalScanExportController extends Controller
     }
 
     /**
-     * Write the body for the requested format and count the data rows actually
-     * written, so the caller can audit partial output after a mid-stream failure.
      *
+     * Write the body for the requested format and count the data rows actually written, so the caller can audit partial output after a mid-stream failure.
      * @param  list<string>  $header
      * @param  iterable<int, list<string|int|null>>  $rows
      * @param  int  $rowCount  data rows written, header excluded
+     *
      */
     private function write(string $format, array $header, iterable $rows, int &$rowCount): void
     {
@@ -193,10 +193,12 @@ class GlobalScanExportController extends Controller
     }
 
     /**
+     *
      * Menyaring setiap sel data sebelum ditulis ke CSV maupun XLSX.
      *
      * @param  iterable<int, list<string|int|null>>  $rows
      * @return \Generator<int, list<string>>
+     *
      */
     private function sanitizeRows(iterable $rows): \Generator
     {
@@ -206,7 +208,9 @@ class GlobalScanExportController extends Controller
     }
 
     /**
+     *
      * @return \Generator<int, list<string|int|null>>
+     *
      */
     private function eventRows(Event $event): \Generator
     {
@@ -233,7 +237,9 @@ class GlobalScanExportController extends Controller
     }
 
     /**
+     *
      * @return \Generator<int, list<string|int|null>>
+     *
      */
     private function oprecRows(RecruitmentInterviewSession $session): \Generator
     {
@@ -267,7 +273,9 @@ class GlobalScanExportController extends Controller
 
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     private function headers(string $format): array
     {

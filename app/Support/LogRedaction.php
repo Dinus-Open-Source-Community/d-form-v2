@@ -5,12 +5,7 @@ namespace App\Support;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Deterministic redaction for log contexts and public error messages.
- *
- * Only formatting is performed here: nothing is written to logs, storage, or the database,
- * so the same value always produces the same output.
- */
+/** Deterministic redaction for log contexts and public error messages. */
 final class LogRedaction
 {
     /** Stable, transport-agnostic category and copy for public mail error projections. */
@@ -32,11 +27,7 @@ final class LogRedaction
 
     private const BARE_CREDENTIAL_PATTERN = '/(["\']?)\b('.self::CREDENTIAL_NAME.')\b\1\s*([=:])\s*(?!\[redacted\]|Basic\b|Bearer\b)([^\s"\';&,]+)/i';
 
-    /**
-     * Mask the local part of an address while keeping the domain for operational grouping.
-     *
-     * Null and empty values are returned unchanged; values without a usable `@` are fully redacted.
-     */
+    /** Mask the local part of an address while keeping the domain for operational grouping. */
     public static function email(?string $email): ?string
     {
         if ($email === null || $email === '') {
@@ -52,11 +43,7 @@ final class LogRedaction
         return mb_substr($email, 0, 1).'***'.substr($email, $at);
     }
 
-    /**
-     * Redact emails, credentials, bearer/basic tokens, and URL userinfo from free text, then truncate.
-     *
-     * Never throws on empty input; the result is safe to place in a log context or error message.
-     */
+    /** Redact emails, credentials, bearer/basic tokens, and URL userinfo from free text, then truncate. */
     public static function text(string $value, int $limit = 500): string
     {
         $redacted = preg_replace(self::USERINFO_PATTERN, '$1[credentials]@', $value) ?? '';
@@ -69,10 +56,7 @@ final class LogRedaction
         return Str::limit($redacted, $limit);
     }
 
-    /**
-     * Render an exception without free-form message content, which may contain PII
-     * that cannot be reliably identified by pattern-based redaction.
-     */
+    /** Render an exception without free-form message content, which may contain PII that cannot be reliably identified by pattern-based redaction. */
     public static function exception(Throwable $exception, int $limit = 500): string
     {
         return Str::limit($exception::class.': [message redacted]', $limit);

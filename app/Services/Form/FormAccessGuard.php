@@ -14,26 +14,10 @@ use App\Models\FormAnswer;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 
-/**
- * Centralised access guard for the form fill / submit flow.
- *
- * Checks are evaluated in priority order so the most actionable reason is
- * always returned first. Admins (users with the `events.list` permission) are
- * exempt from visibility and registration-window checks but are still subject
- * to the duplicate-submission check.
- */
+/** Centralised access guard for the form fill / submit flow. */
 final class FormAccessGuard
 {
-    /**
-     * Evaluate whether the given user may fill or submit the form.
-     *
-     * Order of checks:
-     *  1. Visibility (`form.visible_for`)
-     *  2. Form closure (`form.closed_at`)
-     *  3. Registration forms: registration window, quota, other registration form chosen
-     *  4. Other forms: prerequisite (accepted submission on required form)
-     *  5. Duplicate / pending invitation / terminal invitation for this form
-     */
+    /** Evaluate whether the given user may fill or submit the form. */
     public static function check(Form $form, Event $event, User $user): FormAccessStatus
     {
         // Draft belum boleh diisi siapa pun: halaman fill/submit hanya untuk form
@@ -74,10 +58,7 @@ final class FormAccessGuard
             ?? FormAccessStatus::Allowed;
     }
 
-    /**
-     * Tolak (404) bila event sudah dihapus atau belum dipublikasikan dan user bukan admin.
-     * Admin tetap boleh membuka form draft untuk pratinjau.
-     */
+    /** Tolak (404) bila event sudah dihapus atau belum dipublikasikan dan user bukan admin. */
     public static function assertEventAvailable(Event $event, User $user): void
     {
         if ($user->can('events.list')) {
@@ -87,9 +68,7 @@ final class FormAccessGuard
         abort_if($event->trashed() || $event->status !== EventStatus::Published, 404);
     }
 
-    /**
-     * When access is blocked for an existing row, the fill page may link here.
-     */
+    /** When access is blocked for an existing row, the fill page may link here. */
     public static function pendingTeamInvitationUrl(Form $form, User $user): ?string
     {
         $existing = FormAnswer::query()
@@ -174,9 +153,7 @@ final class FormAccessGuard
             && $event->registered_count >= $event->quota;
     }
 
-    /**
-     * One registration form per user per event (other-purpose forms do not count).
-     */
+    /** One registration form per user per event (other-purpose forms do not count). */
     private static function hasSubmissionOnOtherRegistrationFormInEvent(Form $form, Event $event, User $user): bool
     {
         return FormAnswer::query()
@@ -195,9 +172,7 @@ final class FormAccessGuard
             ->exists();
     }
 
-    /**
-     * Non-registration forms may require an accepted submission on another form.
-     */
+    /** Non-registration forms may require an accepted submission on another form. */
     private static function prerequisiteAccepted(Form $form, Event $event, User $user): bool
     {
         $requiresFormId = $form->requiresFormId();

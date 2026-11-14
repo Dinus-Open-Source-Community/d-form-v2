@@ -6,10 +6,7 @@ use App\Console\Commands\E2e\Concerns\ResolvesFixtureIdentity;
 use App\Support\E2e\FixtureScope;
 use Illuminate\Console\Command;
 
-/**
- * Hapus baris fixture berdasarkan marker kanonik (exact) atau prefix satu run.
- * Idempoten, retry sekali setelah 250 ms, dan melaporkan tabel yang gagal.
- */
+/** Hapus baris fixture berdasarkan marker kanonik (exact) atau prefix satu run. */
 final class CleanupCommand extends Command
 {
     use ResolvesFixtureIdentity;
@@ -59,10 +56,12 @@ final class CleanupCommand extends Command
     }
 
     /**
+     *
      * Jalankan penghapusan, ulangi sekali setelah 250 ms bila gagal.
      *
      * @param  callable(): array<string, int>  $operation
      * @return array<string, int>
+     *
      */
     private function withRetry(callable $operation): array
     {

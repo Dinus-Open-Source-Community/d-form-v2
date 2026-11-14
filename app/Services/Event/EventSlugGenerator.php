@@ -7,9 +7,7 @@ use Illuminate\Support\Str;
 
 final class EventSlugGenerator
 {
-    /**
-     * Produce a unique URL slug from an event title.
-     */
+    /** Produce a unique URL slug from an event title. */
     public function generateForTitle(string $title, ?string $excludeEventId = null): string
     {
         $base = Str::slug($title);

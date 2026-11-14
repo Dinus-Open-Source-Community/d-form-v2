@@ -33,10 +33,8 @@ services:
         ports:
             - '${APP_PORT:-3000}:8000'
             - '5173:5173'
-        # podman-compose 1.6 memecah `command` (shlex) SEBELUM interpolasi, jadi default
-        # ber-spasi seperti ${OCTANE_ARGS:---watch --workers=1} gagal diparse. Flag tetap
-        # satu variabel (OCTANE_ARGS); shell container yang memecahnya jadi argumen.
-        # Entrypoint disalin dari docker/Dockerfile.dev karena `command` tidak bisa dibungkus shell.
+        # podman-compose splits command values before interpolation; keep flags in one
+        # variable and let the container shell split them.
         entrypoint: ["/bin/sh", "-c", "exec /usr/local/bin/entrypoint.sh $${OCTANE_ARGS:---watch --workers=1}"]
         command: []
 

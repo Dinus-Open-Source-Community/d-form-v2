@@ -35,12 +35,14 @@ final class BundleRegistrationSubmitter
     }
 
     /**
+     *
      * @param  list<array<string, mixed>>  $memberAnswerRows  one merged answers payload per member (same keys as leader)
      * @param  list<string>  $memberEmails  normalized lowercase emails
      * @param  array<string, string>|null  $resolvedUserIdsByEmail  output of
-     *         BundleGuestDuplicateChecker::assertEmailsAvailableForForm() when the caller already
-     *         checked before mapping answers; null re-runs the full check in the transaction.
+     * BundleGuestDuplicateChecker::assertEmailsAvailableForForm() when the caller already
+     * checked before mapping answers; null re-runs the full check in the transaction.
      * @return array{leader: FormAnswer, members: list<FormAnswer>}
+     *
      */
     public function submit(
         Form $form,

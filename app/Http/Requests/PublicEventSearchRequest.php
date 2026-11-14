@@ -5,10 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Query halaman publik `/events` (`q` + `page`); halaman publik tanpa otorisasi,
- * proteksi tetap dari middleware `throttle:event-search`.
- */
+/** Query halaman publik `/events` (`q` + `page`); halaman publik tanpa otorisasi, proteksi tetap dari middleware `throttle:event-search`. */
 class PublicEventSearchRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,7 +14,9 @@ class PublicEventSearchRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {

@@ -23,13 +23,15 @@ final class EvaluationService
     }
 
     /**
+     *
      * @param  array{
-     *     speaking_score: int,
-     *     technical_score: int,
-     *     attitude_score: int,
-     *     recommendation: string,
-     *     notes: string
+     * speaking_score: int,
+     * technical_score: int,
+     * attitude_score: int,
+     * recommendation: string,
+     * notes: string
      * }  $data
+     *
      */
     public function submit(
         User $actor,
@@ -144,9 +146,7 @@ final class EvaluationService
         });
     }
 
-    /**
-     * Tolak bila ada applicant lain yang harus dinilai lebih dulu (tertua yang pending).
-     */
+    /** Tolak bila ada applicant lain yang harus dinilai lebih dulu (tertua yang pending). */
     private function assertNoEarlierPendingEvaluation(User $actor, RecruitmentApplication $current): void
     {
         $blocker = $this->findBlockingPending($actor, $current);
@@ -160,9 +160,7 @@ final class EvaluationService
         ]);
     }
 
-    /**
-     * Cari applicant pending tertua milik interviewer selain yang sedang dinilai.
-     */
+    /** Cari applicant pending tertua milik interviewer selain yang sedang dinilai. */
     private function findBlockingPending(User $actor, RecruitmentApplication $current): ?RecruitmentApplication
     {
         $threshold = $current->primaryInterview?->scheduled_at ?? now();
@@ -180,9 +178,7 @@ final class EvaluationService
         return $interview?->application;
     }
 
-    /**
-     * Samakan guard QueueService: nilai masuk memajukan tahap Interview ke FinalReview.
-     */
+    /** Samakan guard QueueService: nilai masuk memajukan tahap Interview ke FinalReview. */
     private function advanceToFinalReview(RecruitmentApplication $application): void
     {
         if ($application->stage === ApplicationStage::Interview

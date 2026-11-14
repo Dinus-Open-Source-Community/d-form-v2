@@ -17,7 +17,9 @@ final class InterviewSessionService
     ) {
     }
     /**
+     *
      * @param  array<string, mixed>  $filters
+     *
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginator
     {
@@ -43,7 +45,9 @@ final class InterviewSessionService
     }
 
     /**
+     *
      * @return list<array<string, mixed>>
+     *
      */
     public function todaySessions(?string $periodId = null): array
     {
@@ -65,7 +69,9 @@ final class InterviewSessionService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function create(array $data): RecruitmentInterviewSession
     {
@@ -76,10 +82,7 @@ final class InterviewSessionService
         return $session;
     }
 
-    /**
-     * Daftarkan applicant tahap Interview sedivisi yang belum punya
-     * primary interview ke sesi yang baru dibuat.
-     */
+    /** Daftarkan applicant tahap Interview sedivisi yang belum punya primary interview ke sesi yang baru dibuat. */
     private function backfillWaitingInterviews(RecruitmentInterviewSession $session): void
     {
         $targets = RecruitmentApplication::query()
@@ -99,7 +102,9 @@ final class InterviewSessionService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function update(RecruitmentInterviewSession $session, array $data): RecruitmentInterviewSession
     {
@@ -156,7 +161,9 @@ final class InterviewSessionService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toListArray(RecruitmentInterviewSession $session): array
     {
@@ -182,7 +189,9 @@ final class InterviewSessionService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toShowArray(RecruitmentInterviewSession $session): array
     {

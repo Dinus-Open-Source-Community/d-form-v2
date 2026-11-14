@@ -38,9 +38,11 @@ final class FormAnswerReviewService
     }
 
     /**
+     *
      * Review one submission while using the same parent-first, sorted-row lock order as bulk review.
      *
      * @return array{answer: FormAnswer, rejected_ids: Collection<int, string>}
+     *
      */
     public function reviewOne(
         Event $event,
@@ -150,9 +152,11 @@ final class FormAnswerReviewService
     }
 
     /**
+     *
      * Atomically review explicitly selected single-mode submissions.
      *
      * @param  Collection<int, string>  $ids
+     *
      */
     public function reviewMany(
         Event $event,
@@ -240,8 +244,10 @@ final class FormAnswerReviewService
     }
 
     /**
+     *
      * @param  Collection<int, string>  $ids
      * @return list<string>
+     *
      */
     private function normalizeSelectedIds(Collection $ids): array
     {

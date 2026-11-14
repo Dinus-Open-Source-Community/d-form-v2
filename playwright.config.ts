@@ -3,15 +3,14 @@ import { adminStatePath } from './tests/e2e/support/authGuard';
 import { readEnvironment } from './tests/e2e/support/environment';
 import { createRunId } from './tests/e2e/support/marker';
 
-// E2E berjalan terhadap server yang sudah hidup. Base URL, perintah artisan, dan
-// kredensial admin hanya dibaca dari environment; spec tidak pernah menyimpan kredensial.
+// E2E reads its server and credentials from environment variables only.
 const environment = readEnvironment();
 
-// Satu runId per invokasi, diturunkan ke seluruh worker lewat process.env.
+// Share one run ID with all workers.
 const runId = createRunId();
 process.env.E2E_RUN_ID = runId;
 
-// Path default per run: setup dan spec membaca resolver yang sama lewat `E2E_RUN_ID`.
+// Setup and specs resolve the same per-run storage state.
 const ADMIN_STATE = adminStatePath({ runId });
 
 export default defineConfig({
@@ -19,9 +18,7 @@ export default defineConfig({
     timeout: 30_000,
     expect: { timeout: 10_000 },
     fullyParallel: true,
-    // Empat spec lama mem-flush cache global di beforeEach (auth/email/otp/event-search), jadi
-    // dua file yang jalan bersamaan saling merusak hitungan rate limit dan assert 429 gagal.
-    // fullyParallel tetap true; batasnya ada di jumlah worker sampai spec lama berhenti flush global.
+    // Legacy specs flush shared cache state, so parallel workers corrupt rate-limit assertions.
     workers: 1,
     forbidOnly: true,
     retries: 0,

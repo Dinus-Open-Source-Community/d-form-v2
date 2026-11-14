@@ -8,17 +8,7 @@ use App\Support\LegacyFormImage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
-/**
- * Migrasi sekali jalan: pindahkan gambar legacy form yang masih berupa
- * data: URL (base64 inline) ke disk "public", DB hanya simpan path.
- *
- *   php artisan forms:migrate-legacy-images --dry-run --limit=100
- *   php artisan forms:migrate-legacy-images --write
- *   php artisan forms:migrate-legacy-images --write --form=<form-id>
- *
- * Default = dry-run (hanya pratinjau). Penulisan terjadi HANYA dengan --write
- * (dan tanpa --dry-run). Tidak ada perubahan skema DB.
- */
+/** Migrasi sekali jalan: pindahkan gambar legacy form yang masih berupa data: URL (base64 inline) ke disk "public", DB hanya simpan path. */
 class MigrateLegacyFormImagesCommand extends Command
 {
     protected $signature = 'forms:migrate-legacy-images

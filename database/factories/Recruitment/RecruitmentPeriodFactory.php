@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
+ *
  * @extends Factory<RecruitmentPeriod>
+ *
  */
 class RecruitmentPeriodFactory extends Factory
 {

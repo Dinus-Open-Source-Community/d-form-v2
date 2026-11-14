@@ -5,10 +5,7 @@ namespace App\Http\Requests\Recruitment;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Kirim QR bulk ke applicant tahap interview; otorisasi `sendQr` pada periode
- * dipertahankan dari controller.
- */
+/** Kirim QR bulk ke applicant tahap interview; otorisasi `sendQr` pada periode dipertahankan dari controller. */
 class SendPeriodQrRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,7 +14,9 @@ class SendPeriodQrRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {

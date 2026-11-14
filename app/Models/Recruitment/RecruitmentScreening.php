@@ -20,7 +20,9 @@ class RecruitmentScreening extends Model
     public const UPDATED_AT = null;
 
     /**
+     *
      * @var array<string, string>
+     *
      */
     public const REVISION_SECTIONS = [
         'data_diri' => 'Data diri',
@@ -50,8 +52,10 @@ class RecruitmentScreening extends Model
     }
 
     /**
+     *
      * @param  list<string>|null  $sections
      * @return list<string>
+     *
      */
     public static function revisionSectionLabels(?array $sections): array
     {

@@ -21,19 +21,14 @@ class RulesBuilder
     ];
 
     /**
-     * Builder block types that never produce an answer. Frontend single source:
-     * `resources/js/lib/formFieldContract.ts`; both sides are asserted against
-     * `tests/fixtures/form-field-contract.json`.
      *
+     * Builder block types that never produce an answer.
      * @var list<string>
+     *
      */
     public const DISPLAY_ONLY_BUILDER_TYPES = ['heading', 'paragraph', 'divider', 'banner', 'image'];
 
-    /**
-     * Field whose validated key must never reach `form_answers.answers`.
-     * Display-only blocks are skipped here so client-sent strings for them are
-     * not even validated, let alone stored.
-     */
+    /** Field whose validated key must never reach `form_answers.answers`. */
     public static function isDisplayOnlyField(FormField $field): bool
     {
         $builderType = self::metadataArray($field)['builderType'] ?? null;
@@ -47,9 +42,11 @@ class RulesBuilder
     }
 
     /**
+     *
      * Method ini untuk mengambil rules dari field-field untuk dibuild nantinya
      * @template T of \App\Models\FormField
      * @param Collection<int, T> $fields
+     *
      *
      */
     public static function extractRulesFromFields(Collection $fields): array
@@ -152,16 +149,18 @@ class RulesBuilder
     }
 
     /**
+     *
      * Mengonversi custom rules array menjadi Laravel Validation rules.
      *
      * @param array<string, array<string, mixed>> $customRules
      * @param bool $requireScalarString Tambahkan guard tipe skalar untuk field
-     *        agar payload array/objek tidak lolos `required` lalu tersimpan
-     *        sebagai array. Guard mengikuti tipe field (`string`, `numeric`
-     *        untuk select/number numerik, `date` untuk datePicker). Default aman
-     *        untuk jawaban user; `false` hanya untuk caller yang memang butuh
-     *        rules mentah (mis. payload non-jawaban).
+     * agar payload array/objek tidak lolos `required` lalu tersimpan
+     * sebagai array. Guard mengikuti tipe field (`string`, `numeric`
+     * untuk select/number numerik, `date` untuk datePicker). Default aman
+     * untuk jawaban user; `false` hanya untuk caller yang memang butuh
+     * rules mentah (mis. payload non-jawaban).
      * @return array<string, array<int, string|Closure|\App\Rules\SafeUploadFile|\Illuminate\Validation\Rules\In>>
+     *
      */
     public static function build(array $customRules, bool $requireScalarString = true): array
     {
@@ -246,8 +245,10 @@ class RulesBuilder
     }
 
     /**
+     *
      * @param array<string, mixed> $rules
      * @return array<int, string|Closure>
+     *
      */
     private static function fileRules(array $rules, bool $required, bool $multiple): array
     {
@@ -267,8 +268,10 @@ class RulesBuilder
     }
 
     /**
+     *
      * @param array<string, mixed> $rules
      * @return array<int, string|SafeUploadFile>
+     *
      */
     private static function fileElementRules(array $rules): array
     {
@@ -390,7 +393,9 @@ class RulesBuilder
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private static function metadataArray(FormField $field): array
     {
@@ -408,12 +413,11 @@ class RulesBuilder
     }
 
     /**
-     * Rules for one element of an array-valued field (`checkbox`, multi-select).
-     * The whitelist uses array-form `Rule::in` so an option label containing
-     * `,` or `|` cannot widen/inject the rule.
      *
+     * Rules for one element of an array-valued field (`checkbox`, multi-select).
      * @param  array<string, mixed>  $rules
      * @return array<int, string|\Illuminate\Validation\Rules\In>
+     *
      */
     private static function elementRules(array $rules): array
     {
@@ -423,9 +427,11 @@ class RulesBuilder
     }
 
     /**
+     *
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $ruleSet
      * @return list<string>
+     *
      */
     private static function resolveChoices(array $metadata, array $ruleSet): array
     {
@@ -441,7 +447,9 @@ class RulesBuilder
     }
 
     /**
+     *
      * @param  list<string>  $choices
+     *
      */
     private static function choicesAreNumeric(array $choices): bool
     {
@@ -459,10 +467,12 @@ class RulesBuilder
     }
 
     /**
+     *
      * Scalar guard for a field: rejects array/object payloads while keeping the
      * field's natural scalar type (numeric select/number, date).
      *
      * @param  array<string, mixed>  $rules
+     *
      */
     private static function scalarGuardRule(array $rules): string
     {
@@ -472,13 +482,10 @@ class RulesBuilder
     }
 
     /**
+     *
      * Normalize any option source into a list of allowed answer strings.
-     *
-     * Accepts a CSV string, a JSON string, an array of strings, or an array of
-     * option rows (`optionChoices`) where the answer is the `label` (falling
-     * back to `value`/`text`/`name`).
-     *
      * @return list<string>
+     *
      */
     private static function normalizeChoiceList(mixed $value): array
     {
@@ -508,8 +515,10 @@ class RulesBuilder
     }
 
     /**
+     *
      * @param array<int|string, mixed> $items
      * @return list<string>
+     *
      */
     private static function uniqueChoices(array $items): array
     {

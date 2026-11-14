@@ -14,14 +14,7 @@ use App\Http\Controllers\Dashboard\Broadcasting\BroadcastSnapshotController;
 use App\Http\Controllers\Dashboard\Broadcasting\BroadcastTestController;
 use Illuminate\Support\Facades\Route;
 
-/**
- * Email Broadcasting — modul terpisah (PRD v1.0).
- * Seluruh route terisolasi di prefix /admin/broadcasts.
- *
- * Fitur broadcast dinonaktifkan (config/features.php, default mati).
- * File ini dipertahankan; bila flag mati, route tidak didaftarkan (404).
- * Aktifkan lagi via FEATURE_BROADCAST=true.
- */
+/** Email Broadcasting — modul terpisah (PRD v1.0). */
 if (! config('features.broadcast', false)) {
     return;
 }

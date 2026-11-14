@@ -1,12 +1,10 @@
 import { CalendarDate, parseDate } from '@internationalized/date';
 import type { DateValue } from 'reka-ui';
 
-/** Format angka menjadi dua digit dengan leading zero (dipakai komposisi tanggal). */
 export function pad2(n: number): string {
     return String(n).padStart(2, '0');
 }
 
-/** Format `YYYY-MM-DD` for Indonesian users (DD/MM/YYYY). */
 export function formatIdDateLabel(isoDate: string): string {
     if (!isoDate || isoDate.length < 10) return '';
     const y = isoDate.slice(0, 4);
@@ -16,7 +14,6 @@ export function formatIdDateLabel(isoDate: string): string {
     return `${d}/${m}/${y}`;
 }
 
-/** Format `YYYY-MM-DDTHH:mm` for display (matches common `id-ID` short datetime). */
 export function formatIdDateTimeLabel(iso: string): string {
     if (!iso) return '';
     const [datePart, timePart = ''] = iso.split('T');
@@ -26,7 +23,6 @@ export function formatIdDateTimeLabel(iso: string): string {
     return t ? `${base}, ${t.replace(':', '.')}` : base;
 }
 
-/** Ubah `YYYY-MM-DD…` menjadi `CalendarDate`; `undefined` bila kosong atau tidak valid. */
 export function modelValueToCalendarDate(value: string): CalendarDate | undefined {
     if (!value || value.length < 10) return undefined;
     try {
@@ -36,14 +32,12 @@ export function modelValueToCalendarDate(value: string): CalendarDate | undefine
     }
 }
 
-/** Serialisasi `CalendarDate` ke `YYYY-MM-DD`; nilai tanpa tahun/bulan/hari → string kosong. */
 export function calendarDateToYmd(value: DateValue | undefined): string {
     if (!value || !('year' in value) || !('month' in value) || !('day' in value)) return '';
     const d = value as CalendarDate;
     return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
 }
 
-/** Parse `YYYY-MM-DDTHH:mm` into calendar date + `HH:mm`. */
 export function splitLocalDateTime(value: string): { date: CalendarDate | undefined; time: string } {
     if (!value) return { date: undefined, time: '00:00' };
     const [datePart, timePart = ''] = value.split('T');
@@ -51,10 +45,6 @@ export function splitLocalDateTime(value: string): { date: CalendarDate | undefi
     return { date: modelValueToCalendarDate(datePart), time };
 }
 
-/**
- * Gabungkan tanggal + `HH:mm` lokal menjadi `YYYY-MM-DDTHH:mm` untuk model input datetime.
- * Jam/menit diklem ke rentang valid agar nilai rusak tidak lolos.
- */
 export function combineLocalDateTime(date: CalendarDate | undefined, timeHHmm: string): string {
     if (!date) return '';
     const t = timeHHmm && timeHHmm.length >= 5 ? timeHHmm.slice(0, 5) : '00:00';

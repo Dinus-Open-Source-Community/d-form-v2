@@ -5,9 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Auth\RegistrationOtpService;
 use Illuminate\Console\Command;
 
-/**
- * Cetak kode OTP registrasi yang aktif; hanya untuk local/testing (E2E), tidak untuk produksi.
- */
+/** Cetak kode OTP registrasi yang aktif; hanya untuk local/testing (E2E), tidak untuk produksi. */
 class CurrentOtpCommand extends Command
 {
     protected $signature = 'otp:current {email}';

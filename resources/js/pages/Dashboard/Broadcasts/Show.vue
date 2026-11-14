@@ -331,7 +331,6 @@ const progress = computed(() => {
             </div>
         </div>
 
-        <!-- Monitoring -->
         <Card class="rounded-2xl">
             <CardHeader><CardTitle>Monitoring</CardTitle></CardHeader>
             <CardContent>
@@ -360,7 +359,6 @@ const progress = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Dataset & snapshot -->
         <Card v-if="isDraft" class="rounded-2xl">
             <CardHeader><CardTitle>02–03 · Dataset & Snapshot</CardTitle></CardHeader>
             <CardContent class="flex flex-col gap-4">
@@ -414,7 +412,6 @@ const progress = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Recipients -->
         <Card class="rounded-2xl">
             <CardHeader class="flex flex-row items-center justify-between">
                 <CardTitle>Recipients ({{ recipients?.total ?? broadcast.recipients_count }})</CardTitle>
@@ -460,7 +457,6 @@ const progress = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Email composer -->
         <Card v-if="isDraft" class="rounded-2xl">
             <CardHeader><CardTitle>04 · Email (Tiptap)</CardTitle></CardHeader>
             <CardContent class="flex flex-col gap-4">
@@ -515,7 +511,6 @@ const progress = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Preview & test -->
         <Card class="rounded-2xl">
             <CardHeader class="flex flex-row items-center justify-between">
                 <CardTitle>05 · Preview & Test</CardTitle>
@@ -542,7 +537,6 @@ const progress = computed(() => {
             </CardContent>
         </Card>
 
-        <!-- Schedule edit -->
         <Card v-if="isScheduled" class="rounded-2xl">
             <CardHeader><CardTitle>06 · Ubah jadwal (hanya schedule saat scheduled)</CardTitle></CardHeader>
             <CardContent class="flex gap-2">

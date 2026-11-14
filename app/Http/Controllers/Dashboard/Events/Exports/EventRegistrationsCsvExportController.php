@@ -16,10 +16,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventRegistrationsCsvExportController extends Controller
 {
-    /**
-     * Batas atas ukuran halaman: satu halaman memuat model `form_answers` beserta
-     * JSON `answers`, jadi nilai env yang terlalu besar berakhir sebagai 500 memory limit.
-     */
+    /** Batas atas ukuran halaman: satu halaman memuat model `form_answers` beserta JSON `answers`, jadi nilai env yang terlalu besar berakhir sebagai 500 memory limit. */
     private const MAX_PAGE_SIZE = 2000;
 
     /** Kontrak kolom CSV export registrasi event; urutan tidak boleh berubah. */
@@ -71,21 +68,7 @@ class EventRegistrationsCsvExportController extends Controller
         ]);
     }
 
-    /**
-     * Seluruh baris CSV berurutan `(created_at DESC, id DESC)`.
-     *
-     * `created_at` hanya presisi detik dan tidak unik, jadi `id` menjadi
-     * tie-breaker: keyset `(created_at, id)` deterministik tanpa OFFSET. Tanpa
-     * filter snapshot: karena urutannya DESC, baris baru selalu berada sebelum
-     * kursor sehingga tidak pernah tertulis dua kali.
-     *
-     * Snapshot yang diambil adalah daftar form + judulnya, sekali di awal export.
-     * Baris jawaban tetap dibaca live, jadi: form yang di-soft-delete setelah
-     * export mulai tetap ikut (tidak memotong stream di tengah), dan form yang
-     * ditambahkan setelah export mulai tidak ikut sama sekali — bukan muncul
-     * dengan `form_title` kosong. Baris `created_at` NULL berada di luar total
-     * order sehingga ditulis oleh tail pass `id DESC`.
-     *
+    /** Keyset uses `created_at` plus unique `id`; NULL timestamps use an id-only tail, titles are snapshotted once, and `created_at` must stay stable.
      * @return \Generator<int, list<string>>
      */
     private function rows(Event $event, RegistrationAnswersSummarizer $summarizer): \Generator
@@ -113,18 +96,7 @@ class EventRegistrationsCsvExportController extends Controller
         }
     }
 
-    /**
-     * Baris ber-`created_at` non-NULL: satu stream keyset per form, digabung
-     * k-way supaya urutan global `(created_at DESC, id DESC)` tetap terjaga.
-     *
-     * Satu stream per form wajib: `WHERE form_id IN (...)` membuat MySQL 9
-     * meninggalkan index `form_answers (form_id, created_at, id)` dan memindai
-     * `form_answers_created_at_index` (±26 s untuk 151k baris), sedangkan stream
-     * per form membaca index komposit sebagai `Backward index scan` tanpa sort.
-     *
-     * Ukuran halaman per stream dibagi jumlah stream supaya puncak memori tetap
-     * sebanding dengan satu halaman export (tiap stream menyimpan satu page model).
-     *
+    /** Merge one keyset stream per form so the global `(created_at DESC, id DESC)` order stays deterministic.
      * @param  list<string>  $formIds
      * @return \Generator<int, FormAnswer>
      */
@@ -152,11 +124,7 @@ class EventRegistrationsCsvExportController extends Controller
         }
     }
 
-    /**
-     * Query dasar semua pass: hanya `form_id` (tanpa join `forms`), karena judul
-     * diambil dari snapshot form event dan `forms.deleted_at` sudah difilter saat
-     * snapshot dibentuk (`SoftDeletes` pada model `Form`).
-     *
+    /** Build export queries from form IDs; titles come from the initial form snapshot.
      * @param  list<string>  $formIds
      */
     private function answerQuery(array $formIds): Builder
@@ -173,8 +141,10 @@ class EventRegistrationsCsvExportController extends Controller
     }
 
     /**
+     *
      * @param  array<string, string|null>  $formTitles
      * @return list<string>
+     *
      */
     private function row(FormAnswer $answer, array $formTitles, RegistrationAnswersSummarizer $summarizer): array
     {

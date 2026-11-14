@@ -29,10 +29,7 @@ final class RecruitmentApplicationService
     /** Kolom pencarian yang boleh dipakai sebagai identifier SQL. */
     private const SEARCH_COLUMNS = ['full_name', 'nim', 'registration_number'];
 
-    /**
-     * Kolom yang dibutuhkan `toListArray()` + foreign key relasi; `SELECT *`
-     * menghidrasi kolom berat seperti phone/personal_email tanpa dipakai.
-     */
+    /** Kolom yang dibutuhkan `toListArray()` + foreign key relasi; `SELECT *` menghidrasi kolom berat seperti phone/personal_email tanpa dipakai. */
     private const LIST_COLUMNS = [
         'id',
         'recruitment_period_id',
@@ -49,20 +46,10 @@ final class RecruitmentApplicationService
     ];
 
     /**
-     * Satu-satunya definisi aturan antrean: dipakai bersama oleh badge
-     * `queueCounts()` dan filter daftar `applyQueueFilter()` supaya keduanya
-     * tidak bisa berbeda arti.
      *
-     * Setiap antrean mengecualikan applicant yang dibatalkan (`cancelled_at`
-     * tidak null). Produk memutuskan applicant batal bukan pekerjaan staffing
-     * (sama dengan `groupLinkEligibleCount()` dan eligibility QR yang juga
-     * memakai `whereNull('cancelled_at')`). Badge `all` sengaja tetap menghitung
-     * seluruh applicant periode supaya angka "Semua antrean" sama dengan daftar
-     * tanpa filter, yang masih menampilkan baris batal.
-     *
-     * Data aturan ada di sini; translasi ke predikat ada di `queueCasePredicate()` (SQL) dan `applyQueueFilter()` (Eloquent), keduanya wajib ditambah bersama saat bentuk aturan baru masuk (mis. `result IN`).
-     *
+     * Satu-satunya definisi aturan antrean: dipakai bersama oleh badge `queueCounts()` dan filter daftar `applyQueueFilter()` supaya keduanya tidak bisa berbeda arti.
      * @var array<string, array{stages?: list<ApplicationStage>, stage?: ApplicationStage, result?: ApplicationResult, revision_required?: bool}>
+     *
      */
     private const QUEUE_RULES = [
         'screening' => [
@@ -77,17 +64,10 @@ final class RecruitmentApplicationService
     ];
 
     /**
-     * Daftar applicant dengan paginasi yang totalnya tetap akurat pada 20.000
-     * baris per periode.
      *
-     * Dua jalur mahal dipisah dari `paginate()` bawaan Laravel:
-     * - filter divisi: total dihitung UNION dua covering count (primary +
-     *   secondary) supaya satu applicant tidak dihitung dua kali;
-     * - pencarian: substring `%term%` pada tiga kolom. Id pencarian (periode saja,
-     *   covering index) diiris dengan id filter non-pencarian, lalu diurutkan
-     *   `submitted_at DESC, id DESC`; total dan isi halaman memakai irisan yang sama.
-     *
+     * Daftar applicant dengan paginasi yang totalnya tetap akurat pada 20.000 baris per periode.
      * @param  array<string, mixed>  $filters
+     *
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20): LengthAwarePaginatorContract
     {
@@ -107,8 +87,10 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $filters
      * @return Builder<RecruitmentApplication>
+     *
      */
     private function listQuery(array $filters): Builder
     {
@@ -123,12 +105,11 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Terapkan filter daftar. Filter divisi memakai satu kolom per UNION branch;
-     * pencarian memakai kolom tetap per branch. LIKE substring tetap memerlukan
-     * scan karena polanya diawali wildcard.
      *
+     * Terapkan filter daftar.
      * @param  Builder<RecruitmentApplication>  $query
      * @param  array<string, mixed>  $filters
+     *
      */
     private function applyListFilters(Builder $query, array $filters, ?string $searchColumn = null, ?string $divisionColumn = null): void
     {
@@ -164,10 +145,12 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * Terapkan pola substring yang meng-escape wildcard LIKE dari input.
      * Kolom interpolasi hanya berasal dari daftar tetap `SEARCH_COLUMNS`.
      *
      * @param  Builder<RecruitmentApplication>  $query
+     *
      */
     private function applySearch(Builder $query, string $search, ?string $column = null): void
     {
@@ -195,17 +178,10 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Paginasi pencarian substring. Pola `%term%` tidak bisa range-scan index,
-     * jadi pencarian dan filter lain dipisah:
-     * - `searchIdUnion()`: id + submitted_at dari tiga kolom, periode saja,
-     *   index-only lewat covering index;
-     * - `nonSearchFilterIds()`: id yang lolos filter non-pencarian;
-     * - hasil = irisan keduanya (JOIN), lalu diurutkan `submitted_at DESC, id DESC`.
      *
-     * Menggabungkan filter ke dalam cabang UNION membuat setiap cabang memindai
-     * satu periode (terukur puluhan detik untuk search+filter).
-     *
+     * Paginasi pencarian substring.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function paginateSearch(string $search, array $filters, int $page, int $perPage): LengthAwarePaginatorContract
     {
@@ -244,16 +220,10 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * Query irisan pencarian + filter (dipakai untuk COUNT dan id halaman).
-     * Bila ada filter non-pencarian, filter menjadi tabel kiri (id-set terindeks)
-     * dan pencarian di-join ke sana.
-     *
-     * `STRAIGHT_JOIN` diperlukan di MySQL: tanpa itu optimizer memilih derived
-     * pencarian (UNION) sebagai driver tanpa auto-key sehingga irisan 20.000 x
-     * 20.000 menjadi ~4,6 detik. Dengan urutan filter-first terukur 57-90 ms.
-     * SQLite (test) tidak mengenal STRAIGHT_JOIN sehingga memakai inner join biasa.
-     *
      * @param  array<string, mixed>  $filters
+     *
      */
     private function searchMatchQuery(string $search, array $filters, string $periodId): QueryBuilder
     {
@@ -266,9 +236,7 @@ final class RecruitmentApplicationService
         return $this->intersectQuery($filterIds, $this->searchIdUnion($search, $periodId));
     }
 
-    /**
-     * Irisan id filter non-pencarian dengan id pencarian.
-     */
+    /** Irisan id filter non-pencarian dengan id pencarian. */
     private function intersectQuery(QueryBuilder $filterIds, QueryBuilder $searchIds): QueryBuilder
     {
         if (DB::connection()->getDriverName() !== 'mysql') {
@@ -287,10 +255,7 @@ final class RecruitmentApplicationService
         );
     }
 
-    /**
-     * Id + submitted_at pencarian murni (periode saja, tanpa filter lain) supaya
-     * setiap cabang memakai covering index `(period, kolom, submitted_at)`.
-     */
+    /** Id + submitted_at pencarian murni (periode saja, tanpa filter lain) supaya setiap cabang memakai covering index `(period, kolom, submitted_at)`. */
     private function searchIdUnion(string $search, string $periodId): QueryBuilder
     {
         $pattern = $this->searchPattern($search);
@@ -313,11 +278,10 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Id yang lolos semua filter non-pencarian, atau null bila tidak ada filter
-     * selain periode/pencarian. Pencarian sengaja dihapus dari salinan filter
-     * agar cabang ini tetap index-friendly.
      *
+     * Id yang lolos semua filter non-pencarian, atau null bila tidak ada filter selain periode/pencarian.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function nonSearchFilterIds(array $filters): ?QueryBuilder
     {
@@ -352,10 +316,10 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Fallback pencarian tanpa periode: cabang UNION memuat seluruh filter agar
-     * hasil tetap benar. Jalur ini jarang dipakai dan memang memindai tabel.
      *
+     * Fallback pencarian tanpa periode: cabang UNION memuat seluruh filter agar hasil tetap benar.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function paginateSearchWithoutPeriod(string $search, array $filters, int $page, int $perPage): LengthAwarePaginatorContract
     {
@@ -391,10 +355,12 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * UNION tiga cabang (satu per kolom pencarian). UNION (bukan UNION ALL)
      * mendedupe baris yang cocok di lebih dari satu kolom.
      *
      * @param  array<string, mixed>  $filters
+     *
      */
     private function searchUnion(string $search, array $filters): QueryBuilder
     {
@@ -416,11 +382,10 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Total filter divisi: UNION dua covering count supaya applicant yang memilih
-     * divisi di primary dan secondary tetap dihitung sekali. COUNT atas OR tunggal
-     * memindai satu periode (terukur ~5.800 ms); UNION ~19 ms.
      *
+     * Total filter divisi: UNION dua covering count supaya applicant yang memilih divisi di primary dan secondary tetap dihitung sekali.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function countDivisionMatches(array $filters): int
     {
@@ -438,14 +403,10 @@ final class RecruitmentApplicationService
     }
 
     /**
-     * Enam angka antrean dihitung dari satu query agregat kondisional (covering
-     * index `rec_apps_queue_counts_idx`), koreksi pending dari tabel lain dengan
-     * satu query terpisah.
      *
-     * `all` = seluruh applicant periode (termasuk yang dibatalkan); setiap
-     * aturan antrean mengecualikan `cancelled_at` (lihat `QUEUE_RULES`).
-     *
+     * Enam angka antrean dihitung dari satu query agregat kondisional (covering index `rec_apps_queue_counts_idx`), koreksi pending dari tabel lain dengan satu query terpisah.
      * @return array<string, int>
+     *
      */
     public function queueCounts(?string $periodId = null): array
     {
@@ -495,10 +456,12 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * Predikat SQL untuk satu aturan `QUEUE_RULES`, memakai binding parameter.
      *
      * @param  array{stages?: list<ApplicationStage>, stage?: ApplicationStage, result?: ApplicationResult, revision_required?: bool}  $rule
      * @return array{0: string, 1: list<string|int|bool>}
+     *
      */
     private static function queueCasePredicate(array $rule): array
     {
@@ -534,7 +497,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @param  \Illuminate\Database\Eloquent\Builder<RecruitmentApplication>  $query
+     *
      */
     private function applyQueueFilter($query, string $queue): void
     {
@@ -565,7 +530,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toListArray(RecruitmentApplication $application): array
     {
@@ -597,7 +564,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toShowArray(RecruitmentApplication $application): array
     {
@@ -731,7 +700,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return list<array{id: string, name: string}>
+     *
      */
     public function periodOptions(): array
     {
@@ -746,7 +717,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return list<array{id: string, name: string, code: string}>
+     *
      */
     public function divisionOptions(): array
     {
@@ -763,9 +736,11 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * Semester yang benar-benar ada pada aplikasi periode tersebut, tanpa terpengaruh filter.
      *
      * @return list<array{value: string, label: string}>
+     *
      */
     public function semesterOptions(string $periodId): array
     {
@@ -874,12 +849,7 @@ final class RecruitmentApplicationService
         ];
     }
 
-    /**
-     * Ada notifikasi terkirim yang bisa diputar ulang (cermin aturan resend).
-     *
-     * Cermin persis `RecruitmentEmailResendService::latestReplayableNotification()`:
-     * prasyarat UI dan aksi POST tidak boleh berbeda arti.
-     */
+    /** Ada notifikasi terkirim yang bisa diputar ulang (cermin aturan resend). */
     private function hasReplayableNotification(RecruitmentApplication $application, bool $hasInterview): bool
     {
         return $this->resendService->latestReplayableNotification($application, $hasInterview) !== null;
@@ -899,7 +869,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function evaluationArray(?RecruitmentEvaluation $evaluation, ?string $division = null, ?string $divisionId = null): ?array
     {
@@ -928,7 +900,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function finalDecisionArray(?RecruitmentFinalDecision $decision): ?array
     {
@@ -953,7 +927,9 @@ final class RecruitmentApplicationService
     }
 
     /**
+     *
      * @return array{id: string, name: string, code: string}|null
+     *
      */
     private function divisionArray(?RecruitmentDivision $division): ?array
     {

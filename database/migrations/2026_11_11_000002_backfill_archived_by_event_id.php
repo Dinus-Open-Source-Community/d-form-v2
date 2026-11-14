@@ -3,26 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * BE-P2-017 (L-3): preserve the legacy restore behaviour for archives created
- * before `archived_by_event_id` existed.
- *
- * A pre-migration event archive restamped every child to the archive time, so a
- * row is considered cascade-archived when its `deleted_at` equals its event's
- * `deleted_at` (forms) or its form's `deleted_at` (fields). Only rows that still
- * have a NULL marker are touched, so the migration is idempotent and never
- * overwrites a marker written by the observer.
- *
- * Comparison uses the stored timestamp precision (seconds), matching what the
- * old bulk `UPDATE ... deleted_at = now()` wrote. Rows without a matching
- * timestamp were archived independently before the event and stay archived.
- *
- * `down()` is intentionally a no-op: this migration writes the same column the
- * observer writes for archives created after deploy, so the two writes cannot be
- * distinguished afterwards. Clearing the marker would break restore for those
- * newer archives; the only safe rollback is the forward-fix of keeping the
- * backfilled markers.
- */
+/** BE-P2-017 (L-3): preserve the legacy restore behaviour for archives created before `archived_by_event_id` existed. */
 return new class () extends Migration {
     private const EVENT_CHUNK = 200;
 
@@ -45,9 +26,7 @@ return new class () extends Migration {
             });
     }
 
-    /**
-     * Fields archived together with their form share the form's archive time.
-     */
+    /** Fields archived together with their form share the form's archive time. */
     private function markFieldsArchivedWithTheirForm(string $eventId): void
     {
         $formsByTimestamp = [];

@@ -40,11 +40,10 @@ class OprecFormRequest extends FormRequest
     }
 
     /**
-     * Old-contract rules used only when the DB-driven oprec form is not
-     * seeded. Mirrors StoreApplicationRequest::rules() so UUID-based
-     * submissions keep validating without touching legacy callers.
      *
+     * Old-contract rules used only when the DB-driven oprec form is not seeded.
      * @return array<string, mixed>
+     *
      */
     private static function legacyRules(): array
     {

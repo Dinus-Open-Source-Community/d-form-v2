@@ -5,10 +5,7 @@ namespace App\Console\Commands;
 use App\Models\PendingRegistration;
 use Illuminate\Console\Command;
 
-/**
- * Hapus registrasi pending yang ditinggalkan agar tabel OTP tidak menumpuk;
- * dijalankan scheduler tiap jam, menyisakan baris yang masih aktif dalam 24 jam terakhir.
- */
+/** Hapus registrasi pending yang ditinggalkan agar tabel OTP tidak menumpuk; dijalankan scheduler tiap jam, menyisakan baris yang masih aktif dalam 24 jam terakhir. */
 class PrunePendingRegistrationsCommand extends Command
 {
     protected $signature = 'otp:prune';

@@ -11,9 +11,7 @@ use Illuminate\Validation\Validator;
 
 final class FormFieldsRequestValidation
 {
-    /**
-     * Batas `metadata.maxLength` per builder type. Sumber UI: resources/js/lib/fieldMaxLength.ts.
-     */
+    /** `metadata.maxLength` limits mirror the frontend builder contract. */
     public const MAX_LENGTH_LIMITS = [
         'short_text' => 1000,
         'long_text' => 10000,
@@ -36,26 +34,23 @@ final class FormFieldsRequestValidation
         'text/plain',
     ];
 
-    /**
-     * Request keys owned by the submission boundary. A form field with one of
-     * these names would shadow (or be shadowed by) framework/registration input.
-     *
+    /** Reserved keys cannot be shadowed by dynamic form fields.
      * @var list<string>
      */
     public const RESERVED_FIELD_NAMES = ['team_member_emails', '_token', '_method'];
 
-    /**
-     * Prefix reserved for bundle participant slot inputs (`bundle__name__0`).
-     */
+    /** Prefix reserved for bundle participant slot inputs (`bundle__name__0`). */
     public const RESERVED_FIELD_NAME_PREFIX = 'bundle__';
 
     /** Characters Laravel validation interprets as paths/wildcards. */
     private const PATH_SEPARATOR_CHARACTERS = ['.', '*'];
 
     /**
+     *
      * Validation rules for each entry in the `fields` array (dashboard / API).
      *
      * @return array<string, mixed>
+     *
      */
     public static function nestedFieldRules(): array
     {
@@ -68,7 +63,9 @@ final class FormFieldsRequestValidation
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public static function fieldBodyRules(): array
     {
@@ -85,7 +82,9 @@ final class FormFieldsRequestValidation
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public static function fieldGlobalMetadataRules(): array
     {
@@ -110,7 +109,9 @@ final class FormFieldsRequestValidation
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public static function fieldRulesMetadataRules(): array
     {
@@ -197,11 +198,10 @@ final class FormFieldsRequestValidation
     }
 
     /**
-     * Validation rules for upload metadata persisted by the builder.
-     * Legacy `accepts` remains optional; typed metadata is bounded to the same
-     * server-side limits used when submission rules are built.
      *
+     * Validation rules for upload metadata persisted by the builder.
      * @return array<string, mixed>
+     *
      */
     public static function fieldUploadMetadataRules(): array
     {
@@ -242,12 +242,7 @@ final class FormFieldsRequestValidation
         ];
     }
 
-    /**
-     * Rules for `forms.metadata` (purpose / registration / team configuration).
-     *
-     * `$requirePurpose = false` dipakai autosave draft: metadata boleh dikirim
-     * sebagian (tanpa purpose) tanpa memicu error field wajib.
-     *
+    /** Draft autosave may omit purpose when `$requirePurpose` is false.
      * @return array<string, mixed>
      */
     public static function formMetadataRules(bool $requirePurpose = true): array
@@ -267,10 +262,7 @@ final class FormFieldsRequestValidation
         ];
     }
 
-    /**
-     * Post-validation: date range order, name uniqueness, radio/checkbox choices,
-     * and form metadata purpose / prerequisite constraints.
-     */
+    /** Post-validation: date range order, name uniqueness, radio/checkbox choices, and form metadata purpose / prerequisite constraints. */
     public static function afterForFields(Validator $v, Request $request, ?Form $form, ?string $eventId = null): void
     {
         $v->after(function (Validator $validator) use ($request, $form, $eventId): void {
@@ -397,10 +389,7 @@ final class FormFieldsRequestValidation
         });
     }
 
-    /**
-     * Reject names that break the validation/answer boundary. Returns a
-     * user-facing reason naming the offending field, or `null` when valid.
-     */
+    /** Reject names that break the validation/answer boundary. */
     private static function fieldNameProblem(string $name): ?string
     {
         foreach (self::PATH_SEPARATOR_CHARACTERS as $character) {

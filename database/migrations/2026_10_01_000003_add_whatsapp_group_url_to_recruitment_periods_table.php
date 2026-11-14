@@ -5,9 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
-    /**
-     * Tambah link grup WA per periode oprec.
-     */
+    /** Tambah link grup WA per periode oprec. */
     public function up(): void
     {
         Schema::table('recruitment_periods', function (Blueprint $table): void {
@@ -15,9 +13,7 @@ return new class () extends Migration {
         });
     }
 
-    /**
-     * Hapus link grup WA (rollback Task 6a).
-     */
+    /** Hapus link grup WA (rollback Task 6a). */
     public function down(): void
     {
         Schema::table('recruitment_periods', function (Blueprint $table): void {

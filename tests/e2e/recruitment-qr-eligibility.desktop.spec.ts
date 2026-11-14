@@ -46,7 +46,6 @@ const STRESS_NAVIGATION_TIMEOUT_MS = 120_000;
 /** Batas polling baris `email_logs` setelah POST (baris dibuat sinkron oleh request). */
 const EMAIL_ROW_POLL_TIMEOUT_MS = 30_000;
 
-/** ID periode yang dibaca sebagai parameter GET pada skenario 404. */
 const MISSING_PERIOD_ID = '11111111-1111-1111-1111-111111111111';
 
 type TLogStatus = 'sent' | 'queued' | 'failed';
@@ -307,7 +306,6 @@ const ANOMALY_QUERIES: IAnomalyQuery[] = [
     { label: 'page nol', query: 'page=0', errorKey: 'page' },
 ];
 
-/** ID periode fixture dan periode stress, diisi ulang pada setiap test. */
 let periodId = '';
 let periodPath = '';
 let stressPeriodId: string | null = null;
@@ -687,7 +685,6 @@ function qrLogsFor(key: string): IEmailLogRow[] {
     return readQrLogs().filter((row: IEmailLogRow): boolean => keyByRegistration.get(row.registration_number) === key);
 }
 
-/** Buka tab peserta periode fixture; halaman baru selalu memakai state bersih. */
 async function openPeriod(page: Page): Promise<void> {
     const list = page.locator('[data-applicant-list]');
 

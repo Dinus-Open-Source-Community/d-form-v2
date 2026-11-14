@@ -5,18 +5,10 @@ namespace App\Services\Auth;
 use App\Models\User;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
-/**
- * Menautkan identitas OAuth ke akun lokal.
- *
- * Provider subject ID adalah identitas utama. Email hanya dipakai untuk mencari akun
- * bila provider menyatakan email tersebut verified; tanpa itu akun yang sudah ada
- * tidak boleh diambil alih lewat login OAuth.
- */
+/** Menautkan identitas OAuth ke akun lokal. */
 final class OAuthAccountLinker
 {
-    /**
-     * Google: `email_verified` pada userinfo menentukan apakah email boleh dipakai.
-     */
+    /** Google: `email_verified` pada userinfo menentukan apakah email boleh dipakai. */
     public function resolveGoogle(SocialiteUser $googleUser, bool $emailVerified): ?User
     {
         $verifiedEmail = $emailVerified ? $this->normalizeEmail($googleUser->getEmail()) : null;
@@ -24,10 +16,7 @@ final class OAuthAccountLinker
         return $this->resolveIdentity('google_id', $googleUser, $verifiedEmail);
     }
 
-    /**
-     * GitHub: Socialite GithubProvider meminta scope `user:email` dan hanya mengisi email
-     * dari `/user/emails` yang `primary && verified`, sehingga email non-null sudah terverifikasi.
-     */
+    /** GitHub: Socialite GithubProvider meminta scope `user:email` dan hanya mengisi email dari `/user/emails` yang `primary && verified`, sehingga email non-null sudah terverifikasi. */
     public function resolveGithub(SocialiteUser $githubUser): ?User
     {
         return $this->resolveIdentity('github_id', $githubUser, $this->normalizeEmail($githubUser->getEmail()));

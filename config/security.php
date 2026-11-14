@@ -44,15 +44,12 @@ return [
         'mode' => SecurityEnvironment::cspMode(env('SECURITY_CSP_MODE')),
         // Production refuses `off` unless SECURITY_CSP_ALLOW_OFF is explicitly true.
         'allow_off_in_production' => SecurityEnvironment::flag(env('SECURITY_CSP_ALLOW_OFF'), false),
-        // Must be a first-party collector: reports contain full document URLs, including
-        // password-reset tokens carried in the path. A third-party collector would leak them.
+        // Use a first-party collector: reports can contain password-reset tokens in URLs.
         'report_uri' => env('SECURITY_CSP_REPORT_URI'),
-        // Local dev tooling (Vite HMR, debugbar, Boost logger) injects inline scripts.
-        // The env flag can only tighten this: dev allowances are never enabled outside local.
+        // Local tooling injects inline scripts; the flag can only tighten allowances.
         'dev_allowances' => $isLocalEnvironment && SecurityEnvironment::flag(env('SECURITY_CSP_DEV_ALLOWANCES'), true),
-        // Origin(s) allowed for the Vite dev server. Accepts a comma-separated list
-        // (VITE_DEV_ORIGIN) and always adds the LAN dev host used by `vite.config.js`
-        // plus localhost, so the same build is reachable from the machine and a phone.
+        // Accept comma-separated VITE_DEV_ORIGIN values plus the configured LAN host
+        // and localhost so the build works from both the machine and a phone.
         'dev_server_origins' => array_values(array_unique(array_filter(array_merge(
             array_map('trim', explode(',', (string) env('VITE_DEV_ORIGIN', ''))),
             [env('VITE_DEV_HOST') ? 'http://'.env('VITE_DEV_HOST').':5173' : null],
@@ -73,8 +70,7 @@ return [
             // https: allows admin-entered external image URLs.
             'img-src' => ["'self'", 'data:', 'blob:', 'https:'],
             'connect-src' => ["'self'", 'https://seeyu.doscom.org'],
-            // maps.google.com redirects its /maps?output=embed embed to www.google.com,
-            // and the browser re-checks the redirect target against frame-src.
+            // Include the redirect target used by maps.google.com embeds.
             'frame-src' => ["'self'", 'https://maps.google.com', 'https://www.google.com', 'https://www.youtube-nocookie.com'],
             'media-src' => ["'self'"],
             'worker-src' => ["'self'", 'blob:'],

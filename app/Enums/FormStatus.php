@@ -2,10 +2,7 @@
 
 namespace App\Enums;
 
-/**
- * Status form mengikuti pola {@see EventStatus}: draft adalah baris yang masih
- * disusun penyelenggara dan tidak pernah terlihat oleh peserta/publik.
- */
+/** Status form mengikuti pola {@see EventStatus}: draft adalah baris yang masih disusun penyelenggara dan tidak pernah terlihat oleh peserta/publik. */
 enum FormStatus: string
 {
     case Draft = 'draft';

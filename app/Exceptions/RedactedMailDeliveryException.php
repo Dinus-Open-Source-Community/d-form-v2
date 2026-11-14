@@ -7,13 +7,7 @@ use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
-/**
- * Wraps a mail transport failure whose original message may contain PII or credentials.
- *
- * Queue workers and Laravel's exception handler only ever serialize this wrapper, so
- * `laravel.log` and `failed_jobs.exception` receive the redacted message; the original
- * exception remains available through `getPrevious()` for code-level diagnostics.
- */
+/** Wraps a mail transport failure whose original message may contain PII or credentials. */
 final class RedactedMailDeliveryException extends RuntimeException
 {
     /** Public phrase used for serialization; carries no transport free text. */
@@ -30,15 +24,7 @@ final class RedactedMailDeliveryException extends RuntimeException
         return new self(LogRedaction::exception($exception, 1000), $exception);
     }
 
-    /**
-     * Serialize with only the class and a fixed public phrase.
-     *
-     * PHP's default `__toString()` prints a `Next ...` section for the chained original, and
-     * Laravel's failed-job provider stores exactly this string. Frame arguments are never
-     * rendered here (the frames are formatted explicitly), independent of the
-     * `zend.exception_ignore_args` ini setting, so failed-job records stay PII-free while
-     * remaining actionable. Use getPrevious() for code-level access to the original.
-     */
+    /** Serialize with only the class and a fixed public phrase. */
     public function __toString(): string
     {
         $trace = $this->getTrace();
@@ -64,14 +50,7 @@ final class RedactedMailDeliveryException extends RuntimeException
         );
     }
 
-    /**
-     * Report a redacted line for operator triage and skip Laravel's default handler.
-     *
-     * The default handler passes the exception object to Monolog, whose formatter walks
-     * getPrevious() and reprints the raw transport message. Returning true from this hook
-     * stops that path. The original class and its already-redacted message are logged so
-     * transport, database, and storage failures stay distinguishable.
-     */
+    /** Report a redacted line for operator triage and skip Laravel's default handler. */
     public function report(): bool
     {
         $previous = $this->getPrevious();

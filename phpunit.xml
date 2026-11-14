@@ -18,7 +18,7 @@
         </include>
     </source>
     <php>
-        <!-- Use <server> so values override Docker/CI process env (.env often sets APP_ENV=local, QUEUE_CONNECTION=redis). Laravel reads $_SERVER first. -->
+        <!-- <server> values override process env; Laravel reads $_SERVER first. -->
         <server name="APP_ENV" value="testing"/>
         <server name="APP_MAINTENANCE_DRIVER" value="file"/>
         <server name="BCRYPT_ROUNDS" value="4"/>

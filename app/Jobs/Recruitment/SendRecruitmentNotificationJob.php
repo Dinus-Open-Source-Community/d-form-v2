@@ -221,11 +221,7 @@ class SendRecruitmentNotificationJob implements ShouldQueue, ShouldBeEncrypted
         }
     }
 
-    /**
-     * Claim the durable QR delivery before rendering or contacting the mail transport.
-     *
-     * A retry that finds a prior attempt still in `sending` is ambiguous and is failed closed.
-     */
+    /** Claim the durable QR delivery before rendering or contacting the mail transport. */
     private function claimQrOutboxDelivery(): bool
     {
         if ($this->qrEmailLogId === null) {
@@ -422,7 +418,9 @@ class SendRecruitmentNotificationJob implements ShouldQueue, ShouldBeEncrypted
     }
 
     /**
+     *
      * @return list<string>
+     *
      */
     private function revisionSectionLabels(): array
     {

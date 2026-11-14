@@ -13,8 +13,10 @@ use InvalidArgumentException;
 final class AttendanceCheckInResolver
 {
     /**
+     *
      * @throws ModelNotFoundException
      * @throws InvalidArgumentException
+     *
      */
     public function resolveApplication(
         RecruitmentInterviewSession $session,

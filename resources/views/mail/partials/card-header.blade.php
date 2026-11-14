@@ -1,6 +1,4 @@
-{{-- eyebrow / headline + optional event form line ($formTitle string).
-     Accent diseragamkan ke biru DOSCOM; param $accent tetap diterima
-     agar pemanggil lama tak perlu diubah. --}}
+{{-- Shared header; keep $accent for caller compatibility. --}}
 @php
     /** @var string $eyebrow */
     /** @var string $accent */

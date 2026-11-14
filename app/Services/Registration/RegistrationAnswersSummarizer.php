@@ -11,12 +11,7 @@ final class RegistrationAnswersSummarizer
     private const ARRAY_VALUE_SEPARATOR = ', ';
     private const FILE_VALUE_SEPARATOR = '; ';
 
-    /**
-     * Field definitions memoized per form id for the lifetime of this instance.
-     *
-     * The summarizer is resolved once per request/export, so one export of N
-     * submissions reads `form_fields` once per distinct form instead of N times.
-     *
+    /** Memoize field definitions per form so one export reads each form once.
      * @var array<string, Collection<int, FormField>>
      */
     private array $fieldsByForm = [];
@@ -25,9 +20,7 @@ final class RegistrationAnswersSummarizer
     {
     }
 
-    /**
-     * Summary for the participant portal: file links use the authenticated route.
-     *
+    /** Portal summaries use authenticated file routes.
      * @return array<string, string>
      */
     public function summarizeForPortal(FormAnswer $submission): array
@@ -35,10 +28,7 @@ final class RegistrationAnswersSummarizer
         return $this->buildSummary($submission, temporaryFileUrls: false);
     }
 
-    /**
-     * Summary for email and CSV export: file links are temporary signed URLs so
-     * they still work for guest recipients who have no session.
-     *
+    /** Email and CSV summaries use temporary signed URLs for guest recipients.
      * @return array<string, string>
      */
     public function summarize(FormAnswer $submission): array
@@ -47,7 +37,9 @@ final class RegistrationAnswersSummarizer
     }
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     private function buildSummary(FormAnswer $submission, bool $temporaryFileUrls): array
     {
@@ -90,10 +82,12 @@ final class RegistrationAnswersSummarizer
     }
 
     /**
+     *
      * Field definitions are immutable for the lifetime of one summarizer
      * instance, so they are memoized per `form_id`.
      *
      * @return Collection<int, FormField>
+     *
      */
     private function fieldsFor(string $formId): Collection
     {

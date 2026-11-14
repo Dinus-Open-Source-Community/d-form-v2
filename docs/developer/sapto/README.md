@@ -1,5 +1,6 @@
 # Dokumentasi developer — Sapto
 
+- Direct request 14-11-2026 (no Jira; owner: user): source-comment cleanup. Waiver: per-ticket changelog and DFORM ID omitted at the user's direction; risk is no Jira traceability; alternative considered was a Jira ticket and ticketed changelog. Commit: `docs: simplify source comments`.
 - [saptoChanges13-11-2026-DFORM-LOGOUT.md](./saptoChanges13-11-2026-DFORM-LOGOUT.md) | Perbaikan logout dashboard: hindari `inject()` di event handler, regression E2E POST/redirect/access, dan feature test invalidasi sesi.
 - [saptoChanges13-11-2026-DFORM-DASHBOARD-CALENDAR.md](./saptoChanges13-11-2026-DFORM-DASHBOARD-CALENDAR.md) | Menghapus dua kalender dari dashboard admin, mempertahankan kalender dashboard peserta, dan menambah regression E2E.
 - [saptoChanges12-11-2026-DFORM-MULTI-UPLOAD.md](./saptoChanges12-11-2026-DFORM-MULTI-UPLOAD.md) | Regression E2E upload single/multiple desktop-mobile: format builder, preview vertikal, baris dokumen, removal, invalid format/limit, private admin preview, overflow, dan verifikasi penuh.

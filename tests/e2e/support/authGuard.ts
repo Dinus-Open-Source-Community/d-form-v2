@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-/** Opsi resolusi storageState; `runId` eksplisit dipakai `playwright.config.ts` sebelum env diset. */
 export interface IAdminStateOptions {
     env?: NodeJS.ProcessEnv;
     runId?: string;
@@ -72,7 +71,6 @@ export function pruneStaleAdminStates(currentRunId: string, now: number = Date.n
 export const DEFAULT_SESSION_COOKIE = 'dform-session';
 const SETUP_HINT = 'Run "npm run test:e2e:setup" (project "setup") before authenticated specs.';
 
-/** Satu cookie pada file storageState Playwright. */
 export interface IStorageStateCookie {
     name: string;
     value: string;
@@ -80,18 +78,15 @@ export interface IStorageStateCookie {
     path?: string;
 }
 
-/** Bentuk minimum storageState yang wajib ada agar spec terautentikasi aman berjalan. */
 export interface IAdminStorageState {
     cookies: IStorageStateCookie[];
     origins: unknown[];
 }
 
-/** Nama cookie sesi aplikasi; `E2E_SESSION_COOKIE` menimpa default bila APP_NAME berubah. */
 export function sessionCookieName(env: NodeJS.ProcessEnv = process.env): string {
     return (env.E2E_SESSION_COOKIE ?? '').trim() || DEFAULT_SESSION_COOKIE;
 }
 
-/** Resolusi path state terhadap cwd proyek; path absolut dibiarkan apa adanya. */
 export function resolveStatePath(statePath: string = adminStatePath()): string {
     return isAbsolute(statePath) ? statePath : resolve(process.cwd(), statePath);
 }
@@ -137,7 +132,7 @@ export function hasSessionCookie(state: IAdminStorageState, cookieName: string =
     return state.cookies.some((cookie) => cookie.name === cookieName && cookie.value !== '');
 }
 
-/** Guard bentuk minimum; mencegah `as` pada data eksternal dan memberi pesan yang jelas. */
+/** Validate untrusted storage-state JSON before narrowing it. */
 function isAdminStorageState(value: unknown): value is IAdminStorageState {
     if (typeof value !== 'object' || value === null) {
         return false;

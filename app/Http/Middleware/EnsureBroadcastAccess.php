@@ -6,10 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Terisolasi untuk modul Email Broadcasting (PRD §6).
- * Mengandalkan permission Spatie, bukan hardcode role.
- */
+/** Terisolasi untuk modul Email Broadcasting (PRD §6). */
 class EnsureBroadcastAccess
 {
     public function handle(Request $request, Closure $next): Response

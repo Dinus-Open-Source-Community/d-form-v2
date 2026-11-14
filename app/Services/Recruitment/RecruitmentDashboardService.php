@@ -23,8 +23,10 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $periodFilters
      * @return array<string, mixed>
+     *
      */
     public function summary(?User $user = null, ?string $periodId = null, array $periodFilters = [], int $periodPage = 1, int $periodPerPage = 10): array
     {
@@ -69,10 +71,12 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * Delapan angka statistik + accepted_count dalam satu query agregat
      * kondisional (sebelumnya 9 COUNT terpisah pada periode yang sama).
      *
      * @return array{stats: array<string, int>, accepted_count: int}
+     *
      */
     private function applicationStats(string $periodId): array
     {
@@ -120,8 +124,10 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $filters
      * @return array{periods: LengthAwarePaginator, query: array<string, mixed>, statusOptions: list<array{value: string, label: string}>}
+     *
      */
     private function periodsPayload(array $filters = [], int $page = 1, int $perPage = 20, ?User $user = null): array
     {
@@ -147,7 +153,9 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function interviewerSummary(User $user, ?string $periodId): array
     {
@@ -195,7 +203,9 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @return array<string, int>
+     *
      */
     private function emptyStats(): array
     {
@@ -212,7 +222,9 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @return array<string, int>
+     *
      */
     private function emptyInterviewerStats(): array
     {
@@ -226,7 +238,9 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @return array<string, int>
+     *
      */
     private function emptyInterviewStats(): array
     {
@@ -240,7 +254,9 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function emptyFeedbackStats(): array
     {
@@ -251,8 +267,10 @@ final class RecruitmentDashboardService
     }
 
     /**
+     *
      * @param  array<string, int>  $counts
      * @return list<array<string, mixed>>
+     *
      */
     private function buildActionQueues(array $counts): array
     {

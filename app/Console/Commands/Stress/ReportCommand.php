@@ -5,14 +5,7 @@ namespace App\Console\Commands\Stress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
-/**
- * Merakit report.html self-contained dari artefak satu run stress.
- *
- * Dipakai harness stress sebagai langkah terakhir: membaca summary.json,
- * baseline.json, queries.json, resources.csv, dan run-meta.json di satu
- * direktori run, lalu menulis report.html tanpa aset eksternal (grafik SVG
- * inline, tanpa JavaScript).
- */
+/** Merakit report.html self-contained dari artefak satu run stress. */
 final class ReportCommand extends Command
 {
     /** Artefak wajib; nama dipakai apa adanya di pesan error. */
@@ -40,9 +33,7 @@ final class ReportCommand extends Command
 
     protected $description = 'Rakit report.html self-contained dari artefak satu run stress';
 
-    /**
-     * Baca kelima artefak run, hitung agregat, lalu tulis report.html.
-     */
+    /** Baca kelima artefak run, hitung agregat, lalu tulis report.html. */
     public function handle(): int
     {
         $runDir = rtrim((string) $this->argument('run'), '/');
@@ -145,10 +136,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Label status titik patah untuk output terminal: stream dulu, lalu agregat.
      *
      * @param  array<string,mixed>  $capacity
      * @param  array{found:bool,elapsed_s:int,rps:int,p95_ms:float|null,error_pct:float|null}|null  $streamBreak
+     *
      */
     private function breakLabel(array $capacity, ?array $streamBreak): string
     {
@@ -160,11 +153,13 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Ringkas kapasitas global: rps, latency, error, gap ke target, titik patah.
      *
      * @param  array<string,mixed>  $summary
      * @param  array<string,mixed>  $meta
      * @return array{requests:int,rate:float,target_rps:int,avg_ms:float,p95_ms:float,max_ms:float,error_rate:float,throttled_rate:float,gap_to_target:float,break_point:bool}
+     *
      */
     private function capacitySummary(array $summary, array $meta): array
     {
@@ -195,10 +190,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Susun tabel per-endpoint dari metrik ep_* dan peta balik ke target asli.
      *
      * @param  array{summary:array<string,mixed>,baseline:array<string,mixed>,targets:array<string,mixed>|null}  $inputs
      * @return list<array{metric:string,name:string,url:string|null,status:int|null,requests:int,avg_ms:float,p95_ms:float,max_ms:float,total_ms:float,error_rate:float,throttled_rate:float}>
+     *
      */
     private function endpointRows(array $inputs): array
     {
@@ -243,10 +240,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Urut ulang baris endpoint dari total waktu terbesar (urutan kedua di laporan).
      *
      * @param  list<array<string,mixed>>  $rows
      * @return list<array<string,mixed>>
+     *
      */
     private function sortByTotalMs(array $rows): array
     {
@@ -256,10 +255,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Peta nama endpoint tersanitasi → nama dan URL asli dari targets.json.
      *
      * @param  array<string,mixed>|null  $targets
      * @return array<string,array{name:string,url:string|null}>
+     *
      */
     private function targetMap(?array $targets): array
     {
@@ -279,19 +280,19 @@ final class ReportCommand extends Command
         return $map;
     }
 
-    /**
-     * Samakan aturan sanitasi nama dengan k6: alfanumerik/underscore saja.
-     */
+    /** Samakan aturan sanitasi nama dengan k6: alfanumerik/underscore saja. */
     private function sanitiseName(string $name): string
     {
         return (string) preg_replace('/[^A-Za-z0-9_]/', '_', $name);
     }
 
     /**
+     *
      * Susun tabel digest query terurut dari total waktu terbesar.
      *
      * @param  array<string,mixed>  $queries
      * @return list<array{digest:string,text:string,calls:int,total_ms:float,avg_ms:float,rows_examined:int,rows_sent:int,examined_per_sent:float|null,no_index_used:int,full_scan:bool,share_pct:float,explain_status:string,explain:array<mixed>|null,explain_summary:string|null,explain_json:string|null,explain_error:string|null}>
+     *
      */
     private function digestRows(array $queries): array
     {
@@ -336,9 +337,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Ringkasan EXPLAIN yang bisa dibaca: node table pertama beserta akses dan indeksnya.
      *
      * @param  array<mixed>  $explain
+     *
      */
     private function explainSummary(array $explain): ?string
     {
@@ -365,10 +368,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Cari node table pertama di dalam plan EXPLAIN (bentuknya bisa bersarang).
      *
      * @param  array<mixed>  $node
      * @return array<string,mixed>|null
+     *
      */
     private function findExplainTable(array $node): ?array
     {
@@ -392,9 +397,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * JSON plan terformat untuk blok <details>; selalu string agar aman di-escape Blade.
      *
      * @param  array<mixed>  $payload
+     *
      */
     private function prettyJson(array $payload): string
     {
@@ -405,10 +412,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Ringkas pemakaian CPU/RAM/throttling app vs db dari sample cgroup.
      *
      * @param  array{samples:list<array<string,int|null>>,requests:int}  $inputs
      * @return array{app:array{count:int,avg:float,p95:float,max:float},db:array{count:int,avg:float,p95:float,max:float},throttled_usec:int,ram_app_current_mib:float|null,ram_db_current_mib:float|null,ram_app_peak_mib:float|null,ram_db_peak_mib:float|null,php_db_ratio:float|null,ram_app_per_1k_requests_mib:float|null,samples:int}
+     *
      */
     private function resourceSummary(array $inputs): array
     {
@@ -439,10 +448,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Deret CPU core per sample dari counter usage_usec kumulatif.
      *
      * @param  list<array<string,int|null>>  $samples
      * @return list<float|null>
+     *
      */
     private function deltaRateSeries(array $samples, string $key): array
     {
@@ -469,9 +480,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Total delta counter kumulatif antar sample (mis. throttled_usec).
      *
      * @param  list<array<string,int|null>>  $samples
+     *
      */
     private function deltaSum(array $samples, string $key): int
     {
@@ -494,9 +507,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Nilai RAM terakhir yang terbaca, dalam MiB; null bila seluruh sel kosong.
      *
      * @param  list<array<string,int|null>>  $samples
+     *
      */
     private function memoryLastMiB(array $samples, string $key): ?float
     {
@@ -512,9 +527,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Nilai RAM maksimum yang terbaca, dalam MiB; null bila seluruh sel kosong.
      *
      * @param  list<array<string,int|null>>  $samples
+     *
      */
     private function memoryMaxMiB(array $samples, string $key): ?float
     {
@@ -532,10 +549,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Grafik kapasitas: deret waktu dari stream.ndjson bila ada, selain itu proksi CPU.
      *
      * @param  array{samples:list<array<string,int|null>>,buckets:list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>}  $inputs
      * @return array{id:string,title:string,caption:string,marker:array{x:float,x_text:float,anchor:string,label:string}|null,series:list<array{label:string,color:string,segments:list<string>,segments_count:int,segments_label:string,last:float,max:float}>}
+     *
      */
     private function capacityChart(array $inputs): array
     {
@@ -545,6 +564,7 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Grafik kapasitas per detik: rps, p95, gagal, 429, dan CPU app.
      *
      * Sumbu x memakai waktu asli, jadi detik kosong tetap terlihat sebagai jarak.
@@ -552,6 +572,7 @@ final class ReportCommand extends Command
      * @param  list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>  $buckets
      * @param  list<array<string,int|null>>  $samples
      * @return array{id:string,title:string,caption:string,marker:array{x:float,x_text:float,anchor:string,label:string}|null,series:list<array{label:string,color:string,segments:list<string>,segments_count:int,segments_label:string,last:float,max:float}>}
+     *
      */
     private function streamCapacityChart(array $buckets, array $samples): array
     {
@@ -615,9 +636,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Ringkasan agregat di caption: 429, gagal, tanpa status, dan jumlah detik kosong.
      *
      * @param  list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>  $buckets
+     *
      */
     private function streamAggregateNote(array $buckets): string
     {
@@ -655,10 +678,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Grafik cadangan saat stream.ndjson tidak tersedia: CPU per sample sebagai proksi beban.
      *
      * @param  list<array<string,int|null>>  $samples
      * @return array{id:string,title:string,caption:string,marker:null,series:list<array{label:string,color:string,segments:list<string>,segments_count:int,segments_label:string,last:float,max:float}>}
+     *
      */
     private function proxyCapacityChart(array $samples): array
     {
@@ -688,10 +713,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Penanda titik patah di grafik: bucket pertama dengan p95 > ambang atau gagal > ambang.
      *
      * @param  list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>  $buckets
      * @return array{x:float,x_text:float,anchor:string,label:string}|null
+     *
      */
     private function breakMarker(array $buckets): ?array
     {
@@ -716,10 +743,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Detik pertama yang melewati ambang titik patah, atau status "tidak ada".
      *
      * @param  list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>  $buckets
      * @return array{found:bool,index:int,elapsed_s:int,rps:int,p95_ms:float|null,error_pct:float|null}|null
+     *
      */
     private function breakPoint(array $buckets): ?array
     {
@@ -756,14 +785,10 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Baca stream.ndjson k6 secara streaming, finalisasi bucket saat detik berganti.
-     *
-     * Hanya durasi dalam satu detik yang ditahan di memori (O(request per detik)),
-     * sehingga file besar tidak menumpuk jutaan float. Hanya Point bertag endpoint
-     * yang dihitung sebagai trafik kapasitas; login tanpa tag diabaikan. Stream
-     * diasumsikan kronologis karena k6 menulis Point berurutan waktu.
-     *
      * @return array{state:string,buckets:list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>}
+     *
      */
     private function capacityStream(string $path): array
     {
@@ -856,10 +881,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Ubah bucket yang masih menahan durasi menjadi agregat, lalu lepaskan memorinya.
      *
      * @param  array{second:int,durations:list<float>,total:int,failed:int,no_status:int,err429:int}  $pending
      * @return array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}
+     *
      */
     private function finaliseBucket(array $pending): array
     {
@@ -877,12 +904,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Isi detik yang terlewat dengan bucket kosong agar sumbu waktu tidak memampatkan gap.
-     *
-     * Gap lebih panjang dari MAX_FILLED_GAP_SECONDS hanya ditandai satu bucket jeda.
-     *
      * @param  list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>  $rows
      * @return list<array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}>
+     *
      */
     private function fillSecondGaps(array $rows): array
     {
@@ -910,9 +936,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Bucket kosong untuk detik tanpa request; nilai turunan null agar garis diputus.
      *
      * @return array{ts:int,rps:int,p95_ms:float|null,error_pct:float|null,pct429:float|null,no_status:int,gap:bool}
+     *
      */
     private function emptyBucket(int $second, bool $gap): array
     {
@@ -927,9 +955,7 @@ final class ReportCommand extends Command
         ];
     }
 
-    /**
-     * Ubah waktu k6 (ISO string atau epoch number) menjadi detik bulat.
-     */
+    /** Ubah waktu k6 (ISO string atau epoch number) menjadi detik bulat. */
     private function epochSecond(mixed $time): ?int
     {
         if (is_int($time) || is_float($time)) {
@@ -946,10 +972,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Titik CPU app dari resources.csv, hanya delta valid (tanpa forward-fill).
      *
      * @param  list<array<string,int|null>>  $samples
      * @return list<array{ts:int,cores:float}>
+     *
      */
     private function cpuPoints(array $samples): array
     {
@@ -968,9 +996,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Interval sampler = selisih ts terkecil antar sample (cadence), default 1 detik.
      *
      * @param  list<array<string,int|null>>  $samples
+     *
      */
     private function samplerIntervalSeconds(array $samples): float
     {
@@ -996,11 +1026,10 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * CPU app pada sample terdekat; null bila jaraknya melebihi toleransi sampler.
-     *
-     * Mengembalikan null (bukan 0.0) penting agar sampler yang mati tidak tampak sehat.
-     *
      * @param  list<array{ts:int,cores:float}>  $cpuPoints
+     *
      */
     private function nearestCpuCores(array $cpuPoints, int $second, float $tolerance): ?float
     {
@@ -1020,10 +1049,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Grafik resource: RAM current app dan db per sample, dalam MiB.
      *
      * @param  list<array<string,int|null>>  $samples
      * @return array{id:string,title:string,caption:string,marker:null,series:list<array{label:string,color:string,segments:list<string>,segments_count:int,segments_label:string,last:float,max:float}>}
+     *
      */
     private function resourceChart(array $samples): array
     {
@@ -1051,18 +1082,18 @@ final class ReportCommand extends Command
         ];
     }
 
-    /**
-     * Ubah satu byte count menjadi MiB; null tetap null.
-     */
+    /** Ubah satu byte count menjadi MiB; null tetap null. */
     private static function memoryValueMiB(?int $bytes): ?float
     {
         return $bytes === null ? null : $bytes / 1048576;
     }
 
     /**
+     *
      * Skala vertikal bersama untuk semua deret dalam satu grafik.
      *
      * @param  list<list<float>>  $seriesList
+     *
      */
     private function chartMax(array $seriesList): float
     {
@@ -1078,14 +1109,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Satu deret grafik: potongan polyline, nilai terakhir, dan skala yang dipakai.
-     *
-     * Nilai atau timestamp null memutus garis (tidak di-forward-fill). Tanpa
-     * 'scale' tiap seri memakai skala sendiri; dengan 'scale' seri satu grafik
-     * memakai skala bersama agar tinggi bisa dibandingkan.
-     *
      * @param  array{values:list<float|null>,times:list<int|null>,label:string,color:string,scale?:float}  $spec
      * @return array{label:string,color:string,segments:list<string>,segments_count:int,segments_label:string,last:float,max:float}
+     *
      */
     private function chartSeries(array $spec): array
     {
@@ -1105,13 +1133,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Potongan polyline pada viewBox 600×160 dengan sumbu x proporsional waktu.
-     *
-     * Dipakai view untuk menggambar grafik tanpa JavaScript; null memutus garis.
-     *
      * @param  list<float|null>  $values
      * @param  list<int|null>  $times
      * @return list<string>
+     *
      */
     private function polylineSegments(array $values, array $times, float $max): array
     {
@@ -1153,10 +1180,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Buang nilai null sebelum statistik dihitung (bukan diisi 0 atau nilai sebelumnya).
      *
      * @param  list<float|null>  $values
      * @return list<float>
+     *
      */
     private function validNumbers(array $values): array
     {
@@ -1164,10 +1193,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Statistik ringkas (count/avg/p95/max) untuk satu deret angka.
      *
      * @param  list<float>  $values
      * @return array{count:int,avg:float,p95:float,max:float}
+     *
      */
     private function statsFor(array $values): array
     {
@@ -1184,9 +1215,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Persentil nearest-rank dari deret angka.
      *
      * @param  list<float>  $values
+     *
      */
     private function percentile(array $values, float $percentile): float
     {
@@ -1201,10 +1234,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Temuan otomatis dari angka run; setiap item punya level dan teks.
      *
      * @param  array{meta:array<string,mixed>,capacity:array<string,mixed>,endpoints:list<array<string,mixed>>,digests:list<array<string,mixed>>,resources:array<string,mixed>}  $inputs
      * @return list<array{level:string,text:string}>
+     *
      */
     private function findings(array $inputs): array
     {
@@ -1297,10 +1332,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Bagian sensitivitas volume: digest dengan rows_examined besar + status indeks.
      *
      * @param  array{digests:list<array<string,mixed>>,meta:array<string,mixed>}  $inputs
      * @return array{dataset_rows:int,rows:list<array<string,mixed>>}
+     *
      */
     private function volumeRows(array $inputs): array
     {
@@ -1318,9 +1355,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Baca resource sampler; sel kosong dipetakan ke null, bukan 0.
      *
      * @return list<array{ts:int|null,app_usage_usec:int|null,app_throttled_usec:int|null,app_mem_current:int|null,app_mem_peak:int|null,db_usage_usec:int|null,db_mem_current:int|null,db_mem_peak:int|null}>
+     *
      */
     private function readResourceSamples(string $path): array
     {
@@ -1356,9 +1395,7 @@ final class ReportCommand extends Command
         return $samples;
     }
 
-    /**
-     * Sel CSV kosong/non-angka menjadi null; angka menjadi int.
-     */
+    /** Sel CSV kosong/non-angka menjadi null; angka menjadi int. */
     private function nullableInt(?string $cell): ?int
     {
         if ($cell === null) {
@@ -1371,10 +1408,12 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Nilai dalam satu metrik k6; array kosong bila metrik tidak ada.
      *
      * @param  array<string,mixed>  $summary
      * @return array<string,mixed>
+     *
      */
     private function metricValues(array $summary, string $name): array
     {
@@ -1383,18 +1422,18 @@ final class ReportCommand extends Command
         return is_array($values) ? $values : [];
     }
 
-    /**
-     * Nilai numerik dari JSON k6, dengan fallback eksplisit.
-     */
+    /** Nilai numerik dari JSON k6, dengan fallback eksplisit. */
     private function numberOr(mixed $value, float $fallback): float
     {
         return is_int($value) || is_float($value) ? (float) $value : (is_string($value) && is_numeric($value) ? (float) $value : $fallback);
     }
 
     /**
+     *
      * Durasi run dalam detik dari started_at/finished_at, fallback ke string duration.
      *
      * @param  array<string,mixed>  $meta
+     *
      */
     private function runWindowSeconds(array $meta): float
     {
@@ -1408,9 +1447,7 @@ final class ReportCommand extends Command
         return (float) $this->durationSeconds(is_string($meta['duration'] ?? null) ? $meta['duration'] : '');
     }
 
-    /**
-     * Ubah durasi k6 ("30s", "2m", "1h30m") menjadi detik; 0 bila tak terbaca.
-     */
+    /** Ubah durasi k6 ("30s", "2m", "1h30m") menjadi detik; 0 bila tak terbaca. */
     private function durationSeconds(string $duration): int
     {
         if (preg_match('/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/', trim($duration), $matches) !== 1) {
@@ -1420,9 +1457,7 @@ final class ReportCommand extends Command
         return ((int) ($matches[1] ?? 0)) * 3600 + ((int) ($matches[2] ?? 0)) * 60 + ((int) ($matches[3] ?? 0));
     }
 
-    /**
-     * Path report.html tujuan; opsi --out menang atas default <run>/report.html.
-     */
+    /** Path report.html tujuan; opsi --out menang atas default <run>/report.html. */
     private function outPath(string $runDir): string
     {
         $out = $this->option('out');
@@ -1431,9 +1466,11 @@ final class ReportCommand extends Command
     }
 
     /**
+     *
      * Baca artefak JSON; artefak wajib yang rusak dilaporkan dengan nama path-nya.
      *
      * @return array<string,mixed>|null
+     *
      */
     private function readJson(string $path, bool $required = true): ?array
     {

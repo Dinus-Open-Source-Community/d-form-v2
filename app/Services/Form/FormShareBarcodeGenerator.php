@@ -10,9 +10,7 @@ use Endroid\QrCode\Writer\PngWriter;
 
 final class FormShareBarcodeGenerator
 {
-    /**
-     * Generate a bounded high-correction PNG for a same-origin participant URL.
-     */
+    /** Generate a bounded high-correction PNG for a same-origin participant URL. */
     public function pngForUrl(string $url): string
     {
         $result = (new Builder(

@@ -5,10 +5,7 @@ namespace App\Observers;
 use App\Models\FormAnswer;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Menjaga agregat harian `event_daily_registrations` tetap sinkron saat satu
- * submisi dibuat/dihapus (bukan jalur massal/seed).
- */
+/** Menjaga agregat harian `event_daily_registrations` tetap sinkron saat satu submisi dibuat/dihapus (bukan jalur massal/seed). */
 class FormAnswerObserver
 {
     /** Set the portable marker once for every Eloquent-created submission. */

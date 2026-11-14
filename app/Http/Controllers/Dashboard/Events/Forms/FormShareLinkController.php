@@ -26,17 +26,19 @@ final class FormShareLinkController extends Controller
     }
 
     /**
+     *
      * Build the relative URLs shared by the editor and share-link mutation.
      *
      * @return array{
-     *     participant_path: string,
-     *     admin_path: string,
-     *     short_path: string|null,
-     *     barcode_path: string,
-     *     update_url: string,
-     *     alias: string|null,
-     *     can_share_participant: bool
+     * participant_path: string,
+     * admin_path: string,
+     * short_path: string|null,
+     * barcode_path: string,
+     * update_url: string,
+     * alias: string|null,
+     * can_share_participant: bool
      * }
+     *
      */
     public static function payload(Event $event, Form $form): array
     {

@@ -18,13 +18,8 @@ class FormShareLinkService
     private const DUPLICATE_ALIAS_MESSAGE = 'This share alias is already in use.';
 
     /**
-     * Persist a requested alias or generate an available one atomically.
-     *
-     * Replacing an alias updates the form once, which releases the previous
-     * value for another form as part of the same transaction.
-     *
-     * @throws ValidationException when a requested alias is already reserved
-     *                             by another form or a uniqueness race occurs
+     * Persist a requested alias or generate one atomically.
+     * @throws ValidationException when an alias is reserved by another form or a uniqueness race occurs
      */
     public function upsert(Form $form, ?string $requestedAlias): string
     {

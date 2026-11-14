@@ -136,7 +136,6 @@ const ANOMALY_INPUTS: IAnomalyInput[] = [
     { label: 'search 500 karakter', query: `search=${'x'.repeat(500)}`, errorKey: 'search' },
 ];
 
-/** ID periode fixture dan periode stress terbesar, diisi `beforeAll`. */
 let periodId = '';
 let periodPath = '';
 let largestStressPeriodId: string | null = null;
@@ -294,13 +293,11 @@ async function readRenderedNames(page: Page): Promise<string[]> {
     return names.map((name: string): string => name.trim());
 }
 
-/** Buka tab peserta tanpa filter; halaman baru selalu memakai state bersih. */
 async function openApplicantList(page: Page): Promise<void> {
     await page.goto(`${periodPath}?tab=peserta`, { waitUntil: 'load' });
     await expect(page.locator('[data-applicant-list]')).toBeVisible();
 }
 
-/** Pilih satu opsi pada SimpleSelect shadcn berdasarkan aria-label trigger. */
 async function selectFilter(page: Page, label: string, option: string | RegExp): Promise<void> {
     await page.getByRole('combobox', { name: label }).click();
     // Popover yang tertutup tetap ada di DOM, jadi opsi dicari hanya di popover terbuka.

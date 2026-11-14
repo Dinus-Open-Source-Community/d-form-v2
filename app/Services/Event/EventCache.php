@@ -4,10 +4,7 @@ namespace App\Services\Event;
 
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Cache agregat event dengan buster per kebutuhan: perubahan satu aspek
- * (mis. kategori) tidak membuang cache yang tidak terkait.
- */
+/** Cache event aggregates with separate invalidation keys for each concern. */
 final class EventCache
 {
     public const BUSTER_LIST = 'events:list:cache:buster';
@@ -20,11 +17,13 @@ final class EventCache
     public const BUSTER_REGISTRANTS = 'events:registrants:cache:buster';
 
     /**
+     *
      * Ambil array dari cache; resolver hanya berjalan saat cache kosong atau buster berubah.
      *
      * @template TValue
      * @param  \Closure(): array<TValue>  $resolver
      * @return array<TValue>
+     *
      */
     public static function remember(
         string $name,
@@ -41,10 +40,10 @@ final class EventCache
     }
 
     /**
-     * Baca nilai cache tanpa resolver; `null` berarti kunci belum terisi (request path
-     * dilarang menghitung sendiri — isi lewat command `dashboard:warm`).
      *
+     * Baca nilai cache tanpa resolver; `null` berarti kunci belum terisi (request path dilarang menghitung sendiri — isi lewat command `dashboard:warm`).
      * @return array<mixed>|null
+     *
      */
     public static function peek(string $name, ?string $buster = self::BUSTER_LIST): ?array
     {
@@ -54,11 +53,13 @@ final class EventCache
     }
 
     /**
+     *
      * Hitung ulang lalu timpa nilai cache tanpa jendela kosong (dipakai scheduler, bukan request).
      *
      * @template TValue
      * @param  \Closure(): array<TValue>  $resolver
      * @return array<TValue>
+     *
      */
     public static function refresh(
         string $name,
@@ -78,10 +79,7 @@ final class EventCache
         return $buster === null ? $name : $name.':'.(int) Cache::get($buster, 0);
     }
 
-    /**
-     * Gabungkan nilai CSV (kategori/sesi) satu event ke daftar opsi yang tersimpan,
-     * agar opsi filter tidak perlu memindai seluruh tabel `events`.
-     */
+    /** Gabungkan nilai CSV (kategori/sesi) satu event ke daftar opsi yang tersimpan, agar opsi filter tidak perlu memindai seluruh tabel `events`. */
     public static function mergeOptionTokens(string $key, ?string $csv): void
     {
         $value = trim((string) $csv);
@@ -101,9 +99,7 @@ final class EventCache
         Cache::forever($key, array_values($rows));
     }
 
-    /**
-     * Naikkan buster agar seluruh kunci yang memakainya dianggap kedaluwarsa.
-     */
+    /** Naikkan buster agar seluruh kunci yang memakainya dianggap kedaluwarsa. */
     public static function bump(string $buster): void
     {
         Cache::forever($buster, (int) Cache::get($buster, 0) + 1);

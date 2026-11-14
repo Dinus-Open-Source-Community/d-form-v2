@@ -6,15 +6,7 @@ use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik
- * event, jumlah pendaftar, breakdown kategori). Request tetap bisa menghitung sendiri saat
- * cache kosong; command ini dipakai setelah deploy/seed agar pengunjung pertama tidak menunggu.
- * Kunci yang masih terisi dilewati kecuali `--force`.
- *
- * Bila tabel agregat harian masih kosong, agregat diisi ulang dari sumber lebih dulu agar
- * chart tren tidak pernah memakai fallback 1 juta baris pada request path.
- */
+/** Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik event, jumlah pendaftar, breakdown kategori). */
 class WarmDashboardCacheCommand extends Command
 {
     protected $signature = 'dashboard:warm

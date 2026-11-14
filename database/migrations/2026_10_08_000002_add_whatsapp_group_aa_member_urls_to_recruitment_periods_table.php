@@ -5,9 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
-    /**
-     * Tambah link grup WA per tipe keanggotaan (AA/Member) per periode oprec.
-     */
+    /** Tambah link grup WA per tipe keanggotaan (AA/Member) per periode oprec. */
     public function up(): void
     {
         Schema::table('recruitment_periods', function (Blueprint $table): void {
@@ -16,9 +14,7 @@ return new class () extends Migration {
         });
     }
 
-    /**
-     * Hapus link grup WA per tipe keanggotaan (rollback).
-     */
+    /** Hapus link grup WA per tipe keanggotaan (rollback). */
     public function down(): void
     {
         Schema::table('recruitment_periods', function (Blueprint $table): void {

@@ -8,25 +8,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
-/**
- * Menyimpan unggahan yang sudah tervalidasi isi.
- *
- * - Validasi isi memakai {@see UploadInspector} (satu implementasi untuk rule HTTP
- *   dan penyimpanan): sniff `finfo`, magic byte, kecocokan ekstensi/MIME klien,
- *   batas ukuran, dimensi gambar sebelum decode.
- * - Gambar raster selalu di-decode lalu di-re-encode agar payload tambahan dan
- *   metadata ikut hilang.
- * - Nama file selalu dibuat server dan ekstensinya berasal dari MIME hasil sniff,
- *   bukan dari nama klien.
- */
+/** Menyimpan unggahan yang sudah tervalidasi isi. */
 final class SafeUploadStorage
 {
-    /**
-     * Simpan satu unggahan tervalidasi pada target dan purpose yang diberikan.
-     *
-     * Melempar `ValidationException` (422) bila isi file tidak lolos kebijakan
-     * purpose — pertahanan terakhir untuk jalur yang tidak lewat rule request.
-     */
+    /** Simpan satu unggahan tervalidasi pada target dan purpose yang diberikan. */
     public function store(UploadedFile $file, UploadStorageTarget $target, UploadPurpose $purpose): string
     {
         if ($target->disk !== $purpose->disk()) {
@@ -72,13 +57,7 @@ final class SafeUploadStorage
         return $path;
     }
 
-    /**
-     * Decode, batasi, re-encode, dan simpan byte raster terpercaya dari boundary
-     * mana pun (mis. base64 inline editor atau konversi gambar legacy).
-     *
-     * Pemeriksaan dimensi memakai header (`getimagesizefromstring`) sebelum
-     * `imagecreatefromstring`, sehingga decompression bomb tidak pernah di-decode.
-     */
+    /** Decode, bound, re-encode, and store trusted raster bytes from any input boundary. */
     public function storeImageBytes(
         string $contents,
         UploadStorageTarget $target,

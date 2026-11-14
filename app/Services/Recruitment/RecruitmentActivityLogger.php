@@ -14,14 +14,10 @@ use Throwable;
 final class RecruitmentActivityLogger
 {
     /**
+     *
      * Fields approved for the audit trail: identifiers, enum-backed decisions, and counters.
-     *
-     * Free-text notes (`notes`, `review_notes`, `request_message`) and recipient addresses are
-     * not listed on purpose. They can carry names, phone numbers, or email addresses that
-     * pattern redaction cannot reliably detect, and their authoritative record already lives in
-     * the domain table referenced by `entity_type`/`entity_id`.
-     *
      * @var array<string, true>
+     *
      */
     private const AUDIT_VALUE_KEYS = [
         'semester' => true,
@@ -56,8 +52,10 @@ final class RecruitmentActivityLogger
     private const MAX_AUDIT_VALUE_LENGTH = 200;
 
     /**
+     *
      * @param  array<string, mixed>  $oldValues
      * @param  array<string, mixed>  $newValues
+     *
      */
     public function log(
         string $action,
@@ -88,17 +86,7 @@ final class RecruitmentActivityLogger
         ]);
     }
 
-    /**
-     * Record one PII-free event for a completed recruitment CSV export.
-     *
-     * `entity_id` is a UUID column (`char(36)` on MySQL/MariaDB strict mode), so the
-     * descriptive export scope is never written there: it lives in
-     * `new_values.scope`. A longer scope in the UUID column aborts the insert and
-     * the audit row is silently lost in production.
-     *
-     * A failed audit insert must not interrupt an already-started download; only safe metadata is
-     * sent to the application logger when the database write fails.
-     */
+    /** Record one PII-free event for a completed recruitment CSV export. */
     public function recordExport(User $actor, string $periodId, string $scope, int $rowsGenerated): void
     {
         try {
@@ -129,13 +117,11 @@ final class RecruitmentActivityLogger
     }
 
     /**
+     *
      * Remove fields that are not approved for the recruitment audit trail and redact values.
-     *
-     * A dropped scalar is logged by key name only when the caller supplies the action, so a new
-     * unapproved field is visible in the audit pipeline without ever writing its value.
-     *
      * @param  array<string, mixed>|null  $values
      * @return array<string, scalar|null>|null
+     *
      */
     public static function projectValues(?array $values, ?string $action = null): ?array
     {
@@ -182,8 +168,10 @@ final class RecruitmentActivityLogger
     }
 
     /**
+     *
      * @param  array<string, mixed>  $oldValues
      * @param  array<string, mixed>  $newValues
+     *
      */
     public function logApplicant(
         string $action,

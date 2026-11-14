@@ -6,13 +6,7 @@ use App\Exceptions\RedactedJobFailureException;
 use Illuminate\Queue\Failed\FailedJobProviderInterface;
 use Throwable;
 
-/**
- * Decorate a failed-job provider that has no redaction of its own.
- *
- * Laravel's null, file, DynamoDB and legacy database providers store the exception they are
- * given, so the redacted wrapper is substituted before delegation. Providers that support
- * pruning are wrapped by {@see RedactedPrunableFailedJobProvider} instead.
- */
+/** Decorate a failed-job provider that has no redaction of its own. */
 class RedactedFailedJobProvider implements FailedJobProviderInterface
 {
     public function __construct(private readonly FailedJobProviderInterface $provider)

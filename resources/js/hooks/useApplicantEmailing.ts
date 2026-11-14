@@ -10,7 +10,6 @@ import {
     type TRecruitmentEmailResendType,
 } from '@/lib/recruitmentEmailResend';
 
-/** State emailing applicant (konteks + izin + callback selesai). */
 export interface IApplicantEmailingState {
     applicationId: string;
     applicantName: string;
@@ -20,7 +19,6 @@ export interface IApplicantEmailingState {
     onSent: () => void;
 }
 
-/** Kirim-ulang email applicant: gerbang per jenis + konfirmasi + POST resend. */
 export function useApplicantEmailing(state: IApplicantEmailingState): {
     pendingType: Ref<TRecruitmentEmailResendType | null>;
     confirmOpen: Ref<boolean>;

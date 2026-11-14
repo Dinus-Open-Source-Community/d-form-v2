@@ -13,7 +13,9 @@ class StoreFeedbackRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {

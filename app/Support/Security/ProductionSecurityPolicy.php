@@ -4,19 +4,15 @@ namespace App\Support\Security;
 
 use RuntimeException;
 
-/**
- * Fail-fast checks for security settings that must never be weakened in production.
- *
- * Invoked from AppServiceProvider::boot() so a misconfigured deployment crashes at
- * startup instead of silently serving cookies over plain HTTP or without CSP.
- * Messages name the env variable to change and never include secret values.
- */
+/** Fail-fast production checks; boot must stop instead of silently weakening cookie or CSP protections. */
 final class ProductionSecurityPolicy
 {
     /**
+     *
      * Require Secure, HttpOnly and a SameSite policy other than `none` in production.
      *
      * @throws RuntimeException when any production cookie invariant is violated
+     *
      */
     public function assertProductionSafe(SessionCookieSettings $settings): void
     {
@@ -43,13 +39,7 @@ final class ProductionSecurityPolicy
         }
     }
 
-    /**
-     * Refuse to disable CSP in production unless the operator opts in explicitly.
-     *
-     * $mode is expected to be already normalized by
-     * {@see SecurityEnvironment::cspMode()}; no trimming happens here so an
-     * unnormalized value cannot accidentally compare equal to `off`.
-     *
+    /** Refuse to disable CSP unless the mode from {@see SecurityEnvironment::cspMode()} is explicitly allowed.
      * @throws RuntimeException when CSP is off in production without SECURITY_CSP_ALLOW_OFF
      */
     public function assertCspModeSafe(string $mode, bool $allowOff): void
@@ -67,13 +57,7 @@ final class ProductionSecurityPolicy
         );
     }
 
-    /**
-     * Require the CSP report collector to be first party in production.
-     *
-     * Reports contain full document URLs, including password-reset tokens carried in
-     * the path, so a foreign collector would leak them. Relative paths and absolute
-     * URLs on the app host are accepted; no scheme requirement is imposed.
-     *
+    /** Require a first-party CSP report collector because reports can contain reset-token URLs.
      * @throws RuntimeException when the report URI host differs from APP_URL's host
      */
     public function assertCspReportUriFirstParty(?string $reportUri): void

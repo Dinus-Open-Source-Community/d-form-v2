@@ -2,9 +2,7 @@
 
 namespace App\Enums;
 
-/**
- * Hasil aturan OTP registrasi; dipetakan controller ke respons halaman.
- */
+/** Hasil aturan OTP registrasi; dipetakan controller ke respons halaman. */
 enum OtpOutcome
 {
     case Issued;

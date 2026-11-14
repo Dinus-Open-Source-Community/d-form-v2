@@ -9,16 +9,15 @@ use Illuminate\Validation\Rules\Password;
 
 class UpdateDashboardProfilePasswordRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return $this->user() !== null;
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -53,9 +52,10 @@ class UpdateDashboardProfilePasswordRequest extends FormRequest
     }
 
     /**
-     * Get custom validation messages.
+     *
      *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

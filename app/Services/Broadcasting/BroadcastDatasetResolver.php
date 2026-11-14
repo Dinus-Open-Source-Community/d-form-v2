@@ -9,18 +9,11 @@ use App\Models\Recruitment\RecruitmentApplication;
 use App\Models\User;
 use Generator;
 
-/**
- * Resolve dataset sources menjadi daftar [name, email].
- * Terisolasi di modul broadcasting; tidak mengubah resolver modul lain.
- */
+/** Resolve dataset sources menjadi daftar [name, email]. */
 class BroadcastDatasetResolver
 {
     /**
-     * Lazy equivalent of {@see self::resolve()} for snapshot generation.
-     *
-     * Each source streams in primary-key order, so the same input always
-     * produces the same snapshot row sequence regardless of engine plan.
-     *
+     * Lazy equivalent of {@see self::resolve()}; each source streams in primary-key order for deterministic snapshots.
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @return Generator<int, array{name:string|null, email:string, source:string}>
      */
@@ -50,8 +43,10 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @param  array<int, array{type:string, id?:string|null, event_id?:string|null, period_id?:string|null}>  $datasets
      * @return array<int, array{name:string|null, email:string, source:string}>
+     *
      */
     public function resolve(array $datasets): array
     {
@@ -59,10 +54,12 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * Lazily yield participant roster rows; callers that need the array keep
      * using {@see self::eventParticipants()}.
      *
      * @return Generator<int, array{name:string|null, email:string}>
+     *
      */
     public function streamEventParticipants(?string $eventId = null): Generator
     {
@@ -91,7 +88,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return array<int, array{name:string|null, email:string}>
+     *
      */
     public function eventParticipants(?string $eventId = null): array
     {
@@ -99,7 +98,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return Generator<int, array{name:string|null, email:string}>
+     *
      */
     public function streamRecruitmentApplicants(?string $periodId = null): Generator
     {
@@ -124,7 +125,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return array<int, array{name:string|null, email:string}>
+     *
      */
     public function recruitmentApplicants(?string $periodId = null): array
     {
@@ -132,7 +135,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return Generator<int, array{name:string|null, email:string}>
+     *
      */
     public function streamUsers(): Generator
     {
@@ -151,7 +156,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return array<int, array{name:string|null, email:string}>
+     *
      */
     public function users(): array
     {
@@ -159,7 +166,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return Generator<int, array{name:string|null, email:string}>
+     *
      */
     public function streamCustomDataset(string $datasetId): Generator
     {
@@ -181,7 +190,9 @@ class BroadcastDatasetResolver
     }
 
     /**
+     *
      * @return array<int, array{name:string|null, email:string}>
+     *
      */
     public function customDataset(string $datasetId): array
     {

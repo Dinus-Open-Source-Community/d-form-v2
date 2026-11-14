@@ -2,10 +2,7 @@
 
 namespace App\Services\Broadcasting;
 
-/**
- * Sanitasi HTML rich text organizer (broadcast, deskripsi event, success content)
- * memakai allowlist; mencegah stored XSS tanpa dependensi tambahan.
- */
+/** Sanitasi HTML rich text organizer (broadcast, deskripsi event, success content) memakai allowlist; mencegah stored XSS tanpa dependensi tambahan. */
 class BroadcastHtmlSanitizer
 {
     /** @var array<int, string> */
@@ -32,20 +29,19 @@ class BroadcastHtmlSanitizer
     ];
 
     /**
+     *
      * Tag yang isinya dibuang total, bukan di-unwrap — mencegah teks
      * `<script>alert(1)</script>` berubah menjadi teks "alert(1)".
      *
      * @var array<int, string>
+     *
      */
     private const DROP_CONTENT_TAGS = [
         'script', 'style', 'iframe', 'object', 'embed', 'noscript',
         'template', 'svg', 'math', 'link', 'meta', 'base',
     ];
 
-    /**
-     * Sanitasi hanya bila string mengandung tag HTML; teks biasa dikembalikan
-     * apa adanya agar entity seperti `&` tidak berubah menjadi `&amp;`.
-     */
+    /** Sanitasi hanya bila string mengandung tag HTML; teks biasa dikembalikan apa adanya agar entity seperti `&` tidak berubah menjadi `&amp;`. */
     public function sanitizeIfMarkup(?string $html): string
     {
         $html = (string) $html;

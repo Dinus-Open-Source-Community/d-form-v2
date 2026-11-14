@@ -88,21 +88,13 @@ class RecruitmentApplicationPolicy
         return $this->isAssignedInterviewer($user, $application);
     }
 
-    /**
-     * Gerbang kasar klaim secondary: cek permission saja di sini.
-     * Cakupan (divisi + eligibility) ditegakkan di InterviewLifecycleService
-     * agar kontrak error-nya presisi (403 vs 422 per-field).
-     */
+    /** Gerbang kasar klaim secondary: cek permission saja di sini. */
     public function claimSecondaryInterview(User $user, RecruitmentApplication $application): bool
     {
         return $user->can('recruitment.evaluations.submit');
     }
 
-    /**
-     * Gerbang kasar klaim primary: cek permission saja di sini.
-     * Cakupan (divisi + eligibility) ditegakkan di InterviewLifecycleService
-     * agar kontrak error-nya presisi (403 vs 422 per-field).
-     */
+    /** Gerbang kasar klaim primary: cek permission saja di sini. */
     public function claimPrimaryInterview(User $user, RecruitmentApplication $application): bool
     {
         return $user->can('recruitment.evaluations.submit');
@@ -172,9 +164,7 @@ class RecruitmentApplicationPolicy
             ->exists();
     }
 
-    /**
-     * Regist ulang sudah dilakukan bila baris attendance tersedia.
-     */
+    /** Regist ulang sudah dilakukan bila baris attendance tersedia. */
     private function hasCheckedIn(RecruitmentApplication $application): bool
     {
         $application->loadMissing('attendance');

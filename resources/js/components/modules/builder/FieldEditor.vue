@@ -284,7 +284,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
 
 <template>
     <div class="border-border/60 bg-card/50 flex flex-col gap-6 rounded-2xl border px-5 py-6">
-        <!-- Header -->
         <div class="flex items-center gap-3">
             <div
                 class="grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm"
@@ -300,7 +299,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
 
         <hr class="app-divider" />
 
-        <!-- Label -->
         <div class="flex flex-col gap-2">
             <Label class="text-sm font-medium">Label</Label>
             <Input
@@ -312,7 +310,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             <p class="text-muted-foreground text-xs">Judul yang tampil di atas kolom.</p>
         </div>
 
-        <!-- Description -->
         <div v-if="!isContent" class="flex flex-col gap-2">
             <Label class="text-sm font-medium">Teks bantu</Label>
             <Textarea
@@ -324,7 +321,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             />
         </div>
 
-        <!-- Petunjuk di dalam kolom (hanya teks input) -->
         <div v-if="hasPlaceholder" class="flex flex-col gap-2">
             <Label class="text-sm font-medium">Teks petunjuk (placeholder)</Label>
             <Input
@@ -338,7 +334,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </p>
         </div>
 
-        <!-- Maks. karakter (teks pendek / panjang) -->
         <div v-if="['short_text', 'long_text'].includes(field.type)" class="flex flex-col gap-2">
             <Label class="text-sm font-medium">Maks. karakter</Label>
             <Input
@@ -360,7 +355,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </p>
         </div>
 
-        <!-- Content text (heading / paragraph) -->
         <div v-if="field.type === 'heading'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Isi judul</Label>
             <Input
@@ -381,7 +375,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             />
         </div>
 
-        <!-- Image block (display-only): gambar + caption + alt -->
         <div v-if="field.type === 'image'" class="flex flex-col gap-2">
             <Label class="text-xs font-semibold">Gambar tampilan</Label>
             <BuilderImageUploadCard
@@ -419,7 +412,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </div>
 
-        <!-- Rating max stars -->
         <div v-if="field.type === 'rating'" class="flex flex-col gap-1.5">
             <Label class="text-xs font-semibold">Jumlah bintang maksimal</Label>
             <Input
@@ -432,7 +424,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             />
         </div>
 
-        <!-- Upload formats -->
         <fieldset v-if="uploadType !== null" class="flex flex-col gap-3">
             <legend class="text-xs font-semibold">Format yang diizinkan</legend>
             <p class="text-muted-foreground text-xs">Pilih format file yang dapat diunggah.</p>
@@ -532,7 +523,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </fieldset>
 
-        <!-- Options editor (dropdown / checkbox / radio) -->
         <div v-if="hasOptions" class="flex flex-col gap-2">
             <Label class="text-xs font-semibold">Daftar opsi</Label>
             <p class="text-muted-foreground text-[10px]">
@@ -599,8 +589,8 @@ function readUploadLimit(value: unknown): number | string | undefined {
                                         800 x 800
                                     </span>
                                 </div>
+                                <!-- Keep the option label synced for accessibility fallback. -->
                                 <div class="hidden">
-                                    <!-- Keep label synced for accessibility or fallback -->
                                     <Input
                                         :model-value="opt.label"
                                         placeholder="Label aksesibilitas"
@@ -630,7 +620,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </div>
 
-        <!-- Advanced (team / bundle) -->
         <div v-if="hasAdvancedFlags" class="mt-2 space-y-4">
             <hr class="app-divider" />
             <p class="text-foreground text-sm font-semibold">Lanjutan</p>
@@ -661,7 +650,6 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </div>
 
-        <!-- Required toggle (not for content types) -->
         <div v-if="!isContent" class="mt-2">
             <hr class="app-divider mb-5" />
             <div

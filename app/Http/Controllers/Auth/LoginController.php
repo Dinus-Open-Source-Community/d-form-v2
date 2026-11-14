@@ -22,10 +22,7 @@ class LoginController extends Controller
         return inertia('Auth/Login');
     }
 
-    /**
-     * Only accept same-origin, path-only redirect targets. Rejects protocol-relative
-     * URLs, backslash tricks, header-injection characters, and absolute URLs.
-     */
+    /** Only accept same-origin, path-only redirect targets. */
     private function isSafeLocalIntended(mixed $intended): bool
     {
         if (! is_string($intended) || $intended === '') {

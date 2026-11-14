@@ -19,7 +19,9 @@ final class GlobalScanResolver
     }
 
     /**
+     *
      * @return array{kind: string, application: ?RecruitmentApplication, answer: ?FormAnswer, registrationNumber: ?string}
+     *
      */
     public function resolve(string $raw): array
     {

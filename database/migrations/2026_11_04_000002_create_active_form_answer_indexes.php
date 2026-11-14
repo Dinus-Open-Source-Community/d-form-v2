@@ -5,14 +5,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Contract form_answers uniqueness after the active marker has been audited by
- * form-answers:audit-active-uniqueness.
- *
- * The migration never repairs duplicate data. The database unique indexes abort
- * safely on a duplicate-key violation so an operator can resolve the conflict
- * deliberately before retrying.
- */
+/** Contract form_answers uniqueness after the active marker has been audited by form-answers:audit-active-uniqueness. */
 return new class () extends Migration {
     private const USER_INDEX = 'form_answers_active_user_form_unique';
 
@@ -65,10 +58,10 @@ return new class () extends Migration {
     }
 
     /**
-     * Use online index DDL where the engine supports it; other drivers use the
-     * same composite unique schema without engine-specific generated columns.
      *
+     * Use online index DDL where the engine supports it; other drivers use the same composite unique schema without engine-specific generated columns.
      * @param  list<string>  $columns
+     *
      */
     private function createUniqueIndex(string $indexName, array $columns): void
     {

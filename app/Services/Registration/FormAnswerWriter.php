@@ -4,18 +4,15 @@ namespace App\Services\Registration;
 
 use App\Models\FormAnswer;
 
-/**
- * Single application write seam for new form answers.
- *
- * The model observer also protects factory and other Eloquent boundaries; this
- * writer makes the production registration paths explicit and reusable.
- */
+/** Single application write seam for new form answers. */
 final class FormAnswerWriter
 {
     /**
+     *
      * Persist one form answer with the marker derived from its active predicate.
      *
      * @param  array<string, mixed>  $attributes
+     *
      */
     public function create(array $attributes): FormAnswer
     {

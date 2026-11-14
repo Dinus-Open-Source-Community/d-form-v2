@@ -16,9 +16,11 @@ class RegistrationConfirmationMail extends Mailable
     use SerializesModels;
 
     /**
+     *
      * @param  array<string, string>  $answersSummary  Label => display value
      * @param  string|null  $qrPngBinary                   Omit for team/bundle leaders until an admin accepts the submission
      * @param  bool  $isTeammateConfirmedLeaderNotice      Email to the team leader: teammate confirmed (uses same Blade, different intro)
+     *
      */
     public function __construct(
         public FormAnswer $submission,
@@ -62,7 +64,9 @@ class RegistrationConfirmationMail extends Mailable
     }
 
     /**
+     *
      * @return array<int, Attachment>
+     *
      */
     public function attachments(): array
     {

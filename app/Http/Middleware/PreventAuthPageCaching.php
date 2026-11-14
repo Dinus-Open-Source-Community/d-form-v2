@@ -6,10 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Halaman auth tidak boleh di-cache browser (mis. tombol Back setelah login
- * tidak boleh menampilkan form login dari cache).
- */
+/** Prevent browser caching on authentication pages. */
 class PreventAuthPageCaching
 {
     public function handle(Request $request, Closure $next): Response

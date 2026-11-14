@@ -6,10 +6,7 @@ use App\Console\Commands\E2e\Concerns\ResolvesFixtureIdentity;
 use App\Support\E2e\FixtureScope;
 use Illuminate\Console\Command;
 
-/**
- * Hitung baris fixture milik satu marker (per tabel) tanpa predikat bebas.
- * Dipakai spec untuk assertion sebelum/sesudah mutasi.
- */
+/** Hitung baris fixture milik satu marker (per tabel) tanpa predikat bebas. */
 final class CountRowsCommand extends Command
 {
     use ResolvesFixtureIdentity;

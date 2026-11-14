@@ -4,10 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Index FULLTEXT untuk pencarian acara di halaman publik `/events`.
- * LIKE '%kata%' memindai 1 juta baris (±4,3 detik); MATCH ... AGAINST memakai index ini.
- */
+/** Index FULLTEXT untuk pencarian acara di halaman publik `/events`. */
 return new class () extends Migration {
     public function up(): void
     {

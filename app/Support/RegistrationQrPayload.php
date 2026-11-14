@@ -4,15 +4,15 @@ namespace App\Support;
 
 use Illuminate\Support\Str;
 
-/**
- * QR payload contract for attendance (M6). Scanner reads JSON with version + submission id.
- */
+/** QR payload contract for attendance (M6). */
 final class RegistrationQrPayload
 {
     public const VERSION = 1;
 
     /**
+     *
      * @throws \JsonException
+     *
      */
     public static function encode(string $formAnswerId): string
     {
@@ -22,9 +22,7 @@ final class RegistrationQrPayload
         ], JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * Decode M5/M6 QR JSON and return the submission (`form_answers.id`) UUID, or null if invalid.
-     */
+    /** Decode M5/M6 QR JSON and return the submission (`form_answers.id`) UUID, or null if invalid. */
     public static function tryDecodeSubmissionId(string $json): ?string
     {
         $trimmed = trim($json);

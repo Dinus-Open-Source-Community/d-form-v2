@@ -4,35 +4,22 @@ namespace App\Support\Security;
 
 use RuntimeException;
 
-/**
- * Build the regex allowlist handed to Symfony's Request::setTrustedHosts().
- *
- * The list always contains at least the APP_URL host, because an empty trusted
- * host list disables host validation entirely (fail-open). Every invalid entry
- * fails fast: a typo must not silently widen the trust boundary.
- */
+/** Build a fail-closed host allowlist; APP_URL is always included and invalid entries throw. */
 final class TrustedHostAllowlist
 {
     /**
+     *
      * @param  bool  $includeLoopbackHosts  whether `localhost`, `127.0.0.1` and `[::1]` are trusted
+     *
      */
     public function __construct(private readonly bool $includeLoopbackHosts)
     {
     }
 
-    /**
-     * Compile the configured hosts into anchored regex patterns.
-     *
-     * Symfony wraps each pattern as `{pattern}i`, so the pattern must anchor both
-     * ends itself; otherwise "localhost" would match "evil-localhost.com".
-     *
-     * The caller decides whether loopback hosts are trusted: this policy stays pure
-     * and never inspects APP_ENV itself.
-     *
+    /** Compile anchored patterns; loopback trust is supplied by the caller, not read from APP_ENV.
      * @param  array<int, mixed>|string|bool|null  $configuredHosts  `TRUSTED_HOSTS` value
      * @param  string  $appUrl  `APP_URL`; its host is always trusted
      * @return list<string>
-     *
      * @throws RuntimeException when APP_URL has no host or an entry is not an exact host
      */
     public function patterns(mixed $configuredHosts, string $appUrl): array
@@ -58,7 +45,9 @@ final class TrustedHostAllowlist
     }
 
     /**
+     *
      * @throws RuntimeException when APP_URL does not contain a usable host
+     *
      */
     private function appUrlHost(string $appUrl): string
     {
@@ -75,9 +64,11 @@ final class TrustedHostAllowlist
     }
 
     /**
+     *
      * @return list<string>
      *
      * @throws RuntimeException when the value or one of its entries has the wrong type
+     *
      */
     private function configuredEntries(mixed $configuredHosts): array
     {
@@ -123,9 +114,11 @@ final class TrustedHostAllowlist
     }
 
     /**
+     *
      * Lowercase an entry and prove it is an exact host (name, IPv4 or IPv6).
      *
      * @throws RuntimeException when the entry is not an exact host
+     *
      */
     private function normalizeHost(string $value, string $source): string
     {

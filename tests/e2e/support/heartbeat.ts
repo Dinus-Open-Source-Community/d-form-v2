@@ -2,21 +2,18 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, uti
 import type { Dirent } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-/** Isi file heartbeat yang ditulis setiap worker Playwright. */
 export interface IHeartbeatPayload {
     pid: number;
     runId: string;
     startedAt: string;
 }
 
-/** Argumen pembentuk heartbeat worker. */
 export interface IWorkerHeartbeatInput {
     project: string;
     workerIndex: number;
     runId: string;
 }
 
-/** Pegangan heartbeat; `stop()` menghapus file milik worker ini. */
 export interface IHeartbeatHandle {
     filePath: string;
     stop: () => void;
@@ -25,17 +22,14 @@ export interface IHeartbeatHandle {
 const HEARTBEAT_REFRESH_MS = 5_000;
 const HEARTBEAT_LIVE_MS = 30_000;
 
-/** Folder akar heartbeat run, relatif terhadap root proyek. */
 export function heartbeatRoot(): string {
     return resolve(process.cwd(), 'storage/app/e2e/heartbeats');
 }
 
-/** Folder heartbeat satu run. */
 export function heartbeatDirectory(runId: string): string {
     return join(heartbeatRoot(), runId);
 }
 
-/** Path file heartbeat `<project>.<workerIndex>.json` untuk satu run. */
 export function heartbeatFilePath(input: IWorkerHeartbeatInput): string {
     return join(heartbeatDirectory(input.runId), `${input.project}.${input.workerIndex}.json`);
 }
@@ -103,7 +97,6 @@ export function isHeartbeatLive(filePath: string, now: number = Date.now()): boo
     }
 }
 
-/** Daftar file heartbeat satu run (kosong bila folder belum ada). */
 export function listHeartbeats(runId: string): string[] {
     const directory = heartbeatDirectory(runId);
 
@@ -116,7 +109,6 @@ export function listHeartbeats(runId: string): string[] {
         .map((entry: string): string => join(directory, entry));
 }
 
-/** Daftar runId yang masih punya folder heartbeat (dipakai sweep untuk menghitung liveness). */
 export function listHeartbeatRunIds(): string[] {
     const root = heartbeatRoot();
 
@@ -129,12 +121,10 @@ export function listHeartbeatRunIds(): string[] {
         .map((entry: Dirent): string => entry.name);
 }
 
-/** Apakah satu run masih punya minimal satu heartbeat hidup. */
 export function hasLiveHeartbeat(runId: string, now: number = Date.now()): boolean {
     return listHeartbeats(runId).some((filePath: string): boolean => isHeartbeatLive(filePath, now));
 }
 
-/** Hapus folder heartbeat satu run setelah cleanup berhasil. */
 export function removeRunHeartbeatDirectory(runId: string): void {
     rmSync(heartbeatDirectory(runId), { recursive: true, force: true });
 }

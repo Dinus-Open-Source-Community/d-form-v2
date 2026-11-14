@@ -103,11 +103,8 @@ class BroadcastDatasetController extends Controller
     }
 
     /**
-     * Parse CSV baris demi baris (tanpa menampung seluruh file di memori).
-     *
-     * Ukuran file divalidasi `UploadPurpose::DatasetCsv` (2 MB); batas jumlah
-     * baris, panjang baris, dan penolakan baris biner ditangani {@see CsvRows}.
-     *
+     * Parse CSV row by row; CsvRows enforces row, length, and binary-content limits.
+     * @see CsvRows
      * @return array{valid:array<int,array{name:string|null,email:string}>}
      */
     private function parseCsvEmails(?\Illuminate\Http\UploadedFile $file): array
@@ -142,8 +139,10 @@ class BroadcastDatasetController extends Controller
     }
 
     /**
+     *
      * @param  array<int, mixed>  $row
      * @param  array<int, array{name:string|null,email:string}>  $valid
+     *
      */
     private function appendEmailRow(array $row, int $emailColumn, ?int $nameColumn, array &$valid): void
     {

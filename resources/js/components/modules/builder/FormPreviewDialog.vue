@@ -127,7 +127,6 @@ function ratingStars(field: IFormPreviewField): number[] {
                 <div
                     class="border-border bg-card relative z-10 flex max-h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-sm"
                 >
-                    <!-- Chrome: matches dashboard “tool” panels -->
                     <div
                         class="border-border from-muted/60 via-card to-primary/5 flex shrink-0 items-start justify-between gap-3 border-b bg-gradient-to-r px-4 py-3 sm:px-5"
                     >
@@ -151,7 +150,6 @@ function ratingStars(field: IFormPreviewField): number[] {
 
                     <div class="bg-muted/25 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
                         <div class="mx-auto max-w-3xl">
-                            <!-- Banner — matches Fill.vue -->
                             <div
                                 v-if="bannerResolved || bannerCaptionTrim"
                                 class="border-border bg-card overflow-hidden rounded-2xl border shadow-sm"
@@ -191,7 +189,6 @@ function ratingStars(field: IFormPreviewField): number[] {
                                 :class="hasFormDescription ? 'mt-5 gap-3' : 'mt-2 gap-2.5'"
                             >
                                 <template v-for="field in fieldsSafe" :key="field.id">
-                                    <!-- Heading -->
                                     <div
                                         v-if="field.type === 'heading'"
                                         class="border-primary/20 bg-primary/5 rounded-2xl border px-5 py-4 shadow-xs"
@@ -204,7 +201,6 @@ function ratingStars(field: IFormPreviewField): number[] {
                                         </p>
                                     </div>
 
-                                    <!-- Paragraph -->
                                     <div
                                         v-else-if="field.type === 'paragraph'"
                                         class="border-border bg-muted/30 rounded-2xl border px-5 py-4 shadow-xs"
@@ -215,10 +211,8 @@ function ratingStars(field: IFormPreviewField): number[] {
                                         />
                                     </div>
 
-                                    <!-- Divider -->
                                     <hr v-else-if="field.type === 'divider'" class="app-divider my-1" />
 
-                                    <!-- Image (display-only, non-input) -->
                                     <div
                                         v-else-if="field.type === 'image'"
                                         class="border-border bg-card overflow-hidden rounded-2xl border shadow-xs"
@@ -239,7 +233,6 @@ function ratingStars(field: IFormPreviewField): number[] {
                                         </p>
                                     </div>
 
-                                    <!-- Answer fields — Card shell like Fill.vue -->
                                     <Card v-else class="border-border rounded-2xl border shadow-xs">
                                         <CardHeader class="pt-4 pb-2">
                                             <CardTitle
@@ -432,7 +425,6 @@ function ratingStars(field: IFormPreviewField): number[] {
                                 </template>
                             </div>
 
-                            <!-- Stub submit row — mirrors Fill footer rhythm -->
                             <div
                                 v-if="fieldsSafe.length > 0"
                                 class="border-border flex flex-wrap items-center justify-end gap-3 border-t"

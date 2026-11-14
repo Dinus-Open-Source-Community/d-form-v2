@@ -135,7 +135,6 @@ function onRemove(): void {
             @change="onPicked"
         />
 
-        <!-- idle -->
         <div v-if="phase === 'idle'" class="flex flex-col gap-1.5">
             <button
                 type="button"
@@ -152,7 +151,6 @@ function onRemove(): void {
             </p>
         </div>
 
-        <!-- completed: gambar -->
         <figure v-else-if="showImagePreview" class="border-border bg-card overflow-hidden rounded-xl border shadow-xs">
             <img
                 :src="previewUrl"
@@ -188,7 +186,6 @@ function onRemove(): void {
             </figcaption>
         </figure>
 
-        <!-- uploading / completed non-gambar / gagal -->
         <FileUploadRow
             v-else
             :state="props.state"

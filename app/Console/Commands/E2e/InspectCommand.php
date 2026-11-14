@@ -6,10 +6,7 @@ use App\Console\Commands\E2e\Concerns\ResolvesFixtureIdentity;
 use App\Support\E2e\FixtureScope;
 use Illuminate\Console\Command;
 
-/**
- * Tampilkan identitas, id, dan jumlah baris milik satu marker.
- * Dipakai saat mendiagnosis sisa data tanpa query manual.
- */
+/** Tampilkan identitas, id, dan jumlah baris milik satu marker. */
 final class InspectCommand extends Command
 {
     use ResolvesFixtureIdentity;

@@ -11,18 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Bounded recovery for transactional form-review email intents left pending after queue failure or
- * in dispatcher lease states after a worker crashed before the recipient job was enqueued.
- *
- * Rows are claimed before the queue push, and the claimed dispatcher job advances through an
- * enqueuing mutex before pushing the recipient job. A second poll or replay therefore cannot
- * enqueue another recipient job for the same active dispatcher lease. Queued recipient jobs are
- * intentionally never reclaimed: their worker may be delayed or in flight, and the recipient
- * claim is the duplicate-suppression boundary. An expired enqueuing lease is ambiguous because
- * the queue adapter may have accepted the payload before the process died; it is therefore moved
- * to manual_review rather than automatically enqueued again.
- */
+/** Recover pending or stale leases without sending a recipient twice. */
 final class FormReviewEmailOutboxRecovery
 {
     private const MAX_BATCH_SIZE = 100;
@@ -141,11 +130,7 @@ final class FormReviewEmailOutboxRecovery
         return ['action' => 'dispatch', 'attempts' => (int) $outbox->attempts];
     }
 
-    /**
-     * Resolve a stale lease without sending twice. Existing EmailLog evidence wins over recovery;
-     * an unconfirmed log is explicitly quarantined, while a sending row with no log is safe to
-     * retry because recipient claiming now reserves the log in the same transaction.
-     */
+    /** Resolve a stale lease without sending twice. */
     private function resolveStaleLease(FormReviewEmailOutbox $outbox, \Illuminate\Support\Carbon $now): array
     {
         $log = EmailLog::query()

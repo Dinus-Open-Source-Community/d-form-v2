@@ -13,17 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Inline image broadcast tersimpan di storage Laravel (disk `public`),
- * DB hanya menyimpan path/URL — bukan base64.
- *
- * Alur:
- * - Editor mengunggah file via BroadcastInlineImageController::class
- *   lalu menyisipkan URL storage ke konten.
- * - Konten lama (base64 di DB) dimigrasi oleh migrateHtml() yang
- *   dipanggil otomatis saat save konten + artisan
- *   `broadcasts:migrate-inline-images`.
- */
+/** Inline image broadcast tersimpan di storage Laravel (disk `public`), DB hanya menyimpan path/URL — bukan base64. */
 class BroadcastInlineImageService
 {
     public const MAX_UPLOAD_KB = 5120; // Shared global upload limit: 5 MB.
@@ -43,9 +33,11 @@ class BroadcastInlineImageService
     ];
 
     /**
+     *
      * Simpan file unggahan editor ke `broadcasts/{id}/inline/...`.
      *
      * @return array{path:string, url:string}
+     *
      */
     public function store(EmailBroadcast $broadcast, UploadedFile $file): array
     {
@@ -71,16 +63,7 @@ class BroadcastInlineImageService
     }
 
     /**
-     * Pindahkan setiap src="data:image/..." di HTML ke storage lalu
-     * tulis ulang src ke URL storage. Gambar yang tidak valid /
-     * melebihi batas dibiarkan apa adanya dan dihitung sebagai skipped
-     * agar controller bisa menolak dengan pesan yang jelas.
-     *
-     * Kegagalan storage juga dihitung skipped (data: URL dipertahankan) supaya
-     * caller tidak pernah menerima sukses palsu; kegagalannya dicatat sebagai
-     * error terstruktur dengan correlation ID. Tidak dilempar agar satu disk
-     * bermasalah tidak membatalkan seluruh migrasi konten.
-     *
+     * Migrate inline images; invalid or storage-failed images remain unchanged and are counted as skipped.
      * @return array{html:string, migrated:int, skipped:int}
      */
     public function migrateHtml(EmailBroadcast $broadcast, ?string $html): array
@@ -116,10 +99,7 @@ class BroadcastInlineImageService
         return ['html' => $result ?? $html, 'migrated' => $migrated, 'skipped' => $skipped];
     }
 
-    /**
-     * Pesan penolakan bila HTML masih mengandung data: URL sesudah
-     * migrasi otomatis (tidak valid / melebihi batas). Null bila bersih.
-     */
+    /** Pesan penolakan bila HTML masih mengandung data: URL sesudah migrasi otomatis (tidak valid / melebihi batas). */
     public function rejectionMessage(?string $html): ?string
     {
         if (! $this->containsDataUrl($html)) {
@@ -131,9 +111,11 @@ class BroadcastInlineImageService
     }
 
     /**
+     *
      * Decode satu data: URL lalu simpan ke storage. Null bila tidak valid.
      *
      * @return array{path:string, url:string}|null
+     *
      */
     private function storeDataUrl(EmailBroadcast $broadcast, string $dataUrl): ?array
     {
@@ -176,11 +158,7 @@ class BroadcastInlineImageService
         ];
     }
 
-    /**
-     * Log a storage failure with a correlation id so it is distinguishable from
-     * invalid image input in operations. The exception message is redacted and
-     * never reaches the HTTP response.
-     */
+    /** Log a storage failure with a correlation id so it is distinguishable from invalid image input in operations. */
     private function reportStorageFailure(EmailBroadcast $broadcast, Throwable $exception): void
     {
         $requestId = request()->header('X-Request-ID');

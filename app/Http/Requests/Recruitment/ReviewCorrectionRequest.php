@@ -12,7 +12,9 @@ class ReviewCorrectionRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {

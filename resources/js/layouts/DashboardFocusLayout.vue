@@ -29,7 +29,7 @@ const page = usePage();
 const user = useAuth(page.props);
 const topbar = provideTopbar();
 
-// Reset state topbar saat navigasi Inertia ke halaman lain.
+// Clear page-specific topbar state on Inertia navigation.
 watch(
     () => page.component,
     () => {

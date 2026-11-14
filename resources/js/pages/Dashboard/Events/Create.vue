@@ -309,7 +309,6 @@ function requestPreview(): void {
     <Head title="Buat acara" />
 
     <div class="flex flex-col gap-5">
-        <!-- Step 1: detail event (stepper inline dgn tombol aksi via slot) -->
         <EventDashboardForm
             v-if="step === 'event'"
             ref="eventFormRef"
@@ -336,9 +335,7 @@ function requestPreview(): void {
             </template>
         </EventDashboardForm>
 
-        <!-- Step 2: formulir pendaftaran -->
         <template v-else-if="step === 'forms' && draftEvent">
-            <!-- Satu baris: stepper kiri, aksi kanan -->
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div class="flex min-w-0 items-center gap-4">
                     <EventWizardStepper :steps="steps" :active-index="currentIndex" />

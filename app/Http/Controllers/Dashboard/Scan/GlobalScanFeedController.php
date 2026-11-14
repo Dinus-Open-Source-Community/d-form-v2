@@ -43,11 +43,10 @@ class GlobalScanFeedController extends Controller
     }
 
     /**
-     * Token opaque `ts|eventId|recruitmentId`; string ISO lama tetap diterima
-     * sebagai "ts tanpa id". Nilai yang tidak bisa diparse ditolak agar feed
-     * tidak diam-diam memutar ulang seluruh riwayat.
      *
+     * Token opaque `ts|eventId|recruitmentId`; string ISO lama tetap diterima sebagai "ts tanpa id".
      * @throws InvalidArgumentException
+     *
      */
     private function normalizeSince(mixed $value): ?string
     {
@@ -69,7 +68,9 @@ class GlobalScanFeedController extends Controller
     }
 
     /**
+     *
      * @throws InvalidArgumentException
+     *
      */
     private function normalizeLimit(mixed $value): int
     {

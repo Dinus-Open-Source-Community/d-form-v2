@@ -9,11 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class EmailAvailabilityController extends Controller
 {
-    /**
-     * Cek apakah email belum dipakai, dipanggil debounce dari form register.
-     * Query builder dipakai agar SQL menjadi `select exists(select 1 ...)`, bukan `select *`;
-     * tabel diakses tanpa scope soft-delete supaya konsisten dengan rule unique:users,email.
-     */
+    /** Cek apakah email belum dipakai, dipanggil debounce dari form register. */
     public function __invoke(EmailAvailabilityRequest $request): JsonResponse
     {
         $exists = DB::table('users')

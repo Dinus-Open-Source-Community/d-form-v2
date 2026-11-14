@@ -8,12 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 
-/**
- * Maps validated submission input to the `form_answers.answers` payload.
- *
- * Only keys declared by the validator are read; unvalidated request keys never
- * reach a stored answer.
- */
+/** Maps validated submission input to the `form_answers.answers` payload. */
 final class FormAnswerInputMapper
 {
     public function __construct(private readonly FormAnswerFileStorage $fileStorage)
@@ -21,10 +16,12 @@ final class FormAnswerInputMapper
     }
 
     /**
+     *
      * @param  array<string, mixed>  $validated  output of `Validator::validated()`
      * @param  Collection<int, FormField>  $fields  ordered form fields
      * @param  int  $extraMemberSlots  bundle participant slots beyond the leader
      * @return array{leader: array<string, mixed>, members: list<array<string, mixed>>}
+     *
      */
     public function map(array $validated, Collection $fields, Form $form, int $extraMemberSlots = 0): array
     {
@@ -67,17 +64,13 @@ final class FormAnswerInputMapper
     }
 
     /**
+     *
      * Merge mapped answers for the given fields into an existing payload.
-     *
-     * Used by the team/bundle invitation confirmation, where a member may edit
-     * only appendable fields. `preserveStoredFiles` keeps the already stored
-     * path when the member submits no new upload instead of resetting it to
-     * `null` (submission behaviour stays the default).
-     *
      * @param  array<string, mixed>  $validated
      * @param  Collection<int, FormField>  $fields
      * @param  array<string, mixed>  $existingAnswers
      * @return array<string, mixed>
+     *
      */
     public function mergeAnswers(
         array $validated,
@@ -102,9 +95,11 @@ final class FormAnswerInputMapper
     }
 
     /**
+     *
      * @param  array<string, mixed>  $validated
      * @param  Collection<int, FormField>  $fields
      * @return array<string, mixed>
+     *
      */
     private function mapLeaderAnswers(array $validated, Collection $fields, Form $form): array
     {
@@ -122,9 +117,11 @@ final class FormAnswerInputMapper
     }
 
     /**
+     *
      * Read one answer from validated input; dotted names resolve nested keys.
      *
      * @param  array<string, mixed>  $validated
+     *
      */
     private function valueFor(array $validated, FormField $field, Form $form, string $inputName): mixed
     {

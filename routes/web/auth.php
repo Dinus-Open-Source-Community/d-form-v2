@@ -15,14 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/auth', '/auth/login')
     ->middleware([PreventAuthPageCaching::class, 'guest']);
-
-// Routes for login and register
 Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
-    /**
-     * Routes for login
-     * GET: index [auth/login]
-     * POST: store [auth/login]
-     */
     Route::resource('/auth/login', LoginController::class)
     ->middleware('guest')
     ->middlewareFor('store', 'throttle:auth-login')
@@ -31,11 +24,6 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         'store' => 'auth.login.store',
     ])->only(['index', 'store']);
 
-    /**
-     * Routes for registration
-     * GET: index [auth/login]
-     * POST: store [auth/login]
-     */
     Route::resource('/auth/register', RegisterController::class)
     ->middleware('guest')
     ->middlewareFor('store', ['throttle:auth-register', 'throttle:auth-otp-address'])
@@ -44,13 +32,6 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         'store' => 'auth.register.store',
     ])->only(['index', 'store']);
 
-    /**
-     * Verifikasi OTP registrasi (spec §7)
-     * GET: index [auth/verify-otp]
-     * POST: verify [auth/verify-otp]
-     * POST: resend [auth/verify-otp/resend]
-     * POST: cancel [auth/verify-otp/cancel]
-     */
     Route::get('/auth/verify-otp', [VerifyOtpController::class, 'index'])->name('auth.otp.show');
 
     Route::post('/auth/verify-otp', [VerifyOtpController::class, 'verify'])
@@ -86,8 +67,6 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         ->middleware('throttle:auth-password-reset')
         ->name('auth.password.update');
 });
-
-// Routes for logout
 Route::post('/auth/logout', LogoutController::class)
     ->middleware('auth')
     ->name('auth.logout');

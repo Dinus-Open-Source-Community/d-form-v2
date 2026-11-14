@@ -60,7 +60,6 @@ const { visible } = useViewportReveal({ targetId: 'section-steps', threshold: 0.
             </div>
 
             <div class="relative grid gap-10 sm:grid-cols-3 lg:gap-8">
-                <!-- Connecting line (desktop) -->
                 <div
                     class="via-border pointer-events-none absolute top-[4.5rem] right-[17%] left-[17%] hidden h-px bg-gradient-to-r from-transparent to-transparent sm:block"
                     aria-hidden="true"
@@ -75,14 +74,12 @@ const { visible } = useViewportReveal({ targetId: 'section-steps', threshold: 0.
                     ]"
                     :style="{ transitionDelay: `${120 + i * 100}ms` }"
                 >
-                    <!-- Step number -->
                     <div
                         class="bg-primary text-primary-foreground relative z-10 mb-6 flex size-12 items-center justify-center rounded-full text-sm font-bold shadow-sm"
                     >
                         <component :is="step.icon" class="size-5" />
                     </div>
 
-                    <!-- Lottie card -->
                     <div
                         class="border-border/30 bg-background/80 mb-6 flex w-full justify-center overflow-hidden rounded-xl border p-5"
                     >

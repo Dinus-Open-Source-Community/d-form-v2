@@ -10,18 +10,10 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Validation seam for the form submission boundary: resolves the mode, builds
- * the Laravel rules per mode, and returns only validated input.
- */
+/** Validation seam for the form submission boundary: resolves the mode, builds the Laravel rules per mode, and returns only validated input. */
 final class FormSubmissionRules
 {
-    /**
-     * Resolve the submission mode from form metadata.
-     *
-     * Returns `null` when a non-registration form still carries team/bundle
-     * metadata so the caller can reject the request before validating.
-     */
+    /** Return null for non-registration forms carrying team/bundle metadata so callers can reject early. */
     public static function modeFor(Form $form): ?FormSubmissionMode
     {
         $isTeam = TeamRegistrationSubmitter::isTeamForm($form);
@@ -38,16 +30,10 @@ final class FormSubmissionRules
         return $isBundle ? FormSubmissionMode::Bundle : FormSubmissionMode::Single;
     }
 
-    /**
-     * Validate the submitted payload for the given mode.
-     *
-     * Order is historical and load-bearing: bundle size guard before field
-     * validation, team size guard after it.
-     *
+    /** Validate the payload in load-bearing order: bundle size before fields, team size after fields.
      * @param  array<string, mixed>  $input
      * @param  Collection<int, FormField>  $fields
      * @return array<string, mixed> validated input only
-     *
      * @throws ValidationException
      */
     public static function validate(array $input, Collection $fields, FormSubmissionMode $mode, int $teamSize): array
@@ -70,11 +56,13 @@ final class FormSubmissionRules
     }
 
     /**
+     *
      * Rules for the leader payload of the given mode; bundle also validates one
      * input per duplicatable field for every extra participant slot.
      *
      * @param  Collection<int, FormField>  $fields
      * @return array<string, array<int, mixed>>
+     *
      */
     private static function forMode(Collection $fields, FormSubmissionMode $mode, int $teamSize): array
     {

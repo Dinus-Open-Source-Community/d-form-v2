@@ -40,10 +40,10 @@ class BroadcastSnapshotController extends Controller
     }
 
     /**
-     * Parse CSV snapshot dengan guard {@see CsvRows}: batas baris/panjang baris
-     * dan penolakan baris biner; ukuran file dibatasi `UploadPurpose::DatasetCsv`.
      *
+     * Parse CSV snapshot dengan guard {@see CsvRows}: batas baris/panjang baris dan penolakan baris biner; ukuran file dibatasi `UploadPurpose::DatasetCsv`.
      * @return array{valid:array<int,array{name:string|null,email:string}>, invalid:array<int,string>}
+     *
      */
     private function parseCsv(?\Illuminate\Http\UploadedFile $file): array
     {
@@ -90,8 +90,10 @@ class BroadcastSnapshotController extends Controller
     }
 
     /**
+     *
      * @param  array<int,array{name:string|null,email:string}>  $valid
      * @param  array<int,string>  $invalid
+     *
      */
     private function pushCsvRow(string $email, ?string $name, array &$valid, array &$invalid): void
     {

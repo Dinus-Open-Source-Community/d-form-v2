@@ -4,32 +4,19 @@ namespace App\Support\E2e;
 
 use Illuminate\Support\Facades\DB;
 
-/**
- * Journal baris fixture satu run: mencatat urutan insert agar kegagalan parsial
- * bisa dibersihkan terbalik (anak dulu) dalam satu transaksi.
- *
- * Entri hanya dibuang setelah transaksi delete sukses, sehingga kegagalan rollback
- * tidak menghilangkan jejak baris yang masih harus dibersihkan.
- */
+/** Journal baris fixture satu run: mencatat urutan insert agar kegagalan parsial bisa dibersihkan terbalik (anak dulu) dalam satu transaksi. */
 final class FixtureJournal
 {
     /** @var list<array{table: string, id: string}> */
     private array $entries = [];
 
-    /**
-     * Catat satu baris yang baru dibuat; urutan panggilan menentukan urutan rollback.
-     */
+    /** Catat satu baris yang baru dibuat; urutan panggilan menentukan urutan rollback. */
     public function record(string $table, string $id): void
     {
         $this->entries[] = ['table' => $table, 'id' => $id];
     }
 
-    /**
-     * Hapus seluruh baris tercatat secara terbalik, lalu kosongkan journal.
-     *
-     * `$cause` adalah error payload asli; bila rollback sendiri gagal, error itu
-     * dirantai sebagai `previous` agar penyebab awal tidak tertelan.
-     */
+    /** Hapus seluruh baris tercatat secara terbalik, lalu kosongkan journal. */
     public function rollback(\Throwable $cause): void
     {
         if ($this->entries === []) {

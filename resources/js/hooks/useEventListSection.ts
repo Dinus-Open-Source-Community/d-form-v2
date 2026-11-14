@@ -35,7 +35,6 @@ export interface IEventListSectionState extends IEventSearchState {
     goToCursorUrl: (url: string) => void;
 }
 
-/** Mengelola state pencarian, pagination, dan reveal untuk section daftar event. */
 export function useEventListSection(options: IEventListSectionOptions = {}): IEventListSectionState {
     const { visible } = useViewportReveal({ targetId: 'event-list', threshold: 0.05 });
     const initialFilters = unref(options.filters);

@@ -4,30 +4,16 @@ namespace App\Support\Export;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * Merges N ordered keyset streams into one globally ordered sequence.
- *
- * Each stream is a {@see KeysetPageIterator} over one `form_id` (or any other
- * partition of the same ordered set) using the same sort/identifier column pair
- * and direction. The merge compares only the head row of every stream and always
- * emits the greatest `(sortValue, identifier)` for a descending order, so rows
- * with an identical sort value interleave by identifier instead of one stream
- * being drained first.
- *
- * The identifier must be globally unique for the merged order to be total; a
- * duplicate identifier across streams would make the order ambiguous.
- *
- * Memory: one look-ahead row per stream plus one page of models per stream
- * (`pageSize` of the shared {@see KeysetPage}). Callers bound the peak by dividing
- * their export page size by the stream count.
- *
- * @template TModel of Model
- */
+    /** Merge {@see KeysetPageIterator} streams using shared order; identifiers must be globally unique.
+     * @template TModel of Model
+     */
 final class KeysetMergeIterator
 {
     /**
+     *
      * @param  KeysetPage  $page  order + per-stream page size shared by every stream
      * @param  list<KeysetPageIterator<TModel>>  $streams
+     *
      */
     public function __construct(
         private readonly KeysetPage $page,
@@ -36,9 +22,11 @@ final class KeysetMergeIterator
     }
 
     /**
+     *
      * Yield every row of every stream exactly once in the merged order.
      *
      * @return \Generator<int, TModel>
+     *
      */
     public function iterate(): \Generator
     {
@@ -76,19 +64,17 @@ final class KeysetMergeIterator
     }
 
     /**
+     *
      * @param  \Generator<int, TModel>  $iterator
      * @return TModel|null
+     *
      */
     private function head(\Generator $iterator): ?Model
     {
         return $iterator->valid() ? $iterator->current() : null;
     }
 
-    /**
-     * Compare two rows on the configured order; positive when `$left` sorts before
-     * `$right`. Uses the raw selected values so the comparison sees exactly what the
-     * database ordered by (not casted attributes).
-     *
+    /** Compare raw selected values in the database order; positive means `$left` sorts first.
      * @param  TModel  $left
      * @param  TModel  $right
      */

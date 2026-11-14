@@ -217,7 +217,6 @@ onMounted(() => {
     <Head title="Rekrutmen" />
 
     <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <!-- Perlu tindakan (di atas: prioritas utama halaman) -->
         <section v-if="canManagePeriods && summary.active_period" aria-label="Perlu tindakan">
             <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Perlu tindakan</h2>
             <div v-if="actionQueues.length > 0" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -247,7 +246,6 @@ onMounted(() => {
             </div>
         </section>
 
-        <!-- Daftar periode (kartu per-periode) -->
         <section v-if="canManagePeriods || periodRows.length > 0" aria-label="Daftar periode">
             <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Daftar periode</h2>
 
@@ -389,7 +387,6 @@ onMounted(() => {
             />
         </section>
 
-        <!-- Today's interview sessions -->
         <section v-if="todaySessions.length > 0">
             <h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">Interview hari ini</h2>
             <div class="grid gap-3">
@@ -416,7 +413,6 @@ onMounted(() => {
             </div>
         </section>
 
-        <!-- Quick access when no queues -->
         <div
             v-if="actionQueues.length === 0 && (canManagePeriods || canScheduleInterviews)"
             class="grid gap-3 sm:grid-cols-2"

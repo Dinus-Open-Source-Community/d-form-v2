@@ -2,42 +2,23 @@
 
 namespace App\Support;
 
-/**
- * Menetralkan nilai sel CSV/XLSX agar tidak dieksekusi sebagai formula oleh spreadsheet.
- */
+/** Menetralkan nilai sel CSV/XLSX agar tidak dieksekusi sebagai formula oleh spreadsheet. */
 final class CsvCellSanitizer
 {
-    /**
-     * Byte-wide ASCII whitespace kept for the invalid-UTF-8 fallback path. `\xA0` is
-     * the legacy single-byte NBSP; the UTF-8 form is covered by the pattern below.
-     */
+    /** Byte-wide ASCII whitespace kept for the invalid-UTF-8 fallback path. */
     private const ASCII_TRIM = " \n\r\t\x0B\x0C\0\xA0";
 
-    /**
-     * Characters a spreadsheet may ignore before reading the next character as a
-     * formula trigger: ASCII C0 controls and space, NBSP, OGHAM SPACE MARK,
-     * EN QUAD..ZERO WIDTH JOINER, LINE/PARAGRAPH SEPARATOR, NARROW NBSP, MEDIUM
-     * MATHEMATICAL SPACE, WORD JOINER, IDEOGRAPHIC SPACE, and ZWNBSP (BOM).
-     *
-     * One combined class so the whole leading run is consumed by a single anchored
-     * match instead of one `preg_match` per whitespace run.
-     */
+    /** Detect leading characters that spreadsheet apps may treat as formula whitespace. */
     private const PROBE_TRIM_PATTERN = '/\G[\x00-\x20\x{A0}\x{1680}\x{2000}-\x{200D}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+/u';
 
-    /**
-     * Only the leading bytes are probed: no spreadsheet trims more than a few KiB of
-     * whitespace before evaluating a cell, so a bounded window keeps the cost O(1)
-     * regardless of how much attacker-controlled whitespace precedes the value.
-     */
+    /** Probe only a bounded prefix so sanitization remains constant-cost for large cells. */
     private const PROBE_BYTE_CAP = 4096;
 
     private const FORMULA_TRIGGERS = '=+-@';
 
     private const NEGATIVE_NUMBER_PATTERN = '/^-\d+(?:[.,]\d+)?$/';
 
-    /**
-     * Memberi awalan apostrof pada sel yang berpotensi formula; angka negatif murni dan sel lain dibiarkan.
-     */
+    /** Memberi awalan apostrof pada sel yang berpotensi formula; angka negatif murni dan sel lain dibiarkan. */
     public static function sanitize(mixed $value): string
     {
         $cell = (string) $value;
@@ -59,17 +40,8 @@ final class CsvCellSanitizer
         return str_contains(self::FORMULA_TRIGGERS, $probe[0]) ? "'".$cell : $cell;
     }
 
-    /**
-     * Bounded probe for a formula trigger after leading whitespace.
-     *
-     * The subject is capped at {@see PROBE_BYTE_CAP} bytes and trimmed by a single
-     * anchored match, so the cost stays constant no matter how long the leading run
-     * is. The cut uses `mb_strcut()` so a valid multibyte character is never split
-     * across the window boundary (that would make PCRE reject the whole subject and
-     * mislabel a benign cell as invalid UTF-8).
-     *
+    /** Bounded probe after leading whitespace; {@see PROBE_BYTE_CAP} keeps invalid UTF-8 checks fail-closed and bounded.
      * @return string|null Probe starting at the first non-whitespace byte, or null
-     *                     when those bytes are not valid UTF-8 (caller fails closed).
      */
     private static function formulaProbe(string $cell): ?string
     {

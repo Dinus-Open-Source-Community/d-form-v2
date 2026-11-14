@@ -10,19 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 final class BundleGuestDuplicateChecker
 {
-    /**
-     * Reject member emails already registered (active) on the form.
-     *
-     * Uses two queries regardless of member count: one user lookup by normalized
-     * email and one active form-answer match on invited_email or user_id.
-     * Throws on the first offending index in the caller's order.
-     *
-     * Returns the resolved account ids so callers can reuse them without another
-     * lookup (normalized email => first matching user id).
-     *
+    /** Reject active duplicates with one normalized-user lookup and one answer query; return IDs for reuse.
      * @param  array<array-key, string>  $emails
      * @return array<string, string>
-     *
      * @throws ValidationException
      */
     public function assertEmailsAvailableForForm(Form $form, array $emails): array
@@ -40,16 +30,9 @@ final class BundleGuestDuplicateChecker
         return $userIdsByEmail;
     }
 
-    /**
-     * Race-guard re-check inside the submit transaction.
-     *
-     * Only the active-answer predicate runs here. The user lookup is skipped by
-     * reusing the ids resolved by {@see assertEmailsAvailableForForm()}, so a
-     * submit keeps one lookup regardless of how many guards re-run.
-     *
+    /** Re-check only active answers inside the transaction and reuse IDs from {@see assertEmailsAvailableForForm()}.
      * @param  array<array-key, string>  $emails
      * @param  array<string, string>  $userIdsByEmail  output of assertEmailsAvailableForForm()
-     *
      * @throws ValidationException
      */
     public function assertEmailsStillAvailable(Form $form, array $emails, array $userIdsByEmail): void
@@ -64,8 +47,10 @@ final class BundleGuestDuplicateChecker
     }
 
     /**
+     *
      * @param  array<array-key, string>  $emails
      * @return array<array-key, string>
+     *
      */
     private function normalizeByIndex(array $emails): array
     {
@@ -85,8 +70,10 @@ final class BundleGuestDuplicateChecker
     }
 
     /**
+     *
      * @param  array<array-key, string>  $normalized
      * @return array<string, string>
+     *
      */
     private function resolveUserIdsByEmail(array $normalized): array
     {
@@ -102,10 +89,12 @@ final class BundleGuestDuplicateChecker
     }
 
     /**
+     *
      * @param  array<array-key, string>  $normalized
      * @param  array<string, string>  $userIdsByEmail
      *
      * @throws ValidationException
+     *
      */
     private function assertNoneTaken(Form $form, array $normalized, array $userIdsByEmail): void
     {

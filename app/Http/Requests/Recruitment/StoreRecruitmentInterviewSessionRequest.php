@@ -14,7 +14,9 @@ class StoreRecruitmentInterviewSessionRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {
@@ -38,7 +40,9 @@ class StoreRecruitmentInterviewSessionRequest extends FormRequest
     }
 
     /**
+     *
      * @param  callable(string): void  $fail
+     *
      */
     private function failWhenOutsidePeriod(mixed $value, callable $fail): void
     {

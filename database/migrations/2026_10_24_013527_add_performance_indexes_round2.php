@@ -4,10 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Index ronde-2 untuk query daftar yang sebelumnya full scan + filesort
- * (dibuktikan EXPLAIN di laporan docs/big-changes/event/).
- */
+/** Index ronde-2 untuk query daftar yang sebelumnya full scan + filesort (dibuktikan EXPLAIN di laporan docs/big-changes/event/). */
 return new class () extends Migration {
     public function up(): void
     {

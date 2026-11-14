@@ -4,11 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Agregat jumlah event per token kategori: chart dashboard cukup membaca <=100 baris,
- * bukan `GROUP BY events.category` (kolom TEXT tanpa indeks, 7 detik pada 1 juta baris).
- * Tabel diisi EventObserver; setelah migrate/seed jalankan `analytics:rebuild-category-counts`.
- */
+/** Agregat jumlah event per token kategori: chart dashboard cukup membaca <=100 baris, bukan `GROUP BY events.category` (kolom TEXT tanpa indeks, 7 detik pada 1 juta baris). */
 return new class () extends Migration {
     public function up(): void
     {

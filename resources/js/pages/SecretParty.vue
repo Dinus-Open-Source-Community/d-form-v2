@@ -39,7 +39,6 @@ onBeforeUnmount(() => {
         <meta head-key="secret-robots" name="robots" content="noindex, nofollow" />
     </Head>
 
-    <!-- Intro: celebratory SVG + confetti (no external assets) -->
     <div
         v-show="phase === 'intro'"
         class="secret-intro text-foreground fixed inset-0 z-[2147483646] flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-violet-200 via-fuchsia-100 to-amber-100 dark:from-violet-950 dark:via-fuchsia-950 dark:to-slate-950"
@@ -47,7 +46,6 @@ onBeforeUnmount(() => {
     >
         <p class="sr-only">Animasi pembuka pesta rahasia.</p>
 
-        <!-- Confetti layer -->
         <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             <span
                 v-for="n in 36"
@@ -80,7 +78,6 @@ onBeforeUnmount(() => {
                     </linearGradient>
                 </defs>
 
-                <!-- strings -->
                 <path
                     d="M78 118 Q 100 200 115 310"
                     fill="none"
@@ -103,7 +100,6 @@ onBeforeUnmount(() => {
                     class="text-foreground/25"
                 />
 
-                <!-- balloons -->
                 <g class="balloon b-left">
                     <ellipse cx="78" cy="88" rx="38" ry="48" fill="url(#b1)" />
                     <polygon points="78,130 74,140 82,140" fill="#b45309" opacity="0.35" />
@@ -118,7 +114,6 @@ onBeforeUnmount(() => {
                     <polygon points="242,124 238,136 246,136" fill="#047857" opacity="0.35" />
                 </g>
 
-                <!-- mini cake -->
                 <g transform="translate(118 250)">
                     <g class="cake-bob">
                         <rect
@@ -144,7 +139,6 @@ onBeforeUnmount(() => {
                     </g>
                 </g>
 
-                <!-- sparkles -->
                 <g class="sparkles" fill="#fcd34d" opacity="0.95">
                     <path d="M48 40l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
                     <path d="M278 48l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z" />
@@ -175,7 +169,6 @@ onBeforeUnmount(() => {
         </div>
     </div>
 
-    <!-- Rickroll (same as classic easter egg) -->
     <div v-show="phase === 'rickroll'" class="fixed inset-0 z-[2147483647] m-0 h-[100dvh] w-full bg-black p-0">
         <iframe
             class="absolute inset-0 h-full w-full border-0"

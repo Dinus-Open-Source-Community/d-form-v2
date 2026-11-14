@@ -13,9 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 final class UserAvatarService
 {
-    /**
-     * Unggah avatar baru: simpan di disk `public`, hapus file lokal sebelumnya bila ada.
-     */
+    /** Unggah avatar baru: simpan di disk `public`, hapus file lokal sebelumnya bila ada. */
     public function update(User $user, UploadedFile $file): void
     {
         $previous = $user->avatar;
@@ -33,9 +31,7 @@ final class UserAvatarService
         $user->forceFill(['avatar' => $path])->save();
     }
 
-    /**
-     * Hapus avatar (URL OAuth atau path lokal). File lokal ikut dihapus dari storage.
-     */
+    /** Hapus avatar (URL OAuth atau path lokal). */
     public function clear(User $user): void
     {
         $previous = $user->avatar;
@@ -47,10 +43,7 @@ final class UserAvatarService
         $user->forceFill(['avatar' => null])->save();
     }
 
-    /**
-     * Nilai di DB: path relatif di disk `public`, atau URL absolut (OAuth).
-     * Untuk Inertia / img src: path relatif dijadikan URL publik.
-     */
+    /** Nilai di DB: path relatif di disk `public`, atau URL absolut (OAuth). */
     public static function resolvePublicUrl(?string $stored, ?Request $request = null): ?string
     {
         if ($stored === null || $stored === '') {
@@ -65,9 +58,11 @@ final class UserAvatarService
     }
 
     /**
+     *
      * True bila nilai di DB adalah path relatif disk `public`, bukan URL absolut.
      *
      * @phpstan-assert-if-true string $value
+     *
      */
     private static function isStoredRelativePath(?string $value): bool
     {

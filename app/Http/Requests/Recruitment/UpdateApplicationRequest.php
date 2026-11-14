@@ -20,7 +20,9 @@ class UpdateApplicationRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {
@@ -89,7 +91,9 @@ class UpdateApplicationRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function validatedPayload(): array
     {

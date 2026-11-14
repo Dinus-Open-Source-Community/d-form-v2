@@ -8,14 +8,10 @@ use App\Support\PendingRegistrationSession;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
-/**
- * Batalkan pendaftaran tertunda milik sesi lalu kembali ke form register.
- */
+/** Batalkan pendaftaran tertunda milik sesi lalu kembali ke form register. */
 class CancelPendingRegistrationController extends Controller
 {
-    /**
-     * Hapus pending hanya bila sesi memuat email dan token pembatalan dari alur register.
-     */
+    /** Hapus pending hanya bila sesi memuat email dan token pembatalan dari alur register. */
     public function __invoke(Request $request, RegistrationOtpService $service): RedirectResponse
     {
         $email = PendingRegistrationSession::email($request);

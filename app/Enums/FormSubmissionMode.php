@@ -2,9 +2,7 @@
 
 namespace App\Enums;
 
-/**
- * Registration mode that drives form submission validation.
- */
+/** Registration mode that drives form submission validation. */
 enum FormSubmissionMode: string
 {
     case Single = 'single';

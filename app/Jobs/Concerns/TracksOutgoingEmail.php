@@ -11,17 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Shared delivery tracking for jobs that send email.
- *
- * The delivery key is generated once when the job is dispatched and is serialized inside the
- * queue payload, so every retry of the same job reuses it. The EmailLog row is reserved before
- * the transport call; a crash after the transport accepted the message therefore leaves a
- * `queued` row and the retry skips the send instead of delivering a duplicate.
- *
- * Jobs using this trait must also use `Illuminate\Foundation\Queue\Queueable`; `$this->job` and
- * `attempts()` are provided by that trait.
- */
+/** Email jobs reuse a stable delivery key across retries and reserve delivery state before transport. */
 trait TracksOutgoingEmail
 {
     public int $tries = 3;
@@ -31,7 +21,7 @@ trait TracksOutgoingEmail
 
     public int $timeout = 60;
 
-    /** Stable identity for one logical delivery; serialized with the job payload across retries. */
+    /** Stable delivery key reused across retries; reservation happens before transport. */
     public string $deliveryKey = '';
 
     protected function initializeEmailDelivery(?string $deliveryKey = null): void
@@ -41,13 +31,7 @@ trait TracksOutgoingEmail
             : (string) Str::uuid();
     }
 
-    /**
-     * Reserve (or resume) the EmailLog for this delivery.
-     *
-     * Returns null when the delivery is already sent or was interrupted mid-send; the caller
-     * must not send again. A previously failed delivery is reset to queued and returned so the
-     * retry can proceed.
-     *
+    /** Reserve or resume the log for one delivery; an interrupted queued delivery is ambiguous and must not be resent.
      * @param  array<string, mixed>  $attributes
      * @param  (callable(): ?EmailLog)|null  $adoptQueued  Existing queued row to adopt (bulk QR dispatch)
      */
@@ -146,9 +130,11 @@ trait TracksOutgoingEmail
     }
 
     /**
+     *
      * Record a delivery that cannot be attempted (for example no recipient address).
      *
      * @param  array<string, mixed>  $attributes
+     *
      */
     protected function markEmailLogUndeliverable(array $attributes, string $reason, ?string $deliveryKey = null): void
     {
@@ -160,11 +146,7 @@ trait TracksOutgoingEmail
         ]));
     }
 
-    /**
-     * Terminal failure hook invoked by the queue after retries are exhausted.
-     *
-     * Marks every non-sent log owned by this dispatch and logs only non-PII identifiers.
-     */
+    /** Terminal failure hook invoked by the queue after retries are exhausted. */
     public function failed(?Throwable $exception = null): void
     {
         $key = $this->deliveryKey;

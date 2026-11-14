@@ -9,10 +9,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Email broadcast generik — memakai konfigurasi mail global DForm.
- * Attachment diambil dari storage lokal (disk `local`).
- */
+/** Email broadcast generik — memakai konfigurasi mail global DForm. */
 class BroadcastMail extends Mailable
 {
     public function __construct(
@@ -43,7 +40,9 @@ class BroadcastMail extends Mailable
     }
 
     /**
+     *
      * @return array<int, Attachment>
+     *
      */
     public function attachments(): array
     {

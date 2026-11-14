@@ -4,12 +4,7 @@ namespace App\Support\E2e;
 
 use InvalidArgumentException;
 
-/**
- * Identitas fixture e2e: satu-satunya tempat marker kanonik 40 karakter dibentuk.
- *
- * Marker = `e2e+<runId>+<ownerKey>`; semua bentuk turunan (slug, email) berasal dari sini
- * agar fixture, teardown, sweep, dan pemeriksaan kepemilikan memakai nilai yang sama.
- */
+/** Identitas fixture e2e: satu-satunya tempat marker kanonik 40 karakter dibentuk. */
 final readonly class FixtureIdentity
 {
     private const MARKER_PATTERN = '/^e2e\+([0-9A-Za-z-]{1,22})\+o([0-9a-f]{12})$/';

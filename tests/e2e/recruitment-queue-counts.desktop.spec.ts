@@ -198,7 +198,6 @@ type TQueueCountKey = 'all' | 'screening' | 'revision' | 'interview' | 'final' |
 
 const QUEUE_COUNT_KEYS: TQueueCountKey[] = ['all', 'screening', 'revision', 'interview', 'final', 'done'];
 
-/** ID periode fixture, diisi `beforeAll` setelah probe. */
 let mainPeriodId = '';
 let mainPeriodPath = '';
 let scopingPeriodPath = '';
@@ -388,7 +387,6 @@ function applicantRows(page: Page): Locator {
     return page.locator('[data-applicant-list] tbody tr');
 }
 
-/** Buka tab peserta tanpa filter; halaman baru selalu memakai state bersih. */
 async function openApplicantList(page: Page, periodPath: string): Promise<void> {
     await page.goto(`${periodPath}?tab=peserta`, { waitUntil: 'load' });
     await expect(page.locator('[data-applicant-list]')).toBeVisible();

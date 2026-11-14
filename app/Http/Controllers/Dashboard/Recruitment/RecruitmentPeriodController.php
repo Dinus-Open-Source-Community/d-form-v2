@@ -118,11 +118,7 @@ class RecruitmentPeriodController extends Controller
             ->count();
     }
 
-    /**
-     * Apakah index pendukung decision sudah ada. Dicek sekali per proses agar hint
-     * tidak pernah menunjuk index yang hilang (MySQL error 1176) dan tidak menambah
-     * query information_schema pada setiap render.
-     */
+    /** Cache the decision index check so missing hints do not trigger information_schema queries per render. */
     private static function hasScreeningDecisionIndex(): bool
     {
         static $hasIndex = null;
@@ -136,25 +132,7 @@ class RecruitmentPeriodController extends Controller
     }
 
     /**
-     * Agregat per periode yang mahal (queue badge, QR count, eligible link grup,
-     * opsi semester), di-cache 60 detik.
-     *
-     * Kunci:
-     * - `recruitment.period.aggregates.{periodId}` TTL 60 detik untuk queue badge,
-     *   QR count, dan opsi semester (berubah saat staff bekerja);
-     * - `recruitment.period.group-link-eligible.{periodId}` TTL 300 detik di dalamnya,
-     *   karena angka ini hanya berubah saat keputusan screening berubah. Cold-nya
-     *   ~0,85-1,75 detik (20.000 probe index screenings pada buffer pool 128 MB),
-     *   jadi TTL lebih panjang menghindari biaya itu tiap menit.
-     *
-     * Cache aggregate periode dihapus setelah bulk-send QR agar `qr_counts`
-     * mencerminkan reservasi yang baru dibuat. Perubahan delivery oleh worker tetap
-     * memakai TTL <=60 detik; eligible link grup memakai TTL <=300 detik.
-     *
-     * Tanpa cache, `groupLinkEligibleCount` memindai satu periode (terukur
-     * ~0,85-1,75 detik pada buffer pool 128 MB) dan `qrEligibilityQuery::counts`
-     * ~0,5-0,8 detik; keduanya dipanggil pada setiap render halaman periode.
-     *
+     * Expensive period aggregates are cached to avoid repeated queue and QR scans.
      * @return array{
      *     queue_counts: array<string, int>,
      *     qr_counts: array{eligible: int, sent: int},
@@ -207,9 +185,11 @@ class RecruitmentPeriodController extends Controller
     }
 
     /**
+     *
      * Agregat status kirim QR satu periode (log terbaru per applicant).
      *
      * @return array{sent:int,failed:int,queued:int,recipients:list<array{application_id:string,full_name:string,registration_number:string,status:string,error:?string,error_category:?string,sent_at:?string}>}
+     *
      */
     private function qrStatusForPeriod(RecruitmentPeriod $period): array
     {
@@ -266,15 +246,10 @@ class RecruitmentPeriodController extends Controller
     }
 
     /**
+     *
      * Ringkasan status QR (hitungan saja) untuk props halaman.
-     *
-     * Log terbaru per applicant diambil lewat window function di SQL, sehingga
-     * 20.000 applicant tidak perlu dimuat ke PHP seperti `qrStatusForPeriod()`
-     * (yang tetap dipakai endpoint JSON karena butuh daftar `recipients`).
-     * Nilai dan bentuknya sama: sent/failed/queued per applicant dengan log
-     * `recruitment_interview_scheduled` terakhir.
-     *
      * @return array{sent:int,failed:int,queued:int}
+     *
      */
     private function qrStatusSummary(RecruitmentPeriod $period): array
     {
@@ -298,13 +273,7 @@ class RecruitmentPeriodController extends Controller
         return $summary;
     }
 
-    /**
-     * Ringkasan QR hanya dibutuhkan tab peserta dan partial reload eksplisit
-     * (refresh/polling header meminta `qr_status_summary` lewat X-Inertia-Partial-Data).
-     *
-     * Inertia mengizinkan permintaan child prop bertitik (`qr_status_summary.sent`),
-     * jadi child tersebut juga harus dihitung agar tidak diam-diam menjadi 0.
-     */
+    /** Ringkasan QR hanya dibutuhkan tab peserta dan partial reload eksplisit (refresh/polling header meminta `qr_status_summary` lewat X-Inertia-Partial-Data). */
     private function shouldComputeQrStatusSummary(Request $request, string $tab): bool
     {
         if ($tab === 'peserta') {

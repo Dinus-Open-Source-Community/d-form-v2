@@ -50,7 +50,6 @@ const { visible } = useViewportReveal({ targetId: 'features-integrations', thres
     <section id="features-integrations" class="py-24 md:py-32">
         <div class="mx-auto max-w-7xl px-6 lg:px-10">
             <div class="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-                <!-- Lottie -->
                 <div
                     :class="[
                         'transition-all duration-600',
@@ -64,7 +63,6 @@ const { visible } = useViewportReveal({ targetId: 'features-integrations', thres
                     </div>
                 </div>
 
-                <!-- Text content -->
                 <div
                     :class="[
                         'transition-all delay-75 duration-600',

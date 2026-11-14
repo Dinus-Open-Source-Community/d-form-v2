@@ -4,9 +4,7 @@ namespace App\Services\Broadcasting;
 
 use App\Models\EmailBroadcast;
 
-/**
- * Personalization MVP: hanya {{name}} dan {{event_name}}.
- */
+/** Personalization MVP: hanya {{name}} dan {{event_name}}. */
 class BroadcastPersonalization
 {
     public const FALLBACK_NAME = 'Peserta';
@@ -15,7 +13,9 @@ class BroadcastPersonalization
     public const ALLOWED_VARIABLES = ['name', 'event_name'];
 
     /**
+     *
      * @return array<int, string> daftar variable tidak didukung, mis. ["division"]
+     *
      */
     public function unsupportedVariables(?string $text): array
     {
@@ -49,9 +49,7 @@ class BroadcastPersonalization
         );
     }
 
-    /**
-     * Render untuk HTML yang sudah disanitasi — nilai disisipkan sebagai plain text.
-     */
+    /** Render untuk HTML yang sudah disanitasi — nilai disisipkan sebagai plain text. */
     public function renderHtml(?string $html, ?string $name, ?string $eventName): string
     {
         return $this->render($html, $name, $eventName);

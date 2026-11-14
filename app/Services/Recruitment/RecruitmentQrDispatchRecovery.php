@@ -12,16 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Durable QR dispatch: queueing one intent at a time, a bounded recovery poll, and safe
- * re-queueing of intents whose queue job was lost.
- *
- * The request path calls {@see enqueueOutbox()} for every intent it reserves, so delivery never
- * depends on a scheduler being present (this repo runs none). {@see dispatchPending()} recovers
- * intents that stayed `pending`; {@see repushStaleQueued()} recovers `queued` intents whose job
- * disappeared without invoking `failed()`. In every path the outbox claim is authoritative, so a
- * second job for the same intent cannot produce a second email.
- */
+/** Durable QR dispatch with bounded recovery; stale `sending` rows are ambiguous and require operator reconciliation, never auto-resend. */
 final class RecruitmentQrDispatchRecovery
 {
     // Bound locks per poll so a recovery run cannot flood the queue with a large backlog.
@@ -42,11 +33,10 @@ final class RecruitmentQrDispatchRecovery
     private const RECOVERY_LOCK_KEY = 'recruitment-qr-recovery';
 
     /**
-     * Anchor of the most recently occupied send slot: the latest queued/sending intent, or the
-     * newest completed send when it is more recent. Read as two single-status index scans
-     * (`status` + `available_at`) instead of one `IN` scan, which would filesort.
      *
+     * Anchor of the most recently occupied send slot: the latest queued/sending intent, or the newest completed send when it is more recent.
      * @return array{at: ?CarbonInterface, delay_seconds: ?int}
+     *
      */
     public function spacingAnchor(): array
     {
@@ -89,10 +79,12 @@ final class RecruitmentQrDispatchRecovery
     }
 
     /**
+     *
      * Next slot for an intent reserved at `$reservedAt`: never in the past, and at least
      * `$delaySeconds` after the last occupied slot.
      *
      * @param  array{at: ?CarbonInterface, delay_seconds: ?int}  $anchor
+     *
      */
     public function nextSlot(CarbonInterface $reservedAt, int $delaySeconds, array $anchor): CarbonInterface
     {
@@ -117,16 +109,7 @@ final class RecruitmentQrDispatchRecovery
         return $slot;
     }
 
-    /**
-     * Reserve the first slot of one bulk send or recovery poll under a cache lock, so two
-     * processes (for example bulk sends of different periods) cannot start on the same slot and
-     * halve the SMTP spacing window.
-     *
-     * The pointer is shared with every other sender and honours the DB anchor, so a cold cache
-     * still never schedules before the durable tail. A lock timeout only weakens the
-     * cross-process spacing guarantee; it can never duplicate a delivery because the outbox
-     * claim is authoritative.
-     *
+    /** Reserve the first send slot under a shared lock; spacing remains consistent across bulk sends and retries.
      * @param  array{at: ?CarbonInterface, delay_seconds: ?int}  $anchor
      */
     public function reserveInitialSlot(int $delaySeconds, array $anchor): CarbonInterface
@@ -145,16 +128,7 @@ final class RecruitmentQrDispatchRecovery
         }
     }
 
-    /**
-     * Claim one pending intent as queued and push its delayed job.
-     *
-     * Precondition: the caller resolved `$slot` through {@see reserveInitialSlot()} /
-     * {@see nextSlot()} for this intent and owns the only claim of it (fresh reservation, or a
-     * recovery batch holding the row lock). The claim is a conditional `pending -> queued`
-     * update, so a concurrent poller that already claimed the intent makes this a no-op instead
-     * of a second dispatch. A failed queue push returns the intent to `pending` before the
-     * exception is rethrown.
-     *
+    /** Claim a pending intent before queue push; a push failure returns it to pending for bounded recovery.
      * @throws Throwable when the queue push fails
      */
     public function enqueueOutbox(
@@ -187,14 +161,7 @@ final class RecruitmentQrDispatchRecovery
         }
     }
 
-    /**
-     * Recovery poll for intents left `pending` (queue push failed, request crashed mid-batch).
-     *
-     * Bounded to one batch inside the configured queue horizon, so a recovery run cannot flood
-     * the queue with far-future jobs. A failed push rolls the batch back to `pending` (the
-     * transaction) and the next poll retries. Queued, sending, sent, and failed intents are never
-     * reclaimed here; their durable state is authoritative.
-     */
+    /** Recovery poll for intents left `pending` (queue push failed, request crashed mid-batch). */
     public function dispatchPending(int $batchSize = self::DEFAULT_BATCH_SIZE): int
     {
         $batchSize = min(self::DEFAULT_BATCH_SIZE, max(1, $batchSize));
@@ -273,16 +240,7 @@ final class RecruitmentQrDispatchRecovery
         });
     }
 
-    /**
-     * Re-queue `queued` intents whose scheduled slot is long past, which means their queue job was
-     * lost without invoking `failed()` (Redis flush, `queue:clear`, payload that cannot be
-     * decoded). Leads are leased by rewriting `available_at` to now, so a row is re-queued at most
-     * once per grace window instead of on every poll.
-     *
-     * Safe against duplicates: the job claim (`queued -> sending`) is a row-locked conditional
-     * update, so if the original job ever runs it either wins the claim or sees `sending`/`sent`
-     * and returns without sending.
-     */
+    /** Re-queue stale queued intents whose jobs were lost; claim updates prevent duplicates. */
     public function repushStaleQueued(int $batchSize = self::DEFAULT_BATCH_SIZE): int
     {
         $batchSize = min(self::DEFAULT_BATCH_SIZE, max(1, $batchSize));
@@ -340,11 +298,7 @@ final class RecruitmentQrDispatchRecovery
         });
     }
 
-    /**
-     * Opportunistic recovery for page loads: the repo runs no scheduler, so the QR status view
-     * drives the net. Guarded by a cache lock so concurrent page loads cannot poll at once, and
-     * bounded by the same batch/horizon as the command, so a page load can never flood the queue.
-     */
+    /** Recover due QR intents from page loads because no scheduler runs in this deployment. */
     public function recoverOpportunistically(): int
     {
         $lock = Cache::lock(self::RECOVERY_LOCK_KEY, 60);
@@ -366,15 +320,7 @@ final class RecruitmentQrDispatchRecovery
         }
     }
 
-    /**
-     * Count intents left in `sending` past the grace period. They are never resent
-     * automatically (the transport may already have accepted the mail); the count exists so the
-     * dispatch command can surface the rows an operator must reconcile with
-     * `recruitment:reconcile-qr-outbox`.
-     *
-     * Plan: `type=ref` on `recruitment_qr_outbox_status_available_idx` (the `status` prefix only),
-     * then a filter on `updated_at`; there is no `(status, updated_at)` index.
-     */
+    /** Count stale `sending` intents for operator reconciliation; never auto-resend them. */
     public function staleSendingCount(): int
     {
         $threshold = now()->subSeconds(
@@ -387,12 +333,7 @@ final class RecruitmentQrDispatchRecovery
             ->count();
     }
 
-    /**
-     * Count `queued` intents whose slot is long past, i.e. their job is missing.
-     *
-     * Plan: same `type=ref` scan on the `status` prefix of
-     * `recruitment_qr_outbox_status_available_idx` (which also covers `available_at`).
-     */
+    /** Count queued intents whose scheduled slot is stale. */
     public function staleQueuedCount(): int
     {
         $threshold = now()->subSeconds(
@@ -416,9 +357,11 @@ final class RecruitmentQrDispatchRecovery
     }
 
     /**
+     *
      * Read-modify-write of the shared slot pointer; must run inside the slot lock.
      *
      * @param  array{at: ?CarbonInterface, delay_seconds: ?int}  $anchor
+     *
      */
     private function issueInitialSlot(int $delaySeconds, array $anchor): CarbonInterface
     {

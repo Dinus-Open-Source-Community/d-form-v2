@@ -9,11 +9,7 @@ use App\Services\Broadcasting\BroadcastInlineImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 
-/**
- * Unggahan inline image editor broadcast (dipakai BroadcastContentEditor).
- * Pola mengikuti FormImageUploadController, khusus broadcast:
- * multipart field `file` -> { ok, path, url }.
- */
+/** Unggahan inline image editor broadcast (dipakai BroadcastContentEditor). */
 class BroadcastInlineImageController extends Controller
 {
     public function __invoke(

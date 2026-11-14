@@ -14,7 +14,9 @@ final class RegistrationNotificationMailData
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function shared(FormAnswer $submission, ?User $greetingUser = null): array
     {

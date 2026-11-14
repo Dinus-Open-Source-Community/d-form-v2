@@ -44,7 +44,9 @@ class FieldModifyRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -59,9 +61,10 @@ class FieldModifyRequest extends FormRequest
     }
 
     /**
-     * Get custom validation messages.
+     *
      *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

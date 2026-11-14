@@ -14,10 +14,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Isi dataset stress 1 juta baris per tabel domain (non-produksi) dan tulis manifest untuk harness k6.
- * Tanpa `--force` command berhenti bila tabel domain sudah terisi; `--force` menghapus isinya lebih dulu.
- */
+/** Isi dataset stress 1 juta baris per tabel domain (non-produksi) dan tulis manifest untuk harness k6. */
 final class SeedStressDatasetCommand extends Command
 {
     /** Batas atas scale untuk mencegah salah ketik yang menghabiskan disk. */
@@ -152,9 +149,7 @@ final class SeedStressDatasetCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Lepas lock saat Ctrl-C/SIGTERM supaya seed berikutnya tidak tertahan TTL 6 jam.
-     */
+    /** Lepas lock saat Ctrl-C/SIGTERM supaya seed berikutnya tidak tertahan TTL 6 jam. */
     private function releaseLockOnSignal(Lock $lock): void
     {
         if (! function_exists('pcntl_async_signals')) {
@@ -171,10 +166,7 @@ final class SeedStressDatasetCommand extends Command
         }
     }
 
-    /**
-     * Paksa durability MySQL turun selama seed (flush per commit + binlog sync) dan matikan
-     * pemeriksaan FK/unique agar insert massal tidak I/O bound. Semua nilai dipulihkan lewat closure.
-     */
+    /** Paksa durability MySQL turun selama seed (flush per commit + binlog sync) dan matikan pemeriksaan FK/unique agar insert massal tidak I/O bound. */
     private function tuneForBulkInsert(): callable
     {
         if ((bool) $this->option('no-tune') || DB::getDriverName() !== 'mysql') {
@@ -231,9 +223,7 @@ final class SeedStressDatasetCommand extends Command
         };
     }
 
-    /**
-     * Jalankan seeder stress dengan skala tertentu lewat API Seeder (Command::call hanya menerima nama command artisan).
-     */
+    /** Jalankan seeder stress dengan skala tertentu lewat API Seeder (Command::call hanya menerima nama command artisan). */
     private function runSeeder(string $seederClass, int $scale): void
     {
         /** @var \Illuminate\Database\Seeder $seeder */
@@ -243,9 +233,7 @@ final class SeedStressDatasetCommand extends Command
         $seeder->run($scale);
     }
 
-    /**
-     * Validasi --scale sebagai bilangan bulat dalam rentang aman.
-     */
+    /** Validasi --scale sebagai bilangan bulat dalam rentang aman. */
     private function resolveScale(): ?int
     {
         $raw = (string) $this->option('scale');
@@ -260,10 +248,12 @@ final class SeedStressDatasetCommand extends Command
     }
 
     /**
+     *
      * Tabel yang belum ada (domain + pendukung role).
      *
      * @param  list<string>  $tables
      * @return list<string>
+     *
      */
     private function missingTables(array $tables): array
     {
@@ -274,9 +264,11 @@ final class SeedStressDatasetCommand extends Command
     }
 
     /**
+     *
      * Tabel domain yang sudah berisi minimal satu baris.
      *
      * @return list<string>
+     *
      */
     private function filledDomainTables(): array
     {
@@ -287,18 +279,18 @@ final class SeedStressDatasetCommand extends Command
     }
 
     /**
+     *
      * Tabel yang ikut direset/diperiksa: transaksi recruitment + domain event (anak → induk).
      *
      * @return list<string>
+     *
      */
     private function resettableTables(): array
     {
         return [...self::RECRUITMENT_TABLES, ...StressDatasetSeeder::DOMAIN_TABLES];
     }
 
-    /**
-     * Kosongkan tabel domain + recruitment tanpa memicu pemeriksaan FK di MySQL.
-     */
+    /** Kosongkan tabel domain + recruitment tanpa memicu pemeriksaan FK di MySQL. */
     private function resetDomainTables(): void
     {
         $driver = DB::getDriverName();
@@ -319,9 +311,11 @@ final class SeedStressDatasetCommand extends Command
     }
 
     /**
+     *
      * Manifest id & kredensial contoh; `targets` dipakai scripts/stress/generate-targets.php.
      *
      * @return array<string, mixed>
+     *
      */
     private function manifest(int $scale): array
     {

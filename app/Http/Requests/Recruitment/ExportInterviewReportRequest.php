@@ -7,10 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Route;
 
-/**
- * Filter export CSV interview satu periode; daftar kolom sah disimpan di sini
- * sebagai satu sumber kebenaran (dipakai juga controller untuk default kolom).
- */
+/** Filter export CSV interview satu periode; daftar kolom sah disimpan di sini sebagai satu sumber kebenaran (dipakai juga controller untuk default kolom). */
 class ExportInterviewReportRequest extends FormRequest
 {
     /** Kolom export sesuai urutan kontrak (designer lane; JANGAN ubah urutan/nama). */
@@ -59,7 +56,9 @@ class ExportInterviewReportRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {

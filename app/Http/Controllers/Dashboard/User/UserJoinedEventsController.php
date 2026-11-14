@@ -13,7 +13,6 @@ use Inertia\Response as InertiaResponse;
 
 class UserJoinedEventsController
 {
-    /** Render the member's published events with the existing bounded payload. */
     public function __invoke(EventService $eventService): InertiaResponse
     {
         $userId = auth()->id();

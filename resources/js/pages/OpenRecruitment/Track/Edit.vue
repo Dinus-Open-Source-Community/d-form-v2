@@ -260,7 +260,6 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                 {{ applicationError }}
             </p>
 
-            <!-- Data diri -->
             <Card class="border-border/70 rounded-2xl">
                 <CardHeader class="pb-4">
                     <CardTitle class="text-base">Data diri</CardTitle>
@@ -311,7 +310,6 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                 </CardContent>
             </Card>
 
-            <!-- Akademik & divisi -->
             <Card class="border-border/70 rounded-2xl">
                 <CardHeader class="pb-4">
                     <CardTitle class="text-base">Akademik &amp; divisi</CardTitle>
@@ -365,7 +363,6 @@ function onPortfolioTypeKeydown(event: KeyboardEvent): void {
                 </CardContent>
             </Card>
 
-            <!-- Berkas -->
             <Card class="border-border/70 rounded-2xl">
                 <CardHeader class="pb-4">
                     <CardTitle class="text-base">Berkas</CardTitle>

@@ -113,7 +113,6 @@ const quotaPercent = computed(() => {
             class="border-border/70 bg-card overflow-hidden rounded-2xl border shadow-[0_1px_0_0_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
         >
             <div class="flex flex-col lg:grid lg:min-h-[min(26rem,70vh)] lg:grid-cols-2 lg:items-stretch">
-                <!-- Kolom konten: permukaan solid, hierarki jelas -->
                 <div
                     class="border-border/60 from-card via-card to-muted/25 order-2 flex flex-col justify-center gap-5 border-t bg-gradient-to-b px-5 py-7 sm:gap-6 sm:px-8 sm:py-9 lg:order-none lg:border-t-0 lg:border-r lg:px-10 xl:px-12"
                 >
@@ -156,7 +155,6 @@ const quotaPercent = computed(() => {
                     </div>
                 </div>
 
-                <!-- Kolom gambar: hanya visual, tanpa gradien/teks di atasnya -->
                 <div
                     :class="[
                         EVENT_HERO_BANNER_ASPECT,
@@ -190,7 +188,6 @@ const quotaPercent = computed(() => {
 
         <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
             <div class="flex min-w-0 flex-col gap-8">
-                <!-- Deskripsi -->
                 <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
                     <CardHeader class="border-border/50 bg-muted/10 border-b px-5 py-4 sm:px-6">
                         <CardTitle class="font-display text-base font-bold tracking-tight sm:text-lg"
@@ -267,7 +264,6 @@ const quotaPercent = computed(() => {
                 </Card>
             </div>
 
-            <!-- Sidebar pendaftaran -->
             <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-24">
                 <Card
                     class="border-border/70 ring-primary/10 from-card via-card to-primary/[0.03] rounded-2xl bg-gradient-to-b shadow-md ring-1"

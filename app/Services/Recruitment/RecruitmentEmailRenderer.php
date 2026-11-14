@@ -5,8 +5,10 @@ namespace App\Services\Recruitment;
 final class RecruitmentEmailRenderer
 {
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     public function renderTemplate(string $eventType, array $variables): array
     {
@@ -29,8 +31,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function applicationSubmitted(array $variables): array
     {
@@ -59,8 +63,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function revisionRequired(array $variables): array
     {
@@ -115,8 +121,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function passedScreening(array $variables): array
     {
@@ -157,8 +165,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function rejectedScreening(array $variables): array
     {
@@ -191,8 +201,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function correctionRequestStaff(array $variables): array
     {
@@ -218,8 +230,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewScheduled(array $variables): array
     {
@@ -237,8 +251,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewRescheduled(array $variables): array
     {
@@ -256,8 +272,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewReminderH1(array $variables): array
     {
@@ -275,8 +293,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewReminderH2(array $variables): array
     {
@@ -294,8 +314,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewAssignment(array $variables): array
     {
@@ -346,8 +368,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function finalAccepted(array $variables): array
     {
@@ -391,7 +415,9 @@ final class RecruitmentEmailRenderer
     private const DEFAULT_TEAM_NOTE = 'Selamat datang di keluarga besar DOSCOM. Kami berharap kamu dapat bertumbuh, berkontribusi, dan mendapatkan pengalaman berharga selama menjadi bagian dari DOSCOM. Let\'s grow, learn, and create together. 🚀';
 
     /**
+     *
      * @param  array<string, mixed>  $variables
+     *
      */
     private function membershipDisplay(array $variables): string
     {
@@ -405,8 +431,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function groupLink(array $variables): array
     {
@@ -438,8 +466,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, string>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function finalRejected(array $variables): array
     {
@@ -458,8 +488,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function interviewBody(
         string $subject,
@@ -563,10 +595,12 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * Kartu jadwal tunggal (jadwal interview pasti: tanggal/jam terisi).
      *
      * @param  array<string, mixed>  $variables
      * @return array{subject: string, body_html: string, body_text: string}
+     *
      */
     private function singleScheduleBody(
         string $subject,
@@ -684,10 +718,12 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * Normalisasi daftar sesi interview dari variabel bulk (aman untuk blade/text).
      *
      * @param  array<string, mixed>  $variables
      * @return list<array{date: string, time_range: string, location: string, room: string}>
+     *
      */
     private function sessionList(array $variables): array
     {
@@ -723,9 +759,11 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * Kartu "Jadwal interview" berisi daftar sesi (satu grup baris per sesi).
      *
      * @param  list<array{date: string, time_range: string, location: string, room: string}>  $sessions
+     *
      */
     private function sessionListCardHtml(array $sessions): string
     {
@@ -778,8 +816,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
      * @return list<string>
+     *
      */
     private function revisionSections(array $variables): array
     {
@@ -793,8 +833,10 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
      * @return list<string>
+     *
      */
     private function rawRevisionSections(array $variables): array
     {
@@ -822,7 +864,9 @@ final class RecruitmentEmailRenderer
     }
 
     /**
+     *
      * @param  array<string, mixed>  $variables
+     *
      */
     private function e(array $variables, string $key, ?string $fallback = null): string
     {

@@ -16,10 +16,12 @@ final class BundleSubmissionGrouper
     ) {
     }
     /**
+     *
      * Group form answers by group_token and prepare bundle group data.
      *
      * @param  Collection<int, FormAnswer>  $formAnswers
      * @return Collection<int, array<string, mixed>>
+     *
      */
     public function groupSubmissions(Collection $formAnswers): Collection
     {
@@ -80,9 +82,11 @@ final class BundleSubmissionGrouper
     }
 
     /**
+     *
      * Transform a single FormAnswer into the expected array structure with permissions.
      *
      * @return array<string, mixed>
+     *
      */
     private function transformSubmission(FormAnswer $answer, bool $isLeader): array
     {
@@ -123,9 +127,7 @@ final class BundleSubmissionGrouper
         ];
     }
 
-    /**
-     * Determine if admin can open detail for this submission.
-     */
+    /** Determine if admin can open detail for this submission. */
     private function canOpenDetail(FormAnswer $answer, bool $isLeader): bool
     {
         // Leader can always be opened
@@ -141,9 +143,7 @@ final class BundleSubmissionGrouper
         return true;
     }
 
-    /**
-     * Determine if admin can review this submission.
-     */
+    /** Determine if admin can review this submission. */
     private function canReview(FormAnswer $answer, bool $isLeader): bool
     {
         // Must be pending review status first
@@ -164,9 +164,7 @@ final class BundleSubmissionGrouper
         return true;
     }
 
-    /**
-     * Get locked reason text if submission is locked.
-     */
+    /** Get locked reason text if submission is locked. */
     private function getLockedReason(FormAnswer $answer, bool $isLeader): ?string
     {
         if ($isLeader || $answer->registration_role === RegistrationRole::Leader) {
@@ -186,9 +184,7 @@ final class BundleSubmissionGrouper
         return null;
     }
 
-    /**
-     * Calculate the overall group review status.
-     */
+    /** Calculate the overall group review status. */
     private function calculateGroupReviewStatus(Collection $groupSubmissions): string
     {
         // Only consider reviewable submissions (leader + accepted members)

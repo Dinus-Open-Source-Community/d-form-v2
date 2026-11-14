@@ -8,10 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Buktikan tiga kepemilikan baris e2e untuk satu run: nol sisa, nol marker ilegal di window run,
- * dan nol baris run lain yang tersentuh teardown. Exit non-zero bila salah satu tidak terbukti.
- */
+/** Buktikan tiga kepemilikan baris e2e untuk satu run: nol sisa, nol marker ilegal di window run, dan nol baris run lain yang tersentuh teardown. */
 final class CheckRowOwnershipCommand extends Command
 {
     protected $signature = 'check:row-ownership
@@ -62,10 +59,12 @@ final class CheckRowOwnershipCommand extends Command
     }
 
     /**
+     *
      * Batas window run dari ledger; `source=absent` bila baseline belum ada.
      *
      * @param  array<string, mixed>|null  $baseline
      * @return array{source: string, startedAt: string|null, note?: string}
+     *
      */
     private function window(?array $baseline): array
     {
@@ -91,9 +90,11 @@ final class CheckRowOwnershipCommand extends Command
     }
 
     /**
+     *
      * Marker ilegal yang dibuat sejak awal run; baris lama di luar window tidak dihitung.
      *
      * @return array<string, int>
+     *
      */
     private function illegalCounts(string $startedAt): array
     {
@@ -116,10 +117,12 @@ final class CheckRowOwnershipCommand extends Command
     }
 
     /**
+     *
      * Tabel yang tercatat di audit teardown; kosong bila teardown bersih atau belum pernah jalan.
      *
      * @param  array<string, mixed>|null  $teardown
      * @return array<string, int>
+     *
      */
     private function crossRunTables(?array $teardown): array
     {
@@ -141,9 +144,11 @@ final class CheckRowOwnershipCommand extends Command
     }
 
     /**
+     *
      * Hitung nilai yang tidak cocok dengan grammar marker kanonik.
      *
      * @param  iterable<int, mixed>  $values
+     *
      */
     private function illegalCount(iterable $values, string $pattern): int
     {

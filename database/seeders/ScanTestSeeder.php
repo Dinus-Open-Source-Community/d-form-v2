@@ -30,25 +30,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * Scan-test seeder. Registered in DatabaseSeeder, so it runs on every
- * `php artisan db:seed` (still runnable standalone via
- * `php artisan db:seed --class=ScanTestSeeder`).
- *
- * Creates 20 event registrations (Accepted, spread across Published events)
- * + 20 oprec applicants (stage Interview + Scheduled interview), all
- * scannable, plus QR PNGs under storage/app/scan-test/.
- *
- * Setiap applicant oprec mendapat secondary division (round-robin divisi
- * berikutnya, tidak pernah sama dengan primary) serta berkas dokumen
- * (CV + portfolio + bukti follow IG) yang disalin dari pool berkas yang
- * sudah ada di storage/app/private/recruitment/.
- *
- * Safe to re-run: every row is firstOrCreate/firstOrNew keyed on a unique
- * column, existing rows are normalised back to scannable state, never
- * duplicated. Secondary yang sudah terisi dan dokumen yang sudah ada
- * tidak pernah ditimpa.
- */
+/** Scan-test seeder. */
 class ScanTestSeeder extends Seeder
 {
     public function run(): void
@@ -66,10 +48,7 @@ class ScanTestSeeder extends Seeder
         $this->sendQrDigests($eventCodes, $oprecNumbers);
     }
 
-    /**
-     * Buang PNG lama lebih dulu: registration code dibuat acak per run, jadi tanpa
-     * ini file dari run sebelumnya menumpuk (nama file berbeda walau barisnya sama).
-     */
+    /** Buang PNG lama lebih dulu: registration code dibuat acak per run, jadi tanpa ini file dari run sebelumnya menumpuk (nama file berbeda walau barisnya sama). */
     private function purgeStaleQrFiles(): void
     {
         foreach (['event', 'oprec'] as $kind) {
@@ -82,12 +61,11 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
-     * Kirim digest QR + daftar kodenya ke inbox uji. Hanya jalan di APP_ENV=local dan
-     * hanya bila MAIL_TEST_REDIRECT terisi; AppServiceProvider::boot() memang sudah
-     * mengarahkan semua email lokal ke alamat itu, jadi tidak ada email nyata ke peserta.
      *
+     * Kirim digest QR + daftar kodenya ke inbox uji.
      * @param  list<string>  $eventCodes
      * @param  list<string>  $oprecNumbers
+     *
      */
     private function sendQrDigests(array $eventCodes, array $oprecNumbers): void
     {
@@ -122,8 +100,10 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @param  list<string>  $codes
      * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     *
      */
     private function eventDigestRows(array $codes): array
     {
@@ -147,8 +127,10 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @param  list<string>  $numbers
      * @return array<int, array{code:string,name:string,kind:string,context:string}>
+     *
      */
     private function oprecDigestRows(array $numbers): array
     {
@@ -179,7 +161,9 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @return array<string, string> nama berkas => isi biner PNG
+     *
      */
     private function qrAttachments(string $kind): array
     {
@@ -201,7 +185,9 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @return list<string> registration codes (usable in manual scan input)
+     *
      */
     private function seedEventRegistrations(): array
     {
@@ -277,7 +263,9 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @return list<Form>
+     *
      */
     private function scannableRegistrationForms(): array
     {
@@ -330,7 +318,9 @@ class ScanTestSeeder extends Seeder
     }
 
     /**
+     *
      * @return list<string> registration numbers (usable in manual scan input)
+     *
      */
     private function seedOprecApplicants(): array
     {
@@ -512,12 +502,7 @@ class ScanTestSeeder extends Seeder
         return $numbers;
     }
 
-    /**
-     * Lampirkan set dokumen (CV + portfolio + bukti follow IG) ke applicant
-     * oprec bila belum punya, dengan menyalin dari pool berkas nyata di
-     * storage/app/private/recruitment/. Deterministik per $n agar stabil
-     * antar run; tidak pernah menimpa dokumen eksisting.
-     */
+    /** Lampirkan set dokumen (CV + portfolio + bukti follow IG) ke applicant oprec bila belum punya, dengan menyalin dari pool berkas nyata di storage/app/private/recruitment/. */
     private function seedOprecDocuments(
         RecruitmentApplication $application,
         string $periodId,

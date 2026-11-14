@@ -5,21 +5,7 @@ namespace App\Support\Export;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-/**
- * Ordering contract for {@see KeysetPageIterator}.
- *
- * `sortColumn` is also used as the SQLite/MySQL sort key, `identifierColumn` must
- * be unique so `(sortColumn, identifierColumn)` is a total order. Qualified
- * column names (`form_answers.created_at`) keep joins unambiguous in SQL while
- * `sortAttribute`/`identifierAttribute` are the unqualified model attributes.
- *
- * Passing the same unique column for both fields is supported: the tie predicate
- * then collapses into the plain range predicate.
- *
- * NULL sort values are outside the order, so the iterator filters them out
- * (`whereNotNull`); a caller that must export such legacy rows streams them in a
- * separate pass.
- */
+/** Ordering contract for {@see KeysetPageIterator}. */
 final readonly class KeysetPage
 {
     public readonly string $sortAttribute;

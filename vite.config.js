@@ -8,13 +8,11 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
-    // Untuk akses dari perangkat lain di LAN/HP, isi VITE_DEV_HOST di .env (mis. 192.168.0.37).
-    // Kosong = perilaku lama (localhost).
+    // Set VITE_DEV_HOST to access the dev server from another device.
     const devHost = env.VITE_DEV_HOST || 'localhost';
 
     return {
-        // Laravel disables Vite's publicDir by default; re-enable it so stable
-        // `/file-types/*.svg` URLs work from the HMR origin as well as PHP public/.
+        // Keep `/file-types/*.svg` available from both HMR and PHP public/.
         publicDir: 'public',
         resolve: {
             alias: {
@@ -32,13 +30,12 @@ export default defineConfig(({ mode }) => {
             vue(),
             eslint(),
         ],
-        // Bundle SSR self-contained: image prod tidak menyimpan node_modules saat runtime.
+        // Keep the production SSR bundle self-contained.
         ssr: {
             noExternal: true,
         },
         build: {
-            // Static public assets remain at their Laravel public/ paths and are
-            // deployed alongside public/build, not copied into the bundle tree.
+            // Deploy static assets from Laravel public/ alongside public/build.
             copyPublicDir: false,
             rollupOptions: {
                 output: {
@@ -53,7 +50,7 @@ export default defineConfig(({ mode }) => {
             host: '0.0.0.0',
             port: 5173,
             strictPort: true,
-            // Halaman di :3000 memuat aset dari :5173 (origin berbeda) — izinkan saat dev.
+            // The app and Vite dev server use different origins in development.
             cors: true,
             origin: `http://${devHost}:5173`,
             hmr: {
@@ -61,8 +58,7 @@ export default defineConfig(({ mode }) => {
             },
             watch: {
                 usePolling: true,
-                // Artefak stress test (stream.ndjson puluhan MB) tidak boleh memicu HMR:
-                // polling file itu menghabiskan CPU dan mencemari hasil benchmark.
+                // Stress artifacts are large and must not trigger HMR polling.
                 ignored: ['**/scripts/stress/**', '**/storage/**', '**/vendor/**', '**/node_modules/**'],
             },
         },

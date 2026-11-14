@@ -18,9 +18,11 @@ use Illuminate\Support\Facades\Gate;
 class UserManagementService
 {
     /**
+     *
      * Roles that can be assigned via user management UI.
      *
      * @var list<string>
+     *
      */
     public const ASSIGNABLE_ROLES = [
         'admin',
@@ -30,8 +32,10 @@ class UserManagementService
     ];
 
     /**
+     *
      * @param  array{search?: string|null, role?: string|null}  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
+     *
      */
     public function paginateForAdminIndex(array $filters, int $page = 1): LengthAwarePaginator
     {
@@ -66,7 +70,9 @@ class UserManagementService
     }
 
     /**
+     *
      * @return array{id: string, name: string, email: string, roles: list<string>, created_at: string|null, deleted_at: string|null}
+     *
      */
     public function toInertiaArray(User $user): array
     {
@@ -81,17 +87,19 @@ class UserManagementService
     }
 
     /**
+     *
      * Full admin detail payload for a managed user.
      *
      * @return array{
-     *     user: array<string, mixed>,
-     *     stats: array<string, int>,
-     *     registrations: list<array<string, mixed>>,
-     *     events_created: list<array<string, mixed>>,
-     *     recruitment_applications: list<array<string, mixed>>,
-     *     staff: array<string, mixed>,
-     *     permissions: array{can_edit: bool, can_delete: bool}
+     * user: array<string, mixed>,
+     * stats: array<string, int>,
+     * registrations: list<array<string, mixed>>,
+     * events_created: list<array<string, mixed>>,
+     * recruitment_applications: list<array<string, mixed>>,
+     * staff: array<string, mixed>,
+     * permissions: array{can_edit: bool, can_delete: bool}
      * }
+     *
      */
     public function toDetailPayload(User $user, User $actor, ?Request $request = null): array
     {
@@ -266,7 +274,9 @@ class UserManagementService
     }
 
     /**
+     *
      * @param  array{name: string, email: string, password: string, role: string}  $data
+     *
      */
     public function create(array $data): User
     {
@@ -284,7 +294,9 @@ class UserManagementService
     }
 
     /**
+     *
      * @param  array{name: string, email: string, password?: string|null, role: string}  $data
+     *
      */
     public function update(User $user, array $data): User
     {
@@ -311,7 +323,9 @@ class UserManagementService
     }
 
     /**
+     *
      * @return list<array{value: string, label: string}>
+     *
      */
     public function roleOptions(): array
     {

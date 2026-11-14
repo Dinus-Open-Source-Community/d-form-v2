@@ -6,12 +6,7 @@ use App\Models\EmailBroadcast;
 use App\Services\Broadcasting\BroadcastInlineImageService;
 use Illuminate\Console\Command;
 
-/**
- * Migrasi sekali jalan: pindahkan inline image base64 lama
- * (src="data:image/...") di EmailBroadcast.content ke storage Laravel,
- * tulis ulang src ke URL storage. Aman diulang (idempoten):
- * konten tanpa data: URL dilewati.
- */
+/** Migrasi sekali jalan: pindahkan inline image base64 lama (src="data:image/...") di EmailBroadcast.content ke storage Laravel, tulis ulang src ke URL storage. */
 class MigrateBroadcastInlineImagesCommand extends Command
 {
     protected $signature = 'broadcasts:migrate-inline-images

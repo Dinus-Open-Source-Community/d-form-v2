@@ -13,7 +13,9 @@ class ClaimSecondaryInterviewRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {

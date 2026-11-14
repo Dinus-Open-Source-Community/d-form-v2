@@ -11,10 +11,7 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 
-/**
- * Daftar acara publik `/events`: cursor untuk daftar biasa, FULLTEXT ber-cache
- * untuk pencarian. Semua angka (TTL, lock, batas token) berasal dari config/events.php.
- */
+/** Daftar acara publik `/events`: cursor untuk daftar biasa, FULLTEXT ber-cache untuk pencarian. */
 class PublicEventSearch
 {
     /** Jumlah acara per halaman (daftar maupun hasil pencarian). */
@@ -34,11 +31,7 @@ class PublicEventSearch
         'di', 'ke', 'dari', 'dan', 'yang', 'untuk', 'dengan', 'pada', 'atau', 'ini', 'itu',
     ];
 
-    /**
-     * Normalisasi kata kunci jadi query FULLTEXT boolean-mode (`+kata*`):
-     * hanya huruf/angka (operator boolean dibuang), token pendek dan stopword
-     * dibuang, maksimal 5 token, huruf kecil agar key cache stabil. Null bila kosong.
-     */
+    /** Normalize terms into a bounded FULLTEXT boolean query. */
     public static function terms(?string $search): ?string
     {
         $tokens = preg_split('/[^\p{L}\p{N}]+/u', trim((string) $search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -61,11 +54,7 @@ class PublicEventSearch
         ));
     }
 
-    /**
-     * Halaman daftar acara publik. Tanpa kata kunci memakai cursor (tanpa OFFSET),
-     * dengan kata kunci memakai cache + lock + batas waktu MySQL.
-     * Mengembalikan null bila kata kunci terlalu umum (timeout / lock sibuk).
-     */
+    /** Halaman daftar acara publik. */
     public function page(?string $search): Paginator|CursorPaginator|null
     {
         $query = Event::query()
@@ -86,26 +75,19 @@ class PublicEventSearch
         return $this->cachedPage($query, $terms);
     }
 
-    /**
-     * Key cache payload halaman pencarian; dipakai juga oleh test dan invalidasi manual.
-     */
+    /** Key cache payload halaman pencarian; dipakai juga oleh test dan invalidasi manual. */
     public function cacheKey(string $terms, int $page): string
     {
         return 'event-search:'.sha1($terms).':'.$page;
     }
 
-    /**
-     * Key lock per halaman pencarian, mencegah query berat dijalankan paralel.
-     */
+    /** Key lock per halaman pencarian, mencegah query berat dijalankan paralel. */
     public function lockKey(string $terms, int $page): string
     {
         return 'event-search:lock:'.sha1($terms).':'.$page;
     }
 
-    /**
-     * Baca payload dari cache; bila kosong ambil lock, cek ulang, lalu jalankan query.
-     * Semua jalur mengembalikan Paginator yang dibangun dari payload milik request ini.
-     */
+    /** Baca payload dari cache; bila kosong ambil lock, cek ulang, lalu jalankan query. */
     private function cachedPage(Builder $query, string $terms): ?Paginator
     {
         $page = (int) Paginator::resolveCurrentPage();
@@ -141,9 +123,11 @@ class PublicEventSearch
     }
 
     /**
+     *
      * Jalankan query pencarian dengan batas eksekusi MySQL; null bila timeout (4012/3024).
      *
      * @return array{rows: list<array<string, mixed>>, hasMore: bool}|null
+     *
      */
     private function runQuery(Builder $query, int $page): ?array
     {
@@ -170,10 +154,10 @@ class PublicEventSearch
     }
 
     /**
-     * Bangun Paginator baru dari payload cache + request saat ini, sehingga
-     * link paginasi selalu memuat query string milik pemanggil, bukan request pertama.
      *
+     * Bangun Paginator baru dari payload cache + request saat ini, sehingga link paginasi selalu memuat query string milik pemanggil, bukan request pertama.
      * @param  array{rows?: list<array<string, mixed>>, too_broad?: bool}  $payload
+     *
      */
     private function payloadToPaginator(array $payload, int $page): ?Paginator
     {
@@ -189,10 +173,7 @@ class PublicEventSearch
         ]))->withQueryString();
     }
 
-    /**
-     * Filter pencarian. MySQL: index FULLTEXT dengan istilah literal (bukan binding)
-     * dan urut relevansi saja; driver lain (SQLite di test) memakai LIKE.
-     */
+    /** Filter pencarian. */
     private function applyMatch(Builder $query, string $terms, string $rawSearch): void
     {
         if ($query->getConnection()->getDriverName() !== 'mysql') {
@@ -214,9 +195,7 @@ class PublicEventSearch
             ->orderByDesc('relevance');
     }
 
-    /**
-     * Batasi eksekusi SELECT pada sesi MySQL (0 = tanpa batas). Reset dilakukan di finally.
-     */
+    /** Batasi eksekusi SELECT pada sesi MySQL (0 = tanpa batas). */
     private function applyTimeout(Builder $query, int $milliseconds): void
     {
         if ($query->getConnection()->getDriverName() !== 'mysql') {
@@ -226,18 +205,14 @@ class PublicEventSearch
         $query->getConnection()->statement('SET SESSION max_execution_time = '.max(0, $milliseconds));
     }
 
-    /**
-     * MySQL 3024 = statement dibatalkan karena MAX_EXECUTION_TIME.
-     */
+    /** MySQL 3024 = statement dibatalkan karena MAX_EXECUTION_TIME. */
     private function isTimeout(QueryException $exception): bool
     {
         return (int) ($exception->errorInfo[1] ?? 0) === 3024
             || str_contains($exception->getMessage(), 'maximum statement execution time exceeded');
     }
 
-    /**
-     * Baca angka konfigurasi pencarian dengan fallback konstanta lokal.
-     */
+    /** Baca angka konfigurasi pencarian dengan fallback konstanta lokal. */
     private function configInt(string $key, int $default): int
     {
         return (int) config('events.search.'.$key, $default);

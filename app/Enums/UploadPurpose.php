@@ -2,12 +2,7 @@
 
 namespace App\Enums;
 
-/**
- * Kebijakan unggahan per tujuan pemakaian: daftar MIME hasil sniff, ekstensi
- * yang boleh, batas ukuran, dan disk tujuan. Semua validasi isi (sniff, magic
- * byte, dimensi gambar) dijalankan {@see \App\Services\Upload\UploadInspector};
- * enum ini hanya menyimpan data kebijakan agar tidak ada salinan per controller.
- */
+/** Kebijakan unggahan per tujuan pemakaian: daftar MIME hasil sniff, ekstensi yang boleh, batas ukuran, dan disk tujuan. */
 enum UploadPurpose: string
 {
     /** Gambar raster publik: banner event/period, avatar, gambar form, inline broadcast. */
@@ -69,10 +64,7 @@ enum UploadPurpose: string
         };
     }
 
-    /**
-     * Batas ukuran byte. Norma 5 MB mengikuti `events.forms.upload_max_size_kb`;
-     * CSV dataset memakai batas sendiri yang lebih kecil karena diparse penuh.
-     */
+    /** Batas ukuran byte. */
     public function maxBytes(): int
     {
         return match ($this) {

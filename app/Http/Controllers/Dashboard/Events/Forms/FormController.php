@@ -98,19 +98,7 @@ class FormController extends Controller
         return redirect()->route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]);
     }
 
-    /**
-     * Titik masuk draft server-side untuk halaman "buat form" (wizard).
-     *
-     * Idempoten per user+event: draft milik user yang sudah ada dipakai ulang,
-     * sehingga reload atau dua kali klik tidak menumpuk baris draft kosong.
-     * Setiap panggilan mengembalikan snapshot lengkap (header + fields) supaya
-     * halaman create bisa melanjutkan draft setelah reload.
-     *
-     * Otorisasi: hanya pemilik event (predikat {@see Form::viewerOwnsEvent}),
-     * sama dengan batas baca/tulis draft di `guardFormOnEvent`.
-     *
-     * Kontrak: 200 JSON `{ form: {...formToInertia, edit_url}, fields: [...] }`.
-     */
+    /** Titik masuk draft server-side untuk halaman "buat form" (wizard). */
     public function storeDraft(Request $request, Event $event): JsonResponse
     {
         $this->authorize('update', $event);
@@ -147,7 +135,9 @@ class FormController extends Controller
     }
 
     /**
+     *
      * @return array{form: array<string, mixed>, fields: list<array<string, mixed>>}
+     *
      */
     private function draftSnapshot(Event $event, Form $form): array
     {
@@ -320,14 +310,11 @@ class FormController extends Controller
     }
 
     /**
+     *
      * Atribut yang ditulis ke `forms`.
-     *
-     * Jalur penuh (publish / edit biasa): semua kolom header + status.
-     * Jalur autosave draft: hanya key yang benar-benar dikirim, status tetap
-     * draft — sehingga autosave tidak menghapus header yang belum diisi.
-     *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
+     *
      */
     private function formAttributesFrom(
         array $data,
@@ -391,10 +378,12 @@ class FormController extends Controller
     }
 
     /**
+     *
      * Draft tetap draft sampai `publish` dikirim; `publish=false` tidak
      * menurunkan form yang sudah published.
      *
      * @param  array<string, mixed>  $data
+     *
      */
     private function resolveStatus(Form $form, array $data): FormStatus
     {
@@ -414,9 +403,11 @@ class FormController extends Controller
     }
 
     /**
+     *
      * Other forms in the same event (for prerequisite picker).
      *
      * @return list<array{id: string, title: string}>
+     *
      */
     private function siblingFormsPayload(Event $event, ?string $excludeFormId = null): array
     {
@@ -507,20 +498,22 @@ class FormController extends Controller
     }
 
     /**
+     *
      * @param  list<string>  $fileFieldNames
      * @return array{
-     *     id: string,
-     *     user: array{id: string, name: string, email: string}|null,
-     *     answers: array<string, mixed>,
-     *     submitted_at: string,
-     *     review_status: string|null,
-     *     reviewed_at: string|null,
-     *     reviewed_by: string|null,
-     *     reviewer: array{id: string, name: string, email: string}|null,
-     *     registration_role: string|null,
-     *     member_confirmation_status: string|null,
-     *     group_token: string|null,
+     * id: string,
+     * user: array{id: string, name: string, email: string}|null,
+     * answers: array<string, mixed>,
+     * submitted_at: string,
+     * review_status: string|null,
+     * reviewed_at: string|null,
+     * reviewed_by: string|null,
+     * reviewer: array{id: string, name: string, email: string}|null,
+     * registration_role: string|null,
+     * member_confirmation_status: string|null,
+     * group_token: string|null,
      * }
+     *
      */
     private function submissionToInertia(FormAnswer $answer, array $fileFieldNames): array
     {

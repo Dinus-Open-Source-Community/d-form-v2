@@ -6,10 +6,7 @@ use App\Support\E2e\FixtureScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Sapu run e2e yang ditinggal: tanpa heartbeat hidup dan baris terbaru lebih tua dari grace.
- * Penghapusan memakai scope run yang sah (prefix marker/slug), bukan predikat bebas.
- */
+/** Sapu run e2e yang ditinggal: tanpa heartbeat hidup dan baris terbaru lebih tua dari grace. */
 final class SweepCommand extends Command
 {
     protected $signature = 'e2e:sweep
@@ -73,9 +70,11 @@ final class SweepCommand extends Command
     }
 
     /**
+     *
      * Kumpulkan runId dari email pemilik fixture (satu-satunya kolom wajib tiap run).
      *
      * @return list<string>
+     *
      */
     private function candidateRunIds(): array
     {
@@ -94,9 +93,7 @@ final class SweepCommand extends Command
         return array_keys($runIds);
     }
 
-    /**
-     * Baris terbaru run ini lebih tua dari grace period.
-     */
+    /** Baris terbaru run ini lebih tua dari grace period. */
     private function isOlderThan(string $runId, int $graceHours): bool
     {
         $prefix = 'e2e+'.$runId.'+';
@@ -115,9 +112,7 @@ final class SweepCommand extends Command
         return strtotime((string) $newest) < now()->subHours($graceHours)->getTimestamp();
     }
 
-    /**
-     * Fallback liveness saat command dijalankan sendiri: mtime <= 30 s, pid ada, cmdline node/playwright.
-     */
+    /** Fallback liveness saat command dijalankan sendiri: mtime <= 30 s, pid ada, cmdline node/playwright. */
     private function hasLiveHeartbeat(string $runId): bool
     {
         $directory = storage_path('app/e2e/heartbeats/'.$runId);
@@ -153,9 +148,7 @@ final class SweepCommand extends Command
         return false;
     }
 
-    /**
-     * Hapus folder heartbeat run yang sudah disapu.
-     */
+    /** Hapus folder heartbeat run yang sudah disapu. */
     private function removeHeartbeatDirectory(string $runId): void
     {
         $directory = storage_path('app/e2e/heartbeats/'.$runId);

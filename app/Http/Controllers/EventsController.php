@@ -12,9 +12,7 @@ use App\Services\Event\UserPortalEventResolver;
 
 class EventsController extends Controller
 {
-    /**
-     * Daftar acara publik: 10 per halaman, kata kunci `q` dicari di server.
-     */
+    /** Daftar acara publik: 10 per halaman, kata kunci `q` dicari di server. */
     public function index(PublicEventSearchRequest $request, EventService $eventService, PublicEventSearch $eventSearch)
     {
         $validated = $request->validated();

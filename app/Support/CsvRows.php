@@ -4,23 +4,19 @@ namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
 
-/**
- * Guard baca CSV unggahan: batas panjang baris, batas jumlah baris, dan
- * penolakan baris ber-byte biner.
- *
- * Dipakai semua pemakai CSV (dataset broadcast dan snapshot broadcast) agar satu
- * file 2 MB/baris raksasa tidak pernah dialokasikan utuh ke memori.
- */
+/** Guard baca CSV unggahan: batas panjang baris, batas jumlah baris, dan penolakan baris ber-byte biner. */
 final class CsvRows
 {
     /** Batas panjang satu baris; baris lebih panjang dipotong oleh `fgetcsv`. */
     public const MAX_LINE_BYTES = 8192;
 
     /**
+     *
      * Iterasi baris CSV tanpa menampung seluruh file.
      *
      * @param  callable(array<int, mixed>, int): void  $onRow  Indeks baris dimulai 0 (header ikut).
      * @param  int|null  $maxRows  Default dari config `events.forms.dataset_csv_max_rows`.
+     *
      */
     public static function each(UploadedFile $file, callable $onRow, ?int $maxRows = null): void
     {

@@ -13,9 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
-/**
- * Adapts the authorized bulk HTTP contract to the atomic review service.
- */
+/** Adapts the authorized bulk HTTP contract to the atomic review service. */
 final class BulkFormAnswerReviewController extends Controller
 {
     public function __invoke(

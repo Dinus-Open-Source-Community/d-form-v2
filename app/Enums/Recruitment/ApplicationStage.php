@@ -22,7 +22,9 @@ enum ApplicationStage: string
     }
 
     /**
+     *
      * @return list<self>
+     *
      */
     public static function timelineOrder(): array
     {

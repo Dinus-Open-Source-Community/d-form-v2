@@ -233,7 +233,6 @@ const ANOMALY_INPUTS: IAnomalyInput[] = [
     { label: 'include_secondary bukan boolean', query: 'include_secondary=notabool', errorKey: 'include_secondary' },
 ];
 
-/** ID periode dan nama divisi nyata, diisi `beforeAll` dari hasil probe fixture. */
 let periodId = '';
 let divisionName = '';
 
@@ -675,7 +674,6 @@ async function downloadCsv(page: Page, path: string): Promise<ICsvDownload> {
     return collectDownload(await downloadPromise);
 }
 
-/** Buka tab interview periode fixture dan tunggu tombol export siap. */
 async function openInterviewsTab(page: Page): Promise<void> {
     await page.goto(`/admin/recruitment/periods/${periodId}?tab=interview`, { waitUntil: 'load' });
     await expect(page.getByRole('button', { name: 'Export CSV' }).first()).toBeVisible({ timeout: 30_000 });

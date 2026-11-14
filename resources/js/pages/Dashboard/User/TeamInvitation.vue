@@ -208,7 +208,6 @@ function submitDeclineFromDialog() {
     <Head title="Registration invitation" />
 
     <div class="mx-auto max-w-2xl space-y-6 px-2 pb-16">
-        <!-- Summary: same surface as other dashboard cards (white / card) -->
         <section
             class="border-border bg-card overflow-hidden rounded-2xl border p-5 shadow-xs sm:p-6"
             aria-labelledby="invitation-heading"
@@ -301,7 +300,6 @@ function submitDeclineFromDialog() {
                         </p>
                     </div>
 
-                    <!-- Appendable: editable -->
                     <Card v-else-if="field.is_append" class="overflow-hidden">
                         <div
                             v-if="field.type !== 'fileUpload' && invitationFieldError(confirmForm.errors, field.name)"
@@ -456,7 +454,6 @@ function submitDeclineFromDialog() {
                         </CardContent>
                     </Card>
 
-                    <!-- Read-only snapshot -->
                     <Card v-else class="bg-muted/20 overflow-hidden">
                         <CardHeader class="pt-4 pb-2">
                             <CardTitle class="text-muted-foreground text-sm font-semibold">{{ field.label }}</CardTitle>

@@ -9,10 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * Serves submission uploads only to a valid signed URL or an authorized user.
- * The signed branch keeps email/CSV links working for guest bundle recipients.
- */
+/** Serves submission uploads only to a valid signed URL or an authorized user. */
 class FormAnswerFileController extends Controller
 {
     public function __invoke(

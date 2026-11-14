@@ -5,9 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-/**
- * Validasi kode OTP halaman verifikasi; email sengaja tidak diterima dari body.
- */
+/** Validasi kode OTP halaman verifikasi; email sengaja tidak diterima dari body. */
 class VerifyOtpRequest extends FormRequest
 {
     /** Endpoint ini terbuka untuk guest. */
@@ -17,9 +15,11 @@ class VerifyOtpRequest extends FormRequest
     }
 
     /**
+     *
      * Kode wajib tepat 6 digit angka.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -29,9 +29,11 @@ class VerifyOtpRequest extends FormRequest
     }
 
     /**
+     *
      * Pesan validasi dalam bahasa Indonesia.
      *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

@@ -110,7 +110,6 @@ defineEmits<{
                 </div>
             </CardHeader>
             <CardContent class="flex flex-col gap-2 pt-0">
-                <!-- Empty state -->
                 <div v-if="props.forms.length === 0" class="flex flex-col gap-1.5">
                     <p class="text-muted-foreground px-1 py-0.5 text-xs">Belum ada form untuk event ini.</p>
                     <Link
@@ -187,7 +186,6 @@ defineEmits<{
                         <ChevronUp v-else class="ml-1 size-3.5" />
                     </Button>
 
-                    <!-- Dashed CTA -->
                     <Link
                         :href="routes.admin.events.forms.create(props.event.id)"
                         class="border-primary/30 bg-primary/5 text-primary hover:border-primary/50 hover:bg-primary/10 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm font-semibold transition-colors"

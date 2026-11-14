@@ -11,13 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
-/**
- * Backfill sekali jalan: sanitasi HTML lama yang tersimpan sebelum
- * sanitasi di FormRequest ada. Aman dijalankan berulang (idempoten).
- *
- *   php artisan security:sanitize-stored-html --dry-run
- *   php artisan security:sanitize-stored-html
- */
+/** Backfill sekali jalan: sanitasi HTML lama yang tersimpan sebelum sanitasi di FormRequest ada. */
 class SanitizeStoredHtmlCommand extends Command
 {
     protected $signature = 'security:sanitize-stored-html
@@ -53,9 +47,11 @@ class SanitizeStoredHtmlCommand extends Command
     }
 
     /**
+     *
      * Sanitasi satu kolom teks per batch; baris yang nilainya tidak berubah tidak ditulis.
      *
      * @param Builder<Model> $query
+     *
      */
     private function sanitizeColumn(
         Builder $query,
@@ -96,9 +92,7 @@ class SanitizeStoredHtmlCommand extends Command
         return $changed;
     }
 
-    /**
-     * Sanitasi `metadata.content` field builder (metadata disimpan sebagai collection/JSON).
-     */
+    /** Sanitasi `metadata.content` field builder (metadata disimpan sebagai collection/JSON). */
     private function sanitizeFieldContent(BroadcastHtmlSanitizer $sanitizer, bool $dryRun): int
     {
         $changed = 0;

@@ -26,11 +26,7 @@ class RecruitmentPeriodPolicy
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.create');
     }
 
-    /**
-     * Aksi tulis periode (update/open/close/send-group-link/send-qr) selalu
-     * membutuhkan permission; kepemilikan tidak menggantikan permission yang
-     * sudah dicabut.
-     */
+    /** Aksi tulis periode (update/open/close/send-group-link/send-qr) selalu membutuhkan permission; kepemilikan tidak menggantikan permission yang sudah dicabut. */
     public function update(User $user, RecruitmentPeriod $period): bool
     {
         return $this->isSuperAdmin($user) || $user->can('recruitment.periods.edit');

@@ -5,9 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * Registrasi yang menunggu verifikasi OTP; baris dihapus setelah OTP terverifikasi.
- */
+/** Registrasi yang menunggu verifikasi OTP; baris dihapus setelah OTP terverifikasi. */
 class PendingRegistration extends Model
 {
     use HasUuids;

@@ -11,12 +11,7 @@ use App\Models\FormAnswer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Keeps events.registered_count aligned with submissions that occupy quota slots.
- *
- * All reserve/release paths lock the parent event row (SELECT … FOR UPDATE) so
- * concurrent submissions and rejections cannot over- or under-count capacity.
- */
+/** Keeps events.registered_count aligned with submissions that occupy quota slots. */
 final class EventRegistrationCounter
 {
     public function occupiesQuotaSlot(FormAnswer $submission): bool
@@ -37,7 +32,9 @@ final class EventRegistrationCounter
     }
 
     /**
+     *
      * @param  Builder<FormAnswer>  $query
+     *
      */
     public function applyOccupyingQuotaSlotScope(Builder $query): Builder
     {
@@ -97,9 +94,7 @@ final class EventRegistrationCounter
         \App\Services\Event\EventCache::bump(\App\Services\Event\EventCache::BUSTER_REGISTRANTS);
     }
 
-    /**
-     * Release one slot when a submission stops occupying quota (reject / decline / expiry).
-     */
+    /** Release one slot when a submission stops occupying quota (reject / decline / expiry). */
     public function releaseIfStoppedOccupying(FormAnswer $before, FormAnswer $after): void
     {
         if ($this->occupiesQuotaSlot($before) && ! $this->occupiesQuotaSlot($after)) {
@@ -107,9 +102,7 @@ final class EventRegistrationCounter
         }
     }
 
-    /**
-     * Release slots when a counted row is deleted (e.g. declined invitation cleanup).
-     */
+    /** Release slots when a counted submission is deleted. */
     public function releaseOnDeletion(FormAnswer $submission): void
     {
         if (! $this->occupiesQuotaSlot($submission)) {
@@ -129,9 +122,7 @@ final class EventRegistrationCounter
             ->count('form_answers.id');
     }
 
-    /**
-     * Reconcile denormalized counter with live submission rows (admin / repair).
-     */
+    /** Reconcile denormalized counter with live submission rows (admin / repair). */
     public function reconcile(Event $event): int
     {
         return (int) DB::transaction(function () use ($event): int {

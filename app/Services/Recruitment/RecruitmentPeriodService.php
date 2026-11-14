@@ -24,7 +24,9 @@ final class RecruitmentPeriodService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $filters
+     *
      */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 20, ?User $user = null): LengthAwarePaginator
     {
@@ -56,7 +58,9 @@ final class RecruitmentPeriodService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function create(array $data, ?UploadedFile $banner = null): RecruitmentPeriod
     {
@@ -85,7 +89,9 @@ final class RecruitmentPeriodService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function update(RecruitmentPeriod $period, array $data, ?UploadedFile $banner = null): RecruitmentPeriod
     {
@@ -134,7 +140,9 @@ final class RecruitmentPeriodService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toInertiaArray(RecruitmentPeriod $period, ?User $user = null): array
     {

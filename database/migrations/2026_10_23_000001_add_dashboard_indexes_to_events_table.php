@@ -4,10 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Indeks untuk query dashboard & daftar acara publik: semuanya memfilter
- * `deleted_at IS NULL` lalu mengurutkan/menghitung pada satu kolom.
- */
+/** Indeks untuk query dashboard & daftar acara publik: semuanya memfilter `deleted_at IS NULL` lalu mengurutkan/menghitung pada satu kolom. */
 return new class () extends Migration {
     public function up(): void
     {

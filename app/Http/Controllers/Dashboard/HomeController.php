@@ -9,14 +9,7 @@ use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Http\Request;
 use Inertia\Response as InertiaResponse;
 
-/**
- * Beranda penyelenggara — hanya diakses lewat rute dengan middleware organizer.
- *
- * Semua agregat mahal (statistik event, jumlah pendaftar, breakdown kategori) dibaca
- * dari cache; request tidak pernah menghitung sendiri agar cold start tidak 9 s.
- * Isi cache lewat `php artisan dashboard:warm` (dijadwalkan tiap 5 menit di routes/console.php).
- * Bila cache kosong, dashboard menampilkan angka nol dan mencatat `dashboard cache kosong`.
- */
+/** Dashboard aggregates come from prewarmed cache; misses show zeroes until `dashboard:warm` repopulates it. */
 class HomeController extends Controller
 {
     public function __construct(

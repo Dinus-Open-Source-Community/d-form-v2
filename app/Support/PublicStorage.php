@@ -4,15 +4,7 @@ namespace App\Support;
 
 use Illuminate\Http\Request;
 
-/**
- * URL untuk file di disk "public" (avatar, banner event, unggahan, dll.).
- *
- * Saat merespons HTTP (Inertia, API): memakai asal request (skema + host + port)
- * sehingga tidak bergantung pada APP_URL yang salah saat development.
- *
- * Tanpa request aktif (queue, artisan, tes): memakai config filesystems.disks.public.url
- * yang berasal dari APP_URL / FILESYSTEM_PUBLIC_URL di .env.
- */
+/** URL untuk file di disk "public" (avatar, banner event, unggahan, dll.). */
 final class PublicStorage
 {
     public static function url(?string $pathOnPublicDisk, ?Request $request = null): ?string

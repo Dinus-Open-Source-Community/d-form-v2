@@ -39,6 +39,5 @@ usePageFlashToast();
         </main>
     </div>
 
-    <!-- Toast -->
     <AppToaster />
 </template>

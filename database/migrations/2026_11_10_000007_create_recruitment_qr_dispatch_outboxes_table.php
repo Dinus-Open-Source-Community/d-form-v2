@@ -4,10 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * MySQL DDL tidak transaksional: setelah CREATE sukses, migrasi bisa crash sebelum tercatat.
- * Guard ini membuat re-run menjadi no-op alih-alih gagal "table already exists".
- */
+/** MySQL DDL tidak transaksional: setelah CREATE sukses, migrasi bisa crash sebelum tercatat. */
 return new class () extends Migration {
     public function up(): void
     {

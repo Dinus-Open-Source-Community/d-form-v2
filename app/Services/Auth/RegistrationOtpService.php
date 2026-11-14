@@ -10,20 +10,14 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
-/**
- * Satu-satunya pemilik aturan waktu dan kuota OTP registrasi (spec §6/§8).
- *
- * Semua keputusan waktu memakai jam server; front-end hanya menampilkan hasil `status()`.
- */
+/** Satu-satunya pemilik aturan waktu dan kuota OTP registrasi (spec §6/§8). */
 class RegistrationOtpService
 {
     /**
+     *
      * Mulai atau lanjutkan pendaftaran tertunda: buat pending baru atau terbitkan OTP baru.
-     *
-     * Resume tidak menimpa `name`/`password`; kata sandi harus cocok agar OTP baru dikirim.
-     * Baris dikunci agar dua request paralel tidak melampaui kuota kirim.
-     *
      * @param  array{name: string, email: string, password: string}  $data
+     *
      */
     public function start(array $data): OtpOutcome
     {
@@ -58,13 +52,7 @@ class RegistrationOtpService
         });
     }
 
-    /**
-     * Verifikasi kode OTP; pada sukses akun dibuat terverifikasi tanpa login (controller yang login).
-     *
-     * Kunci kirim (`otp_locked_until`) sengaja tidak memblokir verifikasi: kode dari kiriman
-     * ketiga tetap sah sampai masa berlakunya habis. Baris pending dikunci agar counter
-     * percobaan tidak balapan antar-request.
-     */
+    /** Verifikasi kode OTP; pada sukses akun dibuat terverifikasi tanpa login (controller yang login). */
     public function verify(string $email, string $code): OtpOutcome
     {
         return DB::transaction(function () use ($email, $code): OtpOutcome {
@@ -93,11 +81,7 @@ class RegistrationOtpService
         });
     }
 
-    /**
-     * Kirim ulang OTP; hormati lock, kuota kirim, dan cooldown antar-kirim.
-     *
-     * Baris dikunci agar dua request paralel tidak melampaui kuota kirim.
-     */
+    /** Kirim ulang OTP; hormati lock, kuota kirim, dan cooldown antar-kirim. */
     public function resend(string $email): OtpOutcome
     {
         return DB::transaction(function () use ($email): OtpOutcome {
@@ -120,9 +104,11 @@ class RegistrationOtpService
     }
 
     /**
+     *
      * Props halaman verifikasi OTP (spec §7); seluruh waktu ISO8601 dari jam server.
      *
      * @return array{email: string, expiresAt: string|null, serverNow: string, lockedUntil: string|null, sendsRemaining: int, attemptsRemaining: int, resendAvailableAt: string|null}
+     *
      */
     public function status(PendingRegistration $pending): array
     {
@@ -147,9 +133,7 @@ class RegistrationOtpService
         PendingRegistration::query()->where('email', $email)->delete();
     }
 
-    /**
-     * Kode aktif milik email untuk command lokal/E2E; null di luar local/testing atau tanpa kode.
-     */
+    /** Kode aktif milik email untuk command lokal/E2E; null di luar local/testing atau tanpa kode. */
     public function currentCode(string $email): ?string
     {
         if (! app()->environment(['local', 'testing'])) {
@@ -165,9 +149,7 @@ class RegistrationOtpService
         return PendingRegistration::query()->where('email', $email)->first();
     }
 
-    /**
-     * Cari pending sambil mengunci baris; wajib dipanggil di dalam transaksi yang menulis kuota kirim.
-     */
+    /** Cari pending sambil mengunci baris; wajib dipanggil di dalam transaksi yang menulis kuota kirim. */
     private function findLocked(string $email): ?PendingRegistration
     {
         return PendingRegistration::query()
@@ -176,11 +158,7 @@ class RegistrationOtpService
             ->first();
     }
 
-    /**
-     * Tolak kirim saat lock aktif, kuota habis, atau cooldown belum lewat.
-     *
-     * Kuota yang pulih setelah lock lewat diterapkan di sini agar berlaku untuk start dan resend.
-     */
+    /** Tolak kirim saat lock aktif, kuota habis, atau cooldown belum lewat. */
     private function guardSendQuota(PendingRegistration $pending, int $cooldownSeconds): ?OtpOutcome
     {
         if ($this->activeLock($pending) !== null) {
@@ -200,12 +178,7 @@ class RegistrationOtpService
         return null;
     }
 
-    /**
-     * Terbitkan kode baru: reset percobaan, naikkan kuota kirim, kunci bila kuota habis, lalu antrekan email.
-     *
-     * Wajib dipanggil di dalam transaksi yang mengunci baris pending; email baru diantrekan setelah commit
-     * agar worker tidak membaca baris yang belum tersimpan.
-     */
+    /** Terbitkan kode baru: reset percobaan, naikkan kuota kirim, kunci bila kuota habis, lalu antrekan email. */
     private function issue(PendingRegistration $pending): void
     {
         $now = now();
@@ -228,10 +201,7 @@ class RegistrationOtpService
         }
     }
 
-    /**
-     * Lewati antrean email untuk alamat uji `.test` di local/testing supaya E2E tidak membanjiri queue.
-     * Unit test tetap mengantrekan karena memakai `runningUnitTests()` + Queue::fake.
-     */
+    /** Lewati antrean email untuk alamat uji `.test` di local/testing supaya E2E tidak membanjiri queue. */
     private function shouldQueueOtpEmail(string $email): bool
     {
         return app()->runningUnitTests()
@@ -247,11 +217,7 @@ class RegistrationOtpService
         return str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Catat percobaan salah; percobaan terakhir menghanguskan kode.
-     *
-     * Hanya dipanggil di dalam transaksi `verify()` yang sudah mengunci baris pending.
-     */
+    /** Catat percobaan salah; percobaan terakhir menghanguskan kode. */
     private function registerFailedAttempt(PendingRegistration $pending): void
     {
         $attempts = $pending->otp_attempts + 1;
@@ -264,11 +230,7 @@ class RegistrationOtpService
         ])->save();
     }
 
-    /**
-     * Buat akun terverifikasi dari pending lalu hapus pending.
-     *
-     * Dipanggil di dalam transaksi `verify()` agar akun dan pending berubah bersama.
-     */
+    /** Buat akun terverifikasi dari pending lalu hapus pending. */
     private function createVerifiedUser(PendingRegistration $pending): void
     {
         $user = User::create([

@@ -20,12 +20,7 @@ use Throwable;
 
 class FieldOperationController extends Controller
 {
-    /**
-     * Persist the complete form-field snapshot and return the request contract.
-     *
-     * Validation and explicit HTTP/domain failures retain their status. Unexpected
-     * failures are logged with safe context and exposed as an internal-server error.
-     */
+    /** Persist the complete form-field snapshot and return the request contract. */
     public function __invoke(FieldModifyRequest $request, Event $event, Form $form): SymfonyResponse
     {
         abort_unless($form->event_id === $event->id, 404);
@@ -106,9 +101,7 @@ class FieldOperationController extends Controller
         }
     }
 
-    /**
-     * Accept a valid upstream request ID or create a UUID for this request.
-     */
+    /** Accept a valid upstream request ID or create a UUID for this request. */
     private function resolveRequestId(FieldModifyRequest $request): string
     {
         $providedRequestId = $request->header('X-Request-ID');
@@ -120,9 +113,7 @@ class FieldOperationController extends Controller
         return (string) Str::uuid();
     }
 
-    /**
-     * Return a public-safe 500 response without exposing exception details.
-     */
+    /** Return a public-safe 500 response without exposing exception details. */
     private function internalFailureResponse(FieldModifyRequest $request, string $requestId): SymfonyResponse
     {
         if ($request->expectsJson()) {
@@ -144,8 +135,10 @@ class FieldOperationController extends Controller
     }
 
     /**
+     *
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
+     *
      */
     private function rowToModelAttributes(array $row): array
     {

@@ -20,9 +20,7 @@ class Form extends Model
     use HasFactory;
     use SoftDeletes;
     use HasUuids;
-    /**
-     * Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`.
-     */
+    /** Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`. */
     public const ROUTE_BINDING_COLUMNS = [
         'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
         'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'created_at',
@@ -65,20 +63,19 @@ class Form extends Model
         ];
     }
 
-    /**
-     * Draft adalah form yang masih disusun penyelenggara: tidak pernah masuk
-     * daftar publik/peserta dan hanya boleh dibuka pembuat event.
-     */
+    /** Draft adalah form yang masih disusun penyelenggara: tidak pernah masuk daftar publik/peserta dan hanya boleh dibuka pembuat event. */
     public function isDraft(): bool
     {
         return $this->status === FormStatus::Draft;
     }
 
     /**
+     *
      * Hanya baris published yang boleh dibaca peserta/publik/pelaporan.
      *
      * @param  Builder<Form>  $query
      * @return Builder<Form>
+     *
      */
     public function scopePublished(Builder $query): Builder
     {
@@ -86,12 +83,11 @@ class Form extends Model
     }
 
     /**
-     * Daftar form level-admin: published selalu ikut; draft hanya untuk pembuat
-     * event. Event tanpa `created_by` (data lama) jatuh ke pembuat draft itu
-     * sendiri agar draft tidak menjadi yatim yang tak bisa dibuka siapa pun.
      *
+     * Daftar form level-admin: published selalu ikut; draft hanya untuk pembuat event.
      * @param  Builder<Form>  $query
      * @return Builder<Form>
+     *
      */
     public function scopeVisibleToEventCreator(Builder $query, Event $event, ?User $viewer): Builder
     {
@@ -114,9 +110,7 @@ class Form extends Model
         });
     }
 
-    /**
-     * Boleh tidaknya viewer membuka draft ini (404 di level controller).
-     */
+    /** Boleh tidaknya viewer membuka draft ini (404 di level controller). */
     public function isDraftVisibleTo(Event $event, ?User $viewer): bool
     {
         if (! $this->isDraft()) {
@@ -132,14 +126,7 @@ class Form extends Model
         return $event->created_by !== null || $this->created_by === $viewerId;
     }
 
-    /**
-     * Predikat tunggal "viewer adalah pemilik event": dipakai daftar admin
-     * ({@see scopeVisibleToEventCreator}), akses draft ({@see isDraftVisibleTo}),
-     * dan pembuatan draft ({@see \App\Http\Controllers\Dashboard\Events\Forms\FormController::storeDraft}).
-     *
-     * Event tanpa `created_by` (data lama) dianggap dimiliki setiap organizer;
-     * batas baris draft-nya tetap `forms.created_by`.
-     */
+    /** Shared ownership predicate for admin lists, draft access, and draft creation. */
     public static function viewerOwnsEvent(Event $event, int|string|null $viewerId): bool
     {
         if ($viewerId === null) {
@@ -149,9 +136,7 @@ class Form extends Model
         return $event->created_by === null || $event->created_by === $viewerId;
     }
 
-    /**
-     * Forms without an explicit purpose are treated as registration (backward compatible).
-     */
+    /** Forms without an explicit purpose remain registration forms for compatibility. */
     public function purpose(): FormPurpose
     {
         $raw = is_array($this->metadata) ? ($this->metadata['purpose'] ?? null) : null;
@@ -174,9 +159,11 @@ class Form extends Model
     }
 
     /**
+     *
      * Form oprec tidak lagi wajib terikat ke Event (event_id nullable).
      *
      * @return BelongsTo<Event, $this>
+     *
      */
     public function event(): BelongsTo
     {
@@ -184,10 +171,12 @@ class Form extends Model
     }
 
     /**
+     *
      * Form Open Recruitment yang ditandai lewat metadata.oprec.
      *
      * @param  Builder<Form>  $query
      * @return Builder<Form>
+     *
      */
     public function scopeOprec(Builder $query): Builder
     {
@@ -200,7 +189,9 @@ class Form extends Model
     }
 
     /**
+     *
      * @return HasMany<FormAnswer, $this>
+     *
      */
     public function formAnswers(): HasMany
     {

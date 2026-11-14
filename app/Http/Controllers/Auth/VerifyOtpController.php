@@ -17,11 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/**
- * Halaman verifikasi OTP registrasi: tampilkan status, verifikasi kode, kirim ulang.
- *
- * Email selalu diambil dari sesi (bukan body) agar aksi tidak bisa dipicu pihak ketiga.
- */
+/** Halaman verifikasi OTP registrasi: tampilkan status, verifikasi kode, kirim ulang. */
 class VerifyOtpController extends Controller
 {
     /** Tampilkan halaman OTP dengan props status dari server; tanpa sesi pending → register. */
@@ -36,10 +32,7 @@ class VerifyOtpController extends Controller
         return inertia('Auth/VerifyOtp', $service->status($pending));
     }
 
-    /**
-     * Verifikasi kode; sukses langsung login dan menghapus penanda sesi pending.
-     * Pemanggil JSON (auto-submit) menerima `{verified, redirect}` agar UI bisa menampilkan state sukses dulu.
-     */
+    /** Verifikasi kode; sukses langsung login dan menghapus penanda sesi pending. */
     public function verify(VerifyOtpRequest $request, RegistrationOtpService $service): JsonResponse|RedirectResponse
     {
         $email = PendingRegistrationSession::email($request);
@@ -153,9 +146,11 @@ class VerifyOtpController extends Controller
     }
 
     /**
+     *
      * Pesan penolakan kirim ulang: lock kuota (15 menit) berbeda dari cooldown antar-kirim.
      *
      * @param  array{lockedUntil: string|null, resendAvailableAt: string|null}  $status
+     *
      */
     private function resendErrorMessage(array $status): string
     {

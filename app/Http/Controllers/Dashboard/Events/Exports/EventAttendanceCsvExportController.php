@@ -25,10 +25,7 @@ class EventAttendanceCsvExportController extends Controller
         'scanned_by_email',
     ];
 
-    /**
-     * Batas atas ukuran halaman: satu halaman memuat relasi attendee + scanner,
-     * jadi nilai env yang terlalu besar berakhir sebagai memory limit.
-     */
+    /** Batas atas ukuran halaman: satu halaman memuat relasi attendee + scanner, jadi nilai env yang terlalu besar berakhir sebagai memory limit. */
     private const MAX_PAGE_SIZE = 2000;
 
     public function __invoke(
@@ -68,21 +65,7 @@ class EventAttendanceCsvExportController extends Controller
         ]);
     }
 
-    /**
-     * Baris CSV per halaman, keyset `(scanned_at ASC, id ASC)`.
-     *
-     * `scanned_at` hanya presisi detik dan tidak unik: tie lintas batas halaman
-     * membuat OFFSET melewatkan atau menulis ulang baris, dan OFFSET besar
-     * mematerialisasi ulang hasil terurut pada setiap halaman. `id` (uuid) unik,
-     * jadi pasangan `(scanned_at, id)` deterministik. `scanned_at` NOT NULL,
-     * sehingga tidak perlu tail pass seperti export registrasi.
-     *
-     * Precondition: `scanned_at` tidak diubah selama export. Baris yang dihapus
-     * setelah kursor terlewati tidak akan ditulis; export berjalan read-only.
-     *
-     * Protected agar test bisa menyuntikkan generator yang gagal di tengah stream
-     * (kontrak audit: satu record per export, termasuk saat gagal).
-     *
+    /** Keyset uses stable non-null `scanned_at` plus unique `id`; neither value may change during export.
      * @return \Generator<int, list<mixed>>
      */
     protected function attendanceRows(

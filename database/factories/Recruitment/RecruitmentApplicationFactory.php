@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
+ *
  * @extends Factory<RecruitmentApplication>
+ *
  */
 class RecruitmentApplicationFactory extends Factory
 {

@@ -11,9 +11,11 @@ use Illuminate\Support\Collection;
 final class RegistrationGroupPeers
 {
     /**
+     *
      * All submissions in the same team/bundle group that are not yet admin-rejected.
      *
      * @return Collection<int, FormAnswer>
+     *
      */
     public function peersNotYetRejected(Form $form, FormAnswer $trigger): Collection
     {
@@ -73,7 +75,9 @@ final class RegistrationGroupPeers
     }
 
     /**
+     *
      * @return Collection<int, FormAnswer>
+     *
      */
     private function wrapSinglePeer(FormAnswer $trigger): Collection
     {

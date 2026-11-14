@@ -14,9 +14,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * Satu job per recipient (PRD §30). Automatic retry maks 3 attempt.
- */
+/** Satu job per recipient (PRD §30). */
 class SendBroadcastRecipientJob implements ShouldQueue
 {
     use Queueable;

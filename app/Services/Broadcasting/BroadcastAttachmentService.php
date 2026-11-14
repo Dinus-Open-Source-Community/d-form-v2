@@ -54,8 +54,10 @@ class BroadcastAttachmentService
     }
 
     /**
+     *
      * Validasi inline image base64 dari Tiptap (data:image/...).
      * @return array{ok:bool, message?:string}
+     *
      */
     public function validateInlineImages(?string $html): array
     {

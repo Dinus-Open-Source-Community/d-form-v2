@@ -9,10 +9,12 @@ use RuntimeException;
 final class CsvWriter
 {
     /**
+     *
      * Sanitize every cell and write it with PHP's proprietary escape disabled.
      *
      * @param  resource  $stream
      * @param  array<array-key, mixed>  $fields
+     *
      */
     public static function writeRow(mixed $stream, array $fields): void
     {

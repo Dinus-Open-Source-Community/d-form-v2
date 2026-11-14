@@ -1,6 +1,5 @@
 import type { BrowserContext, Page, Request, Response } from '@playwright/test';
 
-/** Bentuk satu respons stub untuk mensimulasikan kegagalan/response server. */
 export interface IStubResponse {
     status: number;
     contentType?: string;
@@ -9,7 +8,6 @@ export interface IStubResponse {
     delayMs?: number;
 }
 
-/** Log request/response yang bisa diquery tanpa menyentuh detail internal Playwright. */
 export interface IRequestLog {
     requestCount: (method: string, pattern: string | RegExp) => number;
     responseStatuses: (pattern: string | RegExp) => number[];
@@ -105,7 +103,6 @@ export function startRequestLog(page: Page): IRequestLog {
     };
 }
 
-/** Stub satu URL dengan response deterministik (5xx, HTML 200, redirect tak dikenal, timeout). */
 export async function stubStoreResponse(page: Page, url: string | RegExp, response: IStubResponse): Promise<void> {
     await page.route(url, async (route): Promise<void> => {
         if (response.delayMs !== undefined && response.delayMs > 0) {
@@ -149,7 +146,6 @@ export async function readInertiaPage(page: Page): Promise<IInertiaPage> {
     return payload;
 }
 
-/** Baca props Inertia halaman saat ini tanpa menebak DOM terhidrasi. */
 export async function readPageProps<TProps>(page: Page): Promise<TProps> {
     return (await readInertiaPage(page)).props as TProps;
 }
@@ -214,7 +210,6 @@ export async function readXsrfToken(context: BrowserContext): Promise<string> {
     return decodeURIComponent(cookie.value);
 }
 
-/** Cocokkan URL dengan string akhir atau RegExp. */
 function matches(url: string, pattern: string | RegExp): boolean {
     return pattern instanceof RegExp ? pattern.test(url) : url.endsWith(pattern);
 }

@@ -10,13 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * Menulis baris recruitment ber-marker: periode, aplikasi, dan dokumen minimum.
- *
- * Marker tidak disimpan di kolom tersendiri; kepemilikan diturunkan dari
- * `recruitment_periods.name` yang bersufiks ` [<marker>]`, lalu aplikasi dan
- * turunannya diresolusi lewat `recruitment_period_id`.
- */
+/** Menulis baris recruitment ber-marker: periode, aplikasi, dan dokumen minimum. */
 final class RecruitmentFixtureWriter
 {
     public function __construct(
@@ -26,10 +20,12 @@ final class RecruitmentFixtureWriter
     }
 
     /**
+     *
      * Buat (atau pakai ulang) periode + aplikasi + dokumen untuk satu marker.
      *
      * @param  array<string, mixed>  $payload  Isi `payload.recruitment`
      * @return array{periodId: string, periodName: string, divisionId: string, applicationId: string, registrationNumber: string, trackingToken: string, documentId: string|null}
+     *
      */
     public function create(array $payload, Carbon $now): array
     {
@@ -66,9 +62,7 @@ final class RecruitmentFixtureWriter
         ];
     }
 
-    /**
-     * Divisi tujuan aplikasi; memakai `divisionCode` bila diberikan, selain itu divisi aktif pertama.
-     */
+    /** Divisi tujuan aplikasi; memakai `divisionCode` bila diberikan, selain itu divisi aktif pertama. */
     private function resolveDivisionId(mixed $divisionCode): string
     {
         if ($divisionCode !== null) {
@@ -100,8 +94,10 @@ final class RecruitmentFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $period
      * @return array{0: string, 1: string} id dan nama ber-marker
+     *
      */
     private function createPeriod(array $period, Carbon $now): array
     {
@@ -144,8 +140,10 @@ final class RecruitmentFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $application
      * @return array{0: string, 1: string, 2: string} id, nomor pendaftaran, token tracking
+     *
      */
     private function createApplication(array $application, string $periodId, string $divisionId, Carbon $now): array
     {
@@ -226,9 +224,7 @@ final class RecruitmentFixtureWriter
         return [$applicationId, $registrationNumber, $trackingToken];
     }
 
-    /**
-     * Dokumen minimum (CV + portfolio URL) yang dibutuhkan halaman tracking.
-     */
+    /** Dokumen minimum (CV + portfolio URL) yang dibutuhkan halaman tracking. */
     private function createDocument(string $applicationId, mixed $enabled, Carbon $now): ?string
     {
         if (! is_bool($enabled)) {

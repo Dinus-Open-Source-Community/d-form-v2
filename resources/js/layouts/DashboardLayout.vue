@@ -13,11 +13,9 @@ const topbar = provideTopbar();
 
 usePageFlashToast();
 
-// Toast untuk submit yang gagal dan hanya berakhir di halaman Error (mis. 403/500).
 useHttpErrorToast();
 
-// Reset state topbar saat navigasi Inertia ke halaman lain,
-// supaya judul/subtitle halaman sebelumnya tidak bocor.
+// Clear page-specific topbar state on Inertia navigation.
 const page = usePage();
 watch(
     () => page.component,
@@ -26,7 +24,7 @@ watch(
     }
 );
 
-/** Halaman builder formulir butuh lebar penuh, jadi sidebar navigasi tidak dirender (editor & tab jawaban). */
+/** Builder pages use the full content width instead of the navigation sidebar. */
 const FULL_WIDTH_PAGE_COMPONENTS: ReadonlySet<string> = new Set([
     'Dashboard/Events/Forms/Show',
     'Dashboard/Events/Forms/Create',

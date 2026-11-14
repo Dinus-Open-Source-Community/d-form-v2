@@ -6,13 +6,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Menulis submission `review_status=accepted` ber-marker untuk form milik fixture.
- *
- * Baris answer tidak otomatis punya attendance: scan QR justru harus membuktikan
- * attendance dibuat oleh alur aplikasi. Set `attendance: true` bila fixture memang
- * membutuhkan baris check-in sejak awal.
- */
+/** Menulis submission `review_status=accepted` ber-marker untuk form milik fixture. */
 final class AcceptedAnswerFixtureWriter
 {
     public function __construct(private readonly FixtureJournal $journal)
@@ -20,9 +14,11 @@ final class AcceptedAnswerFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $payload  Payload fixture penuh (membaca `acceptedAnswers`)
      * @param  list<string>  $formIds  Id form fixture, urut sesuai `payload.forms`
      * @return list<array{answerId: string, registrationCode: string, formId: string, attendanceId: string|null}>
+     *
      */
     public function create(array $payload, array $formIds, string $eventId, string $scannedByUserId, Carbon $now): array
     {
@@ -87,7 +83,9 @@ final class AcceptedAnswerFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $answers
+     *
      */
     private function createAnswer(string $formId, string $registrationCode, array $answers, ?string $invitedEmail, Carbon $now): string
     {

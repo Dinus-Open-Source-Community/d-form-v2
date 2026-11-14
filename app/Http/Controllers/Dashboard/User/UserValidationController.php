@@ -9,13 +9,7 @@ use Illuminate\Http\JsonResponse;
 
 class UserValidationController extends Controller
 {
-    /**
-     * Check if a user exists by email address.
-     *
-     * This endpoint is used for validating team member emails
-     * during bundle or team registration mode form submissions.
-     * Returns user data (name, email, registration date) if found.
-     */
+    /** Check if a user exists by email address. */
     public function checkEmail(CheckEmailRequest $request): JsonResponse
     {
         $email = (string) $request->validated('email');

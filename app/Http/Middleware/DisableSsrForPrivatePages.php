@@ -8,10 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DisableSsrForPrivatePages
 {
-    /**
-     * Matikan Inertia SSR untuk halaman privat: area ini noindex (tanpa manfaat SEO),
-     * dan form-nya bisa ter-submit native sebelum Vue mount bila HTML berasal dari SSR.
-     */
+    /** Matikan Inertia SSR untuk halaman privat: area ini noindex (tanpa manfaat SEO), dan form-nya bisa ter-submit native sebelum Vue mount bila HTML berasal dari SSR. */
     public function handle(Request $request, Closure $next): Response
     {
         if ($this->isPrivatePath($request->path())) {

@@ -23,7 +23,6 @@ function readErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'Alias tidak dapat disimpan. Coba lagi.';
 }
 
-/** Owns share-dialog state and delegates browser/HTTP effects to their adapters. */
 export function useFormShareActions(initialPayload: IFormSharePayload): IFormShareActions {
     const payload = ref<IFormSharePayload>(initialPayload);
     const alias = ref(initialPayload.alias ?? '');

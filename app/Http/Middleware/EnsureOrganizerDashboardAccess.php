@@ -6,10 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Hanya penyelenggara (permission events.list): admin / super-admin.
- * Peserta biasa diarahkan ke portal pengguna, tanpa 403.
- */
+/** Hanya penyelenggara (permission events.list): admin / super-admin. */
 class EnsureOrganizerDashboardAccess
 {
     public function handle(Request $request, Closure $next): Response

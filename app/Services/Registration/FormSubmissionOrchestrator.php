@@ -6,10 +6,7 @@ use App\Enums\FormSubmissionMode;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Coordinates mode-aware form validation, participant preflight, and answer
- * mapping without taking ownership of HTTP responses or submission writes.
- */
+/** Coordinates mode-aware form validation, participant preflight, and answer mapping without taking ownership of HTTP responses or submission writes. */
 final class FormSubmissionOrchestrator
 {
     public function __construct(
@@ -19,13 +16,7 @@ final class FormSubmissionOrchestrator
     ) {
     }
 
-    /**
-     * Validate and map the submitted payload for the configured mode.
-     *
-     * Team mapping retains its existing order and cleans files if participant
-     * validation fails; bundle duplicate preflight runs before file mapping so
-     * rejected guests do not create new upload paths.
-     *
+    /** Validate and map the payload; bundle duplicate checks run before file mapping and failed team validation cleans files.
      * @throws ValidationException
      */
     public function validateAndMap(FormSubmissionContext $context): FormSubmissionPayload

@@ -9,12 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Drops the member submission after invitations are sent so the user can submit the event form again
- * under the same login (unique user_id + form_id).
- *
- * Keeps organizer history via email logs; email_logs.form_answer_id is null-on-delete.
- */
+/** Drops the member submission after invitations are sent so the user can submit the event form again under the same login (unique user_id + form_id). */
 class DeleteDeclinedInvitationMemberSubmissionJob implements ShouldQueue
 {
     use Queueable;

@@ -32,9 +32,7 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
+    /** Register any application services. */
     public function register(): void
     {
         // The binding resolves lazily, so this runs on the queue failure path rather than at boot.
@@ -77,9 +75,7 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
-    /**
-     * Bootstrap any application services.
-     */
+    /** Bootstrap any application services. */
     public function boot(): void
     {
         // Resolve the failer at deploy time when it is not the schema-compatible default, so a
@@ -282,11 +278,7 @@ class AppServiceProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Batas satu mutation tracking OpRec. Identitas diambil dari sesi tracking
-     * (id aplikasi) dan baru jatuh ke IP ketika sesi belum/tidak valid; IP tidak
-     * digabung ke kunci agar kuota tidak bisa direset dengan rotasi IP.
-     */
+    /** Batas satu mutation tracking OpRec. */
     private function recruitmentTrackingLimit(string $mutation, Request $request): Limit
     {
         $applicationId = $request->hasSession()
@@ -302,11 +294,7 @@ class AppServiceProvider extends ServiceProvider
         return Limit::perMinute($maxAttempts)->by('oprec-track-'.$mutation.'|'.$identity);
     }
 
-    /**
-     * Nilai route parameter sebagai string yang sudah dikanonikalisasi. `throttle`
-     * berjalan sebelum SubstituteBindings sehingga nilainya masih skalar; ejaan
-     * UUID disamakan agar variasi huruf besar/spasi tidak membuka bucket baru.
-     */
+    /** Nilai route parameter sebagai string yang sudah dikanonikalisasi. */
     private function routeParameterKey(Request $request, string $parameter): string
     {
         $value = $request->route($parameter);
@@ -328,10 +316,7 @@ class AppServiceProvider extends ServiceProvider
             : 'ip:'.($request->ip() ?? '');
     }
 
-    /**
-     * Bangun batas percobaan dari config/auth_throttle.php agar angka tidak ditulis di route.
-     * `Request::ip()` bertipe `?string`, jadi kunci dinormalkan di satu tempat ini.
-     */
+    /** Bangun batas percobaan dari config/auth_throttle.php agar angka tidak ditulis di route. */
     private function authThrottleLimit(string $endpoint, string|int|null $key): Limit
     {
         return Limit::perMinutes(

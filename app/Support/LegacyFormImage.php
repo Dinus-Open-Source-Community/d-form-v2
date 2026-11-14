@@ -5,19 +5,7 @@ namespace App\Support;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
 
-/**
- * Konversi gambar legacy form yang masih berupa data: URL (base64 inline)
- * menjadi file di disk "public". DB hanya menyimpan path relatif storage
- * (mis. `form-images/{formId}/...`), konsisten dengan FormImageUploadController.
- *
- * Cakupan key yang dipindai:
- * - forms.banner_url
- * - form_fields.metadata -> bannerUrl, imageUrl (+ varian image_url)
- * - form_fields.metadata -> optionChoices[].imageUrl (+ varian image_url)
- *
- * Nilai normal (path relatif, /storage/..., http(s) URL, blob: preview)
- * TIDAK PERNAH diubah — fungsi convert hanya menyentuh string berprefix data:.
- */
+/** Konversi gambar legacy form yang masih berupa data: URL (base64 inline) menjadi file di disk "public". */
 final class LegacyFormImage
 {
     public const FIELD_DIRECTORY_PREFIX = 'form-images';
@@ -28,11 +16,10 @@ final class LegacyFormImage
     public const MAX_DECODED_BYTES = 5 * 1024 * 1024;
 
     /**
-     * Allowlist disamakan dengan FormImageUploadController
-     * (mimes: png,jpg,jpeg,gif,webp) agar tidak ada tipe file baru
-     * yang masuk lewat jalur legacy.
      *
+     * Allowlist disamakan dengan FormImageUploadController (mimes: png,jpg,jpeg,gif,webp) agar tidak ada tipe file baru yang masuk lewat jalur legacy.
      * @var array<string, string> mime => extension
+     *
      */
     private const ALLOWED_MIME_TO_EXTENSION = [
         'image/png' => 'png',
@@ -48,10 +35,12 @@ final class LegacyFormImage
     }
 
     /**
+     *
      * Decode data: URL base64 menjadi bytes + extension.
      *
      * @return array{extension: string, bytes: string}|null null bila bukan
-     *         base64 valid / mime tidak diizinkan / oversize / bukan gambar.
+     * base64 valid / mime tidak diizinkan / oversize / bukan gambar.
+     *
      */
     public static function decode(string $dataUrl): ?array
     {
@@ -95,10 +84,7 @@ final class LegacyFormImage
         return ['extension' => $extension, 'bytes' => $bytes];
     }
 
-    /**
-     * Simpan data: URL ke disk. Mengembalikan path relatif storage
-     * (mis. `form-images/{formId}/legacy-uuid.png`) atau null bila gagal/skip.
-     */
+    /** Simpan data: URL ke disk. */
     public static function store(string $dataUrl, string $directory, string $disk = 'public'): ?string
     {
         $decoded = self::decode($dataUrl);
@@ -119,9 +105,11 @@ final class LegacyFormImage
     }
 
     /**
+     *
      * Konversi satu nilai URL: data: URL -> path storage, nilai lain utuh.
      *
      * @return array{value: string|null, converted: bool, failed: bool, skipped: bool}
+     *
      */
     public static function convertSingle(mixed $value, string $formId, string $directoryPrefix): array
     {
@@ -145,8 +133,10 @@ final class LegacyFormImage
     }
 
     /**
+     *
      * @param  array<string, mixed> $metadata
      * @return array{metadata: array<string, mixed>, converted: int, failed: int}
+     *
      */
     public static function convertFieldMetadata(array $metadata, string $formId): array
     {
@@ -185,11 +175,13 @@ final class LegacyFormImage
     }
 
     /**
+     *
      * Konversi seluruh rows fields (bentuk validated `fields.*`).
      * Idempoten: rows tanpa data: URL dikembalikan apa adanya.
      *
      * @param  array<int, array<string, mixed>> $rows
      * @return array{rows: array<int, array<string, mixed>>, converted: int, failed: int}
+     *
      */
     public static function convertFieldRows(array $rows, string $formId): array
     {
@@ -214,10 +206,12 @@ final class LegacyFormImage
     }
 
     /**
+     *
      * Konversi forms.banner_url. Banner form disimpan di
      * `form-banners/{formId}/...` (paralel dengan pola events/banners).
      *
      * @return array{value: string|null, converted: bool, failed: bool}
+     *
      */
     public static function convertFormBanner(mixed $bannerUrl, string $formId): array
     {

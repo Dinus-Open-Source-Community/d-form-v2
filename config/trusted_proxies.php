@@ -19,10 +19,8 @@ return [
     'proxies' => env('TRUSTED_PROXIES'),
 
     // The ingress and load balancer live in the private Docker networks.
-    // Since symfony/http-foundation 7.4.23 (GHSA-xg2q) IpUtils::checkIp() judges an
-    // IPv4-mapped IPv6 peer as the IPv4 address it embeds, so a dual-stack ingress
-    // reporting ::ffff:172.18.0.5 still matches 172.16.0.0/12 and is trusted. Only
-    // private/loopback ranges are listed, so mapped public peers stay untrusted.
+    // IpUtils treats IPv4-mapped peers as their embedded IPv4 address; only private
+    // and loopback ranges are trusted, so mapped public peers remain untrusted.
     'default_proxies' => [
         '10.0.0.0/8',
         '172.16.0.0/12',
@@ -31,8 +29,7 @@ return [
         '::1',
     ],
 
-    // Only the headers the ingress actually sets. X-Forwarded-Prefix (a header that can
-    // rewrite the request path) and HEADER_X_FORWARDED_AWS_ELB (a mask, not a header) stay
+    // Trust only headers set by the ingress; path-rewriting and mask values remain
     // untrusted so a compromised peer cannot forge them.
     'headers' => Request::HEADER_X_FORWARDED_FOR
         | Request::HEADER_X_FORWARDED_PROTO

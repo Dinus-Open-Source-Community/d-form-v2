@@ -2,9 +2,7 @@
 
 namespace App\Support\Security;
 
-/**
- * Immutable session cookie attributes evaluated by ProductionSecurityPolicy.
- */
+/** Immutable session cookie attributes evaluated by ProductionSecurityPolicy. */
 final class SessionCookieSettings
 {
     public function __construct(

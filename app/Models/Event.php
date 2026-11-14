@@ -22,10 +22,7 @@ class Event extends Model
     use HasFactory;
     use HasUuids;
     use SoftDeletes;
-    /**
-     * Kolom saat event di-resolve dari route (`/admin/events/{event}`) — eksplisit,
-     * bukan `select *`; dipakai halaman show/edit/forms sehingga semua kolom diperlukan.
-     */
+    /** Kolom saat event di-resolve dari route (`/admin/events/{event}`) — eksplisit, bukan `select *`; dipakai halaman show/edit/forms sehingga semua kolom diperlukan. */
     public const ROUTE_BINDING_COLUMNS = [
         'id', 'title', 'slug', 'description', 'start_date', 'end_date',
         'registration_start', 'registration_end', 'location', 'quota',
@@ -67,10 +64,7 @@ class Event extends Model
         ];
     }
 
-    /**
-     * Explode a comma-separated stored field (e.g. `category`, `session`) into unique non-empty tokens.
-     * Matches {@see \App\Http\Resources\EventResource} normalization.
-     *
+    /** Normalize a stored comma-separated field.
      * @return list<string>
      */
     public static function tokensFromCsv(string $raw): array
@@ -115,7 +109,9 @@ class Event extends Model
     }
 
     /**
+     *
      * @return HasMany<EventAttendance, $this>
+     *
      */
     public function attendances(): HasMany
     {
@@ -123,9 +119,11 @@ class Event extends Model
     }
 
     /**
+     *
      * @param  mixed  $value
      * @param  string|null  $field
      * @return \Illuminate\Database\Eloquent\Model|null
+     *
      */
     public function resolveRouteBinding($value, $field = null)
     {
@@ -140,9 +138,11 @@ class Event extends Model
     }
 
     /**
+     *
      * Match events whose `category` CSV contains every given backing value (e.g. `rkt` matches `rkt`, `rkt,etc`, `etc,rkt`).
      *
      * @param  list<string>  $tokens
+     *
      */
     #[Scope]
     public function forCategoryTokens(Builder $query, array $tokens): void
@@ -164,9 +164,11 @@ class Event extends Model
     }
 
     /**
+     *
      * Match events whose `session` CSV contains every given backing value.
      *
      * @param  list<string>  $tokens
+     *
      */
     #[Scope]
     public function forSessionTokens(Builder $query, array $tokens): void

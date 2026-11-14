@@ -1,8 +1,5 @@
 name: d-form
 
-# nk ngerubah docker-compose.prod.yml ati ati ya kang
-# soal e iki nggo pipeline ng CI/CD
-# nk meh ngerubah kondo fa'iz sek ya
 services:
   db:
     image: mariadb:10.11

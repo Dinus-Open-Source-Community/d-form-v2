@@ -137,12 +137,7 @@ final class RecruitmentEmailResendService
     }
 
     /**
-     * Template key notifikasi terkirim terbaru yang bisa dikirim ulang, atau `null`.
-     *
-     * Satu-satunya sumber aturan "replayable": log terbaru boleh non-resendable (mis.
-     * konfirmasi setelah resend), jadi pencarian melewatinya dan berhenti di log pertama
-     * yang tipenya ada di allowlist. Template interview tetap butuh interview yang ada.
-     *
+     * Return the newest replayable template; non-replayable logs are skipped, while interview templates require an interview.
      * @param  bool|null  $hasInterview  Hasil query pemanggil; `null` berarti helper yang mencari.
      */
     public function latestReplayableNotification(RecruitmentApplication $application, ?bool $hasInterview = null): ?string

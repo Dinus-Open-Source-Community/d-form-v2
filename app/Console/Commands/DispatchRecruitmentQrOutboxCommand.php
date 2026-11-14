@@ -12,10 +12,7 @@ class DispatchRecruitmentQrOutboxCommand extends Command
 
     protected $description = 'Recover and dispatch pending recruitment QR notifications';
 
-    /**
-     * Dispatch pending QR intents, re-queue intents whose queue job was lost, and report the rows
-     * an operator must reconcile: `sending` rows are never resent automatically.
-     */
+    /** Dispatch pending QR intents, re-queue intents whose queue job was lost, and report the rows an operator must reconcile: `sending` rows are never resent automatically. */
     public function handle(RecruitmentQrDispatchRecovery $recovery): int
     {
         $dispatched = $recovery->dispatchPending();

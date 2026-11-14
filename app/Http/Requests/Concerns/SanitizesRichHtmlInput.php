@@ -4,19 +4,16 @@ namespace App\Http\Requests\Concerns;
 
 use App\Services\Broadcasting\BroadcastHtmlSanitizer;
 
-/**
- * Sanitasi HTML pada input request sebelum validasi dan penyimpanan.
- *
- * Dipakai bersama oleh event, form, dan field builder agar tidak ada
- * implementasi sanitasi kedua di controller.
- */
+/** Sanitasi HTML pada input request sebelum validasi dan penyimpanan. */
 trait SanitizesRichHtmlInput
 {
     /**
+     *
      * Ganti field di request dengan versi bersih dari allowlist sanitizer;
      * nilai tanpa tag HTML dibiarkan apa adanya.
      *
      * @param array<int, string> $fields
+     *
      */
     protected function mergeSanitizedHtml(array $fields): void
     {
@@ -35,10 +32,7 @@ trait SanitizesRichHtmlInput
         }
     }
 
-    /**
-     * Sanitasi `fields.*.description` dan `fields.*.metadata.content` (teks
-     * bantu builder) bila mengandung tag HTML.
-     */
+    /** Sanitasi `fields.*.description` dan `fields.*.metadata.content` (teks bantu builder) bila mengandung tag HTML. */
     protected function mergeSanitizedFormFieldHtml(): void
     {
         $fields = $this->input('fields');

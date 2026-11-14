@@ -6,16 +6,7 @@ use App\Models\FormAnswer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * One-off migration for uploads written before the private-disk change.
- *
- *   php artisan forms:move-uploads-to-private --dry-run
- *   php artisan forms:move-uploads-to-private --write
- *   php artisan forms:move-uploads-to-private --write --form=<form-id>
- *
- * Dry-run is the default. Files are copied to the private disk first and the
- * public copy is deleted only after the private copy exists.
- */
+/** One-off migration for uploads written before the private-disk change. */
 class MoveFormUploadsToPrivateCommand extends Command
 {
     protected $signature = 'forms:move-uploads-to-private

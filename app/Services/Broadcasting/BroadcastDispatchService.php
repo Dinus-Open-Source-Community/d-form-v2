@@ -9,10 +9,7 @@ use App\Models\EmailBroadcast;
 use App\Models\EmailBroadcastRecipient;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Penjadwalan & dispatch queue per-recipient dengan random delay.
- * Tidak memakai sleep() di worker; memakai Laravel queue delay.
- */
+/** Penjadwalan & dispatch queue per-recipient dengan random delay. */
 class BroadcastDispatchService
 {
     public function schedule(EmailBroadcast $broadcast): void
@@ -26,8 +23,10 @@ class BroadcastDispatchService
     }
 
     /**
+     *
      * Dipanggil scheduler tiap menit: dispatch broadcast yang waktunya tiba.
      * @return array<int, string> broadcast ids yang berhasil diklaim dan diproses
+     *
      */
     public function dispatchDue(): array
     {
@@ -50,12 +49,10 @@ class BroadcastDispatchService
     }
 
     /**
+     *
      * Klaim broadcast scheduled secara atomik lalu dispatch job per recipient.
-     *
-     * Claim memakai conditional update supaya dua worker tidak memproses
-     * broadcast yang sama. Job hanya di-dispatch bila claim menang.
-     *
      * @return bool true bila broadcast berhasil diklaim oleh pemanggil ini
+     *
      */
     public function dispatch(EmailBroadcast $broadcast): bool
     {
@@ -124,13 +121,10 @@ class BroadcastDispatchService
     }
 
     /**
+     *
      * Reset recipient failed → pending dan dispatch ulang.
-     *
-     * Reset memakai conditional update supaya dua pemanggil bersamaan tidak
-     * meng-queue job yang sama dua kali; job hanya di-dispatch untuk baris
-     * yang benar-benar berhasil di-reset oleh pemanggil ini.
-     *
      * @return int jumlah recipient yang benar-benar di-retry
+     *
      */
     public function retryFailed(EmailBroadcast $broadcast): int
     {

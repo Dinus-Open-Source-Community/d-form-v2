@@ -101,9 +101,7 @@ class RecruitmentInterviewPolicy
             || ($user->can('recruitment.applications.view') && $user->can('recruitment.screening.decide'));
     }
 
-    /**
-     * Regist ulang sudah dilakukan bila baris attendance tersedia.
-     */
+    /** Regist ulang sudah dilakukan bila baris attendance tersedia. */
     private function hasCheckedIn(RecruitmentApplication $application): bool
     {
         $application->loadMissing('attendance');

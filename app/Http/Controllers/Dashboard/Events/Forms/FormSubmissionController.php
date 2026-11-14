@@ -196,9 +196,11 @@ class FormSubmissionController extends Controller
     }
 
     /**
+     *
      * Non-registration forms: single submission, no quota / confirmation email.
      *
      * @param  array<string, mixed>  $answers
+     *
      */
     private function submitOtherForm(array $answers, Form $form, User $user, Event $event): RedirectResponse
     {
@@ -230,9 +232,11 @@ class FormSubmissionController extends Controller
     }
 
     /**
+     *
      * @param  array{leader: array<string, mixed>, members: list<array<string, mixed>>}  $answers
      * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
      * @param  array<string, string>|null  $resolvedGuestIdsByEmail  pre-check resolution
+     *
      */
     private function submitBundleRegistration(
         array $answers,
@@ -273,9 +277,11 @@ class FormSubmissionController extends Controller
     }
 
     /**
+     *
      * @param  array<string, mixed>  $answers
      * @param  array<array-key, string>  $memberEmails  normalized lowercase emails
      * @param  array<string, mixed>  $flashableInput  request input without secret answers
+     *
      */
     private function submitTeamRegistration(
         array $answers,
@@ -352,10 +358,7 @@ class FormSubmissionController extends Controller
         return $teamSize - 1;
     }
 
-    /**
-     * Only land on the event page when the policy actually allows it; otherwise
-     * a non-owner organizer would hit a 403 right after a successful submit.
-     */
+    /** Only land on the event page when the policy actually allows it; otherwise a non-owner organizer would hit a 403 right after a successful submit. */
     private function successRedirect(User $user, Event $event, Form $form): RedirectResponse
     {
         if ($user->can('view', $event)) {

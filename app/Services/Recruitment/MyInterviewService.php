@@ -23,7 +23,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $filters
+     *
      */
     public function paginateForInterviewer(
         User $interviewer,
@@ -104,11 +106,10 @@ final class MyInterviewService
     }
 
     /**
-     * Tab Antrean: pool klaim — menunggu + sudah regis ulang + belum
-     * bertuan + divisi saya + sesi aktif. Default lingkup sesi hari ini
-     * dan tanpa filter milik.
      *
+     * Tab Antrean: pool klaim — menunggu + sudah regis ulang + belum bertuan + divisi saya + sesi aktif.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function paginateWaiting(
         User $interviewer,
@@ -166,11 +167,10 @@ final class MyInterviewService
     }
 
     /**
-     * Tab Semua Peserta: applicant tahap Interview di divisi saya,
-     * digabung ke primary interview bila ada. Default lingkup sesi hari
-     * ini; show_all / session_id / date_from-to membuka cakupan.
      *
+     * Tab Semua Peserta: applicant tahap Interview di divisi saya, digabung ke primary interview bila ada.
      * @param  array<string, mixed>  $filters
+     *
      */
     private function paginateAll(
         User $interviewer,
@@ -243,9 +243,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Kriteria pool klaim yang sama untuk tab Antrean dan badge-nya.
      *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function applyWaitingScope(Builder $query, User $interviewer): void
     {
@@ -267,9 +269,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Basis tab/badge Semua Peserta.
      *
      * @return Builder<RecruitmentApplication>
+     *
      */
     private function allApplicationsQuery(User $interviewer): Builder
     {
@@ -284,10 +288,12 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Baris pantau tab Semua Peserta, dibentuk seperti toListArray.
      * Tanpa interview: terkunci (has_attendance false bila belum scan).
      *
      * @return array<string, mixed>
+     *
      */
     private function toAllRowArray(RecruitmentApplication $application): array
     {
@@ -326,8 +332,10 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, int>
+     *
      */
     public function tabCounts(User $interviewer, array $filters = []): array
     {
@@ -400,10 +408,12 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Hitung interview sesi terbuka yang jadwalnya belum mulai,
      * dalam lingkup tanggal/sesi yang sedang terlihat.
      *
      * @param  array<string, mixed>  $filters
+     *
      */
     public function countPendingStart(User $interviewer, array $filters = []): int
     {
@@ -427,7 +437,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return list<array<string, mixed>>
+     *
      */
     public function todaySessionsForInterviewer(User $interviewer): array
     {
@@ -458,7 +470,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     public function nextActionForInterviewer(User $interviewer): ?array
     {
@@ -493,7 +507,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return list<array{value: string, label: string}>
+     *
      */
     public function sessionsForInterviewer(User $interviewer): array
     {
@@ -519,7 +535,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return list<array{value: string, label: string}>
+     *
      */
     public function periodsForInterviewer(User $interviewer): array
     {
@@ -545,7 +563,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return list<array{value: string, label: string}>
+     *
      */
     public function divisionsForInterviewer(User $interviewer): array
     {
@@ -580,11 +600,11 @@ final class MyInterviewService
     }
 
     /**
-     * Peluang interview secondary untuk interviewer: applicant eligible yang
-     * secondary-nya termasuk divisi interviewer, beserta sesi aktif divisinya.
      *
+     * Peluang interview secondary untuk interviewer: applicant eligible yang secondary-nya termasuk divisi interviewer, beserta sesi aktif divisinya.
      * @param  array<string, mixed>  $filters
      * @return list<array{application: array{id: string, full_name: string, registration_number: string, nim: string, secondary_division: string|null}, sessions: list<array{value: string, label: string, period: string|null}>}>
+     *
      */
     public function secondaryOpportunitiesForInterviewer(User $interviewer, array $filters = []): array
     {
@@ -665,10 +685,12 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Sesi aktif dikelompokkan per (periode, divisi) dalam 1 query.
      *
      * @param  \Illuminate\Support\Collection<int, RecruitmentApplication>  $applications
      * @return \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, RecruitmentInterviewSession>>
+     *
      */
     private function secondarySessionsByDivision($applications)
     {
@@ -688,12 +710,11 @@ final class MyInterviewService
     }
 
     /**
-     * Peluang interview primary untuk interviewer: applicant checked-in yang
-     * interview primary-nya masih menunggu dan belum bertuan, pada sesi aktif
-     * divisi interviewer.
      *
+     * Peluang interview primary untuk interviewer: applicant checked-in yang interview primary-nya masih menunggu dan belum bertuan, pada sesi aktif divisi interviewer.
      * @param  array<string, mixed>  $filters
      * @return list<array{interview: array{id: string}, application: array{id: string, full_name: string, registration_number: string, nim: string, primary_division: string|null}, session: array{id: string, label: string, period: string|null}, interviewer_options: list<array{value: string, label: string}>}>
+     *
      */
     public function primaryOpportunitiesForInterviewer(User $interviewer, array $filters = []): array
     {
@@ -804,10 +825,12 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Kandidat interviewer per divisi sesi (1 query + eager user, tanpa N+1).
      *
      * @param  list<string>  $divisionIds
      * @return array<string, list<array{value: string, label: string}>>
+     *
      */
     private function interviewersByDivision(array $divisionIds): array
     {
@@ -841,11 +864,13 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Interview secondary yang sudah diklaim interviewer, masing-masing
      * membawa status evaluasinya sendiri.
      *
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
+     *
      */
     public function claimedSecondaryForInterviewer(User $interviewer, array $filters = []): array
     {
@@ -886,7 +911,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toListArray(RecruitmentInterview $interview): array
     {
@@ -927,7 +954,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toShowArray(RecruitmentInterview $interview): array
     {
@@ -935,7 +964,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     *
      */
     private function pendingEvaluationScope(Builder $query): void
     {
@@ -943,9 +974,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Batasi ke interview yang waktunya sudah mulai (scheduled_at lewat).
      *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function startedScope(Builder $query): void
     {
@@ -953,11 +986,10 @@ final class MyInterviewService
     }
 
     /**
-     * Lingkup tanggal/sesi yang terlihat: sesi terpilih bila ada,
-     * rentang tanggal bila diminta, semua tanggal bila show_all,
-     * sesi hari ini bila tidak. Cerminan pemfilteran paginateForInterviewer.
      *
+     * Lingkup tanggal/sesi yang terlihat: sesi terpilih bila ada, rentang tanggal bila diminta, semua tanggal bila show_all, sesi hari ini bila tidak.
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function applyDateSessionScope(
         Builder $query,
@@ -996,11 +1028,10 @@ final class MyInterviewService
     }
 
     /**
-     * Cerminan applyDateSessionScope untuk query applicant (tab Semua):
-     * applicant dihubungkan ke sesi lewat primaryInterview.
-     * Applicant tanpa primaryInterview hanya tampil saat show_all.
      *
+     * Cerminan applyDateSessionScope untuk query applicant (tab Semua): applicant dihubungkan ke sesi lewat primaryInterview.
      * @param  Builder<RecruitmentApplication>  $query
+     *
      */
     private function applyDateSessionScopeForApplications(
         Builder $query,
@@ -1056,9 +1087,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Filter period untuk query interview (lewat sesi).
      *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function applyPeriodScope(Builder $query, mixed $periodId): void
     {
@@ -1083,10 +1116,12 @@ final class MyInterviewService
     }
 
     /**
+     *
      * LIKE dengan ESCAPE eksplisit agar % _ \ dari input user diperlakukan
      * literal di MySQL maupun SQLite. Kolom selalu hardcoded di call-site.
      *
      * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     *
      */
     private function whereLike(Builder $query, string $column, string $search, string $boolean = 'and'): void
     {
@@ -1096,9 +1131,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Batasi ke interview yang sesinya sudah dibuka (is_active true).
      *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function openSessionScope(Builder $query): void
     {
@@ -1106,9 +1143,11 @@ final class MyInterviewService
     }
 
     /**
+     *
      * Saran next-action hanya untuk applicant actionable (sudah regis ulang).
      *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function attendedApplicationScope(Builder $query): void
     {
@@ -1116,7 +1155,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function applyEvalFilter(Builder $query, string $eval): void
     {
@@ -1129,7 +1170,9 @@ final class MyInterviewService
     }
 
     /**
+     *
      * @param  Builder<RecruitmentInterview>  $query
+     *
      */
     private function applySort(Builder $query, mixed $sort): void
     {

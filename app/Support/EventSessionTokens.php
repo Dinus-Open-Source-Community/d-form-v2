@@ -5,14 +5,10 @@ namespace App\Support;
 use App\Enums\EventSession;
 use Illuminate\Support\Str;
 
-/**
- * Helpers for event session values: known {@see EventSession} enums plus optional custom tokens from the DB.
- */
+/** Helpers for event session values: known {@see EventSession} enums plus optional custom tokens from the DB. */
 final class EventSessionTokens
 {
-    /**
-     * Resolve a single value to an enum backing value, or null if it is not a known enum (tolerant matching).
-     */
+    /** Resolve a single value to an enum backing value, or null if it is not a known enum (tolerant matching). */
     public static function tryResolveEnumBackingValue(string $token): ?string
     {
         $trimmed = trim($token);
@@ -47,10 +43,7 @@ final class EventSessionTokens
         return null;
     }
 
-    /**
-     * Whether a value may be stored as a custom (non-enum) session.
-     * Letters, numbers, spaces, hyphens and underscores only; 1–64 chars after trim.
-     */
+    /** Whether a value may be stored as a custom (non-enum) session. */
     public static function isValidCustomToken(string $token): bool
     {
         $t = trim($token);
@@ -66,9 +59,7 @@ final class EventSessionTokens
         return (bool) preg_match('/^[\p{L}\p{N}]+(?:[\p{L}\p{N} _-]*[\p{L}\p{N}]+)?$/u', $t);
     }
 
-    /**
-     * Canonical value stored for a custom token (lowercase trim).
-     */
+    /** Canonical value stored for a custom token (lowercase trim). */
     public static function normalizeCustomValue(string $token): string
     {
         return Str::lower(trim($token));

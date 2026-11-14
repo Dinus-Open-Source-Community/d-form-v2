@@ -37,18 +37,14 @@ function input(overrides: Partial<PeriodPhaseInput>): PeriodPhaseInput {
     };
 }
 
-// Status menentukan fase lebih dulu
 check('draft', resolvePeriodPhase(input({ status: 'draft' }), NOW), 'draft');
 check('closed', resolvePeriodPhase(input({ status: 'closed' }), NOW), 'closed');
 check('archived', resolvePeriodPhase(input({ status: 'archived' }), NOW), 'archived');
 
-// Open tanpa tanggal sama sekali = pendaftaran masih dibuka
 check('open tanpa tanggal', resolvePeriodPhase(input({}), NOW), 'registration');
 
-// Belum dibuka
 check('belum dibuka', resolvePeriodPhase(input({ registrationOpensAt: '2026-07-01T08:00:00+07:00' }), NOW), 'not_open');
 
-// Sedang dibuka (buka sudah lewat, tutup masih depan)
 check(
     'pendaftaran dibuka',
     resolvePeriodPhase(
@@ -61,7 +57,6 @@ check(
     'registration'
 );
 
-// Sudah tutup, interview belum mulai
 check(
     'menunggu interview',
     resolvePeriodPhase(
@@ -75,7 +70,6 @@ check(
     'awaiting_interview'
 );
 
-// Jendela interview berlangsung
 check(
     'interview berlangsung',
     resolvePeriodPhase(
@@ -89,7 +83,6 @@ check(
     'interview'
 );
 
-// Interview selesai, menuju finalisasi
 check(
     'finalisasi',
     resolvePeriodPhase(
@@ -104,7 +97,6 @@ check(
     'finalization'
 );
 
-// Tutup pendaftaran, belum ada jadwal interview, tenggat finalisasi masih depan
 check(
     'tutup tanpa jadwal interview, tenggat depan',
     resolvePeriodPhase(
@@ -117,7 +109,6 @@ check(
     'awaiting_interview'
 );
 
-// Semua tenggat terlewat
 check(
     'melewati tenggat',
     resolvePeriodPhase(
@@ -132,7 +123,6 @@ check(
     'overdue'
 );
 
-// Tenggat per fase — satu assertion per fase yang punya target
 check(
     'tenggat fase not_open = registrationOpensAt',
     phaseDeadline('not_open', input({ registrationOpensAt: '2026-07-01T08:00:00+07:00' }))?.toISOString(),
@@ -180,7 +170,6 @@ check('tenggat fase overdue null', phaseDeadline('overdue', input({})), null);
 check('tenggat fase closed null', phaseDeadline('closed', input({})), null);
 check('tenggat fase archived null', phaseDeadline('archived', input({})), null);
 
-// daysRemaining
 check('sisa hari null', daysRemaining(null, NOW), null);
 check('sisa hari 0 bila <24 jam', daysRemaining(new Date('2026-06-16T06:00:00+07:00'), NOW), 0);
 check('sisa hari 0 bila sudah lewat', daysRemaining(new Date('2026-06-01T00:00:00+07:00'), NOW), 0);
@@ -214,23 +203,20 @@ const deadlineOnlyInput = input({
     finalizationDeadlineAt: DEADLINE_DATE_ONLY,
 });
 
-// siang hari pada hari tenggat: belum overdue (pre-fix: 07:00 lokal)
+// Date-only deadlines use the local end of day.
 check(
     'deadline date-only siang hari belum overdue',
     resolvePeriodPhase(deadlineOnlyInput, localNoonOnDeadline) !== 'overdue',
     true
 );
-// sisa hari tetap 0 sepanjang hari tenggat, bukan hanya sampai 07:00
 check('sisa hari date-only pagi = 0', daysRemaining(parsePeriodDate(DEADLINE_DATE_ONLY), localMorningOnDeadline), 0);
 check('sisa hari date-only siang = 0', daysRemaining(parsePeriodDate(DEADLINE_DATE_ONLY), localNoonOnDeadline), 0);
 check('sisa hari date-only malam = 0', daysRemaining(parsePeriodDate(DEADLINE_DATE_ONLY), localEndOfDeadline), 0);
-// batas akhir hari: sehari sebelumnya masih 1 hari penuh (pre-fix: 0)
 check(
     'sisa hari date-only sehari sebelumnya = 1',
     daysRemaining(parsePeriodDate(DEADLINE_DATE_ONLY), localLateBeforeDeadline),
     1
 );
-// tepat akhir hari belum overdue, 1 ms setelahnya overdue
 check(
     'deadline date-only tepat akhir hari belum overdue',
     resolvePeriodPhase(deadlineOnlyInput, localEndOfDeadline),
@@ -242,7 +228,6 @@ check(
     'overdue'
 );
 
-// Fix 2: interview_starts_at ada, interview_ends_at null
 const interviewOpenEnd = {
     registrationClosesAt: '2026-06-10T23:59:00+07:00',
     interviewStartsAt: '2026-06-15T09:00:00+07:00',
@@ -250,6 +235,7 @@ const interviewOpenEnd = {
 };
 const afterInterviewStart = new Date(2026, 5, 17, 12, 0, 0, 0);
 
+// A missing interview end keeps the phase open until finalization.
 check(
     'interview tanpa ends, tenggat null = interview',
     resolvePeriodPhase(input({ ...interviewOpenEnd }), afterInterviewStart),
@@ -266,7 +252,6 @@ check(
     'overdue'
 );
 
-// phaseCountdownLabel — wording per fase (days === 0 dan days > 0)
 check('countdown not_open 0', phaseCountdownLabel('not_open', 0), 'dibuka hari ini');
 check('countdown not_open >0', phaseCountdownLabel('not_open', 5), 'dibuka dalam 5 hari');
 check('countdown registration 0', phaseCountdownLabel('registration', 0), 'ditutup hari ini');
@@ -284,7 +269,6 @@ check('countdown closed null', phaseCountdownLabel('closed', 5), null);
 check('countdown archived null', phaseCountdownLabel('archived', 2), null);
 check('countdown days null', phaseCountdownLabel('registration', null), null);
 
-// Label
 check('label status open', statusLabel('open'), 'Dibuka');
 check('label fase interview', phaseLabel('interview'), 'Interview berlangsung');
 

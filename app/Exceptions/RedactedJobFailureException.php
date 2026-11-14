@@ -6,14 +6,7 @@ use App\Support\LogRedaction;
 use RuntimeException;
 use Throwable;
 
-/**
- * Throwable handed to failed-job storage drivers that stringify the exception themselves.
- *
- * Laravel's generic providers store `(string) $exception`, which prints the message and a stack
- * trace whose frame arguments can include payload fragments. This wrapper renders exactly the
- * original class plus a redacted message and nothing else, so `failed_jobs.exception` stays free
- * of free-form PII while still showing which exception type failed.
- */
+/** Throwable handed to failed-job storage drivers that stringify the exception themselves. */
 final class RedactedJobFailureException extends RuntimeException
 {
     private readonly Throwable $original;

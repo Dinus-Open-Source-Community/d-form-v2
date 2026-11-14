@@ -7,12 +7,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Audit active form-answer uniqueness and marker completeness without writes.
- *
- * The command is safe before expand (marker completeness is deferred) and
- * should be run again after backfill before the contract migration.
- */
+/** Audit active form-answer uniqueness and marker completeness without writes. */
 final class AuditActiveUniquenessCommand extends Command
 {
     private bool $activeMarkerColumnChecked = false;

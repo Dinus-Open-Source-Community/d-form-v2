@@ -19,7 +19,6 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)));
 
         <div class="relative mx-auto max-w-7xl px-6 lg:px-10">
             <div class="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-                <!-- Left: Text content -->
                 <div
                     :class="[
                         'transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
@@ -71,7 +70,6 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)));
                     </div>
                 </div>
 
-                <!-- Right: Lottie animation -->
                 <div
                     :class="[
                         'transition-all delay-150 duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
@@ -96,7 +94,6 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)));
                 </div>
             </div>
 
-            <!-- Stats strip -->
             <div
                 :class="[
                     'border-border/30 mt-20 grid grid-cols-2 gap-6 border-t pt-10 sm:grid-cols-4',

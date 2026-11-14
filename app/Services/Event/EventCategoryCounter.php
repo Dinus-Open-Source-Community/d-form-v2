@@ -6,11 +6,7 @@ use App\Models\Event;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Agregat jumlah event per token kategori di tabel `event_category_counts`, supaya chart
- * dashboard tidak pernah menjalankan `GROUP BY` pada 1 juta baris. Jalur simpan memakai
- * {@see applyDelta()}; {@see rebuild()} hanya untuk backfill/drift.
- */
+/** Agregat jumlah event per token kategori di tabel `event_category_counts`, supaya chart dashboard tidak pernah menjalankan `GROUP BY` pada 1 juta baris. */
 final class EventCategoryCounter
 {
     /** Nama tabel agregat; satu definisi agar service, observer, dan test tidak menyimpang. */
@@ -23,10 +19,10 @@ final class EventCategoryCounter
     private const REBUILD_CHUNK_SIZE = 500;
 
     /**
-     * Hitung ulang seluruh agregat dari `events` (offline). Wajib setelah `stress:seed`
-     * atau operasi bulk yang melewati observer; tabel dikosongkan agar tidak ada sisa token.
      *
+     * Hitung ulang seluruh agregat dari `events` (offline).
      * @return array{events: int, tokens: int}
+     *
      */
     public function rebuild(): array
     {
@@ -64,9 +60,11 @@ final class EventCategoryCounter
     }
 
     /**
+     *
      * Baca token kategori teratas dari tabel agregat (<=100 baris, bukan 1 juta baris).
      *
      * @return list<array{token: string, count: int}>
+     *
      */
     public function counts(): array
     {
@@ -85,11 +83,11 @@ final class EventCategoryCounter
     }
 
     /**
-     * Terapkan selisih token satu event ke agregat; delta kosong berarti tidak ada tulisan.
-     * Dipakai observer pada create/update/delete/restore, bukan untuk menghitung ulang tabel.
      *
+     * Terapkan selisih token satu event ke agregat; delta kosong berarti tidak ada tulisan.
      * @param  list<string>  $oldTokens
      * @param  list<string>  $newTokens
+     *
      */
     public function applyDelta(array $oldTokens, array $newTokens): void
     {

@@ -25,7 +25,6 @@ export interface IScanSubmissionOptions {
     showWarningToast: (message: string, options?: { description?: string }) => void;
 }
 
-/** Owns the HTTP scan submission workflow and status-specific result mapping. */
 export function useScanSubmission(
     options: IScanSubmissionOptions
 ): (raw: string, source: 'camera' | 'manual') => Promise<void> {

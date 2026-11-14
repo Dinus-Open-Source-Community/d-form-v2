@@ -9,16 +9,10 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Enums\UploadPurpose;
 
-/**
- * Inline image editor broadcast (multipart field `file`); otorisasi `update`
- * pada EmailBroadcast, sama seperti yang dicek controller sebelumnya.
- */
+/** Inline image editor broadcast (multipart field `file`); otorisasi `update` pada EmailBroadcast, sama seperti yang dicek controller sebelumnya. */
 class StoreBroadcastInlineImageRequest extends FormRequest
 {
-    /**
-     * Urutan respons dipertahankan: `403` policy dulu, lalu `422` broadcast
-     * non-draft, baru validasi file.
-     */
+    /** Urutan respons dipertahankan: `403` policy dulu, lalu `422` broadcast non-draft, baru validasi file. */
     public function authorize(): bool
     {
         $user = $this->user();
@@ -38,7 +32,9 @@ class StoreBroadcastInlineImageRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -48,7 +44,9 @@ class StoreBroadcastInlineImageRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

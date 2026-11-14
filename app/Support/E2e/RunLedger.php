@@ -5,12 +5,7 @@ namespace App\Support\E2e;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
-/**
- * Ledger per run e2e: baseline saat fixture pertama dibuat dan audit saat teardown menghapus.
- *
- * Satu-satunya penulis `<storage>/app/e2e/runs/<runId>/`. `check:row-ownership` membacanya
- * agar cakupan pemeriksaan bisa dibuktikan, bukan ditebak dari state DB setelah delete.
- */
+/** Ledger per run e2e: baseline saat fixture pertama dibuat dan audit saat teardown menghapus. */
 final class RunLedger
 {
     private const TABLES = [
@@ -27,9 +22,7 @@ final class RunLedger
         'email_broadcast_recipients',
     ];
 
-    /**
-     * Tulis baseline sekali per run, dipanggil sebelum baris pertama dibuat.
-     */
+    /** Tulis baseline sekali per run, dipanggil sebelum baris pertama dibuat. */
     public function recordBaseline(FixtureIdentity $identity): void
     {
         $path = $this->path($identity->runId, 'baseline.json');
@@ -47,9 +40,11 @@ final class RunLedger
     }
 
     /**
+     *
      * Baseline satu run; `null` bila run dibuat sebelum ledger ada.
      *
      * @return array<string, mixed>|null
+     *
      */
     public function baseline(string $runId): ?array
     {
@@ -57,9 +52,11 @@ final class RunLedger
     }
 
     /**
+     *
      * Catat baris milik run lain yang ikut terhapus teardown; tanpa temuan tidak menulis apa pun.
      *
      * @param  array<string, int>  $violations
+     *
      */
     public function recordTeardown(string $runId, array $violations): void
     {
@@ -75,9 +72,11 @@ final class RunLedger
     }
 
     /**
+     *
      * Audit teardown satu run; `null` bila belum pernah dijalankan atau tidak ada temuan.
      *
      * @return array<string, mixed>|null
+     *
      */
     public function teardown(string $runId): ?array
     {
@@ -85,9 +84,11 @@ final class RunLedger
     }
 
     /**
+     *
      * ID maksimum per tabel domain sebelum run menulis apa pun.
      *
      * @return array<string, int|string|null>
+     *
      */
     private function maxIds(): array
     {
@@ -100,9 +101,7 @@ final class RunLedger
         return $maxIds;
     }
 
-    /**
-     * Path artefak satu run; runId divalidasi agar tidak bisa keluar dari folder ledger.
-     */
+    /** Path artefak satu run; runId divalidasi agar tidak bisa keluar dari folder ledger. */
     private function path(string $runId, string $file): string
     {
         if (preg_match('/^\d{8}T\d{6}-[0-9a-f]{6}$/', $runId) !== 1) {
@@ -113,9 +112,11 @@ final class RunLedger
     }
 
     /**
+     *
      * Tulis artefak JSON; folder run dibuat sekali bila belum ada.
      *
      * @param  array<string, mixed>  $payload
+     *
      */
     private function write(string $path, array $payload): void
     {
@@ -129,9 +130,11 @@ final class RunLedger
     }
 
     /**
+     *
      * Baca artefak JSON; `null` bila belum ada atau isinya rusak.
      *
      * @return array<string, mixed>|null
+     *
      */
     private function read(string $path): ?array
     {

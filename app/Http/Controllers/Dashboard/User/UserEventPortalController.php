@@ -17,7 +17,6 @@ use Inertia\Response as InertiaResponse;
 
 class UserEventPortalController
 {
-    /** Render the member event detail and preserve registration/QR payload mapping. */
     public function __invoke(
         string $eventSegment,
         EventService $eventService,

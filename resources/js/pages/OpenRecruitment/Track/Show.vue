@@ -195,7 +195,6 @@ function submitCorrection() {
     <Head title="Portal OpRec" />
 
     <div class="mx-auto max-w-2xl space-y-5 px-2 pb-10">
-        <!-- Header identitas ringkas -->
         <div class="flex items-start justify-between gap-3 pt-2">
             <div class="min-w-0">
                 <p class="text-primary text-xs font-semibold tracking-wide uppercase">Portal OpRec</p>
@@ -212,7 +211,6 @@ function submitCorrection() {
             </Button>
         </div>
 
-        <!-- Langkah selanjutnya -->
         <div class="rounded-2xl border p-5 shadow-sm" :class="heroToneClass">
             <p class="text-xs font-medium tracking-wide uppercase opacity-80">Langkah selanjutnya</p>
             <h2 class="mt-1 text-lg leading-snug font-semibold">{{ tracking.next_action.title }}</h2>
@@ -237,7 +235,6 @@ function submitCorrection() {
             </div>
         </div>
 
-        <!-- Aksi cepat -->
         <div v-if="tracking.edit.can_edit || tracking.edit.can_request_correction" class="flex flex-wrap gap-2">
             <Button v-if="tracking.edit.can_edit" as-child size="sm">
                 <Link :href="editUrl">
@@ -255,7 +252,6 @@ function submitCorrection() {
             </Button>
         </div>
 
-        <!-- Koreksi pending -->
         <p
             v-if="tracking.edit.latest_correction?.status === 'pending'"
             class="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-xs"
@@ -264,7 +260,6 @@ function submitCorrection() {
             {{ tracking.edit.latest_correction.request_message }}
         </p>
 
-        <!-- Hari-H interview: satu kartu event kohesif -->
         <section v-if="showInterviewSection" ref="interviewSectionRef" id="interview-section" class="scroll-mt-24">
             <Card class="border-border/70 rounded-2xl">
                 <CardHeader class="pb-3">
@@ -328,7 +323,6 @@ function submitCorrection() {
             </Card>
         </section>
 
-        <!-- Alur proses: selalu terlihat -->
         <Card class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Alur proses</CardTitle>
@@ -361,7 +355,6 @@ function submitCorrection() {
             </CardContent>
         </Card>
 
-        <!-- Data pendaftaran -->
         <Card class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Data pendaftaran</CardTitle>
@@ -403,7 +396,6 @@ function submitCorrection() {
             </CardContent>
         </Card>
 
-        <!-- Keputusan akhir -->
         <Card v-if="tracking.final" class="border-border/70 rounded-2xl">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Keputusan akhir</CardTitle>
@@ -418,7 +410,6 @@ function submitCorrection() {
             </CardContent>
         </Card>
 
-        <!-- Feedback inline -->
         <Card
             v-if="tracking.feedback.can_submit || tracking.feedback.submitted"
             id="feedback-section"

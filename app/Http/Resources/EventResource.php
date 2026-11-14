@@ -10,7 +10,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class EventResource extends JsonResource
 {
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toArray(Request $request): array
     {
@@ -39,9 +41,11 @@ class EventResource extends JsonResource
     }
 
     /**
+     *
      * Explode and normalize the stored CSV `category` into a unique list of tokens.
      *
      * @return list<string>
+     *
      */
     private function categoryTokens(): array
     {
@@ -49,9 +53,11 @@ class EventResource extends JsonResource
     }
 
     /**
+     *
      * Explode and normalize the stored CSV `session` into a unique list of tokens.
      *
      * @return list<string>
+     *
      */
     private function sessionTokens(): array
     {

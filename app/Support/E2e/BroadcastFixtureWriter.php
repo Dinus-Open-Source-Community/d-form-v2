@@ -7,12 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/**
- * Menulis broadcast email ber-marker (`email_broadcasts.name` bersufiks marker).
- *
- * Modul broadcast dorman, jadi baris ditulis langsung lewat query builder untuk
- * menguji dispatch/scheduler tanpa membuka route yang di-gate flag.
- */
+/** Menulis broadcast email ber-marker (`email_broadcasts.name` bersufiks marker). */
 final class BroadcastFixtureWriter
 {
     public function __construct(
@@ -22,8 +17,10 @@ final class BroadcastFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $payload  Payload fixture penuh (membaca `broadcasts`)
      * @return list<array{id: string, name: string, recipientIds: list<string>}>
+     *
      */
     public function create(array $payload, ?string $createdByUserId, Carbon $now): array
     {
@@ -73,7 +70,9 @@ final class BroadcastFixtureWriter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $entry
+     *
      */
     private function createBroadcast(string $name, string $status, array $entry, ?string $createdByUserId, Carbon $now): string
     {
@@ -101,7 +100,9 @@ final class BroadcastFixtureWriter
     }
 
     /**
+     *
      * @return list<string>
+     *
      */
     private function createRecipients(string $broadcastId, mixed $recipients, Carbon $now): array
     {

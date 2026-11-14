@@ -9,17 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
 {
-    /**
-     * Attach baseline security headers, HSTS and CSP to responses leaving the global stack.
-     *
-     * Prepended to the global middleware, so its response phase runs after every
-     * other global middleware (including ones that short-circuit), and responses
-     * produced outside the web group still receive the headers. HSTS is emitted
-     * whenever it is enabled, independent of the request scheme: browsers ignore
-     * HSTS received over plain HTTP, so gating on Request::isSecure() would only
-     * drop the header on misconfigured deployments. Headers already set by a
-     * controller keep their value.
-     */
+    /** Attach baseline security headers, HSTS and CSP to responses leaving the global stack. */
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
@@ -133,10 +123,12 @@ class SecurityHeaders
     }
 
     /**
+     *
      * Allow the Vite dev server (HTTP + HMR websocket) and inline dev tooling scripts.
      *
      * @param  array<string, array<int, string>>  $directives
      * @return array<string, array<int, string>>
+     *
      */
     private function withDevAllowances(array $directives): array
     {
@@ -156,7 +148,9 @@ class SecurityHeaders
     }
 
     /**
+     *
      * @return array<int, string>
+     *
      */
     private function devServerOrigins(): array
     {
@@ -192,9 +186,11 @@ class SecurityHeaders
     }
 
     /**
+     *
      * @param  array<int, string>  $sources
      * @param  array<int, string>  $extra
      * @return array<int, string>
+     *
      */
     private function appendSources(array $sources, array $extra): array
     {

@@ -27,12 +27,14 @@ final class AttendanceService
     }
 
     /**
+     *
      * @return array{
-     *     duplicate: bool,
-     *     attendance: RecruitmentAttendance,
-     *     interview: \App\Models\Recruitment\RecruitmentInterview|null,
-     *     application: RecruitmentApplication
+     * duplicate: bool,
+     * attendance: RecruitmentAttendance,
+     * interview: \App\Models\Recruitment\RecruitmentInterview|null,
+     * application: RecruitmentApplication
      * }
+     *
      */
     public function checkIn(
         RecruitmentInterviewSession $session,
@@ -116,12 +118,14 @@ final class AttendanceService
     }
 
     /**
+     *
      * @return array{
-     *     duplicate: bool,
-     *     attendance: RecruitmentAttendance,
-     *     interview: \App\Models\Recruitment\RecruitmentInterview|null,
-     *     application: RecruitmentApplication
+     * duplicate: bool,
+     * attendance: RecruitmentAttendance,
+     * interview: \App\Models\Recruitment\RecruitmentInterview|null,
+     * application: RecruitmentApplication
      * }
+     *
      */
     public function checkInFromInput(
         RecruitmentInterviewSession $session,
@@ -201,7 +205,9 @@ final class AttendanceService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function applicantPayload(RecruitmentApplication $application): array
     {

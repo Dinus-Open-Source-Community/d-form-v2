@@ -315,7 +315,6 @@ const legendEntries = computed(() =>
                                 >
                                     {{ cell.day }}
                                 </span>
-                                <!-- Mobile: dot indicators -->
                                 <div v-if="cell.events.length > 0" class="flex justify-center gap-0.5 sm:hidden">
                                     <button
                                         v-for="ev in cell.events.slice(0, 3)"
@@ -330,7 +329,6 @@ const legendEntries = computed(() =>
                                         @click="onEventClick(ev)"
                                     />
                                 </div>
-                                <!-- Desktop: event labels -->
                                 <div class="hidden flex-col gap-1 sm:flex">
                                     <button
                                         v-for="ev in cell.events.slice(0, 2)"
@@ -360,7 +358,6 @@ const legendEntries = computed(() =>
             </template>
 
             <template v-else>
-                <!-- Desktop: 7-column grid -->
                 <div class="border-border/70 bg-card hidden overflow-hidden rounded-xl border shadow-inner sm:block">
                     <div class="divide-border/50 grid grid-cols-7 divide-x">
                         <div v-for="day in weekDays" :key="day.dayName" class="flex min-h-48 flex-col p-3">
@@ -397,7 +394,6 @@ const legendEntries = computed(() =>
                         </div>
                     </div>
                 </div>
-                <!-- Mobile: vertical list -->
                 <div
                     class="border-border/70 bg-card divide-border/50 divide-y overflow-hidden rounded-xl border shadow-inner sm:hidden"
                 >

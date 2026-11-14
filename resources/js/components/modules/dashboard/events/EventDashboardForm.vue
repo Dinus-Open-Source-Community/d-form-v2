@@ -410,15 +410,8 @@ function validateRequired(): boolean {
         }
         if (String(form[key] ?? '').trim() === '') missing.push(key);
     }
-    // also check description plain length for TipTap (already covered but ensure)
     if (missing.length) {
         shakeFields(missing);
-        // also trigger form errors visually via errorClass/fieldError is server-driven,
-        // but shake + red border via errorClass fallback when fieldError empty yet missing
-        // force a dummy error to show red border by setting form errors temporarily
-        // instead we rely on shake + missing check will make errorClass via fieldError? So set manual shake enough
-        // Populate form.errors for red border via errorClass check (fieldError)
-        // We set a temporary error message to ensure red border shows even without server roundtrip
         for (const k of missing) {
             if (!form.errors[k]) {
                 form.setError(k, 'Wajib diisi.');
@@ -447,7 +440,6 @@ defineExpose({ submitForm, validateRequired, form });
 
 <template>
     <div class="flex flex-col gap-5">
-        <!-- Header halaman: judul + subtitle kiri (atau slot wizard), aksi kanan -->
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div :class="['flex min-w-0 items-center gap-4', props.wizardMode ? 'min-w-0 flex-1' : '']">
                 <slot name="header-leading" />
@@ -476,7 +468,6 @@ defineExpose({ submitForm, validateRequired, form });
 
         <div class="mb-5 grid gap-5 lg:grid-cols-12 lg:items-stretch">
             <div class="flex flex-col gap-6 lg:col-span-7">
-                <!-- Section: Informasi utama -->
                 <div class="border-border/60 bg-card flex h-full flex-col rounded-xl border p-5 shadow-xs sm:p-6">
                     <div class="mb-5 flex items-center gap-2.5">
                         <FileText class="text-foreground/80 size-5 shrink-0 stroke-[1.75]" aria-hidden="true" />
@@ -489,7 +480,6 @@ defineExpose({ submitForm, validateRequired, form });
                     </div>
 
                     <div class="flex flex-col gap-6">
-                        <!-- Sub A: Judul + Deskripsi -->
                         <div class="flex flex-col gap-5">
                             <div class="flex flex-col gap-2">
                                 <div class="flex items-center justify-between gap-3">
@@ -555,10 +545,8 @@ defineExpose({ submitForm, validateRequired, form });
                             </div>
                         </div>
 
-                        <!-- Pembatas sub-bagian -->
                         <div class="border-border/60 border-t" />
 
-                        <!-- Sub B: Banner / poster -->
                         <div class="flex flex-col gap-4">
                             <div>
                                 <Label class="flex items-center gap-1.5 text-sm font-medium">
@@ -574,7 +562,6 @@ defineExpose({ submitForm, validateRequired, form });
                                 </p>
                             </div>
 
-                            <!-- Banner tersimpan: URL server dari props (diperbarui setelah submit sukses). -->
                             <div
                                 v-if="serverBannerUrl !== null && form.banner === null"
                                 class="border-border bg-muted/25 overflow-hidden rounded-xl border-2"
@@ -603,8 +590,7 @@ defineExpose({ submitForm, validateRequired, form });
                                     @remove="removeBanner"
                                 />
 
-                                <!-- Progres byte nyata dari kunjungan Inertia; Batalkan tidak
-                                     ditampilkan karena submit Inertia tidak bisa dibatalkan. -->
+                                <!-- Progress comes from the Inertia visit; cancellation is unavailable. -->
                                 <div
                                     v-if="form.banner !== null && bannerProgress !== null"
                                     class="mt-2"
@@ -631,10 +617,8 @@ defineExpose({ submitForm, validateRequired, form });
                             </p>
                         </div>
 
-                        <!-- Pembatas sub-bagian -->
                         <div class="border-border/60 border-t" />
 
-                        <!-- Sub C: Lokasi event -->
                         <div class="flex flex-col gap-4">
                             <div class="flex items-center gap-2.5">
                                 <MapPinned
@@ -704,7 +688,6 @@ defineExpose({ submitForm, validateRequired, form });
                     :registration-end-required="isRequired('registration_end')"
                 />
 
-                <!-- 3. Kapasitas dan Harga -->
                 <div class="border-border/60 bg-card rounded-xl border p-5 shadow-xs sm:p-6">
                     <div class="mb-5 flex items-center gap-2.5">
                         <Ticket class="text-foreground/80 size-5 shrink-0 stroke-[1.75]" aria-hidden="true" />
@@ -779,7 +762,6 @@ defineExpose({ submitForm, validateRequired, form });
                     </div>
                 </div>
 
-                <!-- 4. Klasifikasi -->
                 <div class="border-border/60 bg-card rounded-xl border p-5 shadow-xs sm:p-6">
                     <div class="mb-5 flex items-center gap-2.5">
                         <Tags class="text-foreground/80 size-5 shrink-0 stroke-[1.75]" aria-hidden="true" />

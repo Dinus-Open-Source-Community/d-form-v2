@@ -63,10 +63,7 @@ final class InterviewLifecycleService
         return $interview->fresh();
     }
 
-    /**
-     * Klaim interview primary yang menunggu oleh interviewer divisi sesi.
-     * Cerminan createSecondaryInterview untuk arus primary (tanpa booking flow).
-     */
+    /** Klaim interview primary yang menunggu oleh interviewer divisi sesi. */
     public function claimPrimaryInterview(User $actor, RecruitmentInterview $interview): RecruitmentInterview
     {
         if (! $actor->can('recruitment.evaluations.submit')) {
@@ -229,10 +226,7 @@ final class InterviewLifecycleService
         }
     }
 
-    /**
-     * Sesi secondary otomatis: sesi aktif terdekat milik divisi secondary
-     * pada periode yang sama. Klaim selalu satu klik tanpa pilih sesi.
-     */
+    /** Sesi secondary otomatis: sesi aktif terdekat milik divisi secondary pada periode yang sama. */
     private function resolveSecondarySession(RecruitmentApplication $application): RecruitmentInterviewSession
     {
         $session = RecruitmentInterviewSession::query()

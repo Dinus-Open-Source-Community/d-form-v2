@@ -24,7 +24,9 @@ final class ApplicationEditor
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function update(
         RecruitmentApplication $application,
@@ -95,7 +97,9 @@ final class ApplicationEditor
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     private function updateDocuments(
         RecruitmentApplication $application,
@@ -178,7 +182,9 @@ final class ApplicationEditor
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function snapshotApplication(RecruitmentApplication $application): array
     {

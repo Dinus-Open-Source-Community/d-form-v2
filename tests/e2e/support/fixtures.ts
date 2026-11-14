@@ -5,7 +5,6 @@ import { assertAdminState } from './authGuard';
 import { startWorkerHeartbeat, type IHeartbeatHandle } from './heartbeat';
 import { createOwnerIdentity, createRunId, type IOwnerIdentity } from './marker';
 
-/** Satu field yang dibuat fixture. */
 export interface IFixtureFieldRequest {
     label: string;
     name: string;
@@ -13,14 +12,12 @@ export interface IFixtureFieldRequest {
     required: boolean;
 }
 
-/** Satu form beserta field dan jumlah submission yang diminta. */
 export interface IFixtureFormRequest {
     title: string;
     fields: IFixtureFieldRequest[];
     submissions: number;
 }
 
-/** Payload `php artisan e2e:fixture` (dikirim sebagai JSON lewat stdin). */
 export interface IFixtureRequest {
     marker: string;
     slug: string;
@@ -30,14 +27,12 @@ export interface IFixtureRequest {
     ownerEmail?: string;
 }
 
-/** ID satu form hasil fixture. */
 export interface IFixtureFormResult {
     formId: string;
     fieldIds: string[];
     submissionIds: string[];
 }
 
-/** Hasil command fixture: pemilik, event, dan form yang dibuat. */
 export interface IFixtureCommandResult {
     userId: string;
     eventId: string;
@@ -45,27 +40,23 @@ export interface IFixtureCommandResult {
     forms: IFixtureFormResult[];
 }
 
-/** Identitas pemilik yang dipakai satu percobaan test. */
 export interface IFixtureOwner extends IOwnerIdentity {
     userId: string;
     eventId: string;
     eventSlug: string;
 }
 
-/** Hasil fixture form: form utama dan seluruh form yang diminta. */
 export interface IFixtureForms {
     primary: IFixtureFormResult;
     forms: IFixtureFormResult[];
 }
 
-/** Option per-spec untuk mengatur jumlah form/field/submission yang dibuat. */
 export interface IHarnessOptions {
     fixtureFormCount: number;
     fixtureFieldCount: number;
     fixtureSubmissionCount: number;
 }
 
-/** Fixture yang tersedia bagi spec lewat `test` dari modul ini. */
 export interface IHarnessFixtures {
     fixtureOwner: IFixtureOwner;
     fixtureEvent: IFixtureOwner;
@@ -73,17 +64,14 @@ export interface IHarnessFixtures {
     fixtureSubmissions: { formId: string; submissionIds: string[] };
 }
 
-/** Fixture worker-scoped: heartbeat auto agar crash terdeteksi teardown/sweep. */
 interface IHarnessWorkerFixtures {
     workerHeartbeat: void;
 }
 
-/** Fixture auto yang memastikan storageState admin valid sebelum test terautentikasi. */
 interface IHarnessAutoFixtures {
     adminStateGuard: void;
 }
 
-/** Hasil `e2e:count-rows`: jumlah per tabel dan totalnya. */
 export interface IFixtureRowCounts {
     counts: Record<string, number>;
     count: number;
@@ -91,7 +79,6 @@ export interface IFixtureRowCounts {
 
 const runId = process.env.E2E_RUN_ID ?? createRunId();
 
-/** Identitas pemilik dari lokasi test; retry menghasilkan marker baru sepenuhnya. */
 export function ownerIdentityForTest(testInfo: TestInfo): IOwnerIdentity {
     return createOwnerIdentity(runId, {
         project: testInfo.project.name,
@@ -101,7 +88,6 @@ export function ownerIdentityForTest(testInfo: TestInfo): IOwnerIdentity {
     });
 }
 
-/** Payload fixture default: `formCount` form, masing-masing `fieldCount` field dan `submissionCount` submission. */
 export function defaultFixtureRequest(
     identity: IOwnerIdentity,
     formCount: number,
@@ -153,7 +139,6 @@ export function createOwnerFixture(identity: IOwnerIdentity, ownerEmail?: string
     };
 }
 
-/** Buat form/field/submission pada event milik `owner`; event dipakai ulang lewat slug yang sama. */
 export function createFormsFixture(owner: IFixtureOwner, request: IFixtureRequest): IFixtureFormResult[] {
     const result = runFixtureCommand({
         ...request,
@@ -165,24 +150,22 @@ export function createFormsFixture(owner: IFixtureOwner, request: IFixtureReques
     return result.forms;
 }
 
-/** Hapus seluruh baris milik satu marker secara exact; idempoten dan aman dipanggil berulang. */
+/** Remove only rows owned by this marker; safe to repeat during teardown. */
 export function cleanupOwnerFixture(identity: IOwnerIdentity): void {
     runArtisanCommand(['e2e:cleanup', `--marker=${identity.marker}`, `--slug=${identity.slug}`, '--json']);
 }
 
-/** Jalankan `e2e:fixture` dan parse JSON hasilnya; satu-satunya jalur tulis fixture. */
+/** Run the single fixture-writing command and parse its JSON result. */
 export function runFixtureCommand(request: IFixtureRequest): IFixtureCommandResult {
     const output = runArtisanWithInput(['e2e:fixture', `--marker=${request.marker}`], JSON.stringify(request));
 
     return JSON.parse(output) as IFixtureCommandResult;
 }
 
-/** Jumlah baris ber-marker per tabel; dipakai assertion sebelum/sesudah mutasi. */
 export function countFixtureRows(marker: string): IFixtureRowCounts {
     return runArtisanJson<IFixtureRowCounts>(['e2e:count-rows', `--marker=${marker}`]);
 }
 
-/** Test harness: fixture data ber-marker, heartbeat worker, dan guard storageState admin. */
 export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAutoFixtures, IHarnessWorkerFixtures>({
     fixtureFormCount: [1, { option: true }],
     fixtureFieldCount: [1, { option: true }],
@@ -209,7 +192,7 @@ export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAut
         async ({}, use: () => Promise<void>, testInfo: TestInfo): Promise<void> => {
             const storageState = testInfo.project.use.storageState;
 
-            // Hanya project terautentikasi (storageState berupa path) yang wajib punya state valid.
+            // Only authenticated projects have a storage state to validate.
             if (typeof storageState === 'string') {
                 assertAdminState(storageState);
             }

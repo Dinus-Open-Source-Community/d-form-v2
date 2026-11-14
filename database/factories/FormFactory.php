@@ -9,7 +9,9 @@ use App\Models\Form;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
+ *
  * @extends Factory<Form>
+ *
  */
 class FormFactory extends Factory
 {

@@ -73,8 +73,10 @@ class EventRegistrantsController extends Controller
     }
 
     /**
+     *
      * @param  array<string, mixed>  $answers
      * @return array<string, string>
+     *
      */
     private static function stringifyAnswers(array $answers): array
     {

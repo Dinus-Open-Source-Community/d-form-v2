@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-/** Nilai environment eksplisit yang dipakai seluruh harness E2E tanpa fallback credential. */
+/** Explicit E2E environment values; credentials have no fallback. */
 export interface IEnvironment {
     baseUrl: string;
     artisan: string;
@@ -11,7 +11,6 @@ export interface IEnvironment {
     nonAdminPassword: string;
 }
 
-/** Opsi validasi; `probeBaseUrl: false` dipakai unit test agar tidak menyentuh jaringan. */
 export interface IEnvironmentOptions {
     env?: NodeJS.ProcessEnv;
     probeBaseUrl?: boolean;
@@ -21,7 +20,6 @@ export interface IEnvironmentOptions {
     requireNonAdmin?: boolean;
 }
 
-/** Kegagalan environment yang selalu menyebut nama variabel penyebabnya. */
 export class E2eEnvironmentError extends Error {
     constructor(
         readonly variable: string,
@@ -34,13 +32,12 @@ export class E2eEnvironmentError extends Error {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Timeout probe default > 2000 ms agar cold start `php -S`/Octane tidak dianggap mati. */
+/** Allows local PHP/Octane cold starts to pass the reachability probe. */
 export const DEFAULT_BASE_URL_TIMEOUT_MS = 5000;
 
 const PROBE_ATTEMPTS = 2;
 const HEAD_METHOD_NOT_ALLOWED = 405;
 
-/** Baca konfigurasi tanpa validasi; dipakai aman saat modul config dievaluasi. */
 export function readEnvironment(env: NodeJS.ProcessEnv = process.env): IEnvironment {
     return {
         baseUrl: (env.E2E_BASE_URL ?? '').trim(),
@@ -52,7 +49,7 @@ export function readEnvironment(env: NodeJS.ProcessEnv = process.env): IEnvironm
     };
 }
 
-/** Pecah command menjadi token; mendukung kutip tunggal/ganda sederhana untuk path berspasi. */
+/** Split a command while preserving simple quoted paths. */
 export function splitCommandLine(command: string): string[] {
     const tokens: string[] = [];
     let current = '';
@@ -116,7 +113,6 @@ export async function assertEnvironment(options: IEnvironmentOptions = {}): Prom
     return environment;
 }
 
-/** Pastikan base URL absolut http(s) dan hostnya menjawab HEAD dalam batas waktu. */
 async function assertBaseUrl(baseUrl: string, options: IEnvironmentOptions): Promise<void> {
     if (baseUrl.trim() === '') {
         throw new E2eEnvironmentError('E2E_BASE_URL', 'must be set to an absolute http(s) URL.');
@@ -144,7 +140,6 @@ async function assertBaseUrl(baseUrl: string, options: IEnvironmentOptions): Pro
     await probeBaseUrl(parsed, timeoutMs, fetchImpl);
 }
 
-/** Baca `E2E_BASE_URL_TIMEOUT_MS`; nilai tidak valid ditolak agar salah ketik tidak menutupi masalah. */
 function resolveBaseUrlTimeout(options: IEnvironmentOptions): number {
     if (options.baseUrlTimeoutMs !== undefined) {
         return options.baseUrlTimeoutMs;
@@ -207,7 +202,6 @@ async function probeBaseUrl(baseUrl: URL, timeoutMs: number, fetchImpl: typeof f
     );
 }
 
-/** Pastikan token pertama `E2E_ARTISAN` benar-benar executable di PATH. */
 function assertArtisanCommand(artisan: string): void {
     const tokens = splitCommandLine(artisan);
 
@@ -228,7 +222,6 @@ function assertArtisanCommand(artisan: string): void {
     }
 }
 
-/** Pastikan kredensial admin tersedia; dua-duanya kosong disebut bersama agar setup tidak menebak. */
 function assertAdminEmail(email: string, password: string): void {
     if (email === '' && password === '') {
         throw new E2eEnvironmentError(
@@ -246,7 +239,6 @@ function assertAdminEmail(email: string, password: string): void {
     }
 }
 
-/** Pastikan password admin tidak kosong; nilainya sendiri tidak pernah dicetak. */
 function assertAdminPassword(password: string): void {
     if (password === '') {
         throw new E2eEnvironmentError('E2E_ADMIN_PASSWORD', 'must be set to the seeded admin password.');
@@ -287,7 +279,6 @@ function assertNonAdminEmail(email: string, password: string): void {
     }
 }
 
-/** Pastikan password non-super-admin tidak kosong; nilainya sendiri tidak pernah dicetak. */
 function assertNonAdminPassword(password: string): void {
     if (password === '') {
         throw new E2eEnvironmentError('E2E_NON_ADMIN_PASSWORD', 'must be set to the seeded non-super-admin password.');

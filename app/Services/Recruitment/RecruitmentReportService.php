@@ -13,7 +13,9 @@ use App\Models\Recruitment\RecruitmentPeriod;
 final class RecruitmentReportService
 {
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function build(?string $periodId = null): array
     {
@@ -41,7 +43,9 @@ final class RecruitmentReportService
     }
 
     /**
+     *
      * @return list<array{stage: string, label: string, count: int}>
+     *
      */
     public function buildFunnel(string $periodId): array
     {
@@ -83,11 +87,7 @@ final class RecruitmentReportService
         return $funnel;
     }
 
-    /**
-     * Resolve the period that a report section would use without building the
-     * full report. Explicit id wins; otherwise the newest open period, falling
-     * back to the newest period.
-     */
+    /** Resolve the period that a report section would use without building the full report. */
     public function resolvePeriodModel(?string $periodId = null): ?RecruitmentPeriod
     {
         return $this->findReportPeriod($periodId);
@@ -107,7 +107,9 @@ final class RecruitmentReportService
     }
 
     /**
+     *
      * @return list<array{division: string, count: int}>
+     *
      */
     private function buildByDivision(string $periodId): array
     {
@@ -126,7 +128,9 @@ final class RecruitmentReportService
     }
 
     /**
+     *
      * @return list<array{semester: int, count: int}>
+     *
      */
     private function buildBySemester(string $periodId): array
     {
@@ -144,11 +148,10 @@ final class RecruitmentReportService
     }
 
     /**
-     * Counts interviews of a period with one aggregate query so no application
-     * ID list is materialised in PHP. `total` sums every grouped status, which
-     * preserves the previous count(*) semantics for unknown status values.
      *
+     * Counts interviews of a period with one aggregate query so no application ID list is materialised in PHP.
      * @return array<string, int>
+     *
      */
     private function buildInterviewStats(string $periodId): array
     {
@@ -175,11 +178,10 @@ final class RecruitmentReportService
     }
 
     /**
-     * One aggregate query replaces the previous count + five separate AVG
-     * queries. Averages are aliased because the model casts the rating
-     * columns to integer and would truncate an AVG value.
      *
+     * One aggregate query replaces the previous count + five separate AVG queries.
      * @return array<string, mixed>
+     *
      */
     private function buildFeedbackStats(string $periodId): array
     {
@@ -210,7 +212,9 @@ final class RecruitmentReportService
     }
 
     /**
+     *
      * @return array<string, int>
+     *
      */
     private function emptyInterviewStats(): array
     {
@@ -224,7 +228,9 @@ final class RecruitmentReportService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function emptyFeedbackStats(): array
     {

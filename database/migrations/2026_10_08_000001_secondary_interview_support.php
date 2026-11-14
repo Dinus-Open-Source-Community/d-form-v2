@@ -199,10 +199,7 @@ return new class () extends Migration {
         }
     }
 
-    /**
-     * Abort before any DDL when duplicate applications would break the unique
-     * keys restored by this rollback.
-     */
+    /** Abort before any DDL when duplicate applications would break the unique keys restored by this rollback. */
     private function assertRollbackHasNoConflicts(): void
     {
         $conflictingInterviews = $this->countDuplicateApplications('recruitment_interviews');

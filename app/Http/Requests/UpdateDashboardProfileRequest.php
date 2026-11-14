@@ -8,16 +8,15 @@ use Illuminate\Validation\Rule;
 
 class UpdateDashboardProfileRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return $this->user() !== null;
     }
 
     /**
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
+     *
      */
     public function rules(): array
     {
@@ -40,9 +39,10 @@ class UpdateDashboardProfileRequest extends FormRequest
     }
 
     /**
-     * Get custom validation messages.
+     *
      *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {

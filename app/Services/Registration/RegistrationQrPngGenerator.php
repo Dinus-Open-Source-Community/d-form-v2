@@ -12,9 +12,11 @@ use Endroid\QrCode\Writer\PngWriter;
 final class RegistrationQrPngGenerator
 {
     /**
+     *
      * PNG generation uses GD via endroid/qr-code (no Imagick required).
      *
      * @throws \JsonException
+     *
      */
     public function pngForSubmission(string $formAnswerId): string
     {

@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
-/**
- * Antrean pengiriman kode OTP registrasi; payload hanya memuat id pending + waktu terbit, kode dibaca dari model.
- */
+/** Antrean pengiriman kode OTP registrasi; payload hanya memuat id pending + waktu terbit, kode dibaca dari model. */
 class SendRegistrationOtpJob implements ShouldQueue
 {
     use Dispatchable;
@@ -30,7 +28,9 @@ class SendRegistrationOtpJob implements ShouldQueue
     public int $timeout = 60;
 
     /**
+     *
      * @param  string  $sentAt  ISO8601 `otp_last_sent_at` saat job diantrekan; dipakai mendeteksi job yang sudah disuperseded.
+     *
      */
     public function __construct(
         public string $pendingId,
@@ -38,11 +38,7 @@ class SendRegistrationOtpJob implements ShouldQueue
     ) {
     }
 
-    /**
-     * Kirim OTP untuk pending yang masih berlaku; berhenti tanpa kirim bila pending/kode/job sudah basi.
-     *
-     * Kegagalan transport dicatat tanpa kode lalu dilempar ulang agar queue melakukan retry.
-     */
+    /** Kirim OTP untuk pending yang masih berlaku; berhenti tanpa kirim bila pending/kode/job sudah basi. */
     public function handle(): void
     {
         $pending = PendingRegistration::query()->find($this->pendingId);
@@ -106,10 +102,7 @@ class SendRegistrationOtpJob implements ShouldQueue
         ]);
     }
 
-    /**
-     * Alamat `.test` dicadangkan untuk pengujian; jangan kirim email nyata saat dev/E2E.
-     * Unit test tetap berjalan karena memakai Mail::fake (`runningUnitTests`).
-     */
+    /** Alamat `.test` dicadangkan untuk pengujian; jangan kirim email nyata saat dev/E2E. */
     private function isDisposableTestAddress(string $email): bool
     {
         return ! app()->runningUnitTests()

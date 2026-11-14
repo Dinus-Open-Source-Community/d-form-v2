@@ -212,7 +212,9 @@ class EventController extends Controller
     }
 
     /**
+     *
      * @return array<string, array<int, array{value: string, label: string}>>
+     *
      */
     private function formOptions(): array
     {
@@ -230,7 +232,9 @@ class EventController extends Controller
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function draftEventPayload(Event $event): array
     {
@@ -246,7 +250,9 @@ class EventController extends Controller
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function draftFormPayload(Form $form): array
     {
@@ -277,7 +283,9 @@ class EventController extends Controller
     }
 
     /**
+     *
      * @return array<string, array<int, array{value: string, label: string}>>
+     *
      */
     private function filterOptions(): array
     {

@@ -22,7 +22,9 @@ final class FeedbackService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function submit(RecruitmentApplication $application, array $data): RecruitmentFeedback
     {

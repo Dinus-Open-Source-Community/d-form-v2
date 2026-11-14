@@ -1,17 +1,11 @@
 import { isBarePackageSpecifier, isLibRuntimeImportAllowed, normalizeRepoPath } from './frontendFolderBoundaries.js';
 
-/** ID rule ESLint untuk guard `lib/` bebas paket runtime (dipakai config + test). */
+/** ESLint rule ID for the runtime-package boundary. */
 export const LIB_RUNTIME_PACKAGES_RULE_ID = 'dform/lib-runtime-packages';
 
 /**
- * `lib/` hanya pure function: impor paket runtime (bukan alias `@/` dan bukan
- * relative) dilarang. Allowlist paket murni dan pengecualian sementara per file
- * berada di `scripts/frontendFolderBoundaries.js`; pesan menyebut file + specifier.
- *
- * Batasan yang diketahui (L5): dynamic import dengan specifier non-literal
- * (mis. `import(packageName)`) tidak dapat di-resolve statis dan tidak dilaporkan.
- * Pemakaian tersebut tetap harus ditinjau manual saat review.
- *
+ * Reject runtime-package imports from `lib/`; non-literal dynamic imports are
+ * intentionally left for manual review.
  * @type {import('eslint').Rule.RuleModule}
  */
 export const libRuntimePackageRule = {
@@ -49,7 +43,6 @@ export const libRuntimePackageRule = {
             },
             ExportNamedDeclaration(node) {
                 if (node.exportKind === 'type') return;
-                // `export { type Foo } from 'pkg'`: semua specifier type-only.
                 if (node.specifiers.length > 0 && node.specifiers.every((specifier) => specifier.exportKind === 'type'))
                     return;
                 checkSource(node);
@@ -59,7 +52,6 @@ export const libRuntimePackageRule = {
                 checkSource(node);
             },
             ImportExpression(node) {
-                // Literal saja yang bisa diputuskan statis; lihat batasan L5 di atas.
                 if (node.source.type !== 'Literal' || typeof node.source.value !== 'string') return;
                 checkSource(node);
             },

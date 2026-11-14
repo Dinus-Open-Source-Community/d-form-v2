@@ -8,9 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AddRobotsTagForPrivateAreas
 {
-    /**
-     * Set header X-Robots-Tag untuk area autentikasi / dashboard / auth agar tidak terindeks walau ter-crawl.
-     */
+    /** Set header X-Robots-Tag untuk area autentikasi / dashboard / auth agar tidak terindeks walau ter-crawl. */
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);

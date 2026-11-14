@@ -19,7 +19,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function present(RecruitmentApplication $application): array
     {
@@ -77,10 +79,12 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $edit
      * @param  array<string, mixed>  $feedback
      * @param  array<string, mixed>|null  $interview
      * @return array{tone: string, title: string, description: string, action: string|null}
+     *
      */
     private function presentNextAction(
         RecruitmentApplication $application,
@@ -271,7 +275,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function presentApplication(RecruitmentApplication $application): array
     {
@@ -297,7 +303,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return list<array<string, mixed>>
+     *
      */
     private function presentTimeline(RecruitmentApplication $application): array
     {
@@ -335,7 +343,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function presentInterview(RecruitmentApplication $application): ?array
     {
@@ -359,7 +369,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function presentAttendance(RecruitmentApplication $application): ?array
     {
@@ -395,7 +407,9 @@ final class TrackingPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function presentFinal(RecruitmentApplication $application): ?array
     {

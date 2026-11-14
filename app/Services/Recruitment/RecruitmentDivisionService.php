@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Collection;
 final class RecruitmentDivisionService
 {
     /**
+     *
      * @return Collection<int, RecruitmentDivision>
+     *
      */
     public function listActiveOrdered(): Collection
     {
@@ -22,7 +24,9 @@ final class RecruitmentDivisionService
     }
 
     /**
+     *
      * @return Collection<int, RecruitmentDivision>
+     *
      */
     public function listAllOrdered(): Collection
     {
@@ -34,7 +38,9 @@ final class RecruitmentDivisionService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function update(RecruitmentDivision $division, array $data): RecruitmentDivision
     {
@@ -57,7 +63,9 @@ final class RecruitmentDivisionService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function toInertiaArray(RecruitmentDivision $division): array
     {

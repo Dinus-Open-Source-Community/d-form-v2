@@ -9,7 +9,9 @@ use App\Models\Recruitment\RecruitmentInterviewSession;
 final class RecruitmentInterviewVariableBuilder
 {
     /**
+     *
      * @return array<string, string>
+     *
      */
     public function build(RecruitmentInterview $interview): array
     {
@@ -40,10 +42,12 @@ final class RecruitmentInterviewVariableBuilder
     }
 
     /**
+     *
      * Daftar sesi interview aktif mendatang milik divisi primer applicant
      * (pengisi kartu jadwal email bulk QR yang tidak membawa interviewId).
      *
      * @return array{sessions: list<array{date: string, time_range: string, location: string, room: string}>, session_division_name: string}
+     *
      */
     public function buildSessionList(RecruitmentApplication $application): array
     {

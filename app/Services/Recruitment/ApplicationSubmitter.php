@@ -28,8 +28,10 @@ final class ApplicationSubmitter
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
      * @return array{application: RecruitmentApplication, tracking_token: string}
+     *
      */
     public function submit(
         RecruitmentPeriod $period,

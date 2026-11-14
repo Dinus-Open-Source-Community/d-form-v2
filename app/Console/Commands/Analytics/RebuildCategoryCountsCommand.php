@@ -6,11 +6,7 @@ use App\Services\Event\EventCache;
 use App\Services\Event\EventCategoryCounter;
 use Illuminate\Console\Command;
 
-/**
- * Backfill/rekonsiliasi agregat `event_category_counts` dari tabel `events`. Wajib
- * dijalankan setelah migrate dan setelah `stress:seed`, karena seed memakai bulk query
- * yang tidak memicu EventObserver (jalur simpan normal sudah dijaga observer).
- */
+/** Backfill/rekonsiliasi agregat `event_category_counts` dari tabel `events`. */
 class RebuildCategoryCountsCommand extends Command
 {
     protected $signature = 'analytics:rebuild-category-counts';

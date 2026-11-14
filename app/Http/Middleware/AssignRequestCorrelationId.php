@@ -10,9 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class AssignRequestCorrelationId
 {
-    /**
-     * Assign a validated request ID to the request, logs, and response.
-     */
+    /** Assign a validated request ID to the request, logs, and response. */
     public function handle(Request $request, Closure $next): Response
     {
         $requestId = $request->header('X-Request-ID');

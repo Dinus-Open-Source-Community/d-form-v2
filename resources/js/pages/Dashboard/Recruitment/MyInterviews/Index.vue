@@ -1,15 +1,3 @@
-<!--
-THESIS: Command center interviewer — satu bar filter + tab antrean + daftar flat berurutan,
-  menggantikan tumpukan kartu lama yang tanpa feedback. Back-button dan scroll terjaga.
-OWN-WORLD: Sistem admin yang sudah ada (Card rounded-2xl, Badge, Button, Input);
-  kartu slip janji: zona identitas (nama + satu badge prioritas + meta mono) di atas hairline,
-  zona logistik (jadwal + antrean) dan aksi di bawahnya.
-STORY: Interviewer menyerbu yang mendesak lewat filter, membaca tiap kartu sebagai satu janji,
-  menilai tanpa tersesat.
-FIRST VIEWPORT: Satu panel filter (search + selects + count),
-  lalu daftar flat. Aksi primer selalu "Nilai / Ubah / Detail" di kanan kartu.
-FORM: Approach A Filter Bar Command Center (spec 2026-09-18-my-interviews-redesign-design).
--->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';

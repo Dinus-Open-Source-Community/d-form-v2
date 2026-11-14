@@ -7,9 +7,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * Email kode OTP registrasi; dibuat oleh job setelah kode dibaca dari model, tidak pernah ikut payload queue.
- */
+/** Email kode OTP registrasi; dibuat oleh job setelah kode dibaca dari model, tidak pernah ikut payload queue. */
 class RegistrationOtpMail extends Mailable
 {
     use SerializesModels;

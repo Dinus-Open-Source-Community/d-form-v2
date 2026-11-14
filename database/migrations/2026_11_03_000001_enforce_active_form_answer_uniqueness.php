@@ -5,13 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Expand form_answers with the portable nullable active-submission marker.
- *
- * This migration replaces the unsuccessful generated-column attempt from this
- * ticket. It deliberately creates no unique index; the contract migration does
- * that after the application has backfilled the marker and audited duplicates.
- */
+/** Expand form_answers with the portable nullable active-submission marker. */
 return new class () extends Migration {
     private const USER_INDEX = 'form_answers_active_user_form_unique';
 

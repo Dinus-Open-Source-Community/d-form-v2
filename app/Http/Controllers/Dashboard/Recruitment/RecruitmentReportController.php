@@ -113,13 +113,10 @@ class RecruitmentReportController extends Controller
     }
 
     /**
+     *
      * Baris roster pelamar per periode, keyset `registration_number` (unik global).
-     *
-     * Halaman 500 baris membatasi puncak memori ke satu halaman model: PDO MySQL
-     * default mem-buffer seluruh result set, jadi `cursor()` pada 1.000.000 baris
-     * menambah ~116 MB. Query hanya dijalankan per halaman, tanpa OFFSET.
-     *
      * @return \Generator<int, list<string>>
+     *
      */
     private function applicantRows(string $periodId): \Generator
     {
@@ -168,11 +165,7 @@ class RecruitmentReportController extends Controller
         }
     }
 
-    /**
-     * Resolve the export period and fail closed: an unknown `period_id` or no
-     * period at all is 404, never an empty CSV (an empty body would hide both
-     * "wrong id" and "no permission" from the caller).
-     */
+    /** Resolve the export period and return 404 for a missing or invalid period. */
     private function resolveExportPeriod(?string $periodId): RecruitmentPeriod
     {
         $period = $this->reportService->resolvePeriodModel($periodId);

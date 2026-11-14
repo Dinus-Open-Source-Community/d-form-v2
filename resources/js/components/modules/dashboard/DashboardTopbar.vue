@@ -119,7 +119,6 @@ function handleLogout(): void {
     <header
         class="border-sidebar-border/50 bg-background/80 sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b px-4 backdrop-blur-md lg:px-6"
     >
-        <!-- Kiri: toggle sidebar (mobile) + back + judul + subtitle (judul hidden di mobile) -->
         <div class="flex min-w-0 items-center gap-1.5">
             <SidebarTrigger v-if="props.showNavigationTrigger" class="shrink-0 md:hidden" aria-label="Buka sidebar" />
             <Button
@@ -143,7 +142,6 @@ function handleLogout(): void {
             </div>
         </div>
 
-        <!-- Tengah: search bar -->
         <div class="relative w-full max-w-[10rem] min-w-0 shrink sm:max-w-sm">
             <Search class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
@@ -155,7 +153,6 @@ function handleLogout(): void {
             />
         </div>
 
-        <!-- Kanan: menu profil (mobile) / blok identitas user + logout (desktop, tanpa separator) -->
         <div class="flex shrink-0 items-center gap-1.5">
             <Popover v-model:open="profileMenuOpen" :modal="false">
                 <PopoverTrigger as-child>

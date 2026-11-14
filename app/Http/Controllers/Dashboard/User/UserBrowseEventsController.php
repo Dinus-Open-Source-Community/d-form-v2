@@ -12,7 +12,6 @@ use Inertia\Response as InertiaResponse;
 
 class UserBrowseEventsController
 {
-    /** Render the published event browser with its existing filter validation. */
     public function __invoke(Request $request, EventService $eventService): InertiaResponse
     {
         $validated = $request->validate([

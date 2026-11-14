@@ -9,10 +9,12 @@ use App\Models\Recruitment\RecruitmentInterview;
 final class InterviewerApplicationPresenter
 {
     /**
+     *
      * Sajikan satu interview spesifik (primary atau secondary) beserta
      * evaluasinya sendiri.
      *
      * @return array<string, mixed>
+     *
      */
     public function presentForInterview(RecruitmentInterview $interview): array
     {
@@ -46,7 +48,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function applicationBlock(RecruitmentApplication $application): array
     {
@@ -66,7 +70,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function documentsBlock(RecruitmentApplication $application): array
     {
@@ -127,7 +133,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function interviewBlock(?RecruitmentInterview $interview): ?array
     {
@@ -156,7 +164,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function attendanceBlock(RecruitmentApplication $application): array
     {
@@ -167,7 +177,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     private function evaluationBlock(?RecruitmentEvaluation $evaluation): array
     {
@@ -196,7 +208,9 @@ final class InterviewerApplicationPresenter
     }
 
     /**
+     *
      * @return array<string, mixed>|null
+     *
      */
     private function finalBlock(RecruitmentApplication $application): ?array
     {

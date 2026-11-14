@@ -63,14 +63,11 @@ class EventService
     }
 
     /**
-     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut tanggal mulai
-     * terbaru, filter kategori/sesi di server, 5 acara per halaman.
      *
-     * Memakai cursor (keyset): tanpa COUNT 1 juta baris (~185 ms) dan tanpa
-     * OFFSET (121 ms di halaman dalam).
-     *
+     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut tanggal mulai terbaru, filter kategori/sesi di server, 5 acara per halaman.
      * @param  array{category: string|null, session: string|null}  $filters
      * @return CursorPaginator<int, Event>
+     *
      */
     public function paginateForPublicBrowse(array $filters): CursorPaginator
     {
@@ -97,9 +94,11 @@ class EventService
     }
 
     /**
+     *
      * Tiga acara terbaru untuk blok highlight di halaman `/events`.
      *
      * @return list<array<string, mixed>>
+     *
      */
     public function publicListHighlight(int $limit = 3): array
     {
@@ -114,11 +113,10 @@ class EventService
     }
 
     /**
-     * Link navigasi ringkas (sebelumnya / halaman ini / berikutnya) untuk
-     * paginasi simple maupun cursor. Nomor halaman hanya disertakan bila
-     * paginator punya nomor; cursor tidak punya.
      *
+     * Link navigasi ringkas (sebelumnya / halaman ini / berikutnya) untuk paginasi simple maupun cursor.
      * @return list<array{url: string|null, label: string, active: bool}>
+     *
      */
     public function paginationLinks(Paginator|CursorPaginator $paginator): array
     {
@@ -152,16 +150,16 @@ class EventService
         return $links;
     }
 
-    /**
-     * Registered count yang sudah dibatasi kuota; dipakai saat render kartu acara.
-     */
+    /** Registered count yang sudah dibatasi kuota; dipakai saat render kartu acara. */
     public function resolveRegisteredCount(Event $event): int
     {
         return min(max(0, (int) $event->registered_count), (int) $event->quota);
     }
 
     /**
+     *
      * @param  array{search: string, filter: array{categories: array, sessions: array, statuses: array, showTrashed: bool, timeline: string}, sort: array{by: string, order: string}, per_page: int}  $queryInput
+     *
      */
     public function paginateForAdminIndex(array $queryInput, int $page, User $user): LengthAwarePaginator
     {
@@ -250,7 +248,9 @@ class EventService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function create(array $data, UploadedFile $banner, User $user): Event
     {
@@ -270,7 +270,9 @@ class EventService
     }
 
     /**
+     *
      * @param  array<string, mixed>  $data
+     *
      */
     public function update(Event $event, array $data, ?UploadedFile $banner = null): Event
     {
@@ -308,7 +310,9 @@ class EventService
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function eventToInertiaArray(Event $event, ?int $registeredCount = null): array
     {
@@ -323,10 +327,7 @@ class EventService
         );
     }
 
-    /**
-     * Simpan hasil query list event di cache; memakai tag hanya bila store mendukungnya.
-     * Deteksi dukungan tag dilakukan sebelum resolver, sehingga error query tidak pernah diulang.
-     */
+    /** Simpan hasil query list event di cache; memakai tag hanya bila store mendukungnya. */
     private function rememberList(string $key, \Closure $callback): mixed
     {
         if (Cache::getStore() instanceof TaggableStore) {

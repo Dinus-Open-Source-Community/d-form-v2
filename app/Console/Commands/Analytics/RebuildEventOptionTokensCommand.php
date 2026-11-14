@@ -8,10 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Isi ulang daftar token kategori/sesi untuk opsi filter. Satu-satunya tempat
- * yang boleh memindai `events`; jalankan setelah deploy/seed, bukan per request.
- */
+/** Isi ulang daftar token kategori/sesi untuk opsi filter. */
 class RebuildEventOptionTokensCommand extends Command
 {
     protected $signature = 'analytics:rebuild-event-options';

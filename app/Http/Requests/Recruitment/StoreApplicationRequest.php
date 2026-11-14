@@ -18,7 +18,9 @@ class StoreApplicationRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function rules(): array
     {
@@ -51,7 +53,9 @@ class StoreApplicationRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, string>
+     *
      */
     public function messages(): array
     {
@@ -98,7 +102,9 @@ class StoreApplicationRequest extends FormRequest
     }
 
     /**
+     *
      * @return array<string, mixed>
+     *
      */
     public function validatedPayload(): array
     {

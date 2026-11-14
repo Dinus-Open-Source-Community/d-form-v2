@@ -14,11 +14,7 @@ class UpdateRecruitmentInterviewSessionRequest extends FormRequest
         return $this->user()?->can('recruitment.interviews.schedule') ?? false;
     }
 
-    /**
-     * recruitment_period_id diabaikan saat update (tidak boleh pindah periode);
-     * `exclude` mengeluarkannya dari validated data sehingga tidak pernah
-     * sampai ke service walaupun ikut terkirim oleh client.
-     *
+    /** Keep recruitment_period_id out of validated update data so sessions cannot change period.
      * @return array<string, mixed>
      */
     public function rules(): array

@@ -4,25 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Covering index untuk scan substring pencarian (BE-P2-013, lanjutan 000001).
- *
- * Pencarian memakai `LIKE '%term%'` (substring, bukan prefix), jadi MySQL tidak
- * bisa range-scan; yang bisa dihindari adalah membaca baris tabel. `searchIdUnion()`
- * memilih `id, submitted_at` dari tiga cabang per kolom, dan index lama
- * `(recruitment_period_id, kolom)` tidak memuat `submitted_at`: cabang yang cocok
- * banyak (mis. `A11` pada seluruh NIM) membaca 20.000 baris (~4,1 detik per cabang,
- * total `paginate(search: 'A11')` ~7,9 detik).
- *
- * Dengan `(recruitment_period_id, kolom, submitted_at)` setiap cabang menjadi
- * covering (index-only scan) walau predikatnya substring: `paginate('A11')`
- * ~58 ms. `id` sudah implisit di secondary index InnoDB.
- * `(recruitment_period_id, full_name)` lama menjadi redundant, tetapi drop
- * diserahkan ke migration index-hygiene (approval-gated), bukan di sini.
- *
- * Non-destruktif: hanya ADD INDEX (InnoDB online DDL). Idempoten: dicek
- * berdasarkan daftar kolom, bukan hanya nama.
- */
+/** Covering index untuk scan substring pencarian (BE-P2-013, lanjutan 000001). */
 return new class () extends Migration {
     public function up(): void
     {
@@ -51,7 +33,9 @@ return new class () extends Migration {
     }
 
     /**
+     *
      * @param  list<string>  $columns
+     *
      */
     private function addIndexIfMissing(string $table, string $indexName, array $columns): void
     {

@@ -8,26 +8,16 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-/**
- * Digest QR untuk pengujian scan: satu email berisi daftar kode + banyak PNG QR
- * sebagai lampiran.
- *
- * Sengaja memakai `htmlString` alih-alih Blade view: semua view di
- * `resources/views/mail/` meng-include `mail.partials.card-header`, yang saat ini
- * gagal dirender karena komponen Livewire-nya sudah dihapus dari dependensi.
- * Dengan begitu email ini tetap bisa terkirim tanpa memperbaiki view lama.
- *
- * Catatan: properti data dinamai `$qrFiles`, bukan `$attachments`, karena
- * `Illuminate\Mail\Mailable` sudah memiliki properti `public $attachments`
- * (tanpa tipe) — mendeklarasikan ulang dengan tipe akan fatal error.
- */
+/** Digest QR untuk pengujian scan: satu email berisi daftar kode + banyak PNG QR sebagai lampiran. */
 class ScanTestQrMail extends Mailable
 {
     use Queueable;
 
     /**
+     *
      * @param  array<int, array{code:string,name:string,kind:string,context:string}>  $rows  daftar kode yang dikirim
      * @param  array<string, string>  $qrFiles  nama berkas => isi biner PNG
+     *
      */
     public function __construct(
         public string $label,
@@ -51,7 +41,9 @@ class ScanTestQrMail extends Mailable
     }
 
     /**
+     *
      * @return array<int, Attachment>
+     *
      */
     public function attachments(): array
     {

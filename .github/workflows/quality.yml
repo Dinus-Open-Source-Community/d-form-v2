@@ -1,31 +1,10 @@
 name: Quality
 
-# Gate kualitas untuk alur branch nyata: development (integrasi, target PR fitur),
-# dev (integrasi lama), dev-zapp (kerja harian), dan temp (staging sementara).
-#
-# BLOCKING : ESLint, typecheck proyek (vue-tsc), unit test backend (PHPUnit Unit
-#            + Feature), unit test frontend (Vitest), E2E typecheck, composer
-#            audit, migration smoke, bundle budget, Laravel Pint, Prettier, dan
-#            E2E authz (403 non-super-admin + auth-guard).
-#            Baseline terakhir: ESLint 0 error, typecheck 0 error, PHPUnit Feature
-#            1005 passed/16 skipped, Vitest suite green, entry 15,33 kB gzip dan
-#            chunk page terbesar 145,58 kB gzip, Pint 694 file bersih, Prettier
-#            0 file (AUDIT-P2-001, 09-11-2026).
-# REPORT   : E2E runtime dan E2E broadcast dispatch. Report-only sampai hijau
-#            satu kali di runner GitHub.
-#
-# Cakupan format: `resources/js/components/ui` (vendored shadcn-vue, dilarang
-# diedit langsung per AGENTS.md) dan direktori generated Wayfinder dikecualikan
-# lewat `.prettierignore`, sehingga lokal dan CI memakai set file yang sama.
-# PHP      : Platform composer dipin ke PHP 8.4.27 (config.platform), minor yang
-#            sama dengan image produksi `dunglas/frankenphp:1-php8.4-alpine`.
-#            setup-php di Linux hanya menerima versi minor, jadi runner memakai
-#            `8.4`; job `test` memverifikasi minor, batas bawah patch, dan
-#            `require.php` konsisten dengan pin tersebut.
-#
-# Job formatting menggantikan .github/workflows/code_formatting.yml yang dihapus:
-# isinya sama, tetapi dipindahkan ke sini agar implementasi hanya berjalan sekali
-# per push/PR dan ikut terlihat di dev-zapp.
+# Quality gate for development, dev, dev-zapp, and temp branches.
+# Blocking checks cover lint, typechecks, PHPUnit, Vitest, audits, migrations,
+# bundle budget, formatting, and authorization; runtime E2E remains report-only
+# until it has passed once on GitHub. Vendored UI and generated Wayfinder stay
+# excluded, and CI uses the PHP 8.4 production platform pin.
 
 on:
     push:
