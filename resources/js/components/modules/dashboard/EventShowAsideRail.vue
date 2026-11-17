@@ -11,7 +11,6 @@ import {
     Trash2,
     RotateCcw,
     FileText,
-    Users,
     BarChart3,
     Plus,
     ChevronDown,
@@ -76,15 +75,6 @@ defineEmits<{
             <CardContent class="flex flex-col gap-2 pt-0">
                 <Button class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal" as-child>
                     <Link :href="editEvent.url(event.id)"><Pencil class="mr-2 size-4" />Edit details</Link>
-                </Button>
-                <Button
-                    variant="outline"
-                    class="h-auto min-h-10 w-full justify-start py-2 text-left whitespace-normal"
-                    as-child
-                >
-                    <Link :href="routes.admin.events.registrants(event.id)"
-                        ><Users class="mr-2 size-4" />Manage registrants</Link
-                    >
                 </Button>
                 <Button
                     v-if="laporanHref"

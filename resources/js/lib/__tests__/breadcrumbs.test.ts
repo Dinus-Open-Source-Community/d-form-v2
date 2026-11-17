@@ -43,12 +43,12 @@ describe('buildBreadcrumbs', () => {
     });
 
     it('path non-formulir tetap hanya berisi link', () => {
-        const items = buildBreadcrumbs(`/admin/events/${EVENT_ID}/registrants`, 'Peserta');
+        const items = buildBreadcrumbs(`/admin/events/${EVENT_ID}/laporan`, 'Laporan');
 
         expect(shape(items)).toEqual([
             'Acara|/admin/events',
             `${EVENT_ID}|/admin/events/${EVENT_ID}`,
-            'Peserta|/admin/events/' + EVENT_ID + '/registrants',
+            'Laporan|/admin/events/' + EVENT_ID + '/laporan',
         ]);
         expect(items.every((item) => item.href !== null)).toBe(true);
     });

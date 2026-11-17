@@ -13,7 +13,6 @@ export type TLottieName =
     | 'errorState'
     | 'error404Page'
     | 'emptyData'
-    | 'registrantsWaiting'
     | 'landingHero'
     | 'landingStepCreate'
     | 'landingStepBuild'

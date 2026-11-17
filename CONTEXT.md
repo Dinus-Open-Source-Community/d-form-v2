@@ -108,7 +108,7 @@ Lapisan yang **tidak ada**: `app/Events`, `app/Listeners` kosong; tidak ada even
 
 | Path                                | Isi                                                                                                                        |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `pages/`                            | 58 file Vue: 57 page route Inertia + 1 komponen anak (`Dashboard/Recruitment/MyInterviews/InterviewRowCard.vue`)            |
+| `pages/`                            | 57 file Vue: 56 page route Inertia + 1 komponen anak (`Dashboard/Recruitment/MyInterviews/InterviewRowCard.vue`)            |
 | `layouts/`                          | `DashboardLayout`, `DashboardFocusLayout`, `FormFillLayout`, `AuthLayout`, `LandingLayout` (`AppLayout.vue` tidak dipakai) |
 | `components/ui/`                    | 35 direktori: 27 shadcn-vue asli + 8 wrapper non-shadcn (utang teknis)                                                     |
 | `components/core/`                  | wrapper tipis: auth input/button, modal konfirmasi, pagination, deferred render, lottie                                     |
@@ -547,7 +547,7 @@ Aturan yang **berlaku di kode sekarang**:
 
 **Catatan utang teknis:** `components/ui/` berisi 35 direktori, 8 di antaranya bukan shadcn asli (`autosave-status`, `date-picker`, `simple-select`, `searchable-select`, `styled-select`, `native-select`, `input-group`, `spinner`). Aturan "ui/ jangan diubah" tetap berlaku; kustomisasi baru lewat `core/`.
 
-**Baseline bundle (dev-zapp, pengukuran 1 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **76.762 byte raw (~76 kB)** dan **26.615 byte gzip (~26 kB)**. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
+**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,47 kB raw** dan **15,54 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
 
 ---
 

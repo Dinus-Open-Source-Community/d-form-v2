@@ -5,7 +5,8 @@ This folder hosts Lottie / Bodymovin JSON files served as static assets at
 
 ## Animations in this folder
 
-- `registrants-waiting.json` — roster kosong / menunggu data (robot idle), untuk halaman pendaftar; key registry `registrantsWaiting` (unduhan dari LottieFiles, periksa lisensi di sumber jika Anda mendistribusikan ulang).
+The registry in `resources/js/lib/lotties.ts` is the source of truth for the
+animations available in this folder.
 
 ## How animations are picked up
 
@@ -30,16 +31,16 @@ If you want to load a one-off file without registering it, pass `src` directly:
 2. Click **Download → Lottie JSON** and save it to this folder using a
    kebab-case filename, e.g. `confetti-burst.json`.
 3. Register it in [`resources/js/lib/lotties.ts`](../../resources/js/lib/lotties.ts):
-   ```ts
-   confettiBurst: {
-       src: '/lotties/confetti-burst.json',
-       label: 'Confetti celebration',
-   },
-   ```
+    ```ts
+    confettiBurst: {
+        src: '/lotties/confetti-burst.json',
+        label: 'Confetti celebration',
+    },
+    ```
 4. Use it from a component:
-   ```vue
-   <LocalLottie name="confettiBurst" :height="200" width="200" />
-   ```
+    ```vue
+    <LocalLottie name="confettiBurst" :height="200" width="200" />
+    ```
 
 ## Replacing an existing animation
 

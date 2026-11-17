@@ -3,8 +3,6 @@ import { expect, test } from './support/fixtures';
 const RECENT_EVENT_ROW = '[data-testid="recent-event-row"]';
 const RECENT_EVENT_QUOTA = '[data-testid="recent-event-quota"]';
 const RECENT_EVENT_MANAGE = '[data-testid="recent-event-action-manage"]';
-const RECENT_EVENT_REGISTRANTS = '[data-testid="recent-event-action-registrants"]';
-const ACTION_SELECTOR = `${RECENT_EVENT_MANAGE}, ${RECENT_EVENT_REGISTRANTS}`;
 const MIN_TOUCH_TARGET = 44;
 
 test.describe('dashboard recent events (mobile)', () => {
@@ -18,41 +16,30 @@ test.describe('dashboard recent events (mobile)', () => {
 
         for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
             const row = rows.nth(rowIndex);
+            const manageAction = row.locator(RECENT_EVENT_MANAGE);
 
-            await expect(row.locator(RECENT_EVENT_MANAGE)).toBeVisible();
+            await expect(manageAction).toBeVisible();
 
-            const registrantsAction = row.locator(RECENT_EVENT_REGISTRANTS);
+            const box = await manageAction.boundingBox();
+            expect(box).not.toBeNull();
 
-            if ((await registrantsAction.count()) > 0) {
-                await expect(registrantsAction.first()).toBeVisible();
+            if (box === null) {
+                throw new Error('Row manage action has no measurable bounding box.');
             }
 
-            const actions = row.locator(ACTION_SELECTOR);
-            const actionCount = await actions.count();
-            expect(actionCount).toBeGreaterThan(0);
+            expect(box.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+            expect(box.width).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
 
-            for (let actionIndex = 0; actionIndex < actionCount; actionIndex += 1) {
-                const box = await actions.nth(actionIndex).boundingBox();
-                expect(box).not.toBeNull();
-
-                if (box === null) {
-                    throw new Error('Row action has no measurable bounding box.');
-                }
-
-                expect(box.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
-                expect(box.width).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
-            }
-
-            const overlapsQuota = await row.evaluate((element: Element): boolean => {
+            const overlapsQuota = await row.evaluate((element: Element, quotaSelector: string): boolean => {
                 const title = element.querySelector('h3');
-                const quota = element.querySelector('[data-testid="recent-event-quota"]');
+                const quota = element.querySelector(quotaSelector);
 
                 if (!(title instanceof HTMLElement) || !(quota instanceof HTMLElement)) {
                     throw new Error('Row is missing its h3 title or quota block.');
                 }
 
                 return title.getBoundingClientRect().right > quota.getBoundingClientRect().left + 1;
-            });
+            }, RECENT_EVENT_QUOTA);
 
             expect(overlapsQuota).toBe(false);
         }

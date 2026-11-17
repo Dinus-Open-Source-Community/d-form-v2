@@ -3,25 +3,21 @@ import {
     BUNDLE_GROUP_REVIEW_STATUS_BADGES,
     FORM_ANSWER_REVIEW_STATUS_BADGES,
     MEMBER_CONFIRMATION_STATUS_BADGES,
-    REGISTRANT_STATUS_BADGES,
     bundleGroupReviewStatusBadge,
     formAnswerReviewStatusBadge,
     memberConfirmationStatusBadge,
-    registrantStatusBadge,
     registrationRoleLabel,
 } from '@/lib/registrationStatusUi';
 import type {
     TBundleGroupReviewStatus,
     TFormAnswerReviewStatus,
     TMemberConfirmationStatus,
-    TRegistrantStatus,
     TRegistrationRole,
 } from '@/types/registrationStatus';
 
 const REVIEW_STATUSES: TFormAnswerReviewStatus[] = ['pending', 'accepted', 'rejected'];
 const MEMBER_STATUSES: TMemberConfirmationStatus[] = ['pending', 'accepted', 'rejected', 'expired'];
 const GROUP_STATUSES: TBundleGroupReviewStatus[] = ['pending', 'partial', 'accepted', 'rejected'];
-const REGISTRANT_STATUSES: TRegistrantStatus[] = ['pending', 'accepted', 'rejected'];
 const ROLES: TRegistrationRole[] = ['leader', 'member'];
 
 describe('registrationStatusUi: exhaustive maps', () => {
@@ -35,10 +31,6 @@ describe('registrationStatusUi: exhaustive maps', () => {
 
     it('covers exactly the bundle group review enum', () => {
         expect(Object.keys(BUNDLE_GROUP_REVIEW_STATUS_BADGES).sort()).toEqual([...GROUP_STATUSES].sort());
-    });
-
-    it('covers exactly the registrant status enum', () => {
-        expect(Object.keys(REGISTRANT_STATUS_BADGES).sort()).toEqual([...REGISTRANT_STATUSES].sort());
     });
 
     it.each(REVIEW_STATUSES)('review badge for %s has label and classes', (status) => {
@@ -55,12 +47,6 @@ describe('registrationStatusUi: exhaustive maps', () => {
 
     it.each(GROUP_STATUSES)('group badge for %s has label and classes', (status) => {
         const badge = bundleGroupReviewStatusBadge(status);
-        expect(badge.label.length).toBeGreaterThan(0);
-        expect(badge.class.length).toBeGreaterThan(0);
-    });
-
-    it.each(REGISTRANT_STATUSES)('registrant badge for %s has label and classes', (status) => {
-        const badge = registrantStatusBadge(status);
         expect(badge.label.length).toBeGreaterThan(0);
         expect(badge.class.length).toBeGreaterThan(0);
     });
@@ -84,12 +70,6 @@ describe('registrationStatusUi: copy', () => {
         expect(bundleGroupReviewStatusBadge('partial').label).toBe('Sebagian direview');
         expect(bundleGroupReviewStatusBadge('accepted').label).toBe('Semua diterima');
         expect(bundleGroupReviewStatusBadge('rejected').label).toBe('Ditolak');
-    });
-
-    it('labels every registrant status', () => {
-        expect(registrantStatusBadge('pending').label).toBe('Menunggu');
-        expect(registrantStatusBadge('accepted').label).toBe('Disetujui');
-        expect(registrantStatusBadge('rejected').label).toBe('Ditolak');
     });
 
     it.each(ROLES)('labels role %s', (role) => {

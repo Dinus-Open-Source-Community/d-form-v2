@@ -96,7 +96,6 @@ const navSections: { group: string; items: NavItem[] }[] = [
             { id: 'field-types', label: 'Jenis Field' },
             { id: 'form-settings', label: 'Pengaturan Formulir' },
             { id: 'submissions', label: 'Mengelola Submisi' },
-            { id: 'registrants', label: 'Daftar Peserta' },
             { id: 'qr-scan', label: 'QR & Absensi' },
             { id: 'export', label: 'Ekspor Data' },
             { id: 'reporting', label: 'Laporan Acara' },
@@ -848,20 +847,6 @@ onUnmounted(() => {
                             </ul>
                             <p class="text-muted-foreground mt-4 text-sm leading-relaxed">
                                 KPI strip di bagian atas menampilkan jumlah total, pending, accepted, dan rejected.
-                            </p>
-                        </section>
-
-                        <hr class="border-border/30 my-12" />
-
-                        <section id="registrants" data-doc-section class="scroll-mt-24">
-                            <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
-                                <Layers class="text-primary size-6" />
-                                Daftar Peserta
-                            </h2>
-                            <p class="text-muted-foreground mt-4 text-sm leading-relaxed">
-                                Halaman Registrants menampilkan peserta dari seluruh formulir acara (gabungan
-                                pengiriman), dengan kolom sumber form, pencarian nama/email/kode/judul form, dan filter
-                                status review serta filter per formulir.
                             </p>
                         </section>
 

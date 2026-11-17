@@ -3,7 +3,6 @@
 use App\Http\Controllers\Dashboard\Scan\GlobalScanController;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanExportController;
 use App\Http\Controllers\Dashboard\Scan\GlobalScanFeedController;
-use App\Http\Controllers\Dashboard\Events\EventRegistrantsController;
 use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserBrowseEventsController;
 use App\Http\Controllers\Dashboard\User\UserEventPortalController;
@@ -95,5 +94,4 @@ Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name(
         ->middleware('throttle:recruitment-export')
         ->name('exports.attendance-csv');
     Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
-    Route::get('/registrants', EventRegistrantsController::class)->name('registrants');
 });

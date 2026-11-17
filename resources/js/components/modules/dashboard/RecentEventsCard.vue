@@ -11,7 +11,7 @@ import { toCategoryList } from '@/lib/eventCategories';
 import { eventPublicationBadge, eventQuotaFillPercent, eventRegistrationBadge } from '@/lib/eventStatusUi';
 import type { IEventStatusBadge } from '@/lib/eventStatusUi';
 import { routes } from '@/lib/routes';
-import { CalendarDays, CalendarX2, SquarePen, UsersRound } from 'lucide-vue-next';
+import { CalendarDays, CalendarX2, SquarePen } from 'lucide-vue-next';
 
 defineProps<{
     events?: IEvent[];
@@ -87,7 +87,9 @@ function categoryLabel(event: IEvent): string {
                                     {{ badge.label }}
                                 </Badge>
                             </div>
-                            <div class="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                            <div
+                                class="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                            >
                                 <span class="inline-flex items-center gap-1">
                                     <CalendarDays class="size-3 shrink-0" aria-hidden="true" />
                                     {{ formatDateTime({ value: event.start_date, variant: 'date-medium' }) }}
@@ -107,7 +109,10 @@ function categoryLabel(event: IEvent): string {
                         role="group"
                         :aria-label="`${event.registered_count} dari ${event.quota} pendaftar (${quotaFillPercent(event)}%)`"
                     >
-                        <span data-testid="recent-event-quota" class="text-foreground text-xs font-semibold tabular-nums">
+                        <span
+                            data-testid="recent-event-quota"
+                            class="text-foreground text-xs font-semibold tabular-nums"
+                        >
                             {{ quotaText(event) }}
                         </span>
                         <Progress
@@ -120,13 +125,8 @@ function categoryLabel(event: IEvent): string {
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 md:shrink-0">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        :class="['app-focus-ring', ACTION_BUTTON_CLASS]"
-                        as-child
-                    >
+                <div class="flex items-center md:shrink-0">
+                    <Button variant="ghost" size="sm" :class="['app-focus-ring', ACTION_BUTTON_CLASS]" as-child>
                         <Link
                             :href="routes.admin.events.show(event.id)"
                             data-testid="recent-event-action-manage"
@@ -134,22 +134,6 @@ function categoryLabel(event: IEvent): string {
                         >
                             <SquarePen aria-hidden="true" />
                             Kelola
-                        </Link>
-                    </Button>
-                    <Button
-                        v-if="event.status === 'published'"
-                        variant="ghost"
-                        size="sm"
-                        :class="['app-focus-ring', ACTION_BUTTON_CLASS]"
-                        as-child
-                    >
-                        <Link
-                            :href="routes.admin.events.registrants(event.id)"
-                            data-testid="recent-event-action-registrants"
-                            class="text-xs"
-                        >
-                            <UsersRound aria-hidden="true" />
-                            Pendaftar
                         </Link>
                     </Button>
                 </div>

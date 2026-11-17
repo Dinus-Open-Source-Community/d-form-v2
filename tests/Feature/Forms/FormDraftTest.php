@@ -742,7 +742,7 @@ class FormDraftTest extends TestCase
                 ->where('participantForms.0.id', $published->id));
     }
 
-    public function test_draft_is_hidden_from_registrants_and_the_registrations_export(): void
+    public function test_draft_is_hidden_from_the_registrations_export(): void
     {
         $owner = $this->organizer();
         $event = $this->eventOwnedBy($owner);
@@ -753,11 +753,6 @@ class FormDraftTest extends TestCase
             'form_id' => $form->id,
             'user_id' => $participant->id,
         ]);
-
-        $this->actingAs($owner)
-            ->get(route('dashboard.events.registrants', ['event' => $event], false))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('forms', 0)->has('registrants', 0));
 
         $export = $this->actingAs($owner)
             ->get(route('dashboard.events.exports.registrations-csv', $event));

@@ -134,11 +134,6 @@ class FormRegistrationTest extends TestCase
         ], false);
     }
 
-    private function registrantsPath(Event $event): string
-    {
-        return route('dashboard.events.registrants', ['event' => $event], false);
-    }
-
     /** Post-submit redirect matches {@see FormSubmissionController} (members land on submit success page). */
     private function submitSuccessRedirect(Event $event, User $user, Form $form): string
     {
@@ -2003,32 +1998,6 @@ class FormRegistrationTest extends TestCase
             'form_answer_id' => $submission->id,
             'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
         ]);
-    }
-
-    public function test_admin_can_view_event_registrants_page(): void
-    {
-        $admin = $this->admin();
-        $event = $this->openEvent();
-        $form  = $this->openForm($event);
-        $member = $this->member();
-        $this->textField($form);
-
-        FormAnswer::factory()->create([
-            'form_id' => $form->id,
-            'user_id' => $member->id,
-            'answers' => ['full_name' => 'Jane Doe'],
-            'review_status' => FormAnswerReviewStatus::Pending,
-        ]);
-
-        $this->actingAs($admin)
-             ->get($this->registrantsPath($event))
-             ->assertOk()
-             ->assertInertia(
-                 fn ($page) => $page
-                     ->component('Dashboard/Events/Registrants')
-                     ->has('registrants', 1)
-                     ->where('forms.0.id', $form->id),
-             );
     }
 
     // =========================================================================

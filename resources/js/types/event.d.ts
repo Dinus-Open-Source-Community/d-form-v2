@@ -2,7 +2,6 @@ import type {
     TBundleGroupReviewStatus,
     TFormAnswerReviewStatus,
     TMemberConfirmationStatus,
-    TRegistrantStatus,
 } from '@/types/registrationStatus';
 
 declare global {
@@ -108,24 +107,6 @@ declare global {
         required?: boolean;
         placeholder?: string;
         options?: IFormFieldOption[];
-    }
-
-    interface IRegistrant {
-        id: string;
-        form_id: string;
-        form: { id: string; title: string };
-        user: {
-            id: string;
-            name: string;
-            email: string;
-            avatar: string | null;
-        };
-        event_id: string;
-        status: TRegistrantStatus;
-        submitted_at: string;
-        answers: Record<string, string>;
-        registration_code?: string | null;
-        reviewed_at?: string | null;
     }
 
     interface IFormSubmission {

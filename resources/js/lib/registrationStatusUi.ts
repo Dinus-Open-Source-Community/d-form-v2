@@ -3,7 +3,6 @@ import type {
     TBundleGroupReviewStatus,
     TFormAnswerReviewStatus,
     TMemberConfirmationStatus,
-    TRegistrantStatus,
     TRegistrationRole,
 } from '@/types/registrationStatus';
 
@@ -38,12 +37,6 @@ export const BUNDLE_GROUP_REVIEW_STATUS_BADGES: Record<TBundleGroupReviewStatus,
     rejected: { label: 'Ditolak', class: 'border-destructive/25 bg-destructive/10 text-destructive' },
 };
 
-export const REGISTRANT_STATUS_BADGES: Record<TRegistrantStatus, IStatusPresentation> = {
-    pending: { label: 'Menunggu', class: 'bg-warning/15 text-warning-foreground ring-warning/20' },
-    accepted: { label: 'Disetujui', class: 'bg-success/10 text-success ring-success/15' },
-    rejected: { label: 'Ditolak', class: 'bg-destructive/10 text-destructive ring-destructive/15' },
-};
-
 const REGISTRATION_ROLE_LABELS: Record<TRegistrationRole, string> = {
     leader: 'Ketua',
     member: 'Anggota',
@@ -64,11 +57,6 @@ export function memberConfirmationStatusBadge(
 /** Bundle group review badge. */
 export function bundleGroupReviewStatusBadge(status: TBundleGroupReviewStatus): IStatusPresentation {
     return BUNDLE_GROUP_REVIEW_STATUS_BADGES[status];
-}
-
-/** Registrant list badge. */
-export function registrantStatusBadge(status: TRegistrantStatus): IStatusPresentation {
-    return REGISTRANT_STATUS_BADGES[status];
 }
 
 /** Registration role label; `—` when the role is absent. */

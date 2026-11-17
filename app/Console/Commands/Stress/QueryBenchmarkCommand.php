@@ -147,31 +147,6 @@ final class QueryBenchmarkCommand extends Command
                     SQL,
                 'bindings' => [],
             ],
-            [
-                'name' => 'event_registrant_roster',
-                'sql' => <<<'SQL'
-                    SELECT fa.id, fa.form_id, fa.review_status, fa.created_at, u.name, u.email
-                    FROM form_answers fa
-                    INNER JOIN forms f ON f.id = fa.form_id
-                    LEFT JOIN users u ON u.id = fa.user_id
-                    WHERE f.event_id = ? AND f.deleted_at IS NULL
-                      AND (fa.registration_role IS NULL OR fa.registration_role <> 'member' OR (fa.registration_role = 'member' AND fa.member_confirmation_status = 'accepted'))
-                    ORDER BY fa.created_at DESC
-                    LIMIT 200
-                    SQL,
-                'bindings' => [$this->samples['event_id']],
-            ],
-            [
-                'name' => 'event_registrant_roster_count',
-                'sql' => <<<'SQL'
-                    SELECT COUNT(*) AS total
-                    FROM form_answers fa
-                    INNER JOIN forms f ON f.id = fa.form_id
-                    WHERE f.event_id = ? AND f.deleted_at IS NULL
-                      AND (fa.registration_role IS NULL OR fa.registration_role <> 'member' OR (fa.registration_role = 'member' AND fa.member_confirmation_status = 'accepted'))
-                    SQL,
-                'bindings' => [$this->samples['event_id']],
-            ],
         ];
     }
 

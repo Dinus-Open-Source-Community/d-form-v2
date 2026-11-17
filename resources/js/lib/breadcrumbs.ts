@@ -35,7 +35,6 @@ export const ACTION_LABELS: Record<string, string> = {
     users: 'Pengguna',
     'check-email': 'Cek Email',
     scan: 'Scan',
-    registrants: 'Peserta',
     laporan: 'Laporan',
     exports: 'Ekspor',
     'attendance-scan': 'Scan Kehadiran',
