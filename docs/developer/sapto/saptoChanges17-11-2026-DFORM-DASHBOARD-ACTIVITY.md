@@ -100,10 +100,11 @@ Entry naik 0.05 kB raw / 0.01 kB gzip. Budget entry (<= 350 kB gzip) terpenuhi. 
 
 ## Known issues dan follow-up
 
-- **Pre-existing, terkonfirmasi**: `DashboardCacheWarmTest::test_request_setelah_warm_tidak_menjalankan_query_berat`
+- **Pre-existing, kini tidak relevan**: `DashboardCacheWarmTest::test_request_setelah_warm_tidak_menjalankan_query_berat`
   gagal karena `EventReportingQuery::registrationCountsFromAggregate()` memutasi `Illuminate\Support\Carbon`
   (`$end = $start->addMonths($months)`), sehingga filter rentang agregat kosong dan query selalu jatuh
-  ke scan `form_answers`. Dibuktikan tetap gagal saat perubahan tiket ini di-stash. Perlu tiket sendiri.
+  ke scan `form_answers`. Path itu dihapus seluruhnya di
+  `saptoChanges17-11-2026-DFORM-DASHBOARD-CHART-REMOVAL.md`, sehingga kegagalan ini ikut hilang.
 - **Pre-existing**: `pint --test` seluruh repo melaporkan 4 file ( `UserEventPortalController.php`,
   `User.php`, `KeysetMergeIterator.php`, `routes/ai.php` ) — tidak disentuh tiket ini.
 - **Pre-existing**: fatal `laravel-debugbar` `QueryCollector` memicu 500 intermiten di environment
