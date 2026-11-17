@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\IndexEventRequest;
 use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
+use App\Http\Requests\UpdateEventStatusRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Form;
@@ -177,6 +178,24 @@ class EventController extends Controller
 
         Inertia::flash('toast', [
             'message' => __('messages.event.edit.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.show', $event);
+    }
+
+    /** Ubah status event dari detail tanpa mengirim ulang seluruh field edit. */
+    public function updateStatus(UpdateEventStatusRequest $request, Event $event): RedirectResponse
+    {
+        $this->authorize('update', $event);
+
+        $status = EventStatus::from($request->validated('status'));
+        $this->eventService->updateStatus($event, $status);
+
+        Inertia::flash('toast', [
+            'message' => __($status === EventStatus::Published
+                ? 'messages.event.publish.success'
+                : 'messages.event.draft.success'),
             'type' => 'success',
         ]);
 

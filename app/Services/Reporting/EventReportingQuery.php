@@ -4,20 +4,12 @@ namespace App\Services\Reporting;
 
 use App\Enums\EventStatus;
 use App\Models\Event;
-use App\Models\EventAttendance;
-use App\Models\FormAnswer;
 use App\Services\Event\EventCache;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\DB;
 
 final class EventReportingQuery
 {
-    /** Ringkasan admin di-cache singkat; angka global jarang berubah di antara dua buka halaman. */
-    private const GLOBAL_SUMMARY_TTL_SECONDS = 300;
-
     /*
      * Kunci & TTL agregat dashboard: satu sumber untuk request path (`HomeController`)
      * dan command `dashboard:warm`. TTL panjang aman karena perubahan event menaikkan
@@ -406,151 +398,5 @@ final class EventReportingQuery
     private function computeDashboardRegistrants(): array
     {
         return ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')];
-    }
-
-    /**
-     * @return array{
-     *     submission_count: int,
-     *     attended_count: int,
-     *     attendance_rate_percent: float|null,
-     *     registered_count: int,
-     *     quota: int|null
-     * }
-     */
-    public function eventReportingSummary(Event $event): array
-    {
-        $submissionCount = (int) FormAnswer::query()
-            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
-            ->where('forms.event_id', $event->id)
-            ->whereNull('forms.deleted_at')
-            ->count();
-
-        $attendedCount = (int) EventAttendance::query()
-            ->where('event_id', $event->id)
-            ->count();
-
-        return [
-            'submission_count' => $submissionCount,
-            'attended_count' => $attendedCount,
-            'attendance_rate_percent' => $submissionCount > 0
-                ? round(($attendedCount / $submissionCount) * 100, 1)
-                : null,
-            'registered_count' => (int) $event->registered_count,
-            'quota' => $event->quota !== null ? (int) $event->quota : null,
-        ];
-    }
-
-    /**
-     * Ringkasan agregat lintas event untuk halaman laporan; hasilnya di-cache 5 menit
-     * dengan buster statistik agar tiga COUNT besar tidak dijalankan tiap buka halaman.
-     *
-     * @return array{
-     *     total_events: int,
-     *     total_submissions: int,
-     *     total_attendance_records: int
-     * }
-     */
-    public function globalAdminSummary(): array
-    {
-        return EventCache::remember(
-            'reporting:global-admin-summary',
-            self::GLOBAL_SUMMARY_TTL_SECONDS,
-            $this->countGlobalAdminSummary(...),
-            EventCache::BUSTER_STATS,
-        );
-    }
-
-    /**
-     * Hitung agregat global dari tabel sumber; hanya dipanggil saat cache ringkasan kosong.
-     *
-     * @return array{
-     *     total_events: int,
-     *     total_submissions: int,
-     *     total_attendance_records: int
-     * }
-     */
-    private function countGlobalAdminSummary(): array
-    {
-        $totalEvents = (int) Event::query()->whereNull('deleted_at')->count();
-
-        $totalSubmissions = (int) FormAnswer::query()
-            ->join('forms', 'form_answers.form_id', '=', 'forms.id')
-            ->join('events', 'forms.event_id', '=', 'events.id')
-            ->whereNull('events.deleted_at')
-            ->whereNull('forms.deleted_at')
-            ->count();
-
-        $totalAttendance = (int) EventAttendance::query()
-            ->join('events', 'event_attendances.event_id', '=', 'events.id')
-            ->whereNull('events.deleted_at')
-            ->count();
-
-        return [
-            'total_events' => $totalEvents,
-            'total_submissions' => $totalSubmissions,
-            'total_attendance_records' => $totalAttendance,
-        ];
-    }
-
-    /**
-     * Log kehadiran event, urut `scanned_at DESC, id DESC`.
-     *
-     * `scanned_at` hanya presisi detik: tie-breaker `id` (uuid) membuat urutan
-     * deterministik, sehingga dua halaman tidak tumpang tindih atau melewatkan
-     * baris saat banyak baris berbagi `scanned_at` yang sama.
-     *
-     * Halaman di luar `lastPage()` (`?page=999999`) di-clamp **sebelum** query
-     * daftar dijalankan: total dihitung sekali, `lastPage` diturunkan dari total,
-     * lalu satu query `LIMIT`/`OFFSET` memakai halaman hasil clamp. Tanpa ini,
-     * nilai `page` raksasa memaksa MySQL berjalan sejauh OFFSET itu (dua kali)
-     * pada setiap request.
-     *
-     * @return LengthAwarePaginator<int, array<string, mixed>>
-     */
-    public function paginateAttendanceLog(Event $event, int $perPage = 20): LengthAwarePaginator
-    {
-        $perPage = max(1, $perPage);
-
-        $total = $this->attendanceLogQuery($event)->count();
-        $lastPage = max(1, (int) ceil($total / $perPage));
-        $page = max(1, min(Paginator::resolveCurrentPage(), $lastPage));
-
-        // `$total` diteruskan agar paginate() tidak menjalankan COUNT kedua.
-        return $this->attendanceLogQuery($event)
-            ->paginate($perPage, ['*'], 'page', $page, $total)
-            ->through(function (EventAttendance $row): array {
-                $user = $row->formAnswer?->user;
-                $scanner = $row->scannedBy;
-
-                return [
-                    'id' => $row->id,
-                    'scanned_at' => $row->scanned_at->toIso8601String(),
-                    'form_answer_id' => $row->form_answer_id,
-                    'attendee' => $user !== null
-                        ? ['name' => $user->name, 'email' => $user->email]
-                        : null,
-                    'scanned_by' => $scanner !== null
-                        ? ['name' => $scanner->name, 'email' => $scanner->email]
-                        : null,
-                ];
-            });
-    }
-
-    /**
-     * Query dasar log kehadiran: filter, eager load, dan urutan di satu tempat
-     * agar COUNT dan SELECT tidak bisa drift.
-     *
-     * @return Builder<EventAttendance>
-     */
-    private function attendanceLogQuery(Event $event): Builder
-    {
-        return EventAttendance::query()
-            ->where('event_id', $event->id)
-            ->with([
-                'formAnswer.user:id,name,email',
-                'scannedBy:id,name,email',
-            ])
-            ->orderByDesc('scanned_at')
-            ->orderByDesc('id');
     }
 }

@@ -18,11 +18,26 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class EventService
 {
     /** Jumlah event per halaman di halaman jelajah (/browse). */
     public const PUBLIC_BROWSE_PER_PAGE = 5;
+
+    /** Field yang wajib terisi sebelum event boleh dipublikasikan. */
+    private const PUBLISH_REQUIRED_FIELDS = [
+        'title',
+        'location',
+        'description',
+        'registration_start',
+        'registration_end',
+        'start_date',
+        'end_date',
+        'quota',
+        'session',
+        'category',
+    ];
 
     /** Batas event yang ditampilkan di portal "/joined" agar payload dan query tidak tumbuh tanpa batas. */
     public const USER_JOINED_LIMIT = 60;
@@ -291,6 +306,31 @@ class EventService
         }
 
         $event->update($data);
+
+        return $event->refresh();
+    }
+
+    /**
+     * Ubah status publish/draft tanpa menyentuh field lain.
+     *
+     * Publish hanya boleh bila seluruh field wajib sudah terisi; draft selalu boleh.
+     */
+    public function updateStatus(Event $event, EventStatus $status): Event
+    {
+        if ($status === EventStatus::Published) {
+            $missingFields = array_filter(
+                self::PUBLISH_REQUIRED_FIELDS,
+                static fn (string $field): bool => blank($event->getAttribute($field)),
+            );
+
+            if ($missingFields !== []) {
+                throw ValidationException::withMessages([
+                    'status' => __('messages.event.publish.incomplete'),
+                ]);
+            }
+        }
+
+        $event->update(['status' => $status]);
 
         return $event->refresh();
     }

@@ -9,7 +9,6 @@ import EventShowAboutCard from '@/components/modules/dashboard/EventShowAboutCar
 import EventShowAsideRail from '@/components/modules/dashboard/EventShowAsideRail.vue';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDashboardEventShowPage } from '@/hooks/useDashboardEventShowPage';
-import { routes } from '@/lib/routes';
 import type { IEventFormSummary } from '@/types/form';
 
 defineOptions({ layout: DashboardFocusLayout });
@@ -18,8 +17,6 @@ const props = defineProps<{
     event: IEvent;
     forms: IEventFormSummary[];
 }>();
-
-const laporanHref = routes.admin.events.laporan(props.event.id);
 
 const p = reactive(useDashboardEventShowPage(props.event, props.forms));
 </script>
@@ -51,7 +48,6 @@ const p = reactive(useDashboardEventShowPage(props.event, props.forms));
                         :event="props.event"
                         :forms="p.forms"
                         :card-shadow="p.cardShadow"
-                        :laporan-href="laporanHref"
                         @open-archive="p.showDeleteModal = true"
                         @open-restore="p.showRestoreModal = true"
                     />

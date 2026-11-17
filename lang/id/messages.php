@@ -19,6 +19,13 @@ return [
         'restore' => [
             'success' => 'event berhasil dipulihkan',
             'failed' => 'gagal memulihkan event ini'
+        ],
+        'publish' => [
+            'success' => 'event berhasil dipublikasikan',
+            'incomplete' => 'lengkapi data wajib event sebelum mempublikasikan'
+        ],
+        'draft' => [
+            'success' => 'event dipindahkan ke draft'
         ]
     ],
     'form' => [

@@ -19,6 +19,13 @@ return [
         'restore' => [
             'success' => 'event restored successfully',
             'failed' => 'failed to restore this event'
+        ],
+        'publish' => [
+            'success' => 'event published successfully',
+            'incomplete' => 'complete the required event details before publishing'
+        ],
+        'draft' => [
+            'success' => 'event moved to draft'
         ]
     ],
     'form' => [

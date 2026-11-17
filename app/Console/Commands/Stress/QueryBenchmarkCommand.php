@@ -2,8 +2,6 @@
 
 namespace App\Console\Commands\Stress;
 
-use App\Models\Event;
-use App\Services\Reporting\EventReportingQuery;
 use App\Services\Scan\ScanStreamFeed;
 use Closure;
 use Illuminate\Console\Command;
@@ -264,16 +262,6 @@ final class QueryBenchmarkCommand extends Command
     {
         return [
             [
-                'name' => 'reporting_event_submission_count',
-                'sql' => <<<'SQL'
-                    SELECT COUNT(*) AS total
-                    FROM form_answers fa
-                    INNER JOIN forms f ON f.id = fa.form_id
-                    WHERE f.event_id = ? AND f.deleted_at IS NULL
-                    SQL,
-                'bindings' => [$this->samples['event_id']],
-            ],
-            [
                 'name' => 'reporting_registration_trend',
                 'sql' => 'SELECT '.$this->monthExpression().' AS ym, COUNT(*) AS c
                     FROM form_answers fa
@@ -282,30 +270,6 @@ final class QueryBenchmarkCommand extends Command
                     WHERE e.deleted_at IS NULL AND f.deleted_at IS NULL AND fa.created_at >= ?
                     GROUP BY ym ORDER BY ym',
                 'bindings' => [now()->startOfMonth()->subMonths(5)->format('Y-m-d H:i:s')],
-            ],
-            [
-                'name' => 'reporting_global_submission_count',
-                'sql' => <<<'SQL'
-                    SELECT COUNT(*) AS total
-                    FROM form_answers fa
-                    INNER JOIN forms f ON f.id = fa.form_id
-                    INNER JOIN events e ON e.id = f.event_id
-                    WHERE e.deleted_at IS NULL AND f.deleted_at IS NULL
-                    SQL,
-                'bindings' => [],
-            ],
-            [
-                'name' => 'reporting_attendance_log_page',
-                'sql' => <<<'SQL'
-                    SELECT ea.id, ea.scanned_at, ea.form_answer_id, u.name, u.email
-                    FROM event_attendances ea
-                    LEFT JOIN form_answers fa ON fa.id = ea.form_answer_id
-                    LEFT JOIN users u ON u.id = fa.user_id
-                    WHERE ea.event_id = ?
-                    ORDER BY ea.scanned_at DESC
-                    LIMIT 20
-                    SQL,
-                'bindings' => [$this->samples['event_id']],
             ],
         ];
     }
@@ -750,14 +714,6 @@ final class QueryBenchmarkCommand extends Command
     private function probeQueryCounts(): array
     {
         $probes = [];
-        $event = $this->samples['event_id'] !== null ? Event::query()->find($this->samples['event_id']) : null;
-
-        if ($event instanceof Event) {
-            $probes[] = [
-                'target' => 'EventReportingQuery::eventReportingSummary',
-                'run' => fn (): array => app(EventReportingQuery::class)->eventReportingSummary($event),
-            ];
-        }
 
         $probes[] = [
             'target' => 'ScanStreamFeed::since(50)',

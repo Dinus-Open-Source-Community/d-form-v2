@@ -72,7 +72,7 @@ describe('useExportDownload', () => {
         downloadMock.mockResolvedValue({ mode: 'direct', fileName: 'laporan.csv' });
         const state = useExportDownload();
 
-        const summary = await state.start(['/export/laporan']);
+        const summary = await state.start(['/export/test']);
 
         expect(summary).toEqual({ streamCount: 0, directCount: 1 });
         expect(state.directCount.value).toBe(1);

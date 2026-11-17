@@ -90,7 +90,7 @@ Task terjadwal (`bootstrap/app.php` → `withSchedule`):
 
 | Path                   | Isi                                                                                 | Catatan                                                                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `app/Http/Controllers` | 68 controller                                                                       | dibagi `Auth`, `Dashboard/{Events,Scan,Users,User,Recruitment,Broadcasts,Broadcasting}`, `Events/Forms`, `Recruitment`        |
+| `app/Http/Controllers` | 74 controller                                                                       | dibagi `Auth`, `Dashboard/{Events,Scan,Users,User,Recruitment,Broadcasts,Broadcasting}`, `Events/Forms`, `Recruitment`        |
 | `app/Services`         | 77 service                                                                          | domain dibagi per folder: `Event`, `Form`, `Registration`, `Recruitment`, `Scan`, `Broadcasting`, `Reporting`, `User`, `Auth` |
 | `app/Jobs`             | 15 job                                                                              | email, broadcast, `RecordAttendanceJob`                                                                                       |
 | `app/Models`           | 15 model root + 14 `Recruitment/*`                                                  | relasi & cast lihat §7                                                                                                        |
@@ -108,13 +108,13 @@ Lapisan yang **tidak ada**: `app/Events`, `app/Listeners` kosong; tidak ada even
 
 | Path                                | Isi                                                                                                                        |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `pages/`                            | 57 file Vue: 56 page route Inertia + 1 komponen anak (`Dashboard/Recruitment/MyInterviews/InterviewRowCard.vue`)            |
+| `pages/`                            | 54 file Vue: 53 page route Inertia + 1 komponen anak (`Dashboard/Recruitment/MyInterviews/InterviewRowCard.vue`)            |
 | `layouts/`                          | `DashboardLayout`, `DashboardFocusLayout`, `FormFillLayout`, `AuthLayout`, `LandingLayout` (`AppLayout.vue` tidak dipakai) |
 | `components/ui/`                    | 35 direktori: 27 shadcn-vue asli + 8 wrapper non-shadcn (utang teknis)                                                     |
 | `components/core/`                  | wrapper tipis: auth input/button, modal konfirmasi, pagination, deferred render, lottie                                     |
 | `components/modules/`               | komponen per fitur: `auth/`, `builder/`, `dashboard/`, `landing/`, `open-recruitment/`, `user/`                            |
 | `components/seo/`                   | `SeoHead.vue` untuk title, description, canonical URL, dan JSON-LD pada page yang membutuhkannya                           |
-| `hooks/`                            | 23 composable `useXxx` + barrel `index.ts`; dua guard global dipanggil langsung dari `app.js`, hook lain dipakai page/component |
+| `hooks/`                            | 37 composable `useXxx` + barrel `index.ts`; dua guard global dipanggil langsung dari `app.js`, hook lain dipakai page/component |
 | `utils/composables/`                | **dihapus** pada `FE-AUDIT-003`; `utils/` hanya menyisakan `stripHtml.ts` dan `theme.js` legacy                          |
 | `lib/`                              | 37 file: 36 fungsi murni + `routes.ts` (jalur URL manual, 75 import)                                                       |
 | `types/`                            | kontrak TS: `global.d.ts`, `form.ts`, `form-builder.ts`, `event.d.ts`, `seo.d.ts`, …                                       |
@@ -547,7 +547,7 @@ Aturan yang **berlaku di kode sekarang**:
 
 **Catatan utang teknis:** `components/ui/` berisi 35 direktori, 8 di antaranya bukan shadcn asli (`autosave-status`, `date-picker`, `simple-select`, `searchable-select`, `styled-select`, `native-select`, `input-group`, `spinner`). Aturan "ui/ jangan diubah" tetap berlaku; kustomisasi baru lewat `core/`.
 
-**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,47 kB raw** dan **15,54 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
+**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,20 kB raw** dan **15,51 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
 
 ---
 
@@ -555,11 +555,11 @@ Aturan yang **berlaku di kode sekarang**:
 
 | Aspek              | Kondisi aktual                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------- |
-| PHPUnit            | 123 test class: 109 `tests/Feature`, 14 `tests/Unit`; 125 file PHP termasuk `TestCase` dan satu support helper (`tests/Support/RecruitmentInterviewFlow.php`) |
-| Distribusi Feature | Recruitment 42, Auth 12, Dashboard 12, Forms 10, Stress 5, Scan 5, Reporting 4, Security 2, Broadcasting 2, Events 1, Broadcast 1, root 13 |
+| PHPUnit            | 178 test class `tests/Feature`, 28 `tests/Unit`; run penuh 17-11-2026: 1623 passed, 12 skipped, 1 gagal pre-existing (EXPLAIN MySQL recruitment) |
+| Distribusi Feature | Recruitment 59, Auth 14, Dashboard 16, Forms 28, Stress 5, Scan 5, Reporting 1, Security 7, Broadcasting 9, Events 2, root 14 |
 | Env test           | SQLite `:memory:`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array`      |
 | `RefreshDatabase`  | **tidak** global; dipasang per test. `TestCase` hanya mematikan CSRF                      |
-| Frontend test      | 13 Playwright E2E spec di `tests/e2e`; belum ada Vitest atau frontend unit test; script tersedia sebagai `test:e2e*` |
+| Frontend test      | 84 Playwright E2E spec di `tests/e2e` + Vitest 987 test (90 file); script `test:e2e*`, `test:unit`, `typecheck` |
 | Lint/format        | `./vendor/bin/pint --test` (PSR-12), `npm run lint` (ESLint 10), `npx prettier --check .` |
 | Test command       | `composer test` → `config:clear` + `artisan test`                                         |
 

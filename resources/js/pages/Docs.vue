@@ -23,7 +23,6 @@ import {
     ArrowUp,
     ToggleRight,
     Layers,
-    FileText,
     Database,
     Code2,
     Lock,
@@ -98,7 +97,6 @@ const navSections: { group: string; items: NavItem[] }[] = [
             { id: 'submissions', label: 'Mengelola Submisi' },
             { id: 'qr-scan', label: 'QR & Absensi' },
             { id: 'export', label: 'Ekspor Data' },
-            { id: 'reporting', label: 'Laporan Acara' },
         ],
     },
     {
@@ -887,9 +885,11 @@ onUnmounted(() => {
                                 Ekspor Data
                             </h2>
                             <p class="text-muted-foreground mt-4 text-sm leading-relaxed">
-                                Dua jenis ekspor CSV tersedia dari halaman detail acara:
+                                Export CSV pendaftaran tersedia dari menu
+                                <span class="font-medium">Export data</span> pada kartu acara, atau langsung dari
+                                endpoint di bawah.
                             </p>
-                            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                            <div class="mt-5 grid gap-3">
                                 <div class="border-border/40 bg-muted/20 rounded-xl border p-4">
                                     <h3 class="text-foreground text-sm font-semibold">Registrations CSV</h3>
                                     <p class="text-muted-foreground mt-1 text-xs">
@@ -897,41 +897,7 @@ onUnmounted(() => {
                                         → value). URL: <code>.../exports/registrations.csv</code>
                                     </p>
                                 </div>
-                                <div class="border-border/40 bg-muted/20 rounded-xl border p-4">
-                                    <h3 class="text-foreground text-sm font-semibold">Attendance CSV</h3>
-                                    <p class="text-muted-foreground mt-1 text-xs">
-                                        Log absensi (scan) termasuk waktu scan dan siapa yang men-scan. URL:
-                                        <code>.../exports/attendance.csv</code>
-                                    </p>
-                                </div>
                             </div>
-                        </section>
-
-                        <hr class="border-border/30 my-12" />
-
-                        <section id="reporting" data-doc-section class="scroll-mt-24">
-                            <h2 class="text-foreground flex items-center gap-3 text-2xl font-bold tracking-tight">
-                                <FileText class="text-primary size-6" />
-                                Laporan Acara
-                            </h2>
-                            <p class="text-muted-foreground mt-4 text-sm leading-relaxed">
-                                Halaman Laporan (<code>/admin/events/{event}/laporan</code>) menyediakan ringkasan
-                                komprehensif per acara:
-                            </p>
-                            <ul class="text-muted-foreground mt-3 space-y-1.5 text-sm">
-                                <li class="flex gap-2">
-                                    <ChevronRight class="text-primary mt-0.5 size-4 shrink-0" /> KPI ringkasan (total
-                                    pendaftar, accepted, attendance rate)
-                                </li>
-                                <li class="flex gap-2">
-                                    <ChevronRight class="text-primary mt-0.5 size-4 shrink-0" /> Panel log absensi
-                                    dengan pagination
-                                </li>
-                                <li class="flex gap-2">
-                                    <ChevronRight class="text-primary mt-0.5 size-4 shrink-0" /> Link langsung ke CSV
-                                    export untuk arsip
-                                </li>
-                            </ul>
                         </section>
 
                         <hr class="border-border/30 my-12" />
@@ -1372,8 +1338,7 @@ onUnmounted(() => {
                                         Reporting/EventReportingQuery
                                     </h3>
                                     <p class="text-muted-foreground mt-0.5 text-xs">
-                                        Trends, category breakdowns, global/event summaries, attendance pagination for
-                                        reporting page.
+                                        Statistik dan tren dashboard yang di-cache, termasuk agregat pendaftar harian.
                                     </p>
                                 </div>
                             </div>

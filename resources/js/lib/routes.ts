@@ -13,7 +13,6 @@ import {
     create as eventCreate,
     edit as eventEdit,
     index as eventsIndexAdmin,
-    laporan as eventLaporan,
     show as eventShowAdmin,
 } from '@/routes/dashboard/events';
 import { registrationsCsv } from '@/routes/dashboard/events/exports';
@@ -267,7 +266,6 @@ export const routes = {
             },
             show: (eventId: string | number): string => eventShowAdmin.url({ event: String(eventId) }),
             edit: (eventId: string | number): string => eventEdit.url({ event: String(eventId) }),
-            laporan: (eventId: string | number): string => eventLaporan.url({ event: String(eventId) }),
             exports: {
                 registrations: (eventId: string | number): string => registrationsCsv.url({ event: String(eventId) }),
             },

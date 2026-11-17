@@ -10,7 +10,6 @@ use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
 use App\Http\Controllers\Dashboard\User\UserJoinedEventsController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Dashboard\Events\Exports\EventAttendanceCsvExportController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
@@ -90,8 +89,5 @@ Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name(
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)
         ->middleware('throttle:recruitment-export')
         ->name('exports.registrations-csv');
-    Route::get('/exports/attendance.csv', EventAttendanceCsvExportController::class)
-        ->middleware('throttle:recruitment-export')
-        ->name('exports.attendance-csv');
     Route::get('/scan', fn () => to_route('dashboard.scan.index'))->name('scan');
 });

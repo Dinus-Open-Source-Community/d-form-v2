@@ -80,7 +80,6 @@ const SURVIVING_ROUTE_KEYS = [
     'admin.events.create',
     'admin.events.show',
     'admin.events.edit',
-    'admin.events.laporan',
     'admin.events.exports.registrations',
     'admin.events.forms.create',
     'admin.events.forms.show',
