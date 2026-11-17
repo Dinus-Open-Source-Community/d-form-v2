@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\User;
 use App\Services\Event\EventService;
 use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Response as InertiaResponse;
 
 /** Dashboard aggregates come from prewarmed cache; misses show zeroes until `dashboard:warm` repopulates it. */
@@ -20,6 +22,12 @@ class HomeController extends Controller
 
     public function __invoke(Request $request): InertiaResponse
     {
+        $user = $request->user();
+
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
         $eventStats = $this->reportingQuery->dashboardEventStats();
 
         $stats = [
@@ -29,6 +37,7 @@ class HomeController extends Controller
 
         // Kolom `description` tidak dipakai kartu dashboard; hanya 5 baris, tapi tetap dipangkas.
         $recentEvents = Event::query()
+            ->visibleTo($user)
             ->whereNull('deleted_at')
             ->orderByDesc('created_at')
             ->limit(5)
@@ -42,16 +51,12 @@ class HomeController extends Controller
             ->values()
             ->all();
 
-        $adminCharts = [
-            'registrationTrend' => $this->reportingQuery->registrationTrendOverMonths(6),
-            'categoryBreakdown' => $this->reportingQuery->eventsCountByCategoryToken(),
-        ];
         $weeklyKpiTrends = $this->reportingQuery->dashboardWeeklyKpiTrends(6);
 
         return inertia('Dashboard/Index', [
             'recentEvents' => $recentEvents,
             'stats' => $stats,
-            'adminCharts' => $adminCharts,
+            'canCreateEvent' => Gate::allows('create', Event::class),
             'weeklyKpiTrends' => $weeklyKpiTrends,
         ]);
     }

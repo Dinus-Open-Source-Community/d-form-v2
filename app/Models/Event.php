@@ -189,6 +189,24 @@ class Event extends Model
         });
     }
 
+    /**
+     *
+     * Acara yang boleh dilihat user: super-admin semua, lainnya miliknya atau tanpa pemilik.
+     * Syarat pemilik dikelompokkan dalam satu closure agar filter lain tidak bocor ke baris `created_by` NULL.
+     *
+     */
+    #[Scope]
+    public function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->hasRole('super-admin')) {
+            return;
+        }
+
+        $query->where(fn (Builder $owner) => $owner
+            ->where('created_by', $user->id)
+            ->orWhereNull('created_by'));
+    }
+
     #[Scope]
     public function forListPage(Builder $query): void
     {

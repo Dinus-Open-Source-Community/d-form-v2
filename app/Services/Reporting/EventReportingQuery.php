@@ -7,7 +7,6 @@ use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\FormAnswer;
 use App\Services\Event\EventCache;
-use App\Services\Event\EventCategoryCounter;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,10 +15,6 @@ use Illuminate\Support\Facades\DB;
 
 final class EventReportingQuery
 {
-    public function __construct(private readonly EventCategoryCounter $categoryCounter)
-    {
-    }
-
     /** Ringkasan admin di-cache singkat; angka global jarang berubah di antara dua buka halaman. */
     private const GLOBAL_SUMMARY_TTL_SECONDS = 300;
 
@@ -34,127 +29,14 @@ final class EventReportingQuery
 
     private const DASHBOARD_WEEKLY_KPI_KEY = 'dashboard:stats:weekly-kpi';
 
-    public const DASHBOARD_CATEGORY_TOKENS_KEY = 'report:category-tokens';
-
     private const DASHBOARD_EVENT_STATS_TTL_SECONDS = 900;
 
     private const DASHBOARD_REGISTRANTS_TTL_SECONDS = 60;
 
     private const DASHBOARD_WEEKLY_KPI_TTL_SECONDS = 300;
 
-    private const DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS = 21600;
-
-    /** Cache fallback sumber: hanya dipakai sebelum agregat harian diisi. */
-    public const REGISTRATION_TREND_SOURCE_KEY = 'reporting:registration-trend-source';
-
-    public const BUSTER_REGISTRATION_TREND_SOURCE = 'reporting:registration-trend-source:buster';
-
-    private const REGISTRATION_TREND_SOURCE_TTL_SECONDS = 21600;
-
     /** Jumlah baris agregat per statement INSERT saat rebuild (tabel kecil, aman untuk MariaDB). */
     private const REBUILD_INSERT_CHUNK_SIZE = 500;
-
-    /**
-     * Registration submissions per calendar month over the last N months.
-     * Dibaca dari agregat harian `event_daily_registrations` (SUM(count)); sumber
-     * 1 juta baris hanya dipakai bila tabel agregat belum pernah diisi.
-     *
-     * @return list<array{key: string, label: string, count: int}>
-     */
-    public function registrationTrendOverMonths(int $months = 6): array
-    {
-        $months = max(1, min(36, $months));
-
-        $aggregateCounts = $this->registrationCountsFromAggregate($months);
-        $counts = $aggregateCounts->isNotEmpty()
-            ? $aggregateCounts
-            : $this->registrationCountsFromSource($months);
-
-        $out = [];
-        $cursor = now()->startOfMonth()->subMonths($months - 1);
-        $endMonth = now()->startOfMonth();
-
-        while ($cursor->lte($endMonth)) {
-            $key = $cursor->format('Y-m');
-            $out[] = [
-                'key' => $key,
-                'label' => $cursor->translatedFormat('M Y'),
-                'count' => (int) ($counts[$key] ?? 0),
-            ];
-            $cursor->addMonth();
-        }
-
-        return $out;
-    }
-
-    /**
-     * Jumlah registrasi per bulan dari tabel agregat (satu baris per tanggal).
-     *
-     * @return \Illuminate\Support\Collection<string, int>
-     */
-    private function registrationCountsFromAggregate(int $months)
-    {
-        $start = now()->startOfMonth()->subMonths($months - 1);
-        $end = $start->addMonths($months);
-
-        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', registration_date)"
-            : "DATE_FORMAT(registration_date, '%Y-%m')";
-
-        return DB::table('event_daily_registrations')
-            ->where('registration_date', '>=', $start->toDateString())
-            ->where('registration_date', '<', $end->toDateString())
-            ->selectRaw("{$monthExpr} as ym")
-            ->selectRaw('SUM(count) as c')
-            ->groupBy('ym')
-            ->orderBy('ym')
-            ->pluck('c', 'ym');
-    }
-
-    /**
-     * Fallback: hitung langsung dari form_answers (hanya bila agregat kosong).
-     * Hasilnya di-cache per jumlah bulan agar cache dingin tidak memindai 1 juta
-     * baris pada setiap request; `analytics:rebuild-daily-registrations` menaikkan
-     * buster ini setelah agregat diisi.
-     *
-     * @return \Illuminate\Support\Collection<string, int>
-     */
-    private function registrationCountsFromSource(int $months)
-    {
-        $cached = EventCache::remember(
-            self::REGISTRATION_TREND_SOURCE_KEY.':'.$months,
-            self::REGISTRATION_TREND_SOURCE_TTL_SECONDS,
-            fn (): array => $this->computeRegistrationCountsFromSource($months)->all(),
-            self::BUSTER_REGISTRATION_TREND_SOURCE,
-        );
-
-        return collect($cached);
-    }
-
-    /**
-     * Scan sumber dibatasi index `form_answers_created_at_index`. Join `forms`/`events`
-     * sengaja dihindari: optimizer memilih full scan `forms` (960k) + 1 juta lookup UUID
-     * (>300 s di data stress). Definisi hitungannya sama dengan FormAnswerObserver
-     * (semua submisi), jadi agregat hasil rebuild identik dengan fallback.
-     *
-     * @return \Illuminate\Support\Collection<string, int>
-     */
-    private function computeRegistrationCountsFromSource(int $months)
-    {
-        $start = now()->startOfMonth()->subMonths($months - 1);
-
-        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', form_answers.created_at)"
-            : "DATE_FORMAT(form_answers.created_at, '%Y-%m')";
-
-        return DB::table('form_answers')
-            ->where('form_answers.created_at', '>=', $start)
-            ->selectRaw("{$monthExpr} as ym")
-            ->selectRaw('COUNT(*) as c')
-            ->groupBy('ym')
-            ->orderBy('ym')
-            ->pluck('c', 'ym');
-    }
 
     /**
      * Isi ulang `event_daily_registrations` dari sumber. Idempoten: seluruh isi tabel
@@ -174,8 +56,6 @@ final class EventReportingQuery
                 DB::table('event_daily_registrations')->insert($chunk);
             }
         });
-
-        EventCache::bump(self::BUSTER_REGISTRATION_TREND_SOURCE);
 
         return [
             'total' => array_sum(array_column($rows, 'count')),
@@ -205,24 +85,6 @@ final class EventReportingQuery
                 'count' => (int) $row->c,
             ])
             ->all();
-    }
-
-    /**
-     * Count non-deleted events that include each category token at least once.
-     * Sumbernya tabel agregat `event_category_counts`, jadi hitung ulang saat cache
-     * kosong hanya menyentuh <=100 baris (bukan `GROUP BY` 1 juta baris `events`).
-     *
-     * @return list<array{token: string, count: int}>
-     */
-    public function eventsCountByCategoryToken(): array
-    {
-        // Agregasi di SQL: cursor() membuffer seluruh result set PDO dan OOM pada data besar.
-        return EventCache::remember(
-            self::DASHBOARD_CATEGORY_TOKENS_KEY,
-            self::DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS,
-            fn (): array => $this->computeCategoryTokens(),
-            EventCache::BUSTER_CATEGORY,
-        );
     }
 
     /**
@@ -456,7 +318,6 @@ final class EventReportingQuery
     /**
      * Isi cache `/dashboard` di luar request path: alat opsional setelah deploy/seed agar
      * pengunjung pertama tidak menunggu. Kunci yang masih terisi dilewati kecuali `$force`.
-     * Tren registrasi tidak ikut: sumbernya agregat harian, hanya 4 ms.
      *
      * @return list<array{key: string, milliseconds: int, rows: int, skipped: bool}>
      */
@@ -474,12 +335,6 @@ final class EventReportingQuery
                 'ttl' => self::DASHBOARD_REGISTRANTS_TTL_SECONDS,
                 'resolver' => fn (): array => $this->computeDashboardRegistrants(),
                 'buster' => EventCache::BUSTER_REGISTRANTS,
-            ],
-            [
-                'key' => self::DASHBOARD_CATEGORY_TOKENS_KEY,
-                'ttl' => self::DASHBOARD_CATEGORY_TOKENS_TTL_SECONDS,
-                'resolver' => fn (): array => $this->computeCategoryTokens(),
-                'buster' => EventCache::BUSTER_CATEGORY,
             ],
         ];
 
@@ -551,22 +406,6 @@ final class EventReportingQuery
     private function computeDashboardRegistrants(): array
     {
         return ['total' => (int) Event::query()->whereNull('deleted_at')->sum('registered_count')];
-    }
-
-    /**
-     * Token kategori dari tabel agregat (dijaga EventObserver + command rebuild),
-     * sehingga tidak ada `GROUP BY` pada 1 juta baris walau cache sedang dingin.
-     *
-     * @return list<array{token: string, count: int}>
-     */
-    private function computeCategoryTokens(): array
-    {
-        $tokens = $this->categoryCounter->counts();
-
-        // Urutan token dipertahankan A→Z seperti agregasi lama, walau tabel urut total desc.
-        usort($tokens, static fn (array $a, array $b): int => strcmp($a['token'], $b['token']));
-
-        return $tokens;
     }
 
     /**

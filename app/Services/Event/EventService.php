@@ -189,7 +189,7 @@ class EventService
 
         return $this->rememberList(
             "list-page:events:{$hashedQuery}",
-            function () use ($filter, $sort, $search, $perPage, $page, $isSuperAdmin, $userId) {
+            function () use ($filter, $sort, $search, $perPage, $page, $user) {
                 $query = Event::query();
 
                 if (! empty($filter['showTrashed'])) {
@@ -208,12 +208,8 @@ class EventService
                     $query->whereIn('status', $filter['statuses']);
                 }
 
-                if (! $isSuperAdmin) {
-                    // Dikelompokkan: filter status/kategori/timeline tidak boleh bocor ke baris created_by NULL.
-                    $query->where(fn ($owner) => $owner
-                        ->where('created_by', $userId)
-                        ->orWhereNull('created_by'));
-                }
+                // Satu aturan kepemilikan untuk index admin dan dashboard (lihat Event::visibleTo).
+                $query->visibleTo($user);
 
                 $showTrashed = ! empty($filter['showTrashed']);
                 $timeline = $filter['timeline'] ?? 'all';

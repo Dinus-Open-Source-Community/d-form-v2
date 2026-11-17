@@ -6,14 +6,14 @@ use App\Services\Reporting\EventReportingQuery;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-/** Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik event, jumlah pendaftar, breakdown kategori). */
+/** Alat opsional untuk mengisi cache agregat `/dashboard` di luar request path (statistik event dan jumlah pendaftar). */
 class WarmDashboardCacheCommand extends Command
 {
     protected $signature = 'dashboard:warm
         {--force : Hitung ulang walau cache masih terisi}
         {--rebuild-trend : Paksa hitung ulang agregat harian dari sumber}';
 
-    protected $description = 'Hitung ulang cache dashboard (statistik, pendaftar, kategori) tanpa membebani request';
+    protected $description = 'Hitung ulang cache dashboard (statistik dan pendaftar) tanpa membebani request';
 
     public function handle(EventReportingQuery $reportingQuery): int
     {

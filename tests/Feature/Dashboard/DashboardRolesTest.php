@@ -32,7 +32,7 @@ class DashboardRolesTest extends TestCase
         return $user;
     }
 
-    public function test_admin_dashboard_returns_stats_charts_and_recent_events(): void
+    public function test_admin_dashboard_returns_stats_and_recent_events(): void
     {
         Event::factory()->count(2)->create(['status' => EventStatus::Published]);
         $this->artisan('dashboard:warm');
@@ -44,9 +44,7 @@ class DashboardRolesTest extends TestCase
                 ->component('Dashboard/Index')
                 ->where('stats.totalEvents', 2)
                 ->where('stats.activeEvents', 2)
-                ->has('recentEvents', 2)
-                ->has('adminCharts.registrationTrend')
-                ->has('adminCharts.categoryBreakdown'));
+                ->has('recentEvents', 2));
     }
 
     public function test_admin_stats_refresh_after_event_changes(): void
