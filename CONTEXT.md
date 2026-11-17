@@ -547,7 +547,7 @@ Aturan yang **berlaku di kode sekarang**:
 
 **Catatan utang teknis:** `components/ui/` berisi 35 direktori, 8 di antaranya bukan shadcn asli (`autosave-status`, `date-picker`, `simple-select`, `searchable-select`, `styled-select`, `native-select`, `input-group`, `spinner`). Aturan "ui/ jangan diubah" tetap berlaku; kustomisasi baru lewat `core/`.
 
-**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,20 kB raw** dan **15,51 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
+**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,20 kB raw** dan **15,50 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
 
 ---
 

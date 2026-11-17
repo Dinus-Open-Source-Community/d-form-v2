@@ -289,11 +289,6 @@ class EventService
     {
         unset($data['banner']);
 
-        if (array_key_exists('publish', $data)) {
-            $data['status'] = ! empty($data['publish']) ? EventStatus::Published : EventStatus::Draft;
-        }
-        unset($data['publish']);
-
         if ($banner !== null) {
             if ($event->banner) {
                 Storage::disk('public')->delete($event->banner);

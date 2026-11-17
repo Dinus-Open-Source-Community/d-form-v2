@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md](./saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md) | Hapus aksi "Simpan & terbitkan" dari edit event sampai akar: payload edit tanpa `publish`, rule `UpdateEventRequest` dihapus, cabang publish di `EventService::update` dihapus; simpan edit mempertahankan status, create tetap "Terbitkan". Feature 3 test + regresi 7, E2E edit/create.
+
 - [saptoChanges17-11-2026-DFORM-EVENT-STATUS.md](./saptoChanges17-11-2026-DFORM-EVENT-STATUS.md) | Publish/draft dari kartu Manage event: kartu Lifecycle dilebur, endpoint `PATCH /admin/events/{event}/status`, guard data wajib saat publish, modal konfirmasi, `useEventStatusToggle`, feature test 7 + E2E 1 hijau; entry 49,20 kB / 15,50 kB gzip.
 
 - [saptoChanges17-11-2026-DFORM-LAPORAN-REMOVAL.md](./saptoChanges17-11-2026-DFORM-LAPORAN-REMOVAL.md) | Hapus halaman `/admin/events/{event}/laporan` seluruhnya: route + controller + request, page/panel, method query khusus laporan, attendance CSV, link rail detail event, label breadcrumb, section Docs, probe benchmark, delapan test, dan index 2 kolom `event_attendances_event_id_scanned_at_index`. Registrations CSV, dashboard reporting, `event_daily_registrations`, dan seluruh infrastruktur export/scan dipertahankan; data tidak berubah, URL lama 404. Targeted PHPUnit 135 passed, penuh 1623 passed/12 skipped/1 gagal pre-existing recruitment EXPLAIN, Vitest 987, E2E export desktop+mobile hijau, entry 50,66 → 49,15 kB (15,91 → 15,49 kB gzip).
