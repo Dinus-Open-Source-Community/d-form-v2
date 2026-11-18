@@ -29,6 +29,9 @@ return [
         ]
     ],
     'form' => [
+        'export' => [
+            'too_large' => 'Arsip terlalu besar. Unduh CSV atau kurangi jumlah jawaban.',
+        ],
         'create' => [
             'success' => 'berhasil membuat form baru',
             'failed' => 'gagal membuat form baru'

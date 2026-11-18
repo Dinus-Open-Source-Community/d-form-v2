@@ -32,7 +32,7 @@ class HeavyExportRateLimitTest extends TestCase
             ->filter(fn (Route $route): bool => $this->isExportRoute($route))
             ->values();
 
-        self::assertGreaterThanOrEqual(5, $exportRoutes->count(), 'Daftar export berubah; periksa tiket BE-P3-017.');
+        self::assertGreaterThanOrEqual(7, $exportRoutes->count(), 'Daftar export berubah; periksa tiket BE-P3-017.');
 
         foreach ($exportRoutes as $route) {
             $limiter = $this->throttleLimiter($route);
@@ -49,6 +49,8 @@ class HeavyExportRateLimitTest extends TestCase
             'dashboard.recruitment.reports.export.applicants' => 'recruitment-export',
             'dashboard.recruitment.periods.interviews.export' => 'recruitment-export',
             'dashboard.events.exports.registrations-csv' => 'recruitment-export',
+            'dashboard.events.forms.answers-csv' => 'form-answers-export',
+            'dashboard.events.forms.answers-zip' => 'form-answers-export',
             'dashboard.scan.export' => 'scan-export',
         ];
 
@@ -86,7 +88,8 @@ class HeavyExportRateLimitTest extends TestCase
 
         return str_contains($name, 'export')
             || str_contains($uri, '/export')
-            || str_ends_with($uri, '.csv');
+            || str_ends_with($uri, '.csv')
+            || str_ends_with($uri, '.zip');
     }
 
     /**

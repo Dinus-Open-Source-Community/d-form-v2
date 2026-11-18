@@ -3,6 +3,8 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { resolveBuilderImageUploadUrl } from '@/adapters/http/forms';
 import { currentOrigin } from '@/adapters/browser/navigation';
+import { onDocumentEvent } from '@/adapters/browser/domEvents';
+import { matchesMediaQuery } from '@/adapters/browser/mediaQuery';
 import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
 import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
 import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
@@ -20,8 +22,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
-import { Check, Eye, FileText, Inbox, PenLine, Settings, Share2, X } from 'lucide-vue-next';
+import {
+    Check,
+    Download,
+    Eye,
+    FileArchive,
+    FileSpreadsheet,
+    FileText,
+    Inbox,
+    PenLine,
+    Settings,
+    Share2,
+    X,
+} from 'lucide-vue-next';
 import {
     isDisplayOnlyBuilderType,
     type IBackendField,
@@ -43,7 +58,9 @@ import BulkFormAnswerReviewDialog from '@/components/modules/dashboard/BulkFormA
 import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
 import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
+import AppPagination from '@/components/core/AppPagination.vue';
 import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
+import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
 import { useFormSubmissionBulkReview } from '@/hooks/useFormSubmissionBulkReview';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
@@ -59,6 +76,15 @@ import { FORM_ANSWER_BULK_REVIEW_MAX_SELECTION } from '@/constants/formAnswerRev
 defineOptions({ layout: DashboardLayout });
 
 type TShowTab = 'editor' | 'jawaban' | 'settings';
+
+/** Metadata pagination jawaban dari server (satu halaman per request). */
+interface ISubmissionsPagination {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+}
+
 const props = defineProps<{
     event: { id: string; title: string };
     form: IForm;
@@ -67,8 +93,17 @@ const props = defineProps<{
     siblingForms?: IFormSiblingOption[];
     saveFieldsUrl: string;
     updateFormUrl: string;
+    /** Hanya halaman jawaban yang sedang aktif. */
     submissions?: IFormSubmission[];
     submissionsCount?: number;
+    /** Metadata halaman jawaban; `submissions` berisi satu halaman saja. */
+    submissionsPagination?: ISubmissionsPagination;
+    /** ID yang boleh dipilih lewat "pilih semua" lintas halaman (dibatasi `bulkSelectableLimit`). */
+    selectableSubmissionIds?: string[];
+    bulkSelectableTotal?: number;
+    bulkSelectableLimit?: number;
+    /** URL unduhan jawaban dari backend; `csv` per field, `zip` per pengirim beserta berkas. */
+    exportUrls: { csv: string; zip: string };
 }>();
 
 const page = usePage();
@@ -81,6 +116,82 @@ function tabFromQuery(): TShowTab {
     return raw === 'settings' ? 'settings' : 'editor';
 }
 const activeTab = ref<TShowTab>(tabFromQuery());
+/** Status buka menu Export di tab jawaban; dikendalikan eksplisit dari trigger native. */
+const isExportMenuOpen = ref(false);
+/** Di layar sempit trigger Export ada di kiri header, jadi menu rata kiri agar tidak terpotong. */
+const exportMenuAlign = ref<'start' | 'end'>('end');
+const exportTriggerRef = ref<InstanceType<typeof Button> | null>(null);
+
+/** Buka/tutup menu Export; perataan dipilih saat dibuka sesuai lebar layar. */
+function toggleExportMenu(): void {
+    if (isExportMenuOpen.value) {
+        isExportMenuOpen.value = false;
+        return;
+    }
+    exportMenuAlign.value = matchesMediaQuery('(min-width: 768px)') ? 'end' : 'start';
+    isExportMenuOpen.value = true;
+}
+
+/** Elemen trigger untuk anchor posisi menu; tanpa DropdownMenuTrigger tidak ada anchor otomatis. */
+const exportTriggerElement = computed<HTMLElement | undefined>(() => {
+    const element = exportTriggerRef.value?.$el;
+    return element instanceof HTMLElement ? element : undefined;
+});
+
+/** Fokus kembali ke trigger Export; tanpa DropdownMenuTrigger tidak ada komponen yang mengurusnya. */
+function focusExportTrigger(): void {
+    exportTriggerElement.value?.focus();
+}
+
+/** Sinkronkan status buka menu Export dan pulihkan fokus trigger saat menu ditutup. */
+function onExportMenuOpenChange(open: boolean): void {
+    isExportMenuOpen.value = open;
+    if (!open) focusExportTrigger();
+}
+
+/** Tutup menu Export: dipakai item menu dan tombol Escape. */
+function closeExportMenu(): void {
+    if (!isExportMenuOpen.value) return;
+    isExportMenuOpen.value = false;
+    focusExportTrigger();
+}
+
+/** Escape menutup menu Export; Reka tidak menanganinya di halaman ini. */
+function onExportMenuEscape(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !isExportMenuOpen.value) return;
+    event.stopPropagation();
+    closeExportMenu();
+}
+
+/** Klik di luar menu dan trigger menutup menu; Reka tidak menutupnya di halaman ini. */
+function onExportMenuPointerDown(event: PointerEvent): void {
+    if (!isExportMenuOpen.value) return;
+
+    const path = event.composedPath();
+    const trigger = exportTriggerElement.value;
+    if (trigger !== undefined && path.includes(trigger)) return;
+
+    const insideMenu = path.some((node) => node instanceof HTMLElement && node.getAttribute('role') === 'menu');
+    if (!insideMenu) closeExportMenu();
+}
+
+let releaseExportDismiss: (() => void) | null = null;
+
+/** Pasang listener tutup menu hanya selama menu terbuka, lepas saat menu tertutup. */
+watch(isExportMenuOpen, (open: boolean): void => {
+    releaseExportDismiss?.();
+    if (!open) {
+        releaseExportDismiss = null;
+        return;
+    }
+
+    const releaseKeydown = onDocumentEvent('keydown', onExportMenuEscape);
+    const releasePointerDown = onDocumentEvent('pointerdown', onExportMenuPointerDown);
+    releaseExportDismiss = () => {
+        releaseKeydown();
+        releasePointerDown();
+    };
+});
 const formStatus = ref<'draft' | 'published'>(props.form.status ?? 'published');
 const isChangingStatus = ref(false);
 const isShareDialogOpen = ref(false);
@@ -245,6 +356,8 @@ const manualSaving = ref(false);
 
 onUnmounted(() => {
     void showAutosave.flush();
+    releaseExportDismiss?.();
+    releaseExportDismiss = null;
 });
 
 /** Manual save: blokir autosave, tunggu save aktif selesai, lalu PUT dengan state terbaru. */
@@ -402,10 +515,24 @@ const fileFieldNames = computed(() => new Set((props.fields ?? []).filter(isFile
 const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
 
 const submissionRows = computed(() => props.submissions ?? []);
+/** ID eligible untuk "pilih semua" lintas halaman; fallback array kosong agar hook tetap aman. */
+const bulkSelectableIds = computed<readonly string[]>(() => props.selectableSubmissionIds ?? []);
+/** Offset nomor baris agar halaman kedua mulai dari 21, bukan 1. */
+const rowNumberOffset = computed<number>(() => {
+    const pagination = props.submissionsPagination;
+    if (!pagination) return 0;
+    return (pagination.current_page - 1) * pagination.per_page;
+});
+/** Tampilkan keterangan batas hanya saat total eligible melebihi jumlah ID yang bisa dipilih. */
+const showsBulkSelectionLimit = computed<boolean>(() => {
+    const limit = props.bulkSelectableLimit ?? 0;
+    return limit > 0 && (props.bulkSelectableTotal ?? 0) > bulkSelectableIds.value.length;
+});
+const { goToPage: goToSubmissionPage, changePerPage: changeSubmissionPerPage } = usePaginationNavigation();
 const {
     selectedSubmissionIds,
     selectedCount,
-    visibleSelectionState,
+    selectableSelectionState,
     ineligibleSelectedCount,
     isSubmitting: isBulkReviewSubmitting,
     actionStatus: bulkReviewActionStatus,
@@ -413,7 +540,7 @@ const {
     isConfirmOpen: isBulkReviewConfirmOpen,
     pendingDecision: bulkReviewPendingDecision,
     isSelected: isSubmissionSelected,
-    setVisibleSelection,
+    setSelectableSelection,
     setSubmissionSelection,
     clearSelection,
     requestBulkReview,
@@ -424,6 +551,7 @@ const {
     eventId: props.event.id,
     formId: props.form.id,
     submissions: submissionRows,
+    selectableSubmissionIds: bulkSelectableIds,
     reloadOnly: ['submissions'],
 });
 const mobileAnswerView = useFormAnswerMobileView();
@@ -590,6 +718,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         Bagikan
                     </Button>
                     <Button
+                        v-if="activeTab !== 'jawaban'"
                         variant="outline"
                         size="sm"
                         class="hidden px-2.5 text-xs font-medium sm:inline-flex sm:px-3 sm:text-sm"
@@ -600,6 +729,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         {{ isChangingStatus ? 'Memproses…' : statusActionLabel }}
                     </Button>
                     <Button
+                        v-if="activeTab !== 'jawaban'"
                         variant="outline"
                         size="sm"
                         class="border-border/80 bg-background/90 hidden px-3 text-sm font-medium shadow-sm sm:inline-flex"
@@ -611,6 +741,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         <span>Pratinjau</span>
                     </Button>
                     <Button
+                        v-if="activeTab !== 'jawaban'"
                         size="sm"
                         class="hidden px-3 text-sm font-medium shadow-sm sm:inline-flex sm:px-4"
                         :disabled="settingsForm.processing || manualSaving"
@@ -619,6 +750,57 @@ function rejectLabel(submission: IFormSubmission): string {
                         <span class="sm:hidden">Simpan</span>
                         <span class="hidden sm:inline">Save All</span>
                     </Button>
+                    <!-- Unduhan jawaban: FileArchive mewakili paket ZIP, FileSpreadsheet mewakili CSV tabular. -->
+                    <!-- Trigger native: toggle DropdownMenuTrigger tidak membuka menu di halaman ini, jadi status buka dikendalikan ref. -->
+                    <DropdownMenu
+                        v-if="activeTab === 'jawaban'"
+                        :open="isExportMenuOpen"
+                        @update:open="onExportMenuOpenChange"
+                    >
+                        <Button
+                            ref="exportTriggerRef"
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            class="border-border/80 bg-background/90 text-sm font-medium shadow-sm"
+                            aria-haspopup="menu"
+                            :aria-expanded="isExportMenuOpen"
+                            aria-label="Export jawaban"
+                            @click="toggleExportMenu"
+                        >
+                            <Download class="size-4 shrink-0" aria-hidden="true" />
+                            Export
+                        </Button>
+                        <DropdownMenuContent
+                            :align="exportMenuAlign"
+                            :side-offset="4"
+                            :reference="exportTriggerElement"
+                            class="w-60"
+                        >
+                            <DropdownMenuItem as-child>
+                                <a
+                                    :href="props.exportUrls.zip"
+                                    download
+                                    class="flex min-h-[44px] w-full cursor-pointer items-center gap-2"
+                                    @click="closeExportMenu"
+                                >
+                                    <FileArchive class="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+                                    Download dengan file (ZIP)
+                                </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem as-child>
+                                <a
+                                    :href="props.exportUrls.csv"
+                                    download
+                                    class="flex min-h-[44px] w-full cursor-pointer items-center gap-2"
+                                    @click="closeExportMenu"
+                                >
+                                    <FileSpreadsheet class="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+                                    Download biasa (CSV)
+                                </a>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -766,6 +948,13 @@ function rejectLabel(submission: IFormSubmission): string {
                             >
                                 Pilih maksimal {{ FORM_ANSWER_BULK_REVIEW_MAX_SELECTION }} jawaban sekaligus.
                             </p>
+                            <p
+                                v-if="showsBulkSelectionLimit"
+                                class="text-muted-foreground basis-full text-xs leading-relaxed"
+                            >
+                                Maksimal {{ props.bulkSelectableLimit }} jawaban per proses; pilih semua mengambil
+                                {{ props.bulkSelectableLimit }} terbaru.
+                            </p>
                         </div>
                         <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
                             {{ selectedCount > 0 ? `${selectedCount} dipilih` : 'Tidak ada jawaban dipilih' }}
@@ -796,9 +985,9 @@ function rejectLabel(submission: IFormSubmission): string {
                                 <TableRow class="hover:bg-transparent">
                                     <TableHead class="bg-muted/40 h-11 w-12 px-4">
                                         <Checkbox
-                                            :model-value="visibleSelectionState"
-                                            aria-label="Pilih semua jawaban di halaman ini"
-                                            @update:model-value="setVisibleSelection"
+                                            :model-value="selectableSelectionState"
+                                            aria-label="Pilih semua jawaban"
+                                            @update:model-value="setSelectableSelection"
                                         />
                                     </TableHead>
                                     <TableHead
@@ -848,12 +1037,12 @@ function rejectLabel(submission: IFormSubmission): string {
                                     <TableCell class="border-border/60 bg-card border-r px-4 py-3.5">
                                         <Checkbox
                                             :model-value="isSubmissionSelected(submission.id)"
-                                            :aria-label="`Pilih jawaban nomor ${index + 1} dari ${submission.user?.name ?? 'pengirim'}`"
+                                            :aria-label="`Pilih jawaban nomor ${rowNumberOffset + index + 1} dari ${submission.user?.name ?? 'pengirim'}`"
                                             @update:model-value="setSubmissionSelection(submission.id, $event)"
                                         />
                                     </TableCell>
                                     <TableCell class="text-muted-foreground px-3 py-3.5 text-xs tabular-nums">
-                                        {{ index + 1 }}
+                                        {{ rowNumberOffset + index + 1 }}
                                     </TableCell>
                                     <TableCell class="border-border/60 bg-card border-r px-5 py-3.5">
                                         <div class="flex items-center gap-3">
@@ -968,17 +1157,17 @@ function rejectLabel(submission: IFormSubmission): string {
                     <div v-else class="space-y-4 p-3 md:hidden">
                         <div class="border-border/60 bg-muted/20 flex items-center gap-2 rounded-lg border px-3 py-2">
                             <Checkbox
-                                :model-value="visibleSelectionState"
-                                aria-label="Pilih semua jawaban di halaman ini"
-                                @update:model-value="setVisibleSelection"
+                                :model-value="selectableSelectionState"
+                                aria-label="Pilih semua jawaban"
+                                @update:model-value="setSelectableSelection"
                             />
-                            <span class="text-muted-foreground text-xs">Pilih semua jawaban di halaman ini</span>
+                            <span class="text-muted-foreground text-xs">Pilih semua jawaban</span>
                         </div>
                         <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
                             <FormAnswerMobileCard
                                 v-for="(submission, index) in submissionRows"
                                 :key="submission.id"
-                                :row-number="index + 1"
+                                :row-number="rowNumberOffset + index + 1"
                                 :submission="submission"
                                 :answer-keys="mobileAnswerKeys"
                                 :file-field-names="mobileFileFieldNames"
@@ -999,6 +1188,18 @@ function rejectLabel(submission: IFormSubmission): string {
                             @select="setSubmissionSelection"
                         />
                     </div>
+
+                    <AppPagination
+                        v-if="props.submissionsPagination"
+                        class="border-border/60 border-t px-4 py-3 sm:px-5"
+                        :current-page="props.submissionsPagination.current_page"
+                        :last-page="props.submissionsPagination.last_page"
+                        :total="props.submissionsPagination.total"
+                        :per-page="props.submissionsPagination.per_page"
+                        :per-page-options="[10, 20, 50, 100]"
+                        @page-change="goToSubmissionPage"
+                        @per-page-change="changeSubmissionPerPage"
+                    />
                 </div>
 
                 <FormAnswerDetailSheet

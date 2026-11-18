@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
 use App\Enums\EventFormVisibility;
+use App\Enums\FormAnswerReviewStatus;
 use App\Enums\FormStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEventFormRequest;
@@ -23,6 +24,14 @@ use Inertia\Response;
 
 class FormController extends Controller
 {
+    /** Pilihan jumlah baris jawaban per halaman; nilai lain jatuh ke default. */
+    private const ANSWERS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
+    private const ANSWERS_PER_PAGE_DEFAULT = 20;
+
+    /** Sama dengan `FormAnswerReviewService::MAX_BULK_IDS`; select-all tidak pernah melewati batas batch. */
+    private const BULK_SELECT_LIMIT = 100;
+
     public function __construct(private readonly FormAnswerFileStorage $formAnswerFiles)
     {
     }
@@ -152,7 +161,7 @@ class FormController extends Controller
         ];
     }
 
-    public function show(Event $event, Form $form): Response
+    public function show(Request $request, Event $event, Form $form): Response
     {
         $this->guardFormOnEvent($event, $form);
 
@@ -177,9 +186,25 @@ class FormController extends Controller
             ->whereListedForOrganizerParticipantRoster()
             ->orderByDesc('created_at');
 
-        $submissions = (clone $submissionQuery)
-            ->get()
+        $perPage = $this->resolveAnswersPerPage($request);
+        $submissionsCount = (clone $submissionQuery)->count();
+        $lastPage = max(1, (int) ceil($submissionsCount / $perPage));
+        $page = min(max(1, $request->integer('page', 1)), $lastPage);
+
+        $paginator = $submissionQuery->paginate($perPage, ['*'], 'page', $page);
+
+        $submissions = collect($paginator->items())
             ->map(fn (FormAnswer $answer) => $this->submissionToInertia($answer, $fileFieldNames))
+            ->values()
+            ->all();
+
+        $selectableQuery = $this->bulkReviewEligibleQuery($form);
+        $bulkSelectableTotal = (clone $selectableQuery)->count();
+        $selectableSubmissionIds = $selectableQuery
+            ->orderByDesc('created_at')
+            ->limit(self::BULK_SELECT_LIMIT)
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
             ->values()
             ->all();
 
@@ -191,9 +216,52 @@ class FormController extends Controller
             'saveFieldsUrl' => route('dashboard.events.forms.fields', ['event' => $event, 'form' => $form]),
             'updateFormUrl' => route('dashboard.events.forms.update', ['event' => $event, 'form' => $form]),
             'submissions' => $submissions,
-            'submissionsCount' => $submissionQuery->count(),
+            'submissionsCount' => $submissionsCount,
+            'submissionsPagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'selectableSubmissionIds' => $selectableSubmissionIds,
+            'bulkSelectableTotal' => $bulkSelectableTotal,
+            'bulkSelectableLimit' => self::BULK_SELECT_LIMIT,
+            'exportUrls' => [
+                'csv' => route('dashboard.events.forms.answers-csv', ['event' => $event, 'form' => $form]),
+                'zip' => route('dashboard.events.forms.answers-zip', ['event' => $event, 'form' => $form]),
+            ],
             'formShare' => FormShareLinkController::payload($event, $form),
         ]);
+    }
+
+    private function resolveAnswersPerPage(Request $request): int
+    {
+        $requested = $request->integer('per_page', self::ANSWERS_PER_PAGE_DEFAULT);
+
+        return in_array($requested, self::ANSWERS_PER_PAGE_OPTIONS, true)
+            ? $requested
+            : self::ANSWERS_PER_PAGE_DEFAULT;
+    }
+
+    /**
+     * Hanya baris yang lolos aturan bulk review: pending dan pendaftaran tunggal.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<FormAnswer>
+     */
+    private function bulkReviewEligibleQuery(Form $form): \Illuminate\Database\Eloquent\Builder
+    {
+        return FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->whereListedForOrganizerParticipantRoster()
+            ->where(static function ($query): void {
+                $query->whereNull('review_status')
+                    ->orWhere('review_status', FormAnswerReviewStatus::Pending->value);
+            })
+            ->whereNull('registration_role')
+            ->where(static function ($query): void {
+                $query->whereNull('group_token')->orWhere('group_token', '');
+            })
+            ->whereNull('member_confirmation_status');
     }
 
     public function edit(Event $event, Form $form): RedirectResponse

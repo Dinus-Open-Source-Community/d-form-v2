@@ -7,6 +7,8 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormContr
 use App\Http\Controllers\Dashboard\Events\Forms\FormImageUploadController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerFileController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerReviewController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormAnswersCsvExportController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormAnswersZipExportController;
 use App\Http\Controllers\Dashboard\Events\Forms\BulkFormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
@@ -99,6 +101,14 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->
 
     Route::get('/events/{event}/forms/{form}/submissions', FormSubmissionsController::class)
         ->name('events.forms.submissions');
+
+    Route::get('/events/{event}/forms/{form}/answers.csv', FormAnswersCsvExportController::class)
+        ->middleware('throttle:form-answers-export')
+        ->name('events.forms.answers-csv');
+
+    Route::get('/events/{event}/forms/{form}/answers.zip', FormAnswersZipExportController::class)
+        ->middleware('throttle:form-answers-export')
+        ->name('events.forms.answers-zip');
 
     Route::patch('/events/{event}/forms/{form}/submissions/bulk-review', BulkFormAnswerReviewController::class)
         ->middleware('throttle:form-review-bulk')

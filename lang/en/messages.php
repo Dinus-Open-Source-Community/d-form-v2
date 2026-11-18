@@ -29,6 +29,9 @@ return [
         ]
     ],
     'form' => [
+        'export' => [
+            'too_large' => 'The archive is too large. Download the CSV or reduce the submissions.',
+        ],
         'create' => [
             'success' => 'new form created successfully',
             'failed' => 'failed to create new form'

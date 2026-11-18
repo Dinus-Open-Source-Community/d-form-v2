@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md](./saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md) | Export jawaban form: satu dropdown di tab Jawaban (CSV per field dengan signed URL, ZIP dengan satu jawaban.csv gabungan di root + folder per pengirim berisi file), limit 413, rate limit, otorisasi; 7 feature test + E2E.
+
 - [saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md](./saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md) | Hapus aksi "Simpan & terbitkan" dari edit event sampai akar: payload edit tanpa `publish`, rule `UpdateEventRequest` dihapus, cabang publish di `EventService::update` dihapus; simpan edit mempertahankan status, create tetap "Terbitkan". Feature 3 test + regresi 7, E2E edit/create.
 
 - [saptoChanges17-11-2026-DFORM-EVENT-STATUS.md](./saptoChanges17-11-2026-DFORM-EVENT-STATUS.md) | Publish/draft dari kartu Manage event: kartu Lifecycle dilebur, endpoint `PATCH /admin/events/{event}/status`, guard data wajib saat publish, modal konfirmasi, `useEventStatusToggle`, feature test 7 + E2E 1 hijau; entry 49,20 kB / 15,50 kB gzip.

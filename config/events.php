@@ -61,5 +61,13 @@ return [
         'upload_temporary_url_ttl_minutes' => max(1, (int) env('FORMS_UPLOAD_URL_TTL_MINUTES', 10080)),
         /* Batas unduhan berkas jawaban per user/IP per menit. */
         'file_download_rate_limit_per_minute' => max(1, (int) env('FORMS_FILE_DOWNLOAD_RATE_LIMIT_PER_MINUTE', 120)),
+        /*
+         * Export jawaban form (CSV/ZIP). ZIP menahan file sementara di disk dan
+         * menyalin semua lampiran, jadi batas jumlah file dan byte mencegah satu
+         * request menghabiskan disk/worker. Respons 413 bila melewati batas.
+         */
+        'answers_export_rate_limit_per_minute' => max(1, (int) env('FORMS_ANSWERS_EXPORT_RATE_LIMIT_PER_MINUTE', 10)),
+        'answers_zip_max_files' => max(1, (int) env('FORMS_ANSWERS_ZIP_MAX_FILES', 2000)),
+        'answers_zip_max_bytes' => max(1, (int) env('FORMS_ANSWERS_ZIP_MAX_BYTES', 536870912)),
     ],
 ];

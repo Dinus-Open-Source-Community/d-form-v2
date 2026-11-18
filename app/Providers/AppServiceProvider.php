@@ -165,6 +165,12 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?? $request->ip());
         });
 
+        // Export jawaban form membangun CSV/ZIP dari seluruh submission; batasi per akun.
+        RateLimiter::for('form-answers-export', function (Request $request): Limit {
+            return Limit::perMinute((int) config('events.forms.answers_export_rate_limit_per_minute', 10))
+                ->by($request->user()?->id ?? $request->ip());
+        });
+
         // Daftar + pencarian acara publik: satu limiter untuk seluruh route index /events.
         // Guard `web` memakai provider kolom eksplisit (tanpa `select *` pada setiap request).
         Auth::provider('explicit-columns', function ($app, array $config): \App\Auth\ExplicitColumnUserProvider {

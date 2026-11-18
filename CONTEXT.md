@@ -547,7 +547,7 @@ Aturan yang **berlaku di kode sekarang**:
 
 **Catatan utang teknis:** `components/ui/` berisi 35 direktori, 8 di antaranya bukan shadcn asli (`autosave-status`, `date-picker`, `simple-select`, `searchable-select`, `styled-select`, `native-select`, `input-group`, `spinner`). Aturan "ui/ jangan diubah" tetap berlaku; kustomisasi baru lewat `core/`.
 
-**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,20 kB raw** dan **15,50 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
+**Baseline bundle (dev-zapp, pengukuran 17 Nov 2026):** entry `public/build/assets/app-*.js` berukuran **49,32 kB raw** dan **15,54 kB gzip**; chunk terbesar `index-*.js` **451,51 kB raw / 142,17 kB gzip**. Angka dihitung dengan `zlib` lalu dibagi 1024. `app.js` memakai lazy `import.meta.glob`, sehingga page dan vendor berat dipisah ke chunk pemakaiannya; klaim lama tentang satu monolit **3.354 kB** sudah tidak berlaku. Target dan aturannya ada di `AGENTS.md` §Code splitting (entry ≤ 350 kB gzip, chunk page ≤ 200 kB gzip).
 
 ---
 
@@ -555,11 +555,11 @@ Aturan yang **berlaku di kode sekarang**:
 
 | Aspek              | Kondisi aktual                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------- |
-| PHPUnit            | 178 test class `tests/Feature`, 28 `tests/Unit`; run penuh 17-11-2026: 1623 passed, 12 skipped, 1 gagal pre-existing (EXPLAIN MySQL recruitment) |
-| Distribusi Feature | Recruitment 59, Auth 14, Dashboard 16, Forms 28, Stress 5, Scan 5, Reporting 1, Security 7, Broadcasting 9, Events 2, root 14 |
+| PHPUnit            | 183 test class `tests/Feature`, 28 `tests/Unit`; run penuh 18-11-2026: 1645 passed, 12 skipped, 1 gagal pre-existing (EXPLAIN MySQL recruitment) |
+| Distribusi Feature | Recruitment 59, Auth 14, Dashboard 18, Forms 28, Stress 5, Scan 5, Reporting 1, Security 7, Broadcasting 9, Events 2, root 14 |
 | Env test           | SQLite `:memory:`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array`      |
 | `RefreshDatabase`  | **tidak** global; dipasang per test. `TestCase` hanya mematikan CSRF                      |
-| Frontend test      | 84 Playwright E2E spec di `tests/e2e` + Vitest 987 test (90 file); script `test:e2e*`, `test:unit`, `typecheck` |
+| Frontend test      | 88 Playwright E2E spec di `tests/e2e` + Vitest 988 test (90 file); script `test:e2e*`, `test:unit`, `typecheck` |
 | Lint/format        | `./vendor/bin/pint --test` (PSR-12), `npm run lint` (ESLint 10), `npx prettier --check .` |
 | Test command       | `composer test` → `config:clear` + `artisan test`                                         |
 
