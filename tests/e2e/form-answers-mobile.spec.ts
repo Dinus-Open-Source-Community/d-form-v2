@@ -5,7 +5,6 @@ const ADMIN = { email: 'stress-user-1@stress.test', password: 'password' } as co
 // Spec ini login sendiri, jadi konteks harus guest; storageState admin membuat /auth/login ter-redirect.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const STORAGE_KEY = 'd-form:form-answers:mobile-view';
 const PLACEHOLDER_PNG = Uint8Array.from(
     atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/2ioAAAAASUVORK5CYII='),
     (character: string) => character.charCodeAt(0)
@@ -57,76 +56,52 @@ async function signIn(page: Page): Promise<void> {
 test.describe('jawaban mobile', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
-    test('kartu, daftar, pilihan tersimpan, nilai rusak, dan keadaan kosong', async ({ page }) => {
+    test('daftar jawaban mobile tanpa tabel dan tanpa pemilih tampilan', async ({ page }) => {
         const fixture = createFixture();
         await signIn(page);
         await page.goto(fixture.url);
 
-        await expect(page.locator('main table')).toHaveCount(0);
-        const toggle = page.getByRole('group', { name: 'Tampilan daftar jawaban' });
-        const card = toggle.getByRole('button', { name: 'Kartu' });
-        const list = toggle.getByRole('button', { name: 'Daftar' });
-        await expect(card).toHaveAttribute('aria-pressed', 'true');
-        await expect(page.getByText('Contoh jawaban 1')).toBeVisible();
-        await page.screenshot({ path: '/tmp/task-212-mobile-card.png', fullPage: true });
+        // Mobile hanya memakai daftar: tabel desktop tersembunyi oleh CSS.
+        await expect(page.locator('main table')).toBeHidden();
 
-        await list.click();
-        await expect(list).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('form-answer-mobile-list')).toBeVisible();
         await expect(page.getByRole('listitem', { name: /Lihat detail jawaban nomor/ })).toHaveCount(3);
-        await page.screenshot({ path: '/tmp/task-212-mobile-list.png', fullPage: true });
-        await page.reload();
-        await expect(list).toHaveAttribute('aria-pressed', 'true');
-        expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe('list');
-
-        await page.addInitScript((key) => localStorage.setItem(key, 'grid'), STORAGE_KEY);
-        await page.reload();
-        await expect(card).toHaveAttribute('aria-pressed', 'true');
-        await expect(page.locator('main table')).toHaveCount(0);
+        await page.screenshot({ path: '/tmp/opencode/answers-shots/mobile-list.png', fullPage: true });
 
         const emptyFixture = createFixture(false);
         await page.goto(emptyFixture.url);
         await expect(page.getByText('Belum ada jawaban')).toBeVisible();
-        await expect(page.getByRole('group', { name: 'Tampilan daftar jawaban' })).toHaveCount(0);
-        await page.screenshot({ path: '/tmp/task-212-mobile-empty.png', fullPage: true });
+        await expect(page.getByTestId('form-answer-mobile-list')).toHaveCount(0);
+        await expect(page.locator('main table')).toHaveCount(0);
+        await page.screenshot({ path: '/tmp/opencode/answers-shots/mobile-empty.png', fullPage: true });
     });
 
-    test('pilihan halaman, aksi kartu, buka detail lewat isi baris, dan tanpa overflow', async ({ page }) => {
+    test('pilihan halaman, buka detail lewat baris, review di detail, dan tanpa overflow', async ({ page }) => {
         const fixture = createFixture();
         await signIn(page);
         await page.goto(fixture.url);
 
-        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' });
+        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban' });
         await selectPage.click();
         await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
         const firstRowCheckbox = page.getByRole('checkbox', { name: /Pilih jawaban nomor 1/ });
         await firstRowCheckbox.click();
-        await expect(selectPage).toHaveAttribute('aria-checked', 'mixed');
         await expect(page.getByRole('dialog')).toHaveCount(0);
 
-        await page.route('**/submissions/*/review', (route) =>
-            route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({}) })
-        );
-        await page
-            .getByRole('button', { name: /Terima jawaban dari/i })
-            .first()
-            .click();
-        await expect(page.getByRole('dialog')).toHaveCount(0);
-        await page
-            .getByRole('button', { name: /Tolak jawaban dari/i })
-            .first()
-            .click();
-        await expect(page.getByRole('dialog')).toHaveCount(0);
-        await page
-            .getByRole('button', { name: /Lihat detail jawaban dari/i })
-            .first()
-            .click();
-        await expect(page.getByRole('dialog')).toBeVisible();
-        await page.keyboard.press('Escape');
+        // Baris pertama bisa berstatus final (tidak selectable), jadi keadaan "mixed" tidak
+        // dijamin. Yang diuji: pilih-semua bisa dibatalkan dan dinyalakan lagi.
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'false');
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
-        await page.getByText('Contoh jawaban 1').click();
+        const firstRow = page.getByRole('listitem', { name: /Lihat detail jawaban nomor 1/ });
+        await firstRow.click({ position: { x: 180, y: 32 } });
+
         const detailDrawer = page.getByRole('dialog');
         await expect(detailDrawer).toBeVisible();
+
         const openFileLink = detailDrawer.getByRole('link', { name: 'Buka' }).first();
         const downloadFileLink = detailDrawer.getByRole('link', { name: 'Unduh' }).first();
         await expect(openFileLink).toHaveAttribute('href', /storage/);
@@ -143,29 +118,34 @@ test.describe('jawaban mobile', () => {
             scrollWidth: element.scrollWidth,
         }));
         expect(actionGroupMetrics.scrollWidth).toBeLessThanOrEqual(actionGroupMetrics.clientWidth);
-        await page.screenshot({ path: '/tmp/submissions-redesign-file-actions.png', fullPage: true });
         await page.keyboard.press('Escape');
 
-        const firstCard = page.getByTestId('form-answer-mobile-card').first();
-        await firstCard.focus();
+        // Jalur review per jawaban di mobile hanya ada di detail sheet; baris pending dipilih
+        // lewat badge-nya karena urutan daftar mengikuti waktu kirim.
+        const pendingRow = page
+            .getByRole('listitem', { name: /Lihat detail jawaban nomor/ })
+            .filter({ hasText: 'Menunggu review' })
+            .first();
+
+        await pendingRow.click({ position: { x: 180, y: 32 } });
+        const pendingDetail = page.getByRole('dialog');
+        await expect(pendingDetail).toBeVisible();
+        await expect(pendingDetail.getByRole('button', { name: 'Terima', exact: true })).toBeVisible();
+        await expect(pendingDetail.getByRole('button', { name: 'Tolak', exact: true })).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        // Enter pada baris daftar membuka detail tanpa mouse.
+        await firstRow.focus();
         await page.keyboard.press('Enter');
         await expect(page.getByRole('dialog')).toBeVisible();
         await page.keyboard.press('Escape');
-
-        await page.getByRole('button', { name: 'Daftar' }).click();
-        const listRow = page.getByRole('listitem', { name: /Lihat detail jawaban nomor 1/ });
-        const listCheckbox = listRow.getByRole('checkbox');
-        await listCheckbox.click();
-        await expect(page.getByRole('dialog')).toHaveCount(0);
-        await listRow.click({ position: { x: 180, y: 32 } });
-        await expect(page.getByRole('dialog')).toBeVisible();
 
         const viewport = await page.evaluate(() => ({
             clientWidth: document.documentElement.clientWidth,
             scrollWidth: document.documentElement.scrollWidth,
         }));
         expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.clientWidth);
-        await page.screenshot({ path: '/tmp/submissions-redesign-mobile.png', fullPage: true });
+        await page.screenshot({ path: '/tmp/opencode/answers-shots/mobile-detail.png', fullPage: true });
     });
 });
 
@@ -192,10 +172,7 @@ test.describe('jawaban desktop', () => {
         await page.goto(fixture.url);
         await expect(page.locator('main table')).toBeVisible();
         await expect(page.getByRole('columnheader', { name: 'No.' })).toBeVisible();
-        await expect(page.getByRole('group', { name: 'Tampilan daftar jawaban' })).toHaveCount(0);
-        await expect(
-            page.locator('[data-testid="form-answer-mobile-card"], [data-testid="form-answer-mobile-list"]')
-        ).toHaveCount(0);
+        await expect(page.getByTestId('form-answer-mobile-list')).toBeHidden();
         await page.screenshot({ path: '/tmp/task-212-desktop-table.png', fullPage: true });
         expect(errors).toEqual([]);
     });
@@ -205,14 +182,18 @@ test.describe('jawaban desktop', () => {
         await signIn(page);
         await page.goto(fixture.url);
 
-        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' });
+        const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban' });
         await selectPage.click();
         await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
         const rowCheckbox = page.getByRole('checkbox', { name: /Pilih jawaban nomor 1/ });
         await rowCheckbox.click();
-        await expect(selectPage).toHaveAttribute('aria-checked', 'mixed');
         await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'false');
+        await selectPage.click();
+        await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
         const actionButtons = page.getByRole('button', { name: /(?:Terima|Tolak|Lihat detail) jawaban dari/i });
         await expect(actionButtons).toHaveCount(5);

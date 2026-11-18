@@ -55,11 +55,8 @@ import {
 } from '@/lib/formSubmissionsUi';
 import FormAnswerDetailSheet from '@/components/modules/dashboard/FormAnswerDetailSheet.vue';
 import BulkFormAnswerReviewDialog from '@/components/modules/dashboard/BulkFormAnswerReviewDialog.vue';
-import FormAnswersViewToggle from '@/components/modules/dashboard/FormAnswersViewToggle.vue';
-import FormAnswerMobileCard from '@/components/modules/dashboard/FormAnswerMobileCard.vue';
 import FormAnswerMobileList from '@/components/modules/dashboard/FormAnswerMobileList.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
-import { useFormAnswerMobileView } from '@/hooks/useFormAnswerMobileView';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { useFormSubmissionReview } from '@/hooks/useFormSubmissionReview';
 import { useFormSubmissionBulkReview } from '@/hooks/useFormSubmissionBulkReview';
@@ -554,9 +551,6 @@ const {
     selectableSubmissionIds: bulkSelectableIds,
     reloadOnly: ['submissions'],
 });
-const mobileAnswerView = useFormAnswerMobileView();
-const mobileAnswerKeys = computed(() => answerKeys.value);
-const mobileFileFieldNames = computed(() => [...fileFieldNames.value]);
 const submissionLabelMap = computed(() => {
     const map: Record<string, string> = {};
     props.fields.forEach((f) => {
@@ -696,15 +690,10 @@ function rejectLabel(submission: IFormSubmission): string {
                             Pengaturan Form
                         </TabsTrigger>
                     </TabsList>
-                    <FormAnswersViewToggle
-                        v-if="activeTab === 'jawaban' && submissionRows.length > 0"
-                        :view="mobileAnswerView.view.value"
-                        @change="mobileAnswerView.setView"
-                    />
                     <AutosaveStatus :status="showSaveState" variant="inline" @retry="showAutosave.retry" />
                 </div>
 
-                <div class="flex shrink-0 items-center gap-2">
+                <div class="ml-auto flex shrink-0 items-center gap-2">
                     <Button
                         v-if="activeTab === 'editor'"
                         type="button"
@@ -979,7 +968,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         >
                     </p>
 
-                    <div v-if="mobileAnswerView.isDesktop.value" class="overflow-x-auto md:block">
+                    <div class="hidden overflow-x-auto md:block">
                         <Table>
                             <TableHeader>
                                 <TableRow class="hover:bg-transparent">
@@ -1154,7 +1143,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         </Table>
                     </div>
 
-                    <div v-else class="space-y-4 p-3 md:hidden">
+                    <div class="space-y-4 p-3 md:hidden">
                         <div class="border-border/60 bg-muted/20 flex items-center gap-2 rounded-lg border px-3 py-2">
                             <Checkbox
                                 :model-value="selectableSelectionState"
@@ -1163,25 +1152,7 @@ function rejectLabel(submission: IFormSubmission): string {
                             />
                             <span class="text-muted-foreground text-xs">Pilih semua jawaban</span>
                         </div>
-                        <div v-if="mobileAnswerView.view.value === 'card'" class="space-y-3">
-                            <FormAnswerMobileCard
-                                v-for="(submission, index) in submissionRows"
-                                :key="submission.id"
-                                :row-number="rowNumberOffset + index + 1"
-                                :submission="submission"
-                                :answer-keys="mobileAnswerKeys"
-                                :file-field-names="mobileFileFieldNames"
-                                :humanize-key="humanizeKey"
-                                :file-name-of="fileNameOf"
-                                :reviewing="isSubmissionReviewing(submission.id)"
-                                :selected="isSubmissionSelected(submission.id)"
-                                @detail="openSubmissionDetail"
-                                @review="onDetailReview"
-                                @select="setSubmissionSelection(submission.id, $event)"
-                            />
-                        </div>
                         <FormAnswerMobileList
-                            v-else
                             :submissions="submissionRows"
                             :selected-submission-ids="selectedSubmissionIds"
                             @detail="openSubmissionDetail"
