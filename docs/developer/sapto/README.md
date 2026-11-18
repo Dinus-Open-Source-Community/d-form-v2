@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges18-11-2026-DFORM-2.md](./saptoChanges18-11-2026-DFORM-2.md) | Redesign dialog "Bagikan formulir": grup audiens (Peserta, Short link opsional, Admin), tombol salin menyatu di dalam field, satu aksi primary, barcode menempel pada blok peserta, penanda "Tersalin" per baris, alert berbingkai dengan ikon; fungsi tidak berubah (E2E fungsional hijau desktop+mobile), 4 E2E baru, Vitest 992, entry 15,91 kB gzip.
+
 - [saptoChanges18-11-2026-DFORM-1.md](./saptoChanges18-11-2026-DFORM-1.md) | Redesign kartu field form builder: klik kartu (atau Enter/Space) membuka drawer, ikon pengaturan dihapus, label/teks bantu jadi pratinjau read-only, aksi duplikat/hapus/drag tetap; drawer diselaraskan (copy Indonesia tanpa em dash, badge tipe pakai token, border bertumpuk dihapus); Vitest 992, PHPUnit builder 69, E2E baru 5 + regresi builder hijau (2 gagal pre-existing dibuktikan lewat baseline), entry 15,93 → 15,91 kB gzip.
 
 - [saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md](./saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md) | Export jawaban form: satu dropdown di tab Jawaban (CSV per field dengan signed URL, ZIP dengan satu jawaban.csv gabungan di root + folder per pengirim berisi file), limit 413, rate limit, otorisasi; 7 feature test + E2E.
