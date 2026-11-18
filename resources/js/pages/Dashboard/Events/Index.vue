@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
@@ -17,6 +17,7 @@ import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useAuth } from '@/hooks/useAuth';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
+import { useEventListQueryFilters } from '@/hooks/useEventListQueryFilters';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -60,12 +61,11 @@ const props = defineProps<{
 }>();
 const { goToPage, changePerPage } = usePaginationNavigation();
 
-const searchQuery = ref('');
-const filterCategory = ref('all');
-const filterSession = ref('all');
-
-/** Mencegah permintaan ganda saat state disamakan ulang dari URL/Inertia. */
-let suppressFilterApply = false;
+const { filterCategory, filterSession } = useEventListQueryFilters({
+    query: () => props.query,
+    perPage: () => props.events.per_page,
+    targetUrl: eventsIndex().url,
+});
 
 const categoryOptions = computed(() => props.filterOptions.categories);
 const sessionOptions = computed(() => props.filterOptions.sessions);
@@ -73,50 +73,6 @@ const sessionOptions = computed(() => props.filterOptions.sessions);
 const categoryFilterOptions = computed(() => [{ value: 'all', label: 'Semua kategori' }, ...categoryOptions.value]);
 
 const sessionFilterOptions = computed(() => [{ value: 'all', label: 'Semua sesi' }, ...sessionOptions.value]);
-
-function readQueryFromProps() {
-    suppressFilterApply = true;
-    const q = props.query;
-    searchQuery.value = (q?.search as string) ?? '';
-    filterCategory.value = q?.filter?.categories?.[0] ?? 'all';
-    filterSession.value = q?.filter?.sessions?.[0] ?? 'all';
-    void nextTick(() => {
-        suppressFilterApply = false;
-    });
-}
-
-readQueryFromProps();
-watch(
-    () => props.query,
-    () => readQueryFromProps(),
-    { deep: true }
-);
-
-function buildQueryParams() {
-    const params: Record<string, unknown> = {};
-    if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
-    // Filter yang berubah tidak boleh mereset pilihan jumlah baris per halaman.
-    params.per_page = props.events.per_page;
-
-    const filter: Record<string, unknown> = {};
-    if (filterCategory.value !== 'all') filter.categories = [filterCategory.value];
-    if (filterSession.value !== 'all') filter.sessions = [filterSession.value];
-
-    if (Object.keys(filter).length > 0) params.filter = filter;
-
-    return params;
-}
-
-function applyFilters() {
-    if (suppressFilterApply) return;
-    router.get(eventsIndex().url, buildQueryParams() as never, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['events', 'query'],
-    });
-}
-
-watch([filterCategory, filterSession], applyFilters);
 
 const eventsList = computed(() => props.events.data);
 
@@ -198,7 +154,7 @@ function handleDeleteConfirm(): void {
         />
 
         <AppPagination
-            v-if="eventsList.length > 0"
+            v-if="events.last_page > 1"
             :current-page="events.current_page"
             :last-page="events.last_page"
             :total="events.total"

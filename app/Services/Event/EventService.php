@@ -6,19 +6,30 @@ use App\Enums\EventRegistrationStatus;
 use App\Enums\UploadPurpose;
 use App\Enums\EventStatus;
 use App\Http\Resources\EventResource;
+use App\Models\EmailLog;
 use App\Models\Event;
+use App\Models\EventAttendance;
+use App\Models\Form;
+use App\Models\FormAnswer;
+use App\Models\FormField;
 use App\Models\User;
+use App\Services\Registration\FormAnswerFileStorage;
 use App\Services\Upload\SafeUploadStorage;
 use App\Services\Upload\UploadStorageTarget;
+use App\Support\LegacyFormImage;
 use Carbon\Carbon;
 use Illuminate\Cache\TaggableStore;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EventService
 {
@@ -43,6 +54,9 @@ class EventService
     public const USER_JOINED_LIMIT = 60;
 
     private const LIST_CACHE_TTL_SECONDS = 3600;
+
+    /** Batas bind parameter `whereIn` saat memusnahkan form/field/jawaban satu acara. */
+    private const FORCE_DELETE_CHUNK_SIZE = 500;
 
     public static function normalizePriceInput(mixed $value): float
     {
@@ -189,7 +203,7 @@ class EventService
         $userId = $user->id;
         // end experiment
 
-        $hashedQuery = md5(json_encode([
+        $hashedQuery = $this->listCacheHash([
             'filter' => $filter,
             'sort' => $sort,
             'search' => $search,
@@ -200,7 +214,7 @@ class EventService
             'buster' => Cache::get(EventCache::BUSTER_LIST, 0),
             'userId' => $userId,
             'isSuperAdmin' => $isSuperAdmin,
-        ], JSON_THROW_ON_ERROR));
+        ]);
 
         return $this->rememberList(
             "list-page:events:{$hashedQuery}",
@@ -211,13 +225,7 @@ class EventService
                     $query->withTrashed();
                 }
 
-                if (count($filter['categories'] ?? []) > 0) {
-                    $query->forCategoryTokens($filter['categories']);
-                }
-
-                if (count($filter['sessions'] ?? []) > 0) {
-                    $query->forSessionTokens($filter['sessions']);
-                }
+                $this->applyListFilters($query, $filter);
 
                 if (count($filter['statuses'] ?? []) > 0) {
                     $query->whereIn('status', $filter['statuses']);
@@ -253,6 +261,59 @@ class EventService
                 return $query
                     ->orderBy($sortBy, $sortOrder)
                     ->orderBy('id', $sortOrder)
+                    ->paginate($perPage, ['*'], 'page', $page);
+            }
+        );
+    }
+
+    /**
+     *
+     * Daftar acara terarsip (soft-deleted) dengan filter dan cache yang sama seperti index admin,
+     * tetapi terpisah kuncinya agar arsip tidak tercampur daftar aktif.
+     *
+     * @param  array{search?: string, filter?: array{categories?: array, sessions?: array}, sort?: array{by?: string, order?: string}, per_page?: int}  $queryInput
+     *
+     */
+    public function paginateArchivedForAdminIndex(array $queryInput, int $page, User $user): LengthAwarePaginator
+    {
+        $perPage = max(1, min(100, (int) ($queryInput['per_page'] ?? 8)));
+        $search = $queryInput['search'] ?? '';
+        $filter = $queryInput['filter'] ?? [];
+        $sort = $queryInput['sort'] ?? ['by' => 'deleted_at', 'order' => 'desc'];
+
+        $hashedQuery = $this->listCacheHash([
+            'scope' => 'archived',
+            'filter' => $filter,
+            'sort' => $sort,
+            'search' => $search,
+            'pagination' => [
+                'per_page' => $perPage,
+                'page' => $page,
+            ],
+            'buster' => Cache::get(EventCache::BUSTER_LIST, 0),
+            'userId' => $user->id,
+            'isSuperAdmin' => $user->hasRole('super-admin'),
+        ]);
+
+        return $this->rememberList(
+            "list-page:events-archived:{$hashedQuery}",
+            function () use ($filter, $sort, $search, $perPage, $page, $user) {
+                $query = Event::onlyTrashed();
+
+                $this->applyListFilters($query, $filter);
+
+                // Satu aturan kepemilikan untuk index admin dan dashboard (lihat Event::visibleTo).
+                $query->visibleTo($user);
+
+                if ($search !== '') {
+                    $query->whereLike('title', "%{$search}%");
+                }
+
+                $query->forListPage();
+
+                return $query
+                    ->orderBy($sort['by'] ?? 'deleted_at', $sort['order'] ?? 'desc')
+                    ->orderBy('id', 'desc')
                     ->paginate($perPage, ['*'], 'page', $page);
             }
         );
@@ -341,6 +402,69 @@ class EventService
     }
 
     /**
+     * Hapus permanen acara terarsip beserta form (draft maupun arsip), field,
+     * jawaban, email log, attendance, berkas storage, dan koreksi agregat harian.
+     *
+     * Form dan field wajib dipurge lewat query-level `forceDelete()`; `delete()`
+     * hanya mengisi `deleted_at` sehingga FK `forms.event_id`/`form_fields.form_id`
+     * (RESTRICT) tetap menahan penghapusan acara.
+     *
+     * Baris acara dikunci (`lockForUpdate`) di awal transaksi agar DELETE ganda
+     * tidak men-decrement agregat dua kali; baris yang sudah hilang → 404.
+     */
+    public function forceDelete(Event $event): void
+    {
+        abort_unless($event->trashed(), 409, __('messages.event.force_delete.active'));
+
+        DB::transaction(function () use ($event): void {
+            // Serialisasi per acara: dua DELETE bersamaan harus antre di baris yang
+            // sama. Tanpa lock keduanya membaca snapshot jawaban yang sama, lalu
+            // request kedua men-decrement agregat sekali lagi.
+            $lockedEvent = Event::withTrashed()
+                ->whereKey($event->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedEvent === null) {
+                abort(404);
+            }
+
+            $bannerPath = $lockedEvent->banner;
+            $formIds = Form::withTrashed()
+                ->where('event_id', $lockedEvent->id)
+                ->pluck('id')
+                ->all();
+
+            // Mass delete tidak memicu FormAnswerObserver, jadi total per tanggal
+            // diambil sebelum baris jawaban dihapus dan koreksinya dilakukan manual.
+            $dailyRegistrations = $this->summarizeDailyRegistrations($formIds);
+
+            // `email_logs.event_id` memakai RESTRICT: log harus hilang sebelum acara.
+            EmailLog::query()->where('event_id', $lockedEvent->id)->delete();
+
+            $this->eachFormIdChunk($formIds, function (array $chunk): void {
+                FormAnswer::query()->whereIn('form_id', $chunk)->delete();
+            });
+
+            $this->eachFormIdChunk($formIds, function (array $chunk): void {
+                FormField::withTrashed()->whereIn('form_id', $chunk)->forceDelete();
+            });
+
+            $this->eachFormIdChunk($formIds, function (array $chunk): void {
+                Form::withTrashed()->whereIn('id', $chunk)->forceDelete();
+            });
+
+            EventAttendance::query()->where('event_id', $lockedEvent->id)->delete();
+
+            $this->decrementDailyRegistrations($dailyRegistrations);
+
+            $lockedEvent->forceDelete();
+
+            DB::afterCommit(fn () => $this->purgeEventStorage($bannerPath, $formIds));
+        }, 3);
+    }
+
+    /**
      *
      * @return array<string, mixed>
      *
@@ -356,6 +480,129 @@ class EventService
                 'registered_count' => $registeredCount,
             ]
         );
+    }
+
+    /** Filter kategori/sesi bersama untuk daftar aktif maupun daftar arsip. */
+    private function applyListFilters(Builder $query, array $filter): void
+    {
+        if (count($filter['categories'] ?? []) > 0) {
+            $query->forCategoryTokens($filter['categories']);
+        }
+
+        if (count($filter['sessions'] ?? []) > 0) {
+            $query->forSessionTokens($filter['sessions']);
+        }
+    }
+
+    /**
+     *
+     * @param  list<string>  $formIds
+     * @param  callable(list<string>): void  $callback
+     *
+     */
+    private function eachFormIdChunk(array $formIds, callable $callback): void
+    {
+        foreach (array_chunk($formIds, self::FORCE_DELETE_CHUNK_SIZE) as $chunk) {
+            $callback($chunk);
+        }
+    }
+
+    /**
+     * Total jawaban per tanggal untuk form milik satu acara.
+     *
+     * @param  list<string>  $formIds
+     * @return array<string, int>
+     *
+     */
+    private function summarizeDailyRegistrations(array $formIds): array
+    {
+        $totals = [];
+
+        $this->eachFormIdChunk($formIds, function (array $chunk) use (&$totals): void {
+            $rows = DB::table('form_answers')
+                ->whereIn('form_id', $chunk)
+                ->selectRaw('DATE(created_at) as registration_date, COUNT(*) as total')
+                ->groupBy('registration_date')
+                ->get();
+
+            foreach ($rows as $row) {
+                $values = (array) $row;
+                $registrationDate = (string) ($values['registration_date'] ?? '');
+
+                if ($registrationDate === '') {
+                    continue;
+                }
+
+                $totals[$registrationDate] = ($totals[$registrationDate] ?? 0) + (int) ($values['total'] ?? 0);
+            }
+        });
+
+        return $totals;
+    }
+
+    /**
+     * Kurangi agregat harian sesuai jumlah jawaban yang dihapus, tanpa pernah negatif.
+     *
+     * @param  array<string, int>  $totals
+     *
+     */
+    private function decrementDailyRegistrations(array $totals): void
+    {
+        foreach ($totals as $registrationDate => $total) {
+            if ($total <= 0) {
+                continue;
+            }
+
+            $decremented = DB::table('event_daily_registrations')
+                ->where('registration_date', $registrationDate)
+                ->where('count', '>=', $total)
+                ->decrement('count', $total);
+
+            // Sisa lebih kecil dari total (agregat historis tidak sinkron): ratakan
+            // ke 0 karena kolom `count` unsigned tidak boleh underflow.
+            if ($decremented === 0) {
+                DB::table('event_daily_registrations')
+                    ->where('registration_date', $registrationDate)
+                    ->update(['count' => 0]);
+            }
+        }
+    }
+
+    /**
+     * Bersihkan berkas milik acara setelah commit. Kegagalan storage dicatat
+     * sebagai warning karena baris database sudah terhapus dan request tidak
+     * boleh gagal pada tahap ini.
+     *
+     * @param  list<string>  $formIds
+     *
+     */
+    private function purgeEventStorage(?string $bannerPath, array $formIds): void
+    {
+        try {
+            if ($bannerPath !== null && $bannerPath !== '') {
+                Storage::disk('public')->delete($bannerPath);
+            }
+
+            foreach ($formIds as $formId) {
+                // Jawaban bisa tersimpan di local (baru) atau public (legacy yang
+                // belum dimigrasi), jadi kedua disk dibersihkan.
+                Storage::disk('local')->deleteDirectory(FormAnswerFileStorage::DIRECTORY_PREFIX."/{$formId}");
+                Storage::disk('public')->deleteDirectory(FormAnswerFileStorage::DIRECTORY_PREFIX."/{$formId}");
+                Storage::disk('public')->deleteDirectory(LegacyFormImage::FIELD_DIRECTORY_PREFIX."/{$formId}");
+                Storage::disk('public')->deleteDirectory(LegacyFormImage::BANNER_DIRECTORY_PREFIX."/{$formId}");
+            }
+        } catch (Throwable $exception) {
+            Log::warning('event.force_delete.storage_purge_failed', [
+                'event_banner' => $bannerPath,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /** Hash payload query list acara; dipakai daftar aktif dan arsip agar format kunci seragam. */
+    private function listCacheHash(array $payload): string
+    {
+        return md5(json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
     /** Simpan hasil query list event di cache; memakai tag hanya bila store mendukungnya. */

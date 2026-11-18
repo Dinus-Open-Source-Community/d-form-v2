@@ -26,6 +26,10 @@ return [
         ],
         'draft' => [
             'success' => 'event moved to draft'
+        ],
+        'force_delete' => [
+            'success' => 'event permanently deleted',
+            'active' => 'archived events only can be permanently deleted'
         ]
     ],
     'form' => [

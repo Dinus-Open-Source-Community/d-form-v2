@@ -39,6 +39,7 @@ export const ACTION_LABELS: Record<string, string> = {
     'attendance-scan': 'Scan Kehadiran',
     create: 'Buat',
     edit: 'Ubah',
+    archived: 'Arsip',
 };
 
 /**

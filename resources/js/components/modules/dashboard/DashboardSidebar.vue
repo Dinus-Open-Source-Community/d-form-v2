@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { usePage, Link } from '@inertiajs/vue3';
 import {
@@ -33,6 +33,7 @@ import {
     UserCheck,
     History,
     Megaphone,
+    Archive,
 } from 'lucide-vue-next';
 import { isSidebarNavActive, routes } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,30 +57,44 @@ const canScanGlobal = computed(
 
 const currentPath = computed(() => page.url);
 
+/** Id panel sub-menu untuk `aria-controls` tombol disclosure. */
+const eventsSubId = useId();
+const recruitmentSubId = useId();
+
 /** Beranda penyelenggara vs portal peserta — URL terpisah, sama-sama “Beranda” di UI. */
 const mainNavItems = computed(() => [{ label: 'Beranda', href: routes.dashboard.index, icon: LayoutDashboard }]);
 
-const managementItems = computed(() => {
-    const items: { label: string; href: string; icon: typeof CalendarDays }[] = [];
+/** Item menu "Kelola"; grup acara dirender sebagai parent collapsible. */
+type TManagementNavItem =
+    { kind: 'link'; label: string; href: string; icon: typeof CalendarDays } | { kind: 'events-group' };
+
+const managementItems = computed<TManagementNavItem[]>(() => {
+    const items: TManagementNavItem[] = [];
 
     if (canScanGlobal.value) {
-        items.push({ label: 'Scan Global', href: routes.admin.scan.index, icon: ScanLine });
+        items.push({ kind: 'link', label: 'Scan Global', href: routes.admin.scan.index, icon: ScanLine });
     }
 
     if (canManageEvents.value) {
-        items.push({ label: 'Acara', href: routes.admin.events.index, icon: CalendarDays });
+        items.push({ kind: 'events-group' });
     }
 
     if (canManageUsers.value) {
-        items.push({ label: 'Pengguna', href: routes.admin.users.index, icon: UserCog });
+        items.push({ kind: 'link', label: 'Pengguna', href: routes.admin.users.index, icon: UserCog });
     }
 
     if (canAccessBroadcast.value) {
-        items.push({ label: 'Email Broadcasting', href: routes.admin.broadcasts.index, icon: Megaphone });
+        items.push({
+            kind: 'link',
+            label: 'Email Broadcasting',
+            href: routes.admin.broadcasts.index,
+            icon: Megaphone,
+        });
     }
 
     if (canAccessRecruitment.value && isInterviewerOnly.value) {
         items.push({
+            kind: 'link',
             label: 'Interview OpRec',
             href: routes.admin.recruitment.myInterviews.index,
             icon: ClipboardCheck,
@@ -90,13 +105,13 @@ const managementItems = computed(() => {
 
     if (!canManageEvents.value && !canAccessRecruitment.value) {
         items.push(
-            { label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
-            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
+            { kind: 'link', label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
+            { kind: 'link', label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
         );
     } else if (!canManageEvents.value && canAccessRecruitment.value) {
         items.push(
-            { label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
-            { label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
+            { kind: 'link', label: 'Acara diikuti', href: routes.member.joined, icon: CalendarCheck2 },
+            { kind: 'link', label: 'Jelajah acara', href: routes.member.browse, icon: Compass }
         );
     }
 
@@ -156,6 +171,32 @@ watch(
     () => {
         if (isRecruitmentActive()) {
             recruitmentOpen.value = true;
+        }
+    },
+    { immediate: true }
+);
+
+/** Sub-menu acara: daftar aktif dan arsip memakai filter/kartu yang sama. */
+const eventsSubItems = [
+    { label: 'Semua acara', href: routes.admin.events.index, icon: CalendarDays },
+    { label: 'Arsip acara', href: routes.admin.events.archived, icon: Archive },
+];
+
+const eventsOpen = ref(false);
+
+function isEventsActive(): boolean {
+    return eventsSubItems.some((item) => isActive(item.href));
+}
+
+function toggleEvents(): void {
+    eventsOpen.value = !eventsOpen.value;
+}
+
+watch(
+    currentPath,
+    () => {
+        if (isEventsActive()) {
+            eventsOpen.value = true;
         }
     },
     { immediate: true }
@@ -223,24 +264,68 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
                 </SidebarGroupLabel>
                 <SidebarGroupContent class="space-y-0.5">
                     <SidebarMenu class="gap-1">
-                        <SidebarMenuItem v-for="item in managementItems" :key="item.href">
-                            <SidebarMenuButton
-                                as-child
-                                :is-active="isActive(item.href)"
-                                :tooltip="item.label"
-                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
-                            >
-                                <Link :href="item.href" @click="closeMobileIfNeeded">
-                                    <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
-                                    <span class="font-medium">{{ item.label }}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                        <template
+                            v-for="item in managementItems"
+                            :key="item.kind === 'link' ? item.href : 'events-group'"
+                        >
+                            <SidebarMenuItem v-if="item.kind === 'link'">
+                                <SidebarMenuButton
+                                    as-child
+                                    :is-active="isActive(item.href)"
+                                    :tooltip="item.label"
+                                    class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                                >
+                                    <Link :href="item.href" @click="closeMobileIfNeeded">
+                                        <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
+                                        <span class="font-medium">{{ item.label }}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+
+                            <SidebarMenuItem v-else>
+                                <SidebarMenuButton
+                                    :is-active="isEventsActive()"
+                                    tooltip="Acara"
+                                    :aria-expanded="eventsOpen"
+                                    :aria-controls="eventsSubId"
+                                    class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                                    @click="toggleEvents"
+                                >
+                                    <CalendarDays class="size-4 shrink-0 opacity-90" />
+                                    <span class="font-medium">Acara</span>
+                                    <ChevronDown
+                                        class="ml-auto size-4 shrink-0 opacity-70 transition-transform duration-200"
+                                        :class="eventsOpen ? 'rotate-180' : ''"
+                                    />
+                                </SidebarMenuButton>
+                                <SidebarMenuSub :id="eventsSubId" v-show="eventsOpen" class="mt-1 gap-1 py-1">
+                                    <SidebarMenuSubItem v-for="subItem in eventsSubItems" :key="subItem.href">
+                                        <SidebarMenuSubButton
+                                            as-child
+                                            :is-active="isActive(subItem.href)"
+                                            class="h-auto min-h-9 gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors"
+                                            :class="
+                                                isActive(subItem.href)
+                                                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs'
+                                                    : undefined
+                                            "
+                                        >
+                                            <Link :href="subItem.href" @click="closeMobileIfNeeded">
+                                                <component :is="subItem.icon" class="size-3.5 shrink-0 opacity-80" />
+                                                <span class="truncate">{{ subItem.label }}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                </SidebarMenuSub>
+                            </SidebarMenuItem>
+                        </template>
 
                         <SidebarMenuItem v-if="showRecruitmentParent">
                             <SidebarMenuButton
                                 :is-active="isRecruitmentActive()"
                                 tooltip="Rekrutmen"
+                                :aria-expanded="recruitmentOpen"
+                                :aria-controls="recruitmentSubId"
                                 class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
                                 @click="toggleRecruitment"
                             >
@@ -251,7 +336,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
                                     :class="recruitmentOpen ? 'rotate-180' : ''"
                                 />
                             </SidebarMenuButton>
-                            <SidebarMenuSub v-show="recruitmentOpen" class="mt-1 gap-1 py-1">
+                            <SidebarMenuSub :id="recruitmentSubId" v-show="recruitmentOpen" class="mt-1 gap-1 py-1">
                                 <SidebarMenuSubItem v-for="item in recruitmentSubItems" :key="item.href">
                                     <SidebarMenuSubButton
                                         as-child

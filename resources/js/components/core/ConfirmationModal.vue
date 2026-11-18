@@ -18,6 +18,8 @@ defineProps<{
     cancelText?: string;
     variant?: 'default' | 'destructive';
     loading?: boolean;
+    /** Nonaktifkan tombol konfirmasi di luar state loading (mis. gate ketik judul). */
+    confirmDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -50,7 +52,7 @@ const emit = defineEmits<{
                             ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive/30'
                             : ''
                     "
-                    :disabled="loading"
+                    :disabled="loading === true || confirmDisabled === true"
                     @click="emit('confirm')"
                 >
                     {{ confirmText ?? 'Continue' }}

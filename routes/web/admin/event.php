@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Dashboard\Events\ArchivedEventController;
 use App\Http\Controllers\Dashboard\Events\EventController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Dashboard\Events\Forms\FieldOperationController;
@@ -55,8 +56,16 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->
     Route::post('/events/{event}/restore', [EventController::class, 'restore'])
         ->name('events.restore');
 
+    Route::delete('/events/{event}/force', [ArchivedEventController::class, 'destroy'])
+        ->middleware('throttle:event-force-delete')
+        ->name('events.force-delete');
+
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])
         ->name('events.status');
+
+    // Didaftarkan sebelum `Route::resource` agar `/events/archived` tidak tertangkap `/events/{event}`.
+    Route::get('/events/archived', [ArchivedEventController::class, 'index'])
+        ->name('events.archived');
 
     Route::resource('/events', EventController::class)->only([
         'index',

@@ -158,6 +158,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Hapus permanen memusnahkan baris dan berkas: batasi agar salah klik
+        // atau request berulang tidak menghapus banyak acara sekaligus.
+        RateLimiter::for('event-force-delete', function (Request $request) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
+        });
+
         // Berkas jawaban form sensitif: batasi per user/IP agar signed URL yang
         // bocor tidak bisa dipakai untuk scraping massal.
         RateLimiter::for('form-answer-file', function (Request $request): Limit {
@@ -274,6 +280,14 @@ class AppServiceProvider extends ServiceProvider
             $email = is_string($input) ? strtolower(trim($input)) : '';
 
             return $this->authThrottleLimit('otp_address', $email !== '' ? $email : $request->ip());
+        });
+
+        // Bind/unbind provider kunci per user id: satu akun tidak bisa membanjiri consent flow.
+        RateLimiter::for('oauth-connection', function (Request $request): Limit {
+            return $this->authThrottleLimit(
+                'oauth_connection',
+                $request->user()?->getAuthIdentifier() ?? $request->ip(),
+            );
         });
 
         // Temporary scan-test helper: redirect ALL outgoing mail to one inbox.

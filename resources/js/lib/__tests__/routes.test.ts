@@ -78,6 +78,7 @@ const SURVIVING_ROUTE_KEYS = [
     'admin.recruitment.myInterviews.primaryAssign',
     'admin.events.index',
     'admin.events.create',
+    'admin.events.archived',
     'admin.events.show',
     'admin.events.edit',
     'admin.events.exports.registrations',
@@ -250,6 +251,13 @@ describe('routes builders', () => {
         expect(isSidebarNavActive(routes.admin.recruitment.index, '/admin/events')).toBe(false);
         expect(isSidebarNavActive(routes.admin.scan.index, '/admin/scan?desk=1')).toBe(true);
         expect(isSidebarNavActive(routes.member.joined, '/joined')).toBe(true);
+    });
+
+    it('separates the archived events item from the active events list', () => {
+        expect(isSidebarNavActive(routes.admin.events.archived, '/admin/events/archived')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events/archived')).toBe(false);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events/e-1/edit')).toBe(true);
     });
 
     it('strips query strings before comparing paths', () => {

@@ -60,4 +60,13 @@ class EventPolicy
 
         return $user->can('events.delete') && ($event->created_by === null || $user->id === $event->created_by);
     }
+
+    public function forceDelete(User $user, Event $event): bool
+    {
+        if ($user->hasRole('super-admin')) {
+            return true;
+        }
+
+        return $user->can('events.delete') && ($event->created_by === null || $user->id === $event->created_by);
+    }
 }

@@ -5,6 +5,7 @@
  */
 
 import { dashboard as dashboardRoute, docs, features, home } from '@/routes';
+import { index as archivedEventsIndex } from '@/actions/App/Http/Controllers/Dashboard/Events/ArchivedEventController';
 import { index as adminIndex } from '@/routes/admin';
 import { login as authLogin, register as authRegister } from '@/routes/auth';
 import { resetLink as passwordResetLink } from '@/routes/auth/password';
@@ -262,6 +263,9 @@ export const routes = {
             get create() {
                 return eventCreate.url();
             },
+            get archived() {
+                return archivedEventsIndex().url;
+            },
             show: (eventId: string | number): string => eventShowAdmin.url({ event: String(eventId) }),
             edit: (eventId: string | number): string => eventEdit.url({ event: String(eventId) }),
             exports: {
@@ -374,6 +378,14 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     }
     if (href === routes.admin.scan.index) {
         return path === routes.admin.scan.index;
+    }
+    if (href === routes.admin.events.archived) {
+        return path.startsWith(routes.admin.events.archived);
+    }
+    if (href === routes.admin.events.index) {
+        // Arsip punya menu sendiri; jangan menandai "Semua acara" aktif di sana.
+        if (path.startsWith(routes.admin.events.archived)) return false;
+        return path.startsWith(routes.admin.events.index);
     }
 
     return path.startsWith(href);

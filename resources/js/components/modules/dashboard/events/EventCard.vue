@@ -5,7 +5,17 @@ import { useEventListener } from '@vueuse/core';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CalendarDays, MapPin, Users, MoreVertical, SquarePen, Download, FileStack, Trash2 } from 'lucide-vue-next';
+import {
+    CalendarDays,
+    MapPin,
+    Users,
+    MoreVertical,
+    SquarePen,
+    Download,
+    FileStack,
+    Trash2,
+    RotateCcw,
+} from 'lucide-vue-next';
 import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import { categoryLabelMap, categoryColorMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
@@ -19,11 +29,17 @@ const props = withDefaults(
         canManage?: boolean;
         showPrice?: boolean;
         alertBadge?: string | null;
+        /** `archived` mengganti aksi kebab dengan pulihkan/hapus permanen. */
+        variant?: 'default' | 'archived';
     }>(),
-    { canManage: false, showPrice: true, alertBadge: null }
+    { canManage: false, showPrice: true, alertBadge: null, variant: 'default' }
 );
 
-const emit = defineEmits<{ delete: [event: IEvent] }>();
+const emit = defineEmits<{
+    delete: [event: IEvent];
+    restore: [event: IEvent];
+    forceDelete: [event: IEvent];
+}>();
 
 function eventTokenList(v: unknown): string[] {
     if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);
@@ -84,6 +100,14 @@ function requestDelete(): void {
     emit('delete', props.event);
 }
 
+function requestRestore(): void {
+    emit('restore', props.event);
+}
+
+function requestForceDelete(): void {
+    emit('forceDelete', props.event);
+}
+
 function closeIfOutside(target: EventTarget | null): void {
     if (openMenuId.value === null) return;
     const node = target as Node | null;
@@ -106,6 +130,13 @@ useEventListener('keydown', (e) => {
     >
         <div class="relative flex items-center justify-between gap-3">
             <div class="flex min-w-0 flex-wrap gap-1">
+                <Badge
+                    v-if="variant === 'archived'"
+                    variant="secondary"
+                    class="border-border/60 bg-muted/70 text-muted-foreground border px-2.5 py-1 text-xs font-semibold"
+                >
+                    Diarsipkan
+                </Badge>
                 <Badge
                     v-if="alertBadge"
                     variant="secondary"
@@ -170,35 +201,55 @@ useEventListener('keydown', (e) => {
                     "
                     class="border-border bg-popover text-popover-foreground absolute top-10 right-0 z-[20] min-w-48 overflow-hidden rounded-xl border p-1 shadow-sm"
                 >
-                    <button
-                        type="button"
-                        class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
-                        @click="menuAction(openEdit)"
-                    >
-                        <SquarePen class="mr-2 size-4 shrink-0 stroke-[1.75]" />Edit acara
-                    </button>
-                    <button
-                        type="button"
-                        class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
-                        @click="menuAction(openExport)"
-                    >
-                        <Download class="mr-2 size-4 shrink-0 stroke-[1.75]" />Export data
-                    </button>
-                    <button
-                        type="button"
-                        class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
-                        @click="menuAction(openForms)"
-                    >
-                        <FileStack class="mr-2 size-4 shrink-0 stroke-[1.75]" />Kelola formulir
-                    </button>
-                    <div class="bg-border my-1 h-px" />
-                    <button
-                        type="button"
-                        class="text-destructive hover:bg-destructive/10 focus:text-destructive focus:bg-destructive/15 relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm font-medium transition-colors outline-none"
-                        @click="menuAction(requestDelete)"
-                    >
-                        <Trash2 class="mr-2 size-4 shrink-0 stroke-[1.75]" />Hapus acara
-                    </button>
+                    <template v-if="variant === 'default'">
+                        <button
+                            type="button"
+                            class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
+                            @click="menuAction(openEdit)"
+                        >
+                            <SquarePen class="mr-2 size-4 shrink-0 stroke-[1.75]" />Edit acara
+                        </button>
+                        <button
+                            type="button"
+                            class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
+                            @click="menuAction(openExport)"
+                        >
+                            <Download class="mr-2 size-4 shrink-0 stroke-[1.75]" />Export data
+                        </button>
+                        <button
+                            type="button"
+                            class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
+                            @click="menuAction(openForms)"
+                        >
+                            <FileStack class="mr-2 size-4 shrink-0 stroke-[1.75]" />Kelola formulir
+                        </button>
+                        <div class="bg-border my-1 h-px" />
+                        <button
+                            type="button"
+                            class="text-destructive hover:bg-destructive/10 focus:text-destructive focus:bg-destructive/15 relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm font-medium transition-colors outline-none"
+                            @click="menuAction(requestDelete)"
+                        >
+                            <Trash2 class="mr-2 size-4 shrink-0 stroke-[1.75]" />Hapus acara
+                        </button>
+                    </template>
+
+                    <template v-else>
+                        <button
+                            type="button"
+                            class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm transition-colors outline-none"
+                            @click="menuAction(requestRestore)"
+                        >
+                            <RotateCcw class="mr-2 size-4 shrink-0 stroke-[1.75]" />Pulihkan
+                        </button>
+                        <div class="bg-border my-1 h-px" />
+                        <button
+                            type="button"
+                            class="text-destructive hover:bg-destructive/10 focus:text-destructive focus:bg-destructive/15 relative flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm font-medium transition-colors outline-none"
+                            @click="menuAction(requestForceDelete)"
+                        >
+                            <Trash2 class="mr-2 size-4 shrink-0 stroke-[1.75]" />Hapus permanen
+                        </button>
+                    </template>
                 </div>
             </Transition>
         </div>
