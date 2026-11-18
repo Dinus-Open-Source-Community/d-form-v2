@@ -80,9 +80,7 @@ import {
 } from '@/routes/dashboard/user/events';
 import {
     checkEmail,
-    create as userCreate,
     destroy as userDestroy,
-    edit as userEdit,
     index as usersIndex,
     show as userShow,
     store as userStore,
@@ -290,14 +288,10 @@ export const routes = {
             get index() {
                 return usersIndex.url();
             },
-            get create() {
-                return userCreate.url();
-            },
             get store() {
                 return userStore.url();
             },
             show: (id: string): string => userShow.url({ user: id }),
-            edit: (id: string): string => userEdit.url({ user: id }),
             update: (id: string): string => userUpdate.url({ user: id }),
             destroy: (id: string): string => userDestroy.url({ user: id }),
         },

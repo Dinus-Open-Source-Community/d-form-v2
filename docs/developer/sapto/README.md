@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges18-11-2026-DFORM-USERS-REDESIGN.md](./saptoChanges18-11-2026-DFORM-USERS-REDESIGN.md) | Redesign direktori `/admin/users`: satu surface (toolbar pencarian ber-debounce + chip role, tabel ≥1024px, kartu di bawahnya), create/edit lewat sheet tanpa pindah halaman, `per_page` 10/20/50/100 ditegakkan server, `permissions` per baris dari policy, route create/edit lama 404, pagination benar; halaman detail dirombak (4 kartu statistik server, tabel→kartu, Edit membuka panel). Bug lama diperbaiki: konfirmasi hapus tidak pernah mengirim DELETE. PHPUnit 25, Vitest 1040, E2E 18 passed, entry 15,86 kB gzip; kontras 5,42-18,8:1 dan cursor kontrol diperbaiki di base layer.
+
 - [saptoChanges18-11-2026-DFORM-3.md](./saptoChanges18-11-2026-DFORM-3.md) | Hapus tampilan Kartu jawaban di mobile sampai akar (komponen kartu, toggle Kartu/Daftar, hook view mode, tipe, storage key, seluruh assertion terkait) sehingga mobile hanya memakai daftar; tombol Export dipindah rata kanan di toolbar mobile; review per jawaban lewat detail sheet. E2E baru deterministik 4 passed, typecheck/lint/build hijau, audit grep 0 sisa.
 
 - [saptoChanges18-11-2026-DFORM-2.md](./saptoChanges18-11-2026-DFORM-2.md) | Redesign dialog "Bagikan formulir": grup audiens (Peserta, Short link opsional, Admin), tombol salin menyatu di dalam field, satu aksi primary, barcode menempel pada blok peserta, penanda "Tersalin" per baris, alert berbingkai dengan ikon; fungsi tidak berubah (E2E fungsional hijau desktop+mobile), 4 E2E baru, Vitest 992, entry 15,91 kB gzip.

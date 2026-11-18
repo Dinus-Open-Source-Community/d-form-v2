@@ -249,8 +249,8 @@ class UserManagementTest extends TestCase
         $otherSuper->assignRole('super-admin');
 
         $this->actingAs($superAdmin)
-            ->get(route('dashboard.users.edit', $otherSuper))
-            ->assertForbidden();
+            ->get("/admin/users/{$otherSuper->id}/edit")
+            ->assertNotFound();
 
         $this->actingAs($superAdmin)
             ->put(route('dashboard.users.update', $otherSuper), [

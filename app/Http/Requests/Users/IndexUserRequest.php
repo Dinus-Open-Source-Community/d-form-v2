@@ -25,7 +25,10 @@ class IndexUserRequest extends FormRequest
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
             'role' => ['sometimes', 'nullable', 'string', Rule::in(UserManagementService::ASSIGNABLE_ROLES)],
             'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            // Whitelist per_page ditegakkan service; rule ini hanya menolak nilai non-numerik.
+            'per_page' => ['sometimes', 'integer', 'min:1'],
+            'edit' => ['sometimes', 'nullable', 'uuid'],
+            'create' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -34,7 +37,7 @@ class IndexUserRequest extends FormRequest
         $this->merge([
             'search' => trim((string) $this->input('search', '')),
             'role' => $this->filled('role') ? (string) $this->input('role') : null,
-            'per_page' => (int) $this->input('per_page', 10),
+            'per_page' => (int) $this->input('per_page', UserManagementService::DEFAULT_PER_PAGE),
         ]);
     }
 }

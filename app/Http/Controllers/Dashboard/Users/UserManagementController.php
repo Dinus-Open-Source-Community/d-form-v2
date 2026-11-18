@@ -22,9 +22,12 @@ class UserManagementController extends Controller
     public function index(IndexUserRequest $request): Response
     {
         $validated = $request->validated();
-        $page = $request->integer('page', 1);
+        $page = max(1, $request->integer('page', 1));
 
-        $paginator = $this->userManagementService->paginateForAdminIndex($validated, $page);
+        /** @var User $actor */
+        $actor = $request->user();
+
+        $paginator = $this->userManagementService->paginateForAdminIndex($validated, $actor, $page, $request);
 
         return Inertia::render('Dashboard/Users/Index', [
             'users' => $paginator,
@@ -32,17 +35,10 @@ class UserManagementController extends Controller
             'query' => [
                 'search' => $validated['search'] ?? '',
                 'role' => $validated['role'] ?? null,
-                'per_page' => $validated['per_page'] ?? 10,
+                'per_page' => $paginator->perPage(),
+                'edit' => $validated['edit'] ?? null,
+                'create' => (bool) ($validated['create'] ?? false),
             ],
-        ]);
-    }
-
-    public function create(): Response
-    {
-        $this->authorize('create', User::class);
-
-        return Inertia::render('Dashboard/Users/Create', [
-            'roleOptions' => $this->userManagementService->roleOptions(),
         ]);
     }
 
@@ -57,7 +53,10 @@ class UserManagementController extends Controller
             'type' => 'success',
         ]);
 
-        return redirect()->route('dashboard.users.index');
+        return redirect()->route(
+            'dashboard.users.index',
+            $this->returnFilters($request->validated())
+        );
     }
 
     public function show(User $user): Response
@@ -69,20 +68,11 @@ class UserManagementController extends Controller
 
         return Inertia::render(
             'Dashboard/Users/Show',
-            $this->userManagementService->toDetailPayload($user, $actor, request())
+            [
+                ...$this->userManagementService->toDetailPayload($user, $actor, request()),
+                'roleOptions' => $this->userManagementService->roleOptions(),
+            ]
         );
-    }
-
-    public function edit(User $user): Response
-    {
-        $this->authorize('update', $user);
-
-        $user->load('roles:id,name');
-
-        return Inertia::render('Dashboard/Users/Edit', [
-            'managedUser' => $this->userManagementService->toInertiaArray($user),
-            'roleOptions' => $this->userManagementService->roleOptions(),
-        ]);
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
@@ -96,7 +86,10 @@ class UserManagementController extends Controller
             'type' => 'success',
         ]);
 
-        return redirect()->route('dashboard.users.index');
+        return redirect()->route(
+            'dashboard.users.index',
+            $this->returnFilters($request->validated())
+        );
     }
 
     public function destroy(User $user): RedirectResponse
@@ -111,5 +104,37 @@ class UserManagementController extends Controller
         ]);
 
         return redirect()->route('dashboard.users.index');
+    }
+
+    /**
+     * Filter asal dari form create/edit agar konteks direktori tidak hilang.
+     * Hanya search/role/page yang diteruskan dan nilai kosong dibuang.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array{search?: string, role?: string, page?: int}
+     */
+    private function returnFilters(array $validated): array
+    {
+        $submitted = $validated['return_filters'] ?? null;
+        $filters = is_array($submitted) ? $submitted : [];
+
+        $result = [];
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $result['search'] = $search;
+        }
+
+        $role = $filters['role'] ?? null;
+        if (is_string($role) && $role !== '') {
+            $result['role'] = $role;
+        }
+
+        $page = $filters['page'] ?? null;
+        if (is_numeric($page) && (int) $page >= 1) {
+            $result['page'] = (int) $page;
+        }
+
+        return $result;
     }
 }

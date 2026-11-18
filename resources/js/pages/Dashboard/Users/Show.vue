@@ -1,33 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, onMounted } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import UserDetailHeader from '@/components/modules/users/UserDetailHeader.vue';
+import UserDetailRecruitmentList from '@/components/modules/users/UserDetailRecruitmentList.vue';
+import UserDetailRegistrationList from '@/components/modules/users/UserDetailRegistrationList.vue';
+import UserDetailStatCards from '@/components/modules/users/UserDetailStatCards.vue';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToastNotifications } from '@/hooks/useToastNotifications';
-import { routes } from '@/lib/routes';
-import { formatDateTime } from '@/lib/dateTime';
-import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
-import {
-    ArrowLeft,
-    CalendarDays,
-    CheckCircle2,
-    ClipboardList,
-    Github,
-    Mail,
-    Pencil,
-    ScanLine,
-    Trash2,
-    UserRound,
-} from 'lucide-vue-next';
+import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import { buildUserIndexUrl } from '@/lib/buildUserIndexUrl';
+import { formatDateTime } from '@/lib/dateTime';
+import { routes } from '@/lib/routes';
+import type { IManagedUser, IUserRoleOption } from '@/types/user-management';
 
 defineOptions({ layout: DashboardLayout });
 
-interface DetailUser {
+interface IDetailUser {
     id: string;
     name: string;
     email: string;
@@ -41,7 +31,7 @@ interface DetailUser {
     oauth: { google: boolean; github: boolean };
 }
 
-interface Stats {
+interface IDetailStats {
     events_joined: number;
     registrations_pending: number;
     registrations_accepted: number;
@@ -52,7 +42,7 @@ interface Stats {
     interviews_assigned: number;
 }
 
-interface RegistrationRow {
+interface IRegistrationRow {
     form_answer_id: string;
     registration_code: string | null;
     review_status: string | null;
@@ -60,17 +50,11 @@ interface RegistrationRow {
     member_confirmation_status: string | null;
     created_at: string | null;
     attended_at: string | null;
-    event: {
-        id: string;
-        title: string;
-        slug: string;
-        start_date: string | null;
-        status: string | null;
-    } | null;
+    event: { id: string; title: string; slug: string; start_date: string | null; status: string | null } | null;
     form: { id: string; title: string | null } | null;
 }
 
-interface EventCreatedRow {
+interface IEventCreatedRow {
     id: string;
     title: string;
     slug: string;
@@ -79,7 +63,7 @@ interface EventCreatedRow {
     created_at: string | null;
 }
 
-interface RecruitmentAppRow {
+interface IRecruitmentApplicationRow {
     id: string;
     registration_number: string;
     full_name: string;
@@ -91,36 +75,42 @@ interface RecruitmentAppRow {
     primary_division: string | null;
 }
 
-interface StaffInfo {
+interface IStaffInfo {
     interviewer_divisions: Array<{ id: string; name: string | null; code: string | null }>;
     interviews_assigned_count: number;
     scans_recorded_count: number;
 }
 
 const props = defineProps<{
-    user: DetailUser;
-    stats: Stats;
-    registrations: RegistrationRow[];
-    events_created: EventCreatedRow[];
-    recruitment_applications: RecruitmentAppRow[];
-    staff: StaffInfo;
+    user: IDetailUser;
+    stats: IDetailStats;
+    registrations: IRegistrationRow[];
+    events_created: IEventCreatedRow[];
+    recruitment_applications: IRecruitmentApplicationRow[];
+    staff: IStaffInfo;
     permissions: { can_edit: boolean; can_delete: boolean };
+    roleOptions: IUserRoleOption[];
 }>();
 
-const { showErrorToast } = useToastNotifications();
+const { showDeleteModal, isDeleting, requestDelete, cancelDelete, dismissDelete, confirmDelete } =
+    useUserDeletion();
 
-const roleLabels: Record<string, string> = {
-    'super-admin': 'Super Admin',
-    admin: 'Admin',
-    member: 'Member',
-    'recruitment-staff': 'Recruitment Staff',
-    'recruitment-interviewer': 'Recruitment Interviewer',
-};
+/** Panel edit hidup di direktori; halaman detail hanya menyusun URL deep link-nya. */
+const editHref = computed<string>(() => buildUserIndexUrl({ edit: props.user.id }));
 
-const isDeleting = ref(false);
-const showDeleteModal = ref(false);
+/** Target hapus memakai kontrak direktori, dibangun dari props detail yang sudah ada. */
+const deletionTarget = computed<IManagedUser>(() => ({
+    id: props.user.id,
+    name: props.user.name,
+    email: props.user.email,
+    roles: props.user.roles,
+    avatar_url: props.user.avatar_url,
+    can_edit: props.permissions.can_edit,
+    can_delete: props.permissions.can_delete,
+    created_at: props.user.created_at,
+}));
 
-const hasStaffActivity = computed(
+const hasStaffActivity = computed<boolean>(
     () =>
         props.staff.interviewer_divisions.length > 0 ||
         props.staff.interviews_assigned_count > 0 ||
@@ -128,408 +118,154 @@ const hasStaffActivity = computed(
         props.events_created.length > 0
 );
 
+/** Kalimat konfirmasi hapus; satu tempat agar tanda kutip nama akun tidak ter-escape. */
+const deleteDescription = computed<string>(
+    () => `Akun "${props.user.name}" akan dihapus dan tidak bisa dipakai masuk lagi.`
+);
+
+/** Status acara yang sudah dikenal; nilai lain tampil apa adanya dengan badge netral. */
+const EVENT_STATUS_LABELS: Record<string, string> = {
+    draft: 'Draf',
+    published: 'Terbit',
+};
+
+function eventStatusLabel(status: string | null): string {
+    if (status === null || status === '') {
+        return '-';
+    }
+
+    return EVENT_STATUS_LABELS[status] ?? status;
+}
+
+function eventStatusClass(status: string | null): string {
+    return status === 'published'
+        ? 'border-success/30 bg-success/10 text-success'
+        : 'border-border bg-muted/40 text-muted-foreground';
+}
+
+function eventStartDate(event: IEventCreatedRow): string {
+    return formatDateTime({ value: event.start_date, variant: 'date-medium' }) || '-';
+}
+
+/** "Nama (kode)" untuk badge divisi interviewer; nama kosong ditampilkan sebagai tanda pisah. */
+function divisionLabel(division: { name: string | null; code: string | null }): string {
+    const base = division.name ?? '-';
+
+    return division.code === null || division.code === '' ? base : `${base} (${division.code})`;
+}
+
+function requestAccountDeletion(): void {
+    if (!props.permissions.can_delete) return;
+
+    requestDelete(deletionTarget.value);
+}
+
+function handleDeleteOpenChange(open: boolean): void {
+    if (!open) {
+        dismissDelete();
+    }
+}
+
 onMounted(() => {
     setTopbar({ title: props.user.name, subtitle: 'Detail pengguna' });
 });
-
-function reviewLabel(status: string | null): string {
-    if (!status) return '—';
-    const map: Record<string, string> = {
-        pending: 'Menunggu',
-        accepted: 'Diterima',
-        rejected: 'Ditolak',
-    };
-    return map[status] ?? status;
-}
-
-function confirmDelete(): void {
-    if (isDeleting.value || !props.permissions.can_delete) return;
-    isDeleting.value = true;
-    router.delete(routes.admin.users.destroy(props.user.id), {
-        onError: () => showErrorToast('Gagal menghapus akun.'),
-        onFinish: () => {
-            isDeleting.value = false;
-            showDeleteModal.value = false;
-        },
-    });
-}
 </script>
 
 <template>
-    <Head :title="`Detail — ${user.name}`" />
+    <Head :title="`Detail pengguna · ${user.name}`" />
 
-    <div class="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div class="flex min-w-0 items-start gap-4">
-                <Button as-child variant="outline" size="icon-sm" class="mt-1 shrink-0">
-                    <Link :href="routes.admin.users.index" aria-label="Kembali ke daftar">
-                        <ArrowLeft class="size-4" />
-                    </Link>
-                </Button>
-                <div class="flex min-w-0 items-start gap-3">
-                    <div
-                        class="bg-muted text-muted-foreground grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl"
-                    >
-                        <img
-                            v-if="user.avatar_url"
-                            :src="user.avatar_url"
-                            :alt="user.name"
-                            class="size-full object-cover"
-                        />
-                        <UserRound v-else class="size-6" aria-hidden="true" />
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-5 pb-10" data-testid="user-detail">
+        <UserDetailHeader
+            :user="user"
+            :role-options="roleOptions"
+            :can-edit="permissions.can_edit"
+            :can-delete="permissions.can_delete"
+            :edit-href="editHref"
+            @delete="requestAccountDeletion"
+        />
+
+        <UserDetailStatCards :stats="stats" />
+
+        <UserDetailRegistrationList :registrations="registrations" />
+
+        <UserDetailRecruitmentList :applications="recruitment_applications" />
+
+        <section class="border-border bg-card rounded-2xl border shadow-xs" aria-labelledby="user-detail-staff-title">
+            <div class="border-border/70 border-b px-5 py-3.5">
+                <h2 id="user-detail-staff-title" class="text-foreground text-sm font-semibold">Aktivitas staff</h2>
+            </div>
+
+            <div v-if="hasStaffActivity" class="divide-border/70 divide-y">
+                <dl class="grid grid-cols-2 gap-4 px-5 py-4">
+                    <div>
+                        <dt class="text-muted-foreground text-xs">Interview ditugaskan</dt>
+                        <dd class="text-foreground mt-1 text-lg font-semibold tabular-nums">
+                            {{ staff.interviews_assigned_count }}
+                        </dd>
                     </div>
-                    <div class="min-w-0">
-                        <h1
-                            class="font-display text-foreground truncate text-2xl font-semibold tracking-tight sm:text-3xl"
+                    <div>
+                        <dt class="text-muted-foreground text-xs">Scan sebagai operator</dt>
+                        <dd class="text-foreground mt-1 text-lg font-semibold tabular-nums">
+                            {{ staff.scans_recorded_count }}
+                        </dd>
+                    </div>
+                </dl>
+
+                <div v-if="staff.interviewer_divisions.length > 0" class="px-5 py-4">
+                    <p class="text-muted-foreground text-xs">Divisi interviewer</p>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                        <Badge
+                            v-for="division in staff.interviewer_divisions"
+                            :key="division.id"
+                            variant="secondary"
+                            class="max-w-full"
                         >
-                            {{ user.name }}
-                        </h1>
-                        <p class="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
-                            <Mail class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate">{{ user.email }}</span>
-                        </p>
-                        <div class="mt-2 flex flex-wrap gap-1.5">
-                            <Badge v-for="role in user.roles" :key="role" variant="outline">
-                                {{ roleLabels[role] ?? role }}
-                            </Badge>
-                        </div>
+                            <span class="min-w-0 break-words">{{ divisionLabel(division) }}</span>
+                        </Badge>
                     </div>
+                </div>
+
+                <div v-if="events_created.length > 0" class="px-5 py-4">
+                    <p class="text-muted-foreground text-xs">Acara yang dibuat</p>
+                    <ul class="divide-border/70 mt-1 divide-y">
+                        <li
+                            v-for="event in events_created"
+                            :key="event.id"
+                            class="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                        >
+                            <Link
+                                :href="routes.admin.events.show(event.id)"
+                                class="text-foreground min-w-0 text-sm font-medium break-words hover:underline"
+                            >
+                                {{ event.title }}
+                            </Link>
+                            <span class="flex shrink-0 items-center gap-2">
+                                <Badge variant="outline" :class="eventStatusClass(event.status)">
+                                    {{ eventStatusLabel(event.status) }}
+                                </Badge>
+                                <span class="text-muted-foreground text-xs tabular-nums">
+                                    {{ eventStartDate(event) }}
+                                </span>
+                            </span>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
-            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <Button v-if="permissions.can_edit" as-child class="w-full sm:w-auto">
-                    <Link :href="routes.admin.users.edit(user.id)">
-                        <Pencil class="mr-2 size-4" aria-hidden="true" />
-                        Edit
-                    </Link>
-                </Button>
-                <Button
-                    v-if="permissions.can_delete"
-                    variant="destructive"
-                    class="w-full sm:w-auto"
-                    @click="showDeleteModal = true"
-                >
-                    <Trash2 class="mr-2 size-4" aria-hidden="true" />
-                    Hapus
-                </Button>
-            </div>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card class="border-border/70 rounded-2xl">
-                <CardContent class="flex items-center gap-3 p-4">
-                    <span class="bg-muted grid size-10 place-items-center rounded-xl">
-                        <CalendarDays class="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p class="text-muted-foreground text-xs">Event diikuti</p>
-                        <p class="text-xl font-semibold tabular-nums">{{ stats.events_joined }}</p>
-                    </div>
-                </CardContent>
-            </Card>
-            <Card class="border-border/70 rounded-2xl">
-                <CardContent class="flex items-center gap-3 p-4">
-                    <span class="bg-muted grid size-10 place-items-center rounded-xl">
-                        <CheckCircle2 class="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p class="text-muted-foreground text-xs">Registrasi diterima</p>
-                        <p class="text-xl font-semibold tabular-nums">{{ stats.registrations_accepted }}</p>
-                    </div>
-                </CardContent>
-            </Card>
-            <Card class="border-border/70 rounded-2xl">
-                <CardContent class="flex items-center gap-3 p-4">
-                    <span class="bg-muted grid size-10 place-items-center rounded-xl">
-                        <ClipboardList class="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p class="text-muted-foreground text-xs">Pendaftaran OpRec</p>
-                        <p class="text-xl font-semibold tabular-nums">{{ stats.recruitment_applications }}</p>
-                    </div>
-                </CardContent>
-            </Card>
-            <Card class="border-border/70 rounded-2xl">
-                <CardContent class="flex items-center gap-3 p-4">
-                    <span class="bg-muted grid size-10 place-items-center rounded-xl">
-                        <ScanLine class="size-4" aria-hidden="true" />
-                    </span>
-                    <div>
-                        <p class="text-muted-foreground text-xs">Scan tercatat</p>
-                        <p class="text-xl font-semibold tabular-nums">{{ stats.scans_recorded }}</p>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-
-        <div class="grid gap-6 lg:grid-cols-3">
-            <Card class="border-border/70 rounded-2xl lg:col-span-1">
-                <CardHeader class="pb-3">
-                    <CardTitle class="text-base">Informasi akun</CardTitle>
-                </CardHeader>
-                <CardContent class="space-y-3 text-sm">
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Email terverifikasi</span>
-                        <span>{{
-                            user.email_verified_at
-                                ? formatDateTime({ value: user.email_verified_at, variant: 'date-time-medium' })
-                                : 'Belum'
-                        }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Password lokal</span>
-                        <span>{{ user.has_local_password ? 'Ya' : 'Tidak' }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Google</span>
-                        <span>{{ user.oauth.google ? 'Terhubung' : '—' }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground flex items-center gap-1">
-                            <Github class="size-3.5" aria-hidden="true" />
-                            GitHub
-                        </span>
-                        <span>{{ user.oauth.github ? 'Terhubung' : '—' }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Dibuat</span>
-                        <span>{{
-                            formatDateTime({ value: user.created_at, variant: 'date-time-medium' }) || '—'
-                        }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Diperbarui</span>
-                        <span>{{
-                            formatDateTime({ value: user.updated_at, variant: 'date-time-medium' }) || '—'
-                        }}</span>
-                    </div>
-                    <div v-if="stats.registrations_pending > 0" class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Registrasi pending</span>
-                        <span>{{ stats.registrations_pending }}</span>
-                    </div>
-                    <div class="flex justify-between gap-3">
-                        <span class="text-muted-foreground">Hadir sebagai peserta</span>
-                        <span>{{ stats.attendances_as_participant }}</span>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div class="flex flex-col gap-6 lg:col-span-2">
-                <Card class="border-border/70 rounded-2xl">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-base">Event yang diikuti</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <template v-if="registrations.length > 0">
-                            <div class="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Event</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Kode</TableHead>
-                                            <TableHead>Hadir</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        <TableRow v-for="row in registrations" :key="row.form_answer_id">
-                                            <TableCell>
-                                                <div class="min-w-0">
-                                                    <Link
-                                                        v-if="row.event"
-                                                        :href="routes.admin.events.show(row.event.id)"
-                                                        class="text-foreground font-medium hover:underline"
-                                                    >
-                                                        {{ row.event.title }}
-                                                    </Link>
-                                                    <span v-else class="text-muted-foreground"
-                                                        >Event tidak tersedia</span
-                                                    >
-                                                    <p class="text-muted-foreground mt-0.5 text-xs">
-                                                        {{ row.form?.title || 'Form' }}
-                                                        <span v-if="row.event?.start_date">
-                                                            ·
-                                                            {{
-                                                                formatDateTime({
-                                                                    value: row.event.start_date,
-                                                                    variant: 'date-medium',
-                                                                }) || row.event.start_date
-                                                            }}
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="secondary">{{ reviewLabel(row.review_status) }}</Badge>
-                                            </TableCell>
-                                            <TableCell class="font-mono text-xs">
-                                                {{ row.registration_code || '—' }}
-                                            </TableCell>
-                                            <TableCell class="text-sm">
-                                                {{
-                                                    row.attended_at
-                                                        ? formatDateTime({
-                                                              value: row.attended_at,
-                                                              variant: 'date-time-medium',
-                                                          })
-                                                        : '—'
-                                                }}
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </template>
-                        <EmptyState
-                            v-else
-                            title="Belum mengikuti event"
-                            description="Tidak ada registrasi event aktif untuk akun ini."
-                            animation-name="emptyData"
-                        />
-                    </CardContent>
-                </Card>
-
-                <Card class="border-border/70 rounded-2xl">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-base">Pendaftaran Open Recruitment</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <template v-if="recruitment_applications.length > 0">
-                            <div class="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>No. registrasi</TableHead>
-                                            <TableHead>Periode</TableHead>
-                                            <TableHead>Stage</TableHead>
-                                            <TableHead>Hasil</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        <TableRow v-for="app in recruitment_applications" :key="app.id">
-                                            <TableCell>
-                                                <div>
-                                                    <p class="font-medium">{{ app.registration_number }}</p>
-                                                    <p class="text-muted-foreground text-xs">
-                                                        {{ app.full_name }}
-                                                        <span v-if="app.primary_division">
-                                                            · {{ app.primary_division }}
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Link
-                                                    v-if="app.period"
-                                                    :href="routes.admin.recruitment.periods.show(app.period.id)"
-                                                    class="hover:underline"
-                                                >
-                                                    {{ app.period.name }}
-                                                </Link>
-                                                <span v-else>—</span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{{ app.stage || '—' }}</Badge>
-                                            </TableCell>
-                                            <TableCell>{{ app.result || '—' }}</TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                            </div>
-                            <p class="text-muted-foreground mt-3 text-xs">
-                                Dicocokkan lewat email akun (personal/student email pada formulir OpRec).
-                            </p>
-                        </template>
-                        <EmptyState
-                            v-else
-                            title="Tidak ada pendaftaran OpRec"
-                            description="Belum ada aplikasi rekrutmen yang cocok dengan email akun ini."
-                            animation-name="emptyData"
-                        />
-                    </CardContent>
-                </Card>
-
-                <Card v-if="hasStaffActivity" class="border-border/70 rounded-2xl">
-                    <CardHeader class="pb-3">
-                        <CardTitle class="text-base">Aktivitas staf</CardTitle>
-                    </CardHeader>
-                    <CardContent class="space-y-4">
-                        <div class="grid gap-3 sm:grid-cols-3">
-                            <div class="border-border/60 rounded-xl border p-3">
-                                <p class="text-muted-foreground text-xs">Event dibuat</p>
-                                <p class="text-lg font-semibold tabular-nums">{{ stats.events_created }}</p>
-                            </div>
-                            <div class="border-border/60 rounded-xl border p-3">
-                                <p class="text-muted-foreground text-xs">Interview ditugaskan</p>
-                                <p class="text-lg font-semibold tabular-nums">
-                                    {{ staff.interviews_assigned_count }}
-                                </p>
-                            </div>
-                            <div class="border-border/60 rounded-xl border p-3">
-                                <p class="text-muted-foreground text-xs">Scan sebagai operator</p>
-                                <p class="text-lg font-semibold tabular-nums">{{ staff.scans_recorded_count }}</p>
-                            </div>
-                        </div>
-
-                        <div v-if="staff.interviewer_divisions.length > 0">
-                            <p class="mb-2 text-sm font-medium">Divisi interviewer</p>
-                            <div class="flex flex-wrap gap-1.5">
-                                <Badge
-                                    v-for="division in staff.interviewer_divisions"
-                                    :key="division.id"
-                                    variant="secondary"
-                                >
-                                    {{ division.name }}
-                                    <span v-if="division.code" class="opacity-70"> ({{ division.code }})</span>
-                                </Badge>
-                            </div>
-                        </div>
-
-                        <div v-if="events_created.length > 0">
-                            <p class="mb-2 text-sm font-medium">Event yang dibuat</p>
-                            <ul class="space-y-2">
-                                <li
-                                    v-for="event in events_created"
-                                    :key="event.id"
-                                    class="flex flex-wrap items-center justify-between gap-2 text-sm"
-                                >
-                                    <Link
-                                        :href="routes.admin.events.show(event.id)"
-                                        class="font-medium hover:underline"
-                                    >
-                                        {{ event.title }}
-                                    </Link>
-                                    <span class="text-muted-foreground text-xs">
-                                        {{ event.status }} ·
-                                        {{
-                                            formatDateTime({ value: event.start_date, variant: 'date-medium' }) ||
-                                            event.start_date
-                                        }}
-                                    </span>
-                                </li>
-                            </ul>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
+            <p v-else class="text-muted-foreground px-5 py-6 text-sm">Belum ada aktivitas staff.</p>
+        </section>
 
         <ConfirmationModal
             :open="showDeleteModal"
             title="Hapus akun?"
-            :description="`Akun “${user.name}” akan dihapus (soft delete).`"
-            confirm-text="Hapus"
+            :description="deleteDescription"
+            confirm-text="Hapus akun"
             cancel-text="Batal"
             variant="destructive"
             :loading="isDeleting"
             @confirm="confirmDelete"
-            @cancel="showDeleteModal = false"
-            @update:open="
-                (v: boolean) => {
-                    showDeleteModal = v;
-                }
-            "
+            @cancel="cancelDelete"
+            @update:open="handleDeleteOpenChange"
         />
     </div>
 </template>

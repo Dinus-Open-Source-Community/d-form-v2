@@ -190,6 +190,15 @@
 
 @layer base {
     * { @apply border-border outline-ring/60; }
+    /* Preflight mengembalikan tombol ke cursor default; kontrol aktif wajib terlihat bisa diklik. */
+    button:not(:disabled),
+    [role='button']:not([aria-disabled='true']) {
+        cursor: pointer;
+    }
+    button:disabled,
+    [aria-disabled='true'] {
+        cursor: not-allowed;
+    }
     html {
         text-size-adjust: 100%;
         font-size: 15px;
@@ -282,6 +291,17 @@
     20%, 80% { transform: translateX(2px); }
     30%, 50%, 70% { transform: translateX(-4px); }
     40%, 60% { transform: translateX(4px); }
+}
+
+/* Gerak non-esensial berhenti saat pengguna meminta pengurangan gerak (sheet, dialog, skeleton). */
+@media (prefers-reduced-motion: reduce) {
+    [data-slot='sheet-content'],
+    [data-slot='dialog-content'],
+    .animate-pulse {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @layer utilities {
