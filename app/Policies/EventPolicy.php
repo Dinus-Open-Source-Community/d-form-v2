@@ -36,6 +36,10 @@ class EventPolicy
 
     public function update(User $user, Event $event): bool
     {
+        if ($event->trashed()) {
+            return false;
+        }
+
         if ($user->hasRole('super-admin')) {
             return true;
         }
@@ -45,6 +49,10 @@ class EventPolicy
 
     public function delete(User $user, Event $event): bool
     {
+        if ($event->trashed()) {
+            return false;
+        }
+
         if ($user->hasRole('super-admin')) {
             return true;
         }

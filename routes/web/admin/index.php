@@ -85,7 +85,7 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
 Route::middleware(['auth', 'member_portal'])->get('/browse', UserBrowseEventsController::class)
     ->name('dashboard.user.events.browse');
 
-Route::middleware(['auth', 'organizer'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
+Route::middleware(['auth', 'organizer', 'event.not-archived'])->prefix('/admin/events/{event}')->name('dashboard.events.')->group(function () {
     Route::get('/exports/registrations.csv', EventRegistrationsCsvExportController::class)
         ->middleware('throttle:recruitment-export')
         ->name('exports.registrations-csv');

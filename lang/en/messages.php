@@ -30,6 +30,9 @@ return [
         'force_delete' => [
             'success' => 'event permanently deleted',
             'active' => 'archived events only can be permanently deleted'
+        ],
+        'archived' => [
+            'read_only' => 'event is archived; restore it before making changes'
         ]
     ],
     'form' => [

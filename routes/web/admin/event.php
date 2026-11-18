@@ -35,6 +35,7 @@ Route::get('/s/{slug}', FormShareRedirectController::class)
 
 Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function () {
     Route::get('/{event}/forms/{form}/fill', FormFillController::class)
+        ->middleware('event.not-archived')
         ->name('events.forms.fill');
 
     Route::post('/{event}/forms/{form}/submit', FormSubmissionController::class)
@@ -42,6 +43,7 @@ Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function
         ->name('forms.submission');
 
     Route::get('/{event}/forms/{form}/submitted', FormSubmitSuccessController::class)
+        ->middleware('event.not-archived')
         ->name('events.forms.submitted');
 
     Route::get('/users/check-email', [UserValidationController::class, 'checkEmail'])
@@ -49,7 +51,7 @@ Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function
         ->name('users.check-email');
 });
 
-Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer'])->group(function () {
+Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer', 'event.not-archived'])->group(function () {
     Route::get('/events/{event}/registration-status', [EventController::class, 'registrationStatus'])
         ->name('events.registration-status');
 

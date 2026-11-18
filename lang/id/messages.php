@@ -26,6 +26,13 @@ return [
         ],
         'draft' => [
             'success' => 'event dipindahkan ke draft'
+        ],
+        'force_delete' => [
+            'success' => 'event berhasil dihapus permanen',
+            'active' => 'hanya event terarsip yang dapat dihapus permanen'
+        ],
+        'archived' => [
+            'read_only' => 'event sedang diarsipkan; pulihkan dulu sebelum melakukan perubahan'
         ]
     ],
     'form' => [
