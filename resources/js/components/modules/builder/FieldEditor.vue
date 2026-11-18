@@ -21,32 +21,13 @@ import {
     stripNonDigits,
 } from '@/lib/fieldMaxLength';
 import BuilderImageUploadCard from '@/components/modules/builder/BuilderImageUploadCard.vue';
+import { FIELD_TONE_CHIP_CLASS, resolveFieldTypeMeta } from '@/components/modules/builder/fieldTypePresentation';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import {
-    Type,
-    AlignLeft,
-    Mail,
-    Phone,
-    Hash,
-    ChevronDown,
-    SquareCheck,
-    CircleDot,
-    ImagePlus,
-    Upload,
-    Calendar,
-    Clock,
-    Star,
-    Heading as HeadingIcon,
-    TextCursorInput,
-    Minus,
-    Plus,
-    X,
-    Image as ImageIcon,
-} from 'lucide-vue-next';
+import { Plus, X } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
@@ -61,27 +42,7 @@ const emit = defineEmits<{
     (event: 'update:field', field: IBuilderField): void;
 }>();
 
-const TYPE_CONFIG = {
-    short_text: { icon: Type, label: 'Teks pendek', accent: '#2563eb' },
-    long_text: { icon: AlignLeft, label: 'Teks panjang', accent: '#4f46e5' },
-    email: { icon: Mail, label: 'Email', accent: '#0891b2' },
-    phone: { icon: Phone, label: 'Telepon', accent: '#059669' },
-    number: { icon: Hash, label: 'Angka', accent: '#d97706' },
-    dropdown: { icon: ChevronDown, label: 'Dropdown', accent: '#7c3aed' },
-    checkbox: { icon: SquareCheck, label: 'Centang', accent: '#db2777' },
-    radio: { icon: CircleDot, label: 'Pilihan tunggal', accent: '#e11d48' },
-    image_upload: { icon: ImagePlus, label: 'Unggah gambar', accent: '#0d9488' },
-    file_upload: { icon: Upload, label: 'Unggah file', accent: '#475569' },
-    date: { icon: Calendar, label: 'Tanggal', accent: '#7c3aed' },
-    time: { icon: Clock, label: 'Waktu', accent: '#059669' },
-    rating: { icon: Star, label: 'Rating', accent: '#f59e0b' },
-    heading: { icon: HeadingIcon, label: 'Judul', accent: '#1a1a2e' },
-    image: { icon: ImageIcon, label: 'Gambar (tampilan)', accent: '#0ea5e9' },
-    paragraph: { icon: TextCursorInput, label: 'Paragraf', accent: '#6b7280' },
-    divider: { icon: Minus, label: 'Garis pemisah', accent: '#9ca3af' },
-};
-
-const config = computed(() => TYPE_CONFIG[props.field.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.short_text);
+const config = computed(() => resolveFieldTypeMeta(props.field.type));
 
 // --- helpers to mutate without losing reactivity ---
 function update<K extends keyof IBuilderField>(key: K, value: IBuilderField[K]) {
@@ -283,13 +244,10 @@ function readUploadLimit(value: unknown): number | string | undefined {
 </script>
 
 <template>
-    <div class="border-border/60 bg-card/50 flex flex-col gap-6 rounded-2xl border px-5 py-6">
+    <div class="flex flex-col gap-6">
         <div class="flex items-center gap-3">
-            <div
-                class="grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm"
-                :style="{ backgroundColor: config.accent }"
-            >
-                <component :is="config.icon" class="size-4" :stroke-width="2" />
+            <div class="grid size-9 shrink-0 place-items-center rounded-lg" :class="FIELD_TONE_CHIP_CLASS[config.tone]">
+                <component :is="config.icon" class="size-4" :stroke-width="2.25" aria-hidden="true" />
             </div>
             <div>
                 <h3 class="font-display text-foreground text-base font-bold tracking-tight">Properti field</h3>
@@ -300,8 +258,9 @@ function readUploadLimit(value: unknown): number | string | undefined {
         <hr class="app-divider" />
 
         <div class="flex flex-col gap-2">
-            <Label class="text-sm font-medium">Label</Label>
+            <Label for="field-editor-label" class="text-sm font-medium">Label</Label>
             <Input
+                id="field-editor-label"
                 :model-value="field.label"
                 placeholder="Misal: Nama lengkap"
                 class="h-11 text-sm"
@@ -311,10 +270,11 @@ function readUploadLimit(value: unknown): number | string | undefined {
         </div>
 
         <div v-if="!isContent" class="flex flex-col gap-2">
-            <Label class="text-sm font-medium">Teks bantu</Label>
+            <Label for="field-editor-description" class="text-sm font-medium">Teks bantu</Label>
             <Textarea
+                id="field-editor-description"
                 :model-value="field.description"
-                placeholder="Opsional — penjelasan singkat untuk pengisi"
+                placeholder="Opsional, penjelasan singkat untuk pengisi"
                 rows="2"
                 class="min-h-[4.5rem] text-sm"
                 @update:model-value="(v) => update('description', String(v))"
@@ -322,8 +282,9 @@ function readUploadLimit(value: unknown): number | string | undefined {
         </div>
 
         <div v-if="hasPlaceholder" class="flex flex-col gap-2">
-            <Label class="text-sm font-medium">Teks petunjuk (placeholder)</Label>
+            <Label for="field-editor-placeholder" class="text-sm font-medium">Teks petunjuk (placeholder)</Label>
             <Input
+                id="field-editor-placeholder"
                 :model-value="field.placeholder ?? ''"
                 placeholder="Contoh di kolom pengisi"
                 class="h-11 text-sm"
@@ -335,8 +296,9 @@ function readUploadLimit(value: unknown): number | string | undefined {
         </div>
 
         <div v-if="['short_text', 'long_text'].includes(field.type)" class="flex flex-col gap-2">
-            <Label class="text-sm font-medium">Maks. karakter</Label>
+            <Label for="field-editor-max-length" class="text-sm font-medium">Maks. karakter</Label>
             <Input
+                id="field-editor-max-length"
                 type="text"
                 inputmode="numeric"
                 pattern="[0-9]*"
@@ -542,7 +504,7 @@ function readUploadLimit(value: unknown): number | string | undefined {
                         <div class="flex min-w-0 flex-1 flex-col gap-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                                    Opsi {{ i + 1 }} — {{ opt.type === 'text' ? 'teks' : 'gambar' }}
+                                    Opsi {{ i + 1 }} ({{ opt.type === 'text' ? 'teks' : 'gambar' }})
                                 </span>
                                 <button
                                     v-if="field.type !== 'dropdown'"

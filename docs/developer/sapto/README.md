@@ -1,5 +1,7 @@
 # Dokumentasi developer — Sapto
 
+- [saptoChanges18-11-2026-DFORM-1.md](./saptoChanges18-11-2026-DFORM-1.md) | Redesign kartu field form builder: klik kartu (atau Enter/Space) membuka drawer, ikon pengaturan dihapus, label/teks bantu jadi pratinjau read-only, aksi duplikat/hapus/drag tetap; drawer diselaraskan (copy Indonesia tanpa em dash, badge tipe pakai token, border bertumpuk dihapus); Vitest 992, PHPUnit builder 69, E2E baru 5 + regresi builder hijau (2 gagal pre-existing dibuktikan lewat baseline), entry 15,93 → 15,91 kB gzip.
+
 - [saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md](./saptoChanges18-11-2026-DFORM-FORM-ANSWERS-EXPORT.md) | Export jawaban form: satu dropdown di tab Jawaban (CSV per field dengan signed URL, ZIP dengan satu jawaban.csv gabungan di root + folder per pengirim berisi file), limit 413, rate limit, otorisasi; 7 feature test + E2E.
 
 - [saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md](./saptoChanges18-11-2026-DFORM-EVENT-EDIT-PUBLISH.md) | Hapus aksi "Simpan & terbitkan" dari edit event sampai akar: payload edit tanpa `publish`, rule `UpdateEventRequest` dihapus, cabang publish di `EventService::update` dihapus; simpan edit mempertahankan status, create tetap "Terbitkan". Feature 3 test + regresi 7, E2E edit/create.

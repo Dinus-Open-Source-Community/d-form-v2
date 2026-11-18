@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { runArtisanCommand } from './support/artisan';
+import { fieldCards, renameFieldViaDrawer } from './support/builderFieldCard';
 import { countFixtureRows, expect, test } from './support/fixtures';
 import { startRequestLog, stubStoreResponse } from './support/network';
 import { parseTinkerJsonRecord, requireTinkerString } from './support/tinker';
@@ -56,9 +57,12 @@ function readFieldLabel(fieldId: string): string {
     return requireTinkerString(parseTinkerJsonRecord(raw, 'field label'), 'label', 'field label');
 }
 
-/** Input label field di kanvas; field baru non-required memakai placeholder "(opsional)". */
-function fieldLabelInputs(page: Page): Locator {
-    return page.locator('input[placeholder^="Label pertanyaan"]');
+/**
+ * Kartu field di kanvas. Label sekarang teks read-only, jadi bukti visual diambil
+ * dari konten kartu dan rename dilakukan lewat drawer.
+ */
+function canvasCards(page: Page): Locator {
+    return fieldCards(page);
 }
 
 /** Area drop di kanvas: section yang memuat input judul. */
@@ -109,12 +113,12 @@ test.describe('builder autosave', () => {
 
         await openBuilder(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
-        const labelInputs = fieldLabelInputs(page);
-        await expect(labelInputs).toHaveCount(2);
+        const cards = canvasCards(page);
+        await expect(cards).toHaveCount(2);
 
         await addShortTextField(page);
-        await expect(labelInputs).toHaveCount(3);
-        await expect(labelInputs.last()).toHaveValue('Short Text');
+        await expect(cards).toHaveCount(3);
+        await expect(cards.last()).toContainText('Short Text');
 
         // Server single-threaded: beri waktu simpan yang lebih panjang sebelum menilai DB.
         await waitForSaved(page);
@@ -123,8 +127,8 @@ test.describe('builder autosave', () => {
             .toBe(beforeCount + 1);
 
         await reloadBuilder(page);
-        await expect(fieldLabelInputs(page)).toHaveCount(3);
-        await expect(fieldLabelInputs(page).last()).toHaveValue('Short Text');
+        await expect(canvasCards(page)).toHaveCount(3);
+        await expect(canvasCards(page).last()).toContainText('Short Text');
     });
 
     test('failure: snapshot 500 menampilkan toast, kanvas tetap, DB tidak berubah', async ({
@@ -142,23 +146,22 @@ test.describe('builder autosave', () => {
 
         await openBuilder(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
-        const firstLabel = fieldLabelInputs(page).first();
-        const originalLabel = await firstLabel.inputValue();
-        const editedLabel = `Renamed by e2e ${fixtureEvent.ownerKey}`;
-
-        await firstLabel.fill(editedLabel);
-
-        // Toast gagal tidak boleh bergantung pada teks status AutosaveStatus (hanya ada di working tree).
-        await expect(page.locator('[data-sonner-toast]').filter({ hasText: AUTOSAVE_FAILURE_TOAST })).toBeVisible();
-
-        // UI optimistik tetap mempertahankan nilai baru walau save gagal.
-        await expect(firstLabel).toHaveValue(editedLabel);
-
         const fieldId = fixtureForm.primary.fieldIds[0];
 
         if (fieldId === undefined) {
             throw new Error('fixture field pertama tidak tersedia.');
         }
+
+        const originalLabel = readFieldLabel(fieldId);
+        const editedLabel = `Renamed by e2e ${fixtureEvent.ownerKey}`;
+
+        await renameFieldViaDrawer(page, 0, editedLabel);
+
+        // Toast gagal tidak boleh bergantung pada teks AutosaveStatus (hanya ada di working tree).
+        await expect(page.locator('[data-sonner-toast]').filter({ hasText: AUTOSAVE_FAILURE_TOAST })).toBeVisible();
+
+        // UI optimistik tetap mempertahankan nilai baru walau save gagal.
+        await expect(canvasCards(page).first()).toContainText(editedLabel);
 
         // Bukti DB: rename gagal tidak boleh menulis label baru.
         expect(readFieldLabel(fieldId), 'label DB tidak berubah').toBe(originalLabel);
@@ -167,7 +170,7 @@ test.describe('builder autosave', () => {
         );
 
         await reloadBuilder(page);
-        await expect(fieldLabelInputs(page).first()).toHaveValue(originalLabel);
+        await expect(canvasCards(page).first()).toContainText(originalLabel);
     });
 
     test('anomali: dua edit judul dalam debounce hanya mengirim satu snapshot header', async ({

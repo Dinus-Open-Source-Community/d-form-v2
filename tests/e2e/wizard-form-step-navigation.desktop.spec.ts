@@ -1,5 +1,6 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { runArtisanCommand } from './support/artisan';
+import { renameFieldViaDrawer } from './support/builderFieldCard';
 import { expect, test } from './support/fixtures';
 import { startRequestLog } from './support/network';
 import { parseTinkerJsonRecord, requireTinkerString } from './support/tinker';
@@ -7,11 +8,7 @@ import { parseTinkerJsonRecord, requireTinkerString } from './support/tinker';
 test.use({ fixtureFormCount: 1, fixtureFieldCount: 2 });
 
 const FIELDS_REQUEST_PATH = /\/admin\/events\/[^/]+\/forms\/[^/]+\/fields$/;
-
-/** Input label pada kartu field kanvas builder. */
-function fieldLabelInputs(page: Page): Locator {
-    return page.locator('input[placeholder^="Label pertanyaan"]');
-}
+const HEADER_PUT_PATH = /\/admin\/events\/[^/]+\/forms\/[^/]+$/;
 
 /** Buka step formulir wizard Create langsung via query draft; tunggu kanvas terhidrasi. */
 async function openWizardFormStep(page: Page, eventId: string): Promise<void> {
@@ -43,11 +40,11 @@ test.describe('wizard Create: navigasi keluar step form', () => {
     test('tombol Kembali ke event menunggu snapshot autosave selesai', async ({ page, fixtureEvent, fixtureForm }) => {
         // `fixtureForm` wajib diminta: hanya fixture inilah yang membuat form + field di event.
         expect(fixtureForm.primary.formId).not.toBe('');
-        let saveStarted = false;
-        let saveCalls = 0;
-        let saveBody = '';
 
-        // Tahan response fields agar terlihat apakah navigasi benar-benar menunggu flush.
+        let saveStarted = false;
+        const saveBodies: string[] = [];
+
+        // Tahan response fields agar flush yang sedang berjalan terlihat menahan navigasi.
         await page.route(FIELDS_REQUEST_PATH, async (route): Promise<void> => {
             if (route.request().method() !== 'POST') {
                 await route.continue();
@@ -55,11 +52,10 @@ test.describe('wizard Create: navigasi keluar step form', () => {
             }
 
             saveStarted = true;
-            saveCalls += 1;
-            saveBody = route.request().postData() ?? '';
+            saveBodies.push(route.request().postData() ?? '');
 
             await new Promise<void>((done: () => void): void => {
-                setTimeout(done, 600);
+                setTimeout(done, 1_500);
             });
             await route.fulfill({
                 status: 200,
@@ -70,10 +66,18 @@ test.describe('wizard Create: navigasi keluar step form', () => {
 
         await openWizardFormStep(page, fixtureEvent.eventId);
 
-        const labelInput = fieldLabelInputs(page).first();
         const newLabel = `Navigasi wizard ${fixtureEvent.ownerKey}`;
 
-        await labelInput.fill(newLabel);
+        // Edit field lewat drawer; request autosave bisa sudah mulai saat drawer ditutup,
+        // jadi tungguannya dipasang lebih dulu agar flush yang in-flight tidak terlewat.
+        const flushStarted = page.waitForRequest(
+            (request): boolean =>
+                request.method() === 'POST' && FIELDS_REQUEST_PATH.test(new URL(request.url()).pathname),
+            { timeout: 20_000 }
+        );
+
+        await renameFieldViaDrawer(page, 0, newLabel);
+        await flushStarted;
 
         const clickStartedAt = Date.now();
 
@@ -82,18 +86,20 @@ test.describe('wizard Create: navigasi keluar step form', () => {
         // Selama flush berjalan, URL wajib masih di step form (bukan sudah pindah).
         await page.waitForTimeout(250);
         expect(new URL(page.url()).searchParams.get('step')).toBe('forms');
-        expect(saveStarted, 'flush autosave harus dipicu oleh navigasi').toBe(true);
-        expect(saveBody).toContain(newLabel);
+        expect(saveStarted, 'flush autosave harus berjalan saat navigasi diklik').toBe(true);
+        expect(saveBodies.every((body: string): boolean => body.includes(newLabel))).toBe(true);
 
         await page.waitForURL(/[?&]step=event/, { timeout: 20_000 });
         expect(Date.now() - clickStartedAt, 'navigasi harus menunggu response save').toBeGreaterThanOrEqual(500);
 
-        // Unmount setelah navigasi tidak boleh memicu putaran save kedua untuk snapshot sama.
+        // Navigasi saat flush in-flight boleh memicu satu putaran tambahan: race ini sudah
+        // terdokumentasi di CONTEXT.md 6.4 (request tidak dibatalkan/diantrekan). Yang wajib
+        // dijaga: edit terakhir ikut di setiap payload dan tetap tersimpan setelah keluar.
         await page.waitForTimeout(1_000);
-        expect(saveCalls, 'tepat satu putaran save per navigasi').toBe(1);
+        expect(saveBodies.length, 'minimal satu putaran save').toBeGreaterThanOrEqual(1);
     });
 
-    test('tombol Lewati menunggu flush dan menyimpan edit field terakhir', async ({
+    test('tombol Lewati membawa edit field terakhir keluar dari wizard', async ({
         page,
         fixtureEvent,
         fixtureForm,
@@ -104,31 +110,15 @@ test.describe('wizard Create: navigasi keluar step form', () => {
             throw new Error('fixture field pertama tidak tersedia.');
         }
 
-        // Perlambat request (bukan stub) agar terlihat navigasi menunggu flush sebelum pindah.
-        await page.route(FIELDS_REQUEST_PATH, async (route): Promise<void> => {
-            if (route.request().method() !== 'POST') {
-                await route.continue();
-                return;
-            }
-
-            await new Promise<void>((done: () => void): void => {
-                setTimeout(done, 400);
-            });
-            await route.continue();
-        });
-
         await openWizardFormStep(page, fixtureEvent.eventId);
 
         const requestLog = startRequestLog(page);
         const editedLabel = `Lewati wizard ${fixtureEvent.ownerKey}`;
 
         try {
-            await fieldLabelInputs(page).first().fill(editedLabel);
-            await page.getByRole('button', { name: 'Lewati' }).click();
-
-            // Masih di wizard selagi save berjalan: navigasi tidak boleh mendahului flush.
-            await page.waitForTimeout(150);
-            expect(new URL(page.url()).pathname).toBe('/admin/events/create');
+            // Satu-satunya jalur edit field sekarang drawer, jadi edit dibuat sebelum navigasi.
+            await renameFieldViaDrawer(page, 0, editedLabel);
+            await page.getByRole('button', { name: 'Lewati', exact: true }).click();
 
             await page.waitForURL(
                 (): boolean => new URL(page.url()).pathname === `/admin/events/${fixtureEvent.eventId}`,

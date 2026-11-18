@@ -10,7 +10,7 @@ const MARKER = '[data-drag-indicator]';
 const CHROME = '[data-drag-chrome]';
 const GAP = '[data-drop-gap]';
 const GRIP = '[title^="Seret untuk memindahkan urutan"]';
-const LABEL_INPUT = 'input[placeholder^="Label pertanyaan"]';
+const FIELD_CARD = '[data-testid="field-card"]';
 
 /** Buka builder edit dan tunggu Vue benar-benar ter-hidrasi agar handler drag aktif. */
 async function openBuilder(page: Page, eventId: string, formId: string): Promise<void> {
@@ -105,10 +105,10 @@ test.describe('builder drag state', () => {
         await expect(page.locator(MARKER)).toHaveCount(0);
         await expect(page.locator(CHROME)).toHaveCount(0);
 
-        const labels = page.locator(LABEL_INPUT);
+        const labels = page.locator(FIELD_CARD);
 
         await expect(labels).toHaveCount(4);
-        await expect(labels.nth(1)).toHaveValue('Short Text');
+        await expect(labels.nth(1)).toContainText('Short Text');
         expect(errors, errors.join('\n')).toEqual([]);
     });
 
@@ -120,7 +120,7 @@ test.describe('builder drag state', () => {
         const grips = page.locator(GRIP);
 
         await expect(grips).toHaveCount(3);
-        await expect(page.locator(LABEL_INPUT)).toHaveCount(3);
+        await expect(page.locator(FIELD_CARD)).toHaveCount(3);
 
         // Field ketiga digulir ke area pandang dulu agar sumber dan gap tujuan sama-sama terlihat.
         await grips.nth(2).scrollIntoViewIfNeeded();
@@ -136,11 +136,11 @@ test.describe('builder drag state', () => {
         await expect(page.locator(MARKER)).toHaveCount(0);
         await expect(page.locator(CHROME)).toHaveCount(0);
 
-        const labels = page.locator(LABEL_INPUT);
+        const labels = page.locator(FIELD_CARD);
 
-        await expect(labels.nth(0)).toHaveValue(/^Field 1\b/);
-        await expect(labels.nth(1)).toHaveValue(/^Field 3\b/);
-        await expect(labels.nth(2)).toHaveValue(/^Field 2\b/);
+        await expect(labels.nth(0)).toContainText(/Field 1\b/);
+        await expect(labels.nth(1)).toContainText(/Field 3\b/);
+        await expect(labels.nth(2)).toContainText(/Field 2\b/);
         expect(errors, errors.join('\n')).toEqual([]);
     });
 
@@ -159,7 +159,7 @@ test.describe('builder drag state', () => {
         await expect(markers).toHaveCount(1);
 
         // Lewati kartu field (anak kanvas): dragleave internal tidak boleh mereset marker.
-        await moveOnto(page, page.locator(LABEL_INPUT).nth(0));
+        await moveOnto(page, page.locator(FIELD_CARD).nth(0));
         await expect(markers).toHaveCount(1);
 
         await moveOnto(page, page.locator(GAP).nth(0));
@@ -191,7 +191,7 @@ test.describe('builder drag state', () => {
 
         await expect(page.locator(MARKER)).toHaveCount(0);
         await expect(page.locator(CHROME)).toHaveCount(0);
-        await expect(page.locator(LABEL_INPUT)).toHaveCount(3);
+        await expect(page.locator(FIELD_CARD)).toHaveCount(3);
         expect(errors, errors.join('\n')).toEqual([]);
     });
 
@@ -210,7 +210,7 @@ test.describe('builder drag state', () => {
 
         await expect(page.locator(MARKER)).toHaveCount(0);
         await expect(page.locator(CHROME)).toHaveCount(0);
-        await expect(page.locator(LABEL_INPUT)).toHaveCount(3);
+        await expect(page.locator(FIELD_CARD)).toHaveCount(3);
     });
 
     test('drop gagal tanpa crypto.randomUUID tetap membersihkan marker', async ({
@@ -237,7 +237,7 @@ test.describe('builder drag state', () => {
         // Marker wajib hilang dan field baru tetap tersisip tanpa randomUUID.
         await expect(page.locator(MARKER)).toHaveCount(0);
         await expect(page.locator(CHROME)).toHaveCount(0);
-        await expect(page.locator(LABEL_INPUT)).toHaveCount(4);
+        await expect(page.locator(FIELD_CARD)).toHaveCount(4);
 
         await mkdir(SHOT_DIR, { recursive: true });
         await page.screenshot({ path: `${SHOT_DIR}/after-no-uuid.png` });

@@ -98,7 +98,7 @@ async function openImageFieldEditor(page: Page, projectName: string): Promise<Lo
     if (isMobile(projectName)) {
         await page.getByRole('button', { name: 'Edit' }).last().click();
     } else {
-        await page.getByRole('button', { name: 'Pengaturan field' }).last().click();
+        await page.getByRole('button', { name: /^Ubah field/ }).last().click();
     }
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Properti field' });

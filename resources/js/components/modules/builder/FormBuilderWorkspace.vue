@@ -139,7 +139,6 @@ defineExpose({
                     @canvas-drag-start="wb.onCanvasDragStart"
                     @drag-end="wb.onDragEnd"
                     @select-field="wb.selectField"
-                    @update-field="wb.updateField"
                     @manage-field="wb.openFieldManage"
                     @delete-field="wb.deleteField"
                     @duplicate-field="wb.duplicateField"

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "resources/js/components/modules/builder/FieldRenderer.vue"
+        ],
+        "createdAt": "2026-11-18T06:38:50.297Z",
+        "reason": "Every img in this builder card is behind v-if on a non-empty src computed from field metadata; the empty-string fallback never reaches the DOM. Evidence: builderImageSrc/choiceImageSrc guards in the same file."
+      }
+    ]
+  }
+}

@@ -42,12 +42,12 @@ const isChoiceType = computed(
 <template>
     <Sheet v-model:open="open">
         <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-md" @open-auto-focus="onOpenAutoFocus">
-            <SheetHeader class="border-border bg-muted/30 shrink-0 border-b p-5 text-left">
+            <SheetHeader class="border-border shrink-0 border-b p-5 text-left">
                 <div ref="focusTarget" tabindex="-1" class="outline-none">
                     <SheetTitle class="font-display tracking-[-0.01em]">
                         {{ isChoiceType ? 'Kelola opsi' : 'Pengaturan field' }}
                     </SheetTitle>
-                    <SheetDescription>Customize the selected field.</SheetDescription>
+                    <SheetDescription>Ubah label, teks bantu, dan validasi field ini.</SheetDescription>
                 </div>
             </SheetHeader>
             <div class="bg-background flex-1 overflow-y-auto px-5 py-5">
@@ -58,8 +58,8 @@ const isChoiceType = computed(
                     @update:field="$emit('updateField', $event)"
                 />
             </div>
-            <div class="border-border bg-muted/30 shrink-0 border-t p-4">
-                <Button class="h-11 w-full" @click="$emit('done')">Done</Button>
+            <div class="border-border shrink-0 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <Button class="h-11 w-full" @click="$emit('done')">Selesai</Button>
             </div>
         </SheetContent>
     </Sheet>
