@@ -50,10 +50,7 @@ describe('validateUserAccountForm', () => {
 
     it('keeps the password optional on edit', () => {
         expect(
-            validateUserAccountForm(
-                { ...VALID, password: '', password_confirmation: '', role: 'admin' },
-                'edit'
-            )
+            validateUserAccountForm({ ...VALID, password: '', password_confirmation: '', role: 'admin' }, 'edit')
         ).toEqual({});
     });
 

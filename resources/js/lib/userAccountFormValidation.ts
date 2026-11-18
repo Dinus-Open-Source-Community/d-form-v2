@@ -36,10 +36,7 @@ function validatePassword(values: IUserAccountForm, mode: TUserAccountFormMode):
  * Validasi form akun sebelum request dikirim. Aturan dan pesan mengikuti `StoreUserRequest`
  * dan `UpdateUserRequest`; server tetap otoritatif untuk email unik dan aturan lain.
  */
-export function validateUserAccountForm(
-    values: IUserAccountForm,
-    mode: TUserAccountFormMode
-): TUserAccountFormErrors {
+export function validateUserAccountForm(values: IUserAccountForm, mode: TUserAccountFormMode): TUserAccountFormErrors {
     const errors: TUserAccountFormErrors = {};
 
     if (values.name.trim() === '') errors.name = 'Nama wajib diisi.';

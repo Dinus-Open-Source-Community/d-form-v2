@@ -19,9 +19,9 @@ describe('buildUserIndexUrl', () => {
     });
 
     it('encodes search and keeps the documented key order', () => {
-        expect(
-            buildUserIndexUrl({ search: 'budi santoso', role: 'admin', page: 2, perPage: 50 })
-        ).toBe('/admin/users?search=budi+santoso&role=admin&page=2&per_page=50');
+        expect(buildUserIndexUrl({ search: 'budi santoso', role: 'admin', page: 2, perPage: 50 })).toBe(
+            '/admin/users?search=budi+santoso&role=admin&page=2&per_page=50'
+        );
     });
 
     it('adds edit and create without other filters', () => {

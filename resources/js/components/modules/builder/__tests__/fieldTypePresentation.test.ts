@@ -27,6 +27,6 @@ describe('fieldTypePresentation', () => {
             expect(FIELD_TONE_CHIP_CLASS[tone]).toMatch(/^bg-/);
             expect(FIELD_TONE_CHIP_CLASS[tone]).toMatch(/ text-/);
         }
-        expect(tones).not.toContain<TFieldTone>('info');
+        expect([...tones]).not.toContain('info');
     });
 });

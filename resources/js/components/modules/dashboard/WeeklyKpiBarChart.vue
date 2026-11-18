@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Line } from 'vue-chartjs';
-import {
-    CategoryScale,
-    Chart as ChartJS,
-    LineElement,
-    LinearScale,
-    PointElement,
-    type ChartOptions,
-} from 'chart.js';
+import { CategoryScale, Chart as ChartJS, LineElement, LinearScale, PointElement, type ChartOptions } from 'chart.js';
 import { observeThemeAttribute, readThemeAttribute } from '@/adapters/browser/documentState';
 import type { IWeeklyKpiPoint, TWeeklyKpiColor } from '@/types/kpi';
 
@@ -133,8 +126,9 @@ const zeroMarkers = computed<IWeeklyKpiZeroMarker[]>(() => {
     });
 });
 
-const accessibleChartLabel = computed<string>(() =>
-    `Tren mingguan ${props.metricLabel}: ${props.points.map((point: IWeeklyKpiPoint): string => `${point.label}, ${point.value.toLocaleString('id-ID')}`).join('; ')}`
+const accessibleChartLabel = computed<string>(
+    () =>
+        `Tren mingguan ${props.metricLabel}: ${props.points.map((point: IWeeklyKpiPoint): string => `${point.label}, ${point.value.toLocaleString('id-ID')}`).join('; ')}`
 );
 
 const chartOptions = computed<ChartOptions<'line'>>(() => ({
@@ -209,7 +203,11 @@ onUnmounted(() => {
         role="img"
         :aria-label="accessibleChartLabel"
         @mouseenter="isPointerInsideChart = true"
-        @mouseleave="isPointerInsideChart = false; activeIndex = null; activeTooltipPosition = null"
+        @mouseleave="
+            isPointerInsideChart = false;
+            activeIndex = null;
+            activeTooltipPosition = null;
+        "
     >
         <Line :data="chartData" :options="chartOptions" />
         <div aria-hidden="true" class="border-border/70 pointer-events-none absolute inset-x-1 bottom-1 border-t" />
@@ -221,14 +219,13 @@ onUnmounted(() => {
             class="pointer-events-none absolute bottom-0.5 size-1 -translate-x-1/2 rounded-full"
             :style="{
                 left: marker.left,
-                backgroundColor:
-                    marker.index === activeIndex ? colorPairs[color].hover : colorPairs[color].muted,
+                backgroundColor: marker.index === activeIndex ? colorPairs[color].hover : colorPairs[color].muted,
             }"
         />
         <div
             v-if="activePoint"
             data-slot="weekly-kpi-tooltip"
-            class="bg-popover text-popover-foreground border-border pointer-events-none absolute z-10 max-w-[calc(100%-0.5rem)] whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold shadow-sm"
+            class="bg-popover text-popover-foreground border-border pointer-events-none absolute z-10 max-w-[calc(100%-0.5rem)] rounded-md border px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-sm"
             :style="activeTooltipPosition ?? undefined"
         >
             {{ activePoint.label }}: {{ activePoint.value.toLocaleString('id-ID') }}

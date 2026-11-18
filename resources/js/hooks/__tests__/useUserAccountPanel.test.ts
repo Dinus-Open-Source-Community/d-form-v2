@@ -173,7 +173,10 @@ describe('useUserAccountPanel', () => {
         panel.submit();
 
         expect(form.post).toHaveBeenCalledTimes(1);
-        expect(form.post).toHaveBeenCalledWith(routes.admin.users.store, expect.objectContaining({ preserveScroll: true }));
+        expect(form.post).toHaveBeenCalledWith(
+            routes.admin.users.store,
+            expect.objectContaining({ preserveScroll: true })
+        );
         expect(submitted[0]?.payload).toEqual({
             name: 'Akun Baru',
             email: 'akun-baru@example.test',

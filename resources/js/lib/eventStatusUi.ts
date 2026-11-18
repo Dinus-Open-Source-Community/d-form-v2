@@ -10,9 +10,7 @@ export interface IEventStatusBadge {
 
 /** Badge status publikasi; `null` untuk acara published agar tidak ada badge kosong. */
 export function eventPublicationBadge(status: IEvent['status']): IEventStatusBadge | null {
-    return status === 'draft'
-        ? { label: 'Draf', className: 'border-border bg-muted/60 text-muted-foreground' }
-        : null;
+    return status === 'draft' ? { label: 'Draf', className: 'border-border bg-muted/60 text-muted-foreground' } : null;
 }
 
 /** Badge status pendaftaran acara, selalu punya label. */

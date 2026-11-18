@@ -40,7 +40,7 @@ function chipClass(isActive: boolean): string {
                     type="search"
                     placeholder="Cari nama atau email"
                     autocomplete="off"
-                    class="pr-12 pl-9 [&::-webkit-search-cancel-button]:hidden sm:pr-9"
+                    class="pr-12 pl-9 sm:pr-9 [&::-webkit-search-cancel-button]:hidden"
                     @update:model-value="emit('update:search', String($event))"
                 />
                 <button

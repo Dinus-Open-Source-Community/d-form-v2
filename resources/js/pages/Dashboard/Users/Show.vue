@@ -92,8 +92,7 @@ const props = defineProps<{
     roleOptions: IUserRoleOption[];
 }>();
 
-const { showDeleteModal, isDeleting, requestDelete, cancelDelete, dismissDelete, confirmDelete } =
-    useUserDeletion();
+const { showDeleteModal, isDeleting, requestDelete, cancelDelete, dismissDelete, confirmDelete } = useUserDeletion();
 
 /** Panel edit hidup di direktori; halaman detail hanya menyusun URL deep link-nya. */
 const editHref = computed<string>(() => buildUserIndexUrl({ edit: props.user.id }));
