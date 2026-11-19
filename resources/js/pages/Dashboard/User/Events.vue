@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
@@ -217,7 +217,7 @@ onMounted(() => {
             />
         </div>
 
-        <EmptyState v-else :title="emptyTitle" :description="emptyDescription">
+        <EmptyState v-else kind="empty" :title="emptyTitle" :description="emptyDescription">
             <Link
                 v-if="!isBrowse"
                 :href="routes.member.browse"

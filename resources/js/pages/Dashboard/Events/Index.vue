@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
@@ -148,9 +148,9 @@ function handleDeleteConfirm(): void {
 
         <EmptyState
             v-if="eventsList.length === 0"
+            kind="filter"
             title="Tidak ada acara"
             description="Sesuaikan pencarian, kategori, atau sesi — atau buat acara baru."
-            animation-name="errorState"
         />
 
         <AppPagination

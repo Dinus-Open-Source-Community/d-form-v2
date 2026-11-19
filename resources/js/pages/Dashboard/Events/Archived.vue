@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import TypeToConfirmDialog from '@/components/core/TypeToConfirmDialog.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
@@ -146,9 +146,9 @@ const eventsList = computed(() => props.events.data);
 
         <EmptyState
             v-if="eventsList.length === 0"
+            kind="filter"
             title="Tidak ada acara di arsip"
             description="Acara yang dihapus akan muncul di sini dan dapat dipulihkan."
-            animation-name="errorState"
         />
 
         <AppPagination

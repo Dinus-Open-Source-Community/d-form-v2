@@ -10,9 +10,6 @@ export interface ILottieRegistryEntry {
 export type TLottieName =
     | 'builderEmpty'
     | 'fieldSelected'
-    | 'errorState'
-    | 'error404Page'
-    | 'emptyData'
     | 'landingHero'
     | 'landingStepCreate'
     | 'landingStepBuild'
