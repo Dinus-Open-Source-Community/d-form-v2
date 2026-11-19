@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import AppToaster from '@/components/core/AppToaster.vue';
@@ -24,6 +24,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Settings } from 'lucide-vue-next';
+import { Spinner } from '@/components/ui/spinner';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,8 +56,17 @@ const { pending: navigationPending, skeletonKey: navigationSkeletonKey } = useNa
     }),
 });
 
+const isLoggingOut = ref(false);
+
 function handleLogout(): void {
-    router.post(logout().url);
+    if (isLoggingOut.value) return;
+
+    isLoggingOut.value = true;
+    router.post(logout().url, {}, {
+        onFinish: (): void => {
+            isLoggingOut.value = false;
+        },
+    });
 }
 </script>
 
@@ -126,9 +136,12 @@ function handleLogout(): void {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 class="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                :disabled="isLoggingOut"
                                 @click="handleLogout"
                             >
-                                <LogOut class="mr-2 size-4" />Log out
+                                <Spinner v-if="isLoggingOut" class="mr-2 size-4" />
+                                <LogOut v-else class="mr-2 size-4" />
+                                Log out
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

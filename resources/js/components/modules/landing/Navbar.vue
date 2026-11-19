@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
+import { Spinner } from '@/components/ui/spinner';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
@@ -105,8 +106,17 @@ function onAccountContentLeave(e: PointerEvent) {
     scheduleAccountMenuClose();
 }
 
+const isSigningOut = ref(false);
+
 function signOut() {
-    router.post(logout().url);
+    if (isSigningOut.value) return;
+
+    isSigningOut.value = true;
+    router.post(logout().url, {}, {
+        onFinish: (): void => {
+            isSigningOut.value = false;
+        },
+    });
 }
 
 const onScroll = () => {
@@ -231,9 +241,11 @@ function isLinkActive(href: string): boolean {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             class="text-destructive focus:text-destructive cursor-pointer"
+                            :disabled="isSigningOut"
                             @click="signOut"
                         >
-                            <LogOut class="size-4" />
+                            <Spinner v-if="isSigningOut" class="size-4" />
+                            <LogOut v-else class="size-4" />
                             Logout
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -310,11 +322,13 @@ function isLinkActive(href: string): boolean {
                             <Button
                                 variant="destructive"
                                 class="mt-2 h-10 w-full text-sm"
+                                :disabled="isSigningOut"
                                 @click="
                                     mobileOpen = false;
                                     signOut();
                                 "
                             >
+                                <Spinner v-if="isSigningOut" class="mr-2 size-4" />
                                 Logout
                             </Button>
                         </template>

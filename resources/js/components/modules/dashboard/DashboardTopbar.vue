@@ -12,6 +12,7 @@ import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import { useTopbar } from '@/hooks/useDashboardTopbar';
@@ -108,15 +109,23 @@ function goBack(): void {
 }
 
 const profileMenuOpen = ref(false);
+const isLoggingOut = ref(false);
 
 function closeProfileMenu(): void {
     profileMenuOpen.value = false;
 }
 
 function handleLogout(): void {
+    if (isLoggingOut.value) return;
+
+    isLoggingOut.value = true;
     profileMenuOpen.value = false;
     topbar.clearTopbar();
-    router.post(logout().url);
+    router.post(logout().url, {}, {
+        onFinish: (): void => {
+            isLoggingOut.value = false;
+        },
+    });
 }
 </script>
 
@@ -187,10 +196,12 @@ function handleLogout(): void {
                     </Link>
                     <button
                         type="button"
-                        class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none [&>svg]:size-4 [&>svg]:shrink-0"
+                        class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none [&>svg]:size-4 [&>svg]:shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="isLoggingOut"
                         @click="handleLogout"
                     >
-                        <LogOut class="size-4" aria-hidden="true" />
+                        <Spinner v-if="isLoggingOut" class="size-4" />
+                        <LogOut v-else class="size-4" aria-hidden="true" />
                         <span>Keluar</span>
                     </button>
                 </PopoverContent>
@@ -223,9 +234,11 @@ function handleLogout(): void {
                     size="sm"
                     aria-label="Keluar"
                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive shadow-none transition-colors duration-150 hover:shadow-none"
+                    :disabled="isLoggingOut"
                     @click="handleLogout"
                 >
-                    <LogOut class="size-4" />
+                    <Spinner v-if="isLoggingOut" class="size-4" />
+                    <LogOut v-else class="size-4" />
                     <span>Keluar</span>
                 </Button>
             </div>
