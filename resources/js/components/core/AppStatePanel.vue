@@ -65,15 +65,6 @@ const actionsClass = computed<string>(() => (isPage.value ? 'mt-10' : 'mt-5'));
             :class="imageClass"
         />
 
-        <a
-            href="https://storyset.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-muted-foreground hover:text-foreground mt-1 mb-2 text-[11px] underline-offset-2 hover:underline"
-        >
-            Designed by Storyset
-        </a>
-
         <component :is="headingTag" :class="headingClass">{{ title }}</component>
 
         <p v-if="description" :class="descriptionClass">{{ description }}</p>
