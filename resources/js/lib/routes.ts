@@ -214,10 +214,8 @@ export const routes = {
         get profileTwoFactorDisable() {
             return profileTwoFactorDisable.url();
         },
-        profileConnectionRedirect: (provider: string): string =>
-            profileConnectionRedirectRoute.url({ provider }),
-        profileConnectionDestroy: (provider: string): string =>
-            profileConnectionDestroyRoute.url({ provider }),
+        profileConnectionRedirect: (provider: string): string => profileConnectionRedirectRoute.url({ provider }),
+        profileConnectionDestroy: (provider: string): string => profileConnectionDestroyRoute.url({ provider }),
     },
 
     admin: {
@@ -451,8 +449,16 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     return path.startsWith(href);
 }
 
+/**
+ * Beranda setelah login: penyelenggara memakai `/dashboard`, peserta memakai `/joined`.
+ * Guard server memakai capability yang sama, jadi tautan tidak boleh menebak tanpa konteks.
+ */
+export function resolveDashboardHomeHref(canManageEvents: boolean): string {
+    return canManageEvents ? routes.dashboard.index : routes.member.joined;
+}
+
 /** Tujuan tombol back navbar saat tidak ada history; fallback per domain halaman. */
-export function resolveNavbarFallbackBackHref(currentUrl: string): string {
+export function resolveNavbarFallbackBackHref(currentUrl: string, canManageEvents: boolean): string {
     const path = pathWithoutQuery(currentUrl);
 
     if (path.startsWith(routes.admin.events.index) && path !== routes.admin.events.index) {
@@ -462,7 +468,7 @@ export function resolveNavbarFallbackBackHref(currentUrl: string): string {
         return routes.dashboard.index;
     }
     if (path === routes.dashboard.profile) {
-        return routes.dashboard.index;
+        return resolveDashboardHomeHref(canManageEvents);
     }
     if (path === routes.member.browse) {
         return routes.member.joined;

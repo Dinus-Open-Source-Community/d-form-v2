@@ -285,11 +285,12 @@ describe('routes builders', () => {
     });
 
     it('resolves navbar back targets per domain', () => {
-        expect(resolveNavbarFallbackBackHref('/admin/events/e-1')).toBe('/admin/events');
-        expect(resolveNavbarFallbackBackHref('/admin/users/u-1')).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/profile')).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/browse')).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/joined/e-1')).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/')).toBe('/');
+        expect(resolveNavbarFallbackBackHref('/admin/events/e-1', true)).toBe('/admin/events');
+        expect(resolveNavbarFallbackBackHref('/admin/users/u-1', true)).toBe('/dashboard');
+        expect(resolveNavbarFallbackBackHref('/profile', true)).toBe('/dashboard');
+        expect(resolveNavbarFallbackBackHref('/profile', false)).toBe('/joined');
+        expect(resolveNavbarFallbackBackHref('/browse', false)).toBe('/joined');
+        expect(resolveNavbarFallbackBackHref('/joined/e-1', false)).toBe('/joined');
+        expect(resolveNavbarFallbackBackHref('/', false)).toBe('/');
     });
 });

@@ -49,7 +49,7 @@ class TwoFactorChallengeFlowTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('two-factor.challenge'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_the_challenge_page_exposes_the_pin_status(): void
@@ -77,7 +77,7 @@ class TwoFactorChallengeFlowTest extends TestCase
                 'two_factor_verified_at' => now()->toIso8601String(),
             ])
             ->get(route('two-factor.challenge'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_a_correct_pin_regenerates_the_session_and_marks_the_factor_verified(): void
@@ -97,13 +97,13 @@ class TwoFactorChallengeFlowTest extends TestCase
         $this->assertNotSame($sessionIdBefore, $this->app['session.store']->getId());
     }
 
-    public function test_a_correct_pin_without_an_intended_url_lands_on_the_dashboard(): void
+    public function test_a_correct_pin_without_an_intended_url_lands_on_the_member_portal(): void
     {
         $user = $this->pinUser();
 
         $this->actingAsPinUser($user)
             ->post(route('two-factor.verify'), ['pin' => self::PIN])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_a_wrong_pin_counts_the_attempt_and_returns_an_error(): void
@@ -219,7 +219,7 @@ class TwoFactorChallengeFlowTest extends TestCase
             ->post(route('two-factor.recovery.confirm'), ['code' => $this->activeCode($user)]);
         $this->actingAsPinUser($user)
             ->post(route('two-factor.recovery.pin'), ['pin' => self::NEW_PIN])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         // Sesi login baru: penanda faktor kedua dari alur pemulihan tidak boleh terbawa.
         $this->flushSession();
@@ -230,7 +230,7 @@ class TwoFactorChallengeFlowTest extends TestCase
 
         $this->actingAsPinUser($user)
             ->post(route('two-factor.verify'), ['pin' => self::NEW_PIN])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertSame($user->getKey(), session('two_factor_user_id'));
     }

@@ -1,7 +1,6 @@
 /** Kunci skeleton yang dikenal host navigasi. */
 export type TSkeletonKey =
     | 'dashboard-index'
-    | 'member-dashboard'
     | 'events-index'
     | 'events-show'
     | 'users-index'

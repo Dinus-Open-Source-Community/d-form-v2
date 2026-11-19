@@ -93,8 +93,10 @@ async function signInWithPassword(page: Page, email: string): Promise<void> {
 async function signOut(page: Page): Promise<void> {
     await page.getByRole('button', { name: 'Keluar' }).click();
 
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 20_000 });
+    // Probe halaman guest, bukan /dashboard: redirect guest ke login menyimpan
+    // `url.intended` = /dashboard sehingga login peserta berikutnya mendarat di 404.
+    await page.goto('/auth/login');
+    await expect(page.locator('#login-email')).toBeVisible({ timeout: 20_000 });
 }
 
 /** Buka halaman profil dan tunggu konten ter-hydrate. */
@@ -243,12 +245,14 @@ test.describe('PIN faktor kedua', () => {
 
             await submitChallengePin(page, PIN);
 
-            // `url.intended` milik permintaan `/profile` dipakai, bukan selalu dashboard.
+            // `url.intended` milik permintaan `/profile` dipakai, bukan selalu portal peserta.
             await expect(page).toHaveURL(/\/profile$/, { timeout: 40_000 });
             await expect(page.getByTestId('profile-page')).toBeVisible({ timeout: 20_000 });
 
-            await page.goto('/dashboard');
-            await expect(page).toHaveURL(/\/dashboard/);
+            // Peserta membuka portal sendiri; dasbor organizer 404 sehingga tidak dipakai di sini.
+            await page.goto('/joined');
+            await expect(page).toHaveURL(/\/joined/);
+            await expect(page.locator('[data-slot="sidebar"]').first()).toBeVisible();
             await expect(page.getByTestId('email-verification-banner')).toHaveCount(0);
 
             const afterSuccess = readPinCredential(email);
@@ -269,7 +273,7 @@ test.describe('PIN faktor kedua', () => {
         try {
             await reachChallenge(page, email);
             await submitChallengePin(page, PIN);
-            await expect(page).toHaveURL(/\/dashboard/, { timeout: 40_000 });
+            await expect(page).toHaveURL(/\/joined/, { timeout: 40_000 });
 
             await openProfile(page);
 
@@ -293,7 +297,7 @@ test.describe('PIN faktor kedua', () => {
             await signOut(page);
             await signInWithPassword(page, email);
 
-            await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+            await expect(page).toHaveURL(/\/joined/, { timeout: 30_000 });
             await expect(page.getByTestId('two-factor-page')).toHaveCount(0);
         } finally {
             await context.close();

@@ -15,17 +15,16 @@ use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportCon
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
 use App\Http\Controllers\Dashboard\TwoFactorSettingsController;
-use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'))->name('admin.index');
 
-/** Dasbor utama — admin → organizer overview, member → member overview. */
+/** Dasbor utama hanya untuk penyelenggara (events.list); user lain mendapat 404. */
 Route::middleware('auth')->get('/dashboard', function () {
-    if (auth()->user()->can('events.list')) {
-        return app(DashboardHomeController::class)(request());
-    }
+    $user = auth()->user();
 
-    return app(MemberDashboardController::class)(request());
+    abort_if($user === null || ! $user->can('events.list'), 404);
+
+    return app(DashboardHomeController::class)(request());
 })->name('dashboard');
 
 // Redirect lawas skema /user/dashboard/* (dari backup-oprec-removal) — target

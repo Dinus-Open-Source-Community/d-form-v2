@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PostAuthDestination;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,6 +22,6 @@ class EnsureRecruitmentAccess
             return $next($request);
         }
 
-        return redirect()->route('dashboard');
+        return redirect()->to(PostAuthDestination::urlFor($user));
     }
 }

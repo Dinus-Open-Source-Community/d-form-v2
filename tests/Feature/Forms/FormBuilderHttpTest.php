@@ -201,7 +201,7 @@ class FormBuilderHttpTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_invalid_field_payload_returns_validation_error_without_writing(): void

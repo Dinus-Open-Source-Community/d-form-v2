@@ -11,7 +11,7 @@ type TSkeletonCase = [url: string, context: ISkeletonContext, expected: TSkeleto
 const CASES: readonly TSkeletonCase[] = [
     ['/dashboard', ORGANIZER, 'dashboard-index'],
     ['/dashboard?tab=1', ORGANIZER, 'dashboard-index'],
-    ['http://localhost:3000/dashboard', PARTICIPANT, 'member-dashboard'],
+    ['http://localhost:3000/dashboard', PARTICIPANT, 'generic'],
     ['/admin/events', ORGANIZER, 'events-index'],
     ['/admin/events/archived', ORGANIZER, 'list'],
     ['/admin/events/create', ORGANIZER, 'form'],

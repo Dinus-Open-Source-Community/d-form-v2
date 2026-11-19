@@ -18,7 +18,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
-import { routes } from '@/lib/routes';
+import { resolveDashboardHomeHref, routes } from '@/lib/routes';
 import { LayoutDashboard, UserRound, LogOut, ChevronsUpDown } from 'lucide-vue-next';
 import { findElement } from '@/adapters/browser/domQuery';
 import { matchesMediaQuery } from '@/adapters/browser/mediaQuery';
@@ -27,6 +27,9 @@ import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const page = usePage();
 const user = useAuth(page.props);
+
+/** Tautan Dasbor mengikuti capability: peserta diarahkan ke portal `/joined`. */
+const dashboardHref = computed(() => resolveDashboardHomeHref(user.value?.can_manage_events === true));
 
 const scrolled = ref(false);
 const mobileOpen = ref(false);
@@ -112,11 +115,15 @@ function signOut() {
     if (isSigningOut.value) return;
 
     isSigningOut.value = true;
-    router.post(logout().url, {}, {
-        onFinish: (): void => {
-            isSigningOut.value = false;
-        },
-    });
+    router.post(
+        logout().url,
+        {},
+        {
+            onFinish: (): void => {
+                isSigningOut.value = false;
+            },
+        }
+    );
 }
 
 const onScroll = () => {
@@ -224,7 +231,7 @@ function isLinkActive(href: string): boolean {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem as-child>
-                            <Link :href="routes.dashboard.index" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link :href="dashboardHref" class="flex w-full cursor-pointer items-center gap-2">
                                 <LayoutDashboard class="text-muted-foreground size-4" />
                                 Dashboard
                             </Link>
@@ -314,7 +321,7 @@ function isLinkActive(href: string): boolean {
                                 </div>
                             </div>
                             <Button as-child variant="outline" class="h-10 w-full text-sm">
-                                <Link :href="routes.dashboard.index" @click="mobileOpen = false">Dashboard</Link>
+                                <Link :href="dashboardHref" @click="mobileOpen = false">Dashboard</Link>
                             </Button>
                             <Button as-child variant="outline" class="mt-2 h-10 w-full text-sm">
                                 <Link :href="routes.dashboard.profile" @click="mobileOpen = false">Profile</Link>

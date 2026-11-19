@@ -38,7 +38,7 @@ class ReportsRedirectTest extends TestCase
     {
         $this->actingAs($this->member())
             ->get(route('dashboard.reports.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_admin_reports_route_redirects_to_events_index(): void

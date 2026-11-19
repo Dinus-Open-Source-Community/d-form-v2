@@ -221,7 +221,7 @@ class FormDraftTest extends TestCase
 
         $this->actingAs($this->member())
             ->postJson($this->draftPath($event))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertSame(0, Form::query()->where('event_id', $event->id)->count());
     }

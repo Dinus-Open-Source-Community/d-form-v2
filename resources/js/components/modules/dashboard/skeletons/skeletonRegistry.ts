@@ -9,7 +9,6 @@ type TSkeletonLoader = () => Promise<{ default: Component }>;
  */
 const SKELETON_LOADERS: Record<TSkeletonKey, TSkeletonLoader> = {
     'dashboard-index': () => import('./pages/DashboardIndexSkeleton.vue'),
-    'member-dashboard': () => import('./pages/MemberDashboardSkeleton.vue'),
     'events-index': () => import('./pages/EventsIndexSkeleton.vue'),
     'events-show': () => import('./pages/EventsShowSkeleton.vue'),
     'users-index': () => import('./pages/UsersIndexSkeleton.vue'),

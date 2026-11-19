@@ -6,6 +6,7 @@ use App\Enums\OtpOutcome;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\EmailVerificationService;
+use App\Support\PostAuthDestination;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,7 @@ class EmailVerificationController extends Controller
         $user = $this->sessionUser($request);
 
         if ($user->email_verified_at !== null) {
-            return redirect()->route('dashboard');
+            return redirect()->to(PostAuthDestination::urlFor($user));
         }
 
         return inertia('Auth/VerifyEmail', $this->pageProps($user, $service));
@@ -35,7 +36,7 @@ class EmailVerificationController extends Controller
         $outcome = $service->issue($user);
 
         if ($outcome === OtpOutcome::Verified) {
-            return $this->respondVerified($request);
+            return $this->respondVerified($request, $user);
         }
 
         if ($outcome === OtpOutcome::Issued) {
@@ -79,7 +80,7 @@ class EmailVerificationController extends Controller
             return redirect()->route('verification.notice')->withErrors(['code' => $message]);
         }
 
-        return $this->respondVerified($request);
+        return $this->respondVerified($request, $user);
     }
 
     /**
@@ -98,13 +99,13 @@ class EmailVerificationController extends Controller
         ];
     }
 
-    /** Redirect (atau JSON) menuju dasbor setelah email terverifikasi. */
-    private function respondVerified(Request $request): JsonResponse|RedirectResponse
+    /** Redirect (atau JSON) menuju tujuan pasca-verifikasi sesuai peran user. */
+    private function respondVerified(Request $request, User $user): JsonResponse|RedirectResponse
     {
         if ($request->expectsJson()) {
             return response()->json([
                 'verified' => true,
-                'redirect' => route('dashboard', absolute: false),
+                'redirect' => PostAuthDestination::urlFor($user),
             ]);
         }
 
@@ -113,7 +114,7 @@ class EmailVerificationController extends Controller
             'message' => 'Email berhasil diverifikasi.',
         ]);
 
-        return redirect()->route('dashboard');
+        return redirect()->to(PostAuthDestination::urlFor($user));
     }
 
     /** User sesi; route terpasang middleware `auth` sehingga user selalu ada. */

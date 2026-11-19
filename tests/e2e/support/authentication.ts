@@ -5,7 +5,7 @@ import { readEnvironment } from './environment';
 /** Storage state yang dibuat oleh API login E2E dan dapat dipakai browser context. */
 export type TPlaywrightStorageState = Awaited<ReturnType<APIRequestContext['storageState']>>;
 
-interface IAuthenticatedDashboardPayload {
+interface IAuthenticatedProfilePayload {
     props: {
         auth: {
             user: {
@@ -15,7 +15,7 @@ interface IAuthenticatedDashboardPayload {
     };
 }
 
-/** Login dengan cookie jar kosong, validasi identitas dashboard, lalu kembalikan state sesi. */
+/** Login dengan cookie jar kosong, validasi identitas profil, lalu kembalikan state sesi. */
 export async function loginE2eUser(email: string, password: string): Promise<TPlaywrightStorageState> {
     const environment = readEnvironment();
     const api = await playwrightRequest.newContext({
@@ -41,16 +41,16 @@ export async function loginE2eUser(email: string, password: string): Promise<TPl
             throw new Error(`Login E2E gagal (HTTP ${response.status()}).`);
         }
 
-        const dashboardResponse = await api.get('/dashboard', {
+        const profileResponse = await api.get('/profile', {
             maxRedirects: 0,
             failOnStatusCode: false,
         });
 
-        if (dashboardResponse.status() !== 200) {
-            throw new Error(`Sesi login E2E tidak dapat membuka dashboard (HTTP ${dashboardResponse.status()}).`);
+        if (profileResponse.status() !== 200) {
+            throw new Error(`Sesi login E2E tidak dapat membuka profil (HTTP ${profileResponse.status()}).`);
         }
 
-        if (authenticatedEmailFromDashboardHtml(await dashboardResponse.text()) !== email) {
+        if (authenticatedEmailFromProfileHtml(await profileResponse.text()) !== email) {
             throw new Error('Sesi login E2E tidak terautentikasi sebagai aktor yang diminta.');
         }
 
@@ -68,33 +68,33 @@ export async function loginE2eUser(email: string, password: string): Promise<TPl
 
 /** Pastikan state yang dipindahkan ke browser context tetap mewakili aktor yang diminta. */
 export async function assertBrowserContextAuthenticatedAs(context: BrowserContext, email: string): Promise<void> {
-    const response = await context.request.get('/dashboard', {
+    const response = await context.request.get('/profile', {
         maxRedirects: 0,
         failOnStatusCode: false,
     });
 
-    if (response.status() !== 200 || authenticatedEmailFromDashboardHtml(await response.text()) !== email) {
+    if (response.status() !== 200 || authenticatedEmailFromProfileHtml(await response.text()) !== email) {
         throw new Error('Browser context tidak terautentikasi sebagai aktor E2E yang diharapkan.');
     }
 }
 
-function authenticatedEmailFromDashboardHtml(html: string): string {
+function authenticatedEmailFromProfileHtml(html: string): string {
     const raw = /<script data-page="app" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
 
     if (raw === undefined) {
-        throw new Error('Dashboard tidak memuat payload Inertia yang diharapkan.');
+        throw new Error('Profil tidak memuat payload Inertia yang diharapkan.');
     }
 
     const payload: unknown = JSON.parse(raw);
 
-    if (!isAuthenticatedDashboardPayload(payload)) {
-        throw new Error('Payload dashboard tidak memiliki identitas user yang valid.');
+    if (!isAuthenticatedProfilePayload(payload)) {
+        throw new Error('Payload profil tidak memiliki identitas user yang valid.');
     }
 
     return payload.props.auth.user.email;
 }
 
-function isAuthenticatedDashboardPayload(value: unknown): value is IAuthenticatedDashboardPayload {
+function isAuthenticatedProfilePayload(value: unknown): value is IAuthenticatedProfilePayload {
     if (typeof value !== 'object' || value === null || !('props' in value)) {
         return false;
     }

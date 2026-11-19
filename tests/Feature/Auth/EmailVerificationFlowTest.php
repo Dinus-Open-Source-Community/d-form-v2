@@ -35,13 +35,13 @@ class EmailVerificationFlowTest extends TestCase
         $this->post(route('verification.confirm'), ['code' => '123456'])->assertRedirect(route('auth.login'));
     }
 
-    public function test_verified_user_opening_the_notice_is_redirected_to_the_dashboard(): void
+    public function test_verified_user_opening_the_notice_is_redirected_to_the_member_portal(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get(route('verification.notice'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_unverified_user_sees_the_verification_page_with_status_props(): void
@@ -119,7 +119,7 @@ class EmailVerificationFlowTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('verification.send'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->getKey()]);
     }
@@ -131,7 +131,7 @@ class EmailVerificationFlowTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('verification.confirm'), ['code' => $this->activeCode($user)])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertNotNull($user->fresh()?->email_verified_at);
         $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->getKey()]);
@@ -145,7 +145,7 @@ class EmailVerificationFlowTest extends TestCase
         $this->actingAs($user)
             ->postJson(route('verification.confirm'), ['code' => $this->activeCode($user)])
             ->assertOk()
-            ->assertJson(['verified' => true, 'redirect' => route('dashboard', absolute: false)]);
+            ->assertJson(['verified' => true, 'redirect' => route('dashboard.user.events', absolute: false)]);
     }
 
     public function test_confirm_with_a_wrong_code_counts_the_attempt(): void
@@ -217,7 +217,7 @@ class EmailVerificationFlowTest extends TestCase
                 'email' => 'penyerang@example.test',
                 'code' => $this->activeCode($user),
             ])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertNotNull($user->fresh()?->email_verified_at);
         $this->assertDatabaseMissing('users', ['email' => 'penyerang@example.test']);

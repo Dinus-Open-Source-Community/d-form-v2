@@ -4,7 +4,6 @@ import type { TSkeletonKey } from '@/types/skeleton';
 
 const REGISTERED_KEYS: readonly TSkeletonKey[] = [
     'dashboard-index',
-    'member-dashboard',
     'events-index',
     'events-show',
     'users-index',

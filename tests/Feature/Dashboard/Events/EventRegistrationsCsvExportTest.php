@@ -98,7 +98,7 @@ class EventRegistrationsCsvExportTest extends TestCase
 
         $this->actingAs($this->member())
             ->get(route('dashboard.events.exports.registrations-csv', $event))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_registrations_csv_neutralizes_formula_like_participant_values(): void

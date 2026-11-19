@@ -11,6 +11,7 @@ use App\Http\Requests\RecoveryTwoFactorRequest;
 use App\Http\Requests\VerifyTwoFactorRequest;
 use App\Services\Auth\EmailVerificationService;
 use App\Services\Auth\TwoFactorPinService;
+use App\Support\PostAuthDestination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,11 +32,11 @@ class TwoFactorChallengeController extends Controller
         $user = $this->sessionUser($request);
 
         if (! (bool) $user->has_pin_2fa) {
-            return redirect()->route('dashboard');
+            return redirect()->to(PostAuthDestination::urlFor($user));
         }
 
         if (EnsureTwoFactorVerified::isSatisfied($request, $user)) {
-            return redirect()->route('dashboard');
+            return redirect()->to(PostAuthDestination::urlFor($user));
         }
 
         return inertia('Auth/TwoFactorChallenge', [
@@ -61,7 +62,7 @@ class TwoFactorChallengeController extends Controller
             'message' => 'PIN benar. Selamat datang kembali.',
         ]);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(PostAuthDestination::urlFor($user));
     }
 
     /** Kirim OTP pemulihan ke email terdaftar memakai mesin OTP verifikasi email yang sama. */
@@ -150,7 +151,7 @@ class TwoFactorChallengeController extends Controller
             'message' => 'PIN baru tersimpan. Anda sudah masuk.',
         ]);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(PostAuthDestination::urlFor($user));
     }
 
     /**

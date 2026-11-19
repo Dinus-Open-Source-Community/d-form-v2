@@ -43,7 +43,7 @@ class ArchivedEventsIndexTest extends TestCase
         $member = User::factory()->create();
         $member->assignRole('member');
 
-        $this->actingAs($member)->get(route('dashboard.events.archived'))->assertRedirect(route('dashboard'));
+        $this->actingAs($member)->get(route('dashboard.events.archived'))->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_archived_index_lists_only_soft_deleted_events_owned_by_admin(): void

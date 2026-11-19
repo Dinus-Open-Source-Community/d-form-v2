@@ -31,7 +31,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('dashboard.users.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_admin_cannot_view_users_index(): void

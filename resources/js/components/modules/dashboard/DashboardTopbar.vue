@@ -105,7 +105,7 @@ const showBackButton = computed(() => {
 
 function goBack(): void {
     if (navigateBack()) return;
-    router.visit(resolveNavbarFallbackBackHref(page.url));
+    router.visit(resolveNavbarFallbackBackHref(page.url, user.value?.can_manage_events === true));
 }
 
 const profileMenuOpen = ref(false);
@@ -121,11 +121,15 @@ function handleLogout(): void {
     isLoggingOut.value = true;
     profileMenuOpen.value = false;
     topbar.clearTopbar();
-    router.post(logout().url, {}, {
-        onFinish: (): void => {
-            isLoggingOut.value = false;
-        },
-    });
+    router.post(
+        logout().url,
+        {},
+        {
+            onFinish: (): void => {
+                isLoggingOut.value = false;
+            },
+        }
+    );
 }
 </script>
 
@@ -196,7 +200,7 @@ function handleLogout(): void {
                     </Link>
                     <button
                         type="button"
-                        class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none [&>svg]:size-4 [&>svg]:shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none disabled:cursor-not-allowed disabled:opacity-60 [&>svg]:size-4 [&>svg]:shrink-0"
                         :disabled="isLoggingOut"
                         @click="handleLogout"
                     >

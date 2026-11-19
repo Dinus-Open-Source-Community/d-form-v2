@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { effectScope, type EffectScope } from 'vue';
-import { NAVIGATION_SKELETON_DELAY_MS, useNavigationSkeleton, type INavigationSkeleton, type INavigationSkeletonOptions } from '@/hooks/useNavigationSkeleton';
+import {
+    NAVIGATION_SKELETON_DELAY_MS,
+    useNavigationSkeleton,
+    type INavigationSkeleton,
+    type INavigationSkeletonOptions,
+} from '@/hooks/useNavigationSkeleton';
 
 const inertiaMock = vi.hoisted(() => ({ on: vi.fn() }));
 
@@ -121,7 +126,7 @@ describe('useNavigationSkeleton', () => {
         expect(skeleton.skeletonKey.value).toBe('users-index');
     });
 
-    it('memakai konteks capability saat tujuan adalah /dashboard', () => {
+    it('jatuh ke skeleton generic saat peserta membuka /dashboard', () => {
         const skeleton = mountHook({
             currentPathname: () => '/profile',
             context: () => ({ canManageEvents: false }),
@@ -130,7 +135,7 @@ describe('useNavigationSkeleton', () => {
         emitStart('get', '/dashboard', false);
         vi.advanceTimersByTime(NAVIGATION_SKELETON_DELAY_MS);
 
-        expect(skeleton.skeletonKey.value).toBe('member-dashboard');
+        expect(skeleton.skeletonKey.value).toBe('generic');
     });
 
     it('membersihkan skeleton saat finish', () => {

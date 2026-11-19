@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\OAuthAccountLinker;
 use App\Services\Auth\OAuthConnectionService;
+use App\Support\PostAuthDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -60,7 +61,7 @@ class OAuthController extends Controller
 
             Auth::login($user);
 
-            return $this->flashSuccessAndRedirectIntended();
+            return $this->flashSuccessAndRedirectIntended($user);
         } catch (\Exception $e) {
             $this->logOAuthCallbackFailure('google', $request, $e);
             Inertia::flash('toast', [
@@ -100,7 +101,7 @@ class OAuthController extends Controller
 
             Auth::login($user);
 
-            return $this->flashSuccessAndRedirectIntended();
+            return $this->flashSuccessAndRedirectIntended($user);
         } catch (\Exception $e) {
             $this->logOAuthCallbackFailure('github', $request, $e);
             Inertia::flash('toast', [
@@ -238,7 +239,8 @@ class OAuthController extends Controller
         return redirect()->route('auth.login');
     }
 
-    private function flashSuccessAndRedirectIntended(): RedirectResponse
+    /** Flash toast sukses lalu lanjut ke intended atau tujuan pasca-login sesuai peran. */
+    private function flashSuccessAndRedirectIntended(User $user): RedirectResponse
     {
         $parts = explode(', ', __('auth.login_success'));
 
@@ -247,7 +249,7 @@ class OAuthController extends Controller
             'type' => 'success',
         ]);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(PostAuthDestination::urlFor($user));
     }
 
     /** Record safe OAuth failure metadata without logging provider payloads or exception messages. */

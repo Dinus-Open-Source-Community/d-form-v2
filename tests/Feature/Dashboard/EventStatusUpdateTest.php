@@ -113,7 +113,7 @@ class EventStatusUpdateTest extends TestCase
 
         $this->actingAs($this->member())
             ->patch(route('dashboard.events.status', $event), ['status' => EventStatus::Published->value])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_unknown_status_is_invalid(): void

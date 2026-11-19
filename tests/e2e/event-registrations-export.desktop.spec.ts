@@ -529,7 +529,9 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
         }
     });
 
-    test('user role member diarahkan ke dashboard oleh middleware organizer', async ({ browser }): Promise<void> => {
+    test('user role member diarahkan ke portal peserta oleh middleware organizer', async ({
+        browser,
+    }): Promise<void> => {
         test.setTimeout(120_000);
 
         const probe = fixtureOrThrow();
@@ -547,9 +549,9 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
                 maxRedirects: 0,
             });
 
-            // `EnsureOrganizerDashboardAccess`: tanpa `events.list` → redirect ke route dashboard.
+            // `EnsureOrganizerDashboardAccess`: tanpa `events.list` → redirect ke portal peserta.
             expect(response.status()).toBe(302);
-            expect(response.headers()['location'] ?? '').toMatch(/\/dashboard$/);
+            expect(response.headers()['location'] ?? '').toMatch(/\/joined$/);
             expect(response.headers()['content-disposition']).toBeUndefined();
         } finally {
             await context.close();

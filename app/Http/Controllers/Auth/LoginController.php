@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginStoreRequest;
+use App\Models\User;
+use App\Support\PostAuthDestination;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -56,12 +58,15 @@ class LoginController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
+            $user = Auth::user();
+            abort_unless($user instanceof User, 500);
+
             Inertia::flash('toast', [
                 'message' => 'Login success',
                 'type' => 'success',
             ]);
 
-            return redirect()->intended(route('dashboard', absolute: false));
+            return redirect()->intended(PostAuthDestination::urlFor($user));
         }
 
         return Inertia::flash('toast', [

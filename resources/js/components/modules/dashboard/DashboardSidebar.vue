@@ -35,7 +35,7 @@ import {
     Megaphone,
     Archive,
 } from 'lucide-vue-next';
-import { isSidebarNavActive, routes } from '@/lib/routes';
+import { isSidebarNavActive, resolveDashboardHomeHref, routes } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 
 const page = usePage();
@@ -61,8 +61,12 @@ const currentPath = computed(() => page.url);
 const eventsSubId = useId();
 const recruitmentSubId = useId();
 
-/** Beranda penyelenggara vs portal peserta — URL terpisah, sama-sama “Beranda” di UI. */
-const mainNavItems = computed(() => [{ label: 'Beranda', href: routes.dashboard.index, icon: LayoutDashboard }]);
+/** Beranda hanya untuk penyelenggara; peserta memakai menu portal (`/joined`, `/browse`). */
+const homeHref = computed(() => resolveDashboardHomeHref(canManageEvents.value));
+
+const mainNavItems = computed(() =>
+    canManageEvents.value ? [{ label: 'Beranda', href: homeHref.value, icon: LayoutDashboard }] : []
+);
 
 /** Item menu "Kelola"; grup acara dirender sebagai parent collapsible. */
 type TManagementNavItem =
@@ -214,7 +218,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
     <Sidebar collapsible="icon" variant="sidebar" class="border-sidebar-border bg-sidebar overflow-x-hidden border-r">
         <SidebarHeader class="border-sidebar-border/50 gap-0 overflow-hidden border-b p-0">
             <Link
-                :href="routes.dashboard.index"
+                :href="homeHref"
                 class="hover:bg-sidebar-accent/25 flex w-full min-w-0 items-center overflow-hidden px-4 py-3.5 transition-colors"
                 @click="closeMobileIfNeeded"
             >
@@ -229,32 +233,34 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
         </SidebarHeader>
 
         <SidebarContent class="flex-1 overflow-x-hidden px-2.5 pt-3 pb-3">
-            <SidebarGroup class="p-0">
-                <SidebarGroupLabel
-                    class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
-                >
-                    Menu utama
-                </SidebarGroupLabel>
-                <SidebarGroupContent class="space-y-0.5">
-                    <SidebarMenu class="gap-1">
-                        <SidebarMenuItem v-for="item in mainNavItems" :key="item.href">
-                            <SidebarMenuButton
-                                as-child
-                                :is-active="isActive(item.href)"
-                                :tooltip="item.label"
-                                class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
-                            >
-                                <Link :href="item.href" @click="closeMobileIfNeeded">
-                                    <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
-                                    <span class="font-medium">{{ item.label }}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-                </SidebarGroupContent>
-            </SidebarGroup>
+            <template v-if="mainNavItems.length > 0">
+                <SidebarGroup class="p-0">
+                    <SidebarGroupLabel
+                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                    >
+                        Menu utama
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent class="space-y-0.5">
+                        <SidebarMenu class="gap-1">
+                            <SidebarMenuItem v-for="item in mainNavItems" :key="item.href">
+                                <SidebarMenuButton
+                                    as-child
+                                    :is-active="isActive(item.href)"
+                                    :tooltip="item.label"
+                                    class="h-auto min-h-10 gap-2.5 rounded-lg px-2.5 py-2 text-sm"
+                                >
+                                    <Link :href="item.href" @click="closeMobileIfNeeded">
+                                        <component :is="item.icon" class="size-4 shrink-0 opacity-90" />
+                                        <span class="font-medium">{{ item.label }}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
 
-            <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
+                <SidebarSeparator class="bg-sidebar-border/60 my-3 opacity-80" />
+            </template>
 
             <SidebarGroup class="p-0">
                 <SidebarGroupLabel

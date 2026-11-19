@@ -144,7 +144,9 @@ test.afterAll(() => {
 });
 
 test.describe('verifikasi email akun', () => {
-    test('banner tampil di dashboard dan profil, "Ingatkan nanti" hanya berlaku untuk sesi itu', async ({ browser }) => {
+    test('banner tampil di portal peserta dan profil, "Ingatkan nanti" hanya berlaku untuk sesi itu', async ({
+        browser,
+    }) => {
         const email = createUnverifiedUser('banner');
         const otherEmail = createUnverifiedUser('banner-lain');
         const current = await openAsUser(browser, email);
@@ -153,7 +155,7 @@ test.describe('verifikasi email akun', () => {
         try {
             const banner = current.page.getByTestId('email-verification-banner');
 
-            await current.page.goto('/dashboard');
+            await current.page.goto('/joined');
             await expect(banner).toBeVisible({ timeout: 20_000 });
 
             await current.page.goto('/profile');
@@ -168,7 +170,7 @@ test.describe('verifikasi email akun', () => {
             await expect(banner).toHaveCount(0);
 
             // Akun lain pada sesi lain tetap melihat banner: penyingkiran bukan sifat akun.
-            await other.page.goto('/dashboard');
+            await other.page.goto('/joined');
             await expect(other.page.getByTestId('email-verification-banner')).toBeVisible({ timeout: 20_000 });
         } finally {
             await current.context.close();
@@ -181,7 +183,7 @@ test.describe('verifikasi email akun', () => {
         const { context, page } = await openAsUser(browser, email);
 
         try {
-            await page.goto('/dashboard');
+            await page.goto('/joined');
             await page.getByTestId('email-verification-cta').click();
 
             await expect(page).toHaveURL(/\/email\/verify$/, { timeout: 20_000 });
@@ -259,7 +261,7 @@ test.describe('verifikasi email akun', () => {
             const code = await waitForActiveCode(email);
             await typeCode(page, code);
 
-            await expect(page).toHaveURL(/\/dashboard/, { timeout: 40_000 });
+            await expect(page).toHaveURL(/\/joined/, { timeout: 40_000 });
             await expect(page.getByTestId('email-verification-banner')).toHaveCount(0);
 
             const state = readVerificationState(email);
@@ -270,7 +272,9 @@ test.describe('verifikasi email akun', () => {
         }
     });
 
-    test('kode salah menampilkan alert, mengosongkan kotak, dan akun tetap belum terverifikasi', async ({ browser }) => {
+    test('kode salah menampilkan alert, mengosongkan kotak, dan akun tetap belum terverifikasi', async ({
+        browser,
+    }) => {
         const email = createUnverifiedUser('salah');
         const { context, page } = await openAsUser(browser, email);
 

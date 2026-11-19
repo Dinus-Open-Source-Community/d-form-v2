@@ -235,7 +235,7 @@ class FormAnswersExportTest extends TestCase
 
         $this->actingAs($this->member())
             ->get(route('dashboard.events.forms.answers-csv', ['event' => $event, 'form' => $form]))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_form_from_another_event_returns_not_found(): void

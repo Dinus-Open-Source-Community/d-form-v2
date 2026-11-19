@@ -1100,7 +1100,7 @@ test.describe('BE-P2-003 eligibility QR periode recruitment', () => {
             const location = direct.headers()['location'] ?? '';
             expect(location, 'redirect harus menyertakan Location').not.toBe('');
             expect(location, 'redirect tidak boleh kembali ke halaman periode').not.toContain(periodPath);
-            expect(location, 'redirect harus menuju dashboard').toContain('/dashboard');
+            expect(location, 'redirect harus menuju portal peserta').toContain('/joined');
         } finally {
             await context.close();
             removeMemberUser(email);

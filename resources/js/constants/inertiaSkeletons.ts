@@ -5,9 +5,8 @@ import type { IPageSkeletonRule, TSkeletonKey } from '@/types/skeleton';
  * jadi aturan yang lebih spesifik wajib berada di atas aturan induknya.
  */
 export const PAGE_SKELETON_RULES: readonly IPageSkeletonRule[] = [
-    // /dashboard melayani organizer dan peserta; capability sama dengan guard server.
+    // /dashboard hanya untuk organizer; peserta memakai /joined. Capability sama dengan guard server.
     { pattern: /^\/dashboard$/, skeleton: 'dashboard-index', when: (context) => context.canManageEvents },
-    { pattern: /^\/dashboard$/, skeleton: 'member-dashboard' },
 
     { pattern: /^\/admin\/events$/, skeleton: 'events-index' },
     { pattern: /^\/admin\/events\/archived$/, skeleton: 'list' },

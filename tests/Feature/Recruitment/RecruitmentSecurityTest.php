@@ -213,6 +213,6 @@ class RecruitmentSecurityTest extends TestCase
                 'application' => $application,
                 'type' => 'cv',
             ]))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 }
