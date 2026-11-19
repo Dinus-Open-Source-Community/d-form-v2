@@ -7,7 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton';
         <section class="space-y-4">
             <Skeleton class="h-5 w-16" />
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div v-for="card in 4" :key="card" class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+                <div
+                    v-for="card in 4"
+                    :key="card"
+                    class="border-border bg-card flex flex-col gap-3 rounded-xl border p-4"
+                >
                     <Skeleton class="h-3 w-24" />
                     <Skeleton class="h-7 w-20" />
                     <Skeleton class="h-3 w-16" />
@@ -23,7 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                 </div>
                 <Skeleton class="h-8 w-24 rounded-lg" />
             </div>
-            <div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+            <div class="border-border bg-card flex flex-col gap-3 rounded-xl border p-4">
                 <div v-for="row in 5" :key="row" class="flex items-center gap-4">
                     <Skeleton class="size-10 shrink-0 rounded-lg" />
                     <div class="flex min-w-0 flex-1 flex-col gap-2">

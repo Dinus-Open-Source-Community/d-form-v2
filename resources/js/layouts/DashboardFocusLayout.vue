@@ -62,11 +62,15 @@ function handleLogout(): void {
     if (isLoggingOut.value) return;
 
     isLoggingOut.value = true;
-    router.post(logout().url, {}, {
-        onFinish: (): void => {
-            isLoggingOut.value = false;
-        },
-    });
+    router.post(
+        logout().url,
+        {},
+        {
+            onFinish: (): void => {
+                isLoggingOut.value = false;
+            },
+        }
+    );
 }
 </script>
 

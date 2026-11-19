@@ -98,7 +98,10 @@ describe('useProfileIdentityForm', () => {
         identity.submit();
 
         expect(form.patch).toHaveBeenCalledTimes(1);
-        expect(form.patch).toHaveBeenCalledWith(routes.dashboard.profile, expect.objectContaining({ preserveScroll: true }));
+        expect(form.patch).toHaveBeenCalledWith(
+            routes.dashboard.profile,
+            expect.objectContaining({ preserveScroll: true })
+        );
         expect(submitted[0]).toEqual({ name: 'Budi Santoso Baru', email: 'budi.baru@example.test' });
         expect(identity.isDirty.value).toBe(false);
     });

@@ -7,7 +7,6 @@ import {
     type IFormBuilderDraftState,
 } from '@/lib/formBuilderAutosave';
 import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
-import type { IBuilderField } from '@/types/form-builder';
 
 /** State builder minimal yang valid (header lengkap). */
 function completeState(overrides: Partial<IFormBuilderDraftState> = {}): IFormBuilderDraftState {
@@ -23,20 +22,6 @@ function completeState(overrides: Partial<IFormBuilderDraftState> = {}): IFormBu
         ...overrides,
     };
 }
-
-const SAMPLE_FIELDS: readonly IBuilderField[] = [
-    {
-        id: 'f-1',
-        type: 'text',
-        label: 'Nama',
-        description: '',
-        name: 'nama',
-        placeholder: '',
-        required: true,
-        options: [],
-        metadata: {},
-    },
-];
 
 describe('isFormBuilderHeaderComplete', () => {
     const cases: Array<[string, Partial<IFormBuilderDraftState>, boolean]> = [

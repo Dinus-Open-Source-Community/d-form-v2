@@ -60,7 +60,9 @@ function mountAvatar(initialUrl: string | null): IAvatarHarness & {
     avatar: ReturnType<typeof useProfileAvatar>;
 } {
     const harness = createFakeForms();
-    inertiaMock.useForm.mockReturnValueOnce(reactive(harness.upload)).mockReturnValueOnce(reactive(harness.removeRequest));
+    inertiaMock.useForm
+        .mockReturnValueOnce(reactive(harness.upload))
+        .mockReturnValueOnce(reactive(harness.removeRequest));
 
     const avatar = useProfileAvatar(initialUrl);
 

@@ -39,9 +39,7 @@ export function useProfileAvatar(initialUrl: MaybeRefOrGetter<string | null>): I
     const isPicked = computed<boolean>(() => pendingFile.value !== null);
     const isRemovalPending = computed<boolean>(() => removalPending.value);
     const isDirty = computed<boolean>(() => pendingFile.value !== null || removalPending.value);
-    const isProcessing = computed<boolean>(
-        () => avatarUploadForm.processing || avatarDeleteForm.processing
-    );
+    const isProcessing = computed<boolean>(() => avatarUploadForm.processing || avatarDeleteForm.processing);
     const errorMessage = computed<string>(
         () => pickError.value || getFieldError(avatarUploadForm.errors, 'avatar') || ''
     );

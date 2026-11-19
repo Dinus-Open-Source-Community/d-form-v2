@@ -10,14 +10,14 @@ import { Skeleton } from '@/components/ui/skeleton';
         </div>
 
         <div class="grid gap-5 lg:grid-cols-3">
-            <div class="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+            <div class="border-border bg-card rounded-2xl border p-5 lg:col-span-2">
                 <Skeleton class="h-5 w-40" />
                 <Skeleton class="mt-4 h-4 w-full" />
                 <Skeleton class="mt-2 h-4 w-11/12" />
                 <Skeleton class="mt-2 h-4 w-2/3" />
                 <Skeleton class="mt-6 h-28 w-full rounded-xl" />
             </div>
-            <div class="rounded-2xl border border-border bg-card p-5">
+            <div class="border-border bg-card rounded-2xl border p-5">
                 <Skeleton class="h-5 w-32" />
                 <Skeleton class="mt-4 h-3 w-full" />
                 <Skeleton class="mt-2 h-3 w-5/6" />

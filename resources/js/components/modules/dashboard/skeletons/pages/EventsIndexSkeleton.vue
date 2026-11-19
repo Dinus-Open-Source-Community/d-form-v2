@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
         </div>
 
         <div class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4">
-            <div v-for="card in 8" :key="card" class="overflow-hidden rounded-xl border border-border bg-card">
+            <div v-for="card in 8" :key="card" class="border-border bg-card overflow-hidden rounded-xl border">
                 <Skeleton class="h-36 w-full rounded-none" />
                 <div class="flex flex-col gap-3 p-4">
                     <Skeleton class="h-5 w-3/4" />

@@ -9,7 +9,7 @@ const props = defineProps<{
 </script>
 
 <template>
-    <div :class="cn('flex flex-col gap-2 rounded-xl border border-border bg-card p-4', props.class)">
+    <div :class="cn('border-border bg-card flex flex-col gap-2 rounded-xl border p-4', props.class)">
         <Skeleton class="h-3 w-24" />
         <Skeleton class="h-6 w-32" />
     </div>

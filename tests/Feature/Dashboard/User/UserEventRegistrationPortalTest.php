@@ -388,7 +388,8 @@ class UserEventRegistrationPortalTest extends TestCase
         $html = $confirmation->render();
         $this->assertStringContainsString($expectedUrl, $html);
         $this->assertStringContainsString('cid:qr-code.png', $html);
-        $this->assertStringContainsString($member->name, $html);
+        // Blade meng-escape nama; faker bisa menghasilkan apostrof (mis. O'Connell).
+        $this->assertStringContainsString(e($member->name), $html);
 
         $rejected = new RegistrationRejectedMail($answer);
         $this->assertStringContainsString($expectedUrl, $rejected->render());

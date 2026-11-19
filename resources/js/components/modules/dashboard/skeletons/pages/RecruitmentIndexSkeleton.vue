@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
         <section class="space-y-3">
             <Skeleton class="h-4 w-32" />
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div v-for="card in 3" :key="card" class="rounded-2xl border border-border/70 bg-card p-5">
+                <div v-for="card in 3" :key="card" class="border-border/70 bg-card rounded-2xl border p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-3">
                             <Skeleton class="size-9 shrink-0 rounded-lg" />
@@ -33,7 +33,11 @@ import { Skeleton } from '@/components/ui/skeleton';
             </div>
 
             <div class="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div v-for="card in 6" :key="card" class="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5">
+                <div
+                    v-for="card in 6"
+                    :key="card"
+                    class="border-border/70 bg-card flex flex-col gap-4 rounded-2xl border p-5"
+                >
                     <Skeleton class="aspect-video w-full rounded-xl" />
                     <div class="flex items-start justify-between gap-3">
                         <Skeleton class="h-5 w-2/3" />
@@ -41,7 +45,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                     </div>
                     <Skeleton class="h-3 w-3/4" />
                     <Skeleton class="h-3 w-1/2" />
-                    <div class="mt-auto flex items-center gap-2 border-t border-border/60 pt-3">
+                    <div class="border-border/60 mt-auto flex items-center gap-2 border-t pt-3">
                         <Skeleton class="size-7 rounded-full" />
                         <Skeleton class="h-3 w-24" />
                     </div>

@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
     <div class="flex min-w-0 flex-col gap-6 pb-6 sm:gap-8">
         <div class="flex min-w-0 flex-col gap-5 sm:gap-6 md:grid md:grid-cols-5 md:gap-6 xl:grid-cols-3">
             <div class="flex min-w-0 flex-col gap-6 md:col-span-3 xl:col-span-2">
-                <div class="overflow-hidden rounded-xl border border-border bg-card">
+                <div class="border-border bg-card overflow-hidden rounded-xl border">
                     <Skeleton class="h-48 w-full rounded-none sm:h-64" />
                     <div class="flex flex-col gap-3 p-5">
                         <Skeleton class="h-7 w-3/4" />
@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                     </div>
                 </div>
 
-                <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+                <div class="border-border bg-card flex flex-col gap-4 rounded-xl border p-5">
                     <Skeleton class="h-5 w-32" />
                     <Skeleton class="h-4 w-full" />
                     <Skeleton class="h-4 w-11/12" />
@@ -27,7 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
             </div>
 
             <div class="flex min-w-0 flex-col gap-6 md:col-span-2 xl:col-span-1">
-                <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+                <div class="border-border bg-card flex flex-col gap-4 rounded-xl border p-5">
                     <Skeleton class="h-5 w-28" />
                     <div v-for="row in 3" :key="row" class="flex items-center gap-3">
                         <Skeleton class="size-9 shrink-0 rounded-lg" />
@@ -39,7 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                     <Skeleton class="h-10 w-full rounded-lg" />
                 </div>
 
-                <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+                <div class="border-border bg-card flex flex-col gap-4 rounded-xl border p-5">
                     <div class="flex items-center justify-between">
                         <Skeleton class="h-5 w-32" />
                         <Skeleton class="h-6 w-14 rounded-full" />

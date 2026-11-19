@@ -76,9 +76,7 @@ describe('passwordSubmitBlockerMessage', () => {
     });
 
     it('mengutamakan pesan panjang minimum sebelum pesan kecocokan', () => {
-        expect(passwordSubmitBlockerMessage('Rahasia', 'Rahasia124')).toBe(
-            'Password must be at least 8 characters.'
-        );
+        expect(passwordSubmitBlockerMessage('Rahasia', 'Rahasia124')).toBe('Password must be at least 8 characters.');
     });
 
     it('lolos saat panjang cukup dan konfirmasi sama', () => {

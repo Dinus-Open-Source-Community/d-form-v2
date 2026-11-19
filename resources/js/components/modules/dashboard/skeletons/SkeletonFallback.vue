@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
             <Skeleton class="h-10 w-28 rounded-lg" />
         </div>
         <div class="grid gap-4 md:grid-cols-3">
-            <div v-for="card in 3" :key="card" class="rounded-2xl border border-border bg-card p-4">
+            <div v-for="card in 3" :key="card" class="border-border bg-card rounded-2xl border p-4">
                 <Skeleton class="h-4 w-2/3" />
                 <Skeleton class="mt-3 h-3 w-full" />
                 <Skeleton class="mt-2 h-3 w-5/6" />

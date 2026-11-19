@@ -4,9 +4,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 <template>
     <div class="flex h-full min-h-0 min-w-0 flex-col gap-4">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+        <div class="border-border/60 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
             <div class="flex min-w-0 flex-wrap items-center gap-3">
-                <div class="flex min-h-10 flex-wrap gap-1 rounded-xl bg-muted/40 p-1">
+                <div class="bg-muted/40 flex min-h-10 flex-wrap gap-1 rounded-xl p-1">
                     <Skeleton class="h-8 w-24 rounded-lg" />
                     <Skeleton class="h-8 w-28 rounded-lg" />
                     <Skeleton class="h-8 w-32 rounded-lg" />
@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-4">
-            <aside class="hidden w-72 shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:flex">
+            <aside class="border-border bg-card hidden w-72 shrink-0 flex-col gap-4 rounded-xl border p-4 lg:flex">
                 <Skeleton class="h-10 w-full rounded-lg" />
                 <div class="flex flex-col gap-3">
                     <Skeleton v-for="item in 4" :key="item" class="h-12 w-full rounded-lg" />
@@ -32,12 +32,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 
             <main class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
                 <div class="mx-auto flex w-full max-w-2xl flex-col gap-4 py-6">
-                    <div class="rounded-2xl border border-border bg-card p-6">
+                    <div class="border-border bg-card rounded-2xl border p-6">
                         <Skeleton class="h-7 w-2/3" />
                         <Skeleton class="mt-3 h-4 w-full" />
                         <Skeleton class="mt-2 h-4 w-5/6" />
                     </div>
-                    <div v-for="field in 3" :key="field" class="rounded-2xl border border-border bg-card p-5">
+                    <div v-for="field in 3" :key="field" class="border-border bg-card rounded-2xl border p-5">
                         <Skeleton class="h-4 w-40" />
                         <Skeleton class="mt-3 h-10 w-full rounded-lg" />
                     </div>
@@ -45,7 +45,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                 </div>
             </main>
 
-            <aside class="hidden w-80 shrink-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 xl:flex">
+            <aside class="border-border bg-card hidden w-80 shrink-0 flex-col gap-4 rounded-xl border p-4 xl:flex">
                 <Skeleton class="h-5 w-32" />
                 <Skeleton class="h-10 w-full rounded-lg" />
                 <Skeleton class="h-10 w-full rounded-lg" />

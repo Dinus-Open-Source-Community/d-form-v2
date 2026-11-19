@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 <template>
     <div class="flex w-full max-w-full min-w-0 flex-col gap-5 pb-10">
-        <div class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center">
+        <div class="border-border bg-card flex flex-col gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center">
             <Skeleton class="size-16 shrink-0 rounded-full" />
             <div class="flex min-w-0 flex-col gap-2">
                 <Skeleton class="h-6 w-52" />
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <div v-for="section in 2" :key="section" class="rounded-2xl border border-border bg-card p-5">
+                <div v-for="section in 2" :key="section" class="border-border bg-card rounded-2xl border p-5">
                     <Skeleton class="h-5 w-40" />
                     <Skeleton class="mt-4 h-4 w-full" />
                     <Skeleton class="mt-2 h-4 w-11/12" />

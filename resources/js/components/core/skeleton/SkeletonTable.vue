@@ -19,14 +19,14 @@ const gridStyle = computed<Record<string, string>>(() => ({
 </script>
 
 <template>
-    <div :class="cn('overflow-hidden rounded-xl border border-border bg-card', props.class)">
-        <div class="grid gap-4 border-b border-border bg-muted/40 px-4 py-3" :style="gridStyle">
+    <div :class="cn('border-border bg-card overflow-hidden rounded-xl border', props.class)">
+        <div class="border-border bg-muted/40 grid gap-4 border-b px-4 py-3" :style="gridStyle">
             <Skeleton v-for="column in props.columns" :key="column" class="h-3 w-2/3" />
         </div>
         <div
             v-for="row in props.rows"
             :key="row"
-            class="grid gap-4 border-b border-border px-4 py-3 last:border-b-0"
+            class="border-border grid gap-4 border-b px-4 py-3 last:border-b-0"
             :style="gridStyle"
         >
             <Skeleton v-for="column in props.columns" :key="column" class="h-4 w-full" />

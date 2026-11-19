@@ -10,7 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton';
             <Skeleton class="mt-2 h-4 w-80" />
         </div>
 
-        <div v-for="section in 2" :key="section" class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5">
+        <div
+            v-for="section in 2"
+            :key="section"
+            class="border-border bg-card flex flex-col gap-4 rounded-2xl border p-5"
+        >
             <Skeleton class="h-5 w-36" />
             <div v-for="field in 4" :key="field" class="flex flex-col gap-2">
                 <Skeleton class="h-3 w-28" />

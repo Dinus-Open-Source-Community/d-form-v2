@@ -13,14 +13,14 @@ import { Skeleton } from '@/components/ui/skeleton';
             <SkeletonButton class="w-full sm:w-32" />
         </div>
 
-        <section class="overflow-hidden rounded-2xl border border-border bg-card">
-            <div class="flex flex-wrap items-center gap-3 border-b border-border p-4">
+        <section class="border-border bg-card overflow-hidden rounded-2xl border">
+            <div class="border-border flex flex-wrap items-center gap-3 border-b p-4">
                 <Skeleton class="h-10 w-full max-w-72 rounded-lg" />
                 <Skeleton class="h-10 w-40 rounded-lg" />
                 <Skeleton class="ml-auto h-4 w-32" />
             </div>
 
-            <div class="divide-y divide-border/70">
+            <div class="divide-border/70 divide-y">
                 <div v-for="row in 6" :key="row" class="flex items-center gap-3 px-4 py-4">
                     <Skeleton class="size-10 shrink-0 rounded-full" />
                     <div class="flex min-w-0 flex-1 flex-col gap-2">

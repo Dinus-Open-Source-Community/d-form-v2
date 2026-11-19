@@ -16,9 +16,7 @@ export function useProfileIdentityForm(user: IUser): IProfileIdentityForm {
     const committed = ref<IProfileIdentityFormValues>({ name: user.name, email: user.email });
     const form = useForm<IProfileIdentityFormValues>({ name: user.name, email: user.email });
 
-    const isDirty = computed<boolean>(
-        () => form.name !== committed.value.name || form.email !== committed.value.email
-    );
+    const isDirty = computed<boolean>(() => form.name !== committed.value.name || form.email !== committed.value.email);
 
     const errors = computed<Record<string, string>>(() => {
         const bag: TValidationErrors = { name: form.errors.name, email: form.errors.email };
