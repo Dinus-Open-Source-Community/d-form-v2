@@ -85,7 +85,7 @@ const mapEmbedUrl =
                     <div class="grid grid-cols-1 gap-6 min-[420px]:grid-cols-2 sm:grid-cols-3 md:gap-8 lg:grid-cols-3">
                         <div v-for="group in linkGroups" :key="group.title">
                             <p
-                                class="text-foreground/50 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4"
+                                class="text-foreground/70 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4"
                             >
                                 {{ group.title }}
                             </p>
@@ -128,7 +128,7 @@ const mapEmbedUrl =
                 <p class="text-muted-foreground text-[0.75rem] leading-relaxed">
                     &copy; {{ new Date().getFullYear() }} DForm — Doscom, Universitas Dian Nuswantoro
                 </p>
-                <p class="text-muted-foreground/60 text-[0.75rem] leading-relaxed">Semarang, Indonesia</p>
+                <p class="text-muted-foreground text-[0.75rem] leading-relaxed">Semarang, Indonesia</p>
             </div>
         </div>
     </footer>

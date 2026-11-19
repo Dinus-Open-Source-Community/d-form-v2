@@ -16,6 +16,7 @@ export const PAGE_SKELETON_RULES: readonly IPageSkeletonRule[] = [
     { pattern: /^\/admin\/events\/[^/]+\/forms\/create$/, skeleton: 'form' },
     { pattern: /^\/admin\/events\/[^/]+\/forms\/[^/]+\/edit$/, skeleton: 'form' },
     { pattern: /^\/admin\/events\/[^/]+\/forms\/[^/]+\/submissions$/, skeleton: 'list' },
+    { pattern: /^\/admin\/events\/[^/]+\/forms\/[^/]+\/fill$/, skeleton: 'form' },
     { pattern: /^\/admin\/events\/[^/]+\/forms\/[^/]+$/, skeleton: 'form-builder' },
     { pattern: /^\/admin\/events\/[^/]+\/registration-status$/, skeleton: 'detail' },
     { pattern: /^\/admin\/events\/[^/]+$/, skeleton: 'events-show' },
@@ -40,6 +41,7 @@ export const PAGE_SKELETON_RULES: readonly IPageSkeletonRule[] = [
 
     // Portal peserta: member dan super-admin.
     { pattern: /^\/(browse|joined)$/, skeleton: 'user-events' },
+    { pattern: /^\/joined\/team-invitations\/[^/]+$/, skeleton: 'form' },
     { pattern: /^\/joined\/[^/]+\/register$/, skeleton: 'list' },
     { pattern: /^\/joined\/[^/]+\/registration$/, skeleton: 'detail' },
     { pattern: /^\/joined\/[^/]+$/, skeleton: 'user-event-detail' },
