@@ -85,3 +85,92 @@ Bar progres Inertia dimatikan dan diganti skeleton per halaman. Skeleton dipilih
 - `e2e:cleanup` masih gagal FK `events_created_by_foreign` saat menghapus user fixture.
 - `resources/js/components/core/AppStatePanel.vue` yang diubah sesi lain membuat `AppStatePanel.test.ts` gagal (kredit Storyset hilang dari komponen).
 - `/admin/events` untuk role `admin` hanya satu halaman sehingga cabang pagination tidak teruji di E2E; perilaku `preserveState` sudah ditutup unit test `useNavigationSkeleton` dan `useInertiaReloading`.
+
+## Verifikasi lanjutan: sapuan browser semua halaman
+
+Sapuan dilakukan di browser nyata dengan `router.visit` Inertia (SPA, bukan page load) dan request Inertia ditunda 600-900 ms agar skeleton sempat terlihat. Setiap baris membaca `data-skeleton-key` dari overlay dan komponen tujuan dari `$page`.
+
+### super-admin
+
+| URL | Skeleton | Komponen tujuan |
+| --- | --- | --- |
+| `/dashboard` | `dashboard-index` | `Dashboard/Index` |
+| `/admin/events` | `events-index` | `Dashboard/Events/Index` |
+| `/admin/events/archived` | `list` | `Dashboard/Events/Archived` |
+| `/admin/events/create` | `form` | `Dashboard/Events/Create` |
+| `/admin/events/{event}` | `events-show` | `Dashboard/Events/Show` |
+| `/admin/events/{event}/edit` | `form` | `Dashboard/Events/Edit` |
+| `/admin/events/{event}/forms/create` | `form` | `Dashboard/Events/Forms/Create` |
+| `/admin/events/{event}/forms/{form}` | `form-builder` | `Dashboard/Events/Forms/Show` |
+| `/admin/events/{event}/forms/{form}/submissions` | `list` | `Dashboard/Events/Forms/Show` (redirect ke `?tab=jawaban`) |
+| `/admin/events/{event}/forms/{form}/fill` | `form` | `Dashboard/Events/Forms/Fill` |
+| `/admin/events/{event}/registration-status` | `detail` | redirect ke tab jawaban |
+| `/admin/users` | `users-index` | `Dashboard/Users/Index` |
+| `/admin/users/{user}` | `detail` | `Dashboard/Users/Show` |
+| `/admin/recruitment` | `recruitment-index` | `Dashboard/Recruitment/Index` |
+| `/admin/recruitment/periods/create` | `form` | `Dashboard/Recruitment/Periods/Create` |
+| `/admin/recruitment/periods/{period}` | `recruitment-period` | `Dashboard/Recruitment/Periods/Show` |
+| `/admin/recruitment/activity-logs` | `list` | `Dashboard/Recruitment/ActivityLogs/Index` |
+| `/admin/scan` | `detail` | `Dashboard/Scan/Global` |
+| `/profile` | `detail` | `Dashboard/Profile` |
+| `/browse` | `user-events` | `Dashboard/User/Events` |
+| `/joined` | `user-events` | `Dashboard/User/Events` |
+| `/joined/{event}` | `user-event-detail` | `Dashboard/User/EventDetail` |
+| `/joined/{event}/register` | `list` | `Dashboard/User/EventRegistrationPickForm` |
+
+Catatan redirect yang terbukti: `/admin/recruitment/periods`, `/reports`, `/interview-sessions`, dan `/my-interviews` dialihkan server ke `/admin/recruitment` untuk super-admin, sehingga skeleton yang tampil adalah milik URL yang diminta. `/admin/events/{event}/forms/{form}/edit` dialihkan ke halaman builder.
+
+### recruitment-interviewer
+
+| URL | Skeleton | Komponen tujuan |
+| --- | --- | --- |
+| `/admin/recruitment` | `recruitment-index` | redirect ke `Dashboard/Recruitment/MyInterviews/Index` |
+| `/admin/recruitment/my-interviews` | `list` | `Dashboard/Recruitment/MyInterviews/Index` |
+| `/admin/recruitment/my-interviews/{interview}` | `detail` | `Dashboard/Recruitment/MyInterviews/Show` (403 untuk interview milik orang lain) |
+| `/profile` | `detail` | `Dashboard/Profile` |
+| `/browse` | `user-events` | `Dashboard/User/Events` |
+| `/joined` | `user-events` | `Dashboard/User/Events` |
+| `/admin/scan` | `detail` | `Error` 403 |
+
+### member
+
+`/joined`, `/joined/{event}`, `/joined/{event}/register`, `/joined/{event}/registration`, `/browse`, `/profile`, dan `/admin/scan` semuanya menampilkan skeleton (`user-events`, `user-event-detail`, `list`, `detail`). `/dashboard` untuk peserta tidak lagi dipakai: perubahan yang belum di-commit di working tree menghapus `MemberDashboardController` dan mengubah route menjadi `abort_if(! can('events.list'), 404)`. Karena itu kunci `member-dashboard` dihapus dari peta oleh perubahan tersebut.
+
+### Halaman yang tidak mendapat skeleton (disengaja)
+
+- Halaman publik dan auth (`/`, `/events`, `/events/{slug}`, `/features`, `/docs`, form fill publik, `OpenRecruitment/*`) memakai `LandingLayout`/`AuthLayout` dan tidak memasang host.
+- Halaman yang dicapai lewat page load biasa (ketik URL, refresh, tautan `target="_blank"`, redirect setelah POST) tidak memicu kunjungan Inertia, jadi skeleton tidak muncul. Ini perilaku yang diminta: skeleton hanya untuk perpindahan antar-halaman di dalam aplikasi.
+
+### Celah yang ditemukan dan diperbaiki pada sapuan ini
+
+- **Halaman error tidak punya host.** Setelah 403/404, navigasi berikutnya tidak menampilkan skeleton karena `Error.vue` tidak memakai layout dashboard. Diperbaiki: `Error.vue` memanggil `useNavigationSkeleton` dan memasang host. Dibuktikan dengan 403 di `/admin/scan` lalu menuju `/profile`: skeleton `detail` muncul.
+- **Halaman ber-`FormFillLayout` tidak punya host.** `/joined/team-invitations/{token}` dan `/admin/events/{event}/forms/{form}/fill` adalah halaman dashboard yang memakai layout form fill. Diperbaiki: host dipasang di `<main>` layout. Ditambah aturan peta `form` untuk kedua URL. Dibuktikan dengan skeleton `form` pada form fill.
+
+## Verifikasi Lighthouse produksi
+
+Diukur dengan build produksi (`public/hot` dipindahkan sementara, `DEBUGBAR_ENABLED=false`, `public/build` hasil `npm run build`), Chrome headless, throttling mobile bawaan Lighthouse.
+
+| Halaman | Performance | Accessibility | Best Practices | SEO | LCP | FCP | CLS | TBT |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/` | 79 | 100 | 96 | 100 | 2,8 s | 1,5 s | 0 | 630 ms |
+| `/events` | 92 | 100 | 96 | 100 | 2,9 s | 1,5 s | 0 | 190 ms |
+
+Angka Performance berfluktuasi antar run pada mesin ini (79-84 untuk `/`, 88-92 untuk `/events`).
+
+Audit yang masih gagal dan penyebabnya:
+
+- `errors-in-console` (Accessibility sudah 100, ini penyebab Best Practices 96): `https://seeyu.doscom.org/script.js` tidak dapat di-resolve di environment lokal, dan banner seed `/storage/events/banners/image-*.jpg` dibalas 403 karena file seed tidak ada di disk. Keduanya bukan kode skeleton.
+- Performance belum 100: biaya utama ada pada payload dan hidrasi halaman publik (`unused-javascript` 78-83 KiB, `mainthread-work-breakdown` 3,0-4,3 s pada CPU throttle). Untuk mencapai 100 perlu pekerjaan terpisah pada halaman publik (defer seksi berat, kurangi JS landing), di luar cakupan skeleton.
+- `color-contrast` sudah diperbaiki pada sapuan ini: label footer `text-foreground/50` menjadi `/70` dan `text-muted-foreground/60` menjadi `text-muted-foreground`. Accessibility naik dari 96 ke 100 pada `/` dan `/events`.
+
+### Metrik dashboard produksi (CDP, bukan Lighthouse)
+
+- Muat `/admin/events` dengan build produksi: CLS 0, TBT 111 ms, aset `/build/assets` terpasang, debugbar tidak aktif.
+- Transisi dengan skeleton menuju `/admin/users`: CLS 0, TBT 0 ms, skeleton `users-index`.
+
+## Catatan environment saat verifikasi
+
+- `vendor/laravel/framework` sempat kosong dan container `d_form_app` crash-loop (bukan akibat perubahan skeleton). Dipulihkan dengan `composer reinstall laravel/framework` lewat container sekali pakai yang memakai volume `vendor` yang sama; `php artisan --version` kembali normal dan aplikasi merespons 200.
+- `node_modules` di host kehilangan `@rollup/rollup-linux-x64-gnu` sehingga Vitest host gagal start. Semua test Vitest dijalankan di container (`podman exec d_form_app npx vitest run ...`).
+- `storage/app/e2e` dimiliki uid lain; Playwright butuh `chmod -R 777` pada direktori artefak itu agar global setup bisa membuat direktori heartbeat.
+- Perubahan working tree milik sesi lain (penghapusan `MemberDashboardController`, perubahan auth/middleware, `AppStatePanel.vue`) tidak disentuh dan tidak ikut commit. Commit terakhir hanya memuat hunk skeleton dan kontras footer.
