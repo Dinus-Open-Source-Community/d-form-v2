@@ -16,8 +16,8 @@ const props = withDefaults(defineProps<IStatePanelProps>(), {
 });
 
 const ILLUSTRATIONS: Readonly<Record<TStateIllustration, IIllustrationMeta>> = {
-    error: { src: '/illustrations/state-error.svg', width: 799, height: 618 },
-    empty: { src: '/illustrations/state-empty.svg', width: 648, height: 632 },
+    error: { src: '/illustrations/state-error.svg', width: 500, height: 500 },
+    empty: { src: '/illustrations/state-empty.svg', width: 500, height: 500 },
 };
 
 const isPage = computed<boolean>(() => props.variant === 'page');
@@ -33,7 +33,7 @@ const wrapperClass = computed<string>(() => {
 });
 
 const imageClass = computed<string>(() =>
-    isPage.value ? 'h-auto w-full max-w-[20rem] sm:max-w-[22rem]' : 'mb-2 h-auto w-full max-w-[11.25rem]'
+    isPage.value ? 'h-auto w-full max-w-[20rem] sm:max-w-[22rem]' : 'mb-1 h-auto w-full max-w-[14rem]'
 );
 
 const headingClass = computed<string>(() =>
@@ -64,6 +64,15 @@ const actionsClass = computed<string>(() => (isPage.value ? 'mt-10' : 'mt-5'));
             aria-hidden="true"
             :class="imageClass"
         />
+
+        <a
+            href="https://storyset.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-muted-foreground hover:text-foreground mt-1 mb-2 text-[11px] underline-offset-2 hover:underline"
+        >
+            Designed by Storyset
+        </a>
 
         <component :is="headingTag" :class="headingClass">{{ title }}</component>
 

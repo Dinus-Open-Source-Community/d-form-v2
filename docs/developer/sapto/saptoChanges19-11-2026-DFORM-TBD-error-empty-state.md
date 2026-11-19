@@ -8,14 +8,14 @@ Klasifikasi: `feature` (komponen UI reusable).
 
 ## Ringkasan (TL;DR)
 
-Lottie pada halaman error dan empty state diganti dua ilustrasi SVG unDraw yang dioptimalkan SVGO. Tiga komponen inti: `AppStatePanel` (shell presentational), `ErrorState` (peta status HTTP ke copy), dan `EmptyState` (varian empty, search, filter, not-found). `pages/Error.vue` sekarang tipis, dan empat page dashboard memakai `EmptyState` baru. Tiga aset Lottie yang tidak dipakai lagi dihapus.
+Lottie pada halaman error dan empty state diganti dua ilustrasi SVG Storyset yang dioptimalkan SVGO. Tiga komponen inti: `AppStatePanel` (shell presentational), `ErrorState` (peta status HTTP ke copy), dan `EmptyState` (varian empty, search, filter, not-found). `pages/Error.vue` sekarang tipis, dan empat page dashboard memakai `EmptyState` baru. Tiga aset Lottie yang tidak dipakai lagi dihapus.
 
 ## Perubahan
 
 | File                                                                        | Perubahan                                                                                                  |
 | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `public/illustrations/state-error.svg`                                      | baru; unDraw "Server Error", SVGO 1.834 B, aksen `#2a81dc`                                                 |
-| `public/illustrations/state-empty.svg`                                      | baru; unDraw "No Data", SVGO 1.953 B, aksen `#2a81dc`                                                      |
+| `public/illustrations/state-error.svg`                                      | baru; Storyset "Warning" gaya rafiki, SVGO 14.062 B, aksen `#2a81dc`                                       |
+| `public/illustrations/state-empty.svg`                                      | baru; Storyset "File searching" gaya rafiki, SVGO 14.005 B, aksen `#2a81dc`                                |
 | `resources/js/types/state.ts`                                               | baru; `TStateIllustration`, `TEmptyStateKind`, `TErrorStateStatus`, `IStatePanelProps`, `IEmptyStateProps` |
 | `resources/js/lib/stateContent.ts`                                          | baru; `resolveErrorStateContent`, `resolveEmptyStateContent` (fungsi murni)                                |
 | `resources/js/components/core/AppStatePanel.vue`                            | baru; varian `page`/`inline`, ilustrasi `eager`+`fetchpriority=high` atau `lazy`, gambar dekoratif         |
@@ -51,8 +51,8 @@ Lottie landing, builder, dan CTA tidak berubah.
 | `npx playwright test tests/e2e/fe-audit-013-lottie.desktop.spec.ts` | 1 passed, landing Lottie tetap jalan                                      |
 | `podman exec -i -w /app d_form_app npm run build`                   | exit 0                                                                    |
 | Ukuran aset                                                         | 1.834 B dan 1.953 B (batas 30 kB)                                         |
-| Chunk halaman Error                                                 | 0,74 kB gzip / 1,31 kB raw                                                |
-| Entry JS                                                            | 15,86 kB gzip / 50,30 kB raw (sebelum 15,87 / 50,26)                      |
+| Chunk halaman Error                                                 | 0,77 kB gzip / 1,37 kB raw                                                |
+| Entry JS                                                            | 15,88 kB gzip / 50,27 kB raw (sebelum 15,86 / 50,30)                      |
 | CLS halaman 404                                                     | 0,0169 mobile, 0,0003 desktop                                             |
 
 Lighthouse belum bisa dijadikan bukti di environment ini. Penyebabnya `APP_DEBUG=true` (PHP Debugbar menyuntik aset render-blocking dan badge berkontras rendah) dan `public/hot` (Vite menyajikan modul dev, bukan `public/build`). Pengukuran dev mencatat performance 38, accessibility 96, best-practices 96, SEO 45; satu-satunya kegagalan a11y adalah kontras badge `phpdebugbar`, dan kegagalan best-practices adalah `ERR_NAME_NOT_RESOLVED`. Angka ini tidak mewakili produksi dan tidak diklaim sebagai 100. Pengukuran ulang harus dilakukan pada build produksi (`APP_DEBUG=false`, tanpa Vite dev).
@@ -60,10 +60,11 @@ Lighthouse belum bisa dijadikan bukti di environment ini. Penyebabnya `APP_DEBUG
 ## Catatan
 
 - `public/illustrations/` mengikuti pola aset statis yang sudah ada di `public/file-types/`.
-- Lisensi unDraw sudah dibaca di `undraw.co/license`: gratis komersial, tanpa atribusi, boleh dimodifikasi.
+- Lisensi Storyset dibaca di `storyset.com/terms` §6: pemakaian gratis wajib kredit. Kredit "Designed by Storyset" ditampilkan sebagai tautan kecil di `AppStatePanel`, sesuai permintaan user yang menerima kredit.
 - Design doc: `docs/superpowers/specs/2026-11-19-error-and-empty-state-design.md`.
 - Plan: `docs/superpowers/plans/2026-11-19-error-and-empty-state.md`.
 
 ## Revisi
 
 - `/joined` (page `Dashboard/User/Events.vue`) memakai `EmptyState` dengan `:surface="false"`, sehingga tidak ada kartu putih di belakang ilustrasi. Prop `surface` default `true`, jadi tiga page dashboard lain tidak berubah.
+- Ilustrasi diganti dari unDraw ke Storyset: `warning` untuk error dan `file-searching` untuk empty/not-found, keduanya gaya rafiki. Kredit "Designed by Storyset" wajib dan dirender di `AppStatePanel`, dengan tautan `https://storyset.com`.

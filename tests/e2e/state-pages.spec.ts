@@ -14,6 +14,10 @@ test.describe('halaman error', () => {
         await expect(illustration).toBeVisible();
         await expect.poll(() => illustration.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 
+        const credit = page.getByRole('link', { name: 'Designed by Storyset' });
+        await expect(credit).toBeVisible();
+        await expect(credit).toHaveAttribute('href', 'https://storyset.com');
+
         expect(errors, errors.join('\n')).toEqual([]);
         expect(
             await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)

@@ -25,8 +25,8 @@ describe('AppStatePanel', () => {
         expect(html).toContain('Terjadi kesalahan');
         expect(html).toContain('src="/illustrations/state-error.svg"');
         expect(html).toContain('fetchpriority="high"');
-        expect(html).toContain('width="799"');
-        expect(html).toContain('height="618"');
+        expect(html).toContain('width="500"');
+        expect(html).toContain('height="500"');
         expect(html).toContain('alt=""');
         expect(html).toContain('aria-hidden="true"');
     });
@@ -42,8 +42,8 @@ describe('AppStatePanel', () => {
         expect(html).not.toContain('<h1');
         expect(html).toContain('src="/illustrations/state-empty.svg"');
         expect(html).toContain('loading="lazy"');
-        expect(html).toContain('width="648"');
-        expect(html).toContain('height="632"');
+        expect(html).toContain('width="500"');
+        expect(html).toContain('height="500"');
     });
 
     it('slot aksi dirender setelah deskripsi', async () => {
@@ -62,5 +62,13 @@ describe('AppStatePanel', () => {
         const html = await renderPanel({ illustration: 'empty', title: 'Kosong', surface: false });
 
         expect(html).not.toContain('app-surface');
+    });
+
+    it('mencantumkan kredit Storyset sesuai lisensi', async () => {
+        const html = await renderPanel({ illustration: 'error', title: 'Terjadi kesalahan' });
+
+        expect(html).toContain('Designed by Storyset');
+        expect(html).toContain('href="https://storyset.com"');
+        expect(html).toContain('rel="noopener noreferrer"');
     });
 });
