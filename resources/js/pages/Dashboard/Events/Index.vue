@@ -5,6 +5,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import EmptyState from '@/components/core/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
+import EventCardSkeleton from '@/components/modules/dashboard/events/EventCardSkeleton.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useAuth } from '@/hooks/useAuth';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 import { useEventListQueryFilters } from '@/hooks/useEventListQueryFilters';
+import { useInertiaReloading } from '@/hooks/useInertiaReloading';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -76,6 +78,10 @@ const sessionFilterOptions = computed(() => [{ value: 'all', label: 'Semua sesi'
 
 const eventsList = computed(() => props.events.data);
 
+/** Reload filter/pagination memakai skeleton di dalam grid, bukan overlay satu layar. */
+const { reloading } = useInertiaReloading();
+const skeletonCardCount = computed<number>(() => Math.min(eventsList.value.length || props.events.per_page, 8));
+
 function confirmDelete(event: IEvent): void {
     deleteTarget.value = event;
     deleteDialogOpen.value = true;
@@ -117,7 +123,17 @@ function handleDeleteConfirm(): void {
         </div>
 
         <div
-            v-if="eventsList.length > 0"
+            v-if="reloading"
+            data-testid="event-list-skeleton"
+            aria-busy="true"
+            class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4"
+        >
+            <span class="sr-only">Memuat daftar acara</span>
+            <EventCardSkeleton v-for="card in skeletonCardCount" :key="card" aria-hidden="true" />
+        </div>
+
+        <div
+            v-else-if="eventsList.length > 0"
             class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4"
         >
             <EventCard
@@ -147,7 +163,7 @@ function handleDeleteConfirm(): void {
         />
 
         <EmptyState
-            v-if="eventsList.length === 0"
+            v-if="!reloading && eventsList.length === 0"
             kind="filter"
             title="Tidak ada acara"
             description="Sesuaikan pencarian, kategori, atau sesi — atau buat acara baru."
