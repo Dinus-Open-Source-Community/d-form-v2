@@ -19,7 +19,7 @@ import type { IProfileAvatar } from '@/types/profile';
  * tampilan mengikuti `auth.user.avatar` terbaru setelah simpan.
  */
 export function useProfileAvatar(initialUrl: MaybeRefOrGetter<string | null>): IProfileAvatar {
-    const { handleInertiaFormErrors, showInfoToast, showSuccessToast } = useToastNotifications();
+    const { handleInertiaFormErrors, showInfoToast } = useToastNotifications();
 
     const pendingFile = ref<File | null>(null);
     const pendingPreviewUrl = ref<string | null>(null);
@@ -94,8 +94,8 @@ export function useProfileAvatar(initialUrl: MaybeRefOrGetter<string | null>): I
                 progress.value = null;
             },
             onSuccess: () => {
+                // Toast sukses berasal dari flash server (`ProfileController`).
                 clearPending();
-                showSuccessToast('Perubahan berhasil disimpan.');
             },
             onError: (serverErrors) => {
                 handleInertiaFormErrors({ ...serverErrors }, { title: 'Gagal menyimpan profil' });
@@ -107,8 +107,8 @@ export function useProfileAvatar(initialUrl: MaybeRefOrGetter<string | null>): I
         avatarDeleteForm.delete(routes.dashboard.profileAvatar, {
             preserveScroll: true,
             onSuccess: () => {
+                // Toast sukses berasal dari flash server (`ProfileController`).
                 clearPending();
-                showSuccessToast('Perubahan berhasil disimpan.');
             },
             onError: (serverErrors) => {
                 handleInertiaFormErrors({ ...serverErrors }, { title: 'Gagal menyimpan profil' });

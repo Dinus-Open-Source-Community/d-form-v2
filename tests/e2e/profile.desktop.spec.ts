@@ -295,7 +295,7 @@ test.describe('profil desktop: seksi bertumpuk', () => {
             expect(patchStatus, 'Enter harus memicu PATCH /profile yang diterima').toBeLessThan(400);
 
             await expect(
-                page.locator('[data-sonner-toast]').filter({ hasText: 'Perubahan berhasil disimpan.' })
+                page.locator('[data-sonner-toast]').filter({ hasText: 'Profil berhasil diperbarui.' })
             ).toBeVisible();
             await expect(page.locator('[data-testid="profile-header"] h1')).toHaveText(updatedName);
             await expect(dirtyMarker).toHaveCount(0);
@@ -477,7 +477,7 @@ test.describe('profil desktop: seksi bertumpuk', () => {
 
         // Tidak ada jalur yang berakhir dengan kata sandi admin berubah.
         await expect(
-            page.locator('[data-sonner-toast]').filter({ hasText: 'Perubahan berhasil disimpan.' })
+            page.locator('[data-sonner-toast]').filter({ hasText: 'Kata sandi berhasil diperbarui.' })
         ).toHaveCount(0);
     });
 });

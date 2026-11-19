@@ -20,12 +20,11 @@ import {
 } from 'lucide-vue-next';
 import { edit as editEvent } from '@/actions/App/Http/Controllers/Dashboard/Events/EventController';
 import { routes } from '@/lib/routes';
-import { humanizeErrorMessage } from '@/lib/error-message';
 import { useEventStatusToggle } from '@/hooks/useEventStatusToggle';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import type { IEventFormSummary } from '@/types/form';
 
-const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
+const { handleInertiaFormErrors } = useToastNotifications();
 
 const props = defineProps<{
     event: IEvent;
@@ -76,7 +75,7 @@ function confirmDelete(): void {
     router.delete(routes.admin.events.forms.destroy(props.event.id, deleteTarget.value.id), {
         preserveScroll: true,
         onSuccess: () => {
-            showSuccessToast(humanizeErrorMessage('Form deleted.'));
+            // Toast sukses berasal dari flash server (`FormController@destroy`).
             showDeleteModal.value = false;
             deleteTarget.value = null;
         },

@@ -11,7 +11,7 @@ import type { IProfileIdentityForm, IProfileIdentityFormValues } from '@/types/p
  * panel cukup menampilkannya tanpa memproses pesan server lagi.
  */
 export function useProfileIdentityForm(user: IUser): IProfileIdentityForm {
-    const { handleInertiaFormErrors, showInfoToast, showSuccessToast } = useToastNotifications();
+    const { handleInertiaFormErrors, showInfoToast } = useToastNotifications();
 
     const committed = ref<IProfileIdentityFormValues>({ name: user.name, email: user.email });
     const form = useForm<IProfileIdentityFormValues>({ name: user.name, email: user.email });
@@ -44,7 +44,7 @@ export function useProfileIdentityForm(user: IUser): IProfileIdentityForm {
             onSuccess: () => {
                 committed.value = { name: form.name, email: form.email };
                 form.defaults({ name: form.name, email: form.email });
-                showSuccessToast('Perubahan berhasil disimpan.');
+                // Toast sukses berasal dari flash server (`ProfileController@update`).
             },
             onError: (serverErrors) => {
                 handleInertiaFormErrors(serverErrors, { title: 'Gagal menyimpan profil' });

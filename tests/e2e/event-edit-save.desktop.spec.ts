@@ -59,7 +59,7 @@ test.describe('edit event tanpa aksi terbitkan', () => {
 
             await page.waitForURL(`**/admin/events/${fixture.eventId}`, { timeout: 30_000 });
             await expect(page.getByRole('heading', { name: updatedTitle, level: 1 })).toBeVisible({ timeout: 20_000 });
-            await expect(page.getByText('Perubahan disimpan.')).toBeVisible({ timeout: 20_000 });
+            await expect(page.getByText('Event berhasil diperbarui.')).toBeVisible({ timeout: 20_000 });
 
             expect(readEventStatus(fixture.eventId)).toBe('published');
         } finally {

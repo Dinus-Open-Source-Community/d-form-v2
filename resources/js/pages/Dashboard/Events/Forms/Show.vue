@@ -9,7 +9,7 @@ import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
 import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
 import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
 import { readFieldMetadata, readMetaText, readMetadataBag } from '@/lib/formFieldMetadata';
-import { getFieldError, humanizeErrorMessage } from '@/lib/error-message';
+import { getFieldError } from '@/lib/error-message';
 import { toggleVisibilitySelection } from '@/lib/formVisibility';
 import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
 
@@ -104,7 +104,7 @@ const props = defineProps<{
 }>();
 
 const page = usePage();
-const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast, showSuccessToast } = useToastNotifications();
+const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast } = useToastNotifications();
 
 /** Baca tab dari query string agar deep-link ?tab=jawaban bekerja saat refresh/back. */
 function tabFromQuery(): TShowTab {
@@ -386,7 +386,7 @@ async function onSave(): Promise<void> {
                     // Manual PUT menyimpan seluruh state; error autosave sebelumnya
                     // tidak lagi berlaku.
                     showAutosave.markSaved();
-                    showSuccessToast(humanizeErrorMessage('Form and fields saved successfully.'));
+                    // Toast sukses berasal dari flash server (`FormController@update`).
                 },
                 onError: (errors) => {
                     handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });
@@ -433,9 +433,7 @@ async function toggleFormStatus(): Promise<void> {
                         showAutosave.markSaved();
                         builderStatePersisted = true;
                     }
-                    showSuccessToast(
-                        nextStatus === 'published' ? 'Form berhasil dipublish.' : 'Form dikembalikan menjadi draft.'
-                    );
+                    // Toast sukses berasal dari flash server (`FormController@update`).
                 },
                 onError: (errors) => {
                     handleInertiaFormErrors(errors, { title: 'Gagal mengubah status form' });

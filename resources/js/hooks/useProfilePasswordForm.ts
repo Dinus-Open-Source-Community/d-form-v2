@@ -20,7 +20,7 @@ import type {
  * pesan yang sama dengan halaman daftar.
  */
 export function useProfilePasswordForm(user: IUser): IProfilePasswordForm {
-    const { handleInertiaFormErrors, showErrorToast, showInfoToast, showSuccessToast } = useToastNotifications();
+    const { handleInertiaFormErrors, showErrorToast, showInfoToast } = useToastNotifications();
 
     const form = useForm<IProfilePasswordFormValues>({
         current_password: '',
@@ -68,7 +68,7 @@ export function useProfilePasswordForm(user: IUser): IProfilePasswordForm {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
-                showSuccessToast('Perubahan berhasil disimpan.');
+                // Toast sukses berasal dari flash server (`ProfileController@updatePassword`).
             },
             onError: (serverErrors) => {
                 handleInertiaFormErrors(serverErrors, { title: 'Gagal menyimpan profil' });

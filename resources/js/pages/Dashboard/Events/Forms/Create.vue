@@ -273,7 +273,7 @@ function submitStoreForm(): void {
             fields: autosave.buildFieldsPayload(),
         }))
         .post(routes.admin.events.forms.store(props.event.id), {
-            onSuccess: () => showSuccessToast(humanizeErrorMessage('Form created successfully!')),
+            // Toast sukses berasal dari flash server (`FormController@store`).
             onError: (errors) => {
                 applyFieldErrors(readFormFieldErrors(errors));
                 handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });

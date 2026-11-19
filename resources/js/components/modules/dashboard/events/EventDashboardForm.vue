@@ -380,7 +380,7 @@ function submitForm(publish: boolean): void {
                 return;
             }
             if (props.variant === 'edit') {
-                showSuccessToast('Perubahan disimpan.');
+                // Toast sukses berasal dari flash server (`EventController@update`).
                 return;
             }
             showSuccessToast(publish ? 'Acara berhasil dipublikasikan.' : 'Disimpan sebagai draf.');
