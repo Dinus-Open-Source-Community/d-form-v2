@@ -3,6 +3,7 @@ import { computed, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AppToaster from '@/components/core/AppToaster.vue';
+import EmailVerificationBanner from '@/components/core/EmailVerificationBanner.vue';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
@@ -39,6 +40,7 @@ const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(p
         <DashboardSidebar v-if="showSidebar" />
         <SidebarInset class="from-background via-muted/20 to-background h-svh overflow-x-hidden bg-gradient-to-b">
             <DashboardTopbar :show-navigation-trigger="showSidebar" />
+            <EmailVerificationBanner />
             <div
                 data-testid="dashboard-content"
                 :class="[

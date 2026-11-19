@@ -20,6 +20,8 @@ defineProps<{
     loading?: boolean;
     /** Nonaktifkan tombol konfirmasi di luar state loading (mis. gate ketik judul). */
     confirmDisabled?: boolean;
+    /** `data-testid` tombol konfirmasi untuk alur yang diuji browser. */
+    confirmTestId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -47,6 +49,7 @@ const emit = defineEmits<{
                 </AlertDialogCancel>
                 <AlertDialogAction
                     type="button"
+                    :data-testid="confirmTestId"
                     :class="
                         variant === 'destructive'
                             ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive/30'

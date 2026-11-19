@@ -93,6 +93,7 @@ class User extends Authenticatable implements CanResetPasswordContract
     {
         return [
             'has_local_password' => 'boolean',
+            'has_pin_2fa' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];

@@ -282,6 +282,37 @@ class AppServiceProvider extends ServiceProvider
             return $this->authThrottleLimit('otp_address', $email !== '' ? $email : $request->ip());
         });
 
+        // Verifikasi email akun: endpoint ber-auth, bucket per user id agar kuota akun lain
+        // di belakang NAT yang sama tidak ikut habis.
+        RateLimiter::for('verify-email-send', function (Request $request): Limit {
+            return $this->authThrottleLimit(
+                'verify_email_send',
+                $request->user()?->getAuthIdentifier() ?? $request->ip(),
+            );
+        });
+
+        RateLimiter::for('verify-email-confirm', function (Request $request): Limit {
+            return $this->authThrottleLimit(
+                'verify_email_confirm',
+                $request->user()?->getAuthIdentifier() ?? $request->ip(),
+            );
+        });
+
+        // Tantangan faktor kedua: PIN dan OTP pemulihan berbagi pola bucket per user id.
+        RateLimiter::for('two-factor-verify', function (Request $request): Limit {
+            return $this->authThrottleLimit(
+                'two_factor_verify',
+                $request->user()?->getAuthIdentifier() ?? $request->ip(),
+            );
+        });
+
+        RateLimiter::for('two-factor-recovery', function (Request $request): Limit {
+            return $this->authThrottleLimit(
+                'two_factor_recovery',
+                $request->user()?->getAuthIdentifier() ?? $request->ip(),
+            );
+        });
+
         // Bind/unbind provider kunci per user id: satu akun tidak bisa membanjiri consent flow.
         RateLimiter::for('oauth-connection', function (Request $request): Limit {
             return $this->authThrottleLimit(

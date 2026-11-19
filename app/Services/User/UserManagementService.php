@@ -340,6 +340,8 @@ class UserManagementService
 
     public function delete(User $user): void
     {
+        // Unique index tidak parsial di MySQL: id harus dilepas agar tidak memblokir provider selamanya.
+        $user->forceFill(['google_id' => null, 'github_id' => null])->save();
         $user->delete();
     }
 

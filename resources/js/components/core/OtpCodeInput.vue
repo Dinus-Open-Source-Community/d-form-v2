@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toRef } from 'vue';
-import { useOtpCodeInput } from '@/hooks/useOtpCodeInput';
+import { useOtpCodeInput } from './useOtpCodeInput';
 
 type Props = {
     /** Nilai gabungan semua kotak (6 digit). */

@@ -10,9 +10,11 @@ use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
 use App\Http\Controllers\Dashboard\User\UserJoinedEventsController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Dashboard\Events\Exports\EventRegistrationsCsvExportController;
 use App\Http\Controllers\Dashboard\HomeController as DashboardHomeController;
 use App\Http\Controllers\Dashboard\ProfileController;
+use App\Http\Controllers\Dashboard\TwoFactorSettingsController;
 use App\Http\Controllers\Dashboard\User\MemberDashboardController;
 
 Route::middleware('auth')->get('/admin', fn () => to_route('dashboard'))->name('admin.index');
@@ -53,11 +55,24 @@ Route::middleware('auth')->prefix('/admin/scan')->name('dashboard.scan.')->group
     Route::post('/', [GlobalScanController::class, 'store'])->middleware('throttle:scan-store')->name('store');
 });
 
-Route::middleware('auth')->get('/profile', fn () => inertia('Dashboard/Profile'))->name('dashboard.profile');
+Route::middleware('auth')->get('/profile', [ProfileController::class, 'show'])->name('dashboard.profile');
 Route::middleware(['auth', 'throttle:10,1'])->patch('/profile', [ProfileController::class, 'update'])->name('dashboard.profile.update');
 Route::middleware(['auth', 'throttle:10,1'])->post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('dashboard.profile.avatar.update');
 Route::middleware(['auth', 'throttle:10,1'])->delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('dashboard.profile.avatar.destroy');
 Route::middleware(['auth', 'throttle:10,1'])->put('/profile/password', [ProfileController::class, 'updatePassword'])->name('dashboard.profile.password.update');
+
+// Pengaturan PIN faktor kedua: hanya bisa diubah setelah faktor kedua lolos pada sesi ini.
+Route::middleware(['auth', 'two-factor'])->prefix('/profile/two-factor')->name('profile.two-factor.')->group(function (): void {
+    Route::post('/', [TwoFactorSettingsController::class, 'enable'])->name('enable');
+    Route::put('/', [TwoFactorSettingsController::class, 'change'])->name('change');
+    Route::delete('/', [TwoFactorSettingsController::class, 'disable'])->name('disable');
+});
+Route::middleware(['auth', 'throttle:oauth-connection'])->get('/profile/connections/{provider}', [OAuthController::class, 'redirectToProvider'])
+    ->whereIn('provider', ['google', 'github'])
+    ->name('dashboard.profile.connection.redirect');
+Route::middleware(['auth', 'throttle:oauth-connection'])->delete('/profile/connections/{provider}', [ProfileController::class, 'destroyConnection'])
+    ->whereIn('provider', ['google', 'github'])
+    ->name('dashboard.profile.connection.destroy');
 Route::middleware('auth')->get('/admin/dashboard', fn () => redirect()->route('dashboard'))->name('dashboard.home');
 Route::middleware(['auth', 'organizer'])->prefix('/admin')->group(function () {
     Route::get('/reports', fn () => redirect()->route('dashboard.events.index'))->name('dashboard.reports.index');

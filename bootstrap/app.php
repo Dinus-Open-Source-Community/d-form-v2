@@ -54,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             \App\Http\Middleware\AddRobotsTagForPrivateAreas::class,
             \App\Http\Middleware\DisableSsrForPrivatePages::class,
+            // Gerbang faktor kedua: berlaku untuk seluruh route web, hanya bertindak bila user
+            // ber-PIN sudah terautentikasi (spec §6.3).
+            \App\Http\Middleware\EnsureTwoFactorVerified::class,
         ]);
 
         // TLS terminates at the ingress, so client IP/scheme/host only resolve correctly
@@ -67,6 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'recruitment.access' => \App\Http\Middleware\EnsureRecruitmentAccess::class,
             'recruitment.period.open' => \App\Http\Middleware\EnsureRecruitmentPeriodOpen::class,
             'recruitment.tracking.session' => \App\Http\Middleware\EnsureTrackingSession::class,
+            'two-factor' => \App\Http\Middleware\EnsureTwoFactorVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

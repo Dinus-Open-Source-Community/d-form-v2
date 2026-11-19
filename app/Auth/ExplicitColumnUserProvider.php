@@ -16,6 +16,7 @@ class ExplicitColumnUserProvider extends EloquentUserProvider
         return $this->newModelQuery($model)
             ->select(User::AUTH_SESSION_COLUMNS)
             ->selectRaw('(password is not null and password <> \'\') as has_local_password')
+            ->selectRaw('exists(select 1 from user_pin_credentials c where c.user_id = users.id) as has_pin_2fa')
             ->where($model->getAuthIdentifierName(), $identifier)
             ->first();
     }
@@ -28,6 +29,7 @@ class ExplicitColumnUserProvider extends EloquentUserProvider
         $retrievedModel = $this->newModelQuery($model)
             ->select(User::AUTH_REMEMBER_COLUMNS)
             ->selectRaw('(password is not null and password <> \'\') as has_local_password')
+            ->selectRaw('exists(select 1 from user_pin_credentials c where c.user_id = users.id) as has_pin_2fa')
             ->where($model->getAuthIdentifierName(), $identifier)
             ->first();
 

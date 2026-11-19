@@ -88,10 +88,30 @@ import {
     update as userUpdate,
 } from '@/routes/dashboard/users';
 import { update as profileAvatarUpdate } from '@/routes/dashboard/profile/avatar';
+import {
+    destroy as profileConnectionDestroyRoute,
+    redirect as profileConnectionRedirectRoute,
+} from '@/routes/dashboard/profile/connection';
 import { update as profilePasswordUpdate } from '@/routes/dashboard/profile/password';
 import { index as eventsIndex, show as eventShow } from '@/routes/events';
+import {
+    change as profileTwoFactorChange,
+    disable as profileTwoFactorDisable,
+    enable as profileTwoFactorEnable,
+} from '@/routes/profile/two-factor';
 import { apply as recruitmentApply } from '@/routes/recruitment';
 import { login as trackLogin } from '@/routes/recruitment/track';
+import { challenge as twoFactorChallenge, verify as twoFactorVerify } from '@/routes/two-factor';
+import {
+    confirm as twoFactorRecoveryConfirm,
+    pin as twoFactorRecoveryPin,
+    send as twoFactorRecoverySend,
+} from '@/routes/two-factor/recovery';
+import {
+    confirm as verificationConfirm,
+    notice as verificationNotice,
+    send as verificationSend,
+} from '@/routes/verification';
 
 /**
  * Broadcast dorman: `FEATURE_BROADCAST=false` membuat route `/admin/broadcasts/*`
@@ -143,6 +163,32 @@ export const routes = {
             return passwordResetLink.url();
         },
         registerWithIntended: (intended: string): string => authLogin.url({ query: { intended } }),
+        // Faktor kedua: halaman tantangan, verifikasi PIN, dan pemulihan lewat OTP email.
+        get twoFactorChallenge() {
+            return twoFactorChallenge.url();
+        },
+        get twoFactorVerify() {
+            return twoFactorVerify.url();
+        },
+        get twoFactorRecoverySend() {
+            return twoFactorRecoverySend.url();
+        },
+        get twoFactorRecoveryConfirm() {
+            return twoFactorRecoveryConfirm.url();
+        },
+        get twoFactorRecoveryPin() {
+            return twoFactorRecoveryPin.url();
+        },
+        // Verifikasi email akun: halaman notifikasi, kirim ulang kode, dan konfirmasi kode.
+        get verificationNotice() {
+            return verificationNotice.url();
+        },
+        get verificationSend() {
+            return verificationSend.url();
+        },
+        get verificationConfirm() {
+            return verificationConfirm.url();
+        },
     },
 
     dashboard: {
@@ -158,6 +204,20 @@ export const routes = {
         get profilePassword() {
             return profilePasswordUpdate.url();
         },
+        // Pengaturan PIN faktor kedua dari halaman profil.
+        get profileTwoFactorEnable() {
+            return profileTwoFactorEnable.url();
+        },
+        get profileTwoFactorChange() {
+            return profileTwoFactorChange.url();
+        },
+        get profileTwoFactorDisable() {
+            return profileTwoFactorDisable.url();
+        },
+        profileConnectionRedirect: (provider: string): string =>
+            profileConnectionRedirectRoute.url({ provider }),
+        profileConnectionDestroy: (provider: string): string =>
+            profileConnectionDestroyRoute.url({ provider }),
     },
 
     admin: {

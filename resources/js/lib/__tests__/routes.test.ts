@@ -33,10 +33,23 @@ const SURVIVING_ROUTE_KEYS = [
     'auth.register',
     'auth.passwordResetLink',
     'auth.registerWithIntended',
+    'auth.twoFactorChallenge',
+    'auth.twoFactorVerify',
+    'auth.twoFactorRecoverySend',
+    'auth.twoFactorRecoveryConfirm',
+    'auth.twoFactorRecoveryPin',
+    'auth.verificationNotice',
+    'auth.verificationSend',
+    'auth.verificationConfirm',
     'dashboard.index',
     'dashboard.profile',
     'dashboard.profileAvatar',
     'dashboard.profilePassword',
+    'dashboard.profileTwoFactorEnable',
+    'dashboard.profileTwoFactorChange',
+    'dashboard.profileTwoFactorDisable',
+    'dashboard.profileConnectionRedirect',
+    'dashboard.profileConnectionDestroy',
     'admin.index',
     'admin.recruitment.index',
     'admin.recruitment.reports.exportFunnel',
@@ -160,6 +173,12 @@ describe('routes builders', () => {
 
     it('builds admin index path', () => {
         expect(routes.admin.index).toBe('/admin');
+    });
+
+    it('builds the email verification paths', () => {
+        expect(routes.auth.verificationNotice).toBe('/email/verify');
+        expect(routes.auth.verificationSend).toBe('/email/verify/send');
+        expect(routes.auth.verificationConfirm).toBe('/email/verify/confirm');
     });
 
     it('keeps the surviving key set deliberate', () => {

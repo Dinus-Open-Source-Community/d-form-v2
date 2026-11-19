@@ -3,11 +3,13 @@
 namespace Tests\Feature\Dashboard;
 
 use App\Models\User;
+use App\Services\Auth\TwoFactorPinService;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -165,6 +167,42 @@ class ProfileTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertTrue(Hash::check('second-password-99', $user->fresh()->password));
+    }
+
+    public function test_profile_page_sends_the_inactive_pin_status(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('correct-password')]);
+        $user->assignRole('member');
+
+        $this->actingAs($user)
+            ->get(route('dashboard.profile'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Profile')
+                ->where('two_factor.enabled', false)
+                ->where('two_factor.attemptsRemaining', TwoFactorPinService::MAX_FAILED_ATTEMPTS)
+                ->where('two_factor.lockedUntil', null));
+    }
+
+    public function test_profile_page_sends_the_active_pin_status(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('correct-password')]);
+        $user->assignRole('member');
+        app(TwoFactorPinService::class)->enable($user, '123456');
+
+        // User ber-PIN hanya boleh membuka profil setelah lolos tantangan pada sesi ini.
+        $this->actingAs($user)
+            ->withSession([
+                'two_factor_user_id' => $user->getKey(),
+                'two_factor_verified_at' => now()->toIso8601String(),
+            ])
+            ->get(route('dashboard.profile'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Profile')
+                ->where('two_factor.enabled', true)
+                ->where('two_factor.attemptsRemaining', TwoFactorPinService::MAX_FAILED_ATTEMPTS)
+                ->where('two_factor.lockedUntil', null));
     }
 
     public function test_profile_routes_are_throttled(): void

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\CancelPendingRegistrationController;
 use App\Http\Controllers\Auth\EmailAvailabilityController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Auth\VerifyOtpController;
 use App\Http\Middleware\PreventAuthPageCaching;
 use Illuminate\Support\Facades\Route;
@@ -50,9 +52,7 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
         ->name('auth.email.availability');
 
     Route::get('/auth/google', [OAuthController::class, 'redirectToGoogle'])->name('auth.google');
-    Route::get('/auth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
     Route::get('/auth/github', [OAuthController::class, 'redirectToGithub'])->name('auth.github');
-    Route::get('/auth/github/callback', [OAuthController::class, 'handleGithubCallback'])->name('auth.github.callback');
 
     Route::get('/auth/forgot-password', [ForgotPasswordController::class, 'index'])->name('auth.password.request');
     Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'store'])
@@ -70,3 +70,42 @@ Route::middleware([PreventAuthPageCaching::class, 'guest'])->group(function () {
 Route::post('/auth/logout', LogoutController::class)
     ->middleware('auth')
     ->name('auth.logout');
+
+// Verifikasi email akun: halaman untuk user login (bukan guest), bukan bagian alur registrasi.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
+        ->name('verification.notice');
+
+    Route::post('/email/verify/send', [EmailVerificationController::class, 'send'])
+        ->middleware('throttle:verify-email-send')
+        ->name('verification.send');
+
+    Route::post('/email/verify/confirm', [EmailVerificationController::class, 'confirm'])
+        ->middleware('throttle:verify-email-confirm')
+        ->name('verification.confirm');
+});
+
+// Tantangan faktor kedua: satu-satunya tujuan gerbang `two-factor`, jadi route-nya
+// sengaja berada di luar grup `guest` tetapi tetap di dalam `auth`.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/auth/two-factor', [TwoFactorChallengeController::class, 'show'])
+        ->name('two-factor.challenge');
+
+    Route::post('/auth/two-factor', [TwoFactorChallengeController::class, 'verify'])
+        ->middleware('throttle:two-factor-verify')
+        ->name('two-factor.verify');
+
+    Route::post('/auth/two-factor/recovery', [TwoFactorChallengeController::class, 'sendRecovery'])
+        ->middleware('throttle:two-factor-recovery')
+        ->name('two-factor.recovery.send');
+
+    Route::post('/auth/two-factor/recovery/confirm', [TwoFactorChallengeController::class, 'confirmRecovery'])
+        ->name('two-factor.recovery.confirm');
+
+    Route::post('/auth/two-factor/recovery/pin', [TwoFactorChallengeController::class, 'setRecoveryPin'])
+        ->name('two-factor.recovery.pin');
+});
+
+// Callback dipakai bersama alur login (guest) dan bind (user login), jadi tidak di dalam grup `guest`.
+Route::get('/auth/google/callback', [OAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+Route::get('/auth/github/callback', [OAuthController::class, 'handleGithubCallback'])->name('auth.github.callback');

@@ -23,7 +23,7 @@ class DisableSsrForPrivatePages
     {
         $path = '/'.ltrim($path, '/');
 
-        foreach (['/auth', '/admin', '/dashboard', '/joined', '/recruitment'] as $prefix) {
+        foreach (['/auth', '/admin', '/dashboard', '/joined', '/recruitment', '/profile'] as $prefix) {
             if ($path === $prefix || str_starts_with($path, $prefix.'/')) {
                 return true;
             }
