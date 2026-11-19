@@ -8,8 +8,11 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
+import NavigationSkeletonHost from '@/components/modules/dashboard/skeletons/NavigationSkeletonHost.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { useNavigationSkeleton } from '@/hooks/useNavigationSkeleton';
 import { provideTopbar } from '@/hooks/useDashboardTopbar';
+import type { ISkeletonContext } from '@/types/skeleton';
 
 usePageFlashToast();
 import {
@@ -45,6 +48,13 @@ const isFormBuilderPage = computed(() => {
 
 const userName = computed(() => user.value?.name);
 
+/** Skeleton tujuan memakai capability yang sama dengan guard server pada `/dashboard`. */
+const { pending: navigationPending, skeletonKey: navigationSkeletonKey } = useNavigationSkeleton({
+    context: (): ISkeletonContext => ({
+        canManageEvents: page.props.auth.user?.can_manage_events === true,
+    }),
+});
+
 function handleLogout(): void {
     router.post(logout().url);
 }
@@ -59,7 +69,7 @@ function handleLogout(): void {
                 class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
             />
 
-            <DashboardTopbar v-if="!isFormBuilderPage" />
+            <DashboardTopbar v-if="!isFormBuilderPage" :pending="navigationPending" />
 
             <header
                 v-if="isFormBuilderPage"
@@ -125,12 +135,13 @@ function handleLogout(): void {
                 </div>
             </header>
             <main
-                class="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-14 md:px-6 lg:px-8"
+                class="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-14 md:px-6 lg:px-8"
                 :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-6 md:pt-8'"
             >
-                <div class="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col">
+                <div class="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col overflow-y-auto">
                     <slot />
                 </div>
+                <NavigationSkeletonHost :pending="navigationPending" :skeleton-key="navigationSkeletonKey" />
             </main>
         </SidebarInset>
     </SidebarProvider>

@@ -11,6 +11,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
+import { Skeleton } from '@/components/ui/skeleton';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import { useTopbar } from '@/hooks/useDashboardTopbar';
@@ -23,8 +24,9 @@ const user = useAuth(page.props);
 const topbar = useTopbar();
 
 /** Tombol buka sidebar disembunyikan saat halaman memakai layout tanpa sidebar (mis. builder formulir). */
-const props = withDefaults(defineProps<{ showNavigationTrigger?: boolean }>(), {
+const props = withDefaults(defineProps<{ showNavigationTrigger?: boolean; pending?: boolean }>(), {
     showNavigationTrigger: true,
+    pending: false,
 });
 
 const siteName = computed(() => page.props.appName || 'DForm');
@@ -77,6 +79,9 @@ function formatRole(r: string): string {
 
 /** Judul dari halaman (eksplisit) jika ada; fallback ke parsing judul dokumen. */
 const pageTitle = computed(() => topbar.title.value ?? fallbackTitle.value);
+
+/** Selama navigasi, judul dokumen masih milik halaman lama; tampilkan skeleton, bukan judul basi. */
+const showTitleSkeleton = computed<boolean>(() => props.pending && topbar.title.value === null);
 
 /** Breadcrumb dibangun dari lib terpisah (pure function). */
 const breadcrumbItems = computed(() => buildBreadcrumbs(page.url, pageTitle.value));
@@ -133,12 +138,18 @@ function handleLogout(): void {
                 <ChevronLeft class="size-4 shrink-0 stroke-[1.75]" />
             </Button>
             <div class="hidden min-w-0 flex-col sm:flex">
-                <h1 class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
-                    {{ pageTitle }}
-                </h1>
-                <div class="hidden min-w-0 sm:block">
-                    <Breadcrumbs :items="breadcrumbItems" />
-                </div>
+                <template v-if="showTitleSkeleton">
+                    <Skeleton class="h-4 w-40" />
+                    <Skeleton class="mt-2 h-3 w-24" />
+                </template>
+                <template v-else>
+                    <h1 class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
+                        {{ pageTitle }}
+                    </h1>
+                    <div class="hidden min-w-0 sm:block">
+                        <Breadcrumbs :items="breadcrumbItems" />
+                    </div>
+                </template>
             </div>
         </div>
 

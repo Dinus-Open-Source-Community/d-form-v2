@@ -6,9 +6,12 @@ import AppToaster from '@/components/core/AppToaster.vue';
 import EmailVerificationBanner from '@/components/core/EmailVerificationBanner.vue';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
+import NavigationSkeletonHost from '@/components/modules/dashboard/skeletons/NavigationSkeletonHost.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
 import { useHttpErrorToast } from '@/hooks/useHttpErrorToast';
+import { useNavigationSkeleton } from '@/hooks/useNavigationSkeleton';
 import { provideTopbar } from '@/hooks/useDashboardTopbar';
+import type { ISkeletonContext } from '@/types/skeleton';
 
 const topbar = provideTopbar();
 
@@ -33,26 +36,36 @@ const FULL_WIDTH_PAGE_COMPONENTS: ReadonlySet<string> = new Set([
 
 const showSidebar = computed<boolean>(() => !FULL_WIDTH_PAGE_COMPONENTS.has(page.component));
 const isFullWidthPage = computed<boolean>(() => FULL_WIDTH_PAGE_COMPONENTS.has(page.component));
+
+/** Skeleton tujuan memakai capability yang sama dengan guard server pada `/dashboard`. */
+const { pending: navigationPending, skeletonKey: navigationSkeletonKey } = useNavigationSkeleton({
+    context: (): ISkeletonContext => ({
+        canManageEvents: page.props.auth.user?.can_manage_events === true,
+    }),
+});
 </script>
 
 <template>
     <SidebarProvider data-testid="authenticated-shell">
         <DashboardSidebar v-if="showSidebar" />
         <SidebarInset class="from-background via-muted/20 to-background h-svh overflow-x-hidden bg-gradient-to-b">
-            <DashboardTopbar :show-navigation-trigger="showSidebar" />
+            <DashboardTopbar :show-navigation-trigger="showSidebar" :pending="navigationPending" />
             <EmailVerificationBanner />
-            <div
-                data-testid="dashboard-content"
-                :class="[
-                    'min-h-0 flex-1 px-4 md:px-6 lg:px-8',
-                    isFullWidthPage
-                        ? 'overflow-hidden pt-6 pb-2 md:pt-8 md:pb-2'
-                        : 'overflow-y-auto pt-6 pb-10 md:pt-8 md:pb-12',
-                ]"
-            >
-                <div :class="['w-full max-w-full', isFullWidthPage && 'h-full min-h-0']">
-                    <slot />
+            <div class="relative flex min-h-0 flex-1 flex-col">
+                <div
+                    data-testid="dashboard-content"
+                    :class="[
+                        'min-h-0 flex-1 px-4 md:px-6 lg:px-8',
+                        isFullWidthPage
+                            ? 'overflow-hidden pt-6 pb-2 md:pt-8 md:pb-2'
+                            : 'overflow-y-auto pt-6 pb-10 md:pt-8 md:pb-12',
+                    ]"
+                >
+                    <div :class="['w-full max-w-full', isFullWidthPage && 'h-full min-h-0']">
+                        <slot />
+                    </div>
                 </div>
+                <NavigationSkeletonHost :pending="navigationPending" :skeleton-key="navigationSkeletonKey" />
             </div>
         </SidebarInset>
     </SidebarProvider>
