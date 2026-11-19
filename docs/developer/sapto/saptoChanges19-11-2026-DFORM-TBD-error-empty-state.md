@@ -63,3 +63,7 @@ Lighthouse belum bisa dijadikan bukti di environment ini. Penyebabnya `APP_DEBUG
 - Lisensi unDraw sudah dibaca di `undraw.co/license`: gratis komersial, tanpa atribusi, boleh dimodifikasi.
 - Design doc: `docs/superpowers/specs/2026-11-19-error-and-empty-state-design.md`.
 - Plan: `docs/superpowers/plans/2026-11-19-error-and-empty-state.md`.
+
+## Revisi
+
+- `/joined` (page `Dashboard/User/Events.vue`) memakai `EmptyState` dengan `:surface="false"`, sehingga tidak ada kartu putih di belakang ilustrasi. Prop `surface` default `true`, jadi tiga page dashboard lain tidak berubah.

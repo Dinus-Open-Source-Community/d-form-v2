@@ -217,7 +217,7 @@ onMounted(() => {
             />
         </div>
 
-        <EmptyState v-else kind="empty" :title="emptyTitle" :description="emptyDescription">
+        <EmptyState v-else kind="empty" :surface="false" :title="emptyTitle" :description="emptyDescription">
             <Link
                 v-if="!isBrowse"
                 :href="routes.member.browse"

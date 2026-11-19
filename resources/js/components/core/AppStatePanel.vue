@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<IStatePanelProps>(), {
     description: undefined,
     variant: 'inline',
     headingTag: 'p',
+    surface: true,
 });
 
 const ILLUSTRATIONS: Readonly<Record<TStateIllustration, IIllustrationMeta>> = {
@@ -23,11 +24,13 @@ const isPage = computed<boolean>(() => props.variant === 'page');
 
 const illustration = computed<IIllustrationMeta>(() => ILLUSTRATIONS[props.illustration]);
 
-const wrapperClass = computed<string>(() =>
-    isPage.value
-        ? 'mx-auto flex w-full max-w-lg flex-col items-center text-center'
-        : 'app-surface flex flex-col items-center justify-center rounded-2xl px-6 py-14 text-center'
-);
+const wrapperClass = computed<string>(() => {
+    if (isPage.value) return 'mx-auto flex w-full max-w-lg flex-col items-center text-center';
+
+    const base = 'flex flex-col items-center justify-center px-6';
+
+    return props.surface ? `app-surface rounded-2xl py-14 ${base} text-center` : `py-10 ${base} text-center`;
+});
 
 const imageClass = computed<string>(() =>
     isPage.value ? 'h-auto w-full max-w-[20rem] sm:max-w-[22rem]' : 'mb-2 h-auto w-full max-w-[11.25rem]'

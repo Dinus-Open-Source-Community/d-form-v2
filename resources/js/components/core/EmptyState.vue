@@ -8,6 +8,7 @@ const props = withDefaults(defineProps<IEmptyStateProps>(), {
     title: undefined,
     description: undefined,
     query: undefined,
+    surface: true,
 });
 
 const content = computed<IStateContent>(() => {
@@ -29,6 +30,7 @@ const content = computed<IStateContent>(() => {
         heading-tag="p"
         :title="content.title"
         :description="content.description"
+        :surface="props.surface"
     >
         <slot />
     </AppStatePanel>

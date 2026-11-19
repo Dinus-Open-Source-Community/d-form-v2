@@ -35,4 +35,10 @@ describe('EmptyState', () => {
 
         expect(html).toContain('Belum ada data');
     });
+
+    it('surface false diteruskan ke panel tanpa latar kartu', async () => {
+        const html = await render({ kind: 'empty', surface: false });
+
+        expect(html).not.toContain('app-surface');
+    });
 });

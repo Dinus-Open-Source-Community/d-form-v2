@@ -51,4 +51,16 @@ describe('AppStatePanel', () => {
 
         expect(html).toContain('AKSI');
     });
+
+    it('surface default memakai latar kartu', async () => {
+        const html = await renderPanel({ illustration: 'empty', title: 'Kosong' });
+
+        expect(html).toContain('app-surface');
+    });
+
+    it('surface false menghilangkan latar kartu', async () => {
+        const html = await renderPanel({ illustration: 'empty', title: 'Kosong', surface: false });
+
+        expect(html).not.toContain('app-surface');
+    });
 });

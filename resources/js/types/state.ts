@@ -24,6 +24,7 @@ export interface IStatePanelProps {
     readonly description?: string;
     readonly variant?: TStatePanelVariant;
     readonly headingTag?: TStatePanelHeadingTag;
+    readonly surface?: boolean;
 }
 
 export interface IEmptyStateProps {
@@ -31,4 +32,5 @@ export interface IEmptyStateProps {
     readonly title?: string;
     readonly description?: string;
     readonly query?: string;
+    readonly surface?: boolean;
 }
