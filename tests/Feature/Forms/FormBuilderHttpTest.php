@@ -7,8 +7,10 @@ use App\Models\Form;
 use App\Models\FormField;
 use App\Models\User;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\FormFieldsRequestValidation;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -412,6 +414,102 @@ class FormBuilderHttpTest extends TestCase
                 'fields.0.metadata',
             ]);
 
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
+    }
+
+    public function test_snapshot_with_many_fields_is_saved_with_bounded_query_count(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $fields = [];
+        for ($index = 1; $index <= 250; $index++) {
+            $fields[] = [
+                'id' => (string) Str::uuid(),
+                'label' => "Field {$index}",
+                'type' => 'input',
+                'name' => "field_{$index}",
+                'order' => $index,
+                'metadata' => ['type' => 'text', 'placeholder' => '', 'rules' => []],
+            ];
+        }
+
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount): void {
+            $queryCount++;
+        });
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => $fields])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertSame(250, FormField::query()->where('form_id', $form->id)->count());
+        $this->assertSame(1, FormField::query()->where('form_id', $form->id)->where('order', 250)->count());
+        $this->assertLessThan(
+            60,
+            $queryCount,
+            "menyimpan 250 field tidak boleh memakai query per baris (terpakai {$queryCount} query)"
+        );
+    }
+
+    public function test_snapshot_above_field_limit_is_rejected_with_validation_error(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+
+        $fields = [];
+        for ($index = 1; $index <= FormFieldsRequestValidation::MAX_FIELDS + 1; $index++) {
+            $fields[] = [
+                'label' => "Field {$index}",
+                'type' => 'input',
+                'name' => "field_{$index}",
+                'order' => $index,
+                'metadata' => ['type' => 'text', 'rules' => []],
+            ];
+        }
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => $fields])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['fields']);
+
+        $this->assertSame(0, FormField::query()->where('form_id', $form->id)->count());
+    }
+
+    public function test_resending_soft_deleted_field_restores_it_instead_of_failing(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $fieldId = (string) Str::uuid();
+
+        $field = [
+            'id' => $fieldId,
+            'label' => 'Nama',
+            'type' => 'input',
+            'name' => 'nama',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ];
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => [$field]])
+            ->assertOk();
+
+        FormField::query()->whereKey($fieldId)->firstOrFail()->delete();
+        $this->assertSoftDeleted('form_fields', ['id' => $fieldId]);
+
+        $this->actingAs($admin)
+            ->postJson($this->fieldSavePath($event, $form), ['fields' => [$field]])
+            ->assertOk();
+
+        $this->assertNotSoftDeleted('form_fields', ['id' => $fieldId]);
         $this->assertSame(1, FormField::query()->where('form_id', $form->id)->count());
     }
 

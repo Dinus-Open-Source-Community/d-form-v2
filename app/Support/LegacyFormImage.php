@@ -197,9 +197,16 @@ final class LegacyFormImage
                 continue;
             }
             $result = self::convertFieldMetadata($meta, $formId);
-            $rows[$i]['metadata'] = $result['metadata'];
             $converted += $result['converted'];
             $failed += $result['failed'];
+
+            // Tanpa data: URL, metadata tidak berubah. Melewati assignment menghindari
+            // penyalinan seluruh baris (copy-on-write) pada snapshot berisi ratusan field.
+            if ($result['converted'] === 0 && $result['failed'] === 0) {
+                continue;
+            }
+
+            $rows[$i]['metadata'] = $result['metadata'];
         }
 
         return ['rows' => $rows, 'converted' => $converted, 'failed' => $failed];

@@ -11,6 +11,12 @@ use Illuminate\Validation\Validator;
 
 final class FormFieldsRequestValidation
 {
+    /**
+     * Batas jumlah field per snapshot. Melindungi endpoint dari payload patologis;
+     * 500 field masih jauh di bawah batas memori yang terukur.
+     */
+    public const MAX_FIELDS = 500;
+
     /** `metadata.maxLength` limits mirror the frontend builder contract. */
     public const MAX_LENGTH_LIMITS = [
         'short_text' => 1000,
@@ -364,6 +370,13 @@ final class FormFieldsRequestValidation
                 return;
             }
 
+            // Satu query untuk seluruh nama yang sudah tersimpan: pengecekan konflik per field
+            // sebelumnya menembak satu `exists()` per baris dan menjadi biaya terbesar pada form besar.
+            $existingNameOwners = [];
+            foreach (FormField::query()->where('form_id', $form->id)->get(['id', 'name']) as $existingField) {
+                $existingNameOwners[(string) $existingField->name][] = (string) $existingField->id;
+            }
+
             foreach ($fields as $index => $field) {
                 if (!is_array($field)) {
                     continue;
@@ -373,17 +386,19 @@ final class FormFieldsRequestValidation
                     continue;
                 }
                 $id = $field['id'] ?? null;
-                $q = FormField::query()
-                    ->where('form_id', $form->id)
-                    ->where('name', $name);
-                if (is_string($id) && $id !== '') {
-                    $q->where('id', '!=', $id);
-                }
-                if ($q->exists()) {
+                $currentId = is_string($id) ? $id : '';
+
+                foreach ($existingNameOwners[$name] ?? [] as $ownerId) {
+                    if ($ownerId === $currentId) {
+                        continue;
+                    }
+
                     $validator->errors()->add(
                         "fields.{$index}.name",
                         __('validation.field_name_conflict', ['value' => $name]),
                     );
+
+                    break;
                 }
             }
         });
