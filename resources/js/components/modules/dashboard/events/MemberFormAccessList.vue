@@ -105,7 +105,10 @@ function formIcon(form: IEventPortalFormSummary): typeof ClipboardList {
                                 <ChevronRight class="size-4" aria-hidden="true" />
                             </Link>
                         </Button>
-                        <span v-else class="text-muted-foreground inline-flex items-center gap-1 text-[11px] font-medium">
+                        <span
+                            v-else
+                            class="text-muted-foreground inline-flex items-center gap-1 text-[11px] font-medium"
+                        >
                             <Lock class="size-3 shrink-0" aria-hidden="true" />
                             {{ FORM_ACCESS_STATUS_LABEL[form.access_status] }}
                         </span>
@@ -127,7 +130,6 @@ function formIcon(form: IEventPortalFormSummary): typeof ClipboardList {
             >
                 Menyelesaikan satu form tidak otomatis menyelesaikan atau menyembunyikan form lain.
             </p>
-
         </CardContent>
     </Card>
 </template>

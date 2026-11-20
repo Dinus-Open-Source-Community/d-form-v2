@@ -61,7 +61,9 @@ const cells = computed<IFactCell[]>(() => [
             :key="cell.key"
             class="border-border/70 bg-card flex min-h-[76px] min-w-0 flex-col justify-center gap-1 rounded-xl border p-4"
         >
-            <dt class="text-muted-foreground flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase">
+            <dt
+                class="text-muted-foreground flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase"
+            >
                 <component :is="cell.icon" class="text-primary size-3.5 shrink-0" aria-hidden="true" />
                 {{ cell.label }}
             </dt>

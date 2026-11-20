@@ -44,9 +44,7 @@ const invitationUrl = computed<string | null>(() =>
 );
 
 /** Check-in hanya relevan untuk peserta yang sudah diterima. */
-const showCheckInCard = computed<boolean>(
-    () => props.isRegistered && props.registrationStatus === 'accepted'
-);
+const showCheckInCard = computed<boolean>(() => props.isRegistered && props.registrationStatus === 'accepted');
 
 const registrationDetailUrl = computed<string | null>(() =>
     props.isRegistered ? routes.member.event.registration(props.event.slug) : null
@@ -57,7 +55,10 @@ const hasAside = computed<boolean>(() => invitationUrl.value !== null || showChe
 
 <template>
     <Head :title="event.title">
-        <meta name="description" :content="`Detail acara ${event.title} di DForm: jadwal, lokasi, formulir, dan status pendaftaran.`" />
+        <meta
+            name="description"
+            :content="`Detail acara ${event.title} di DForm: jadwal, lokasi, formulir, dan status pendaftaran.`"
+        />
     </Head>
 
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 pb-6">

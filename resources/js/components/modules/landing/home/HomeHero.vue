@@ -80,7 +80,9 @@ import { routes } from '@/lib/routes';
                 </div>
             </div>
 
-            <div class="border-border/30 landing-reveal-fade landing-reveal-delay-300 mt-20 grid grid-cols-2 gap-6 border-t pt-10 sm:grid-cols-4">
+            <div
+                class="border-border/30 landing-reveal-fade landing-reveal-delay-300 mt-20 grid grid-cols-2 gap-6 border-t pt-10 sm:grid-cols-4"
+            >
                 <div
                     v-for="stat in [
                         { num: '500+', label: 'Acara terdaftar' },

@@ -15,7 +15,11 @@ import { Skeleton } from '@/components/ui/skeleton';
         </div>
 
         <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <div v-for="cell in 4" :key="cell" class="flex min-h-[76px] items-start gap-2.5 rounded-xl border border-border bg-card p-4">
+            <div
+                v-for="cell in 4"
+                :key="cell"
+                class="border-border bg-card flex min-h-[76px] items-start gap-2.5 rounded-xl border p-4"
+            >
                 <Skeleton class="mt-0.5 size-4 shrink-0 rounded-sm" />
                 <div class="flex min-w-0 flex-1 flex-col gap-2">
                     <Skeleton class="h-3 w-16" />
@@ -26,19 +30,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
             <div class="flex flex-col gap-5">
-                <div class="rounded-2xl border border-border bg-card p-5">
+                <div class="border-border bg-card rounded-2xl border p-5">
                     <Skeleton class="h-5 w-32" />
                     <Skeleton class="mt-4 h-4 w-full" />
                     <Skeleton class="mt-2 h-4 w-11/12" />
                     <Skeleton class="mt-2 h-4 w-2/3" />
                 </div>
-                <div class="rounded-2xl border border-border bg-card p-5">
+                <div class="border-border bg-card rounded-2xl border p-5">
                     <Skeleton class="h-5 w-32" />
                     <Skeleton class="mt-4 h-14 w-full rounded-xl" />
                     <Skeleton class="mt-3 h-14 w-full rounded-xl" />
                 </div>
             </div>
-            <div class="rounded-2xl border border-border bg-card p-5">
+            <div class="border-border bg-card rounded-2xl border p-5">
                 <Skeleton class="h-5 w-24" />
                 <Skeleton class="mt-4 h-4 w-40" />
                 <Skeleton class="mt-4 h-48 w-full rounded-xl" />

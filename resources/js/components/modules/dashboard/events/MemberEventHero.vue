@@ -66,7 +66,9 @@ const statusDescription = computed<string>(() => {
 
         <div class="flex flex-col gap-2">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <h1 class="font-display text-foreground min-w-0 text-2xl leading-tight font-bold tracking-tight break-words sm:text-3xl">
+                <h1
+                    class="font-display text-foreground min-w-0 text-2xl leading-tight font-bold tracking-tight break-words sm:text-3xl"
+                >
                     {{ event.title }}
                 </h1>
                 <Badge variant="outline" :class="['px-2 py-0.5 text-[11px] font-semibold', statusBadge.className]">

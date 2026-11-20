@@ -35,8 +35,8 @@ const hasQr = computed<boolean>(() => !isCheckedIn.value && props.qrBase64 !== n
                 </div>
             </div>
             <p class="text-muted-foreground text-[11px] leading-relaxed">
-                Kode QR tidak ditampilkan lagi di halaman ini karena sudah dipindai. Kode tetap tersedia di halaman detail
-                pendaftaran.
+                Kode QR tidak ditampilkan lagi di halaman ini karena sudah dipindai. Kode tetap tersedia di halaman
+                detail pendaftaran.
             </p>
         </template>
 
