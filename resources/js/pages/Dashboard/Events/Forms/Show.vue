@@ -16,6 +16,13 @@ import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import FormBuilderWorkspace from '@/components/modules/builder/FormBuilderWorkspace.vue';
+import { useFormBuilderHistory } from '@/hooks/useFormBuilderHistory';
+import { readStorage, writeStorage } from '@/adapters/browser/storage';
+import {
+    ANSWER_COLUMN_LIMIT,
+    normalizeAnswerColumnSelection,
+    toggleAnswerColumnSelection,
+} from '@/lib/answerColumnSelection';
 import FormSettingsPanel from '@/components/modules/builder/FormSettingsPanel.vue';
 import { FORM_VISIBILITY_OPTIONS } from '@/components/modules/builder/formBuilderPalette';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,7 +32,10 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AutosaveStatus } from '@/components/ui/autosave-status';
 import {
+    Undo2,
+    Redo2,
     Check,
+    Columns3,
     Download,
     Eye,
     FileArchive,
@@ -275,6 +285,15 @@ const successContent = computed({
         settingsForm.success_content = v;
     },
 });
+const { canUndo, canRedo, undo, redo } = useFormBuilderHistory({
+    formTitle,
+    formDescription,
+    successContent,
+    banner: bannerState,
+    formFields,
+    formMetadata,
+});
+
 const closedAt = computed({
     get: () => settingsForm.closed_at ?? '',
     set: (v: string) => {
@@ -509,6 +528,39 @@ const fileFieldNames = computed(() => new Set((props.fields ?? []).filter(isFile
  */
 const tableAnswerKeys = computed(() => answerKeys.value.filter((key) => !fileFieldNames.value.has(key)));
 
+/** Kolom field yang tampil di tabel jawaban; disimpan per form di browser ini. */
+const answerColumnsStorageKey = computed<string>(() => `dform:form-answer-columns:${props.form.id}`);
+const selectedAnswerColumns = ref<string[]>(
+    normalizeAnswerColumnSelection(
+        readStorage({ area: 'local', key: answerColumnsStorageKey.value }),
+        tableAnswerKeys.value
+    )
+);
+const visibleAnswerKeys = computed<string[]>(() =>
+    selectedAnswerColumns.value.filter((key) => tableAnswerKeys.value.includes(key))
+);
+const isColumnMenuOpen = ref(false);
+
+watch(tableAnswerKeys, (keys: string[]): void => {
+    selectedAnswerColumns.value = normalizeAnswerColumnSelection(JSON.stringify(selectedAnswerColumns.value), keys);
+});
+
+watch(
+    selectedAnswerColumns,
+    (value: string[]): void => {
+        writeStorage({
+            area: 'local',
+            key: answerColumnsStorageKey.value,
+            value: JSON.stringify(value),
+        });
+    },
+    { deep: true }
+);
+
+function toggleAnswerColumn(key: string): void {
+    selectedAnswerColumns.value = toggleAnswerColumnSelection(selectedAnswerColumns.value, key);
+}
+
 const submissionRows = computed(() => props.submissions ?? []);
 /** ID eligible untuk "pilih semua" lintas halaman; fallback array kosong agar hook tetap aman. */
 const bulkSelectableIds = computed<readonly string[]>(() => props.selectableSubmissionIds ?? []);
@@ -697,6 +749,32 @@ function rejectLabel(submission: IFormSubmission): string {
                         type="button"
                         variant="outline"
                         size="sm"
+                        class="hidden size-9 shrink-0 px-0 sm:inline-flex"
+                        :disabled="!canUndo"
+                        title="Undo (Ctrl+Z)"
+                        aria-label="Undo perubahan"
+                        @click="undo"
+                    >
+                        <Undo2 class="size-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                        v-if="activeTab === 'editor'"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="hidden size-9 shrink-0 px-0 sm:inline-flex"
+                        :disabled="!canRedo"
+                        title="Redo (Ctrl+Shift+Z)"
+                        aria-label="Redo perubahan"
+                        @click="redo"
+                    >
+                        <Redo2 class="size-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                        v-if="activeTab === 'editor'"
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         class="hidden px-2.5 text-xs font-medium sm:inline-flex sm:px-3 sm:text-sm"
                         aria-haspopup="dialog"
                         @click="isShareDialogOpen = true"
@@ -737,6 +815,47 @@ function rejectLabel(submission: IFormSubmission): string {
                         <span class="sm:hidden">Simpan</span>
                         <span class="hidden sm:inline">Save All</span>
                     </Button>
+                    <DropdownMenu
+                        v-if="activeTab === 'jawaban'"
+                        :open="isColumnMenuOpen"
+                        @update:open="isColumnMenuOpen = $event"
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            class="border-border/80 bg-background/90 text-sm font-medium shadow-sm"
+                            aria-haspopup="menu"
+                            :aria-expanded="isColumnMenuOpen"
+                            aria-label="Atur kolom tabel jawaban"
+                            @click="isColumnMenuOpen = !isColumnMenuOpen"
+                        >
+                            <Columns3 class="size-4 shrink-0" aria-hidden="true" />
+                            <span class="hidden sm:inline">Kolom</span>
+                        </Button>
+                        <DropdownMenuContent align="end" class="max-h-72 w-64 overflow-y-auto">
+                            <p class="text-muted-foreground px-2 py-1.5 text-[11px]">
+                                Maksimal {{ ANSWER_COLUMN_LIMIT }} kolom field
+                            </p>
+                            <DropdownMenuItem
+                                v-for="key in tableAnswerKeys"
+                                :key="key"
+                                :disabled="
+                                    !selectedAnswerColumns.includes(key) &&
+                                    selectedAnswerColumns.length >= ANSWER_COLUMN_LIMIT
+                                "
+                                @select.prevent="toggleAnswerColumn(key)"
+                            >
+                                <Check
+                                    v-if="selectedAnswerColumns.includes(key)"
+                                    class="mr-2 size-4"
+                                    aria-hidden="true"
+                                />
+                                <span v-else class="mr-2 inline-block size-4" aria-hidden="true" />
+                                <span class="truncate">{{ humanizeKey(key) }}</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <!-- Unduhan jawaban: FileArchive mewakili paket ZIP, FileSpreadsheet mewakili CSV tabular. -->
                     <!-- Trigger native: toggle DropdownMenuTrigger tidak membuka menu di halaman ini, jadi status buka dikendalikan ref. -->
                     <DropdownMenu
@@ -796,7 +915,6 @@ function rejectLabel(submission: IFormSubmission): string {
                     ref="workspaceRef"
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"
-                    v-model:success-content="successContent"
                     v-model:closed-at="closedAt"
                     v-model:visible-for="visibleFor"
                     v-model:banner="bannerState"
@@ -806,8 +924,6 @@ function rejectLabel(submission: IFormSubmission): string {
                     :processing="settingsForm.processing || manualSaving"
                     @save="onSave"
                     @open-settings="activeTab = 'settings'"
-                    :autosave-status="showSaveState"
-                    @autosave-retry="showAutosave.retry"
                 >
                     <template #mobile-actions>
                         <div class="grid grid-cols-2 gap-2">
@@ -840,6 +956,7 @@ function rejectLabel(submission: IFormSubmission): string {
                         v-model:closed-at="closedAt"
                         v-model:visible-for="visibleFor"
                         v-model:form-metadata="formMetadata"
+                        v-model:success-content="successContent"
                         id-prefix="tab"
                         :field-errors="fieldErrors"
                         :visibility-options="FORM_VISIBILITY_OPTIONS"
@@ -995,7 +1112,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         Status review
                                     </TableHead>
                                     <TableHead
-                                        v-for="key in tableAnswerKeys"
+                                        v-for="key in visibleAnswerKeys"
                                         :key="key"
                                         class="bg-muted/30 text-muted-foreground h-11 min-w-[160px] px-5 text-[10px] font-semibold tracking-[0.14em] uppercase"
                                     >
@@ -1065,7 +1182,7 @@ function rejectLabel(submission: IFormSubmission): string {
                                         </Badge>
                                     </TableCell>
                                     <TableCell
-                                        v-for="key in tableAnswerKeys"
+                                        v-for="key in visibleAnswerKeys"
                                         :key="key"
                                         class="text-muted-foreground max-w-[220px] px-5 py-3.5 text-xs leading-relaxed"
                                     >

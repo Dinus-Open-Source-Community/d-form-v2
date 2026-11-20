@@ -389,6 +389,7 @@ onMounted(() => {
             v-model:closed-at="closedAt"
             v-model:visible-for="visibleFor"
             v-model:form-metadata="formMetadata"
+            v-model:success-content="successContent"
             id-prefix="create"
             :field-errors="fieldErrors"
             :sibling-forms="siblingForms ?? []"
@@ -433,7 +434,6 @@ onMounted(() => {
                 ref="workspaceRef"
                 v-model:form-title="formTitle"
                 v-model:form-description="formDescription"
-                v-model:success-content="successContent"
                 v-model:closed-at="closedAt"
                 v-model:visible-for="visibleFor"
                 v-model:banner="bannerState"
@@ -444,8 +444,6 @@ onMounted(() => {
                 :image-upload-url="builderImageUploadUrl"
                 @save="publishForm"
                 @open-settings="activeTab = 'settings'"
-                :autosave-status="autosaveStatus"
-                @autosave-retry="autosave.retry"
             />
         </FormBuilderEditorTabs>
     </div>

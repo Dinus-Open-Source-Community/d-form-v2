@@ -1,4 +1,5 @@
 import { readFieldMetadata } from '@/lib/formFieldMetadata';
+import { findElement } from '@/adapters/browser/domQuery';
 import {
     formFieldAcceptAttribute,
     formFieldAnswerKey,
@@ -18,6 +19,7 @@ import { useFormFillData } from '@/hooks/useFormFillData';
 import { useFormFillSubmit } from '@/hooks/useFormFillSubmit';
 import { useFormFillUpload } from '@/hooks/useFormFillUpload';
 import { useFormFillValidation } from '@/hooks/useFormFillValidation';
+import { nextTick, watch } from 'vue';
 import type { IFormFillPageEvent, IFormFillPageForm, TFormAccessStatus } from '@/types/form';
 
 export interface IFormFillPageOptions {
@@ -64,6 +66,40 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         memberSlots: props.memberSlots,
         isBlocked: data.isBlocked,
     });
+
+    let focusErrorCardOnNextValidationError = false;
+
+    /**
+     * Fokus ke kartu pertama yang punya error validasi (bukan ke input) supaya peserta
+     * langsung melihat bagian yang gagal tanpa keyboard muncul di mobile.
+     */
+    function focusFirstErrorCard(): void {
+        const errorCard = findElement('[data-field-error-card]');
+        if (errorCard === null) return;
+
+        errorCard.focus({ preventScroll: true });
+        errorCard.scrollIntoView({ block: 'center' });
+    }
+
+    /** Submit lewat jalur yang sama dengan `submitter`, sambil menandai bahwa error berikutnya harus difokuskan. */
+    function submit(): void {
+        if (data.isBlocked.value) return;
+
+        focusErrorCardOnNextValidationError = true;
+        submitter.submit();
+    }
+
+    watch(
+        () => data.answerForm.errors,
+        (errors) => {
+            if (!focusErrorCardOnNextValidationError) return;
+            if (Object.keys(errors).length === 0) return;
+
+            focusErrorCardOnNextValidationError = false;
+            void nextTick(() => focusFirstErrorCard());
+        },
+        { deep: true, flush: 'post' }
+    );
 
     function isBundleDuplicatable(field: IFormField): boolean {
         return isBundleDuplicatableField(field, props.registrationMode);
@@ -114,7 +150,7 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         filePreviewUrls: upload.filePreviewUrls,
         multiFilePreviewUrls: upload.multiFilePreviewUrls,
         fileAnswerName: data.fileAnswerName,
-        submit: submitter.submit,
+        submit,
         submitProgress: submitter.progress,
         cancelSubmit: submitter.cancel,
         fieldError: validation.fieldError,

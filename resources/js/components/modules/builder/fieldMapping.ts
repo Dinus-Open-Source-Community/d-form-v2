@@ -208,6 +208,17 @@ function preservedMeta(f: IBuilderField): TFormFieldMetadataBag {
     return cleaned;
 }
 
+/** Aturan format pilihan admin; disimpan di `metadata.rules.format` dan harus ikut terkirim. */
+function withInputFormat(rules: Record<string, unknown>, f: IBuilderField): Record<string, unknown> {
+    const raw = f.metadata?.rules;
+
+    if (raw === null || typeof raw !== 'object') return rules;
+
+    const format = (raw as Record<string, unknown>).format;
+
+    return typeof format === 'string' && format !== '' ? { ...rules, format } : rules;
+}
+
 function withMeta(f: IBuilderField, specific: Record<string, unknown>): Record<string, unknown> {
     return { ...preservedMeta(f), ...specific };
 }
@@ -250,7 +261,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'text',
                     placeholder: f.placeholder || '',
-                    rules: mergeTextRules(req, f),
+                    rules: withInputFormat(mergeTextRules(req, f), f),
                     builderType: 'short_text',
                 }),
             };
@@ -261,7 +272,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'email',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'email',
                 }),
             };
@@ -272,7 +283,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'tel',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'phone',
                 }),
             };
@@ -283,8 +294,41 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'number',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'number',
+                }),
+            };
+        case 'nik':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'nik',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'nik',
+                }),
+            };
+        case 'nim':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'nim',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'nim',
+                }),
+            };
+        case 'postal_code':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'postal_code',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'postal_code',
                 }),
             };
         case 'time':
@@ -449,6 +493,9 @@ function guessType(apiType: string, m: TFormFieldMetadataBag): string {
         if (m.type === 'email') return 'email';
         if (m.type === 'tel') return 'phone';
         if (m.type === 'number') return 'number';
+        if (m.type === 'nik') return 'nik';
+        if (m.type === 'nim') return 'nim';
+        if (m.type === 'postal_code') return 'postal_code';
         if (typeof m.imageUrl === 'string' || typeof m.caption === 'string') return 'image';
         return 'short_text';
     }

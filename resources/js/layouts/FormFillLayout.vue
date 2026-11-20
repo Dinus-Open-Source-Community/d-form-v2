@@ -53,7 +53,7 @@ function goBackToPreviousPage(): void {
                 </Button>
 
                 <Link :href="routes.home" class="hidden sm:block">
-                    <img :src="formFillLogoSrc" alt="DForm" class="h-9 w-auto select-none" width="160" height="40" />
+                    <img :src="formFillLogoSrc" alt="DForm" class="h-10 w-auto select-none" width="160" height="40" />
                 </Link>
             </div>
         </header>

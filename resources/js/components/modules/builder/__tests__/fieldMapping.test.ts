@@ -361,6 +361,57 @@ describe('upload field metadata', () => {
     });
 });
 
+describe('subtype identitas: nik, nim, kode pos', () => {
+    const IDENTITY_TYPES = ['nik', 'nim', 'postal_code'] as const;
+
+    it('maps each subtype to an input field with matching metadata type and builderType', () => {
+        for (const type of IDENTITY_TYPES) {
+            const [backend] = toBackendFields([builderField({ type })]);
+
+            expect(backend?.type).toBe('input');
+            expect(backend?.metadata).toMatchObject({ type, builderType: type });
+        }
+    });
+
+    it('hydrates a saved metadata type back into the matching builder type', () => {
+        for (const type of IDENTITY_TYPES) {
+            const field = fromBackendField({
+                id: 'bf-identity',
+                type: 'input',
+                label: 'Field',
+                description: null,
+                name: 'field_1',
+                order: 1,
+                metadata: { type },
+            });
+
+            expect(field.type).toBe(type);
+        }
+    });
+
+    it('keeps the explicit input format when serializing a text field', () => {
+        const [backend] = toBackendFields([
+            builderField({ type: 'short_text', required: true, metadata: { rules: { format: 'tel' } } }),
+        ]);
+
+        expect(backend?.metadata).toMatchObject({ rules: { format: 'tel', required: true } });
+    });
+
+    it('keeps the explicit input format when serializing a number field', () => {
+        const [backend] = toBackendFields([
+            builderField({ type: 'number', metadata: { rules: { format: 'number' } } }),
+        ]);
+
+        expect(backend?.metadata).toMatchObject({ rules: { format: 'number' } });
+    });
+
+    it('keeps the required rule when serializing an identity subtype', () => {
+        const [backend] = toBackendFields([builderField({ type: 'nik', required: true })]);
+
+        expect(backend?.metadata).toMatchObject({ type: 'nik', rules: { required: true } });
+    });
+});
+
 function backendUploadField(): IBackendField {
     return {
         id: 'upload-field',

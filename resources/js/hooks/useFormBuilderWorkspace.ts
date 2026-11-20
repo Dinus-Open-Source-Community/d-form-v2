@@ -37,7 +37,6 @@ export interface IFormBuilderWorkspaceModels {
     formFields: Ref<IBuilderField[]>;
     formMetadata: Ref<IFormRegistrationMetadata>;
     canvasScrollContainer: Ref<HTMLElement | null>;
-    successContent?: Ref<string>;
 }
 
 /** Kategori palette terbuka. `null` = semua tertutup (single-expand). */
@@ -119,6 +118,36 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         resetCanvasScroll();
     }
 
+    /** Ganti nama bagian; metadata ikut tersimpan lewat kanal settings. */
+    function renameSection(sectionId: string, title: string): void {
+        if (sectionId === '') return;
+
+        const configured = ensureSections();
+        const next = configured.map((section) => (section.id === sectionId ? { ...section, title } : section));
+
+        models.formMetadata.value = { ...models.formMetadata.value, sections: next };
+    }
+
+    /** Hapus satu bagian beserta field di dalamnya; bagian lain tidak berubah. */
+    function removeSection(sectionId: string): void {
+        const configured = ensureSections();
+
+        if (configured.length <= 1) return;
+
+        const removedIndex = configured.findIndex((section) => section.id === sectionId);
+
+        if (removedIndex === -1) return;
+
+        const nextSections = configured.filter((section) => section.id !== sectionId);
+
+        models.formMetadata.value = { ...models.formMetadata.value, sections: nextSections };
+        models.formFields.value = models.formFields.value.filter((field) => field.metadata?.sectionId !== sectionId);
+
+        currentSectionId.value =
+            nextSections[Math.max(0, removedIndex - 1)]?.id ?? nextSections[0]?.id ?? DEFAULT_FORM_SECTION_ID;
+        selectedFieldId.value = null;
+    }
+
     function goToSection(index: number): void {
         const target = sections.value[index];
         if (!target) return;
@@ -163,20 +192,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         { immediate: true }
     );
 
-    /** Zona "Pesan setelah submit" (ala Google Forms). `true` = canvas menampilkan zona (dipicu drag item palette). */
-    const showSuccessZone = ref(false);
-
-    // Edit form tersimpan: konten sudah ada saat mount → tampilkan zona.
-    const initialSuccess = models.successContent?.value ?? '';
-    if (
-        initialSuccess
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/gi, ' ')
-            .trim() !== ''
-    ) {
-        showSuccessZone.value = true;
-    }
-
     const filteredCategories = computed(() => {
         const q = searchQuery.value.toLowerCase().trim();
         if (!q) return categories.value;
@@ -219,11 +234,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         Object.assign(models.banner.value, v);
     }
 
-    function hideSuccessZone(): void {
-        showSuccessZone.value = false;
-        if (models.successContent) models.successContent.value = '';
-    }
-
     const fieldList = createFormBuilderFieldList<IBuilderField>({
         store: {
             read: (): IBuilderField[] => models.formFields.value,
@@ -237,13 +247,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     });
 
     function addField(template: IFormBuilderPaletteField, openEditorAfter = false): void {
-        // Item palette "Pesan setelah submit" = trigger zona konfirmasi, bukan IBuilderField.
-        if (template.type === 'confirmation') {
-            showSuccessZone.value = true;
-            showAddSheet.value = false;
-            if (openEditorAfter) showMobileEditor.value = true;
-            return;
-        }
         const nf = fieldList.appendField(template.type, template.label);
         selectedFieldId.value = nf.id;
         inspectorMode.value = 'field';
@@ -368,11 +371,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         if (!raw) return;
         const data = parseFormBuilderDragPayload(raw);
         if (data === null) return;
-        // Drop item "Pesan setelah submit" = trigger zona konfirmasi di akhir canvas, bukan IBuilderField.
-        if (data.isNew && data.type === 'confirmation') {
-            showSuccessZone.value = true;
-            return;
-        }
         const insertAt =
             dropIndex < 0
                 ? globalInsertIndex(activeSectionId.value, currentSectionFields.value.length)
@@ -456,7 +454,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         searchQuery,
         filteredCategories,
         openCategoryName,
-        showSuccessZone,
         selectedFieldId,
         selectedField,
         dropIndicatorIndex,
@@ -472,6 +469,8 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         currentSectionFields,
         currentSectionIndex,
         addSection,
+        renameSection,
+        removeSection,
         goToSection,
         bannerPreviewSrc,
         validationIssues,
@@ -485,7 +484,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         updateField,
         moveField,
         toggleCategory,
-        hideSuccessZone,
         onGapDragEnter,
         onCanvasDragEnter,
         onCanvasDragOver,

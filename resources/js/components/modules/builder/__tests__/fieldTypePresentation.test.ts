@@ -8,13 +8,19 @@ import {
 
 describe('fieldTypePresentation', () => {
     it('covers every builder field type exactly once', () => {
-        expect(Object.keys(FIELD_TYPE_META)).toHaveLength(17);
+        expect(Object.keys(FIELD_TYPE_META)).toHaveLength(20);
     });
 
     it('resolves a known type with its canonical label and tone', () => {
         expect(resolveFieldTypeMeta('email')).toMatchObject({ label: 'Email', tone: 'primary' });
         expect(resolveFieldTypeMeta('rating')).toMatchObject({ label: 'Rating', tone: 'warning' });
         expect(resolveFieldTypeMeta('image_upload')).toMatchObject({ label: 'Unggah gambar', tone: 'success' });
+    });
+
+    it('resolves the identity text subtypes with their labels', () => {
+        expect(resolveFieldTypeMeta('nik')).toMatchObject({ label: 'NIK', tone: 'primary' });
+        expect(resolveFieldTypeMeta('nim')).toMatchObject({ label: 'NIM', tone: 'primary' });
+        expect(resolveFieldTypeMeta('postal_code')).toMatchObject({ label: 'Kode Pos', tone: 'primary' });
     });
 
     it('falls back to the short text meta for unknown types', () => {

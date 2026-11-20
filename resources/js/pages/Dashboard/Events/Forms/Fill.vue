@@ -59,7 +59,6 @@ const invitationActionHref =
             :form-description="props.form.description ?? ''"
             :form-has-description="ctx.formHasDescription"
             :form-banner-image-src="ctx.formBannerImageSrc"
-            :form-banner-caption="ctx.formBannerCaption"
         />
 
         <FormFillBlockedCard

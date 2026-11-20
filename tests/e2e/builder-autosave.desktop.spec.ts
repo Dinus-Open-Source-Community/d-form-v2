@@ -81,7 +81,7 @@ async function addShortTextField(page: Page): Promise<void> {
 
 /** Tunggu autosave selesai: status `Tersimpan` baru muncul setelah POST fields + PUT form sukses. */
 async function waitForSaved(page: Page, timeout: number = 60_000): Promise<void> {
-    await expect(page.getByText(AUTOSAVE_SAVED_TEXT, { exact: true }).first()).toBeVisible({ timeout });
+    await expect(page.getByText(AUTOSAVE_SAVED_TEXT, { exact: true })).toBeVisible({ timeout });
 }
 
 /** Reload penuh; retry menyerap ERR_ABORTED transien saat navigasi bertabrakan dengan request in-flight. */

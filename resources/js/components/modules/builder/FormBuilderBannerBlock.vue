@@ -165,7 +165,7 @@ onUnmounted(() => {
             @change="onPicked"
         />
 
-        <div v-if="showCompactRow" class="flex items-center gap-3">
+        <div v-if="showCompactRow" class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <img
                 :src="previewSrc"
                 alt="Pratinjau banner form"
@@ -173,7 +173,7 @@ onUnmounted(() => {
                 width="192"
                 height="64"
                 decoding="async"
-                class="border-border bg-muted h-16 w-32 shrink-0 rounded-lg border object-cover sm:w-48"
+                class="border-border bg-muted h-24 w-full shrink-0 rounded-lg border object-cover sm:h-16 sm:w-32 md:w-48"
             />
             <div class="min-w-0 flex-1">
                 <p

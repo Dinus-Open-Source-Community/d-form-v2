@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, type UnwrapNestedRefs } from 'vue';
-import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { computed, onUnmounted, ref, type UnwrapNestedRefs } from 'vue';
+import { CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,8 +8,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { StyledSelect } from '@/components/ui/styled-select';
 import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import FormFillUploadField from '@/components/modules/dashboard/FormFillUploadField.vue';
-import { Star } from 'lucide-vue-next';
+import { Info, Star } from 'lucide-vue-next';
+import TimeSelect24 from '@/components/core/TimeSelect24.vue';
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
+import {
+    FIELD_INPUT_PATTERNS,
+    isFieldInputSubtype,
+    isValidFieldInput,
+    sanitizeFieldInput,
+    type TFieldInputSubtype,
+} from '@/lib/fieldInputPatterns';
 import { formFillSlotUi } from '@/lib/formFillSlotUi';
 import { readMetaBoolean } from '@/lib/formFieldMetadata';
 import { DEFAULT_MULTIPLE_UPLOAD_MAX_FILES, DEFAULT_MULTIPLE_UPLOAD_MAX_TOTAL_SIZE_KB } from '@/lib/uploadValidation';
@@ -150,6 +158,121 @@ function setTextAnswer(name: string, value: string | number): void {
     props.ctx.setAnswer(name, String(value));
 }
 
+/**
+ * Pemetaan dari tipe builder. Dipakai lebih dulu karena field lama menyimpan
+ * `metadata.type` generik (`text`) walau jenis sebenarnya `phone` atau `number`.
+ */
+const STRICT_SUBTYPE_BY_BUILDER_TYPE: Readonly<Record<string, TFieldInputSubtype>> = {
+    number: 'number',
+    phone: 'tel',
+    email: 'email',
+    nik: 'nik',
+    nim: 'nim',
+    postal_code: 'postal_code',
+};
+
+/** Subtype yang punya pola ketat; selain ini input memakai perilaku lama. */
+function explicitFormat(field: IFormField): TFieldInputSubtype | null {
+    const rules = field.metadata?.rules;
+
+    if (rules === null || typeof rules !== 'object') return null;
+
+    const format = (rules as Record<string, unknown>).format;
+
+    return typeof format === 'string' && isFieldInputSubtype(format) ? format : null;
+}
+
+const strictSubtype = computed<TFieldInputSubtype | null>(() => {
+    const explicit = explicitFormat(props.field);
+
+    if (explicit !== null) return explicit;
+
+    const byBuilderType = STRICT_SUBTYPE_BY_BUILDER_TYPE[props.ctx.builderType(props.field)];
+
+    if (byBuilderType !== undefined) return byBuilderType;
+
+    const subtype = String(props.ctx.getInputSubtype(props.field));
+
+    return isFieldInputSubtype(subtype) ? subtype : null;
+});
+
+const strictPattern = computed(() => (strictSubtype.value === null ? null : FIELD_INPUT_PATTERNS[strictSubtype.value]));
+
+/** Petunjuk aturan tim dan paket ditampilkan ke peserta, bukan hanya di builder. */
+const ruleHints = computed<string[]>(() => {
+    const hints: string[] = [];
+
+    if (props.field.is_append === true) {
+        hints.push('Anggota tim bisa mengubah field ini saat konfirmasi');
+    }
+
+    if (props.field.metadata?.duplicatable === true) {
+        hints.push('Diulang untuk setiap anggota paket');
+    }
+
+    return hints;
+});
+
+const strictInvalid = computed<boolean>(() => {
+    if (strictSubtype.value === null) return false;
+
+    return !isValidFieldInput(strictSubtype.value, textAnswer(props.storageKey));
+});
+
+/** Karakter yang tidak cocok dibuang sebelum masuk model, bukan hanya ditolak saat submit. */
+const blockedNotice = ref(false);
+let blockedNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Tampilkan alasan penolakan sesaat, karena karakter yang dibuang tidak terlihat oleh pengguna. */
+function flagBlockedCharacter(): void {
+    blockedNotice.value = true;
+
+    if (blockedNoticeTimer !== null) clearTimeout(blockedNoticeTimer);
+
+    blockedNoticeTimer = setTimeout((): void => {
+        blockedNotice.value = false;
+    }, 2200);
+}
+
+/**
+ * Dipanggil dari event input native, bukan dari v-model: nilai DOM dipaksa sama dengan
+ * hasil sanitasi. Tanpa ini, ketikan yang seluruhnya dibuang (mis. "asas") tidak mengubah
+ * model sehingga DOM tetap menampilkan huruf sementara payload terkirim kosong.
+ */
+function onStrictInputEvent(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const subtype = strictSubtype.value;
+
+    if (subtype === null) {
+        setTextAnswer(props.storageKey, input.value);
+
+        if (input.value.trim() !== '') {
+            props.ctx.answerForm.clearErrors(props.storageKey);
+        }
+
+        return;
+    }
+
+    const sanitized = sanitizeFieldInput(subtype, input.value);
+
+    if (sanitized !== input.value) {
+        input.value = sanitized;
+        flagBlockedCharacter();
+    }
+
+    setTextAnswer(props.storageKey, sanitized);
+
+    // Error server lama harus hilang begitu isian menjadi sah, supaya border merah
+    // dan pesan required tidak tertinggal di kartu yang sudah diperbaiki pengguna.
+    if (sanitized !== '' && isValidFieldInput(subtype, sanitized)) {
+        props.ctx.answerForm.clearErrors(props.storageKey);
+    }
+}
+
+onUnmounted((): void => {
+    if (blockedNoticeTimer !== null) clearTimeout(blockedNoticeTimer);
+});
+
 function fillReady(): boolean {
     return props.imageUploadFillReadyFn(props.storageKey);
 }
@@ -193,7 +316,10 @@ async function pickFiles(files: File[]): Promise<void> {
 
 <template>
     <CardHeader :class="[ui.headerBorderClass, ui.cardHeaderSpacingClass]">
-        <CardTitle class="text-foreground flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em]">
+        <label
+            :for="storageKey"
+            class="text-foreground flex flex-col items-start gap-0.5 text-sm font-semibold tracking-[-0.005em]"
+        >
             <span class="flex items-start gap-1">
                 {{ field.label }}
                 <span v-if="ctx.isRequired(field)" class="text-destructive">*</span>
@@ -201,29 +327,51 @@ async function pickFiles(files: File[]): Promise<void> {
             <span v-if="ui.showSubtitle" class="text-muted-foreground text-xs font-normal">{{
                 participationSlot.title
             }}</span>
-        </CardTitle>
+        </label>
         <p
             v-if="ui.showDescription"
             class="text-muted-foreground text-xs"
             :class="variant === 'bundleParticipant' ? 'mt-0 leading-snug' : 'leading-relaxed'"
             v-html="descriptionHtml"
         />
+        <div v-if="ruleHints.length > 0" class="mt-1 space-y-1">
+            <p
+                v-for="hint in ruleHints"
+                :key="hint"
+                class="text-muted-foreground flex items-start gap-1.5 text-[11px] leading-snug"
+            >
+                <Info class="mt-px size-3 shrink-0" aria-hidden="true" />
+                <span class="min-w-0">{{ hint }}</span>
+            </p>
+        </div>
     </CardHeader>
     <CardContent :class="ui.cardContentSpacingClass">
         <template
             v-if="
-                ['short_text', 'email', 'phone', 'number', 'time', 'input'].includes(ctx.builderType(field)) &&
-                !ctx.isMultipleSelect(field)
+                ['short_text', 'email', 'phone', 'number', 'nik', 'nim', 'postal_code', 'input'].includes(
+                    ctx.builderType(field)
+                ) && !ctx.isMultipleSelect(field)
             "
         >
             <Input
                 :id="storageKey"
-                :type="ctx.getInputSubtype(field)"
+                :type="strictSubtype === 'email' ? 'email' : strictSubtype === 'tel' ? 'tel' : 'text'"
+                :inputmode="strictPattern?.inputMode"
                 :placeholder="ctx.getPlaceholder(field)"
-                :maxlength="ctx.maxLengthForField(field) ?? undefined"
+                :maxlength="ctx.maxLengthForField(field) ?? strictPattern?.maxLength"
+                :aria-invalid="strictInvalid"
+                :aria-describedby="strictInvalid ? `${storageKey}-pattern-error` : undefined"
                 :model-value="textAnswer(storageKey)"
-                @update:model-value="setTextAnswer(storageKey, $event)"
+                @input="onStrictInputEvent"
             />
+            <p
+                v-if="strictInvalid || blockedNotice"
+                :id="`${storageKey}-pattern-error`"
+                class="text-destructive mt-1 text-xs"
+                aria-live="polite"
+            >
+                {{ strictPattern?.message }}
+            </p>
             <p
                 v-if="ctx.maxLengthForField(field)"
                 class="text-muted-foreground mt-1 text-right text-[10px] tabular-nums"
@@ -276,6 +424,12 @@ async function pickFiles(files: File[]): Promise<void> {
                 {{ textAnswer(storageKey).length }} / {{ ctx.maxLengthForField(field) }}
             </p>
         </template>
+
+        <TimeSelect24
+            v-else-if="ctx.builderType(field) === 'time'"
+            :model-value="textAnswer(storageKey)"
+            @update:model-value="setTextAnswer(storageKey, $event)"
+        />
 
         <DatePicker
             v-else-if="ctx.builderType(field) === 'date' || field.type === 'datePicker'"
@@ -341,6 +495,7 @@ async function pickFiles(files: File[]): Promise<void> {
             :model-value="textAnswer(storageKey)"
             :options="ctx.getOptionRows(field)"
             :placeholder="ctx.getPlaceholder(field) || 'Select an option'"
+            :aria-label="field.label"
             class="h-11 min-h-11"
             @update:model-value="setTextAnswer(storageKey, $event)"
         />
@@ -390,12 +545,5 @@ async function pickFiles(files: File[]): Promise<void> {
                 Lihat ukuran penuh
             </button>
         </div>
-
-        <p
-            v-if="!isFileField && ctx.fieldError(storageKey)"
-            :class="[ui.errorSpacingClass, 'text-destructive text-xs font-medium']"
-        >
-            {{ ctx.fieldError(storageKey) }}
-        </p>
     </CardContent>
 </template>

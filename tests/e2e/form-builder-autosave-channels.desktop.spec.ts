@@ -136,7 +136,7 @@ test.describe('autosave dua kanal', () => {
                 }
             }
 
-            await expect(page.getByTestId('autosave-status').first()).toContainText('Tersimpan', { timeout: 20_000 });
+            await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan', { timeout: 20_000 });
 
             const fieldsRequests = requests.filter((entry) => entry.path.endsWith('/fields'));
 

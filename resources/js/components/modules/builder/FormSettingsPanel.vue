@@ -1,14 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Input } from '@/components/ui/input';
 import { SplitDateTimeField } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { Switch } from '@/components/ui/switch';
+import DeferredRender from '@/components/core/DeferredRender.vue';
+import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 import type { TFormPurpose, IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
 
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const formMetadata = defineModel<IFormRegistrationMetadata>('formMetadata', { required: true });
+const successContent = defineModel<string>('successContent', { required: true });
+
+/** Teks bermakna = ada isi di luar tag HTML dan `&nbsp;`. */
+function hasMeaningfulHtmlText(html: string): boolean {
+    return (
+        html
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .trim() !== ''
+    );
+}
+
+/** Toggle lokal: hidup bila sudah ada pesan tersimpan, dan mati berarti konten dikosongkan. */
+const successEnabled = ref<boolean>(hasMeaningfulHtmlText(successContent.value));
+
+function onSuccessToggle(value: boolean): void {
+    successEnabled.value = value;
+
+    if (!value) {
+        successContent.value = '';
+    }
+}
 
 const props = withDefaults(
     defineProps<{
@@ -184,6 +209,31 @@ function vString(v: unknown): string {
                     @update:model-value="onRegistrationModeSelect"
                 />
             </div>
+
+            <div class="border-border space-y-3 border-t pt-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-success-toggle`" class="text-sm font-medium">
+                            Pesan setelah submit
+                        </Label>
+                        <p class="text-muted-foreground text-xs leading-snug">
+                            Tampil ke peserta setelah form terkirim. Bila nonaktif, peserta melihat pesan bawaan.
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-success-toggle`"
+                        :model-value="successEnabled"
+                        aria-label="Aktifkan pesan setelah submit"
+                        @update:model-value="onSuccessToggle"
+                    />
+                </div>
+                <div v-if="successEnabled" class="border-border bg-background rounded-xl border">
+                    <DeferredRender min-height="12rem">
+                        <LazyTipTapEditor v-model="successContent" />
+                    </DeferredRender>
+                </div>
+            </div>
+
             <div v-if="isTeamStyleRegistration" class="grid gap-4 sm:grid-cols-2">
                 <div class="space-y-2">
                     <Label :for="`${idPrefix}-max-team`" class="text-sm font-medium">Max team size</Label>

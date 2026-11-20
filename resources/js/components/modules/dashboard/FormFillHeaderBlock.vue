@@ -4,28 +4,23 @@ defineProps<{
     formDescription: string;
     formHasDescription: boolean;
     formBannerImageSrc: string;
-    formBannerCaption: string;
 }>();
 </script>
 
 <template>
     <div>
         <div
-            v-if="formBannerImageSrc.trim() || formBannerCaption.trim()"
+            v-if="formBannerImageSrc.trim()"
             class="border-border bg-card mx-auto mb-5 w-full max-w-4xl overflow-hidden rounded-2xl border shadow-sm"
         >
             <img
                 v-if="formBannerImageSrc.trim()"
                 :src="formBannerImageSrc"
                 :alt="formTitle"
+                width="1200"
+                height="400"
                 class="mx-auto max-h-72 w-full object-contain"
             />
-            <p
-                v-if="formBannerCaption"
-                class="border-border text-muted-foreground border-t px-5 py-4 text-sm leading-relaxed"
-            >
-                {{ formBannerCaption }}
-            </p>
         </div>
 
         <div class="border-border bg-card mb-5 rounded-2xl border p-4 text-center shadow-sm">

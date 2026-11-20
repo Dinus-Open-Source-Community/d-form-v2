@@ -6,9 +6,12 @@ import {
     CircleDot,
     Clock,
     Hash,
+    GraduationCap,
     Heading as HeadingIcon,
+    IdCard,
     ImagePlus,
     Mail,
+    MapPin,
     Minus,
     Phone,
     SquareCheck,
@@ -34,7 +37,7 @@ export interface IFieldTypeMeta {
 const SHORT_TEXT_META: IFieldTypeMeta = { icon: Type, label: 'Teks pendek', tone: 'neutral' };
 
 /**
- * Satu sumber label/ikon/tone untuk 17 tipe builder.
+ * Satu sumber label/ikon/tone untuk 20 tipe builder.
  * Kartu kanvas dan drawer editor membaca map ini agar keduanya tidak pernah berbeda.
  */
 export const FIELD_TYPE_META: Record<string, IFieldTypeMeta> = {
@@ -43,6 +46,9 @@ export const FIELD_TYPE_META: Record<string, IFieldTypeMeta> = {
     email: { icon: Mail, label: 'Email', tone: 'primary' },
     phone: { icon: Phone, label: 'Telepon', tone: 'primary' },
     number: { icon: Hash, label: 'Angka', tone: 'primary' },
+    nik: { icon: IdCard, label: 'NIK', tone: 'primary' },
+    nim: { icon: GraduationCap, label: 'NIM', tone: 'primary' },
+    postal_code: { icon: MapPin, label: 'Kode Pos', tone: 'primary' },
     dropdown: { icon: ChevronDown, label: 'Dropdown', tone: 'primary' },
     checkbox: { icon: SquareCheck, label: 'Centang', tone: 'primary' },
     radio: { icon: CircleDot, label: 'Pilihan tunggal', tone: 'primary' },

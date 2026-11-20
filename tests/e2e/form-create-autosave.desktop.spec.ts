@@ -199,7 +199,7 @@ test.describe('create form: autosave draf + publish', () => {
             await fillFormHeader(page, 'Form Autosave E2E');
 
             // Autosave menulis header + field ke draf yang sama.
-            await expect(page.getByTestId('autosave-status').first()).toContainText('Tersimpan');
+            await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan');
             await expect
                 .poll((): string => readForms(owned.eventId)[0]?.title ?? '', { timeout: 20_000 })
                 .toBe('Form Autosave E2E');
@@ -338,7 +338,7 @@ test.describe('create form: autosave draf + publish', () => {
             await waitForHydration(page);
 
             await addShortTextField(page);
-            await expect(page.getByTestId('autosave-status').first()).toContainText('Tersimpan', { timeout: 20_000 });
+            await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan', { timeout: 20_000 });
 
             // Kanal fields murni: satu POST /fields, tanpa settings PUT.
             expect(fieldPosts).toHaveLength(1);

@@ -4,8 +4,14 @@ import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldM
 import { FIELD_TONE_CHIP_CLASS, resolveFieldTypeMeta } from '@/components/modules/builder/fieldTypePresentation';
 import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import {
+    FIELD_INPUT_PATTERNS,
+    isFieldInputSubtype,
+    type IFieldInputPattern,
+    type TFieldInputSubtype,
+} from '@/lib/fieldInputPatterns';
 import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
-import { ChevronDown, Copy, ImagePlus, Trash2, Upload } from 'lucide-vue-next';
+import { ChevronDown, Copy, ImagePlus, Info, Trash2, Upload } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
@@ -40,9 +46,60 @@ function canvasPlaceholder(f: IBuilderField): string {
         email: 'nama@email.com',
         phone: 'Nomor WhatsApp / telepon',
         number: 'Masukkan angka',
+        nik: 'Masukkan NIK',
+        nim: 'Masukkan NIM',
+        postal_code: 'Masukkan kode pos',
     };
     return byType[f.type] ?? 'Ketik di sini…';
 }
+
+/** Subtype identitas berdigit: pratinjau memakai aturan input yang sama dengan form isian. */
+const IDENTITY_FIELD_TYPES: readonly TFieldInputSubtype[] = ['nik', 'nim', 'postal_code'];
+
+/**
+ * Batas dan mode keyboard diambil dari `FIELD_INPUT_PATTERNS` (sumber yang sama dengan
+ * form isian). Teks petunjuk di bawahnya versi ringkas untuk kartu kanvas.
+ */
+const IDENTITY_FORMAT_HINTS: Partial<Record<TFieldInputSubtype, string>> = {
+    nik: '16 angka',
+    nim: '5 sampai 20 angka',
+    postal_code: '5 angka',
+};
+
+const identitySubtype = computed((): TFieldInputSubtype | null => {
+    const type: string = props.field.type;
+    if (!isFieldInputSubtype(type)) return null;
+
+    return IDENTITY_FIELD_TYPES.includes(type) ? type : null;
+});
+
+const identityPattern = computed((): IFieldInputPattern | null =>
+    identitySubtype.value === null ? null : FIELD_INPUT_PATTERNS[identitySubtype.value]
+);
+
+const identityHint = computed((): string => {
+    const subtype = identitySubtype.value;
+
+    return subtype === null ? '' : (IDENTITY_FORMAT_HINTS[subtype] ?? '');
+});
+
+const maxLengthMarker = computed((): number | null => {
+    const raw = props.field.metadata?.maxLength;
+    const parsed = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+});
+
+/** Penanda aturan pada kartu: satu baris muted per konsekuensi, bukan badge. */
+const ruleMarkers = computed((): string[] => {
+    const markers: string[] = [];
+
+    if (maxLengthMarker.value !== null) markers.push(`Maks ${maxLengthMarker.value} karakter`);
+    if (props.field.is_append === true) markers.push('Anggota tim bisa mengubah field ini saat konfirmasi');
+    if (props.field.metadata?.duplicatable === true) markers.push('Diulang untuk setiap anggota paket');
+
+    return markers;
+});
 
 const filledStars = computed<number>(() => {
     const raw = props.field.metadata?.maxStars;
@@ -64,7 +121,7 @@ function choiceImageSrc(entry: IFieldOptionEntry): string | undefined {
     return u ? normalizePublicStorageUrl(u) : undefined;
 }
 
-/** Display-only image block: storage path / URL / blob preview → <img> src. */
+/** Blok gambar display-only: path storage / URL / pratinjau blob menjadi sumber gambar. */
 function builderImageSrc(f: IBuilderField): string {
     const raw = f.metadata?.imageUrl;
     return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : '';
@@ -84,7 +141,7 @@ function builderImageAlt(f: IBuilderField): string {
 <template>
     <div
         data-testid="field-card"
-        class="group bg-card relative isolate rounded-xl border transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        class="group bg-card relative isolate rounded-xl border shadow-sm transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
         :class="
             isSelected
                 ? 'border-primary/60 bg-primary/[0.03] ring-primary/20 ring-1'
@@ -154,6 +211,20 @@ function builderImageAlt(f: IBuilderField): string {
                         class="bg-muted/50 rounded-lg px-3.5 py-2.5"
                     >
                         <span class="text-muted-foreground text-sm">{{ canvasPlaceholder(field) }}</span>
+                    </div>
+
+                    <div v-else-if="identityPattern" class="bg-muted/50 rounded-lg px-3.5 py-2.5">
+                        <input
+                            type="text"
+                            :inputmode="identityPattern.inputMode"
+                            :maxlength="identityPattern.maxLength"
+                            :placeholder="canvasPlaceholder(field)"
+                            readonly
+                            tabindex="-1"
+                            aria-hidden="true"
+                            class="text-muted-foreground placeholder:text-muted-foreground/80 w-full cursor-default bg-transparent text-sm outline-none"
+                        />
+                        <p class="text-muted-foreground/80 mt-1 text-[11px]">{{ identityHint }}</p>
                     </div>
 
                     <div v-else-if="field.type === 'long_text'" class="bg-muted/50 rounded-lg px-3.5 py-2.5">
@@ -341,6 +412,17 @@ function builderImageAlt(f: IBuilderField): string {
                     <div v-else-if="field.type === 'divider'" class="py-1">
                         <hr class="app-divider" />
                     </div>
+                </div>
+
+                <div v-if="ruleMarkers.length > 0" class="space-y-1">
+                    <p
+                        v-for="marker in ruleMarkers"
+                        :key="marker"
+                        class="text-muted-foreground flex items-start gap-1.5 text-[11px] leading-snug"
+                    >
+                        <Info class="mt-px size-3 shrink-0" aria-hidden="true" />
+                        <span class="min-w-0">{{ marker }}</span>
+                    </p>
                 </div>
             </div>
         </div>

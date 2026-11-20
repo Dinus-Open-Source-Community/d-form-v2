@@ -16,8 +16,8 @@ describe('formFillSlotUi', () => {
             showSubtitle: true,
             showDescription: true,
             headerBorderClass: '',
-            cardHeaderSpacingClass: 'gap-1 pb-1.5 pt-3',
-            cardContentSpacingClass: 'pb-3 pt-0',
+            cardHeaderSpacingClass: 'gap-2 pt-3 pb-1.5',
+            cardContentSpacingClass: 'pb-2.5 pt-0',
             errorSpacingClass: 'mt-1.5',
         });
     });

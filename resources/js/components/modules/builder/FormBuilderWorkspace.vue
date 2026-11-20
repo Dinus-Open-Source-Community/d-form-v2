@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import type { IBuilderField } from '@/types/form-builder';
 import type { IFormRegistrationMetadata } from '@/types/form';
-import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import { useFormBuilderWorkspace } from '@/hooks/useFormBuilderWorkspace';
 import FormBuilderPalettePanel from './FormBuilderPalettePanel.vue';
 import FormBuilderCanvasBuildView from './FormBuilderCanvasBuildView.vue';
@@ -21,8 +20,6 @@ const props = withDefaults(
         fieldErrors?: Partial<Record<'title' | 'description', string>>;
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
-        /** Status autosave halaman, ditampilkan di kartu header builder. */
-        autosaveStatus?: TAutosaveStatus;
     }>(),
     {
         processing: false,
@@ -35,12 +32,10 @@ const props = withDefaults(
 const emit = defineEmits<{
     save: [];
     openSettings: [];
-    autosaveRetry: [];
 }>();
 
 const formTitle = defineModel<string>('formTitle', { required: true });
 const formDescription = defineModel<string>('formDescription', { required: true });
-const successContent = defineModel<string>('successContent', { required: true });
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const banner = defineModel<IFormBannerState>('banner', { required: true });
@@ -59,7 +54,6 @@ const wb = reactive(
             formFields,
             formMetadata,
             canvasScrollContainer,
-            successContent,
         },
         { onSave: () => emit('save') }
     )
@@ -119,9 +113,7 @@ defineExpose({
                 <FormBuilderCanvasBuildView
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"
-                    v-model:success-content="successContent"
                     v-model:banner="banner"
-                    :show-success-zone="wb.showSuccessZone"
                     :banner-preview-src="wb.bannerPreviewSrc"
                     :title-error="fieldErrors.title"
                     :description-error="fieldErrors.description"
@@ -134,9 +126,6 @@ defineExpose({
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
                     :banner-upload-url="imageUploadUrl"
-                    :autosave-status="autosaveStatus"
-                    @autosave-retry="emit('autosaveRetry')"
-                    @remove="wb.hideSuccessZone"
                     @canvas-drag-enter="wb.onCanvasDragEnter"
                     @canvas-drag-over="wb.onCanvasDragOver"
                     @canvas-drag-leave="wb.onCanvasDragLeave"
@@ -151,6 +140,8 @@ defineExpose({
                     @move-field="wb.moveField"
                     @open-add-sheet="wb.showAddSheet = true"
                     @add-section="wb.addSection"
+                    @rename-section="wb.renameSection"
+                    @remove-section="wb.removeSection"
                     @go-to-section="wb.goToSection"
                 />
             </main>

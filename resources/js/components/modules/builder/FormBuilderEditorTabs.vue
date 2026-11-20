@@ -15,6 +15,7 @@ const activeTab = defineModel<'editor' | 'settings'>('activeTab', { required: tr
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const formMetadata = defineModel<IFormRegistrationMetadata>('formMetadata', { required: true });
+const successContent = defineModel<string>('successContent', { required: true });
 
 const props = withDefaults(
     defineProps<{
@@ -74,6 +75,7 @@ function toggleVisibility(value: string, checked: boolean): void {
                     v-model:closed-at="closedAt"
                     v-model:visible-for="visibleFor"
                     v-model:form-metadata="formMetadata"
+                    v-model:success-content="successContent"
                     :id-prefix="props.idPrefix"
                     :field-errors="props.fieldErrors"
                     :visibility-options="FORM_VISIBILITY_OPTIONS"

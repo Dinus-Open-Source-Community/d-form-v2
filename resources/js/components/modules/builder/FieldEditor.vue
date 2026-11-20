@@ -23,11 +23,12 @@ import {
 import BuilderImageUploadCard from '@/components/modules/builder/BuilderImageUploadCard.vue';
 import { FIELD_TONE_CHIP_CLASS, resolveFieldTypeMeta } from '@/components/modules/builder/fieldTypePresentation';
 import { Switch } from '@/components/ui/switch';
+import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, X } from 'lucide-vue-next';
+import { Info, Plus, X } from 'lucide-vue-next';
 
 const props = withDefaults(
     defineProps<{
@@ -48,6 +49,48 @@ const config = computed(() => resolveFieldTypeMeta(props.field.type));
 function update<K extends keyof IBuilderField>(key: K, value: IBuilderField[K]) {
     emit('update:field', { ...props.field, [key]: value });
 }
+/** Pilihan format isian; satu daftar dengan pola yang dipakai halaman isi dan backend. */
+const FORMAT_OPTIONS: SimpleSelectOption[] = [
+    { value: 'none', label: 'Teks bebas' },
+    { value: 'number', label: 'Hanya angka' },
+    { value: 'tel', label: 'Nomor WhatsApp' },
+    { value: 'email', label: 'Email' },
+    { value: 'nik', label: 'NIK, 16 angka' },
+    { value: 'nim', label: 'NIM, 5 sampai 20 angka' },
+    { value: 'postal_code', label: 'Kode pos, 5 angka' },
+];
+
+/** Format isian hanya relevan untuk field teks, angka, dan telepon. */
+const supportsInputFormat = computed<boolean>(() =>
+    ['short_text', 'long_text', 'number', 'phone', 'email'].includes(props.field.type)
+);
+
+const currentFormat = computed<string>(() => {
+    const rules = props.field.metadata?.rules;
+
+    if (rules === null || typeof rules !== 'object') return 'none';
+
+    const format = (rules as Record<string, unknown>).format;
+
+    return typeof format === 'string' && format !== '' ? format : 'none';
+});
+
+/** `none` menghapus kunci agar payload tetap bersih, bukan menyimpan penanda kosong. */
+function setFormat(value: string): void {
+    const rules: Record<string, unknown> =
+        props.field.metadata?.rules !== null && typeof props.field.metadata?.rules === 'object'
+            ? { ...(props.field.metadata?.rules as Record<string, unknown>) }
+            : {};
+
+    if (value === 'none') {
+        delete rules.format;
+    } else {
+        rules.format = value;
+    }
+
+    updateMeta('rules', rules);
+}
+
 function updateMeta(key: string, value: unknown) {
     const meta = { ...(props.field.metadata || {}) };
     meta[key] = value;
@@ -608,6 +651,27 @@ function readUploadLimit(value: unknown): number | string | undefined {
                 <Switch
                     :model-value="field.metadata?.duplicatable === true"
                     @update:model-value="(v) => updateMeta('duplicatable', Boolean(v))"
+                />
+            </div>
+            <p class="text-muted-foreground flex items-start gap-1.5 text-[11px] leading-snug">
+                <Info class="mt-px size-3 shrink-0" aria-hidden="true" />
+                <span class="min-w-0">
+                    Berlaku hanya untuk pendaftaran tim atau paket, bukan pendaftaran perorangan.
+                </span>
+            </p>
+
+            <hr class="app-divider" />
+
+            <div v-if="supportsInputFormat" class="border-border/60 bg-muted/20 space-y-2 rounded-xl border px-4 py-3">
+                <Label class="text-sm font-medium">Format isian</Label>
+                <p class="text-muted-foreground text-xs">
+                    Validasi otomatis isi field ini, berlaku di desktop dan ponsel.
+                </p>
+                <SimpleSelect
+                    :model-value="currentFormat"
+                    :options="FORMAT_OPTIONS"
+                    aria-label="Format isian"
+                    @update:model-value="setFormat"
                 />
             </div>
         </div>

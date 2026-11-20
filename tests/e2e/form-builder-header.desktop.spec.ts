@@ -130,21 +130,4 @@ test.describe('header form builder', () => {
             cleanupOwnerFixture(form.identity);
         }
     });
-
-    test('status simpan tampil di dalam kartu header', async ({ page }, testInfo) => {
-        const form = createAdminOwnedForm(testInfo);
-
-        try {
-            await openBuilder(page, form);
-
-            const header = page.getByTestId('builder-header-settings');
-            await expect(header.getByTestId('builder-header-autosave')).toBeVisible();
-
-            await page.locator('#f-title').fill('Judul memicu autosave');
-
-            await expect(header.getByTestId('autosave-status')).toContainText(/Menyimpan|Tersimpan/);
-        } finally {
-            cleanupOwnerFixture(form.identity);
-        }
-    });
 });

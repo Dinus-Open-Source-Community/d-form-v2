@@ -379,13 +379,13 @@ function requestPreview(): void {
                 v-model:closed-at="closedAt"
                 v-model:visible-for="visibleFor"
                 v-model:form-metadata="formMetadata"
+                v-model:success-content="successContent"
                 id-prefix="wizard"
             >
                 <FormBuilderWorkspace
                     ref="workspaceRef"
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"
-                    v-model:success-content="successContent"
                     v-model:closed-at="closedAt"
                     v-model:visible-for="visibleFor"
                     v-model:banner="bannerState"
@@ -395,8 +395,6 @@ function requestPreview(): void {
                     :processing="finishing"
                     @save="finishWizard"
                     @open-settings="activeFormTab = 'settings'"
-                    :autosave-status="saveState"
-                    @autosave-retry="autosave.retry"
                 />
             </FormBuilderEditorTabs>
         </template>
