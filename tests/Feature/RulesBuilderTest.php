@@ -16,8 +16,8 @@ class RulesBuilderTest extends TestCase
     public function test_extract_rules_from_fields(): void
     {
         $expectedRawRules = [
-                'username' => ['required' => 1, 'min' => 10, 'max' => 255, 'regex' => '^adalah$'],
-                'email'    => ['required' => 1, 'min' => 10, 'max' => 255, 'email' => 1],
+                'username' => ['required' => 1, 'min' => 10, 'max' => 255, 'regex' => '^adalah$', 'input_subtype' => 'text'],
+                'email'    => ['required' => 1, 'min' => 10, 'max' => 255, 'input_subtype' => 'email'],
                 'bio'      => ['required' => null],
                 'start_date' => ['max_date' => '2026-10-10', 'scalar_guard' => 'date'],
                 'image'    => ['required' => true, 'max_size' => 2048, 'mimes' => 'jpg', 'is_file' => true],

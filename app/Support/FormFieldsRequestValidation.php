@@ -99,7 +99,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.type' => [
                 'required_if:fields.*.type,input',
                 'prohibited_unless:fields.*.type,input',
-                Rule::in('text', 'number', 'email', 'password', 'tel'),
+                Rule::in(FieldInputPatterns::METADATA_TYPES),
             ],
             'fields.*.metadata.is_multiple' => [
                 'required_if:fields.*.type,select',
@@ -128,6 +128,12 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.content' => 'nullable',
             'fields.*.metadata.maxStars' => 'nullable',
             'fields.*.metadata.maxLength' => 'nullable|integer|min:1|max:'.self::MAX_LENGTH_GLOBAL_MAX,
+            // Format isian pilihan admin; nilainya harus salah satu subtype ketat yang didukung.
+            'fields.*.metadata.rules.format' => [
+                'nullable',
+                'string',
+                Rule::in(['number', 'tel', 'email', 'nik', 'nim', 'postal_code']),
+            ],
             // Hanya path storage / URL publik (hasil endpoint upload builder).
             // Data URL (data:...) ditolak di after-validation agar payload tetap kecil.
             'fields.*.metadata.bannerUrl' => 'nullable|string',

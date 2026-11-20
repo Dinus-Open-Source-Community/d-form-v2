@@ -4,6 +4,7 @@ namespace App\Services\Form;
 
 use App\Models\FormField;
 use App\Rules\SafeUploadFile;
+use App\Support\FieldInputPatterns;
 use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -68,8 +69,19 @@ class RulesBuilder
                 $ruleSet = [];
             }
 
-            if ($field->input_type === 'input' && $inputSubtype === 'email') {
-                $ruleSet['email'] = true;
+            // Internal key: pola ketat mengikuti `metadata.type`, bukan input klien.
+            unset($ruleSet['input_subtype']);
+
+            if ($field->input_type === 'input' && is_string($inputSubtype)) {
+                $ruleSet['input_subtype'] = $inputSubtype;
+            }
+
+            // Format pilihan admin menang atas tipe field, supaya field lama bertipe teks
+            // tetap bisa divalidasi sebagai angka, WhatsApp, email, NIK, NIM, atau kode pos.
+            $explicitFormat = $ruleSet['format'] ?? null;
+
+            if ($field->input_type === 'input' && is_string($explicitFormat) && $explicitFormat !== '') {
+                $ruleSet['input_subtype'] = $explicitFormat;
             }
 
             if ($field->input_type === 'input' && $builderType === 'url') {
@@ -218,8 +230,10 @@ class RulesBuilder
                 }
             }
 
-            if (!empty($rules['email'])) {
-                $mappedRules[] = 'email';
+            if (!empty($rules['input_subtype']) && is_string($rules['input_subtype'])) {
+                foreach (FieldInputPatterns::rulesFor($rules['input_subtype']) as $subtypeRule) {
+                    $mappedRules[] = $subtypeRule;
+                }
             }
 
             if (!empty($rules['url'])) {
