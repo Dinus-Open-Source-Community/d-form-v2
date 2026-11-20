@@ -124,10 +124,7 @@ function fieldRows(page: Page): Locator {
 }
 
 function canvasForTitle(page: Page): Locator {
-    return page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    return page.getByTestId('form-builder-canvas');
 }
 
 /** Tambah field dari palette lewat pencarian + drag (jalur desktop). */

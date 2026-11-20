@@ -296,7 +296,12 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         const source = indexes[localIndex];
         const target = indexes[localIndex + direction];
         if (source === undefined || target === undefined) return;
-        fieldList.moveFieldToIndex(source, target);
+
+        // `moveFieldToIndex` menerima posisi sisip sebelum elemen dilepas. Untuk arah turun,
+        // menyisipkan pada indeks tetangga berarti mengembalikan elemen ke posisi asalnya.
+        const insertIndex = direction === 1 ? target + 1 : target;
+
+        fieldList.moveFieldToIndex(source, insertIndex);
     }
 
     function toggleCategory(cat: IFormBuilderPaletteCategory): void {

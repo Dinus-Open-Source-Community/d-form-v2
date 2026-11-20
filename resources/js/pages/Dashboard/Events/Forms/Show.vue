@@ -806,6 +806,8 @@ function rejectLabel(submission: IFormSubmission): string {
                     :processing="settingsForm.processing || manualSaving"
                     @save="onSave"
                     @open-settings="activeTab = 'settings'"
+                    :autosave-status="showSaveState"
+                    @autosave-retry="showAutosave.retry"
                 >
                     <template #mobile-actions>
                         <div class="grid grid-cols-2 gap-2">

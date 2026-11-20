@@ -74,10 +74,7 @@ async function openBuilder(page: Page, eventId: string, formId: string): Promise
 }
 
 function canvasForTitle(page: Page): Locator {
-    return page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    return page.getByTestId('form-builder-canvas');
 }
 
 /** Tambah blok gambar: drag palette di desktop, sheet FAB di mobile. */

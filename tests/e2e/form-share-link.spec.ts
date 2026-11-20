@@ -208,7 +208,7 @@ test.describe('tautan berbagi form', () => {
             await expect(page.getByRole('button', { name: 'Publish form', exact: true })).toBeVisible();
             await expect(page.locator('#f-title')).toHaveValue(unsavedTitle);
             expect((await draftAutosaveResponse).ok()).toBe(true);
-            await expect(page.getByTestId('autosave-status')).toContainText('Tersimpan');
+            await expect(page.getByTestId('autosave-status').first()).toContainText('Tersimpan');
 
             await shareButton.click();
             await expect(dialog).toBeVisible();

@@ -93,7 +93,7 @@ test.describe('autosave terminal (target hilang)', () => {
 
             // State tetap: judul yang diketik tidak hilang walau autosave berhenti.
             await expect(page.locator('#f-title')).toHaveValue('Judul Setelah Event Hilang');
-            await expect(page.getByTestId('autosave-status')).toContainText(/Gagal menyimpan/);
+            await expect(page.getByTestId('autosave-status').first()).toContainText(/Gagal menyimpan/);
 
             // Kill switch: edit berikutnya (header maupun fields) tidak mengirim request baru.
             await page.locator('#f-title').fill('Judul Setelah Terminal');

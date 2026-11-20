@@ -31,6 +31,9 @@ async function openBuilder(page: Page, eventId: string, formId: string): Promise
         undefined,
         { timeout: 20_000 }
     );
+
+    // Kartu header berada di atas kanvas, jadi kanvas digulir ke dalam viewport sebelum drag.
+    await page.getByTestId('form-builder-canvas').scrollIntoViewIfNeeded();
 }
 
 /** Mulai drag native dari titik tengah elemen tanpa melepas tombol mouse. */
@@ -245,5 +248,22 @@ test.describe('builder drag state', () => {
         // Lane `createUuid` sudah mengganti seluruh pemanggilan `crypto.randomUUID`, jadi
         // drop harus sukses tanpa error konsol sekalipun secure context tidak tersedia.
         expect(errors, errors.join('\n')).toEqual([]);
+    });
+
+    test('tombol pindah ke bawah menukar field dengan tetangganya', async ({ page, fixtureEvent, fixtureForm }) => {
+        await openBuilder(page, fixtureEvent.eventId, fixtureForm.primary.formId);
+
+        const rows = page.locator(FIELD_CARD);
+        await expect(rows).toHaveCount(3);
+
+        const before = await rows.allTextContents();
+        expect(before[0]).toContain('Field 1');
+        expect(before[1]).toContain('Field 2');
+
+        await page.locator('[title="Pindah ke bawah"]').first().click();
+
+        const after = await rows.allTextContents();
+        expect(after[0]).toContain('Field 2');
+        expect(after[1]).toContain('Field 1');
     });
 });

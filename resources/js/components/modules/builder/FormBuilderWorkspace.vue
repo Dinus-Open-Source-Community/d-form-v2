@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { IFormBannerState } from '@/components/modules/builder/formBanner';
 import type { IBuilderField } from '@/types/form-builder';
 import type { IFormRegistrationMetadata } from '@/types/form';
+import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import { useFormBuilderWorkspace } from '@/hooks/useFormBuilderWorkspace';
 import FormBuilderPalettePanel from './FormBuilderPalettePanel.vue';
 import FormBuilderCanvasBuildView from './FormBuilderCanvasBuildView.vue';
@@ -20,6 +21,8 @@ const props = withDefaults(
         fieldErrors?: Partial<Record<'title' | 'description', string>>;
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
+        /** Status autosave halaman, ditampilkan di kartu header builder. */
+        autosaveStatus?: TAutosaveStatus;
     }>(),
     {
         processing: false,
@@ -32,6 +35,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     save: [];
     openSettings: [];
+    autosaveRetry: [];
 }>();
 
 const formTitle = defineModel<string>('formTitle', { required: true });
@@ -130,6 +134,8 @@ defineExpose({
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
                     :banner-upload-url="imageUploadUrl"
+                    :autosave-status="autosaveStatus"
+                    @autosave-retry="emit('autosaveRetry')"
                     @remove="wb.hideSuccessZone"
                     @canvas-drag-enter="wb.onCanvasDragEnter"
                     @canvas-drag-over="wb.onCanvasDragOver"

@@ -444,6 +444,8 @@ onMounted(() => {
                 :image-upload-url="builderImageUploadUrl"
                 @save="publishForm"
                 @open-settings="activeTab = 'settings'"
+                :autosave-status="autosaveStatus"
+                @autosave-retry="autosave.retry"
             />
         </FormBuilderEditorTabs>
     </div>

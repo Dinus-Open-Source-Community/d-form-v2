@@ -44,6 +44,9 @@ async function openBuilder(page: Page, eventId: string, formId: string): Promise
         undefined,
         { timeout: 20_000 }
     );
+
+    // Kartu header berada di atas kanvas, jadi kanvas digulir ke dalam viewport sebelum drag.
+    await page.getByTestId('form-builder-canvas').scrollIntoViewIfNeeded();
 }
 
 /** Baca label satu field langsung dari DB untuk membuktikan save gagal tidak menulis. */
@@ -65,12 +68,9 @@ function canvasCards(page: Page): Locator {
     return fieldCards(page);
 }
 
-/** Area drop di kanvas: section yang memuat input judul. */
+/** Area drop di kanvas: kartu yang memegang section field. */
 function canvasForTitle(page: Page): Locator {
-    return page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    return page.getByTestId('form-builder-canvas');
 }
 
 /** Tambah satu field Short Text lewat drag dari palette. */
@@ -81,7 +81,7 @@ async function addShortTextField(page: Page): Promise<void> {
 
 /** Tunggu autosave selesai: status `Tersimpan` baru muncul setelah POST fields + PUT form sukses. */
 async function waitForSaved(page: Page, timeout: number = 60_000): Promise<void> {
-    await expect(page.getByText(AUTOSAVE_SAVED_TEXT, { exact: true })).toBeVisible({ timeout });
+    await expect(page.getByText(AUTOSAVE_SAVED_TEXT, { exact: true }).first()).toBeVisible({ timeout });
 }
 
 /** Reload penuh; retry menyerap ERR_ABORTED transien saat navigasi bertabrakan dengan request in-flight. */

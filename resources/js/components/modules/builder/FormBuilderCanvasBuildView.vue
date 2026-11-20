@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import FieldRenderer from '@/components/modules/builder/FieldRenderer.vue';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
     GripVertical,
     ArrowUp,
@@ -17,7 +16,8 @@ import {
     PlusCircle,
 } from 'lucide-vue-next';
 import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
-import FormBuilderBannerBlock from './FormBuilderBannerBlock.vue';
+import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
+import FormBuilderHeaderSettings from './FormBuilderHeaderSettings.vue';
 import FormSuccessMessageCard from './FormSuccessMessageCard.vue';
 import type { IFormBannerState } from './formBanner';
 
@@ -42,9 +42,12 @@ const props = defineProps<{
     showSuccessZone: boolean;
     /** Endpoint `POST {form}/images` untuk upload banner. */
     bannerUploadUrl?: string;
+    /** Status autosave halaman, diteruskan ke kartu header. */
+    autosaveStatus?: TAutosaveStatus;
 }>();
 
 defineEmits<{
+    autosaveRetry: [];
     canvasDragEnter: [e: DragEvent];
     canvasDragOver: [e: DragEvent];
     canvasDragLeave: [e: DragEvent];
@@ -63,29 +66,6 @@ defineEmits<{
     remove: [];
 }>();
 
-/** Maks karakter judul & subtitle (validasi frontend saja — payload tidak diubah) */
-const TITLE_MAX = 200;
-const SUBTITLE_MAX = 500;
-
-const titleLength = computed(() => formTitle.value.length);
-const subtitleLength = computed(() => formDescription.value.length);
-
-function capInput(value: string, max: number): string {
-    return value.length > max ? value.slice(0, max) : value;
-}
-
-function onTitleInput(e: Event): void {
-    const el = e.target as HTMLInputElement;
-    el.value = capInput(el.value, TITLE_MAX);
-    formTitle.value = el.value;
-}
-
-function onSubtitleInput(e: Event): void {
-    const el = e.target as HTMLTextAreaElement;
-    el.value = capInput(el.value, SUBTITLE_MAX);
-    formDescription.value = el.value;
-}
-
 function gapActive(globalIdx: number): boolean {
     return props.dropIndicatorIndex === globalIdx;
 }
@@ -99,8 +79,22 @@ const showDropChrome = computed(
 <template>
     <!-- pb-28 di mobile: ruang kosong agar konten terakhir (tombol tambah bagian + nav)
          bisa digulir melewati FAB `+` (56px, 84px dari bawah) dan bar aksi bawah. -->
-    <div class="flex min-h-full justify-center px-4 pt-5 pb-28 sm:px-6 sm:pt-6 sm:pb-2 lg:pt-5 lg:pb-4">
-        <div class="flex min-h-0 w-full max-w-[480px] flex-col sm:max-w-[520px]">
+    <div
+        class="mx-auto flex min-h-full w-full max-w-[720px] flex-col px-4 pt-5 pb-28 sm:px-6 sm:pt-6 sm:pb-2 lg:pt-5 lg:pb-4"
+    >
+        <FormBuilderHeaderSettings
+            v-model:form-title="formTitle"
+            v-model:form-description="formDescription"
+            v-model:banner="banner"
+            :banner-preview-src="bannerPreviewSrc"
+            :upload-url="bannerUploadUrl ?? ''"
+            :title-error="props.titleError"
+            :description-error="props.descriptionError"
+            :autosave-status="props.autosaveStatus"
+            @autosave-retry="$emit('autosaveRetry')"
+        />
+
+        <div class="mx-auto mt-4 flex min-h-0 w-full max-w-[480px] flex-col sm:max-w-[520px]">
             <div
                 v-if="isEmpty"
                 class="border-border bg-muted/30 text-muted-foreground mb-3 hidden items-center gap-1.5 rounded-lg border border-dashed px-3 py-2 text-xs whitespace-nowrap lg:flex"
@@ -116,80 +110,12 @@ const showDropChrome = computed(
                 class="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-2xl border shadow-sm"
                 :class="showDropChrome && !isEmpty ? 'ring-primary/25 ring-2 ring-inset' : ''"
                 :data-drag-chrome="showDropChrome ? 'active' : undefined"
+                data-testid="form-builder-canvas"
                 @dragenter="$emit('canvasDragEnter', $event)"
                 @dragover.prevent="$emit('canvasDragOver', $event)"
                 @dragleave="$emit('canvasDragLeave', $event)"
                 @drop="$emit('canvasDrop', $event)"
             >
-                <div class="border-border/70 border-b">
-                    <FormBuilderBannerBlock
-                        v-model:banner="banner"
-                        :banner-preview-src="bannerPreviewSrc"
-                        :upload-url="bannerUploadUrl ?? ''"
-                        variant="plain"
-                    />
-                </div>
-
-                <section class="border-border/70 border-b">
-                    <div class="space-y-3 px-4 py-4 sm:px-5 sm:py-5">
-                        <div class="flex flex-col gap-1.5">
-                            <div class="flex items-baseline justify-between gap-2">
-                                <Label for="f-title" class="text-xs font-medium">
-                                    Title <span class="text-destructive">*</span>
-                                </Label>
-                                <span
-                                    class="text-muted-foreground/70 text-[10px] font-medium tabular-nums"
-                                    :class="titleLength >= TITLE_MAX ? 'text-destructive/80' : ''"
-                                    >{{ titleLength }}/{{ TITLE_MAX }}</span
-                                >
-                            </div>
-                            <div class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5">
-                                <input
-                                    id="f-title"
-                                    :value="formTitle"
-                                    :maxlength="TITLE_MAX"
-                                    placeholder="Judul form"
-                                    class="font-display text-foreground placeholder:text-muted-foreground/65 w-full border-0 bg-transparent p-0 text-sm leading-snug font-semibold tracking-tight focus:ring-0 focus:outline-none sm:text-base"
-                                    :aria-invalid="props.titleError !== undefined"
-                                    :aria-describedby="props.titleError === undefined ? undefined : 'f-title-error'"
-                                    @input="onTitleInput"
-                                />
-                            </div>
-                            <p v-if="props.titleError" id="f-title-error" class="text-destructive text-xs">
-                                {{ props.titleError }}
-                            </p>
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <div class="flex items-baseline justify-between gap-2">
-                                <Label for="f-description" class="text-xs font-medium">Subtitle</Label>
-                                <span
-                                    class="text-muted-foreground/70 text-[10px] font-medium tabular-nums"
-                                    :class="subtitleLength >= SUBTITLE_MAX ? 'text-destructive/80' : ''"
-                                    >{{ subtitleLength }}/{{ SUBTITLE_MAX }}</span
-                                >
-                            </div>
-                            <div class="border-border/90 bg-background rounded-lg border px-3 py-2 shadow-sm sm:px-3.5">
-                                <textarea
-                                    id="f-description"
-                                    :value="formDescription"
-                                    :maxlength="SUBTITLE_MAX"
-                                    rows="2"
-                                    placeholder="Deskripsi singkat untuk peserta…"
-                                    class="text-muted-foreground placeholder:text-muted-foreground/65 min-h-[2.75rem] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed focus:ring-0 focus:outline-none"
-                                    :aria-invalid="props.descriptionError !== undefined"
-                                    :aria-describedby="
-                                        props.descriptionError === undefined ? undefined : 'f-description-error'
-                                    "
-                                    @input="onSubtitleInput"
-                                ></textarea>
-                            </div>
-                            <p v-if="props.descriptionError" id="f-description-error" class="text-destructive text-xs">
-                                {{ props.descriptionError }}
-                            </p>
-                        </div>
-                    </div>
-                </section>
-
                 <section>
                     <div class="px-5 py-7 sm:px-7 sm:py-8">
                         <div class="mb-5 flex items-center justify-between gap-3">

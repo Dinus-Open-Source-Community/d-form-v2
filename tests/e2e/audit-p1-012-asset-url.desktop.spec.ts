@@ -97,10 +97,7 @@ async function openShowEditor(page: Page, form: IAdminOwnedForm): Promise<void> 
 async function addPaletteField(page: Page, searchTerm: string, label: string): Promise<Locator> {
     await page.getByPlaceholder('Cari komponen…').fill(searchTerm);
 
-    const canvas = page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    const canvas = page.getByTestId('form-builder-canvas');
     await page
         .getByText(label, { exact: true })
         .first()

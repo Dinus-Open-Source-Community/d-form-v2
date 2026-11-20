@@ -395,6 +395,8 @@ function requestPreview(): void {
                     :processing="finishing"
                     @save="finishWizard"
                     @open-settings="activeFormTab = 'settings'"
+                    :autosave-status="saveState"
+                    @autosave-retry="autosave.retry"
                 />
             </FormBuilderEditorTabs>
         </template>

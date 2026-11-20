@@ -272,11 +272,11 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
 
         try {
             await openShowEditor(page, fixture.eventId, fixture.formId);
-            const status = page.getByTestId('autosave-status');
+            const status = page.getByTestId('autosave-status').first();
             await page.locator('#f-title').fill(title);
 
             await expect(status.getByText('Gagal menyimpan otomatis')).toBeVisible();
-            const retryButton = page.getByRole('button', { name: 'Coba lagi menyimpan otomatis' });
+            const retryButton = page.getByRole('button', { name: 'Coba lagi menyimpan otomatis' }).first();
             await expect(retryButton).toBeVisible();
 
             await retryButton.click();
@@ -304,7 +304,7 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
         const validTitle = uniqueTitle(fixture.identity.marker, 'valid');
 
         try {
-            const status = page.getByTestId('autosave-status');
+            const status = page.getByTestId('autosave-status').first();
             await openShowEditor(page, fixture.eventId, fixture.formId);
             await page.locator('#f-title').fill('');
             await expect(status.getByText('Gagal menyimpan otomatis')).toBeVisible();
@@ -383,7 +383,7 @@ test.describe('AUDIT-P1-014 autosave retry dan single-flight', () => {
 
             expect(monitor.openCount()).toBe(0);
             expect(monitor.maxConcurrent(), describeWriteEvents(monitor.events)).toBe(1);
-            await expect(page.getByTestId('autosave-status').getByText('Tersimpan')).toBeVisible();
+            await expect(page.getByTestId('autosave-status').first().getByText('Tersimpan')).toBeVisible();
 
             const putStarts = monitor.events.filter(
                 (entry: IWriteEvent): boolean => entry.kind === 'form-put' && entry.phase === 'start'
