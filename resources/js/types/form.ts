@@ -19,7 +19,7 @@ export type TFormAccessStatus =
     | 'event_form_already_chosen'
     | 'prerequisite_not_met';
 
-export type TFormPurpose = 'registration' | 'other';
+export type TFormPurpose = 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
 
 export interface IFormSiblingOption {
     id: string;

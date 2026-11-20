@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
+import FormPurposeDialog from '@/components/modules/dashboard/events/FormPurposeDialog.vue';
 import {
     Pencil,
     Trash2,
@@ -23,6 +24,18 @@ import { routes } from '@/lib/routes';
 import { useEventStatusToggle } from '@/hooks/useEventStatusToggle';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import type { IEventFormSummary } from '@/types/form';
+
+/** Dialog tujuan form sebelum membuat form baru. */
+const isPurposeDialogOpen = ref(false);
+
+/** Query hanya prefill; server memvalidasi ulang tujuan dan mode sebelum menyimpan. */
+function startFormCreation(purpose: string, mode: string): void {
+    isPurposeDialogOpen.value = false;
+
+    router.visit(
+        `${routes.admin.events.forms.create(props.event.id)}?purpose=${encodeURIComponent(purpose)}&mode=${encodeURIComponent(mode)}`
+    );
+}
 
 const { handleInertiaFormErrors } = useToastNotifications();
 
@@ -174,12 +187,15 @@ defineEmits<{
             <CardContent class="flex flex-col gap-2 pt-0">
                 <div v-if="props.forms.length === 0" class="flex flex-col gap-1.5">
                     <p class="text-muted-foreground px-1 py-0.5 text-xs">Belum ada form untuk event ini.</p>
-                    <Link
-                        :href="routes.admin.events.forms.create(props.event.id)"
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        data-testid="add-form-button"
                         class="border-primary/30 bg-primary/5 text-primary hover:border-primary/50 hover:bg-primary/10 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-3 text-sm font-semibold transition-colors"
+                        @click="isPurposeDialogOpen = true"
                     >
                         <Plus class="text-primary size-4" aria-hidden="true" /> Buat form pertama
-                    </Link>
+                    </Button>
                 </div>
 
                 <template v-else>
@@ -258,15 +274,24 @@ defineEmits<{
                         <ChevronUp v-else class="ml-1 size-3.5" aria-hidden="true" />
                     </Button>
 
-                    <Link
-                        :href="routes.admin.events.forms.create(props.event.id)"
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        data-testid="add-form-button"
                         class="border-primary/30 bg-primary/5 text-primary hover:border-primary/50 hover:bg-primary/10 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm font-semibold transition-colors"
+                        @click="isPurposeDialogOpen = true"
                     >
                         <Plus class="text-primary size-4" aria-hidden="true" /> Tambah form
-                    </Link>
+                    </Button>
                 </template>
             </CardContent>
         </Card>
+
+        <FormPurposeDialog
+            :open="isPurposeDialogOpen"
+            @close="isPurposeDialogOpen = false"
+            @confirm="startFormCreation"
+        />
 
         <ConfirmationModal
             :open="statusToggle.confirmOpen.value"

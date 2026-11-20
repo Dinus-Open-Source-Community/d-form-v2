@@ -51,7 +51,7 @@ defineEmits<{
     toggleVisibility: [value: string, checked: boolean];
 }>();
 
-const isRegistrationPurpose = computed(() => formMetadata.value.purpose !== 'other');
+const isRegistrationPurpose = computed(() => formMetadata.value.purpose === 'registration');
 
 const isTeamStyleRegistration = computed(() => {
     if (!isRegistrationPurpose.value) {
@@ -66,8 +66,13 @@ const requiresFormSelectSentinel = '__none__' as const;
 
 const purposeOptions: SimpleSelectOption[] = [
     { value: 'registration', label: 'Pendaftaran' },
-    { value: 'other', label: 'Lainnya (feedback, survei, …)' },
+    { value: 'answer_collection', label: 'Pengumpulan Jawaban' },
+    { value: 'feedback', label: 'Feedback' },
+    { value: 'd_kelas', label: 'D-Kelas (terkunci)' },
 ];
+
+/** D-Kelas permanen: tujuan tidak boleh diubah dari pengaturan. */
+const isDKelasPurpose = computed<boolean>(() => formMetadata.value.purpose === 'd_kelas');
 
 const requiresFormOptions = computed<SimpleSelectOption[]>(() => [
     { value: requiresFormSelectSentinel, label: 'Tidak ada' },
@@ -82,12 +87,16 @@ const registrationModeOptions: SimpleSelectOption[] = [
 ];
 
 function onPurposeChange(value: string): void {
-    const purpose: TFormPurpose = value === 'other' ? 'other' : 'registration';
-    formMetadata.value = {
-        ...formMetadata.value,
-        purpose,
-        ...(purpose === 'other' ? { registration_mode: null, max_team_size: null, team_size: null } : {}),
-    };
+    const allowed: readonly TFormPurpose[] = ['registration', 'answer_collection', 'feedback', 'd_kelas'];
+    const purpose = allowed.find((entry) => entry === value);
+
+    if (purpose === undefined) return;
+
+    // Tujuan selain pendaftaran selalu single; server menegakkan aturan yang sama.
+    formMetadata.value =
+        purpose === 'registration'
+            ? { ...formMetadata.value, purpose }
+            : { ...formMetadata.value, purpose, registration_mode: 'single', max_team_size: null, team_size: null };
 }
 
 function onRequiresFormChange(value: string): void {
@@ -176,6 +185,7 @@ function vString(v: unknown): string {
                     :id="`${idPrefix}-purpose`"
                     class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
                     aria-label="Tujuan form"
+                    :disabled="isDKelasPurpose"
                     @update:model-value="onPurposeChange"
                 />
                 <p class="text-muted-foreground text-xs leading-snug">

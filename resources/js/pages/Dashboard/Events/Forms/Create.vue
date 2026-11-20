@@ -21,7 +21,12 @@ import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
 import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
 import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import type { IBackendField, IBuilderField } from '@/types/form-builder';
-import type { ICreateDashboardFormPayload, IFormSiblingOption } from '@/types/form';
+import type {
+    ICreateDashboardFormPayload,
+    IFormRegistrationMetadata,
+    IFormSiblingOption,
+    TFormPurpose,
+} from '@/types/form';
 import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
 import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
@@ -48,6 +53,9 @@ defineOptions({ layout: DashboardLayout });
 const props = defineProps<{
     event: { id: string; title: string };
     siblingForms?: IFormSiblingOption[];
+    /** Sudah divalidasi server; query string tidak dipercaya di klien. */
+    initialPurpose?: TFormPurpose;
+    initialMode?: 'single' | 'team' | 'bundle';
 }>();
 
 const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast, showSuccessToast, showValidationErrorToast } =
@@ -65,7 +73,11 @@ const closedAt = ref<string>('');
 const visibleFor = ref<string[]>([]);
 const bannerState = ref(defaultFormBannerState());
 const formFields = ref<IBuilderField[]>([]);
-const formMetadata = ref(emptyFormRegistrationMetadata());
+const formMetadata = ref<IFormRegistrationMetadata>({
+    ...emptyFormRegistrationMetadata(),
+    purpose: props.initialPurpose ?? 'registration',
+    registration_mode: props.initialMode ?? 'single',
+});
 
 /** Sama dengan `wb.isEmpty` di workspace: kanvas belum punya field. */
 const builderEmpty = computed<boolean>(() => formFields.value.length === 0);
