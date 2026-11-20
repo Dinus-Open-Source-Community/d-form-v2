@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Services\Form\FormPurposeRules;
 use App\Services\Registration\FormAnswerFileStorage;
 use App\Support\FormFieldTypeMapping;
 use App\Support\LegacyFormImage;
@@ -36,13 +37,17 @@ class FormController extends Controller
     {
     }
 
-    public function create(Event $event): Response
+    public function create(Event $event, Request $request): Response
     {
         $this->authorize('update', $event);
+
+        $initial = FormPurposeRules::prefill($request->query('purpose'), $request->query('mode'));
 
         return Inertia::render('Dashboard/Events/Forms/Create', [
             'event' => $this->eventSummary($event),
             'siblingForms' => $this->siblingFormsPayload($event),
+            'initialPurpose' => $initial['purpose'],
+            'initialMode' => $initial['mode'],
         ]);
     }
 
@@ -57,7 +62,7 @@ class FormController extends Controller
             'visible_for' => $data['visible_for'],
             'banner_url' => $data['banner_url'] ?? null,
             'banner_caption' => $data['banner_caption'] ?? null,
-            'metadata' => $data['metadata'] ?? null,
+            'metadata' => $this->normalizeMetadata($data['metadata'] ?? null),
         ]);
 
         // Banner legacy (data: URL) tidak punya validasi penolakan — konversi
@@ -403,7 +408,7 @@ class FormController extends Controller
                 'visible_for' => $data['visible_for'],
                 'banner_url' => $data['banner_url'] ?? null,
                 'banner_caption' => $data['banner_caption'] ?? null,
-                'metadata' => $data['metadata'] ?? null,
+                'metadata' => $this->normalizeMetadata($data['metadata'] ?? null, $form),
                 // Publikasi hanya terjadi setelah seluruh validasi di atas lolos.
                 'status' => $this->resolveStatus($form, $data),
             ];
@@ -439,10 +444,24 @@ class FormController extends Controller
         }
 
         if (array_key_exists('metadata', $data)) {
-            $attributes['metadata'] = $data['metadata'];
+            $attributes['metadata'] = $this->normalizeMetadata($data['metadata'], $form);
         }
 
         return $attributes;
+    }
+
+    /**
+     * Terapkan aturan tujuan form pada metadata dari klien.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function normalizeMetadata(mixed $metadata, ?Form $form = null): ?array
+    {
+        if (! is_array($metadata)) {
+            return null;
+        }
+
+        return FormPurposeRules::apply($metadata, $form?->purpose()->value);
     }
 
     /**
