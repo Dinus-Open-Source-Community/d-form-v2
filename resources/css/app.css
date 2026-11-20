@@ -8,6 +8,53 @@
 @source '../js/**/*.js';
 @source '../js/**/*.vue';
 
+/* Poppins di-host sendiri (latin subset) agar tidak ada request render-blocking
+   ke Google Fonts; file di-preload dari head. */
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/poppins/poppins-400.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/poppins/poppins-500.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/poppins/poppins-600.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../fonts/poppins/poppins-700.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/poppins/poppins-400-italic.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* iOS Safari memperbesar (zoom) halaman saat fokus ke kontrol form ber-font < 16px.
    Nilai absolut 16px dipakai karena root mobile 15px; desktop tetap 14px (text-sm). */
 @media (max-width: 639px) {
@@ -265,6 +312,33 @@
     .scrollbar-none::-webkit-scrollbar {
         display: none;
     }
+    .landing-reveal {
+        animation: landing-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .landing-reveal-wide {
+        animation: landing-reveal-wide 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .landing-reveal-fade {
+        animation: landing-reveal-fade 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .landing-reveal-delay-150 { animation-delay: 150ms; }
+    .landing-reveal-delay-300 { animation-delay: 300ms; }
+    .landing-glow {
+        background: radial-gradient(
+            circle,
+            color-mix(in srgb, var(--primary) 9%, transparent) 0%,
+            color-mix(in srgb, var(--primary) 3%, transparent) 45%,
+            transparent 70%
+        );
+    }
+    .landing-glow-soft {
+        background: radial-gradient(
+            circle,
+            color-mix(in srgb, var(--primary) 4%, transparent) 0%,
+            color-mix(in srgb, var(--primary) 1.5%, transparent) 45%,
+            transparent 70%
+        );
+    }
 }
 
 @layer components {
@@ -293,6 +367,19 @@
     40%, 60% { transform: translateX(4px); }
 }
 
+@keyframes landing-reveal {
+    from { opacity: 0; transform: translateY(1.5rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes landing-reveal-wide {
+    from { opacity: 0; transform: translateY(2rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes landing-reveal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 /* Gerak non-esensial berhenti saat pengguna meminta pengurangan gerak (sheet, dialog, skeleton). */
 @media (prefers-reduced-motion: reduce) {
     [data-slot='sheet-content'],
@@ -301,6 +388,25 @@
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+    .landing-reveal,
+    .landing-reveal-wide,
+    .landing-reveal-fade {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Di layar ponsel animasi masuk menahan elemen terbesar agar tidak dihitung sebagai
+   kandidat LCP sampai animasi selesai; teks hero langsung dilukis tanpa fade. */
+@media (max-width: 767px) {
+    .landing-reveal,
+    .landing-reveal-wide,
+    .landing-reveal-fade {
+        animation: none;
+        opacity: 1;
+        transform: none;
     }
 }
 

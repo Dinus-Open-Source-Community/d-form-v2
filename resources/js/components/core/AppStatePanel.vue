@@ -49,6 +49,8 @@ const descriptionClass = computed<string>(() =>
 );
 
 const actionsClass = computed<string>(() => (isPage.value ? 'mt-10' : 'mt-5'));
+
+const creditClass = computed<string>(() => (isPage.value ? 'mt-8' : 'mt-4'));
 </script>
 
 <template>
@@ -68,6 +70,17 @@ const actionsClass = computed<string>(() => (isPage.value ? 'mt-10' : 'mt-5'));
         <component :is="headingTag" :class="headingClass">{{ title }}</component>
 
         <p v-if="description" :class="descriptionClass">{{ description }}</p>
+
+        <!-- Storyset attribution is required by https://storyset.com/terms for the bundled illustrations. -->
+        <a
+            href="https://storyset.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-muted-foreground text-[11px] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            :class="creditClass"
+        >
+            Designed by Storyset
+        </a>
 
         <div v-if="$slots.default" :class="actionsClass">
             <slot />

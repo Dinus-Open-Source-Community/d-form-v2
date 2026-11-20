@@ -39,7 +39,7 @@ class JoinedEventsPayloadTest extends TestCase
         for ($i = 0; $i < EventService::USER_JOINED_LIMIT + 5; $i++) {
             $event = $this->joinEvent($member, $i);
 
-            $latest ??= $event;
+            $latest = $event;
         }
 
         DB::enableQueryLog();

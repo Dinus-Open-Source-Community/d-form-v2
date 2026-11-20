@@ -236,7 +236,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
             <template v-if="mainNavItems.length > 0">
                 <SidebarGroup class="p-0">
                     <SidebarGroupLabel
-                        class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                        class="text-sidebar-foreground/65 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
                     >
                         Menu utama
                     </SidebarGroupLabel>
@@ -264,7 +264,7 @@ const sidebarLogoSrc = DFORM_WORDMARK_SRC;
 
             <SidebarGroup class="p-0">
                 <SidebarGroupLabel
-                    class="text-sidebar-foreground/45 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
+                    class="text-sidebar-foreground/65 mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] uppercase"
                 >
                     Kelola
                 </SidebarGroupLabel>

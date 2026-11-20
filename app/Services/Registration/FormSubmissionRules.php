@@ -23,11 +23,16 @@ final class FormSubmissionRules
             return $isTeam || $isBundle ? null : FormSubmissionMode::Other;
         }
 
-        if ($isTeam) {
-            return FormSubmissionMode::Team;
-        }
+        $metadata = is_array($form->metadata) ? $form->metadata : [];
+        $rawMode = $metadata['registration_mode'] ?? FormSubmissionMode::Single->value;
+        $mode = is_string($rawMode) && $rawMode !== '' ? strtolower($rawMode) : FormSubmissionMode::Single->value;
 
-        return $isBundle ? FormSubmissionMode::Bundle : FormSubmissionMode::Single;
+        return match ($mode) {
+            FormSubmissionMode::Single->value => FormSubmissionMode::Single,
+            FormSubmissionMode::Team->value => $isTeam ? FormSubmissionMode::Team : null,
+            FormSubmissionMode::Bundle->value => $isBundle ? FormSubmissionMode::Bundle : null,
+            default => null,
+        };
     }
 
     /** Validate the payload in load-bearing order: bundle size before fields, team size after fields.

@@ -11,8 +11,8 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * Halaman /browse tidak boleh menarik semua event: 5 per halaman, urut tanggal
- * mulai terbaru, filter kategori/sesi diproses di server.
+ * Halaman /browse memakai paginasi bernomor seperti daftar admin: 8 per halaman,
+ * urut acara yang paling baru dibuat, filter kategori/sesi diproses di server.
  */
 class BrowsePaginationTest extends TestCase
 {
@@ -36,31 +36,52 @@ class BrowsePaginationTest extends TestCase
         ], $attributes));
     }
 
-    public function test_browse_returns_five_events_per_page_ordered_by_newest_start_date(): void
+    public function test_browse_paginates_with_page_numbers_and_orders_by_newest_created(): void
     {
         $user = User::factory()->create();
 
-        foreach (range(1, 7) as $offset) {
+        // Dibuat dari tanggal mulai paling akhir ke paling awal, sehingga urutan
+        // tanggal mulai tidak bisa dipakai untuk menebak urutan yang benar.
+        $created = [];
+        foreach (range(10, 1) as $offset) {
+            $created[] = $this->publishedEvent($offset);
+        }
+
+        $this->actingAs($user);
+
+        $first = $this->inertiaGet('/browse?page=1')->assertOk();
+        $first->assertJsonPath('props.pagination.currentPage', 1)
+            ->assertJsonPath('props.pagination.lastPage', 2)
+            ->assertJsonPath('props.pagination.total', 10)
+            ->assertJsonPath('props.pagination.perPage', 8)
+            ->assertJsonCount(8, 'props.events')
+            ->assertJsonPath('props.events.0.id', $created[9]->id)
+            ->assertJsonPath('props.events.7.id', $created[2]->id);
+
+        $this->actingAs($user);
+        $this->inertiaGet('/browse?page=2')
+            ->assertOk()
+            ->assertJsonPath('props.pagination.currentPage', 2)
+            ->assertJsonCount(2, 'props.events')
+            ->assertJsonPath('props.events.0.id', $created[1]->id)
+            ->assertJsonPath('props.events.1.id', $created[0]->id);
+    }
+
+    public function test_browse_honours_per_page(): void
+    {
+        $user = User::factory()->create();
+
+        foreach (range(1, 10) as $offset) {
             $this->publishedEvent($offset);
         }
 
         $this->actingAs($user);
-        $this->inertiaGet('/browse?page=1')
+        $this->inertiaGet('/browse?per_page=3&page=2')
             ->assertOk()
-            ->assertJsonPath('props.pagination.currentPage', null)
-            ->assertJsonPath('props.pagination.hasMore', true)
-            ->assertJsonCount(5, 'props.events')
-            ->assertJsonPath('props.events.0.start_date', now()->addDays(7)->toDateString());
-
-        $this->actingAs($user);
-        $nextUrl = collect($this->inertiaGet('/browse')->json('props.pagination.links'))
-            ->firstWhere('label', 'Berikutnya')['url'];
-        $this->assertIsString($nextUrl);
-
-        $this->inertiaGet(parse_url($nextUrl, PHP_URL_PATH).'?'.parse_url($nextUrl, PHP_URL_QUERY))
-            ->assertOk()
-            ->assertJsonPath('props.pagination.hasMore', false)
-            ->assertJsonCount(2, 'props.events');
+            ->assertJsonPath('props.pagination.perPage', 3)
+            ->assertJsonPath('props.pagination.lastPage', 4)
+            ->assertJsonPath('props.pagination.currentPage', 2)
+            ->assertJsonCount(3, 'props.events');
     }
 
     public function test_browse_filters_category_on_the_server(): void

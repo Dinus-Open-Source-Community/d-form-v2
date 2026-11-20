@@ -173,6 +173,7 @@ function isLinkActive(href: string): boolean {
                     alt="DOSCOM"
                     width="113"
                     height="49"
+                    fetchpriority="high"
                     class="h-8 w-auto transition-colors duration-200"
                 />
             </a>

@@ -41,7 +41,6 @@ const CASES: readonly TSkeletonCase[] = [
     ['/browse', PARTICIPANT, 'user-events'],
     ['/joined', PARTICIPANT, 'user-events'],
     ['/joined/team-invitations/tok-123', PARTICIPANT, 'form'],
-    ['/joined/01a1-abc/register', PARTICIPANT, 'list'],
     ['/joined/01a1-abc/registration', PARTICIPANT, 'detail'],
     ['/joined/01a1-abc', PARTICIPANT, 'user-event-detail'],
     ['/admin/recruitment/attendance-scan', ORGANIZER, 'generic'],

@@ -294,6 +294,24 @@ class FormRegistrationTest extends TestCase
             );
     }
 
+    public function test_fill_returns_unsupported_registration_mode_for_invalid_configuration(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => ['registration_mode' => 'pair'],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $form))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->where('accessStatus', 'unsupported_registration_mode')
+            );
+    }
+
     public function test_admin_can_fill_team_registration_form(): void
     {
         $admin = $this->admin();
@@ -468,7 +486,7 @@ class FormRegistrationTest extends TestCase
             ->assertRedirect($this->fillPath($event, $formB));
     }
 
-    public function test_register_picker_renders_all_event_forms(): void
+    public function test_event_detail_renders_all_registration_forms(): void
     {
         $member = $this->member();
         $event = $this->openEvent(['status' => EventStatus::Published]);
@@ -476,13 +494,15 @@ class FormRegistrationTest extends TestCase
         $formB = $this->openForm($event, ['title' => 'General']);
 
         $this->actingAs($member)
-            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Dashboard/User/EventRegistrationPickForm')
-                ->has('forms', 2)
-                ->where('forms.0.title', 'Early Bird')
-                ->where('forms.1.title', 'General'));
+                ->component('Dashboard/User/EventDetail')
+                ->has('registrationForms', 2)
+                ->where('registrationForms.0.title', 'Early Bird')
+                ->where('registrationForms.0.id', $formA->id)
+                ->where('registrationForms.1.title', 'General')
+                ->where('registrationForms.1.id', $formB->id));
     }
 
     public function test_registered_count_is_incremented_on_successful_submission(): void

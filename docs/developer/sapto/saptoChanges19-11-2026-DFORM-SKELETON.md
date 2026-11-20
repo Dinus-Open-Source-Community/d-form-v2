@@ -116,7 +116,6 @@ Sapuan dilakukan di browser nyata dengan `router.visit` Inertia (SPA, bukan page
 | `/browse` | `user-events` | `Dashboard/User/Events` |
 | `/joined` | `user-events` | `Dashboard/User/Events` |
 | `/joined/{event}` | `user-event-detail` | `Dashboard/User/EventDetail` |
-| `/joined/{event}/register` | `list` | `Dashboard/User/EventRegistrationPickForm` |
 
 Catatan redirect yang terbukti: `/admin/recruitment/periods`, `/reports`, `/interview-sessions`, dan `/my-interviews` dialihkan server ke `/admin/recruitment` untuk super-admin, sehingga skeleton yang tampil adalah milik URL yang diminta. `/admin/events/{event}/forms/{form}/edit` dialihkan ke halaman builder.
 
@@ -134,7 +133,7 @@ Catatan redirect yang terbukti: `/admin/recruitment/periods`, `/reports`, `/inte
 
 ### member
 
-`/joined`, `/joined/{event}`, `/joined/{event}/register`, `/joined/{event}/registration`, `/browse`, `/profile`, dan `/admin/scan` semuanya menampilkan skeleton (`user-events`, `user-event-detail`, `list`, `detail`). `/dashboard` untuk peserta tidak lagi dipakai: perubahan yang belum di-commit di working tree menghapus `MemberDashboardController` dan mengubah route menjadi `abort_if(! can('events.list'), 404)`. Karena itu kunci `member-dashboard` dihapus dari peta oleh perubahan tersebut.
+`/joined`, `/joined/{event}`, `/joined/{event}/registration`, `/browse`, `/profile`, dan `/admin/scan` semuanya menampilkan skeleton (`user-events`, `user-event-detail`, `detail`). `/dashboard` untuk peserta tidak lagi dipakai: perubahan yang belum di-commit di working tree menghapus `MemberDashboardController` dan mengubah route menjadi `abort_if(! can('events.list'), 404)`. Karena itu kunci `member-dashboard` dihapus dari peta oleh perubahan tersebut.
 
 ### Halaman yang tidak mendapat skeleton (disengaja)
 

@@ -696,7 +696,7 @@ class FormDraftTest extends TestCase
         ]);
     }
 
-    public function test_draft_is_hidden_from_the_registration_form_picker(): void
+    public function test_draft_is_hidden_from_the_member_event_detail_registration_forms(): void
     {
         $owner = $this->organizer();
         $event = $this->eventOwnedBy($owner);
@@ -709,12 +709,12 @@ class FormDraftTest extends TestCase
         $this->draft($event, $owner, ['title' => 'Hidden Draft']);
 
         $this->actingAs($this->member())
-            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard/User/EventRegistrationPickForm')
-                ->has('forms', 1)
-                ->where('forms.0.id', $published->id));
+                ->component('Dashboard/User/EventDetail')
+                ->has('registrationForms', 1)
+                ->where('registrationForms.0.id', $published->id));
     }
 
     public function test_draft_is_hidden_from_the_member_event_detail_form_list(): void

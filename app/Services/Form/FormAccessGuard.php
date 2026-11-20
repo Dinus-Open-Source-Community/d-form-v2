@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\User;
+use App\Services\Registration\FormSubmissionRules;
 use Illuminate\Support\Carbon;
 
 /** Centralised access guard for the form fill / submit flow. */
@@ -37,6 +38,10 @@ final class FormAccessGuard
         }
 
         if ($form->isRegistrationForm()) {
+            if (FormSubmissionRules::modeFor($form) === null) {
+                return FormAccessStatus::UnsupportedRegistrationMode;
+            }
+
             if (! $isAdmin && self::isRegistrationWindowClosed($event)) {
                 return FormAccessStatus::RegistrationNotOpen;
             }

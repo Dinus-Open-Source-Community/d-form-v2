@@ -156,9 +156,9 @@ function handleLogout(): void {
                     <Skeleton class="mt-2 h-3 w-24" />
                 </template>
                 <template v-else>
-                    <h1 class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
+                    <p class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
                         {{ pageTitle }}
-                    </h1>
+                    </p>
                     <div class="hidden min-w-0 sm:block">
                         <Breadcrumbs :items="breadcrumbItems" />
                     </div>
@@ -214,7 +214,6 @@ function handleLogout(): void {
             <div class="hidden shrink-0 items-center gap-1.5 sm:flex">
                 <Link
                     :href="routes.dashboard.profile"
-                    aria-label="Profile"
                     class="hover:bg-accent flex items-center gap-2 rounded-xl py-1 pr-3 pl-2 transition-colors duration-150"
                 >
                     <UserAvatarFallback

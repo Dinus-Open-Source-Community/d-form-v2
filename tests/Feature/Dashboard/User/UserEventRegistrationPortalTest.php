@@ -11,6 +11,7 @@ use App\Mail\RegistrationAcceptedMail;
 use App\Mail\RegistrationConfirmationMail;
 use App\Mail\RegistrationRejectedMail;
 use App\Models\Event;
+use App\Models\EventAttendance;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\User;
@@ -19,6 +20,7 @@ use App\Services\Registration\FormAnswerRecipientResolver;
 use App\Support\RegistrationPortalLinks;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class UserEventRegistrationPortalTest extends TestCase
@@ -65,6 +67,98 @@ class UserEventRegistrationPortalTest extends TestCase
         return route('dashboard.user.events.registration', [
             'event_segment' => $useUuid ? $event->getKey() : $event->slug,
         ]);
+    }
+
+    public function test_removed_joined_register_url_returns_404(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'removed-register-event']);
+
+        $this->actingAs($member)
+            ->get('/joined/'.$event->slug.'/register')
+            ->assertNotFound();
+    }
+
+    public function test_removed_legacy_register_redirect_returns_404(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'removed-legacy-register-event']);
+
+        $this->actingAs($member)
+            ->get('/user/dashboard/events/'.$event->slug.'/register')
+            ->assertNotFound();
+    }
+
+    public function test_event_detail_includes_sorted_registration_form_summaries(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'detail-registration-forms-event']);
+        $later = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Zeta Registration',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        $earlier = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Alpha Registration',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->has('registrationForms', 2)
+                    ->where('registrationForms.0.id', $earlier->id)
+                    ->where('registrationForms.0.title', 'Alpha Registration')
+                    ->where('registrationForms.0.fill_url', route(
+                        'dashboard.events.forms.fill',
+                        ['event' => $event, 'form' => $earlier],
+                        false,
+                    ))
+                    ->where('registrationForms.0.access_status', 'allowed')
+                    ->where('registrationForms.0.can_start', true)
+                    ->where('registrationForms.0.requires_form_title', null)
+                    ->where('registrationForms.1.id', $later->id)
+                    ->where('registrationForms.1.title', 'Zeta Registration')
+            );
+    }
+
+    public function test_detail_omits_banner_url_when_the_stored_file_is_missing(): void
+    {
+        Storage::fake('public');
+        $member = $this->member();
+        $event = $this->publishedEvent([
+            'slug' => 'missing-banner-event',
+            'banner' => 'events/banners/missing.jpg',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('event.banner_url', null));
+    }
+
+    public function test_detail_publishes_banner_url_when_the_stored_file_exists(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('events/banners/present.jpg', 'binary');
+        $member = $this->member();
+        $event = $this->publishedEvent([
+            'slug' => 'present-banner-event',
+            'banner' => 'events/banners/present.jpg',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page->where('event.banner_url', url('/storage/events/banners/present.jpg'))
+            );
     }
 
     public function test_guest_is_redirected_to_login(): void
@@ -215,6 +309,94 @@ class UserEventRegistrationPortalTest extends TestCase
                     ->where('registration_code', 'DETAIL-999')
                     ->where('qr_base64', fn ($value) => is_string($value) && strlen($value) > 50)
                     ->has('participantForms', 0)
+            );
+    }
+
+    public function test_event_portal_exposes_form_purpose_and_empty_check_in_before_scan(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'purpose-checkin-event']);
+        $form = $this->primaryForm($event);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'SCAN-1',
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('registrationForms.0.purpose', 'registration')
+                    ->where('checked_in_at', null)
+                    ->where('check_in_form_title', $form->title)
+            );
+    }
+
+    public function test_event_portal_exposes_check_in_time_after_scan(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'scanned-checkin-event']);
+        $form = $this->primaryForm($event);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'SCAN-2',
+            'reviewed_at' => now(),
+        ]);
+
+        EventAttendance::query()->create([
+            'event_id' => $event->id,
+            'form_answer_id' => $answer->id,
+            'scanned_by_user_id' => $member->id,
+            'scanned_at' => now()->subMinutes(5),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('checked_in_at', fn ($value) => is_string($value) && $value !== '')
+                    ->where('check_in_form_title', $form->title)
+            );
+    }
+
+    public function test_event_portal_labels_participant_forms_as_other_purpose(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'participant-purpose-event']);
+        $form = $this->primaryForm($event);
+        $participantForm = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Feedback survey',
+            'visible_for' => [EventFormVisibility::Participant->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => ['purpose' => 'other'],
+        ]);
+
+        FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('participantForms.0.id', $participantForm->id)
+                    ->where('participantForms.0.purpose', 'other')
             );
     }
 

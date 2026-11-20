@@ -126,7 +126,6 @@ const SURVIVING_ROUTE_KEYS = [
     'member.browse',
     'member.checkEmail',
     'member.event.show',
-    'member.event.register',
     'member.event.registration',
 ];
 

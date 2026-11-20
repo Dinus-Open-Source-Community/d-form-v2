@@ -152,7 +152,7 @@ useEventListener('keydown', (e) => {
                         :style="{
                             backgroundColor: `color-mix(in oklab, ${categoryColorMap[cat] ?? '#6B7280'} 12%, white)`,
                             borderColor: `color-mix(in oklab, ${categoryColorMap[cat] ?? '#6B7280'} 30%, transparent)`,
-                            color: categoryColorMap[cat] ?? '#6B7280',
+                            color: `color-mix(in oklab, ${categoryColorMap[cat] ?? '#6B7280'} 62%, var(--foreground))`,
                         }"
                     >
                         {{ categoryLabelMap[cat] ?? cat }}

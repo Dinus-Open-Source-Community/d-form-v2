@@ -75,7 +75,6 @@ import { exportMethod as scanExport, index as scanIndex } from '@/routes/dashboa
 import { events as memberJoined } from '@/routes/dashboard/user';
 import {
     browse as memberBrowse,
-    register as memberRegister,
     registration as memberRegistration,
     show as memberEventShow,
 } from '@/routes/dashboard/user/events';
@@ -394,7 +393,6 @@ export const routes = {
         },
         event: {
             show: (segment: string | number): string => memberEventShow.url({ event_segment: segment }),
-            register: (segment: string | number): string => memberRegister.url({ event_segment: segment }),
             registration: (segment: string | number): string => memberRegistration.url({ event_segment: segment }),
         },
     },

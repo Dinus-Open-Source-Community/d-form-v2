@@ -36,6 +36,18 @@ export interface IEventFormSummary {
     is_draft: boolean;
 }
 
+/** Form access row returned by the member event portal detail payload. */
+export interface IEventPortalFormSummary {
+    id: string;
+    title: string;
+    description: string | null;
+    fill_url: string;
+    access_status: TFormAccessStatus;
+    can_start: boolean;
+    requires_form_title: string | null;
+    purpose: TFormPurpose;
+}
+
 export interface IFormFillPageEvent {
     id: string;
     slug: string;

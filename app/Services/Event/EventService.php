@@ -34,7 +34,7 @@ use Throwable;
 class EventService
 {
     /** Jumlah event per halaman di halaman jelajah (/browse). */
-    public const PUBLIC_BROWSE_PER_PAGE = 5;
+    public const PUBLIC_BROWSE_PER_PAGE = 8;
 
     /** Field yang wajib terisi sebelum event boleh dipublikasikan. */
     private const PUBLISH_REQUIRED_FIELDS = [
@@ -93,12 +93,13 @@ class EventService
 
     /**
      *
-     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut tanggal mulai terbaru, filter kategori/sesi di server, 5 acara per halaman.
+     * Daftar acara untuk halaman jelajah: hanya terpublikasi, urut acara yang paling baru dibuat,
+     * filter kategori/sesi di server, dan paginasi bernomor seperti daftar admin.
      * @param  array{category: string|null, session: string|null}  $filters
-     * @return CursorPaginator<int, Event>
+     * @return LengthAwarePaginator<int, Event>
      *
      */
-    public function paginateForPublicBrowse(array $filters): CursorPaginator
+    public function paginateForPublicBrowse(array $filters, int $page, int $perPage = self::PUBLIC_BROWSE_PER_PAGE): LengthAwarePaginator
     {
         $query = Event::query()
             ->where('status', EventStatus::Published)
@@ -112,14 +113,10 @@ class EventService
             $query->forSessionTokens([$filters['session']]);
         }
 
-        // cursorPaginate() dideklarasikan sebagai kontrak, instans runtime-nya CursorPaginator konkret.
-        /** @var CursorPaginator<int, Event> $paginator */
-        $paginator = $query->orderByDesc('start_date')
+        return $query->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->cursorPaginate(self::PUBLIC_BROWSE_PER_PAGE)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
-
-        return $paginator;
     }
 
     /**
@@ -196,7 +193,7 @@ class EventService
         $perPage = max(1, min(100, (int) ($queryInput['per_page'] ?? 8)));
         $search = $queryInput['search'] ?? '';
         $filter = $queryInput['filter'] ?? [];
-        $sort = $queryInput['sort'] ?? ['by' => 'title', 'order' => 'asc'];
+        $sort = $queryInput['sort'] ?? ['by' => 'created_at', 'order' => 'desc'];
 
         // experiment
         $isSuperAdmin = $user->hasRole('super-admin');

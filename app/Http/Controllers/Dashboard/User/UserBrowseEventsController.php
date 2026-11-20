@@ -18,6 +18,7 @@ class UserBrowseEventsController
             'category' => ['nullable', 'string', Rule::in(array_column(EventCategory::cases(), 'value'))],
             'session' => ['nullable', 'string', Rule::in(array_column(EventSession::cases(), 'value'))],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $filters = [
@@ -25,7 +26,10 @@ class UserBrowseEventsController
             'session' => $validated['session'] ?? null,
         ];
 
-        $paginator = $eventService->paginateForPublicBrowse($filters);
+        $page = max(1, (int) ($validated['page'] ?? 1));
+        $perPage = (int) ($validated['per_page'] ?? EventService::PUBLIC_BROWSE_PER_PAGE);
+
+        $paginator = $eventService->paginateForPublicBrowse($filters, $page, $perPage);
 
         return inertia('Dashboard/User/Events', [
             'events' => array_map(
@@ -33,9 +37,10 @@ class UserBrowseEventsController
                 $paginator->items(),
             ),
             'pagination' => [
-                'links' => $eventService->paginationLinks($paginator),
-                'currentPage' => null,
-                'hasMore' => $paginator->hasMorePages(),
+                'currentPage' => $paginator->currentPage(),
+                'lastPage' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'perPage' => $paginator->perPage(),
             ],
             'filters' => $filters,
             'listMode' => 'browse',

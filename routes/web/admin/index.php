@@ -7,7 +7,6 @@ use App\Http\Controllers\Dashboard\User\TeamInvitationController;
 use App\Http\Controllers\Dashboard\User\UserBrowseEventsController;
 use App\Http\Controllers\Dashboard\User\UserEventPortalController;
 use App\Http\Controllers\Dashboard\User\UserEventRegistrationController;
-use App\Http\Controllers\Dashboard\User\UserEventRegistrationFormPickerController;
 use App\Http\Controllers\Dashboard\User\UserJoinedEventsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\OAuthController;
@@ -30,10 +29,6 @@ Route::middleware('auth')->get('/dashboard', function () {
 // Redirect lawas skema /user/dashboard/* (dari backup-oprec-removal) — target
 // route-name terverifikasi hidup di skema /joined. Redirect statis skema lama
 // sengaja tidak dibawa (target path-nya sudah tidak ada di main).
-Route::get(
-    '/user/dashboard/events/{event_segment}/register',
-    fn (string $event_segment) => redirect()->route('dashboard.user.events.register', ['event_segment' => $event_segment], 301)
-);
 Route::get(
     '/user/dashboard/events/{event_segment}/registration',
     fn (string $event_segment) => redirect()->route('dashboard.user.events.registration', ['event_segment' => $event_segment], 301)
@@ -89,9 +84,6 @@ Route::middleware(['auth', 'member_portal'])->prefix('/joined')->name('dashboard
         ->name('team-invitations.show');
     Route::post('/team-invitations/{token}', [TeamInvitationController::class, 'update'])
         ->name('team-invitations.update');
-
-    Route::get('/{event_segment}/register', UserEventRegistrationFormPickerController::class)
-        ->name('events.register');
 
     Route::get('/{event_segment}', UserEventPortalController::class)->name('events.show');
 });
