@@ -63,3 +63,49 @@ Copy yang berubah: `Title` menjadi `Judul form`, `Subtitle` menjadi `Deskripsi s
 - Perubahan urutan simpan field menyentuh data: rollback kode cukup dengan revert dua commit, tidak ada migrasi.
 - Batas 500 field adalah guardrail baru; form dengan lebih dari 500 field akan ditolak 422. Tidak ada form seperti itu di data saat ini.
 - Lighthouse performance belum 100 karena total blocking time hidrasi builder. Pekerjaan lanjutan yang disarankan: memecah inisialisasi autosave dari chunk halaman dan menunda hidrasi komponen builder yang tidak terlihat saat first paint.
+
+## 7. Batch lanjutan: validasi input, aturan format, dan tampilan halaman isi
+
+### Perubahan
+
+| File                                                                                                                           | Perubahan                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `resources/js/lib/fieldInputPatterns.ts` + test                                                                                | Sumber tunggal pola `number`, `tel`, `email`, `nik`, `nim`, `postal_code`, sanitasi saat mengetik, pesan Indonesia. |
+| `resources/js/lib/timeOfDayInput.ts` + test                                                                                    | Penjepitan jam 00-23 dan menit 00-59, termasuk padding satu digit.                                                  |
+| `components/core/TimeSelect24.vue`                                                                                             | Dua input angka 24 jam, bukan dropdown.                                                                             |
+| `FormFillFieldSlotRows.vue`                                                                                                    | `inputmode`, sanitasi, pesan live, petunjuk aturan tim dan paket, pemilih waktu, hapus pesan error inline ganda.    |
+| `FormFillFieldsList.vue`                                                                                                       | Pita error ganda dihapus, kartu error merah, satu pesan per kartu, heading bagian jadi putih.                       |
+| `FormFillHeaderBlock.vue`, `Fill.vue`                                                                                          | Caption banner dihapus dari tampilan, data tetap disimpan.                                                          |
+| `hooks/useFormFillPage.ts`                                                                                                     | Fokus ke kartu error pertama setelah submit gagal.                                                                  |
+| `lib/formFillSlotUi.ts`                                                                                                        | Padding vertikal kartu dikecilkan, jarak judul ke input menyesuaikan subtitle.                                      |
+| `FieldEditor.vue`                                                                                                              | Select "Format isian" di panel Lanjutan, hanya untuk field teks, angka, telepon, email.                             |
+| `fieldMapping.ts`                                                                                                              | `withInputFormat` menyertakan `metadata.rules.format` ke payload.                                                   |
+| `formBuilderPalette.ts`                                                                                                        | Tipe NIK, NIM, Kode Pos dihapus; fungsinya lewat Format isian.                                                      |
+| `app/Support/FieldInputPatterns.php`, `app/Rules/FieldInputPattern.php`, `RulesBuilder.php`, `FormFieldsRequestValidation.php` | Validasi server dengan pola yang sama, format diprioritaskan di atas tipe field.                                    |
+
+### Keputusan dan alternatif yang ditolak
+
+- **Aturan format, bukan tipe field baru.** Tiga tipe identitas dihapus dari palette agar hanya ada satu jalan pengaturan. Ditolak: menambah tipe field NIK, NIM, Kode Pos karena menggandakan jalur dan membingungkan admin.
+- **Validasi menyaring saat mengetik.** Ditolak: validasi hanya saat submit, karena pengguna tidak tahu kesalahannya sampai akhir.
+- **Waktu 24 jam dengan dua input.** Ditolak: dropdown dan format AM/PM.
+- **Satu pesan error per kartu dengan fokus ke kartu.** Ditolak: mempertahankan banner ringkasan di atas kartu karena mengulang pesan yang sama.
+- **Caption banner disembunyikan, bukan dihapus dari data.** Ditolak: menghapus kolom metadata tanpa migrasi berisiko kehilangan data.
+
+### Temuan yang diperbaiki
+
+- `toBackendField` membuang `metadata.rules.format` sebelum payload dikirim, sehingga pilihan format tidak pernah tersimpan. Diperbaiki dan dijaga dua unit test.
+- Subtype validasi sebelumnya hanya dibaca dari `metadata.type`, padahal field lama menyimpan `text`. Sekarang `builderType` dan aturan format dipakai lebih dulu.
+- Elemen drop di kanvas kosong di-unmount saat kursor masuk, sehingga drag dibatalkan sebelum `dragover`. Blok drop dibuat tetap ter-mount.
+- `useFormBuilderEntryParity.test.ts` masih memakai `successContent` pada kontrak hook yang sudah dihapus.
+
+### Bukti
+
+- Pint 869 file PASS; ESLint exit 0; Prettier glob CI sesuai; typecheck dan typecheck:unit exit 0.
+- Vitest 1252 lulus (121 file), termasuk pola input, penjepitan waktu, dan penyimpanan format.
+- PHPUnit Forms 382 lulus; seluruh suite 1890 lulus, 13 skipped.
+- Build, build SSR, dan bundle budget lolos (entry 16,13 kB gzip; chunk terbesar 142,2 kB gzip).
+- Verifikasi live halaman isi: `inputmode=tel` pada field WhatsApp, `abc0812def3456` menjadi `08123456`, pesan merah muncul; caption banner tidak lagi tampil.
+
+### Sisa pekerjaan
+
+- E2E penuh setelah seluruh perubahan, dan audit Lighthouse builder serta halaman isi.
