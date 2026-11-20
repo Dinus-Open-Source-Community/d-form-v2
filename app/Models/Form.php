@@ -104,7 +104,12 @@ class Form extends Model
                 $draftQuery->where('status', FormStatus::Draft->value);
 
                 if ($event->created_by === null) {
-                    $draftQuery->where('created_by', $viewerId);
+                    // Baris draft tanpa `created_by` (data lama/seeder) tidak punya pemilik
+                    // eksplisit, jadi mengikuti aturan event: admin mana pun yang lolos
+                    // policy update event boleh melihatnya.
+                    $draftQuery->where(function (Builder $ownerQuery) use ($viewerId): void {
+                        $ownerQuery->whereNull('created_by')->orWhere('created_by', $viewerId);
+                    });
                 }
             });
         });
@@ -123,7 +128,11 @@ class Form extends Model
             return false;
         }
 
-        return $event->created_by !== null || $this->created_by === $viewerId;
+        // Draft tanpa pemilik eksplisit mengikuti aturan event; pemanggil tetap wajib
+        // lolos policy `update` event sebelum guard ini dipakai.
+        return $event->created_by !== null
+            || $this->created_by === null
+            || $this->created_by === $viewerId;
     }
 
     /** Shared ownership predicate for admin lists, draft access, and draft creation. */

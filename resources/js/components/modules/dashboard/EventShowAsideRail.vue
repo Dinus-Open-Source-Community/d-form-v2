@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import {
@@ -63,6 +63,28 @@ const VISIBLE_LIMIT = 4;
 const showAllForms = ref(false);
 const visibleForms = computed(() => (showAllForms.value ? props.forms : props.forms.slice(0, VISIBLE_LIMIT)));
 const hiddenCount = computed(() => Math.max(0, props.forms.length - VISIBLE_LIMIT));
+
+/** Dua kelompok status: publikasi dan draft, dipisah divider dan diberi label berwarna. */
+const formGroups = computed(() => {
+    // 65% token + foreground menjaga hue hijau/emas sekaligus lolos kontras AA
+    // (success 7.4:1, warning 5.0:1) pada latar kartu putih.
+    const groups = [
+        {
+            key: 'published',
+            label: 'Publish',
+            labelClass: 'text-[color-mix(in_oklab,var(--success)_65%,var(--foreground))]',
+            forms: visibleForms.value.filter((form) => !form.is_draft),
+        },
+        {
+            key: 'draft',
+            label: 'Draft',
+            labelClass: 'text-[color-mix(in_oklab,var(--warning)_65%,var(--foreground))]',
+            forms: visibleForms.value.filter((form) => form.is_draft),
+        },
+    ];
+
+    return groups.filter((group) => group.forms.length > 0);
+});
 
 const showDeleteModal = ref(false);
 const deleteTarget = ref<IEventFormSummary | null>(null);
@@ -145,14 +167,9 @@ defineEmits<{
 
         <Card :class="['border-border/60 rounded-2xl', cardShadow]">
             <CardHeader>
-                <div class="flex items-center justify-between">
-                    <CardTitle class="text-muted-foreground text-[0.8125rem] font-semibold tracking-[0.1em] uppercase"
-                        >Forms</CardTitle
-                    >
-                    <span class="text-foreground text-sm leading-none font-semibold tabular-nums">{{
-                        props.forms.length
-                    }}</span>
-                </div>
+                <CardTitle class="text-muted-foreground text-[0.8125rem] font-semibold tracking-[0.1em] uppercase"
+                    >Forms</CardTitle
+                >
             </CardHeader>
             <CardContent class="flex flex-col gap-2 pt-0">
                 <div v-if="props.forms.length === 0" class="flex flex-col gap-1.5">
@@ -166,56 +183,67 @@ defineEmits<{
                 </div>
 
                 <template v-else>
-                    <div class="flex flex-col gap-1">
-                        <div
-                            v-for="form in visibleForms"
-                            :key="form.id"
-                            class="group border-border/50 bg-muted/30 hover:border-border/80 hover:bg-muted/50 flex items-center gap-1 rounded-lg border px-2.5 py-1 transition-colors"
-                        >
-                            <Link
-                                :href="routes.admin.events.forms.show(props.event.id, form.id)"
-                                class="flex min-w-0 flex-1 items-center gap-2 self-stretch py-0.5"
-                            >
-                                <FileText class="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-                                <span class="text-foreground truncate text-xs font-medium">{{ form.title }}</span>
-                                <Badge
-                                    v-if="form.is_draft"
-                                    variant="outline"
-                                    class="border-warning/30 bg-warning/10 text-warning-foreground shrink-0 px-1.5 py-0 text-[10px] font-semibold tracking-wide uppercase"
-                                    title="Belum dipublikasikan"
+                    <div class="flex flex-col gap-2">
+                        <template v-for="(group, groupIndex) in formGroups" :key="group.key">
+                            <Separator v-if="groupIndex > 0" class="bg-border/60" />
+
+                            <section class="flex flex-col gap-1" :aria-label="`Form ${group.label}`">
+                                <p
+                                    class="px-1 text-xs font-semibold tracking-[0.12em] uppercase"
+                                    :class="group.labelClass"
                                 >
-                                    Draf
-                                    <span class="sr-only">(belum dipublikasikan)</span>
-                                </Badge>
-                            </Link>
-                            <!-- Ikon 32px per pilihan user (tiga ikon terpisah): memenuhi minimum target WCAG 2.2 AA 24px, di bawah heuristik 44px. -->
-                            <div
-                                class="flex shrink-0 items-center justify-end gap-1 opacity-70 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-                            >
-                                <Link
-                                    :href="routes.admin.events.forms.show(props.event.id, form.id)"
-                                    class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
-                                    :aria-label="`Detail form ${form.title}`"
-                                >
-                                    <Eye class="size-3.5" aria-hidden="true" />
-                                </Link>
-                                <Link
-                                    :href="`${routes.admin.events.forms.show(props.event.id, form.id)}?tab=jawaban`"
-                                    class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
-                                    :aria-label="`Lihat jawaban form ${form.title}`"
-                                >
-                                    <Inbox class="size-3.5" aria-hidden="true" />
-                                </Link>
-                                <Button
-                                    variant="ghost"
-                                    class="text-muted-foreground hover:text-destructive focus-visible:text-destructive size-8 shadow-none hover:bg-transparent"
-                                    :aria-label="`Hapus form ${form.title}`"
-                                    @click="startDelete(form)"
-                                >
-                                    <Trash2 class="size-3.5" aria-hidden="true" />
-                                </Button>
-                            </div>
-                        </div>
+                                    {{ group.label }}
+                                </p>
+
+                                <div class="flex flex-col gap-1">
+                                    <div
+                                        v-for="form in group.forms"
+                                        :key="form.id"
+                                        class="group border-border/50 bg-muted/30 hover:border-border/80 hover:bg-muted/50 flex items-center gap-1 rounded-lg border px-2.5 py-1 transition-colors"
+                                    >
+                                        <Link
+                                            :href="routes.admin.events.forms.show(props.event.id, form.id)"
+                                            class="flex min-w-0 flex-1 items-center gap-2 self-stretch py-0.5"
+                                        >
+                                            <FileText
+                                                class="text-muted-foreground size-3.5 shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                            <span class="text-foreground truncate text-xs font-medium">{{
+                                                form.title
+                                            }}</span>
+                                        </Link>
+                                        <!-- Ikon 32px per pilihan user (tiga ikon terpisah): memenuhi minimum target WCAG 2.2 AA 24px, di bawah heuristik 44px. -->
+                                        <div
+                                            class="flex shrink-0 items-center justify-end gap-1 opacity-70 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+                                        >
+                                            <Link
+                                                :href="routes.admin.events.forms.show(props.event.id, form.id)"
+                                                class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
+                                                :aria-label="`Detail form ${form.title}`"
+                                            >
+                                                <Eye class="size-3.5" aria-hidden="true" />
+                                            </Link>
+                                            <Link
+                                                :href="`${routes.admin.events.forms.show(props.event.id, form.id)}?tab=jawaban`"
+                                                class="text-muted-foreground hover:text-primary focus-visible:bg-background focus-visible:text-primary focus-visible:ring-ring/30 inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-transparent focus-visible:ring-[3px]"
+                                                :aria-label="`Lihat jawaban form ${form.title}`"
+                                            >
+                                                <Inbox class="size-3.5" aria-hidden="true" />
+                                            </Link>
+                                            <Button
+                                                variant="ghost"
+                                                class="text-muted-foreground hover:text-destructive focus-visible:text-destructive size-8 shadow-none hover:bg-transparent"
+                                                :aria-label="`Hapus form ${form.title}`"
+                                                @click="startDelete(form)"
+                                            >
+                                                <Trash2 class="size-3.5" aria-hidden="true" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </template>
                     </div>
 
                     <Button

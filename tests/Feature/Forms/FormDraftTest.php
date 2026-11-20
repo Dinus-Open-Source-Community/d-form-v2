@@ -853,6 +853,58 @@ class FormDraftTest extends TestCase
             ->assertDontSee($draft->id);
     }
 
+    public function test_creatorless_event_lists_a_draft_without_an_owner_for_an_organizer(): void
+    {
+        $organizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        // Baris lama/seeder: event tanpa pembuat dan form draft tanpa `created_by`.
+        $draft = $this->draft($event, $organizer, ['created_by' => null, 'title' => 'Zeta Draft']);
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.events.show', ['event' => $event], false))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Show')
+                ->has('forms', 1)
+                ->where('forms.0.id', $draft->id)
+                ->where('forms.0.status', FormStatus::Draft->value)
+                ->where('forms.0.is_draft', true));
+    }
+
+    public function test_creatorless_event_lets_an_organizer_open_a_draft_without_an_owner(): void
+    {
+        $organizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        $draft = $this->draft($event, $organizer, ['created_by' => null]);
+
+        $this->actingAs($organizer)
+            ->get($this->showPath($event, $draft))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Forms/Show')
+                ->where('form.id', $draft->id)
+                ->where('form.is_draft', true));
+    }
+
+    public function test_creatorless_event_hides_a_draft_owned_by_another_organizer(): void
+    {
+        $organizer = $this->organizer();
+        $otherOrganizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        $draft = $this->draft($event, $otherOrganizer, ['title' => 'Zeta Draft']);
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.events.show', ['event' => $event], false))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Show')
+                ->has('forms', 0));
+
+        $this->actingAs($organizer)
+            ->get($this->showPath($event, $draft))
+            ->assertNotFound();
+    }
+
     public function test_creator_can_open_the_draft_edit_page(): void
     {
         $owner = $this->organizer();

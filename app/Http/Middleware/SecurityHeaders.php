@@ -138,9 +138,17 @@ class SecurityHeaders
             return $directives;
         }
 
+        // `font-src` hanya menerima origin HTTP: `@font-face` di app.css memakai URL
+        // relatif yang diserve Vite (5173) saat dev, sedangkan di produksi aset itu
+        // berasal dari build sehingga origin tambahan ini tidak pernah ikut terkirim.
         foreach (['script-src', 'style-src', 'connect-src'] as $name) {
             $directives[$name] = $this->appendSources($directives[$name] ?? [], $origins);
         }
+
+        $directives['font-src'] = $this->appendSources(
+            $directives['font-src'] ?? [],
+            array_values(array_filter($origins, static fn (string $origin): bool => str_starts_with($origin, 'http://')))
+        );
 
         $directives['script-src'] = $this->appendSources($directives['script-src'], ["'unsafe-inline'"]);
 

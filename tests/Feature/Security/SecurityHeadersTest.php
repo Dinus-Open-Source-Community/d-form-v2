@@ -61,6 +61,8 @@ class SecurityHeadersTest extends TestCase
         $this->assertContains("'unsafe-inline'", $directives['script-src']);
         $this->assertContains('http://localhost:5173', $directives['script-src']);
         $this->assertContains('ws://localhost:5173', $directives['connect-src']);
+        // Font Poppins diserve Vite di dev; tanpa origin ini browser memblokir @font-face.
+        $this->assertContains('http://localhost:5173', $directives['font-src']);
         $this->assertNotContains("'unsafe-eval'", $directives['script-src']);
     }
 
@@ -77,6 +79,10 @@ class SecurityHeadersTest extends TestCase
             $this->assertContains('http://192.168.0.170:5173', $directives[$directive]);
             $this->assertContains('ws://192.168.0.170:5173', $directives[$directive]);
         }
+
+        // Font hanya diserve lewat HTTP; varian websocket tidak relevan untuk `font-src`.
+        $this->assertContains('http://192.168.0.170:5173', $directives['font-src']);
+        $this->assertNotContains('ws://192.168.0.170:5173', $directives['font-src']);
 
         $this->assertContains('http://localhost:5173', $directives['script-src']);
     }
