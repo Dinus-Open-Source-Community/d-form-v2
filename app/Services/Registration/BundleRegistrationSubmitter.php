@@ -96,8 +96,13 @@ final class BundleRegistrationSubmitter
                 throw new \RuntimeException('Event not found.');
             }
 
+            $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+            if ($lockedForm === null) {
+                throw new \RuntimeException('Form not found.');
+            }
+
             if (FormAnswer::query()
-                ->where('form_id', $form->id)
+                ->where('form_id', $lockedForm->id)
                 ->where('user_id', $leaderUser->id)
                 ->excludeRejectedSubmissions()
                 ->lockForUpdate()

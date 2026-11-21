@@ -11,6 +11,13 @@ use Illuminate\Database\Seeder;
 
 class EventSeeder extends Seeder
 {
+    /**
+     * Kolom `events.banner` wajib terisi, sedangkan repo tidak membawa gambar contoh.
+     * Path ini hanya penanda: `PublicStorage::existingUrl()` menyembunyikan berkas yang
+     * tidak ada, sehingga UI memakai placeholder-nya sendiri alih-alih `<img>` 404.
+     */
+    private const PLACEHOLDER_BANNER = 'events/banners/placeholder.jpg';
+
     public function run(): void
     {
         $events = [
@@ -26,7 +33,7 @@ class EventSeeder extends Seeder
                 'quota' => 50,
                 'registered_count' => 12,
                 // Seeded events must not reference sample banner files that are not shipped with the repo.
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 20000,
                 'session' => EventSession::General->value,
                 'status' => EventStatus::Published,
@@ -43,7 +50,7 @@ class EventSeeder extends Seeder
                 'location' => 'Semarang — Auditorium A, UDINUS',
                 'quota' => 250,
                 'registered_count' => 189,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 25000,
                 'session' => EventSession::Networking->value,
                 'status' => EventStatus::Published,
@@ -60,7 +67,7 @@ class EventSeeder extends Seeder
                 'location' => 'UDINUS — Gedung H Lantai 4',
                 'quota' => 2000,
                 'registered_count' => 1205,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 50000,
                 'session' => EventSession::Data->value,
                 'status' => EventStatus::Published,
@@ -77,7 +84,7 @@ class EventSeeder extends Seeder
                 'location' => 'Online — Google Meet',
                 'quota' => 800,
                 'registered_count' => 0,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 75000,
                 'session' => EventSession::MediaCreative->value,
                 'status' => EventStatus::Published,
@@ -94,7 +101,7 @@ class EventSeeder extends Seeder
                 'location' => 'UDINUS — Lab Komputer D.2',
                 'quota' => 200,
                 'registered_count' => 0,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 0,
                 'session' => EventSession::Programming->value,
                 'status' => EventStatus::Draft,
@@ -111,7 +118,7 @@ class EventSeeder extends Seeder
                 'location' => 'UDINUS — Gedung H Lantai 3',
                 'quota' => 1200,
                 'registered_count' => 890,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 35000,
                 'session' => EventSession::Networking->value,
                 'status' => EventStatus::Published,
@@ -128,7 +135,7 @@ class EventSeeder extends Seeder
                 'location' => 'Universitas Dian Nuswantoro',
                 'quota' => 100,
                 'registered_count' => 100,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 20000,
                 'session' => EventSession::General->value,
                 'status' => EventStatus::Draft,
@@ -145,7 +152,7 @@ class EventSeeder extends Seeder
                 'location' => 'UDINUS — Gedung E Co-Lab',
                 'quota' => 500,
                 'registered_count' => 300,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 0,
                 'session' => EventSession::Programming->value,
                 'status' => EventStatus::Published,
@@ -162,7 +169,7 @@ class EventSeeder extends Seeder
                 'location' => 'Online — Zoom + Discord',
                 'quota' => 300,
                 'registered_count' => 298,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 15000,
                 'session' => EventSession::Programming->value,
                 'status' => EventStatus::Published,
@@ -179,7 +186,7 @@ class EventSeeder extends Seeder
                 'location' => 'UDINUS — Lab Komputer D.3',
                 'quota' => 150,
                 'registered_count' => 0,
-                'banner' => null,
+                'banner' => self::PLACEHOLDER_BANNER,
                 'price' => 10000,
                 'session' => EventSession::Data->value,
                 'status' => EventStatus::Published,
