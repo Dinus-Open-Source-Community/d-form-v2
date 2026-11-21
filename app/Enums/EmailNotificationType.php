@@ -8,6 +8,10 @@ enum EmailNotificationType: string
     case RegistrationAccepted = 'registration_accepted';
     case RegistrationRejected = 'registration_rejected';
     case AttendanceConfirmed = 'attendance_confirmed';
+    case AnswerCollectionReceived = 'answer_collection_received';
+    case FeedbackReceived = 'feedback_received';
+    case ClassAttendanceCard = 'class_attendance_card';
+    case ClassAttendanceConfirmed = 'class_attendance_confirmed';
     case TeamInvitation = 'team_invitation';
     case InvitationDeclinedByInvitee = 'invitation_declined_by_invitee';
     case TeamMemberInvitationAcceptedLeaderNotice = 'team_member_invitation_accepted_leader_notice';

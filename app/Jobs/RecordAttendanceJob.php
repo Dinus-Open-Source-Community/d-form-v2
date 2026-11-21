@@ -5,9 +5,12 @@ namespace App\Jobs;
 use App\Enums\EmailLogStatus;
 use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\FormPurpose;
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Jobs\Concerns\TracksOutgoingEmail;
 use App\Mail\AttendanceConfirmedMail;
+use App\Mail\ClassAttendanceConfirmedMail;
+use App\Services\Form\FormSessionSchedule;
 use App\Models\EmailLog;
 use App\Models\EventAttendance;
 use App\Services\Registration\FormAnswerRecipientResolver;
@@ -32,6 +35,7 @@ class RecordAttendanceJob implements ShouldQueue
 
     public function handle(FormAnswerRecipientResolver $recipientResolver): void
     {
+        $schedule = app(FormSessionSchedule::class);
         $attendance = EventAttendance::query()
             ->with(['formAnswer.form.event', 'formAnswer.user'])
             ->find($this->attendanceId);
@@ -46,7 +50,14 @@ class RecordAttendanceJob implements ShouldQueue
 
         $submission = $attendance->formAnswer;
 
-        if ($submission->review_status !== FormAnswerReviewStatus::Accepted) {
+        $isDKelas = $submission->form->purpose() === FormPurpose::DKelas;
+        $notificationType = $isDKelas
+            ? EmailNotificationType::ClassAttendanceConfirmed
+            : EmailNotificationType::AttendanceConfirmed;
+
+        $isSessionAttendance = $attendance->form_session_id !== null;
+
+        if (! $isDKelas && $submission->review_status !== FormAnswerReviewStatus::Accepted) {
             Log::warning('[RecordAttendanceJob] Submission no longer eligible.', [
                 'form_answer_id' => $submission->id,
             ]);
@@ -54,14 +65,15 @@ class RecordAttendanceJob implements ShouldQueue
             return;
         }
 
-        $alreadySent = EmailLog::query()
+        $alreadySent = ! $isSessionAttendance && EmailLog::query()
             ->where('form_answer_id', $submission->id)
-            ->where('notification_type', EmailNotificationType::AttendanceConfirmed)
+            ->where('notification_type', $notificationType)
             ->where('status', EmailLogStatus::Sent)
             ->exists();
 
         if ($alreadySent) {
             Log::info('[RecordAttendanceJob] Confirmation already sent; skipping.', [
+                'notification_type' => $notificationType->value,
                 'form_answer_id' => $submission->id,
             ]);
 
@@ -76,7 +88,7 @@ class RecordAttendanceJob implements ShouldQueue
             'event_id' => $event->id,
             'user_id' => $recipientResolver->userIdForLog($submission),
             'recipient_email' => $recipientEmail ?? '',
-            'notification_type' => EmailNotificationType::AttendanceConfirmed,
+            'notification_type' => $notificationType,
         ];
 
         if ($recipientEmail === null || $recipientEmail === '') {
@@ -98,14 +110,24 @@ class RecordAttendanceJob implements ShouldQueue
         }
 
         try {
-            Mail::to($recipientEmail)->send(new AttendanceConfirmedMail($submission, $attendance));
+            if ($isSessionAttendance) {
+                $total = $schedule->totalFor($submission->form);
+                $recorded = EventAttendance::query()
+                    ->where('form_answer_id', $submission->id)
+                    ->whereNotNull('form_session_id')
+                    ->count();
+                $remaining = max(0, $total - $recorded);
+                Mail::to($recipientEmail)->send(new ClassAttendanceConfirmedMail($submission, $attendance, $remaining, $total));
+            } else {
+                Mail::to($recipientEmail)->send(new AttendanceConfirmedMail($submission, $attendance));
+            }
 
             $this->markEmailLogSent($log, $recipientEmail);
         } catch (\Throwable $e) {
             $this->markEmailLogFailed($log, $e);
 
             Log::error('[RecordAttendanceJob] Email send failed.', [
-                'notification_type' => EmailNotificationType::AttendanceConfirmed->value,
+                'notification_type' => $notificationType->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
                 'delivery_key' => $this->deliveryKey,

@@ -16,6 +16,12 @@ use App\Jobs\Recruitment\SendRecruitmentNotificationJob;
 use App\Jobs\SendInviteeInvitationDeclinedNoticeJob;
 use App\Jobs\SendRegistrationAcceptedJob;
 use App\Jobs\SendRegistrationConfirmationJob;
+use App\Mail\AnswerCollectionReceivedMail;
+use App\Mail\DkelasAttendanceCardMail;
+use App\Mail\FeedbackReceivedMail;
+use App\Mail\AttendanceConfirmedMail;
+use App\Models\EventAttendance;
+use App\Models\FormSession;
 use App\Jobs\SendRegistrationOtpJob;
 use App\Jobs\SendRegistrationRejectedJob;
 use App\Jobs\SendTeamInvitationJob;
@@ -88,6 +94,82 @@ class EmailJobIdempotencyTest extends TestCase
             self::assertSame(60, $job->timeout, "{$class} must define timeout.");
             self::assertNotEmpty($job->backoff, "{$class} must define backoff.");
         }
+    }
+
+    public function test_d_kelas_receipt_job_sends_card_qr_dates_and_log_type(): void
+    {
+        Mail::fake();
+        [$event, $form, $user] = $this->eventFormAndUser(['purpose' => 'd_kelas']);
+        FormSession::factory()->create(['form_id' => $form->id, 'session_date' => '2026-12-07']);
+        FormSession::factory()->create(['form_id' => $form->id, 'session_date' => '2026-12-14']);
+        $submission = FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $user->id, 'review_status' => 'pending']);
+        $job = new SendRegistrationConfirmationJob($submission->id);
+        $job->handle(app(RegistrationAnswersSummarizer::class), app(RegistrationQrPngGenerator::class), app(FormAnswerRecipientResolver::class), app(\App\Services\Registration\FormReceiptMailResolver::class), app(\App\Services\Form\FormSessionSchedule::class));
+        Mail::assertSent(DkelasAttendanceCardMail::class, fn (DkelasAttendanceCardMail $mail): bool => $mail->context->qrPngBinary !== null && $mail->context->sessionDates === ['2026-12-07', '2026-12-14']);
+        self::assertSame(EmailNotificationType::ClassAttendanceCard, EmailLog::query()->latest('created_at')->value('notification_type'));
+    }
+
+    public function test_collection_and_feedback_receipts_have_no_qr_and_correct_logs(): void
+    {
+        Mail::fake();
+        [, $collectionForm, $user] = $this->eventFormAndUser(['purpose' => 'answer_collection']);
+        $collection = FormAnswer::factory()->create(['form_id' => $collectionForm->id, 'user_id' => $user->id]);
+        [, $feedbackForm] = $this->eventFormAndUser(['purpose' => 'feedback']);
+        $feedback = FormAnswer::factory()->create(['form_id' => $feedbackForm->id, 'user_id' => $user->id]);
+        foreach ([$collection, $feedback] as $submission) {
+            (new SendRegistrationConfirmationJob($submission->id))->handle(app(RegistrationAnswersSummarizer::class), app(RegistrationQrPngGenerator::class), app(FormAnswerRecipientResolver::class), app(\App\Services\Registration\FormReceiptMailResolver::class), app(\App\Services\Form\FormSessionSchedule::class));
+        }
+        Mail::assertSent(AnswerCollectionReceivedMail::class);
+        Mail::assertSent(FeedbackReceivedMail::class);
+        self::assertSame(EmailNotificationType::AnswerCollectionReceived, EmailLog::query()->where('form_answer_id', $collection->id)->value('notification_type'));
+        self::assertSame(EmailNotificationType::FeedbackReceived, EmailLog::query()->where('form_answer_id', $feedback->id)->value('notification_type'));
+    }
+
+    public function test_registration_receipt_preserves_accepted_qr_gate(): void
+    {
+        Mail::fake();
+        [, $form, $user] = $this->eventFormAndUser();
+        $accepted = FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $user->id, 'review_status' => 'accepted']);
+        $pending = FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => null, 'invited_email' => 'pending@example.test', 'review_status' => 'pending']);
+        foreach ([$accepted, $pending] as $submission) {
+            (new SendRegistrationConfirmationJob($submission->id))->handle(app(RegistrationAnswersSummarizer::class), app(RegistrationQrPngGenerator::class), app(FormAnswerRecipientResolver::class), app(\App\Services\Registration\FormReceiptMailResolver::class), app(\App\Services\Form\FormSessionSchedule::class));
+        }
+        Mail::assertSent(RegistrationConfirmationMail::class, 2);
+        Mail::assertSent(RegistrationConfirmationMail::class, fn (RegistrationConfirmationMail $mail): bool => $mail->qrPngBinary !== null);
+        Mail::assertSent(RegistrationConfirmationMail::class, fn (RegistrationConfirmationMail $mail): bool => $mail->qrPngBinary === null);
+    }
+
+    public function test_attendance_notification_type_bypasses_only_d_kelas_review_gate(): void
+    {
+        Mail::fake();
+        [$event, $dForm, $user] = $this->eventFormAndUser(['purpose' => 'd_kelas']);
+        $dSubmission = FormAnswer::factory()->create(['form_id' => $dForm->id, 'user_id' => $user->id, 'review_status' => 'pending', 'is_active' => 0]);
+        $dAttendance = EventAttendance::query()->create(['event_id' => $event->id, 'form_answer_id' => $dSubmission->id, 'attendance_slot' => 'default', 'scanned_at' => now()]);
+        (new RecordAttendanceJob($dAttendance->id))->handle(app(FormAnswerRecipientResolver::class));
+        Mail::assertSent(AttendanceConfirmedMail::class);
+        self::assertSame(EmailNotificationType::ClassAttendanceConfirmed, EmailLog::query()->where('form_answer_id', $dSubmission->id)->value('notification_type'));
+    }
+
+    public function test_pending_registration_attendance_is_rejected(): void
+    {
+        Mail::fake();
+        [$event, $form, $user] = $this->eventFormAndUser();
+        $submission = FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $user->id, 'review_status' => 'pending']);
+        $attendance = EventAttendance::query()->create(['event_id' => $event->id, 'form_answer_id' => $submission->id, 'attendance_slot' => 'default', 'scanned_at' => now()]);
+        (new RecordAttendanceJob($attendance->id))->handle(app(FormAnswerRecipientResolver::class));
+        Mail::assertNothingSent();
+        self::assertDatabaseMissing('email_logs', ['form_answer_id' => $submission->id]);
+    }
+
+    public function test_registration_attendance_sends_legacy_type_when_accepted(): void
+    {
+        Mail::fake();
+        [$event, $form, $user] = $this->eventFormAndUser();
+        $submission = FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $user->id, 'review_status' => 'accepted']);
+        $attendance = EventAttendance::query()->create(['event_id' => $event->id, 'form_answer_id' => $submission->id, 'attendance_slot' => 'default', 'scanned_at' => now()]);
+        (new RecordAttendanceJob($attendance->id))->handle(app(FormAnswerRecipientResolver::class));
+        Mail::assertSent(AttendanceConfirmedMail::class);
+        self::assertSame(EmailNotificationType::AttendanceConfirmed, EmailLog::query()->where('form_answer_id', $submission->id)->value('notification_type'));
     }
 
     public function test_registration_confirmation_job_sends_once_when_retried(): void
@@ -357,7 +439,7 @@ class EmailJobIdempotencyTest extends TestCase
     /**
      * @return array{0: Event, 1: Form, 2: User}
      */
-    private function eventFormAndUser(): array
+    private function eventFormAndUser(array $metadata = []): array
     {
         $event = Event::factory()->create([
             'status' => EventStatus::Published,
@@ -370,9 +452,10 @@ class EmailJobIdempotencyTest extends TestCase
             'title' => 'Registration',
             'visible_for' => [EventFormVisibility::Public->value],
             'closed_at' => now()->addDays(30),
+            'metadata' => $metadata,
         ]);
 
-        $user = User::factory()->create(['email' => 'participant@example.test']);
+        $user = User::factory()->create();
 
         return [$event, $form, $user];
     }
