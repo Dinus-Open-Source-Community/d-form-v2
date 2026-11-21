@@ -5,6 +5,7 @@ namespace Tests\Feature\Forms;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
+use App\Models\FormSession;
 use App\Models\User;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\FormFieldsRequestValidation;
@@ -69,6 +70,33 @@ class FormBuilderHttpTest extends TestCase
             'name' => 'note',
             'input_type' => 'textarea',
         ]);
+    }
+
+    public function test_form_show_includes_schedule_and_submission_state(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $event = Event::factory()->create();
+        $form = Form::factory()->create(['event_id' => $event->id]);
+        $session = FormSession::factory()->create([
+            'form_id' => $form->id,
+            'session_date' => '2026-12-07',
+            'label' => 'Pagi',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard.events.forms.show', ['event' => $event, 'form' => $form]))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                ->component('Dashboard/Events/Forms/Show')
+                ->where('hasSubmissions', false)
+                ->where('sessions', [[
+                    'id' => $session->id,
+                    'session_date' => '2026-12-07',
+                    'label' => 'Pagi',
+                    'attendance_count' => 0,
+                ]])
+            );
     }
 
     public function test_upload_metadata_survives_field_save_and_reload(): void

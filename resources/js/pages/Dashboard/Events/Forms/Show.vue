@@ -54,7 +54,8 @@ import {
 } from '@/components/modules/builder/fieldMapping';
 import { defaultFormBannerState } from '@/components/modules/builder/formBanner';
 import { hydrateFormBuilderState } from '@/components/modules/builder/formBuilderHydration';
-import type { IFormSiblingOption } from '@/types/form';
+import type { IFormSession, IFormSiblingOption } from '@/types/form';
+import FormSchedulePanel from '@/components/modules/builder/FormSchedulePanel.vue';
 import {
     answerPreview,
     formSubmissionReviewActionLabel,
@@ -105,6 +106,9 @@ const props = defineProps<{
     submissionsCount?: number;
     /** Metadata halaman jawaban; `submissions` berisi satu halaman saja. */
     submissionsPagination?: ISubmissionsPagination;
+    /** Jadwal sesi dan status jawaban dari payload halaman show. */
+    sessions?: IFormSession[];
+    hasSubmissions?: boolean;
     /** ID yang boleh dipilih lewat "pilih semua" lintas halaman (dibatasi `bulkSelectableLimit`). */
     selectableSubmissionIds?: string[];
     bulkSelectableTotal?: number;
@@ -112,6 +116,11 @@ const props = defineProps<{
     /** URL unduhan jawaban dari backend; `csv` per field, `zip` per pengirim beserta berkas. */
     exportUrls: { csv: string; zip: string };
 }>();
+
+const formSessions = computed<IFormSession[]>(() => props.sessions ?? props.form.sessions ?? []);
+const hasSubmissions = computed<boolean>(
+    () => props.hasSubmissions ?? props.form.hasSubmissions ?? (props.submissionsCount ?? 0) > 0
+);
 
 const page = usePage();
 const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast } = useToastNotifications();
@@ -961,7 +970,14 @@ function rejectLabel(submission: IFormSubmission): string {
                         :field-errors="fieldErrors"
                         :visibility-options="FORM_VISIBILITY_OPTIONS"
                         :sibling-forms="siblingForms ?? []"
+                        :has-submissions="hasSubmissions"
                         @toggle-visibility="onToggleVisibility"
+                    />
+                    <FormSchedulePanel
+                        v-if="formMetadata.purpose === 'd_kelas'"
+                        :event-id="event.id"
+                        :form-id="form.id"
+                        :sessions="formSessions"
                     />
                 </div>
             </TabsContent>
