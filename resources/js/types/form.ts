@@ -26,6 +26,13 @@ export interface IFormSiblingOption {
     title: string;
 }
 
+export interface IFormSession {
+    id: string;
+    session_date: string;
+    label: string | null;
+    attendance_count: number;
+}
+
 /**
  * Ringkasan form pada sidebar halaman detail acara. Controller `dashboard.events.show`
  * selalu mengirim `is_draft` (draft hanya terlihat oleh pembuat acara).
@@ -160,6 +167,9 @@ export interface IFormRegistrationMetadata {
     registration_mode: 'single' | 'bundle' | 'team' | null;
     max_team_size: number | null;
     team_size: number | null;
+    allow_multiple_submissions: boolean;
+    allow_guest_submissions: boolean;
+    max_submissions: number;
     sections: IFormBuilderSection[];
 }
 
@@ -170,7 +180,14 @@ export interface IFormRegistrationMetadata {
 export type TFormMetadataPayload = Required<
     Pick<
         IFormRegistrationMetadata,
-        'purpose' | 'requires_form_id' | 'registration_mode' | 'max_team_size' | 'team_size'
+        | 'purpose'
+        | 'requires_form_id'
+        | 'registration_mode'
+        | 'max_team_size'
+        | 'team_size'
+        | 'allow_multiple_submissions'
+        | 'allow_guest_submissions'
+        | 'max_submissions'
     > & {
         sections: IFormBuilderSection[];
     }

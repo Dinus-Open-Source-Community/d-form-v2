@@ -43,11 +43,12 @@ final class FormPurposeRules
      *
      * @param  array<string, mixed>  $metadata
      * @param  string|null  $currentPurpose  Tujuan tersimpan; `null` saat pembuatan form baru.
+     * @param  bool  $hasSubmissions  Whether the form already has stored submissions.
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public static function apply(array $metadata, ?string $currentPurpose = null): array
+    public static function apply(array $metadata, ?string $currentPurpose = null, bool $hasSubmissions = false): array
     {
         $purpose = is_string($metadata['purpose'] ?? null) ? FormPurpose::tryFrom($metadata['purpose']) : null;
 
@@ -69,6 +70,12 @@ final class FormPurposeRules
             ]);
         }
 
+        if ($hasSubmissions && $currentPurpose !== null && $purpose->value !== $currentPurpose) {
+            throw ValidationException::withMessages([
+                'metadata.purpose' => 'Tujuan form tidak dapat diubah setelah ada isian.',
+            ]);
+        }
+
         $mode = is_string($metadata['registration_mode'] ?? null) ? $metadata['registration_mode'] : 'single';
 
         if (! in_array($mode, self::REGISTRATION_MODES, true)) {
@@ -83,8 +90,51 @@ final class FormPurposeRules
             ]);
         }
 
+        $allowMultipleSubmissions = $metadata['allow_multiple_submissions'] ?? false;
+        if (! is_bool($allowMultipleSubmissions)) {
+            throw ValidationException::withMessages([
+                'metadata.allow_multiple_submissions' => 'Pengaturan pengiriman ulang harus berupa pilihan ya atau tidak.',
+            ]);
+        }
+
+        $isRepeatablePurpose = ! in_array($purpose, [FormPurpose::Registration, FormPurpose::DKelas], true);
+        if (! $isRepeatablePurpose) {
+            $allowMultipleSubmissions = false;
+        }
+
+        $allowGuestSubmissions = $metadata['allow_guest_submissions'] ?? false;
+        if (! is_bool($allowGuestSubmissions)) {
+            throw ValidationException::withMessages([
+                'metadata.allow_guest_submissions' => 'Pengaturan pengisian tanpa login harus berupa pilihan ya atau tidak.',
+            ]);
+        }
+
+        if (! $isRepeatablePurpose) {
+            $allowGuestSubmissions = false;
+        }
+
+        $maxSubmissions = $metadata['max_submissions'] ?? null;
+        if ($allowMultipleSubmissions) {
+            if ($maxSubmissions === null) {
+                $maxSubmissions = 2;
+            } elseif (is_string($maxSubmissions) && preg_match('/^[0-9]+$/D', $maxSubmissions) === 1) {
+                $maxSubmissions = (int) $maxSubmissions;
+            }
+
+            if (! is_int($maxSubmissions) || $maxSubmissions < 2 || $maxSubmissions > 10000) {
+                throw ValidationException::withMessages([
+                    'metadata.max_submissions' => 'Jumlah pengiriman maksimum harus berupa angka bulat dari 2 sampai 10000.',
+                ]);
+            }
+        } else {
+            $maxSubmissions = 1;
+        }
+
         $metadata['purpose'] = $purpose->value;
         $metadata['registration_mode'] = $mode;
+        $metadata['allow_multiple_submissions'] = $allowMultipleSubmissions;
+        $metadata['allow_guest_submissions'] = $allowGuestSubmissions;
+        $metadata['max_submissions'] = $maxSubmissions;
 
         return $metadata;
     }

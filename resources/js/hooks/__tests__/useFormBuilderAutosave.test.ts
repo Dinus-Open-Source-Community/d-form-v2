@@ -27,6 +27,9 @@ const EMPTY_METADATA = {
     registration_mode: null,
     max_team_size: null,
     team_size: null,
+    allow_multiple_submissions: false,
+    allow_guest_submissions: false,
+    max_submissions: 1,
     sections: [{ id: 'section-1', title: 'Bagian 1' }],
 };
 

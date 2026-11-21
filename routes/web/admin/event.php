@@ -14,10 +14,14 @@ use App\Http\Controllers\Dashboard\Events\Forms\BulkFormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmitSuccessController;
+use App\Http\Controllers\Dashboard\Events\Forms\GuestFormFillController;
+use App\Http\Controllers\Dashboard\Events\Forms\GuestFormSubmissionController;
+use App\Http\Controllers\Dashboard\Events\Forms\GuestFormSubmitSuccessController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareBarcodeController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareLinkController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareRedirectController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormSessionController;
 use App\Http\Controllers\Dashboard\User\UserValidationController;
 
 // Authorized access to registration uploads. Kept outside the auth-only groups
@@ -32,6 +36,14 @@ Route::get('/form-answers/{formAnswer}/files/{field}/{filename}', FormAnswerFile
 Route::get('/s/{slug}', FormShareRedirectController::class)
     ->where('slug', '[a-z0-9-]{3,50}')
     ->name('form-share.redirect');
+
+Route::name('dashboard.public.')->prefix('/public')->middleware('event.not-archived')->group(function () {
+    Route::get('/{event}/forms/{form}/fill', GuestFormFillController::class)->name('events.forms.fill');
+    Route::post('/{event}/forms/{form}/submit', GuestFormSubmissionController::class)
+        ->middleware('throttle:form-submit')
+        ->name('events.forms.submission');
+    Route::get('/{event}/forms/{form}/submitted', GuestFormSubmitSuccessController::class)->name('events.forms.submitted');
+});
 
 Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function () {
     Route::get('/{event}/forms/{form}/fill', FormFillController::class)
@@ -103,6 +115,12 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer', 'e
     // Tanpa route ini, GET pada URI yang sama dijawab 405 (karena `store` POST),
     // padahal URL lama harus 404.
     Route::get('/events/{event}/forms', static fn () => abort(404));
+
+    Route::post('/events/{event}/forms/{form}/sessions', [FormSessionController::class, 'store'])
+        ->name('events.forms.sessions.store');
+
+    Route::delete('/events/{event}/forms/{form}/sessions/{session}', [FormSessionController::class, 'destroy'])
+        ->name('events.forms.sessions.destroy');
 
     Route::post('/events/{event}/forms/{form}/fields', [FieldOperationController::class, '__invoke'])
         ->name('events.forms.fields');

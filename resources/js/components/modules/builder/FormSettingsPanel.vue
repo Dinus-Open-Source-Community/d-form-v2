@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Input } from '@/components/ui/input';
 import { SplitDateTimeField } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import DeferredRender from '@/components/core/DeferredRender.vue';
 import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 import type { TFormPurpose, IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
+import {
+    filterFormSubmissionLimitInput,
+    hasFormSubmissionLimitFormatError,
+    validateFormSubmissionLimitInput,
+} from '@/lib/formSubmissionLimitInput';
 
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
@@ -52,6 +57,7 @@ defineEmits<{
 }>();
 
 const isRegistrationPurpose = computed(() => formMetadata.value.purpose === 'registration');
+const isGuestSubmissionEligible = computed(() => !isRegistrationPurpose.value && !isDKelasPurpose.value);
 
 const isTeamStyleRegistration = computed(() => {
     if (!isRegistrationPurpose.value) {
@@ -137,6 +143,47 @@ function setTeamSize(v: string | number): void {
     };
 }
 
+const maxSubmissionsInput = ref<string>(String(formMetadata.value.max_submissions || ''));
+const maxSubmissionsError = ref<string | null>(null);
+const hasMalformedMaxSubmissionsInput = ref<boolean>(false);
+
+watch(
+    () => formMetadata.value.max_submissions,
+    (value: number): void => {
+        const nextValue: string = value > 0 ? String(value) : '';
+        if (nextValue !== maxSubmissionsInput.value) maxSubmissionsInput.value = nextValue;
+    }
+);
+
+function setMaxSubmissions(v: string | number): void {
+    const rawValue: string = typeof v === 'number' ? String(v) : vString(v);
+    const filteredValue: string = filterFormSubmissionLimitInput(rawValue);
+    const rawValidation = validateFormSubmissionLimitInput(rawValue);
+    hasMalformedMaxSubmissionsInput.value = hasFormSubmissionLimitFormatError(rawValue);
+    maxSubmissionsInput.value = filteredValue;
+    maxSubmissionsError.value = rawValidation.message;
+    if (rawValidation.valid && rawValidation.value !== null) {
+        formMetadata.value = { ...formMetadata.value, max_submissions: rawValidation.value };
+    }
+}
+
+function validateMaxSubmissions(): void {
+    const validation = validateFormSubmissionLimitInput(maxSubmissionsInput.value);
+    maxSubmissionsError.value = hasMalformedMaxSubmissionsInput.value
+        ? 'Gunakan angka bulat tanpa tanda atau desimal.'
+        : validation.message;
+}
+
+function onMultipleSubmissionsToggle(value: boolean): void {
+    formMetadata.value = {
+        ...formMetadata.value,
+        allow_multiple_submissions: value,
+        max_submissions: value
+            ? Math.max(2, formMetadata.value.max_submissions || 2)
+            : formMetadata.value.max_submissions,
+    };
+}
+
 function vString(v: unknown): string {
     return v == null ? '' : String(v);
 }
@@ -218,6 +265,95 @@ function vString(v: unknown): string {
                     aria-label="Registration mode"
                     @update:model-value="onRegistrationModeSelect"
                 />
+            </div>
+
+            <div v-if="isGuestSubmissionEligible" class="border-border space-y-3 border-t pt-5">
+                <h3 class="text-sm font-semibold">Akses pengisian</h3>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-guest-submissions-toggle`" class="text-sm font-medium"
+                            >Izinkan pengisian tanpa login</Label
+                        >
+                        <p
+                            :id="`${idPrefix}-guest-submissions-description`"
+                            class="text-muted-foreground text-xs leading-snug"
+                        >
+                            {{
+                                formMetadata.allow_guest_submissions
+                                    ? 'Siapa pun yang memiliki tautan dapat mengisi form ini tanpa masuk ke akun.'
+                                    : 'Peserta harus masuk ke akun sebelum mengisi form ini.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-guest-submissions-toggle`"
+                        :model-value="formMetadata.allow_guest_submissions"
+                        :aria-describedby="`${idPrefix}-guest-submissions-description`"
+                        aria-label="Izinkan pengisian tanpa login"
+                        @update:model-value="
+                            (value) => (formMetadata = { ...formMetadata, allow_guest_submissions: value })
+                        "
+                    />
+                </div>
+            </div>
+
+            <div v-if="isGuestSubmissionEligible" class="border-border space-y-3 border-t pt-5">
+                <h3 class="text-sm font-semibold">Pengiriman ulang</h3>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-multiple-submissions-toggle`" class="text-sm font-medium"
+                            >Izinkan peserta mengirim jawaban lebih dari sekali</Label
+                        >
+                        <p
+                            :id="`${idPrefix}-multiple-submissions-description`"
+                            class="text-muted-foreground text-xs leading-snug"
+                        >
+                            {{
+                                formMetadata.allow_multiple_submissions
+                                    ? 'Peserta dapat mengirim jawaban ulang sampai batas yang ditentukan.'
+                                    : 'Setiap peserta hanya dapat mengirim jawaban satu kali.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-multiple-submissions-toggle`"
+                        :model-value="formMetadata.allow_multiple_submissions"
+                        :aria-describedby="`${idPrefix}-multiple-submissions-description`"
+                        aria-label="Izinkan peserta mengirim jawaban lebih dari sekali"
+                        @update:model-value="onMultipleSubmissionsToggle"
+                    />
+                </div>
+                <div v-if="formMetadata.allow_multiple_submissions" class="space-y-2">
+                    <Label :for="`${idPrefix}-max-submissions`" class="text-sm font-medium"
+                        >Jumlah pengiriman maksimum</Label
+                    >
+                    <Input
+                        :id="`${idPrefix}-max-submissions`"
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]+"
+                        autocomplete="off"
+                        :model-value="maxSubmissionsInput"
+                        :class="[
+                            'min-h-12 px-4 !py-3.5 text-sm',
+                            maxSubmissionsError ? 'border-destructive focus-visible:ring-destructive' : '',
+                        ]"
+                        :aria-describedby="`${idPrefix}-max-submissions-help ${idPrefix}-max-submissions-error`"
+                        :aria-invalid="maxSubmissionsError !== null"
+                        @update:modelValue="setMaxSubmissions"
+                        @blur="validateMaxSubmissions"
+                    />
+                    <p :id="`${idPrefix}-max-submissions-help`" class="text-muted-foreground text-xs leading-snug">
+                        Termasuk pengiriman pertama. Contoh: 2 berarti peserta dapat mengirim sekali lagi.
+                    </p>
+                    <p
+                        v-if="maxSubmissionsError"
+                        :id="`${idPrefix}-max-submissions-error`"
+                        class="text-destructive text-xs"
+                    >
+                        {{ maxSubmissionsError }}
+                    </p>
+                </div>
             </div>
 
             <div class="border-border space-y-3 border-t pt-5">

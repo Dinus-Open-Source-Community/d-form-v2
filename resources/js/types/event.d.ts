@@ -3,6 +3,7 @@ import type {
     TFormAnswerReviewStatus,
     TMemberConfirmationStatus,
 } from '@/types/registrationStatus';
+import type { IFormSession } from '@/types/form';
 
 declare global {
     interface IEvent {
@@ -54,7 +55,9 @@ declare global {
         status?: 'draft' | 'published';
         is_draft?: boolean;
         registration_mode?: 'single' | 'bundle';
-        purpose?: 'registration' | 'other';
+        purpose?: 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
+        sessions?: IFormSession[];
+        hasSubmissions?: boolean;
     }
 
     type TFormFieldOptionType = 'text' | 'image';

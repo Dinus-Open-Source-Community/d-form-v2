@@ -16,6 +16,7 @@ export interface IFixtureFormRequest {
     title: string;
     fields: IFixtureFieldRequest[];
     submissions: number;
+    purpose?: 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
 }
 
 export interface IFixtureRequest {

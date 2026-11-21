@@ -170,9 +170,14 @@ class FormController extends Controller
     {
         $this->guardFormOnEvent($event, $form);
 
-        $form->load(['formFields' => function ($q) {
-            $q->orderBy('order');
-        }]);
+        $form->load([
+            'formFields' => function ($q) {
+                $q->orderBy('order');
+            },
+            'formSessions' => function ($q) {
+                $q->withCount('attendances')->orderBy('session_date')->orderBy('id');
+            },
+        ]);
 
         $fields = $form->formFields
             ->map(fn (FormField $f) => $this->formFieldToInertia($f))
@@ -216,6 +221,16 @@ class FormController extends Controller
         return Inertia::render('Dashboard/Events/Forms/Show', [
             'event' => $this->eventSummary($event),
             'form' => $this->formToInertia($form),
+            'hasSubmissions' => $form->formAnswers()->exists(),
+            'sessions' => $form->formSessions
+                ->map(static fn ($session): array => [
+                    'id' => $session->id,
+                    'session_date' => $session->session_date->format('Y-m-d'),
+                    'label' => $session->label,
+                    'attendance_count' => (int) $session->attendances_count,
+                ])
+                ->values()
+                ->all(),
             'fields' => $fields,
             'siblingForms' => $this->siblingFormsPayload($event, $form->id),
             'saveFieldsUrl' => route('dashboard.events.forms.fields', ['event' => $event, 'form' => $form]),
@@ -461,7 +476,11 @@ class FormController extends Controller
             return null;
         }
 
-        return FormPurposeRules::apply($metadata, $form?->purpose()->value);
+        return FormPurposeRules::apply(
+            $metadata,
+            $form?->purpose()->value,
+            $form !== null && $form->formAnswers()->exists(),
+        );
     }
 
     /**

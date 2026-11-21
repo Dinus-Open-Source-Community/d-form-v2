@@ -204,6 +204,10 @@ final class FormAccessGuard
 
     private static function duplicateOrInvitationStatus(Form $form, User $user): ?FormAccessStatus
     {
+        if (FormSubmissionLimit::activeCount($form, $user) < FormSubmissionLimit::for($form)) {
+            return null;
+        }
+
         $existing = FormAnswer::query()
             ->where('form_id', $form->id)
             ->where('user_id', $user->id)

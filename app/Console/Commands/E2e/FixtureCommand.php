@@ -201,7 +201,10 @@ final class FixtureCommand extends Command
                 'description' => '<p>E2E fixture form</p>',
                 'visible_for' => json_encode(['public'], JSON_THROW_ON_ERROR),
                 'closed_at' => null,
-                'metadata' => json_encode(['marker' => $identity->marker], JSON_THROW_ON_ERROR),
+                'metadata' => json_encode([
+                    'marker' => $identity->marker,
+                    ...($request['purpose'] !== null ? ['purpose' => $request['purpose']] : []),
+                ], JSON_THROW_ON_ERROR),
                 'event_id' => $eventId,
                 'created_by' => $userId,
                 'created_at' => $now,
@@ -343,7 +346,7 @@ final class FixtureCommand extends Command
      * Normalisasi payload `forms` dengan default yang aman untuk spec.
      *
      * @param  array<string, mixed>  $payload
-     * @return list<array{title: string, fields: list<array{label: string, name: string, input_type: string, required: bool}>, submissions: int}>
+     * @return list<array{title: string, fields: list<array{label: string, name: string, input_type: string, required: bool}>, submissions: int, purpose: ?string}>
      *
      */
     private function normalizeForms(array $payload): array
@@ -377,10 +380,17 @@ final class FixtureCommand extends Command
                 ];
             }
 
+            $purpose = $rawForm['purpose'] ?? null;
+
+            if ($purpose !== null && ! in_array($purpose, ['registration', 'answer_collection', 'feedback', 'd_kelas', 'other'], true)) {
+                throw new \InvalidArgumentException('payload.forms['.$index.'].purpose must be one of: registration, answer_collection, feedback, d_kelas, other.');
+            }
+
             $forms[] = [
                 'title' => (string) ($rawForm['title'] ?? 'Form '.($index + 1)),
                 'fields' => $fields,
                 'submissions' => max(0, (int) ($rawForm['submissions'] ?? 0)),
+                'purpose' => $purpose,
             ];
         }
 

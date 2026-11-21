@@ -12,6 +12,7 @@ use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
+use App\Services\Form\FormSubmissionLimit;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\FormAnswerWriter;
@@ -154,8 +155,14 @@ class FormSubmissionController extends Controller
                     throw new \RuntimeException('Event not found.');
                 }
 
+                $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+
+                if ($lockedForm === null) {
+                    throw new \RuntimeException('Form not found.');
+                }
+
                 if (FormAnswer::query()
-                    ->where('form_id', $form->id)
+                    ->where('form_id', $lockedForm->id)
                     ->where('user_id', $user->id)
                     ->excludeRejectedSubmissions()
                     ->lockForUpdate()
@@ -169,7 +176,7 @@ class FormSubmissionController extends Controller
 
                 $submission = $this->formAnswerWriter->create([
                     'answers' => $answers['leader'],
-                    'form_id' => $form->id,
+                    'form_id' => $lockedForm->id,
                     'user_id' => (string) $user->id,
                 ]);
 
@@ -196,29 +203,23 @@ class FormSubmissionController extends Controller
     }
 
     /**
-     *
-     * Non-registration forms: single submission, no quota / confirmation email.
+     * Non-registration forms use the configured total active-submission limit.
      *
      * @param  array<string, mixed>  $answers
-     *
      */
     private function submitOtherForm(array $answers, Form $form, User $user, Event $event): RedirectResponse
     {
         DB::transaction(function () use ($answers, $form, $user): void {
-            if (FormAnswer::query()
-                ->where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->excludeRejectedSubmissions()
-                ->lockForUpdate()
-                ->exists()) {
-                throw ValidationException::withMessages([
-                    'form' => __('You have already submitted this form.'),
-                ]);
+            $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+            if ($lockedForm === null) {
+                throw new \RuntimeException('Form not found.');
             }
+
+            FormSubmissionLimit::assertAvailable($lockedForm, $user);
 
             $this->formAnswerWriter->create([
                 'answers' => $answers,
-                'form_id' => $form->id,
+                'form_id' => $lockedForm->id,
                 'user_id' => (string) $user->id,
             ]);
         });

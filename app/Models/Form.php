@@ -150,8 +150,8 @@ class Form extends Model
     {
         $raw = is_array($this->metadata) ? ($this->metadata['purpose'] ?? null) : null;
 
-        return $raw === FormPurpose::Other->value
-            ? FormPurpose::Other
+        return is_string($raw)
+            ? (FormPurpose::tryFrom($raw) ?? FormPurpose::Registration)
             : FormPurpose::Registration;
     }
 
@@ -195,6 +195,11 @@ class Form extends Model
     public function formFields(): HasMany
     {
         return $this->hasMany(FormField::class, 'form_id');
+    }
+
+    public function formSessions(): HasMany
+    {
+        return $this->hasMany(FormSession::class, 'form_id');
     }
 
     /**

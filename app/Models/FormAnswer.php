@@ -29,6 +29,7 @@ class FormAnswer extends Model
         'answers',
         'form_id',
         'user_id',
+        'guest_token_hash',
         'leader_form_answer_id',
         'registration_role',
         'member_confirmation_status',
