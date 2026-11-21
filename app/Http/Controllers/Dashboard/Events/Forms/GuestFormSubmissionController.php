@@ -37,11 +37,11 @@ final class GuestFormSubmissionController extends Controller
                 guestTokenHash: GuestFormToken::hash($token),
             ));
         } catch (ValidationException $exception) {
-            return redirect()->route('dashboard.public.events.forms.fill', compact('event', 'form'))
+            return redirect()->route('dashboard.events.forms.fill', compact('event', 'form'))
                 ->withErrors($exception->errors())
                 ->withInput(SecretAnswerInput::flashable($request, $fields, 0));
         }
 
-        return redirect()->route('dashboard.public.events.forms.submitted', compact('event', 'form'));
+        return redirect()->route('dashboard.events.forms.submitted', compact('event', 'form'));
     }
 }

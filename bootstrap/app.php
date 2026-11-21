@@ -64,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // TrustedProxyServiceProvider::boot() so it also runs for every artisan command.
         $middleware->alias([
             'event.not-archived' => \App\Http\Middleware\EnsureEventIsNotArchived::class,
+            'form.participant' => \App\Http\Middleware\EnsureFormParticipantAccess::class,
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,
             'broadcast.access' => \App\Http\Middleware\EnsureBroadcastAccess::class,

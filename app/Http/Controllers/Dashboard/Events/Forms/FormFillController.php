@@ -13,12 +13,17 @@ use App\Services\Registration\TeamRegistrationSubmitter;
 use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class FormFillController extends Controller
 {
-    public function __invoke(Request $request, Event $event, Form $form): Response
+    public function __invoke(Request $request, Event $event, Form $form): InertiaResponse|SymfonyResponse
     {
+        if ($request->user() === null) {
+            return app(GuestFormFillController::class)($request, $event, $form);
+        }
+
         abort_unless($form->event_id === $event->id, 404);
         // Draft belum dipublikasikan: isi form tidak boleh dirender ke peserta
         // walau id-nya bisa ditebak. Guard akses tetap memberi NotVisible untuk

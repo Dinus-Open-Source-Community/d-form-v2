@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import DashboardLayout from '@/layouts/DashboardLayout.vue';
+import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
-import { CheckCircle2, ArrowRight, ClipboardList } from 'lucide-vue-next';
+import { CheckCircle2, ClipboardList } from 'lucide-vue-next';
 
-defineOptions({ layout: DashboardLayout });
+defineOptions({ layout: FormFillLayout });
 
 const props = defineProps<{
     event: { id: string; slug: string; title: string };
@@ -19,6 +18,8 @@ const props = defineProps<{
     };
     isRegistrationForm: boolean;
     eventUrl: string;
+    fillUrl: string;
+    canSubmitAgain: boolean;
     registrationUrl: string | null;
 }>();
 
@@ -30,29 +31,52 @@ const successContent = computed(() => {
 </script>
 
 <template>
-    <Head :title="`Berhasil — ${form.title}`" />
+    <Head :title="`Berhasil: ${form.title}`" />
 
-    <div class="mx-auto w-full max-w-xl py-4 sm:py-8">
-        <Card class="overflow-hidden rounded-2xl border shadow-sm">
-            <CardHeader class="bg-muted/20 border-b px-6 py-5">
-                <div class="flex items-center gap-2">
-                    <CheckCircle2 class="text-success size-5" aria-hidden="true" />
-                    <CardTitle class="font-display text-base font-semibold tracking-tight sm:text-lg">
-                        Formulir terkirim
-                    </CardTitle>
-                </div>
-                <CardDescription class="mt-1.5 text-sm"> {{ form.title }} · {{ event.title }} </CardDescription>
-            </CardHeader>
-            <CardContent class="px-6 py-6">
+    <div class="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
+        <section class="mx-auto flex max-w-xl flex-col items-center text-center" aria-labelledby="success-title">
+            <img
+                :src="'/illustrations/forms-rafiki.png'"
+                alt=""
+                width="500"
+                height="500"
+                fetchpriority="high"
+                class="mb-2 aspect-square h-auto w-44 object-contain sm:w-48"
+                aria-hidden="true"
+            />
+            <a
+                href="https://storyset.com/illustration/forms/rafiki"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-muted-foreground mb-5 inline-flex min-h-[44px] items-center justify-center text-xs underline underline-offset-2"
+            >
+                Illustration by Storyset
+            </a>
+
+            <CheckCircle2 class="text-success mb-3 size-12 stroke-[1.5]" aria-hidden="true" />
+
+            <h1 id="success-title" class="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                Formulir terkirim
+            </h1>
+            <p class="text-muted-foreground mt-3 max-w-lg text-base leading-relaxed break-words">
+                {{ form.title }} · {{ event.title }}
+            </p>
+
+            <div class="text-foreground mt-6 w-full max-w-prose text-base leading-7">
                 <TiptapRichHtml v-if="successContent" :html="successContent" />
-                <p v-else class="text-muted-foreground text-sm leading-relaxed">
-                    Terima kasih — jawaban Anda untuk
+                <p v-else class="text-muted-foreground">
+                    Terima kasih, jawaban Anda untuk
                     <span class="text-foreground font-medium">{{ form.title }}</span>
                     telah kami terima.
                 </p>
-            </CardContent>
-            <CardFooter class="flex flex-wrap gap-3 border-t px-6 py-4">
-                <Button v-if="isRegistrationForm && registrationUrl" as-child class="h-10 font-semibold shadow-sm">
+            </div>
+
+            <div class="mt-7 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+                <Button
+                    v-if="isRegistrationForm && registrationUrl"
+                    as-child
+                    class="min-h-[44px] w-full font-semibold sm:w-auto"
+                >
                     <Link :href="registrationUrl">
                         <ClipboardList class="mr-2 size-4" aria-hidden="true" />
                         Lihat detail pendaftaran
@@ -61,14 +85,13 @@ const successContent = computed(() => {
                 <Button
                     as-child
                     :variant="isRegistrationForm && registrationUrl ? 'outline' : 'default'"
-                    class="h-10 font-semibold"
+                    class="min-h-[44px] w-full font-semibold sm:w-auto"
                 >
-                    <Link :href="eventUrl">
-                        Kembali ke acara
-                        <ArrowRight class="ml-2 size-4" aria-hidden="true" />
+                    <Link :href="canSubmitAgain ? fillUrl : eventUrl">
+                        {{ canSubmitAgain ? 'Isi form lagi' : 'Lihat acara' }}
                     </Link>
                 </Button>
-            </CardFooter>
-        </Card>
+            </div>
+        </section>
     </div>
 </template>

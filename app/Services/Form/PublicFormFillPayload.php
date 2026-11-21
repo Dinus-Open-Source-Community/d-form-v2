@@ -18,7 +18,7 @@ final class PublicFormFillPayload
             'form' => ['id' => $form->id, 'title' => $form->title, 'description' => $form->description, 'closed_at' => null, 'banner_url' => $form->banner_url, 'banner_caption' => $form->banner_caption],
             'fields' => $form->formFields->map(fn ($field) => FormFieldTypeMapping::fieldToInertia($field))->values()->all(),
             'sections' => self::sections($form),
-            'submitUrl' => route('dashboard.public.events.forms.submission', ['event' => $event, 'form' => $form]),
+            'submitUrl' => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
             'accessStatus' => 'allowed', 'accessMessage' => null, 'registrationMode' => 'single', 'memberSlots' => 0, 'pendingInvitationUrl' => null,
         ];
     }

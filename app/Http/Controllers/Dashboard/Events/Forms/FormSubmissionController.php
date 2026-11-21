@@ -42,9 +42,12 @@ class FormSubmissionController extends Controller
 
     public function __invoke(Request $request, Event $event, Form $form): RedirectResponse
     {
-        abort_unless($form->event_id === $event->id, 404);
-
         $user = $request->user();
+        if ($user === null) {
+            return app(GuestFormSubmissionController::class)($request, $event, $form);
+        }
+
+        abort_unless($form->event_id === $event->id, 404);
         FormAccessGuard::assertEventAvailable($event, $user);
 
         $status = FormAccessGuard::check($form, $event, $user);

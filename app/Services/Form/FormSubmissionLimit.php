@@ -38,6 +38,16 @@ final class FormSubmissionLimit
             ->count();
     }
 
+    /** Return whether the actor can submit another active response. */
+    public static function canSubmitAgain(Form $form, User|string $actor): bool
+    {
+        $count = $actor instanceof User
+            ? self::activeCount($form, $actor)
+            : self::activeGuestCount($form, $actor);
+
+        return $count < self::for($form);
+    }
+
     /** Count active guest submissions for one form and browser token. */
     public static function activeGuestCount(Form $form, string $guestTokenHash): int
     {

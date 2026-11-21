@@ -2,12 +2,9 @@
 
 namespace App\Services\Form;
 
-use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
-use App\Enums\FormSubmissionMode;
 use App\Models\Event;
 use App\Models\Form;
-use App\Services\Registration\FormSubmissionRules;
 
 /** Fail-closed eligibility policy for anonymous access to event forms. */
 final class GuestFormAccess
@@ -24,10 +21,8 @@ final class GuestFormAccess
         return in_array($purpose, ['answer_collection', 'feedback', 'other'], true)
             && ($metadata['allow_guest_submissions'] ?? false) === true
             && ! $form->isDraft()
-            && $form->closed_at === null
-            && ($form->visible_for?->contains(EventFormVisibility::Public) ?? false)
-            && $form->requiresFormId() === null
-            && FormSubmissionRules::modeFor($form) === FormSubmissionMode::Other;
+            && ($form->closed_at === null || $form->closed_at->isFuture())
+            && ! $form->isRegistrationForm();
     }
 
     public static function sessionKey(Form $form): string

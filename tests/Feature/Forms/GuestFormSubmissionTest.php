@@ -30,14 +30,14 @@ final class GuestFormSubmissionTest extends TestCase
     public function test_valid_guest_post_persists_an_active_hashed_guest_answer(): void
     {
         [$event, $form, $field] = $this->eligibleForm();
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
         $response = $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])->post(
-            route('dashboard.public.events.forms.submission', compact('event', 'form')),
+            route('dashboard.forms.submission', compact('event', 'form')),
             [$field->name => 'valid guest answer'],
         );
 
-        $response->assertRedirect(route('dashboard.public.events.forms.submitted', compact('event', 'form')));
+        $response->assertRedirect(route('dashboard.events.forms.submitted', compact('event', 'form')));
         $this->assertDatabaseHas('form_answers', [
             'form_id' => $form->id,
             'user_id' => null,
@@ -53,7 +53,7 @@ final class GuestFormSubmissionTest extends TestCase
 
         $this->withSession(['guest_form_access.'.$form->id => true])
             ->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, 'malformed-token')
-            ->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [$field->name => 'answer'])
+            ->post(route('dashboard.forms.submission', compact('event', 'form')), [$field->name => 'answer'])
             ->assertNotFound();
         $this->assertDatabaseCount('form_answers', 0);
     }
@@ -61,7 +61,7 @@ final class GuestFormSubmissionTest extends TestCase
     public function test_guest_post_without_cookie_or_marker_returns_not_found_without_writing(): void
     {
         [$event, $form, $field] = $this->eligibleForm();
-        $response = $this->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [$field->name => 'answer']);
+        $response = $this->post(route('dashboard.forms.submission', compact('event', 'form')), [$field->name => 'answer']);
         $response->assertNotFound();
         $this->assertDatabaseCount('form_answers', 0);
     }
@@ -76,11 +76,11 @@ final class GuestFormSubmissionTest extends TestCase
             'input_type' => 'fileUpload',
             'metadata' => ['rules' => ['mimes' => 'pdf']],
         ]);
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
         $this->withSession(['guest_form_access.'.$form->id => true])
             ->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])
-            ->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [
+            ->post(route('dashboard.forms.submission', compact('event', 'form')), [
                 'guest_file' => UploadedFile::fake()->createWithContent('guest.pdf', '%PDF-1.7'),
             ])
             ->assertSessionHasErrors($field->name);
@@ -97,12 +97,12 @@ final class GuestFormSubmissionTest extends TestCase
             'input_type' => 'fileUpload',
             'metadata' => ['rules' => ['mimes' => 'pdf']],
         ]);
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
         FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => null, 'guest_token_hash' => GuestFormToken::hash($cookie['raw']), 'is_active' => 1]);
         $this->withSession(['guest_form_access.'.$form->id => true])
             ->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])
-            ->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [
+            ->post(route('dashboard.forms.submission', compact('event', 'form')), [
                 $field->name => 'valid guest answer',
                 'guest_file' => UploadedFile::fake()->createWithContent('guest.pdf', '%PDF-1.7'),
             ])
@@ -114,9 +114,9 @@ final class GuestFormSubmissionTest extends TestCase
     public function test_guest_post_rejects_required_and_unknown_fields(): void
     {
         [$event, $form, $field] = $this->eligibleForm();
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
-        $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), ['unexpected' => 'value'])
+        $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])->post(route('dashboard.forms.submission', compact('event', 'form')), ['unexpected' => 'value'])
             ->assertSessionHasErrors($field->name);
         $this->assertDatabaseCount('form_answers', 0);
     }
@@ -124,11 +124,11 @@ final class GuestFormSubmissionTest extends TestCase
     public function test_rejected_guest_row_does_not_consume_configured_cap(): void
     {
         [$event, $form, $field] = $this->eligibleForm(['allow_multiple_submissions' => true, 'max_submissions' => 2]);
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
         $hash = GuestFormToken::hash($cookie['raw']);
         FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => null, 'guest_token_hash' => $hash, 'is_active' => 0, 'review_status' => 'rejected']);
-        $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [$field->name => 'valid guest answer'])
+        $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])->post(route('dashboard.forms.submission', compact('event', 'form')), [$field->name => 'valid guest answer'])
             ->assertRedirect();
     }
 
@@ -140,10 +140,10 @@ final class GuestFormSubmissionTest extends TestCase
         $this->assertSame(0, FormSubmissionLimit::activeGuestCount($form, hash('sha256', 'guest')));
     }
 
-    public function test_public_post_requires_csrf_and_route_throttle(): void
+    public function test_shared_post_requires_csrf_and_route_throttle(): void
     {
         [$event, $form] = $this->eligibleForm();
-        $middleware = Route::getRoutes()->getByName('dashboard.public.events.forms.submission')->middleware();
+        $middleware = Route::getRoutes()->getByName('dashboard.forms.submission')->middleware();
         $this->assertContains('web', $middleware);
         $this->assertContains('throttle:form-submit', $middleware);
         $this->assertContains(ValidateCsrfToken::class, Route::getMiddlewareGroups()['web']);
@@ -152,10 +152,10 @@ final class GuestFormSubmissionTest extends TestCase
     public function test_guest_submission_does_not_create_user_or_registration_side_effect(): void
     {
         [$event, $form, $field] = $this->eligibleForm();
-        $response = $this->get(route('dashboard.public.events.forms.fill', compact('event', 'form')));
+        $response = $this->get(route('dashboard.events.forms.fill', compact('event', 'form')));
         $cookie = $this->guestCookieFromResponse($response);
         $this->withSession(['guest_form_access.' . $form->id => true])->withUnencryptedCookie(GuestFormToken::COOKIE_NAME, $cookie['wire'])
-            ->post(route('dashboard.public.events.forms.submission', compact('event', 'form')), [$field->name => 'valid guest answer']);
+            ->post(route('dashboard.forms.submission', compact('event', 'form')), [$field->name => 'valid guest answer']);
         $this->assertSame(0, User::query()->count());
         $this->assertDatabaseHas('form_answers', ['form_id' => $form->id, 'user_id' => null]);
     }

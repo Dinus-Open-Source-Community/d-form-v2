@@ -179,6 +179,144 @@ class FormSuccessContentTest extends TestCase
             );
     }
 
+    public function test_repeatable_form_success_exposes_shared_fill_url(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => [
+                'purpose' => FormPurpose::Other->value,
+                'allow_multiple_submissions' => true,
+                'max_submissions' => 2,
+            ],
+        ]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'input_type' => 'input',
+            'name' => 'feedback',
+            'label' => 'Feedback',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($member)
+            ->post(route('dashboard.forms.submission', ['event' => $event, 'form' => $form], false), [
+                'feedback' => 'Pertama',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($member)
+            ->get(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('fillUrl', route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form], false))
+                ->where('canSubmitAgain', true));
+    }
+
+    public function test_single_submission_form_success_disables_repeat_action(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => ['purpose' => FormPurpose::Other->value],
+        ]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'input_type' => 'input',
+            'name' => 'feedback',
+            'label' => 'Feedback',
+            'order' => 1,
+            'metadata' => ['type' => 'text', 'rules' => []],
+        ]);
+
+        $this->actingAs($member)
+            ->post(route('dashboard.forms.submission', ['event' => $event, 'form' => $form], false), [
+                'feedback' => 'Sekali',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($member)
+            ->get(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('canSubmitAgain', false));
+    }
+
+    public function test_final_submission_success_disables_repeat_action(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => [
+                'purpose' => FormPurpose::Other->value,
+                'allow_multiple_submissions' => true,
+                'max_submissions' => 2,
+            ],
+        ]);
+        FormAnswer::factory()->count(2)->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'is_active' => 1,
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('canSubmitAgain', false));
+    }
+
+    public function test_closed_repeatable_form_success_hides_repeat_action(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->subMinute(),
+            'metadata' => [
+                'purpose' => FormPurpose::Other->value,
+                'allow_multiple_submissions' => true,
+                'max_submissions' => 2,
+            ],
+        ]);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $member->id, 'is_active' => 1]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('canSubmitAgain', false));
+    }
+
+    public function test_unpublished_event_success_hides_repeat_action(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $event->update(['status' => \App\Enums\EventStatus::Draft]);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'metadata' => [
+                'purpose' => FormPurpose::Other->value,
+                'allow_multiple_submissions' => true,
+                'max_submissions' => 2,
+            ],
+        ]);
+        FormAnswer::factory()->create(['form_id' => $form->id, 'user_id' => $member->id, 'is_active' => 1]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.events.forms.submitted', ['event' => $event, 'form' => $form], false))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('canSubmitAgain', false));
+    }
+
     public function test_registration_page_ignores_other_purpose_form_answers(): void
     {
         $member = $this->member();

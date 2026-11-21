@@ -14,9 +14,6 @@ use App\Http\Controllers\Dashboard\Events\Forms\BulkFormAnswerReviewController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormFillController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmitSuccessController;
-use App\Http\Controllers\Dashboard\Events\Forms\GuestFormFillController;
-use App\Http\Controllers\Dashboard\Events\Forms\GuestFormSubmissionController;
-use App\Http\Controllers\Dashboard\Events\Forms\GuestFormSubmitSuccessController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSubmissionsController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareBarcodeController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareLinkController;
@@ -37,17 +34,8 @@ Route::get('/s/{slug}', FormShareRedirectController::class)
     ->where('slug', '[a-z0-9-]{3,50}')
     ->name('form-share.redirect');
 
-Route::name('dashboard.public.')->prefix('/public')->middleware('event.not-archived')->group(function () {
-    Route::get('/{event}/forms/{form}/fill', GuestFormFillController::class)->name('events.forms.fill');
-    Route::post('/{event}/forms/{form}/submit', GuestFormSubmissionController::class)
-        ->middleware('throttle:form-submit')
-        ->name('events.forms.submission');
-    Route::get('/{event}/forms/{form}/submitted', GuestFormSubmitSuccessController::class)->name('events.forms.submitted');
-});
-
-Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function () {
+Route::name('dashboard.')->prefix('/joined')->middleware(['form.participant', 'event.not-archived'])->group(function () {
     Route::get('/{event}/forms/{form}/fill', FormFillController::class)
-        ->middleware('event.not-archived')
         ->name('events.forms.fill');
 
     Route::post('/{event}/forms/{form}/submit', FormSubmissionController::class)
@@ -55,9 +43,11 @@ Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function
         ->name('forms.submission');
 
     Route::get('/{event}/forms/{form}/submitted', FormSubmitSuccessController::class)
-        ->middleware('event.not-archived')
         ->name('events.forms.submitted');
 
+});
+
+Route::name('dashboard.')->prefix('/joined')->middleware('auth')->group(function () {
     Route::get('/users/check-email', [UserValidationController::class, 'checkEmail'])
         ->middleware('throttle:auth-email-check')
         ->name('users.check-email');
