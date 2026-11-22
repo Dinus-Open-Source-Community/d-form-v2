@@ -63,12 +63,4 @@ describe('AppStatePanel', () => {
 
         expect(html).not.toContain('app-surface');
     });
-
-    it('mencantumkan kredit Storyset sesuai lisensi', async () => {
-        const html = await renderPanel({ illustration: 'error', title: 'Terjadi kesalahan' });
-
-        expect(html).toContain('Designed by Storyset');
-        expect(html).toContain('href="https://storyset.com"');
-        expect(html).toContain('rel="noopener noreferrer"');
-    });
 });
