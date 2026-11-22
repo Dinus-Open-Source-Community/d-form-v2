@@ -4,7 +4,8 @@ import { Head, Link } from '@inertiajs/vue3';
 import FormFillLayout from '@/layouts/FormFillLayout.vue';
 import { Button } from '@/components/ui/button';
 import TiptapRichHtml from '@/components/modules/dashboard/events/TiptapRichHtml.vue';
-import { CheckCircle2, ClipboardList } from 'lucide-vue-next';
+import { currentOrigin } from '@/adapters/browser/navigation';
+import { ClipboardList } from 'lucide-vue-next';
 
 defineOptions({ layout: FormFillLayout });
 
@@ -23,6 +24,8 @@ const props = defineProps<{
     registrationUrl: string | null;
 }>();
 
+const storysetIllustrationUrl = `${currentOrigin()}/illustrations/forms-rafiki.svg`;
+
 const successContent = computed(() => {
     const html = props.form.success_content;
     if (!html || !html.trim() || html.trim() === '<p></p>') return null;
@@ -33,45 +36,43 @@ const successContent = computed(() => {
 <template>
     <Head :title="`Berhasil: ${form.title}`" />
 
-    <div class="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
-        <section class="mx-auto flex max-w-xl flex-col items-center text-center" aria-labelledby="success-title">
-            <img
-                :src="'/illustrations/forms-rafiki.png'"
-                alt=""
-                width="500"
-                height="500"
-                fetchpriority="high"
-                class="mb-2 aspect-square h-auto w-44 object-contain sm:w-48"
-                aria-hidden="true"
-            />
-            <a
-                href="https://storyset.com/illustration/forms/rafiki"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-muted-foreground mb-5 inline-flex min-h-[44px] items-center justify-center text-xs underline underline-offset-2"
-            >
-                Illustration by Storyset
-            </a>
+    <div class="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-8">
+        <section class="flex flex-col items-center text-center" aria-labelledby="success-title">
+            <figure class="mb-8 w-full max-w-md">
+                <img
+                    :src="storysetIllustrationUrl"
+                    alt=""
+                    width="500"
+                    height="350"
+                    fetchpriority="high"
+                    class="mx-auto h-auto w-full"
+                />
+            </figure>
 
-            <CheckCircle2 class="text-success mb-3 size-12 stroke-[1.5]" aria-hidden="true" />
-
-            <h1 id="success-title" class="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                Formulir terkirim
-            </h1>
-            <p class="text-muted-foreground mt-3 max-w-lg text-base leading-relaxed break-words">
-                {{ form.title }} · {{ event.title }}
-            </p>
-
-            <div class="text-foreground mt-6 w-full max-w-prose text-base leading-7">
-                <TiptapRichHtml v-if="successContent" :html="successContent" />
-                <p v-else class="text-muted-foreground">
-                    Terima kasih, jawaban Anda untuk
-                    <span class="text-foreground font-medium">{{ form.title }}</span>
-                    telah kami terima.
+            <div class="max-w-xl">
+                <h1 id="success-title" class="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                    Formulir terkirim
+                </h1>
+                <p class="text-muted-foreground mt-3 text-base leading-7">
+                    Terimakasih, jawaban Anda sudah kami terima.
                 </p>
             </div>
 
-            <div class="mt-7 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+            <section
+                class="border-border bg-muted/20 text-foreground mt-8 w-full max-w-2xl rounded-2xl border p-5 text-left sm:p-6"
+                aria-label="Pesan setelah pengiriman"
+            >
+                <div class="max-w-prose text-base leading-7">
+                    <TiptapRichHtml v-if="successContent" :html="successContent" />
+                    <p v-else class="text-muted-foreground">
+                        Terimakasih, jawaban Anda untuk
+                        <span class="text-foreground font-medium">{{ form.title }}</span>
+                        telah kami terima.
+                    </p>
+                </div>
+            </section>
+
+            <div class="mt-8 flex w-full max-w-2xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
                 <Button
                     v-if="isRegistrationForm && registrationUrl"
                     as-child
@@ -83,13 +84,20 @@ const successContent = computed(() => {
                     </Link>
                 </Button>
                 <Button
+                    v-if="canSubmitAgain"
                     as-child
                     :variant="isRegistrationForm && registrationUrl ? 'outline' : 'default'"
                     class="min-h-[44px] w-full font-semibold sm:w-auto"
                 >
-                    <Link :href="canSubmitAgain ? fillUrl : eventUrl">
-                        {{ canSubmitAgain ? 'Isi form lagi' : 'Lihat acara' }}
-                    </Link>
+                    <Link :href="fillUrl">Isi form lagi</Link>
+                </Button>
+                <Button
+                    v-if="!isRegistrationForm"
+                    as-child
+                    variant="outline"
+                    class="min-h-[44px] w-full font-semibold sm:w-auto"
+                >
+                    <Link :href="eventUrl">Lihat acara</Link>
                 </Button>
             </div>
         </section>
