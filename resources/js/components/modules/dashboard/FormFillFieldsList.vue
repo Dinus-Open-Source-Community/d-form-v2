@@ -244,6 +244,24 @@ const renderItems = computed<TFillListRenderItem[]>(() => {
                         v-else-if="ctx.builderType(field) === 'image'"
                         class="border-border bg-card overflow-hidden rounded-2xl border shadow-xs"
                     >
+                        <div
+                            v-if="field.label || field.description"
+                            class="space-y-1 px-5 pt-4"
+                            :class="fillImageSrc(field) || fillImageText(field, 'caption').trim() ? 'pb-3' : 'pb-4'"
+                        >
+                            <h3
+                                v-if="field.label"
+                                class="text-sm font-semibold text-foreground"
+                            >
+                                {{ field.label }}
+                            </h3>
+                            <p
+                                v-if="field.description"
+                                class="text-xs leading-relaxed text-muted-foreground"
+                            >
+                                {{ field.description }}
+                            </p>
+                        </div>
                         <img
                             v-if="formFieldImageSrc(field)"
                             :src="formFieldImageSrc(field)"
@@ -253,6 +271,7 @@ const renderItems = computed<TFillListRenderItem[]>(() => {
                                 field.label
                             "
                             class="w-full object-cover"
+                            :class="(field.label || field.description) ? 'border-t border-border' : ''"
                         />
                         <p
                             v-if="formFieldMetadataText(field, 'caption').trim()"

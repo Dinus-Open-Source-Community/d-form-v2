@@ -4,3 +4,6 @@
 
 .git
 .gitignore
+
+node_modules/
+vendor/
