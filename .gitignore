@@ -82,3 +82,6 @@ docs/adr/
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+/docs/adr
+/docs/big-changes
