@@ -2,12 +2,11 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { LogOut, Search, ChevronLeft, User } from 'lucide-vue-next';
-import { resolveNavbarFallbackBackHref, pathWithoutQuery, routes } from '@/lib/routes';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { LogOut, ChevronLeft, User } from 'lucide-vue-next';
+import { resolveDashboardHomeHref, routes } from '@/lib/routes';
+import { buildBreadcrumbs, parentBreadcrumbHref } from '@/lib/breadcrumbs';
 import Breadcrumbs from '@/components/modules/dashboard/Breadcrumbs.vue';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
@@ -18,7 +17,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTopbar } from '@/hooks/useDashboardTopbar';
 import { readDocumentTitle } from '@/adapters/browser/documentState';
 import { onDocumentCustomEvent } from '@/adapters/browser/domEvents';
-import { goBack as navigateBack } from '@/adapters/browser/navigation';
 
 const page = usePage();
 const user = useAuth(page.props);
@@ -43,7 +41,6 @@ function titleFromDocument(): string {
 }
 
 const fallbackTitle = ref(titleFromDocument());
-const search = ref('');
 
 let titlePollId: number | null = null;
 let releaseTitleEvent: () => void = () => undefined;
@@ -85,28 +82,19 @@ const pageTitle = computed(() => topbar.title.value ?? fallbackTitle.value);
 const showTitleSkeleton = computed<boolean>(() => props.pending && topbar.title.value === null);
 
 /** Breadcrumb dibangun dari lib terpisah (pure function). */
-const breadcrumbItems = computed(() => buildBreadcrumbs(page.url, pageTitle.value));
+const breadcrumbItems = computed(() =>
+    buildBreadcrumbs(page.url, pageTitle.value, {
+        segmentLabels: topbar.segmentLabels.value ?? {},
+        homeHref: resolveDashboardHomeHref(user.value?.can_manage_events === true),
+    })
+);
 
-/** Base pages (halaman utama) — back button disembunyikan di sini. */
-const BASE_PAGE_PATHS = new Set<string>([
-    routes.dashboard.index,
-    routes.admin.index,
-    routes.admin.events.index,
-    routes.admin.recruitment.index,
-    routes.member.joined,
-    routes.member.browse,
-]);
-
-/** Tampilkan back button di semua halaman KECUALI base page. */
-const showBackButton = computed(() => {
-    const path = pathWithoutQuery(page.url);
-    return !BASE_PAGE_PATHS.has(path);
-});
-
-function goBack(): void {
-    if (navigateBack()) return;
-    router.visit(resolveNavbarFallbackBackHref(page.url, user.value?.can_manage_events === true));
-}
+/**
+ * Tombol kembali memakai induk hierarki halaman (crumb link terdekat), bukan history
+ * browser: hasilnya deterministik, tetap benar saat halaman dibuka dari tautan langsung,
+ * dan bisa dibuka di tab baru. Halaman akar tidak menampilkan tombol.
+ */
+const backHref = computed<string | null>(() => parentBreadcrumbHref(breadcrumbItems.value));
 
 const profileMenuOpen = ref(false);
 const isLoggingOut = ref(false);
@@ -139,24 +127,21 @@ function handleLogout(): void {
     >
         <div class="flex min-w-0 items-center gap-1.5">
             <SidebarTrigger v-if="props.showNavigationTrigger" class="shrink-0 md:hidden" aria-label="Buka sidebar" />
-            <Button
-                radius="icon"
-                v-if="showBackButton"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Kembali"
-                class="hover:bg-accent hover:text-foreground shrink-0 transition-colors duration-150"
-                @click="goBack"
-            >
-                <ChevronLeft class="size-4 shrink-0 stroke-[1.75]" />
+            <Button v-if="backHref !== null" as-child variant="ghost" radius="icon" size="icon-sm" class="shrink-0">
+                <Link :href="backHref" aria-label="Kembali">
+                    <ChevronLeft class="size-4 shrink-0 stroke-[1.75]" />
+                </Link>
             </Button>
-            <div class="hidden min-w-0 flex-col sm:flex">
+            <div class="flex min-w-0 flex-col">
                 <template v-if="showTitleSkeleton">
                     <Skeleton class="h-4 w-40" />
                     <Skeleton class="mt-2 h-3 w-24" />
                 </template>
                 <template v-else>
-                    <p class="font-display text-foreground min-w-0 truncate text-lg font-semibold tracking-tight">
+                    <p
+                        data-testid="topbar-title"
+                        class="font-display text-foreground min-w-0 truncate text-base font-semibold tracking-tight sm:text-lg"
+                    >
                         {{ pageTitle }}
                     </p>
                     <div class="hidden min-w-0 sm:block">
@@ -164,17 +149,6 @@ function handleLogout(): void {
                     </div>
                 </template>
             </div>
-        </div>
-
-        <div class="relative w-full max-w-[10rem] min-w-0 shrink sm:max-w-sm">
-            <Search class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-                v-model="search"
-                type="search"
-                placeholder="Cari..."
-                class="bg-muted/40 focus-within:bg-background focus-within:border-border h-9 rounded-lg border-transparent pl-9"
-                aria-label="Cari"
-            />
         </div>
 
         <div class="flex shrink-0 items-center gap-1.5">

@@ -3,9 +3,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 </script>
 
 <template>
-    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8 sm:gap-8 sm:pb-10">
-        <section class="space-y-3">
-            <Skeleton class="h-4 w-32" />
+    <div class="flex w-full max-w-full min-w-0 flex-col gap-6 pt-0 pb-8">
+        <section>
+            <Skeleton class="mb-3 h-4 w-32" />
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div v-for="card in 3" :key="card" class="border-border/70 bg-card rounded-2xl border p-5">
                     <div class="flex items-start justify-between gap-3">
@@ -22,14 +22,14 @@ import { Skeleton } from '@/components/ui/skeleton';
             </div>
         </section>
 
-        <section class="space-y-3">
-            <Skeleton class="h-4 w-32" />
+        <section>
+            <Skeleton class="mb-3 h-4 w-32" />
 
-            <div class="flex flex-wrap items-center gap-3">
-                <Skeleton class="h-10 w-full max-w-xs rounded-lg" />
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <Skeleton class="h-10 min-w-0 flex-1 rounded-lg sm:max-w-xs sm:flex-none" />
                 <Skeleton class="h-10 w-full rounded-lg sm:w-44" />
-                <Skeleton class="h-9 w-24 rounded-lg sm:ml-auto" />
-                <Skeleton class="h-9 w-32 rounded-lg" />
+                <Skeleton class="h-10 w-24 rounded-lg sm:ml-auto" />
+                <Skeleton class="h-10 w-32 rounded-lg" />
             </div>
 
             <div class="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -48,6 +48,26 @@ import { Skeleton } from '@/components/ui/skeleton';
                     <div class="border-border/60 mt-auto flex items-center gap-2 border-t pt-3">
                         <Skeleton class="size-7 rounded-full" />
                         <Skeleton class="h-3 w-24" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between gap-3">
+                <Skeleton class="h-4 w-32" />
+                <Skeleton class="h-10 w-40 rounded-lg" />
+            </div>
+        </section>
+
+        <section>
+            <Skeleton class="mb-3 h-4 w-40" />
+            <div class="grid gap-3">
+                <div v-for="session in 2" :key="session" class="border-border/70 bg-card rounded-2xl border p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex flex-col gap-2">
+                            <Skeleton class="h-4 w-64" />
+                            <Skeleton class="h-3 w-72" />
+                        </div>
+                        <Skeleton class="h-9 w-28 rounded-lg" />
                     </div>
                 </div>
             </div>

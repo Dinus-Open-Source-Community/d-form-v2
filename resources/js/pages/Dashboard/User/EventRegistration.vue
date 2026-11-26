@@ -91,6 +91,7 @@ onMounted(() => {
     setTopbar({
         title: props.form?.title ?? props.event.title,
         subtitle: `Registration — ${props.event.title}`,
+        segmentLabels: { [props.event.id]: props.event.title },
     });
 });
 </script>

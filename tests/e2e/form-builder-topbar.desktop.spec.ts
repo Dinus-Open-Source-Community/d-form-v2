@@ -56,8 +56,9 @@ test.describe('breadcrumb halaman builder', () => {
 
     test('halaman tanpa formulir tetap memakai breadcrumb berisi link', async ({ page }) => {
         await page.goto('/admin/events', { waitUntil: 'domcontentloaded' });
+        await waitForHydration(page);
 
-        await expect(page.getByRole('heading', { level: 1, name: 'Acara' })).toBeVisible();
+        await expect(page.locator(BREADCRUMB_STRIP)).toBeVisible();
         await expect(page.locator(BREADCRUMB_STRIP)).toHaveCount(1);
         await expect(page.locator(STATIC_FORMS_CRUMB)).toHaveCount(0);
     });

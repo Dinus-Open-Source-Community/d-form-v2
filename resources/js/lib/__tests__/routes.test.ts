@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSidebarNavActive, pathWithoutQuery, resolveNavbarFallbackBackHref, routes } from '@/lib/routes';
+import { isSidebarNavActive, pathWithoutQuery, routes } from '@/lib/routes';
 
 /** Ambil leaf key route tanpa mengevaluasi getter/fungsi (descriptor, bukan nilai). */
 function collectRouteKeys(value: object, prefix = ''): string[] {
@@ -281,15 +281,5 @@ describe('routes builders', () => {
     it('strips query strings before comparing paths', () => {
         expect(pathWithoutQuery('/admin/events?page=2')).toBe('/admin/events');
         expect(pathWithoutQuery('/admin/events')).toBe('/admin/events');
-    });
-
-    it('resolves navbar back targets per domain', () => {
-        expect(resolveNavbarFallbackBackHref('/admin/events/e-1', true)).toBe('/admin/events');
-        expect(resolveNavbarFallbackBackHref('/admin/users/u-1', true)).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/profile', true)).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/profile', false)).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/browse', false)).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/joined/e-1', false)).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/', false)).toBe('/');
     });
 });

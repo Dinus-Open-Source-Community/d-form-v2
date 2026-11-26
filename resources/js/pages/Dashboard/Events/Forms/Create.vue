@@ -386,7 +386,11 @@ async function publishForm(): Promise<void> {
 
 onMounted(() => {
     // Topbar builder: judul + konteks acara, tanpa strip breadcrumb (konsisten dengan tab).
-    setTopbar({ title: 'Buat form', subtitle: props.event.title });
+    setTopbar({
+        title: 'Buat form',
+        subtitle: props.event.title,
+        segmentLabels: { [props.event.id]: props.event.title },
+    });
     // Siapkan draf sekali di awal supaya autosave punya form id sejak edit pertama.
     void ensureDraftForm();
 });

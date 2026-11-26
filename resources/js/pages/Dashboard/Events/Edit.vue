@@ -7,13 +7,17 @@ import { setTopbar } from '@/hooks/useDashboardTopbar';
 
 defineOptions({ layout: DashboardFocusLayout });
 
-defineProps<{
+const props = defineProps<{
     event: IEvent;
     options: { categories: { value: string; label: string }[]; sessions: { value: string; label: string }[] };
 }>();
 
 onMounted(() => {
-    setTopbar({ title: 'Ubah acara', subtitle: 'Perbarui detail — banner baru opsional' });
+    setTopbar({
+        title: 'Ubah acara',
+        subtitle: 'Perbarui detail — banner baru opsional',
+        segmentLabels: { [props.event.id]: props.event.title },
+    });
 });
 </script>
 

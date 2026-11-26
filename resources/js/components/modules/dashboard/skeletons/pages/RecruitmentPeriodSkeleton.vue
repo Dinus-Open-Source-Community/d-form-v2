@@ -23,11 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
             </div>
         </div>
 
-        <div class="flex flex-wrap gap-2">
-            <div class="bg-muted/40 flex min-h-10 flex-wrap gap-1 rounded-xl p-1">
-                <Skeleton v-for="tab in 4" :key="tab" class="h-8 w-28 rounded-lg" />
-            </div>
-            <Skeleton class="ml-auto h-9 w-32 rounded-lg" />
+        <div class="border-border flex w-full items-center gap-4 overflow-hidden border-b">
+            <Skeleton v-for="tab in 5" :key="tab" class="h-10 w-28 shrink-0 rounded-none" />
         </div>
 
         <div class="border-border/70 bg-card rounded-xl border">

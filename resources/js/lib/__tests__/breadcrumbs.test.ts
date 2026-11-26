@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildBreadcrumbs, type IBreadcrumbItem } from '@/lib/breadcrumbs';
+import { buildBreadcrumbs, parentBreadcrumbHref, type IBreadcrumbItem } from '@/lib/breadcrumbs';
 
 const EVENT_ID = '01a1c676-802b-719b-853c-8626c201962b';
+const FORM_ID = '01a1c676-802b-719b-853c-8626c201963b';
+const PERIOD_ID = '01a1c676-802b-719b-853c-8626c201964b';
 
 /** Ringkas crumb menjadi `label|href` agar ekspektasi terbaca satu baris. */
 function shape(items: IBreadcrumbItem[]): string[] {
@@ -61,5 +63,51 @@ describe('buildBreadcrumbs', () => {
         expect(shape(buildBreadcrumbs(`/admin/events/${EVENT_ID}/forms/edit?tab=settings`, 'Form A'))).toEqual(
             shape(buildBreadcrumbs(`/admin/events/${EVENT_ID}/forms/edit`, 'Form A'))
         );
+    });
+
+    it('memakai nama entitas dari halaman untuk segmen id, bukan UUID mentah', () => {
+        expect(
+            shape(
+                buildBreadcrumbs(`/admin/events/${EVENT_ID}/forms/${FORM_ID}`, 'Feedback Survey', {
+                    segmentLabels: { [EVENT_ID]: 'Startup Pitch Night', [FORM_ID]: 'Feedback Survey' },
+                })
+            )
+        ).toEqual([
+            'Acara|/admin/events',
+            `Startup Pitch Night|/admin/events/${EVENT_ID}`,
+            'Formulir|STATIC',
+            `Feedback Survey|/admin/events/${EVENT_ID}/forms/${FORM_ID}`,
+        ]);
+    });
+
+    it('memakai label aksi Indonesia untuk segmen recruitment', () => {
+        expect(shape(buildBreadcrumbs(`/admin/recruitment/periods/${PERIOD_ID}`, 'Scan Test OpRec 2026'))).toEqual([
+            'Rekrutmen|/admin/recruitment',
+            'Periode|/admin/recruitment/periods',
+            `Scan Test OpRec 2026|/admin/recruitment/periods/${PERIOD_ID}`,
+        ]);
+        expect(shape(buildBreadcrumbs('/admin/recruitment/my-interviews', 'Interview Saya'))).toEqual([
+            'Rekrutmen|/admin/recruitment',
+            'Interview Saya|/admin/recruitment/my-interviews',
+        ]);
+    });
+
+    it('profil memakai halaman utama sebagai induk', () => {
+        const items = buildBreadcrumbs('/profile', 'Profil', { homeHref: '/joined' });
+
+        expect(shape(items)).toEqual(['Beranda|/joined', 'Profil|/profile']);
+        expect(parentBreadcrumbHref(items)).toBe('/joined');
+    });
+});
+
+describe('parentBreadcrumbHref', () => {
+    it('melewati crumb statis dan memakai link induk terdekat', () => {
+        expect(parentBreadcrumbHref(buildBreadcrumbs(`/admin/events/${EVENT_ID}/forms/create`, 'Buat form'))).toBe(
+            `/admin/events/${EVENT_ID}`
+        );
+    });
+
+    it('null pada halaman akar', () => {
+        expect(parentBreadcrumbHref(buildBreadcrumbs('/admin/events', 'Acara'))).toBeNull();
     });
 });

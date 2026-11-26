@@ -230,6 +230,10 @@ onMounted(() => {
     setTopbar({
         title: props.form.title || 'Form tanpa judul',
         subtitle: `Edit form · ${props.event.title}`,
+        segmentLabels: {
+            [props.event.id]: props.event.title,
+            [props.form.id]: props.form.title || 'Form tanpa judul',
+        },
     });
 });
 

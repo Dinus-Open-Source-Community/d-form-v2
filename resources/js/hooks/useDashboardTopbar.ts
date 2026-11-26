@@ -11,11 +11,14 @@ import type { InjectionKey, Ref } from 'vue';
 interface ITopbarState {
     title: string | null;
     subtitle?: string | null;
+    /** Nama tampilan untuk segmen URL (mis. UUID → nama entitas) pada breadcrumb. */
+    segmentLabels?: Readonly<Record<string, string>> | null;
 }
 
 export interface ITopbarContext {
     title: Ref<string | null>;
     subtitle: Ref<string | null>;
+    segmentLabels: Ref<Readonly<Record<string, string>> | null>;
     setTopbar: (state: ITopbarState) => void;
     clearTopbar: () => void;
 }
@@ -26,16 +29,20 @@ const topbarKey: InjectionKey<ITopbarContext> = Symbol('DashboardTopbar');
 export function provideTopbar(): ITopbarContext {
     const title = ref<string | null>(null);
     const subtitle = ref<string | null>(null);
+    const segmentLabels = ref<Readonly<Record<string, string>> | null>(null);
     const context: ITopbarContext = {
         title,
         subtitle,
+        segmentLabels,
         setTopbar: (state: ITopbarState): void => {
             title.value = state.title ?? null;
             subtitle.value = state.subtitle ?? null;
+            segmentLabels.value = state.segmentLabels ?? null;
         },
         clearTopbar: (): void => {
             title.value = null;
             subtitle.value = null;
+            segmentLabels.value = null;
         },
     };
     provide(topbarKey, context);
@@ -53,9 +60,14 @@ export function clearTopbar(): void {
 }
 
 /** Baca state topbar global (ref bersama di level modul). */
-export function useTopbar(): Pick<ITopbarContext, 'title' | 'subtitle' | 'clearTopbar'> {
+export function useTopbar(): Pick<ITopbarContext, 'title' | 'subtitle' | 'segmentLabels' | 'clearTopbar'> {
     const context = requireTopbarContext();
-    return { title: context.title, subtitle: context.subtitle, clearTopbar: context.clearTopbar };
+    return {
+        title: context.title,
+        subtitle: context.subtitle,
+        segmentLabels: context.segmentLabels,
+        clearTopbar: context.clearTopbar,
+    };
 }
 
 function requireTopbarContext(): ITopbarContext {

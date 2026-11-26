@@ -44,14 +44,6 @@ import { Skeleton } from '@/components/ui/skeleton';
                     <Skeleton class="h-32 w-full rounded-2xl" />
                 </div>
             </main>
-
-            <aside class="border-border bg-card hidden w-80 shrink-0 flex-col gap-4 rounded-xl border p-4 xl:flex">
-                <Skeleton class="h-5 w-32" />
-                <Skeleton class="h-10 w-full rounded-lg" />
-                <Skeleton class="h-10 w-full rounded-lg" />
-                <Skeleton class="h-24 w-full rounded-lg" />
-                <Skeleton class="h-10 w-full rounded-lg" />
-            </aside>
         </div>
     </div>
 </template>

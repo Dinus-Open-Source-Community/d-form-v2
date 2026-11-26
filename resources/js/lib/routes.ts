@@ -454,26 +454,3 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
 export function resolveDashboardHomeHref(canManageEvents: boolean): string {
     return canManageEvents ? routes.dashboard.index : routes.member.joined;
 }
-
-/** Tujuan tombol back navbar saat tidak ada history; fallback per domain halaman. */
-export function resolveNavbarFallbackBackHref(currentUrl: string, canManageEvents: boolean): string {
-    const path = pathWithoutQuery(currentUrl);
-
-    if (path.startsWith(routes.admin.events.index) && path !== routes.admin.events.index) {
-        return routes.admin.events.index;
-    }
-    if (path.startsWith(routes.admin.index) && path !== routes.admin.index) {
-        return routes.dashboard.index;
-    }
-    if (path === routes.dashboard.profile) {
-        return resolveDashboardHomeHref(canManageEvents);
-    }
-    if (path === routes.member.browse) {
-        return routes.member.joined;
-    }
-    if (path.startsWith(routes.member.joined) && path !== routes.member.joined) {
-        return routes.member.joined;
-    }
-
-    return routes.home;
-}

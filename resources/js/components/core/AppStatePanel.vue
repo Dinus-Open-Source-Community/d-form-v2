@@ -68,8 +68,6 @@ const actionsClass = computed<string>(() => (isPage.value ? 'mt-10' : 'mt-5'));
         <component :is="headingTag" :class="headingClass">{{ title }}</component>
 
         <p v-if="description" :class="descriptionClass">{{ description }}</p>
-            class="text-muted-foreground text-[11px] underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
-
 
         <div v-if="$slots.default" :class="actionsClass">
             <slot />
