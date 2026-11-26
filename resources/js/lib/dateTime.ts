@@ -4,6 +4,30 @@
 /** Zona waktu tetap aplikasi (sama dengan `config/app.php`). */
 const TIME_ZONE = 'Asia/Jakarta';
 
+/** Offset tetap WIB (tanpa DST) untuk nilai tanggal tanpa zona. */
+const JAKARTA_OFFSET = '+07:00';
+
+/**
+ * Ubah nilai server/input form menjadi instan yang tidak bergantung TZ proses.
+ * Nilai tanpa zona (mis. `2026-12-31T23:59` dari input `datetime-local`) adalah
+ * waktu dinding Jakarta, bukan waktu lokal runner/CI.
+ */
+function parseJakartaInstant(value: string): Date {
+    const trimmed = value.trim();
+
+    if (trimmed === '') return new Date('');
+
+    if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)) return new Date(trimmed);
+
+    const withSeconds = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+        ? `${trimmed}T00:00:00`
+        : /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)
+          ? `${trimmed}:00`
+          : trimmed;
+
+    return new Date(`${withSeconds}${JAKARTA_OFFSET}`);
+}
+
 /** Varian tampilan yang dipakai lintas halaman. */
 export type TDateTimeVariant =
     | 'date'
@@ -145,13 +169,13 @@ function formatRange(start: Date, end: Date | null): string {
  * Dipakai semua halaman, tabel, dan card yang menampilkan tanggal.
  */
 export function formatDateTime({ value, variant = 'date', end }: IFormatDateTimeOptions): string {
-    const start = value ? new Date(value) : null;
+    const start = value ? parseJakartaInstant(value) : null;
     if (!start || Number.isNaN(start.getTime())) {
         return '';
     }
 
     if (variant === 'date-range') {
-        return formatRange(start, end ? new Date(end) : null);
+        return formatRange(start, end ? parseJakartaInstant(end) : null);
     }
 
     return formatterFor(variant).format(start);
