@@ -10,4 +10,14 @@ enum FormPurpose: string
     case DKelas = 'd_kelas';
     /** Nilai lama: tetap dibaca agar data yang sudah ada tidak berubah perilaku. */
     case Other = 'other';
+
+    /**
+     * Purpose yang membuat jawaban pendaftaran: satu submission per user per event.
+     *
+     * @return list<string>
+     */
+    public static function registrationValues(): array
+    {
+        return [self::Registration->value, self::DKelas->value];
+    }
 }

@@ -16,6 +16,8 @@ class FormReviewEmailOutbox extends Model
 
     public const ACTION_REJECTED = 'rejected';
 
+    public const ACTION_DU_ISSUED = 'du_issued';
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_QUEUED = 'queued';

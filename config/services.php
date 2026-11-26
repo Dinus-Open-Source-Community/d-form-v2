@@ -14,6 +14,12 @@ return [
     |
     */
 
+    'du' => [
+        'base_url' => env('DU_API_BASE_URL', 'https://du.zappz.my.id'),
+        'api_key' => env('DU_API_KEY'),
+        'timeout' => env('DU_API_TIMEOUT', 10),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

@@ -15,10 +15,11 @@ final class FormPurposeRules
 {
     /** Mode pendaftaran yang sah. */
     private const REGISTRATION_MODES = ['single', 'team', 'bundle'];
+    private const DU_REGISTRATION_MODES = ['single', 'team', 'bundle'];
 
     /**
      * Nilai awal untuk halaman create. Query string tidak pernah dipercaya:
-     * nilai asing atau D-Kelas jatuh kembali ke Pendaftaran single.
+     * nilai asing jatuh kembali ke Pendaftaran single.
      *
      * @return array{purpose: string, mode: string}
      */
@@ -26,7 +27,7 @@ final class FormPurposeRules
     {
         $value = is_string($purpose) ? FormPurpose::tryFrom($purpose) : null;
 
-        if ($value === null || $value === FormPurpose::DKelas) {
+        if ($value === null) {
             return ['purpose' => FormPurpose::Registration->value, 'mode' => 'single'];
         }
 
@@ -34,7 +35,9 @@ final class FormPurposeRules
 
         return [
             'purpose' => $value->value,
-            'mode' => $value === FormPurpose::Registration ? $registrationMode : 'single',
+            'mode' => in_array($value, [FormPurpose::Registration, FormPurpose::DKelas], true)
+                ? $registrationMode
+                : 'single',
         ];
     }
 
@@ -58,12 +61,6 @@ final class FormPurposeRules
             ]);
         }
 
-        if ($currentPurpose === null && $purpose === FormPurpose::DKelas) {
-            throw ValidationException::withMessages([
-                'metadata.purpose' => 'Form D-Kelas belum tersedia.',
-            ]);
-        }
-
         if ($currentPurpose === FormPurpose::DKelas->value && $purpose !== FormPurpose::DKelas) {
             throw ValidationException::withMessages([
                 'metadata.purpose' => 'Tujuan D-Kelas tidak dapat diubah.',
@@ -78,13 +75,14 @@ final class FormPurposeRules
 
         $mode = is_string($metadata['registration_mode'] ?? null) ? $metadata['registration_mode'] : 'single';
 
-        if (! in_array($mode, self::REGISTRATION_MODES, true)) {
+        $allowedModes = $purpose === FormPurpose::DKelas ? self::DU_REGISTRATION_MODES : self::REGISTRATION_MODES;
+        if (! in_array($mode, $allowedModes, true)) {
             throw ValidationException::withMessages([
                 'metadata.registration_mode' => 'Mode pendaftaran tidak dikenal.',
             ]);
         }
 
-        if ($purpose !== FormPurpose::Registration && $mode !== 'single') {
+        if ($purpose !== FormPurpose::Registration && $purpose !== FormPurpose::DKelas && $mode !== 'single') {
             throw ValidationException::withMessages([
                 'metadata.registration_mode' => 'Tujuan ini hanya mendukung mode single.',
             ]);
@@ -135,6 +133,12 @@ final class FormPurposeRules
         $metadata['allow_multiple_submissions'] = $allowMultipleSubmissions;
         $metadata['allow_guest_submissions'] = $allowGuestSubmissions;
         $metadata['max_submissions'] = $maxSubmissions;
+
+        $referralPosition = $metadata['referral_position'] ?? null;
+        $metadata['referral_position'] = is_string($referralPosition)
+            && preg_match('/^[A-Za-z0-9._-]{1,64}$/', $referralPosition) === 1
+                ? $referralPosition
+                : 'end';
 
         return $metadata;
     }

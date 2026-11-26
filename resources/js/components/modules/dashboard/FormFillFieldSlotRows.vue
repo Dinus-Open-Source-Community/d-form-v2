@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { StyledSelect } from '@/components/ui/styled-select';
 import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import FormFillUploadField from '@/components/modules/dashboard/FormFillUploadField.vue';
-import { Info, Star } from 'lucide-vue-next';
+import { Info, Check, Star } from 'lucide-vue-next';
 import TimeSelect24 from '@/components/core/TimeSelect24.vue';
 import { formatParagraphContentToHtml } from '@/lib/formParagraphContent';
 import {
@@ -59,6 +59,11 @@ const descriptionHtml = computed(() =>
 /** Field yang jawabannya berkas: kartu unggah menggantikan dropzone lama. */
 const isFileField = computed(() =>
     ['file_upload', 'image_upload', 'fileUpload'].includes(props.ctx.builderType(props.field))
+);
+
+/** Field kelas sistem DU: pilihan kelas tampil sebagai kartu centang, bukan dropdown. */
+const isDuClassField = computed<boolean>(
+    () => props.field.name === 'du_course_uid' || props.ctx.metadata(props.field).options_source === 'du_catalog'
 );
 
 /** Berkas yang menunggu submit; nilai awal field file selalu `null`. */
@@ -484,6 +489,39 @@ async function pickFiles(files: File[]): Promise<void> {
                     <img :src="row.imageSrc" alt="" class="size-full object-cover" />
                 </div>
                 <span v-else>{{ row.label }}</span>
+            </label>
+        </div>
+
+        <div
+            v-else-if="isDuClassField"
+            role="radiogroup"
+            :aria-label="field.label"
+            class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1"
+        >
+            <label
+                v-for="row in ctx.getOptionRows(field)"
+                :key="row.label"
+                class="has-[:focus-visible]:ring-ring/30 flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 text-sm transition-colors has-[:focus-visible]:ring-[3px]"
+                :class="
+                    textAnswer(storageKey) === row.label
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/40'
+                "
+            >
+                <input
+                    type="radio"
+                    class="sr-only"
+                    :name="`${storageKey}-du-class`"
+                    :value="row.label"
+                    :checked="textAnswer(storageKey) === row.label"
+                    @change="() => ctx.setAnswer(storageKey, row.label)"
+                />
+                <span class="min-w-0 font-medium break-words">{{ row.label }}</span>
+                <Check
+                    class="size-4 shrink-0"
+                    :class="textAnswer(storageKey) === row.label ? 'text-primary opacity-100' : 'opacity-0'"
+                    aria-hidden="true"
+                />
             </label>
         </div>
 

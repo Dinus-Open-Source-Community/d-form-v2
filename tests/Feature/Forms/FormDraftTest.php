@@ -185,7 +185,18 @@ class FormDraftTest extends TestCase
         $this->assertSame('', $form->title);
         $this->assertSame('', $form->description);
         $this->assertNull($form->closed_at);
-        $this->assertNull($form->metadata);
+        // Draft placeholder dibuat dengan tujuan default yang sudah dinormalisasi server.
+        $this->assertSame(
+            [
+                'purpose' => FormPurpose::Registration->value,
+                'registration_mode' => 'single',
+                'allow_multiple_submissions' => false,
+                'allow_guest_submissions' => false,
+                'max_submissions' => 1,
+                'referral_position' => 'end',
+            ],
+            $form->metadata,
+        );
         $this->assertSame($owner->id, $form->created_by);
         $this->assertSame($event->id, $form->event_id);
         $this->assertSame(

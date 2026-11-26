@@ -60,11 +60,16 @@ class FormPurposeRulesTest extends TestCase
         FormPurposeRules::apply(['purpose' => 'sesuatu_yang_aneh']);
     }
 
-    public function test_d_kelas_cannot_be_created_from_the_client(): void
+    public function test_d_kelas_accepts_single_bundle_and_team_modes(): void
     {
-        $this->expectException(ValidationException::class);
+        foreach (['single', 'bundle', 'team'] as $mode) {
+            $metadata = FormPurposeRules::apply([
+                'purpose' => 'd_kelas',
+                'registration_mode' => $mode,
+            ]);
 
-        FormPurposeRules::apply(['purpose' => 'd_kelas']);
+            $this->assertSame($mode, $metadata['registration_mode']);
+        }
     }
 
     public function test_d_kelas_purpose_cannot_be_changed_later(): void
@@ -81,9 +86,13 @@ class FormPurposeRulesTest extends TestCase
         $this->assertSame('d_kelas', $metadata['purpose']);
     }
 
-    public function test_prefill_falls_back_to_registration_for_disabled_or_unknown_purpose(): void
+    public function test_prefill_preserves_d_kelas_purpose_and_mode(): void
     {
-        $this->assertSame(['purpose' => 'registration', 'mode' => 'single'], FormPurposeRules::prefill('d_kelas', 'team'));
+        $this->assertSame(['purpose' => 'd_kelas', 'mode' => 'team'], FormPurposeRules::prefill('d_kelas', 'team'));
+    }
+
+    public function test_prefill_falls_back_to_registration_for_unknown_purpose(): void
+    {
         $this->assertSame(['purpose' => 'registration', 'mode' => 'single'], FormPurposeRules::prefill('apa_saja', 'team'));
     }
 

@@ -100,8 +100,12 @@ const SURVIVING_ROUTE_KEYS = [
     'admin.events.forms.store',
     'admin.events.forms.draft',
     'admin.events.forms.destroy',
+    'admin.events.forms.duFieldMap',
+    'admin.events.forms.duIssuance',
     'admin.scan.index',
     'admin.scan.export',
+    'admin.duCourses.index',
+    'admin.duCourses.sync',
     'admin.users.index',
     'admin.users.store',
     'admin.users.show',
@@ -249,6 +253,16 @@ describe('routes builders', () => {
             ],
             ['event show', routes.admin.events.show(eventId), `/admin/events/${eventId}`],
             ['event edit', routes.admin.events.edit(eventId), `/admin/events/${eventId}/edit`],
+            [
+                'form du field map',
+                routes.admin.events.forms.duFieldMap(eventId, 'f-1'),
+                `/admin/events/${eventId}/forms/f-1/du-field-map`,
+            ],
+            [
+                'form du issuance',
+                routes.admin.events.forms.duIssuance(eventId, 'f-1', 'a-1'),
+                `/admin/events/${eventId}/forms/f-1/submissions/a-1/du-issuance`,
+            ],
         ];
 
         for (const [label, actual, expected] of cases) {

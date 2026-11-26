@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Copy } from 'lucide-vue-next';
+import CopyFeedbackIcon from '@/components/core/CopyFeedbackIcon.vue';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 
 interface IShareLinkFieldProps {
@@ -50,16 +50,7 @@ const emit = defineEmits<{
                 >
                     <!-- Ikon salin bertukar ke centang selama konfirmasi; warnanya mengikuti
                          kontras tombol (putih di primary, foreground di outline). -->
-                    <span class="relative inline-flex size-3.5 shrink-0" aria-hidden="true">
-                        <Copy
-                            class="absolute inset-0 size-3.5 transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none"
-                            :class="props.confirmed ? 'scale-75 opacity-0' : 'scale-100 opacity-100'"
-                        />
-                        <Check
-                            class="absolute inset-0 size-3.5 transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none"
-                            :class="props.confirmed ? 'scale-100 opacity-100' : 'scale-75 opacity-0'"
-                        />
-                    </span>
+                    <CopyFeedbackIcon :confirmed="props.confirmed" />
                     <span class="text-xs">Salin</span>
                 </InputGroupButton>
             </InputGroupAddon>

@@ -55,6 +55,11 @@ return [
         /* Bulk review is bounded by selected IDs and additionally throttled per organizer/form. */
         'bulk_review_rate_limit_per_minute' => max(1, (int) env('FORMS_BULK_REVIEW_RATE_LIMIT_PER_MINUTE', 30)),
         /*
+         * Issuance manual kode redeem DU memanggil API DU: kuota per admin per submission
+         * supaya retry satu jawaban tidak memblokir jawaban lain.
+         */
+        'du_issuance_rate_limit_per_minute' => max(1, (int) env('FORMS_DU_ISSUANCE_RATE_LIMIT_PER_MINUTE', 10)),
+        /*
          * TTL URL bertanda tangan untuk berkas jawaban yang dikirim lewat email
          * atau CSV. Halaman web memakai route terautentikasi tanpa kedaluwarsa.
          */

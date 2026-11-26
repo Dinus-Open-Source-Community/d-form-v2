@@ -14,8 +14,8 @@ import { Check, FileText, Inbox, MessageSquare, Plus, Presentation } from 'lucid
 /**
  * Dialog dua langkah sebelum membuat form.
  *
- * Langkah 1 memilih tujuan. Langkah 2 memilih mode pendaftaran dan hanya muncul untuk
- * Pendaftaran. Nilai yang dikirim selalu dari daftar di komponen ini; server memvalidasi ulang.
+ * Langkah 1 memilih tujuan. Langkah 2 memilih mode pendaftaran untuk Pendaftaran dan D-Kelas.
+ * Nilai yang dikirim selalu dari daftar di komponen ini; server memvalidasi ulang.
  */
 const props = defineProps<{ open: boolean }>();
 
@@ -61,10 +61,8 @@ const PURPOSES: readonly IPurposeOption[] = [
     {
         value: 'd_kelas',
         label: 'D-Kelas',
-        description: 'Form khusus kelas. Belum tersedia.',
+        description: 'Form khusus kelas dengan kode redeem DU per peserta.',
         icon: Presentation,
-        disabled: true,
-        badge: 'Coming soon',
     },
 ];
 
@@ -99,9 +97,9 @@ function submit(): void {
     emit('confirm', purpose.value, mode.value);
 }
 
-/** Pendaftaran butuh langkah mode; tujuan lain langsung dibuat dengan mode single. */
+/** Pendaftaran dan D-Kelas butuh langkah mode; tujuan lain langsung dibuat dengan mode single. */
 function primaryAction(): void {
-    if (step.value === 1 && purpose.value === 'registration') {
+    if (step.value === 1 && (purpose.value === 'registration' || purpose.value === 'd_kelas')) {
         step.value = 2;
 
         return;
@@ -192,7 +190,9 @@ function primaryAction(): void {
                     <Button type="button" variant="outline" @click="emit('close')">Batal</Button>
                     <Button type="button" @click="primaryAction">
                         <Plus class="mr-1.5 size-4" aria-hidden="true" />
-                        {{ step === 1 && purpose === 'registration' ? 'Lanjut' : 'Buat form' }}
+                        {{
+                            step === 1 && (purpose === 'registration' || purpose === 'd_kelas') ? 'Lanjut' : 'Buat form'
+                        }}
                     </Button>
                 </div>
             </DialogFooter>

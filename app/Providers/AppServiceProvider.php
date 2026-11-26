@@ -158,6 +158,18 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Sync katalog DU memanggil upstream: batasi agar satu penyelenggara
+        // tidak membanjiri API DU walau tombol terklik berulang.
+        RateLimiter::for('du-sync', function (Request $request): Limit {
+            return Limit::perMinute(6)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Simpan mapping opsi kelas hanya menyentuh cache lokal, tetapi autosave bisa
+        // membanjiri DB: batasi per admin.
+        RateLimiter::for('du-mapping', function (Request $request): Limit {
+            return Limit::perMinute(30)->by($this->authenticatedUserOrIpKey($request));
+        });
+
         // Hapus permanen memusnahkan baris dan berkas: batasi agar salah klik
         // atau request berulang tidak menghapus banyak acara sekaligus.
         RateLimiter::for('event-force-delete', function (Request $request) {
@@ -231,6 +243,17 @@ class AppServiceProvider extends ServiceProvider
                     $request->user()?->id ?? $request->ip(),
                     $this->routeParameterKey($request, 'event'),
                     $this->routeParameterKey($request, 'form'),
+                ));
+        });
+
+        // Issuance manual memanggil API DU: kuota dikunci per admin + submission supaya
+        // retry satu jawaban tidak memakan kuota jawaban lain.
+        RateLimiter::for('du-issuance', function (Request $request): Limit {
+            return Limit::perMinute((int) config('events.forms.du_issuance_rate_limit_per_minute', 10))
+                ->by(sprintf(
+                    'du-issuance|%s|%s',
+                    $this->authenticatedUserOrIpKey($request),
+                    $this->routeParameterKey($request, 'formAnswer'),
                 ));
         });
 

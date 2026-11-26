@@ -20,7 +20,9 @@ const props = defineProps<{
 const registrationActionFormId = computed<string | null>(() => {
     if (!props.registrationDetailUrl) return null;
 
-    const registrationRows = props.forms.filter((form) => form.purpose === 'registration');
+    const registrationRows = props.forms.filter(
+        (form) => form.purpose === 'registration' || form.purpose === 'd_kelas'
+    );
     if (registrationRows.length === 0) return null;
 
     const matched =

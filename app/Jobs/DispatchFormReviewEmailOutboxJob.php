@@ -83,6 +83,11 @@ class DispatchFormReviewEmailOutboxJob implements ShouldQueue
                     (string) $outbox->delivery_key,
                     (int) $outbox->attempts,
                 ),
+                FormReviewEmailOutbox::ACTION_DU_ISSUED => new SendDuRedeemIssuedJob(
+                    (string) $outbox->form_answer_id,
+                    (string) $outbox->delivery_key,
+                    (int) $outbox->attempts,
+                ),
                 default => throw new \RuntimeException('Unsupported form review email action.'),
             };
 

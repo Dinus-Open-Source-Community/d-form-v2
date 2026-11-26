@@ -37,7 +37,7 @@ final class FormAccessGuard
             return FormAccessStatus::FormClosed;
         }
 
-        if ($form->isRegistrationForm()) {
+        if ($form->isRegistrationForm() || $form->purpose() === FormPurpose::DKelas) {
             if (FormSubmissionRules::modeFor($form) === null) {
                 return FormAccessStatus::UnsupportedRegistrationMode;
             }
@@ -158,7 +158,7 @@ final class FormAccessGuard
             && $event->registered_count >= $event->quota;
     }
 
-    /** One registration form per user per event (other-purpose forms do not count). */
+    /** One registration form per user per event; D-Kelas forms count as registration forms. */
     private static function hasSubmissionOnOtherRegistrationFormInEvent(Form $form, Event $event, User $user): bool
     {
         return FormAnswer::query()
@@ -170,7 +170,7 @@ final class FormAccessGuard
                         $purposeQuery
                             ->whereNull('metadata')
                             ->orWhereNull('metadata->purpose')
-                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                            ->orWhereIn('metadata->purpose', FormPurpose::registrationValues());
                     });
             })
             ->excludeRejectedSubmissions()

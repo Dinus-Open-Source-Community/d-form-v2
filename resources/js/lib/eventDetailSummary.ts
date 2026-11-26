@@ -28,8 +28,16 @@ export function eventDurationLabel(start: string | null, end: string | null): st
 }
 
 /** Label tipe formulir pada daftar formulir acara. */
+const FORM_PURPOSE_LABEL: Record<TFormPurpose, string> = {
+    registration: 'Pendaftaran',
+    d_kelas: 'D-Kelas',
+    other: 'Survei',
+    answer_collection: 'Pengumpulan jawaban',
+    feedback: 'Feedback',
+};
+
 export function formPurposeLabel(purpose: TFormPurpose): string {
-    return purpose === 'other' ? 'Survei' : 'Pendaftaran';
+    return FORM_PURPOSE_LABEL[purpose] ?? 'Pendaftaran';
 }
 
 /** Label chip status pendaftaran pada hero; memakai kelas badge yang sudah ada. */

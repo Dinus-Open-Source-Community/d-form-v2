@@ -3,6 +3,7 @@ import {
     DEFAULT_ALLOWED_MIME_TYPES,
     DEFAULT_UPLOAD_LIMITS,
     fromBackendField,
+    isFieldDeletionBlocked,
     normalizeUploadLimit,
     setUploadMultipleMetadata,
     toggleAllowedMimeType,
@@ -34,6 +35,182 @@ function backendMetaOf(fields: ReturnType<typeof toBackendFields>, name: string)
 
     return found.metadata;
 }
+
+describe('DU system field mapping', () => {
+    it('preserves locked metadata and does not expose editable static options', () => {
+        const field = builderField({
+            type: 'dropdown',
+            name: 'du_course_uid',
+            metadata: { locked: true, system: true, options_source: 'du_catalog' },
+            options: [],
+        });
+        const backend = toBackendFields([field])[0];
+        expect(backend.name).toBe('du_course_uid');
+        expect(backend.metadata.locked).toBe(true);
+        expect(backend.metadata.options).toBeUndefined();
+    });
+
+    it('does not persist dropdown options for the DU system field', () => {
+        const field = builderField({
+            type: 'dropdown',
+            name: 'du_course_uid',
+            metadata: { locked: true, system: true, options_source: 'du_catalog' },
+            options: [{ id: 'course-a', type: 'text', label: 'Kelas A', imageUrl: '' }],
+        });
+
+        const backend = toBackendFields([field])[0];
+
+        expect(backend.metadata.optionChoices).toBeUndefined();
+        expect((backend.metadata.rules as Record<string, unknown>).in).toBeUndefined();
+        expect(backend.metadata.locked).toBe(true);
+    });
+
+    it('strips a stale optionChoices snapshot copied from existing metadata', () => {
+        const field = builderField({
+            type: 'dropdown',
+            name: 'du_course_uid',
+            metadata: {
+                locked: true,
+                system: true,
+                options_source: 'du_catalog',
+                optionChoices: [{ id: 'stale', type: 'text', label: 'Kelas Lama', imageUrl: '' }],
+                options: 'legacy-options',
+            },
+            options: [],
+        });
+
+        const backend = toBackendFields([field])[0];
+
+        expect(backend.metadata).not.toHaveProperty('optionChoices');
+        expect(backend.metadata).not.toHaveProperty('options');
+        expect((backend.metadata.rules as Record<string, unknown>).in).toBeUndefined();
+    });
+});
+
+describe('selected_course_uids pada field sistem DU', () => {
+    it('mempertahankan pilihan kelas eksplisit saat serialize ke backend', () => {
+        const field = builderField({
+            type: 'dropdown',
+            name: 'du_course_uid',
+            metadata: { locked: true, system: true, options_source: 'du_catalog', selected_course_uids: [] },
+        });
+
+        const backend = toBackendFields([field])[0];
+
+        expect(backend.metadata.selected_course_uids).toEqual([]);
+    });
+
+    it('mempertahankan selected_course_uids saat hydration dari backend', () => {
+        const field = fromBackendField({
+            id: 'bf-1',
+            type: 'select',
+            label: 'Kelas',
+            description: null,
+            name: 'du_course_uid',
+            order: 1,
+            metadata: {
+                builderType: 'dropdown',
+                locked: true,
+                system: true,
+                options_source: 'du_catalog',
+                selected_course_uids: ['course-a', 'course-b'],
+                optionChoices: [
+                    { type: 'text', label: 'Alpha', value: 'course-a' },
+                    { type: 'text', label: 'Beta', value: 'course-b' },
+                ],
+            },
+        });
+
+        expect(field.metadata.selected_course_uids).toEqual(['course-a', 'course-b']);
+    });
+
+    it('memakai value katalog sebagai id opsi agar UID kelas tidak hilang', () => {
+        const field = fromBackendField({
+            id: 'bf-1',
+            type: 'select',
+            label: 'Kelas',
+            description: null,
+            name: 'du_course_uid',
+            order: 1,
+            metadata: {
+                builderType: 'dropdown',
+                locked: true,
+                options_source: 'du_catalog',
+                selected_course_uids: ['course-a'],
+                optionChoices: [{ type: 'text', label: 'Alpha', value: 'course-a' }],
+            },
+        });
+
+        expect(field.options).toEqual([{ id: 'course-a', type: 'text', label: 'Alpha', imageUrl: '' }]);
+        expect(toBackendFields([field])[0].metadata.selected_course_uids).toEqual(['course-a']);
+    });
+
+    it('tidak memakai value katalog sebagai id untuk field non-sistem', () => {
+        const field = fromBackendField({
+            id: 'bf-2',
+            type: 'radio',
+            label: 'Class',
+            description: null,
+            name: 'class',
+            order: 1,
+            metadata: {
+                builderType: 'radio',
+                optionChoices: [{ type: 'text', label: 'AI Engineer', value: 'course-ai' }],
+            },
+        });
+
+        const [option] = field.options;
+
+        if (option === undefined) throw new Error('opsi tidak terhidrasi');
+
+        expect(option.id).not.toBe('course-ai');
+        expect(option.id).toMatch(/^[0-9a-f-]{36}$/);
+    });
+});
+
+describe('DU redeem metadata field kustom', () => {
+    it('memblokir hapus untuk field sistem dan field sumber redeem DU saja', () => {
+        expect(isFieldDeletionBlocked(builderField({ type: 'dropdown', metadata: { locked: true } }))).toBe(true);
+        expect(isFieldDeletionBlocked(builderField({ type: 'dropdown', metadata: { du_redeem_enabled: true } }))).toBe(
+            true
+        );
+        expect(isFieldDeletionBlocked(builderField({ type: 'dropdown', metadata: { du_redeem_enabled: false } }))).toBe(
+            false
+        );
+        expect(isFieldDeletionBlocked(builderField({ type: 'dropdown' }))).toBe(false);
+    });
+
+    it('mempertahankan du_redeem_enabled dan du_option_map pada field normal', () => {
+        const optionMap = {
+            'AI Engineer': { course_uid: 'course-ai', course_title: 'AI Engineering' },
+        };
+        const field = builderField({
+            type: 'dropdown',
+            name: 'class',
+            metadata: { du_redeem_enabled: true, du_option_map: optionMap },
+            options: [{ id: 'o1', type: 'text', label: 'AI Engineer', imageUrl: '' }],
+        });
+
+        const backend = toBackendFields([field])[0];
+
+        expect(backend?.metadata.du_redeem_enabled).toBe(true);
+        expect(backend?.metadata.du_option_map).toEqual(optionMap);
+    });
+
+    it('field sistem DU tetap membuang optionChoices dan rules.in', () => {
+        const field = builderField({
+            type: 'dropdown',
+            name: 'du_course_uid',
+            metadata: { locked: true, system: true, options_source: 'du_catalog' },
+            options: [{ id: 'course-a', type: 'text', label: 'Kelas A', imageUrl: '' }],
+        });
+
+        const backend = toBackendFields([field])[0];
+
+        expect(backend?.metadata.optionChoices).toBeUndefined();
+        expect((backend?.metadata.rules as Record<string, unknown>).in).toBeUndefined();
+    });
+});
 
 describe('toBackendFields — URL gambar yang dipersist', () => {
     it('banner: URL preview lokal tidak pernah masuk payload backend', () => {
@@ -409,6 +586,46 @@ describe('subtype identitas: nik, nim, kode pos', () => {
         const [backend] = toBackendFields([builderField({ type: 'nik', required: true })]);
 
         expect(backend?.metadata).toMatchObject({ type: 'nik', rules: { required: true } });
+    });
+});
+
+describe('price field mapping', () => {
+    it('keeps the price metadata through a backend round trip', () => {
+        const backend = toBackendFields([builderField({ type: 'price', metadata: { price: 95_000 } })]);
+        const first = backend[0];
+
+        if (first === undefined) {
+            throw new Error('price field was not serialized');
+        }
+
+        expect(first.type).toBe('input');
+        expect(backendMetaOf(backend, 'field_1')).toMatchObject({ builderType: 'price', price: 95_000 });
+
+        const restored = fromBackendField(first);
+
+        expect(restored.type).toBe('price');
+        expect(restored.metadata.price).toBe(95_000);
+    });
+
+    it('drops a stale price from a heading in both directions', () => {
+        const backend = toBackendFields([
+            builderField({ type: 'heading', metadata: { content: 'Payment', price: 95_000 } }),
+        ]);
+        const first = backend[0];
+
+        if (first === undefined) {
+            throw new Error('heading field was not serialized');
+        }
+
+        expect(backendMetaOf(backend, 'field_1').price).toBeUndefined();
+
+        const restored = fromBackendField({
+            ...first,
+            metadata: { ...first.metadata, builderType: 'heading', price: 95_000 },
+        });
+
+        expect(restored.type).toBe('heading');
+        expect(restored.metadata.price).toBeUndefined();
     });
 });
 

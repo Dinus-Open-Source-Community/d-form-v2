@@ -9,11 +9,13 @@ use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use App\Models\DuCourse;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
+use App\Services\Du\DuCourseFieldService;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Mail\RegistrationAcceptedMail;
 use App\Mail\RegistrationConfirmationMail;
@@ -253,6 +255,75 @@ class FormRegistrationTest extends TestCase
                     ->where('registrationMode', 'team')
                     ->where('memberSlots', 1)
             );
+    }
+
+    public function test_fill_applies_registration_window_to_d_kelas_team_form(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent(['registration_end' => now()->subDay()]);
+        $form = $this->openForm($event, [
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'team', 'team_size' => 2],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $form))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'registration_not_open'));
+    }
+
+    /**
+     * Ruling Important 3: D-Kelas memakai jalur pendaftaran, jadi satu form per event
+     * berlaku dua arah dengan form Pendaftaran.
+     */
+    public function test_fill_d_kelas_form_is_blocked_after_registration_form_submission(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $registrationForm = $this->openForm($event, ['title' => 'Pendaftaran']);
+        $this->textField($registrationForm);
+        $dKelasForm = $this->openForm($event, [
+            'title' => 'D-Kelas',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $registrationForm), ['full_name' => 'Jane Doe'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $registrationForm));
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $dKelasForm))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'event_form_already_chosen'));
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $dKelasForm), ['du_course_uid' => 'Kelas A'])
+            ->assertRedirect($this->fillPath($event, $dKelasForm));
+
+        $this->assertDatabaseMissing('form_answers', ['form_id' => $dKelasForm->id]);
+    }
+
+    public function test_fill_registration_form_is_blocked_after_d_kelas_form_submission(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $registrationForm = $this->openForm($event, ['title' => 'Pendaftaran']);
+        $this->textField($registrationForm);
+        $dKelasForm = $this->openForm($event, [
+            'title' => 'D-Kelas',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+        app(DuCourseFieldService::class)->ensure($dKelasForm);
+        DuCourse::factory()->create(['uid' => 'course-a', 'title' => 'Kelas A', 'is_active' => true]);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $dKelasForm), ['du_course_uid' => 'Kelas A'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $dKelasForm));
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $registrationForm))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'event_form_already_chosen'));
     }
 
     public function test_fill_returns_allowed_for_bundle_form_when_member(): void
@@ -1148,6 +1219,52 @@ class FormRegistrationTest extends TestCase
             'form_answer_id' => $leaderRow->id,
             'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
         ]);
+    }
+
+    /**
+     * Critical 1: field sistem `Kelas` wajib `duplicatable`, sehingga bundle mengirim satu
+     * pilihan kelas per peserta dan tiap baris menyimpan kelasnya sendiri.
+     */
+    public function test_bundle_d_kelas_submission_stores_one_course_per_participant(): void
+    {
+        Mail::fake();
+
+        $leader = $this->memberWithEmail('dkelas-bundle-leader-'.uniqid().'@example.com');
+        $guestEmail = 'dkelas-bundle-guest-'.uniqid().'@example.com';
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'purpose' => 'd_kelas',
+                'registration_mode' => 'bundle',
+                'max_team_size' => 2,
+            ],
+        ]);
+        app(DuCourseFieldService::class)->ensure($form);
+        DuCourse::factory()->create(['uid' => 'course-a', 'title' => 'Kelas A', 'is_active' => true]);
+        DuCourse::factory()->create(['uid' => 'course-b', 'title' => 'Kelas B', 'is_active' => true]);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'du_course_uid' => 'Kelas A',
+                'bundle__du_course_uid__0' => 'Kelas B',
+                'team_member_emails' => [$guestEmail],
+            ])
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
+
+        $this->assertDatabaseCount('form_answers', 2);
+
+        $leaderRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('user_id', $leader->id)
+            ->firstOrFail();
+        $memberRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('invited_email', mb_strtolower($guestEmail))
+            ->firstOrFail();
+
+        $this->assertSame('Kelas A', $leaderRow->answers['du_course_uid']);
+        $this->assertSame('Kelas B', $memberRow->answers['du_course_uid']);
+        $this->assertSame($leaderRow->group_token, $memberRow->group_token);
     }
 
     public function test_bundle_submission_rejects_duplicate_guest_email(): void

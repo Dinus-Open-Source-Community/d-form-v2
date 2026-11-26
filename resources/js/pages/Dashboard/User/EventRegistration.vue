@@ -24,6 +24,8 @@ interface BundleParticipant {
     qr_base64: string | null;
 }
 
+type TDuRedeemStatus = 'pending' | 'issued' | 'failed' | 'unknown';
+
 const props = defineProps<{
     event: IEvent;
     form: {
@@ -40,6 +42,10 @@ const props = defineProps<{
         registration_role: 'leader' | 'member' | null;
         answers_summary: Record<string, string>;
         qr_base64: string | null;
+        du_issuance: {
+            status: TDuRedeemStatus;
+            code: string | null;
+        } | null;
     };
     bundle_participants?: BundleParticipant[];
 }>();
@@ -61,6 +67,13 @@ const participantStatusLabels: Record<BundleParticipant['review_status'], string
     pending: 'Menunggu ditinjau',
     accepted: 'Diterima',
     rejected: 'Tidak diterima',
+};
+
+const duStatusLabels: Record<TDuRedeemStatus, string> = {
+    pending: 'Menunggu diproses',
+    issued: 'Siap digunakan',
+    failed: 'Gagal diproses',
+    unknown: 'Perlu rekonsiliasi',
 };
 
 const statusLabels: Record<(typeof props.registration)['review_status'], string> = {
@@ -232,6 +245,21 @@ onMounted(() => {
         <Card v-else-if="props.registration.review_status === 'pending'" class="rounded-xl border shadow-xs">
             <CardContent class="text-muted-foreground py-6 text-center text-sm">
                 Your registration is being reviewed. Check-in QR and manual code appear here after acceptance.
+            </CardContent>
+        </Card>
+
+        <Card v-if="props.registration.du_issuance" class="rounded-xl border shadow-xs">
+            <CardHeader class="pb-3">
+                <CardTitle class="text-sm font-medium">Kode D-Kelas Anda</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-2 pt-0 text-sm">
+                <Badge variant="secondary">{{ duStatusLabels[props.registration.du_issuance.status] }}</Badge>
+                <p v-if="props.registration.du_issuance.code" class="font-mono text-lg font-bold tracking-[0.12em]">
+                    {{ props.registration.du_issuance.code }}
+                </p>
+                <p v-else class="text-muted-foreground text-xs">
+                    Kode redeem belum tersedia. Status: {{ duStatusLabels[props.registration.du_issuance.status] }}.
+                </p>
             </CardContent>
         </Card>
 

@@ -139,7 +139,7 @@ function onFilesChanged(event: Event): void {
         <p v-if="fieldError" :id="`${inputId}-error`" class="text-destructive text-xs font-medium" role="alert">
             {{ fieldError }}
         </p>
-        <p v-if="hint" class="text-muted-foreground text-xs">{{ hint }}</p>
+        <p v-if="hint" class="text-muted-foreground text-xs leading-relaxed">{{ hint }}</p>
         <p class="text-muted-foreground text-xs">
             Pilih hingga {{ maxFiles }} berkas, maksimal {{ totalSizeLabel }} total.
         </p>

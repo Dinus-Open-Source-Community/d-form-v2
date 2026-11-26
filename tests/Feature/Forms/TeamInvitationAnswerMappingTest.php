@@ -6,11 +6,13 @@ use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use App\Models\DuCourse;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
+use App\Services\Du\DuCourseFieldService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -132,6 +134,121 @@ class TeamInvitationAnswerMappingTest extends TestCase
     private function updatePath(string $token): string
     {
         return route('dashboard.user.team-invitations.update', ['token' => $token], false);
+    }
+
+    private function showPath(string $token): string
+    {
+        return route('dashboard.user.team-invitations.show', ['token' => $token], false);
+    }
+
+    /** D-Kelas team form with the system `Kelas` field and two active cached classes. */
+    private function dKelasTeamForm(Event $event): Form
+    {
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => [
+                'purpose' => 'd_kelas',
+                'registration_mode' => 'team',
+                'team_size' => 2,
+            ],
+        ]);
+        app(DuCourseFieldService::class)->ensure($form);
+        DuCourse::factory()->create(['uid' => 'course-a', 'title' => 'Kelas A', 'is_active' => true]);
+        DuCourse::factory()->create(['uid' => 'course-b', 'title' => 'Kelas B', 'is_active' => true]);
+
+        return $form;
+    }
+
+    public function test_d_kelas_team_member_sees_the_class_select_and_can_pick_their_own(): void
+    {
+        $event = $this->openEvent();
+        $form = $this->dKelasTeamForm($event);
+
+        [$member, $row, $token] = $this->pendingInvitation($form, ['du_course_uid' => 'Kelas A']);
+
+        $this->actingAs($member)
+            ->get($this->showPath($token))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/User/TeamInvitation')
+                ->has('fields', 1)
+                ->where('fields.0.name', 'du_course_uid')
+                ->where('fields.0.is_append', true)
+                ->where('fields.0.metadata.optionChoices.0.label', 'Kelas A')
+                ->where('fields.0.metadata.optionChoices.0.value', 'course-a')
+                ->where('fields.0.metadata.optionChoices.1.label', 'Kelas B')
+                ->where('answers.du_course_uid', 'Kelas A'));
+
+        $this->actingAs($member)
+            ->post($this->updatePath($token), [
+                'invitation_decision' => 'accept',
+                'du_course_uid' => 'Kelas B',
+            ])
+            ->assertRedirect(route('dashboard.user.events.show', ['event_segment' => $event->slug], false));
+
+        $row->refresh();
+        $this->assertSame(MemberConfirmationStatus::Accepted, $row->member_confirmation_status);
+        $this->assertSame('Kelas B', $row->answers['du_course_uid']);
+    }
+
+    public function test_d_kelas_team_member_cannot_confirm_with_an_unknown_class(): void
+    {
+        $event = $this->openEvent();
+        $form = $this->dKelasTeamForm($event);
+
+        [$member, $row, $token] = $this->pendingInvitation($form, ['du_course_uid' => 'Kelas A']);
+
+        $this->actingAs($member)
+            ->post($this->updatePath($token), [
+                'invitation_decision' => 'accept',
+                'du_course_uid' => 'Kelas Tidak Ada',
+            ])
+            ->assertRedirect($this->showPath($token))
+            ->assertSessionHasErrors('du_course_uid');
+
+        $row->refresh();
+        $this->assertSame(MemberConfirmationStatus::Pending, $row->member_confirmation_status);
+        $this->assertSame('Kelas A', $row->answers['du_course_uid']);
+    }
+
+    public function test_d_kelas_team_member_cannot_confirm_with_a_class_outside_the_form_selection(): void
+    {
+        $event = $this->openEvent();
+        $form = $this->dKelasTeamForm($event);
+        $courseField = $form->formFields()->where('name', 'du_course_uid')->firstOrFail();
+        $courseField->update([
+            'metadata' => array_merge($courseField->metadata->all(), [
+                'selected_course_uids' => ['course-a'],
+            ]),
+        ]);
+
+        [$member, $row, $token] = $this->pendingInvitation($form, ['du_course_uid' => 'Kelas A']);
+
+        // Active but not part of this form's selection.
+        $this->actingAs($member)
+            ->post($this->updatePath($token), [
+                'invitation_decision' => 'accept',
+                'du_course_uid' => 'Kelas B',
+            ])
+            ->assertRedirect($this->showPath($token))
+            ->assertSessionHasErrors('du_course_uid');
+
+        $row->refresh();
+        $this->assertSame(MemberConfirmationStatus::Pending, $row->member_confirmation_status);
+        $this->assertSame('Kelas A', $row->answers['du_course_uid']);
+
+        $this->actingAs($member)
+            ->post($this->updatePath($token), [
+                'invitation_decision' => 'accept',
+                'du_course_uid' => 'Kelas A',
+            ])
+            ->assertRedirect(route('dashboard.user.events.show', ['event_segment' => $event->slug], false));
+
+        $row->refresh();
+        $this->assertSame(MemberConfirmationStatus::Accepted, $row->member_confirmation_status);
+        $this->assertSame('Kelas A', $row->answers['du_course_uid']);
     }
 
     public function test_confirmation_without_new_upload_keeps_the_stored_file_path(): void

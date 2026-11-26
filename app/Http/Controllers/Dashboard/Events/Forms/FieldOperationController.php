@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
+use App\Enums\FormPurpose;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FieldModifyRequest;
-use App\Models\Form;
 use App\Models\Event;
+use App\Models\Form;
+use App\Services\Du\DuCourseFieldService;
 use App\Services\Form\FormFieldSnapshotSync;
 use App\Support\LegacyFormImage;
 use Illuminate\Support\Facades\Log;
@@ -41,7 +43,17 @@ class FieldOperationController extends Controller
             ]);
         }
 
+        // Field dengan flag redeem DU membekukan konten opsinya; field sistem D-Kelas
+        // dibekukan terpisah oleh enforceSnapshotIdentity. Keduanya di dalam try agar
+        // kegagalan memakai kontrak log/response yang sama dengan kegagalan tulis lain.
         try {
+            $duFields = app(DuCourseFieldService::class);
+            $rows = $duFields->enforceLockedOptionContent($form, $rows);
+
+            if ($form->purpose() === FormPurpose::DKelas) {
+                $rows = $duFields->enforceSnapshotIdentity($form, $rows);
+            }
+
             app(FormFieldSnapshotSync::class)->sync($formId, $rows);
 
             Inertia::flash('toast', [

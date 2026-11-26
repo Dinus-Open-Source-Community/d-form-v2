@@ -3,6 +3,7 @@ import FieldEditor from '@/components/modules/builder/FieldEditor.vue';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import type { IBuilderField } from '@/types/form-builder';
+import type { TFormPurpose } from '@/types/form';
 import { computed, ref } from 'vue';
 
 const open = defineModel<boolean>('open', { required: true });
@@ -12,8 +13,13 @@ const props = withDefaults(
         field: IBuilderField | null;
         /** Endpoint `POST {form}/images` untuk upload gambar blok/opsi. */
         uploadUrl?: string;
+        /** Tujuan form; D-Kelas tidak menampilkan toggle redeem field kustom. */
+        purpose?: TFormPurpose;
+        /** Field pemegang flag redeem DU; field lain diblokir. */
+        duOwnerId?: string | null;
+        duOwnerLabel?: string;
     }>(),
-    { uploadUrl: '' }
+    { uploadUrl: '', purpose: 'registration', duOwnerId: null, duOwnerLabel: '' }
 );
 
 defineEmits<{
@@ -55,6 +61,10 @@ const isChoiceType = computed(
                     v-if="field"
                     :field="field"
                     :upload-url="uploadUrl"
+                    :purpose="purpose"
+                    :du-owner-id="duOwnerId"
+                    :du-owner-label="duOwnerLabel"
+                    allow-du-integration
                     @update:field="$emit('updateField', $event)"
                 />
             </div>

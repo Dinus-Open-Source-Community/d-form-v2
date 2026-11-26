@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard\User;
 
 use App\Enums\FormAnswerReviewStatus;
+use App\Enums\DuRedeemStatus;
 use App\Enums\FormPurpose;
 use App\Enums\RegistrationRole;
 use App\Http\Controllers\Controller;
@@ -30,7 +31,7 @@ class UserEventRegistrationController extends Controller
         $event = $resolver->resolvePublished($event_segment);
 
         $answer = FormAnswer::query()
-            ->with(['form'])
+            ->with(['form', 'duRedeemIssuance'])
             ->where('user_id', (string) $request->user()->id)
             ->whereHas('form', static function ($q) use ($event): void {
                 $q->where('event_id', $event->id)
@@ -38,7 +39,7 @@ class UserEventRegistrationController extends Controller
                         $purposeQuery
                             ->whereNull('metadata')
                             ->orWhereNull('metadata->purpose')
-                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                            ->orWhereIn('metadata->purpose', FormPurpose::registrationValues());
                     });
             })
             ->excludeTerminatedInvitationMembers()
@@ -123,6 +124,13 @@ class UserEventRegistrationController extends Controller
                 'registration_role' => $answer->registration_role?->value,
                 'answers_summary' => $answersSummary,
                 'qr_base64' => $qrBase64,
+                // Kode yang sudah terbit tetap terlihat meski flag redeem DU dimatikan.
+                'du_issuance' => $answer->duRedeemIssuance !== null ? [
+                    'status' => $answer->duRedeemIssuance->status->value,
+                    'code' => $answer->duRedeemIssuance->status === DuRedeemStatus::Issued
+                        ? $answer->duRedeemIssuance->redeem_code
+                        : null,
+                ] : null,
             ],
             'bundle_participants' => $bundleParticipants,
         ]);

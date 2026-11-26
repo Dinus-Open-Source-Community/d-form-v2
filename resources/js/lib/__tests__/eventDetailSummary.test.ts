@@ -43,6 +43,10 @@ describe('formPurposeLabel', () => {
     it('memberi label Survei untuk form lain', () => {
         expect(formPurposeLabel('other')).toBe('Survei');
     });
+
+    it('memberi label D-Kelas untuk form kelas DU', () => {
+        expect(formPurposeLabel('d_kelas')).toBe('D-Kelas');
+    });
 });
 
 describe('eventRegistrationStatusLabel', () => {
