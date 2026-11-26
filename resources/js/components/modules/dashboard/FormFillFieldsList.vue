@@ -247,7 +247,11 @@ const renderItems = computed<TFillListRenderItem[]>(() => {
                         <div
                             v-if="field.label || field.description"
                             class="space-y-1 px-5 pt-4"
-                            :class="fillImageSrc(field) || fillImageText(field, 'caption').trim() ? 'pb-3' : 'pb-4'"
+                            :class="
+                                formFieldImageSrc(field) || formFieldMetadataText(field, 'caption').trim()
+                                    ? 'pb-3'
+                                    : 'pb-4'
+                            "
                         >
                             <h3 v-if="field.label" class="text-foreground text-sm font-semibold">
                                 {{ field.label }}
