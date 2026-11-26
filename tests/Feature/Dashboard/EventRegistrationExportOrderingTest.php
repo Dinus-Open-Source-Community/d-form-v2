@@ -342,19 +342,14 @@ class EventRegistrationExportOrderingTest extends TestCase
         self::assertCount(2, $this->csvRows($response->streamedContent()));
     }
 
-    public function test_both_event_exports_share_the_existing_recruitment_export_limiter_per_user(): void
+    public function test_registrations_export_uses_the_existing_recruitment_export_limiter_per_user(): void
     {
         config(['recruitment.export_rate_limit_per_minute' => 1]);
         [$event] = $this->eventWithForm();
 
-        foreach ([
-            'dashboard.events.exports.registrations-csv',
-            'dashboard.events.exports.attendance-csv',
-        ] as $routeName) {
-            $route = app('router')->getRoutes()->getByName($routeName);
-            self::assertNotNull($route);
-            self::assertContains('throttle:recruitment-export', $route->gatherMiddleware());
-        }
+        $route = app('router')->getRoutes()->getByName('dashboard.events.exports.registrations-csv');
+        self::assertNotNull($route);
+        self::assertContains('throttle:recruitment-export', $route->gatherMiddleware());
 
         $firstActor = $this->admin();
         $secondActor = $this->admin();
@@ -364,11 +359,11 @@ class EventRegistrationExportOrderingTest extends TestCase
             ->assertOk();
 
         $this->actingAs($firstActor)
-            ->get(route('dashboard.events.exports.attendance-csv', $event))
+            ->get(route('dashboard.events.exports.registrations-csv', $event))
             ->assertTooManyRequests();
 
         $this->actingAs($secondActor)
-            ->get(route('dashboard.events.exports.attendance-csv', $event))
+            ->get(route('dashboard.events.exports.registrations-csv', $event))
             ->assertOk();
     }
 

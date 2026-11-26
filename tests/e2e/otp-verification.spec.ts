@@ -104,7 +104,7 @@ async function expectVerifiedJson(response: Response): Promise<void> {
     if (typeof body.redirect !== 'string') throw new Error('Respons verifikasi tanpa tujuan redirect');
 
     expect(body.verified).toBe(true);
-    expect(body.redirect).toContain('/dashboard');
+    expect(body.redirect).toContain('/joined');
 }
 
 /** Ubah label hitung mundur `mm:ss` menjadi detik. */
@@ -185,7 +185,7 @@ async function waitForResendAvailable(page: Page, resendButton: Locator): Promis
 }
 
 test.describe('verifikasi OTP', () => {
-    // Dev server kadang lambat; test yang menunggu cooldown/dashboard menaikkan timeout sendiri.
+    // Dev server kadang lambat; test yang menunggu cooldown/portal menaikkan timeout sendiri.
     test.describe.configure({ timeout: 60_000 });
 
     test.beforeEach(() => {
@@ -226,8 +226,8 @@ test.describe('verifikasi OTP', () => {
         await expect(page).toHaveURL(/\/auth\/verify-otp/);
     });
 
-    test('mengetik 6 digit: auto-submit, kotak hijau, lalu ke dashboard', async ({ page }) => {
-        // Dashboard nyata dimuat setelah jeda hijau; beri ruang lebih dari timeout bawaan.
+    test('mengetik 6 digit: auto-submit, kotak hijau, lalu ke portal peserta', async ({ page }) => {
+        // Halaman portal nyata dimuat setelah jeda hijau; beri ruang lebih dari timeout bawaan.
         test.setTimeout(60_000);
 
         const email = createTestEmail('auto-ketik');
@@ -253,7 +253,7 @@ test.describe('verifikasi OTP', () => {
 
         // Hijau tampil lebih dulu (jeda ±600 ms), baru halaman pindah sendiri.
         await page.waitForFunction(() => document.querySelectorAll('[data-state="success"]').length === 6);
-        await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+        await expect(page).toHaveURL(/\/joined/, { timeout: 30_000 });
     });
 
     test('paste 6 digit langsung submit tanpa klik Verifikasi', async ({ page }) => {
@@ -263,10 +263,10 @@ test.describe('verifikasi OTP', () => {
 
         await registerUntilOtpPage(page, email);
 
-        // Navigasi tujuan diamati dari request-nya; render dashboard tidak ditunggu di test ini
+        // Navigasi tujuan diamati dari request-nya; render portal tidak ditunggu di test ini
         // (test "mengetik 6 digit" sudah membuktikan URL akhirnya).
-        await page.route('**/dashboard*', (route) => route.abort());
-        const navigated = page.waitForRequest((request) => request.url().includes('/dashboard'));
+        await page.route('**/joined*', (route) => route.abort());
+        const navigated = page.waitForRequest((request) => request.url().includes('/joined'));
 
         const verified = page.waitForResponse(isVerifyPostResponse);
 

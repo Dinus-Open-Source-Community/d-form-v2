@@ -4,22 +4,20 @@ namespace App\Services\Form;
 
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\MemberConfirmationStatus;
+use App\Services\Du\DuFormCourseResolver;
+use App\Services\Du\DuRedeemIssuanceService;
 use App\Enums\RegistrationRole;
 use App\Exceptions\FormAnswerReviewConflictException;
-use App\Jobs\DispatchFormReviewEmailOutboxJob;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
-use App\Models\FormReviewEmailOutbox;
 use App\Models\User;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\RegistrationCodeIssuer;
 use App\Services\Registration\RegistrationGroupPeers;
 use Illuminate\Database\QueryException;
-use Illuminate\Contracts\Bus\Dispatcher as BusDispatcher;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -34,6 +32,9 @@ final class FormAnswerReviewService
         private readonly RegistrationCodeIssuer $codeIssuer,
         private readonly EventRegistrationCounter $registrationCounter,
         private readonly RegistrationGroupPeers $groupPeers,
+        private readonly DuRedeemIssuanceService $duIssuance,
+        private readonly DuFormCourseResolver $duForms,
+        private readonly FormReviewEmailOutboxIntents $outboxIntents,
     ) {
     }
 
@@ -41,7 +42,7 @@ final class FormAnswerReviewService
      *
      * Review one submission while using the same parent-first, sorted-row lock order as bulk review.
      *
-     * @return array{answer: FormAnswer, rejected_ids: Collection<int, string>}
+     * @return array{answer: FormAnswer, rejected_ids: Collection<int, string>, du_issuance?: \App\Services\Du\DuRedeemIssuanceResult}
      *
      */
     public function reviewOne(
@@ -55,7 +56,7 @@ final class FormAnswerReviewService
             throw new HttpException(422, 'Invalid review status transition.');
         }
 
-        return DB::transaction(function () use ($event, $form, $formAnswer, $status, $actor): array {
+        $payload = DB::transaction(function () use ($event, $form, $formAnswer, $status, $actor): array {
             $lockedEvent = $this->lockEvent($event, $form);
             $lockIds = [$formAnswer->id];
 
@@ -132,14 +133,14 @@ final class FormAnswerReviewService
                 ]);
                 $this->saveAcceptedWithUniqueRegistrationCode($locked);
                 $primaryAnswer = $locked;
-                $this->createOutboxIntent($locked, $status);
+                $this->outboxIntents->forReview($locked, $status);
             }
 
             if ($status === FormAnswerReviewStatus::Rejected) {
                 foreach ($rejectedIds as $rejectedId) {
                     $rejected = $lockedAnswers->get($rejectedId);
                     if ($rejected instanceof FormAnswer) {
-                        $this->createOutboxIntent($rejected, $status);
+                        $this->outboxIntents->forReview($rejected, $status);
                     }
                 }
             }
@@ -149,6 +150,14 @@ final class FormAnswerReviewService
                 'rejected_ids' => $rejectedIds,
             ];
         });
+
+        if ($status === FormAnswerReviewStatus::Accepted && $this->duForms->enabled($form)) {
+            $issuance = $this->duIssuance->issueAccepted($payload['answer']);
+            $payload['du_issuance'] = $issuance;
+            $this->outboxIntents->duIssuedFor($payload['answer'], $issuance);
+        }
+
+        return $payload;
     }
 
     /**
@@ -167,6 +176,9 @@ final class FormAnswerReviewService
     ): BulkReviewResult {
         if ($status === FormAnswerReviewStatus::Pending) {
             throw new HttpException(422, 'Invalid review status transition.');
+        }
+        if ($this->duForms->enabled($form)) {
+            throw new HttpException(422, 'DU-enabled submissions cannot use bulk review.');
         }
 
         $selectedIds = $this->normalizeSelectedIds($ids);
@@ -217,7 +229,7 @@ final class FormAnswerReviewService
                     $releasedSlots += $this->releasedSlotCount($before, $answer);
                 }
 
-                $outboxIds->push($this->createOutboxIntent($answer, $status));
+                $outboxIds->push($this->outboxIntents->forReview($answer, $status));
             }
 
             if ($releasedSlots > 0) {
@@ -308,49 +320,5 @@ final class FormAnswerReviewService
         $message = Str::lower($exception->getMessage());
 
         return str_contains($message, 'unique') && str_contains($message, 'registration_code');
-    }
-
-    private function createOutboxIntent(FormAnswer $answer, FormAnswerReviewStatus $status): string
-    {
-        $action = $status === FormAnswerReviewStatus::Accepted
-            ? FormReviewEmailOutbox::ACTION_ACCEPTED
-            : FormReviewEmailOutbox::ACTION_REJECTED;
-        $deliveryKey = 'form-review-'.$answer->id.'-'.$action;
-
-        $outbox = FormReviewEmailOutbox::query()->create([
-            'form_answer_id' => $answer->id,
-            'action' => $action,
-            'delivery_key' => $deliveryKey,
-            'status' => FormReviewEmailOutbox::STATUS_PENDING,
-            'attempts' => 0,
-            'available_at' => now(),
-        ]);
-
-        $originalAttempts = (int) $outbox->attempts;
-
-        DB::afterCommit(function () use ($outbox, $originalAttempts): void {
-            try {
-                app(BusDispatcher::class)->dispatch(new DispatchFormReviewEmailOutboxJob((string) $outbox->id));
-            } catch (\Throwable $exception) {
-                FormReviewEmailOutbox::query()
-                    ->whereKey($outbox->id)
-                    ->where('status', FormReviewEmailOutbox::STATUS_PENDING)
-                    ->where('attempts', $originalAttempts)
-                    ->update([
-                        'status' => FormReviewEmailOutbox::STATUS_PENDING,
-                        'available_at' => now(),
-                        'last_error' => 'Outbox dispatch failed: '.$exception::class,
-                        'updated_at' => now(),
-                    ]);
-
-                Log::error('[FormAnswerReviewService] Outbox dispatch failed after commit.', [
-                    'outbox_id' => $outbox->id,
-                    'delivery_key' => $outbox->delivery_key,
-                    'exception_class' => $exception::class,
-                ]);
-            }
-        });
-
-        return (string) $outbox->id;
     }
 }

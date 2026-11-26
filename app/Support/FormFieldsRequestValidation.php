@@ -11,6 +11,12 @@ use Illuminate\Validation\Validator;
 
 final class FormFieldsRequestValidation
 {
+    /**
+     * Batas jumlah field per snapshot. Melindungi endpoint dari payload patologis;
+     * 500 field masih jauh di bawah batas memori yang terukur.
+     */
+    public const MAX_FIELDS = 500;
+
     /** `metadata.maxLength` limits mirror the frontend builder contract. */
     public const MAX_LENGTH_LIMITS = [
         'short_text' => 1000,
@@ -93,7 +99,7 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.type' => [
                 'required_if:fields.*.type,input',
                 'prohibited_unless:fields.*.type,input',
-                Rule::in('text', 'number', 'email', 'password', 'tel'),
+                Rule::in(FieldInputPatterns::METADATA_TYPES),
             ],
             'fields.*.metadata.is_multiple' => [
                 'required_if:fields.*.type,select',
@@ -119,9 +125,22 @@ final class FormFieldsRequestValidation
             'fields.*.metadata.duplicatable' => 'nullable|boolean',
             'fields.*.metadata.builderType' => 'nullable|string',
             'fields.*.metadata.optionChoices' => 'nullable|array',
+            // Integrasi redeem DU pada field kelas: flag, peta opsi→course, dan
+            // subset course sistem memakai metadata, bukan kolom baru.
+            'fields.*.metadata.du_redeem_enabled' => 'nullable|boolean',
+            'fields.*.metadata.du_option_map' => 'nullable|array',
+            'fields.*.metadata.selected_course_uids' => 'nullable|array',
             'fields.*.metadata.content' => 'nullable',
             'fields.*.metadata.maxStars' => 'nullable',
             'fields.*.metadata.maxLength' => 'nullable|integer|min:1|max:'.self::MAX_LENGTH_GLOBAL_MAX,
+            // Harga form: integer rupiah pada field tampilan (heading/price).
+            'fields.*.metadata.price' => 'nullable|integer|min:0',
+            // Format isian pilihan admin; nilainya harus salah satu subtype ketat yang didukung.
+            'fields.*.metadata.rules.format' => [
+                'nullable',
+                'string',
+                Rule::in(['number', 'tel', 'email', 'nik', 'nim', 'postal_code']),
+            ],
             // Hanya path storage / URL publik (hasil endpoint upload builder).
             // Data URL (data:...) ditolak di after-validation agar payload tetap kecil.
             'fields.*.metadata.bannerUrl' => 'nullable|string',
@@ -256,9 +275,14 @@ final class FormFieldsRequestValidation
             'metadata.registration_mode' => ['nullable', 'string', Rule::in(['single', 'bundle', 'team'])],
             'metadata.max_team_size' => 'nullable|integer|min:1|max:10000',
             'metadata.team_size' => 'nullable|integer|min:1|max:10000',
+            'metadata.allow_multiple_submissions' => 'nullable|boolean',
+            'metadata.allow_guest_submissions' => 'nullable|boolean',
+            'metadata.max_submissions' => ['nullable', 'regex:/^[0-9]+$/D', 'integer', 'min:1', 'max:10000'],
             'metadata.sections' => 'nullable|array|min:1',
             'metadata.sections.*.id' => 'required|string|max:100|distinct',
             'metadata.sections.*.title' => 'required|string|max:100',
+            'metadata.referral_position' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'metadata.meeting_schedule_enabled' => ['nullable', 'boolean'],
         ];
     }
 
@@ -361,7 +385,18 @@ final class FormFieldsRequestValidation
             }
 
             if ($form === null) {
+                self::validatePriceField($validator, $fields, self::resolvedPurpose($request, null));
+
                 return;
+            }
+
+            self::validatePriceField($validator, $fields, self::resolvedPurpose($request, $form));
+
+            // Satu query untuk seluruh nama yang sudah tersimpan: pengecekan konflik per field
+            // sebelumnya menembak satu `exists()` per baris dan menjadi biaya terbesar pada form besar.
+            $existingNameOwners = [];
+            foreach (FormField::query()->where('form_id', $form->id)->get(['id', 'name']) as $existingField) {
+                $existingNameOwners[(string) $existingField->name][] = (string) $existingField->id;
             }
 
             foreach ($fields as $index => $field) {
@@ -373,20 +408,88 @@ final class FormFieldsRequestValidation
                     continue;
                 }
                 $id = $field['id'] ?? null;
-                $q = FormField::query()
-                    ->where('form_id', $form->id)
-                    ->where('name', $name);
-                if (is_string($id) && $id !== '') {
-                    $q->where('id', '!=', $id);
-                }
-                if ($q->exists()) {
+                $currentId = is_string($id) ? $id : '';
+
+                foreach ($existingNameOwners[$name] ?? [] as $ownerId) {
+                    if ($ownerId === $currentId) {
+                        continue;
+                    }
+
                     $validator->errors()->add(
                         "fields.{$index}.name",
                         __('validation.field_name_conflict', ['value' => $name]),
                     );
+
+                    break;
                 }
             }
         });
+    }
+
+    /**
+     * Harga hanya boleh ada pada form pendaftaran, dan hanya satu field berharga per form.
+     *
+     * @param  array<int|string, mixed>  $fields
+     */
+    private static function validatePriceField(Validator $validator, array $fields, FormPurpose $purpose): void
+    {
+        $pricedIndexes = [];
+
+        foreach ($fields as $index => $field) {
+            if (! is_array($field)) {
+                continue;
+            }
+
+            $builderType = $field['metadata']['builderType'] ?? null;
+
+            // Harga hanya dihitung dari tipe field `price`; tipe lain diabaikan.
+            if ($builderType !== 'price') {
+                continue;
+            }
+
+            $price = $field['metadata']['price'] ?? null;
+
+            if (is_numeric($price) && (int) $price > 0) {
+                $pricedIndexes[] = $index;
+            }
+        }
+
+        if ($pricedIndexes === []) {
+            return;
+        }
+
+        if (! in_array($purpose, [FormPurpose::Registration, FormPurpose::DKelas], true)) {
+            $validator->errors()->add(
+                'fields.' . $pricedIndexes[0] . '.metadata.price',
+                'Harga hanya untuk form pendaftaran.'
+            );
+        }
+
+        foreach (array_slice($pricedIndexes, 1) as $index) {
+            $validator->errors()->add(
+                'fields.' . $index . '.metadata.price',
+                'Satu form hanya boleh punya satu harga.'
+            );
+        }
+    }
+
+    /** Tujuan form dari payload, lalu dari model; absen berarti pendaftaran seperti `Form::purpose()`. */
+    private static function resolvedPurpose(Request $request, ?Form $form): FormPurpose
+    {
+        $metadata = $request->input('metadata');
+        $raw = is_array($metadata) ? ($metadata['purpose'] ?? null) : null;
+
+        if (! is_string($raw) && $form !== null) {
+            $stored = $form->getAttribute('metadata');
+
+            if (! is_array($stored)) {
+                $stored = Form::query()->find($form->id)?->metadata;
+            }
+
+            $raw = is_array($stored) ? ($stored['purpose'] ?? null) : null;
+        }
+
+        return is_string($raw) ? (FormPurpose::tryFrom($raw) ?? FormPurpose::Registration) : FormPurpose::Registration;
     }
 
     /** Reject names that break the validation/answer boundary. */

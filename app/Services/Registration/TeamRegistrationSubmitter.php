@@ -92,11 +92,16 @@ final class TeamRegistrationSubmitter
                 throw new \RuntimeException('Event not found.');
             }
 
+            $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+            if ($lockedForm === null) {
+                throw new \RuntimeException('Form not found.');
+            }
+
             $participants = array_merge([$leaderUser], $memberUsers);
             $participantIds = array_map(static fn (User $participant): string => (string) $participant->id, $participants);
 
             $alreadyRegistered = FormAnswer::query()
-                ->where('form_id', $form->id)
+                ->where('form_id', $lockedForm->id)
                 ->whereIn('user_id', $participantIds)
                 ->excludeRejectedSubmissions()
                 ->lockForUpdate()

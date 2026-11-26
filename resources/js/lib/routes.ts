@@ -5,6 +5,7 @@
  */
 
 import { dashboard as dashboardRoute, docs, features, home } from '@/routes';
+import { index as archivedEventsIndex } from '@/actions/App/Http/Controllers/Dashboard/Events/ArchivedEventController';
 import { index as adminIndex } from '@/routes/admin';
 import { login as authLogin, register as authRegister } from '@/routes/auth';
 import { resetLink as passwordResetLink } from '@/routes/auth/password';
@@ -13,8 +14,6 @@ import {
     create as eventCreate,
     edit as eventEdit,
     index as eventsIndexAdmin,
-    laporan as eventLaporan,
-    registrants as eventRegistrants,
     show as eventShowAdmin,
 } from '@/routes/dashboard/events';
 import { registrationsCsv } from '@/routes/dashboard/events/exports';
@@ -22,9 +21,11 @@ import {
     create as formCreate,
     destroy as formDestroy,
     draft as formDraft,
+    duFieldMap as formDuFieldMap,
     show as formShow,
     store as formStore,
 } from '@/routes/dashboard/events/forms';
+import { duIssuance as submissionDuIssuance } from '@/routes/dashboard/events/forms/submissions';
 import { index as recruitmentIndex } from '@/routes/dashboard/recruitment';
 import { index as activityLogsIndex } from '@/routes/dashboard/recruitment/activity-logs';
 import {
@@ -73,28 +74,46 @@ import {
 import { exportMethod as periodExportInterviews } from '@/routes/dashboard/recruitment/periods/interviews';
 import { applicants as applicantsExport, funnel as funnelExport } from '@/routes/dashboard/recruitment/reports/export';
 import { exportMethod as scanExport, index as scanIndex } from '@/routes/dashboard/scan';
+import { index as duCourseList, sync as duCourseSync } from '@/routes/dashboard/du/courses';
 import { events as memberJoined } from '@/routes/dashboard/user';
 import {
     browse as memberBrowse,
-    register as memberRegister,
     registration as memberRegistration,
     show as memberEventShow,
 } from '@/routes/dashboard/user/events';
 import {
     checkEmail,
-    create as userCreate,
     destroy as userDestroy,
-    edit as userEdit,
     index as usersIndex,
     show as userShow,
     store as userStore,
     update as userUpdate,
 } from '@/routes/dashboard/users';
 import { update as profileAvatarUpdate } from '@/routes/dashboard/profile/avatar';
+import {
+    destroy as profileConnectionDestroyRoute,
+    redirect as profileConnectionRedirectRoute,
+} from '@/routes/dashboard/profile/connection';
 import { update as profilePasswordUpdate } from '@/routes/dashboard/profile/password';
 import { index as eventsIndex, show as eventShow } from '@/routes/events';
+import {
+    change as profileTwoFactorChange,
+    disable as profileTwoFactorDisable,
+    enable as profileTwoFactorEnable,
+} from '@/routes/profile/two-factor';
 import { apply as recruitmentApply } from '@/routes/recruitment';
 import { login as trackLogin } from '@/routes/recruitment/track';
+import { challenge as twoFactorChallenge, verify as twoFactorVerify } from '@/routes/two-factor';
+import {
+    confirm as twoFactorRecoveryConfirm,
+    pin as twoFactorRecoveryPin,
+    send as twoFactorRecoverySend,
+} from '@/routes/two-factor/recovery';
+import {
+    confirm as verificationConfirm,
+    notice as verificationNotice,
+    send as verificationSend,
+} from '@/routes/verification';
 
 /**
  * Broadcast dorman: `FEATURE_BROADCAST=false` membuat route `/admin/broadcasts/*`
@@ -146,6 +165,32 @@ export const routes = {
             return passwordResetLink.url();
         },
         registerWithIntended: (intended: string): string => authLogin.url({ query: { intended } }),
+        // Faktor kedua: halaman tantangan, verifikasi PIN, dan pemulihan lewat OTP email.
+        get twoFactorChallenge() {
+            return twoFactorChallenge.url();
+        },
+        get twoFactorVerify() {
+            return twoFactorVerify.url();
+        },
+        get twoFactorRecoverySend() {
+            return twoFactorRecoverySend.url();
+        },
+        get twoFactorRecoveryConfirm() {
+            return twoFactorRecoveryConfirm.url();
+        },
+        get twoFactorRecoveryPin() {
+            return twoFactorRecoveryPin.url();
+        },
+        // Verifikasi email akun: halaman notifikasi, kirim ulang kode, dan konfirmasi kode.
+        get verificationNotice() {
+            return verificationNotice.url();
+        },
+        get verificationSend() {
+            return verificationSend.url();
+        },
+        get verificationConfirm() {
+            return verificationConfirm.url();
+        },
     },
 
     dashboard: {
@@ -161,6 +206,18 @@ export const routes = {
         get profilePassword() {
             return profilePasswordUpdate.url();
         },
+        // Pengaturan PIN faktor kedua dari halaman profil.
+        get profileTwoFactorEnable() {
+            return profileTwoFactorEnable.url();
+        },
+        get profileTwoFactorChange() {
+            return profileTwoFactorChange.url();
+        },
+        get profileTwoFactorDisable() {
+            return profileTwoFactorDisable.url();
+        },
+        profileConnectionRedirect: (provider: string): string => profileConnectionRedirectRoute.url({ provider }),
+        profileConnectionDestroy: (provider: string): string => profileConnectionDestroyRoute.url({ provider }),
     },
 
     admin: {
@@ -266,10 +323,11 @@ export const routes = {
             get create() {
                 return eventCreate.url();
             },
+            get archived() {
+                return archivedEventsIndex().url;
+            },
             show: (eventId: string | number): string => eventShowAdmin.url({ event: String(eventId) }),
             edit: (eventId: string | number): string => eventEdit.url({ event: String(eventId) }),
-            registrants: (eventId: string | number): string => eventRegistrants.url({ event: String(eventId) }),
-            laporan: (eventId: string | number): string => eventLaporan.url({ event: String(eventId) }),
             exports: {
                 registrations: (eventId: string | number): string => registrationsCsv.url({ event: String(eventId) }),
             },
@@ -281,6 +339,14 @@ export const routes = {
                 draft: (eventId: string | number): string => formDraft.url({ event: String(eventId) }),
                 destroy: (eventId: string | number, formId: string | number): string =>
                     formDestroy.url({ event: String(eventId), form: String(formId) }),
+                duFieldMap: (eventId: string | number, formId: string | number): string =>
+                    formDuFieldMap.url({ event: String(eventId), form: String(formId) }),
+                duIssuance: (eventId: string | number, formId: string | number, answerId: string): string =>
+                    submissionDuIssuance.url({
+                        event: String(eventId),
+                        form: String(formId),
+                        formAnswer: answerId,
+                    }),
             },
         },
         scan: {
@@ -290,18 +356,22 @@ export const routes = {
             export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }): string =>
                 scanExport.url({ query: { kind: params.kind, target: params.target, format: params.format } }),
         },
+        duCourses: {
+            get index() {
+                return duCourseList.url();
+            },
+            get sync() {
+                return duCourseSync.url();
+            },
+        },
         users: {
             get index() {
                 return usersIndex.url();
-            },
-            get create() {
-                return userCreate.url();
             },
             get store() {
                 return userStore.url();
             },
             show: (id: string): string => userShow.url({ user: id }),
-            edit: (id: string): string => userEdit.url({ user: id }),
             update: (id: string): string => userUpdate.url({ user: id }),
             destroy: (id: string): string => userDestroy.url({ user: id }),
         },
@@ -342,7 +412,6 @@ export const routes = {
         },
         event: {
             show: (segment: string | number): string => memberEventShow.url({ event_segment: segment }),
-            register: (segment: string | number): string => memberRegister.url({ event_segment: segment }),
             registration: (segment: string | number): string => memberRegistration.url({ event_segment: segment }),
         },
     },
@@ -385,29 +454,22 @@ export function isSidebarNavActive(href: string, currentUrl: string): boolean {
     if (href === routes.admin.scan.index) {
         return path === routes.admin.scan.index;
     }
+    if (href === routes.admin.events.archived) {
+        return path.startsWith(routes.admin.events.archived);
+    }
+    if (href === routes.admin.events.index) {
+        // Arsip punya menu sendiri; jangan menandai "Semua acara" aktif di sana.
+        if (path.startsWith(routes.admin.events.archived)) return false;
+        return path.startsWith(routes.admin.events.index);
+    }
 
     return path.startsWith(href);
 }
 
-/** Tujuan tombol back navbar saat tidak ada history; fallback per domain halaman. */
-export function resolveNavbarFallbackBackHref(currentUrl: string): string {
-    const path = pathWithoutQuery(currentUrl);
-
-    if (path.startsWith(routes.admin.events.index) && path !== routes.admin.events.index) {
-        return routes.admin.events.index;
-    }
-    if (path.startsWith(routes.admin.index) && path !== routes.admin.index) {
-        return routes.dashboard.index;
-    }
-    if (path === routes.dashboard.profile) {
-        return routes.dashboard.index;
-    }
-    if (path === routes.member.browse) {
-        return routes.member.joined;
-    }
-    if (path.startsWith(routes.member.joined) && path !== routes.member.joined) {
-        return routes.member.joined;
-    }
-
-    return routes.home;
+/**
+ * Beranda setelah login: penyelenggara memakai `/dashboard`, peserta memakai `/joined`.
+ * Guard server memakai capability yang sama, jadi tautan tidak boleh menebak tanpa konteks.
+ */
+export function resolveDashboardHomeHref(canManageEvents: boolean): string {
+    return canManageEvents ? routes.dashboard.index : routes.member.joined;
 }

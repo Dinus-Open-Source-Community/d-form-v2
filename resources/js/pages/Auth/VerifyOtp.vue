@@ -4,7 +4,7 @@ import type { ComputedRef } from 'vue';
 import { CircleAlert, Clock3 } from 'lucide-vue-next';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SeoHead from '@/components/seo/SeoHead.vue';
-import OtpCodeInput from '@/components/modules/auth/OtpCodeInput.vue';
+import OtpCodeInput from '@/components/core/OtpCodeInput.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { formatCountdownClock } from '@/lib/format-countdown';

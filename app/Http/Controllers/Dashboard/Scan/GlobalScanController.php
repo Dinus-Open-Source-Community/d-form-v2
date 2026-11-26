@@ -10,6 +10,8 @@ use App\Models\Event;
 use App\Models\EventAttendance;
 use App\Models\User;
 use App\Services\Event\EventService;
+use App\Services\Form\FormSessionSchedule;
+use App\Enums\FormPurpose;
 use App\Services\Recruitment\AttendanceCheckInResolver;
 use App\Services\Recruitment\AttendanceService;
 use App\Services\Recruitment\InterviewSessionService;
@@ -32,6 +34,7 @@ class GlobalScanController extends Controller
         private readonly FormAnswerRecipientResolver $recipientResolver,
         private readonly InterviewSessionService $sessionService,
         private readonly EventService $eventService,
+        private readonly FormSessionSchedule $schedule,
     ) {
     }
 
@@ -124,6 +127,43 @@ class GlobalScanController extends Controller
         abort_unless($user instanceof User, 403);
         abort_unless($user->can('update', $event), 403);
 
+        $form = $answer->form;
+        $purpose = $form->purpose();
+        if ($purpose === FormPurpose::AnswerCollection || $purpose === FormPurpose::Feedback) {
+            return response()->json([
+                'type' => 'event',
+                'eventTitle' => $event->title,
+                'attendee' => [
+                    'name' => $this->displayNameResolver->resolve($answer),
+                    'email' => $this->recipientResolver->email($answer) ?? '',
+                    'form_answer_id' => $answer->id,
+                ],
+                'message' => 'Form ini tidak memakai absensi.',
+            ], 422);
+        }
+
+        $session = null;
+        $isDKelas = $purpose === FormPurpose::DKelas;
+        $wantsSessionCheckIn = $isDKelas || (($form->metadata['meeting_schedule_enabled'] ?? false) === true);
+
+        if ($wantsSessionCheckIn) {
+            $session = $this->schedule->todayFor($form);
+
+            if ($session === null) {
+                return response()->json([
+                    'type' => 'event',
+                    'eventTitle' => $event->title,
+                    'attendee' => [
+                        'name' => $this->displayNameResolver->resolve($answer),
+                        'email' => $this->recipientResolver->email($answer) ?? '',
+                        'form_answer_id' => $answer->id,
+                    ],
+                    'message' => 'Hari ini tidak ada jadwal untuk form ini.',
+                ], 422);
+            }
+        }
+
+        $attendanceSlot = $session?->id ?? 'default';
         $payload = [
             'type' => 'event',
             'eventTitle' => $event->title,
@@ -135,11 +175,19 @@ class GlobalScanController extends Controller
             'scannedAt' => now()->toIso8601String(),
             'desk' => $desk,
         ];
+        if ($session !== null) {
+            $payload['session'] = [
+                'label' => $session->label,
+                'session_date' => $session->session_date->toDateString(),
+            ];
+        }
 
         try {
             $attendance = EventAttendance::query()->create([
                 'event_id' => $event->id,
                 'form_answer_id' => $answer->id,
+                'form_session_id' => $session?->id,
+                'attendance_slot' => $attendanceSlot,
                 'scanned_by_user_id' => $user->id,
                 'scanned_at' => now(),
             ]);

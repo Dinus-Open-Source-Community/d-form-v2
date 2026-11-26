@@ -37,7 +37,7 @@ class IndexEventRequest extends FormRequest
             'filter.showTrashed' => ['sometimes', 'boolean'],
             'filter.timeline' => ['sometimes', 'string', Rule::in(['all', 'upcoming', 'ongoing', 'completed'])],
             'sort' => ['sometimes', 'array'],
-            'sort.by' => ['sometimes', 'string', Rule::in(['title', 'price', 'end_date'])],
+            'sort.by' => ['sometimes', 'string', Rule::in(['created_at', 'title', 'price', 'end_date'])],
             'sort.order' => ['sometimes', 'string', Rule::in(['asc', 'desc'])],
         ];
     }
@@ -67,7 +67,7 @@ class IndexEventRequest extends FormRequest
             'filter.timeline.in' => 'Timeline filter must be one of: all, upcoming, ongoing, or completed.',
             'sort.array' => 'Sort options must be a valid list.',
             'sort.by.string' => 'Sort field must be valid text.',
-            'sort.by.in' => 'Sort field must be one of: title, price, or end_date.',
+            'sort.by.in' => 'Sort field must be one of: created_at, title, price, or end_date.',
             'sort.order.string' => 'Sort order must be valid text.',
             'sort.order.in' => 'Sort order must be either asc or desc.',
         ];
@@ -96,8 +96,8 @@ class IndexEventRequest extends FormRequest
             ],
             'sort' => array_merge(
                 [
-                    'by' => 'title',
-                    'order' => 'asc',
+                    'by' => 'created_at',
+                    'order' => 'desc',
                 ],
                 $sort
             ),

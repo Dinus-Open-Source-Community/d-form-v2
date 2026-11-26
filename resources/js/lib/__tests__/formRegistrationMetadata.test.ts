@@ -15,7 +15,12 @@ describe('emptyFormRegistrationMetadata', () => {
             registration_mode: null,
             max_team_size: null,
             team_size: null,
+            allow_multiple_submissions: false,
+            allow_guest_submissions: false,
+            max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
     });
 });
@@ -25,6 +30,18 @@ describe('parseFormRegistrationMetadata', () => {
         expect(parseFormRegistrationMetadata({}).purpose).toBe('registration');
         expect(parseFormRegistrationMetadata({ purpose: 'weird' }).purpose).toBe('registration');
         expect(parseFormRegistrationMetadata({ purpose: 'other' }).purpose).toBe('other');
+        expect(parseFormRegistrationMetadata({ purpose: 'd_kelas' }).purpose).toBe('d_kelas');
+        expect(parseFormRegistrationMetadata({ purpose: 'feedback' }).purpose).toBe('feedback');
+    });
+
+    it('preserves every supported non-registration purpose in the update payload', () => {
+        expect(
+            toFormMetadataPayload({
+                ...emptyFormRegistrationMetadata(),
+                purpose: 'd_kelas',
+                registration_mode: 'single',
+            }).purpose
+        ).toBe('d_kelas');
     });
 
     it('keeps a non-empty string form id and nulls everything else', () => {
@@ -60,6 +77,41 @@ describe('parseFormRegistrationMetadata', () => {
         expect(parseFormRegistrationMetadata({ max_team_size: null, team_size: '2' })).toMatchObject({
             max_team_size: null,
             team_size: 2,
+        });
+    });
+
+    it('defaults an enabled repeated-submission limit to two total submissions', () => {
+        expect(
+            parseFormRegistrationMetadata({
+                purpose: 'feedback',
+                allow_multiple_submissions: true,
+            })
+        ).toMatchObject({
+            allow_multiple_submissions: true,
+            max_submissions: 2,
+        });
+    });
+
+    it('disables repeated submissions for registration and D-Kelas purposes', () => {
+        expect(
+            parseFormRegistrationMetadata({
+                purpose: 'registration',
+                allow_multiple_submissions: true,
+                max_submissions: 2,
+            })
+        ).toMatchObject({
+            allow_multiple_submissions: false,
+            max_submissions: 1,
+        });
+        expect(
+            parseFormRegistrationMetadata({
+                purpose: 'd_kelas',
+                allow_multiple_submissions: true,
+                max_submissions: 2,
+            })
+        ).toMatchObject({
+            allow_multiple_submissions: false,
+            max_submissions: 1,
         });
     });
 
@@ -101,8 +153,13 @@ describe('parseFormRegistrationMetadata', () => {
 describe('toFormMetadataPayload', () => {
     it('always includes every registration key', () => {
         expect(Object.keys(toFormMetadataPayload(emptyFormRegistrationMetadata())).sort()).toEqual([
+            'allow_guest_submissions',
+            'allow_multiple_submissions',
+            'max_submissions',
             'max_team_size',
+            'meeting_schedule_enabled',
             'purpose',
+            'referral_position',
             'registration_mode',
             'requires_form_id',
             'sections',
@@ -117,7 +174,12 @@ describe('toFormMetadataPayload', () => {
             registration_mode: 'team',
             max_team_size: 5,
             team_size: 3,
+            allow_multiple_submissions: false,
+            allow_guest_submissions: false,
+            max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(payload).toEqual({
@@ -126,7 +188,12 @@ describe('toFormMetadataPayload', () => {
             registration_mode: null,
             max_team_size: null,
             team_size: null,
+            allow_multiple_submissions: false,
+            allow_guest_submissions: false,
+            max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(
@@ -136,7 +203,12 @@ describe('toFormMetadataPayload', () => {
                 registration_mode: 'single',
                 max_team_size: null,
                 team_size: null,
+                allow_multiple_submissions: false,
+                allow_guest_submissions: false,
+                max_submissions: 1,
                 sections: DEFAULT_SECTIONS,
+                referral_position: 'end',
+                meeting_schedule_enabled: false,
             }).registration_mode
         ).toBe('single');
     });
@@ -148,7 +220,12 @@ describe('toFormMetadataPayload', () => {
             registration_mode: 'team',
             max_team_size: 4,
             team_size: Number.NaN,
+            allow_multiple_submissions: false,
+            allow_guest_submissions: false,
+            max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(payload.registration_mode).toBe('team');
@@ -169,10 +246,15 @@ describe('toFormMetadataPayload', () => {
             registration_mode: 'team' as const,
             max_team_size: 4,
             team_size: 2,
+            allow_multiple_submissions: false,
+            allow_guest_submissions: false,
+            max_submissions: 1,
             sections: [
                 { id: 'section-1', title: 'Data Ketua' },
                 { id: 'section-2', title: 'Data Anggota' },
             ],
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         };
 
         expect(parseFormRegistrationMetadata(toFormMetadataPayload(teamMetadata))).toEqual(teamMetadata);

@@ -1,5 +1,6 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch, type Ref } from 'vue';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { DU_FIELD_DELETE_BLOCKED_MESSAGE } from '@/constants/du';
 import { onWindowEvent } from '@/adapters/browser/domEvents';
 import { DEFAULT_FORM_SECTION_ID, defaultFormBuilderSections } from '@/lib/formRegistrationMetadata';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
@@ -18,6 +19,7 @@ import {
 } from '@/components/modules/builder/formBuilderPalette';
 import { createFormBuilderField } from '@/components/modules/builder/formBuilderFieldFactory';
 import { createFormBuilderFieldList, parseFormBuilderDragPayload } from '@/lib/formBuilderFieldList';
+import { referralInsertIndexWithinSection, referralPositionForSectionIndex } from '@/lib/referralPlacement';
 import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
 import type { IFormRegistrationMetadata } from '@/types/form';
 
@@ -37,7 +39,6 @@ export interface IFormBuilderWorkspaceModels {
     formFields: Ref<IBuilderField[]>;
     formMetadata: Ref<IFormRegistrationMetadata>;
     canvasScrollContainer: Ref<HTMLElement | null>;
-    successContent?: Ref<string>;
 }
 
 /** Kategori palette terbuka. `null` = semua tertutup (single-expand). */
@@ -96,6 +97,24 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         models.formFields.value.filter((field) => sectionIdForField(field) === activeSectionId.value)
     );
 
+    /** Blok kode referral hanya tampil di satu bagian; sisip indeks `null` = tidak di bagian ini. */
+    const referralPosition = computed<string>(() => models.formMetadata.value.referral_position);
+    const referralInsertIndex = computed<number | null>(() =>
+        referralInsertIndexWithinSection(models.formFields.value, currentSectionFields.value, referralPosition.value)
+    );
+    const isDraggingReferral = ref<boolean>(false);
+
+    function setReferralPosition(localIndex: number): void {
+        models.formMetadata.value = {
+            ...models.formMetadata.value,
+            referral_position: referralPositionForSectionIndex(
+                models.formFields.value,
+                currentSectionFields.value,
+                localIndex
+            ),
+        };
+    }
+
     function ensureSections(): IFormBuilderSection[] {
         if (models.formMetadata.value.sections.length > 0) return models.formMetadata.value.sections;
         const fallback = defaultFormBuilderSections();
@@ -117,6 +136,46 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         selectedFieldId.value = null;
         inspectorMode.value = 'settings';
         resetCanvasScroll();
+    }
+
+    /** Ganti nama bagian; metadata ikut tersimpan lewat kanal settings. */
+    function renameSection(sectionId: string, title: string): void {
+        if (sectionId === '') return;
+
+        const configured = ensureSections();
+        const next = configured.map((section) => (section.id === sectionId ? { ...section, title } : section));
+
+        models.formMetadata.value = { ...models.formMetadata.value, sections: next };
+    }
+
+    /** Hapus satu bagian beserta field di dalamnya; bagian lain tidak berubah. */
+    function removeSection(sectionId: string): void {
+        const configured = ensureSections();
+
+        if (configured.length <= 1) return;
+
+        const removedIndex = configured.findIndex((section) => section.id === sectionId);
+
+        if (removedIndex === -1) return;
+
+        // Field sumber redeem DU dikunci; menghapus section-nya sama dengan menghapus field.
+        const hasDuField = models.formFields.value.some(
+            (field) => sectionIdForField(field) === sectionId && field.metadata?.du_redeem_enabled === true
+        );
+
+        if (hasDuField) {
+            showErrorToast(DU_FIELD_DELETE_BLOCKED_MESSAGE);
+            return;
+        }
+
+        const nextSections = configured.filter((section) => section.id !== sectionId);
+
+        models.formMetadata.value = { ...models.formMetadata.value, sections: nextSections };
+        models.formFields.value = models.formFields.value.filter((field) => field.metadata?.sectionId !== sectionId);
+
+        currentSectionId.value =
+            nextSections[Math.max(0, removedIndex - 1)]?.id ?? nextSections[0]?.id ?? DEFAULT_FORM_SECTION_ID;
+        selectedFieldId.value = null;
     }
 
     function goToSection(index: number): void {
@@ -163,20 +222,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         { immediate: true }
     );
 
-    /** Zona "Pesan setelah submit" (ala Google Forms). `true` = canvas menampilkan zona (dipicu drag item palette). */
-    const showSuccessZone = ref(false);
-
-    // Edit form tersimpan: konten sudah ada saat mount → tampilkan zona.
-    const initialSuccess = models.successContent?.value ?? '';
-    if (
-        initialSuccess
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/gi, ' ')
-            .trim() !== ''
-    ) {
-        showSuccessZone.value = true;
-    }
-
     const filteredCategories = computed(() => {
         const q = searchQuery.value.toLowerCase().trim();
         if (!q) return categories.value;
@@ -201,6 +246,11 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
 
     const isEmpty = computed<boolean>(() => models.formFields.value.length === 0);
     const isCurrentSectionEmpty = computed<boolean>(() => currentSectionFields.value.length === 0);
+
+    /** Field yang memegang flag redeem DU; dipakai untuk mengunci toggle field lain. */
+    const duOwner = computed<IBuilderField | null>(
+        () => models.formFields.value.find((field) => field.metadata?.du_redeem_enabled === true) ?? null
+    );
     const bannerPreviewSrc = computed<string>(() => normalizePublicStorageUrl(models.banner.value.bannerUrl));
 
     const validationIssues = computed<IFormBuilderValidationIssue[]>(() => {
@@ -219,11 +269,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         Object.assign(models.banner.value, v);
     }
 
-    function hideSuccessZone(): void {
-        showSuccessZone.value = false;
-        if (models.successContent) models.successContent.value = '';
-    }
-
     const fieldList = createFormBuilderFieldList<IBuilderField>({
         store: {
             read: (): IBuilderField[] => models.formFields.value,
@@ -237,13 +282,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     });
 
     function addField(template: IFormBuilderPaletteField, openEditorAfter = false): void {
-        // Item palette "Pesan setelah submit" = trigger zona konfirmasi, bukan IBuilderField.
-        if (template.type === 'confirmation') {
-            showSuccessZone.value = true;
-            showAddSheet.value = false;
-            if (openEditorAfter) showMobileEditor.value = true;
-            return;
-        }
         const nf = fieldList.appendField(template.type, template.label);
         selectedFieldId.value = nf.id;
         inspectorMode.value = 'field';
@@ -263,6 +301,14 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     }
 
     function deleteField(id: string): void {
+        const target = models.formFields.value.find((field) => field.id === id);
+
+        // Field sumber redeem DU dikunci selama integrasi aktif; matikan flag dulu.
+        if (target?.metadata?.du_redeem_enabled === true) {
+            showErrorToast(DU_FIELD_DELETE_BLOCKED_MESSAGE);
+            return;
+        }
+
         const wasSelected = selectedFieldId.value === id;
         if (!fieldList.deleteField(id)) return;
         if (!wasSelected) return;
@@ -281,11 +327,31 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
     function duplicateField(id: string): void {
         const copy = fieldList.duplicateField(id);
         if (copy === null) return;
+
+        // Salinan tetap membawa opsi + du_option_map, tetapi flag sumber DU hanya boleh satu.
+        if (copy.metadata?.du_redeem_enabled === true) {
+            const metadata = { ...copy.metadata };
+            delete metadata.du_redeem_enabled;
+            fieldList.updateField({ ...copy, metadata });
+        }
+
         selectedFieldId.value = copy.id;
         inspectorMode.value = 'field';
     }
 
     function updateField(updated: IBuilderField): void {
+        if (updated.metadata?.du_redeem_enabled === true) {
+            const otherOwner = models.formFields.value.find(
+                (field) => field.id !== updated.id && field.metadata?.du_redeem_enabled === true
+            );
+
+            // Flag hanya boleh satu owner. Admin harus mematikan owner lama dulu; update ditolak utuh.
+            if (otherOwner !== undefined) {
+                showErrorToast(`Matikan Redeem DU di field ${otherOwner.label || otherOwner.name} dulu.`);
+                return;
+            }
+        }
+
         fieldList.updateField(updated);
     }
 
@@ -296,7 +362,12 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         const source = indexes[localIndex];
         const target = indexes[localIndex + direction];
         if (source === undefined || target === undefined) return;
-        fieldList.moveFieldToIndex(source, target);
+
+        // `moveFieldToIndex` menerima posisi sisip sebelum elemen dilepas. Untuk arah turun,
+        // menyisipkan pada indeks tetangga berarti mengembalikan elemen ke posisi asalnya.
+        const insertIndex = direction === 1 ? target + 1 : target;
+
+        fieldList.moveFieldToIndex(source, insertIndex);
     }
 
     function toggleCategory(cat: IFormBuilderPaletteCategory): void {
@@ -354,6 +425,17 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
 
     function onCanvasDrop(e: DragEvent): void {
         e.preventDefault();
+
+        // Blok referral tidak memindahkan field; posisinya disimpan di metadata dan
+        // ikut tersimpan lewat kanal settings yang sudah ada.
+        if (isDraggingReferral.value) {
+            const dropIndex = dragState.value.dropIndicatorIndex;
+            isDraggingReferral.value = false;
+            dispatchDrag({ type: 'drop' });
+            setReferralPosition(dropIndex < 0 ? currentSectionFields.value.length : dropIndex);
+            return;
+        }
+
         const dropIndex = dragState.value.dropIndicatorIndex;
         // Tutup sesi sebelum efek samping: kegagalan membuat field (mis. id gagal dibuat)
         // tidak boleh meninggalkan marker/ring di kanvas.
@@ -363,11 +445,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         if (!raw) return;
         const data = parseFormBuilderDragPayload(raw);
         if (data === null) return;
-        // Drop item "Pesan setelah submit" = trigger zona konfirmasi di akhir canvas, bukan IBuilderField.
-        if (data.isNew && data.type === 'confirmation') {
-            showSuccessZone.value = true;
-            return;
-        }
         const insertAt =
             dropIndex < 0
                 ? globalInsertIndex(activeSectionId.value, currentSectionFields.value.length)
@@ -399,6 +476,35 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
 
     function onDragEnd(): void {
         dispatchDrag({ type: 'end' });
+    }
+
+    /**
+     * Mulai drag blok referral. Sesi drag yang sedang berjalan tidak ditimpa; flag
+     * `isDraggingReferral` sendiri yang menentukan jalur drop di kanvas.
+     */
+    function onReferralDragStart(e: DragEvent): void {
+        if (!dragState.value.isActive) {
+            dispatchDrag({ type: 'start', origin: 'field', sourceFieldId: null });
+        }
+        isDraggingReferral.value = true;
+        if (!e.dataTransfer) return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'referral');
+    }
+
+    function onReferralDragEnd(): void {
+        isDraggingReferral.value = false;
+        dispatchDrag({ type: 'end' });
+    }
+
+    /** Geser blok satu langkah; indeks `null` berarti blok di akhir bagian. */
+    function moveReferral(direction: -1 | 1): void {
+        const section = currentSectionFields.value;
+        const currentIndex = referralInsertIndex.value ?? section.length;
+        const target = Math.max(0, Math.min(currentIndex + direction, section.length));
+        if (target === currentIndex) return;
+
+        setReferralPosition(target);
     }
 
     /**
@@ -451,7 +557,6 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         searchQuery,
         filteredCategories,
         openCategoryName,
-        showSuccessZone,
         selectedFieldId,
         selectedField,
         dropIndicatorIndex,
@@ -463,10 +568,13 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         showPreview,
         isEmpty,
         isCurrentSectionEmpty,
+        duOwner,
         sections,
         currentSectionFields,
         currentSectionIndex,
         addSection,
+        renameSection,
+        removeSection,
         goToSection,
         bannerPreviewSrc,
         validationIssues,
@@ -479,8 +587,11 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         duplicateField,
         updateField,
         moveField,
+        referralPosition,
+        referralInsertIndex,
+        isDraggingReferral,
+        moveReferral,
         toggleCategory,
-        hideSuccessZone,
         onGapDragEnter,
         onCanvasDragEnter,
         onCanvasDragOver,
@@ -488,6 +599,8 @@ export function useFormBuilderWorkspace(models: IFormBuilderWorkspaceModels, opt
         onCanvasDrop,
         onCanvasDragStart,
         onPaletteDragStart,
+        onReferralDragStart,
+        onReferralDragEnd,
         onDragEnd,
         requestSave,
     };

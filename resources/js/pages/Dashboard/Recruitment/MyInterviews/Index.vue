@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -779,9 +779,9 @@ const emptyDescription = computed<string>((): string => {
 
         <EmptyState
             v-else-if="activeTab !== 'waiting' || !hasWaitingContent"
+            kind="filter"
             :title="emptyTitle"
             :description="emptyDescription"
-            animation-name="emptyData"
         >
             <Button v-if="hasActiveFilters" variant="outline" size="sm" @click="resetFilters">
                 <RotateCcw class="mr-2 size-4" aria-hidden="true" />

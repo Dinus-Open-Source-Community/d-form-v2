@@ -59,13 +59,16 @@ function submission(id: string, overrides: Partial<IFormSubmission> = {}): IForm
     };
 }
 
-function setup(rows: IFormSubmission[]): IFormSubmissionBulkReview {
+function setup(rows: IFormSubmission[], selectableIds?: string[]): IFormSubmissionBulkReview {
     const submissions = computed<readonly IFormSubmission[]>(() => rows);
 
     return useFormSubmissionBulkReview({
         eventId: 'event-1',
         formId: 'form-1',
         submissions,
+        ...(selectableIds === undefined
+            ? {}
+            : { selectableSubmissionIds: computed<readonly string[]>(() => selectableIds) }),
         reloadOnly: ['submissions'],
     });
 }
@@ -93,29 +96,43 @@ beforeEach(() => {
 });
 
 describe('useFormSubmissionBulkReview', () => {
-    it('counts the selection and reports page-level checked/indeterminate state', () => {
+    it('counts the selection and reports selectable checked/indeterminate state', () => {
         const bulk = setup([submission('answer-1'), submission('answer-2'), submission('answer-3')]);
 
         expect(bulk.selectedCount.value).toBe(0);
         expect(bulk.actionStatus.value).toBe('idle');
         expect(bulk.actionError.value).toBeNull();
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         expect(bulk.selectedCount.value).toBe(3);
-        expect(bulk.visibleSelectionState.value).toBe(true);
+        expect(bulk.selectableSelectionState.value).toBe(true);
 
         bulk.setSubmissionSelection('answer-2', false);
         expect(bulk.selectedCount.value).toBe(2);
-        expect(bulk.visibleSelectionState.value).toBe('indeterminate');
+        expect(bulk.selectableSelectionState.value).toBe('indeterminate');
         expect(bulk.isSelected('answer-1')).toBe(true);
         expect(bulk.isSelected('answer-2')).toBe(false);
 
-        bulk.setVisibleSelection('indeterminate');
+        bulk.setSelectableSelection('indeterminate');
         expect(bulk.selectedCount.value).toBe(2);
 
         bulk.clearSelection();
         expect(bulk.selectedCount.value).toBe(0);
-        expect(bulk.visibleSelectionState.value).toBe(false);
+        expect(bulk.selectableSelectionState.value).toBe(false);
+    });
+
+    it('select all follows selectable ids across pages, not only the visible page', () => {
+        const bulk = setup([submission('answer-1')], ['answer-1', 'answer-2', 'answer-3']);
+
+        bulk.setSelectableSelection(true);
+
+        expect(bulk.selectedCount.value).toBe(3);
+        expect(bulk.selectableSelectionState.value).toBe(true);
+        expect(bulk.ineligibleSelectedCount.value).toBe(0);
+
+        bulk.setSubmissionSelection('answer-2', false);
+        expect(bulk.selectedCount.value).toBe(2);
+        expect(bulk.selectableSelectionState.value).toBe('indeterminate');
     });
 
     it('does not open or send a batch when no submission is explicitly selected', () => {
@@ -136,7 +153,7 @@ describe('useFormSubmissionBulkReview', () => {
             submission('answer-3', { registration_role: 'member', member_confirmation_status: 'accepted' }),
         ]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
 
         expect(bulk.ineligibleSelectedCount.value).toBe(2);
 
@@ -153,7 +170,7 @@ describe('useFormSubmissionBulkReview', () => {
             Array.from({ length: 101 }, (_value, index): IFormSubmission => submission(`answer-${index}`))
         );
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('rejected');
 
         expect(bulk.pendingDecision.value).toBeNull();
@@ -199,7 +216,7 @@ describe('useFormSubmissionBulkReview', () => {
     it('cancels the pending decision when the dialog closes with Escape', () => {
         const bulk = setup([submission('answer-1')]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('rejected');
         expect(bulk.isConfirmOpen.value).toBe(true);
 
@@ -213,7 +230,7 @@ describe('useFormSubmissionBulkReview', () => {
     it('cancels a pending confirmation without sending anything', () => {
         const bulk = setup([submission('answer-1')]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('accepted');
         bulk.setDialogOpen(false);
         bulk.cancelBulkReview();
@@ -228,7 +245,7 @@ describe('useFormSubmissionBulkReview', () => {
         reviewMock.mockResolvedValueOnce({ status: 409, message: null, data: null });
         const bulk = setup([submission('answer-1')]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('rejected');
         bulk.confirmBulkReview();
 
@@ -247,7 +264,7 @@ describe('useFormSubmissionBulkReview', () => {
         reviewMock.mockResolvedValueOnce({ status: 422, message: null, data: null });
         const bulk = setup([submission('answer-1')]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('accepted');
         bulk.confirmBulkReview();
 
@@ -269,7 +286,7 @@ describe('useFormSubmissionBulkReview', () => {
         );
         const bulk = setup([submission('answer-1')]);
 
-        bulk.setVisibleSelection(true);
+        bulk.setSelectableSelection(true);
         bulk.requestBulkReview('rejected');
         bulk.confirmBulkReview();
         bulk.confirmBulkReview();

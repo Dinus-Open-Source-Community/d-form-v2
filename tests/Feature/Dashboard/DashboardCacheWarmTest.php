@@ -69,7 +69,7 @@ class DashboardCacheWarmTest extends TestCase
         return $heavy;
     }
 
-    public function test_command_mengisi_tiga_cache_dashboard(): void
+    public function test_command_mengisi_dua_cache_dashboard(): void
     {
         Event::factory()->create([
             'category' => 'seminar,workshop',
@@ -90,7 +90,6 @@ class DashboardCacheWarmTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertStringContainsString(EventReportingQuery::DASHBOARD_EVENT_STATS_KEY, $output);
         $this->assertStringContainsString(EventReportingQuery::DASHBOARD_REGISTRANTS_KEY, $output);
-        $this->assertStringContainsString(EventReportingQuery::DASHBOARD_CATEGORY_TOKENS_KEY, $output);
 
         $this->assertSame(
             ['totalEvents' => 2, 'activeEvents' => 2, 'completionRate' => 50],
@@ -99,13 +98,6 @@ class DashboardCacheWarmTest extends TestCase
         $this->assertSame(
             ['total' => 10],
             EventCache::peek(EventReportingQuery::DASHBOARD_REGISTRANTS_KEY, EventCache::BUSTER_REGISTRANTS),
-        );
-        $this->assertSame(
-            [
-                ['token' => 'seminar', 'count' => 2],
-                ['token' => 'workshop', 'count' => 1],
-            ],
-            EventCache::peek(EventReportingQuery::DASHBOARD_CATEGORY_TOKENS_KEY, EventCache::BUSTER_CATEGORY),
         );
     }
 
@@ -128,9 +120,7 @@ class DashboardCacheWarmTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('stats.totalEvents', 1)
-                ->where('stats.totalRegistrants', 4)
-                ->where('adminCharts.categoryBreakdown.0.token', 'seminar')
-                ->where('adminCharts.categoryBreakdown.0.count', 1));
+                ->where('stats.totalRegistrants', 4));
 
         $heavy = $this->heavyQueries();
         DB::disableQueryLog();
@@ -155,8 +145,7 @@ class DashboardCacheWarmTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('stats.totalEvents', 1)
                 ->where('stats.activeEvents', 1)
-                ->where('stats.totalRegistrants', 9)
-                ->where('adminCharts.categoryBreakdown.0.token', 'seminar'));
+                ->where('stats.totalRegistrants', 9));
 
         DB::disableQueryLog();
 

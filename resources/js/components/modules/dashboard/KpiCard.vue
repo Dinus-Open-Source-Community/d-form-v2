@@ -82,17 +82,12 @@ const weeklyTrendLabel = computed<string>(() => {
     const direction = weeklyDirection.value === 'up' ? 'Naik' : 'Turun';
     const changePercent = weeklyChangePercent.value;
 
-    return changePercent === null
-        ? direction
-        : `${direction} ${Math.abs(changePercent)}% dari minggu lalu`;
+    return changePercent === null ? direction : `${direction} ${Math.abs(changePercent)}% dari minggu lalu`;
 });
 </script>
 
 <template>
-    <Card
-        data-slot="kpi-card"
-        class="border-border/70 gap-0 rounded-xl py-0 shadow-sm"
-    >
+    <Card data-slot="kpi-card" class="border-border/70 gap-0 rounded-xl py-0 shadow-sm">
         <CardContent class="p-3.5 sm:p-4">
             <div class="flex items-center justify-between gap-3">
                 <p class="text-muted-foreground min-w-0 text-sm leading-5 font-medium">{{ label }}</p>
@@ -104,7 +99,9 @@ const weeklyTrendLabel = computed<string>(() => {
                 </div>
             </div>
             <div class="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                <p class="font-display text-foreground text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{{ value }}</p>
+                <p class="font-display text-foreground text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+                    {{ value }}
+                </p>
                 <div
                     v-if="weeklyTrend !== undefined && weeklyTrend.length > 0"
                     data-slot="weekly-kpi-trend"
@@ -126,11 +123,7 @@ const weeklyTrendLabel = computed<string>(() => {
                 </div>
             </div>
             <div v-if="weeklyTrend !== undefined && weeklyTrend.length > 0" class="border-border/60 mt-2 border-t pt-2">
-                <WeeklyKpiBarChart
-                    :points="weeklyTrend"
-                    :metric-label="label"
-                    :color="color ?? 'primary'"
-                />
+                <WeeklyKpiBarChart :points="weeklyTrend" :metric-label="label" :color="color ?? 'primary'" />
             </div>
         </CardContent>
     </Card>

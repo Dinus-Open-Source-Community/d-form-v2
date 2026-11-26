@@ -256,23 +256,33 @@ class FormShareLinkTest extends TestCase
             ->assertRedirect($participantPath);
     }
 
-    public function test_guest_alias_visit_preserves_participant_intended_path_through_login(): void
+    public function test_share_payload_uses_shared_fill_route_for_guest_eligible_form(): void
     {
-        $user = User::factory()->create();
+        $owner = User::factory()->create();
+        $owner->assignRole('admin');
+        $event = $this->publishedEvent($owner);
+        $form = $this->publishedForm($event, [
+            'share_slug' => 'guest-form',
+            'metadata' => [
+                'purpose' => 'feedback',
+                'allow_guest_submissions' => true,
+            ],
+            'closed_at' => null,
+        ]);
+        $publicPath = route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form], false);
+
+        $this->actingAs($owner)
+            ->putJson($this->shareUpdateUrl($event, $form), ['alias' => 'guest-form'])
+            ->assertJsonPath('participant_path', $publicPath);
+    }
+
+    public function test_guest_alias_redirects_to_shared_participant_path(): void
+    {
         $event = $this->publishedEvent();
         $form = $this->publishedForm($event, ['share_slug' => 'guest-form']);
         $participantPath = route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form], false);
 
-        $this->followingRedirects()
-            ->get('/s/guest-form')
-            ->assertInertia(fn ($page) => $page->component('Auth/Login'));
-
-        $this->assertSame($participantPath, session('url.intended'));
-
-        $this->post(route('auth.login.store'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertRedirect($participantPath);
+        $this->get('/s/guest-form')->assertRedirect($participantPath);
     }
 
     public function test_authenticated_member_reaches_published_participant_form(): void

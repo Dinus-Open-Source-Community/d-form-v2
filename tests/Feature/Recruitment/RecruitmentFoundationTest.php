@@ -36,7 +36,7 @@ class RecruitmentFoundationTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('dashboard.recruitment.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_admin_can_access_recruitment_dashboard(): void

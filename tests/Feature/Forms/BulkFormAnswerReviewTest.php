@@ -714,7 +714,7 @@ class BulkFormAnswerReviewTest extends TestCase
                 'form' => $form,
                 'formAnswer' => $pending,
             ]), ['review_status' => FormAnswerReviewStatus::Accepted->value])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertSame(FormAnswerReviewStatus::Pending, $pending->refresh()->review_status);
         $this->assertSame(0, FormReviewEmailOutbox::query()->count());
@@ -797,7 +797,7 @@ class BulkFormAnswerReviewTest extends TestCase
                 'submission_ids' => [$answer->id],
                 'review_status' => 'accepted',
             ])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $otherEvent = Event::factory()->create(['created_by' => $admin->id]);
         $this->actingAs($admin)

@@ -340,6 +340,18 @@ class RecruitmentApplicationListQueryTest extends TestCase
             $this->markTestSkipped('Tabel recruitment_applications kosong di MySQL.');
         }
 
+        // Rencana eksekusi hanya bermakna pada dataset representatif: MySQL boleh memilih
+        // full scan pada tabel kecil, sehingga assertion index akan gagal karena ukuran data,
+        // bukan karena query. Dataset stress (1 juta baris) memenuhi ambang ini.
+        $rowCount = $connection->table('recruitment_applications')->count();
+        $minimumPlanRows = 1000;
+
+        if ($rowCount < $minimumPlanRows) {
+            $this->markTestSkipped(
+                "Tabel recruitment_applications hanya {$rowCount} baris; rencana index diuji pada >= {$minimumPlanRows} baris."
+            );
+        }
+
         $captured = [];
         $connection->listen(static function (QueryExecuted $query) use (&$captured): void {
             $captured[] = ['sql' => $query->sql, 'bindings' => $query->bindings];

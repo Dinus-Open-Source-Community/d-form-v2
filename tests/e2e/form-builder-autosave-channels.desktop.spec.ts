@@ -123,10 +123,7 @@ test.describe('autosave dua kanal', () => {
             // Field pertama membuka kanal fields: satu POST /fields tanpa data header.
             await page.getByRole('button', { name: /text inputs/i }).click();
             const shortText = page.getByText('Short Text', { exact: true }).first();
-            const canvas = page
-                .locator('section')
-                .filter({ has: page.locator('#f-title') })
-                .first();
+            const canvas = page.getByTestId('form-builder-canvas');
 
             for (let attempt = 0; attempt < 2; attempt += 1) {
                 await shortText.dragTo(canvas, { targetPosition: { x: 40, y: 60 }, timeout: 20_000 });
@@ -179,10 +176,7 @@ test.describe('autosave dua kanal', () => {
             // Tambah satu field lalu hapus.
             await page.getByRole('button', { name: /text inputs/i }).click();
             const shortText = page.getByText('Short Text', { exact: true }).first();
-            const canvas = page
-                .locator('section')
-                .filter({ has: page.locator('#f-title') })
-                .first();
+            const canvas = page.getByTestId('form-builder-canvas');
 
             for (let attempt = 0; attempt < 2; attempt += 1) {
                 await shortText.dragTo(canvas, { targetPosition: { x: 40, y: 60 }, timeout: 20_000 });

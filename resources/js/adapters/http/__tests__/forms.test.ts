@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
     lookupRegisteredUser,
+    requestFormDraft,
     reviewFormSubmission,
     saveFormFields,
     updateFormSettings,
@@ -28,6 +29,19 @@ describe('forms adapter', () => {
             '/submissions/2/review': { status: 409, body: JSON.stringify({ message: 'sudah' }) },
             '/fields': { body: JSON.stringify({ ok: true }) },
             '/fields-invalid-ack': { body: JSON.stringify({ ok: false, message: 'gagal' }) },
+            '/draft': {
+                body: JSON.stringify({
+                    form: {
+                        id: 'form-1',
+                        title: '',
+                        description: '',
+                        event_id: 'event-1',
+                        visible_for: ['public'],
+                        edit_url: '/admin/events/event-1/forms/form-1',
+                    },
+                    fields: [],
+                }),
+            },
             '/form': { body: JSON.stringify({ ok: true }) },
             '/builder-upload': { body: JSON.stringify({ path: 'form-images/a.png', url: '/storage/a.png' }) },
             '/builder-upload-data': {
@@ -99,6 +113,15 @@ describe('forms adapter', () => {
         expect(JSON.parse(fieldsRequest?.body ?? '{}')).toEqual({ fields: [{ name: 'judul' }] });
         expect(formRequest?.method).toBe('PUT');
         expect(JSON.parse(formRequest?.body ?? '{}')).toEqual({ title: 'Form' });
+    });
+
+    it('posts the purpose and mode when requesting a draft form', async () => {
+        const draft = await requestFormDraft(`${server.baseUrl}/draft`, { purpose: 'd_kelas', mode: 'single' });
+
+        const request = server.requests.at(-1);
+        expect(request?.method).toBe('POST');
+        expect(JSON.parse(request?.body ?? '{}')).toEqual({ purpose: 'd_kelas', mode: 'single' });
+        expect(draft.formId).toBe('form-1');
     });
 
     it('rejects a 2xx autosave response without the ok ack', async () => {

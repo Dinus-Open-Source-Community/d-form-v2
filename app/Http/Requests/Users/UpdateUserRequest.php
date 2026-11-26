@@ -35,6 +35,10 @@ class UpdateUserRequest extends FormRequest
             ],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', 'string', Rule::in(UserManagementService::ASSIGNABLE_ROLES)],
+            'return_filters' => ['sometimes', 'array'],
+            'return_filters.search' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'return_filters.role' => ['sometimes', 'nullable', 'string', Rule::in(UserManagementService::ASSIGNABLE_ROLES)],
+            'return_filters.page' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 

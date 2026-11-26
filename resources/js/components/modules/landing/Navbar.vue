@@ -14,10 +14,11 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import UserAvatarFallback from '@/components/core/UserAvatarFallback.vue';
+import { Spinner } from '@/components/ui/spinner';
 import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { useAuth } from '@/hooks/useAuth';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
-import { routes } from '@/lib/routes';
+import { resolveDashboardHomeHref, routes } from '@/lib/routes';
 import { LayoutDashboard, UserRound, LogOut, ChevronsUpDown } from 'lucide-vue-next';
 import { findElement } from '@/adapters/browser/domQuery';
 import { matchesMediaQuery } from '@/adapters/browser/mediaQuery';
@@ -26,6 +27,9 @@ import { onWindowEvent } from '@/adapters/browser/domEvents';
 
 const page = usePage();
 const user = useAuth(page.props);
+
+/** Tautan Dasbor mengikuti capability: peserta diarahkan ke portal `/joined`. */
+const dashboardHref = computed(() => resolveDashboardHomeHref(user.value?.can_manage_events === true));
 
 const scrolled = ref(false);
 const mobileOpen = ref(false);
@@ -105,8 +109,21 @@ function onAccountContentLeave(e: PointerEvent) {
     scheduleAccountMenuClose();
 }
 
+const isSigningOut = ref(false);
+
 function signOut() {
-    router.post(logout().url);
+    if (isSigningOut.value) return;
+
+    isSigningOut.value = true;
+    router.post(
+        logout().url,
+        {},
+        {
+            onFinish: (): void => {
+                isSigningOut.value = false;
+            },
+        }
+    );
 }
 
 const onScroll = () => {
@@ -156,6 +173,7 @@ function isLinkActive(href: string): boolean {
                     alt="DOSCOM"
                     width="113"
                     height="49"
+                    fetchpriority="high"
                     class="h-8 w-auto transition-colors duration-200"
                 />
             </a>
@@ -214,7 +232,7 @@ function isLinkActive(href: string): boolean {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem as-child>
-                            <Link :href="routes.dashboard.index" class="flex w-full cursor-pointer items-center gap-2">
+                            <Link :href="dashboardHref" class="flex w-full cursor-pointer items-center gap-2">
                                 <LayoutDashboard class="text-muted-foreground size-4" />
                                 Dashboard
                             </Link>
@@ -231,9 +249,11 @@ function isLinkActive(href: string): boolean {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             class="text-destructive focus:text-destructive cursor-pointer"
+                            :disabled="isSigningOut"
                             @click="signOut"
                         >
-                            <LogOut class="size-4" />
+                            <Spinner v-if="isSigningOut" class="size-4" />
+                            <LogOut v-else class="size-4" />
                             Logout
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -302,7 +322,7 @@ function isLinkActive(href: string): boolean {
                                 </div>
                             </div>
                             <Button as-child variant="outline" class="h-10 w-full text-sm">
-                                <Link :href="routes.dashboard.index" @click="mobileOpen = false">Dashboard</Link>
+                                <Link :href="dashboardHref" @click="mobileOpen = false">Dashboard</Link>
                             </Button>
                             <Button as-child variant="outline" class="mt-2 h-10 w-full text-sm">
                                 <Link :href="routes.dashboard.profile" @click="mobileOpen = false">Profile</Link>
@@ -310,11 +330,13 @@ function isLinkActive(href: string): boolean {
                             <Button
                                 variant="destructive"
                                 class="mt-2 h-10 w-full text-sm"
+                                :disabled="isSigningOut"
                                 @click="
                                     mobileOpen = false;
                                     signOut();
                                 "
                             >
+                                <Spinner v-if="isSigningOut" class="mr-2 size-4" />
                                 Logout
                             </Button>
                         </template>

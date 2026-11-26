@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Download, Locator, Page } from '@playwright/test';
 import { cleanupOwnerFixture, expect, ownerIdentityForTest, runFixtureCommand, test } from './support/fixtures';
 import { runArtisanCommand, runArtisanWithInput } from './support/artisan';
+import { readEnvironment } from './support/environment';
 import type { IOwnerIdentity } from './support/marker';
 
 /**
@@ -17,7 +18,7 @@ import type { IOwnerIdentity } from './support/marker';
 
 const IMAGE_UPLOAD_PATH = /\/admin\/events\/[^/]+\/forms\/[^/]+\/images$/;
 const SNAPSHOT_PATH = /\/admin\/broadcasts\/[^/]+\/snapshot$/;
-const REGISTRATIONS_EXPORT_PATH = /\/admin\/events\/[^/]+\/exports\/registrations\.csv$/;
+const SCAN_EXPORT_PATH = /\/admin\/scan\/export(\?|$)/;
 
 /** PNG 1x1 valid agar validator sisi server menerima file. */
 const PNG_1X1 = Buffer.from(
@@ -32,8 +33,18 @@ function isMobile(testProject: string): boolean {
     return testProject === 'chromium-mobile';
 }
 
-function laporanPath(eventId: string): string {
-    return `/admin/events/${eventId}/laporan`;
+/**
+ * Buka dialog export scan lalu pilih satu event fixture berdasarkan judul unik.
+ * Halaman laporan event sudah dihapus; hook unduhan yang sama dibuktikan lewat Scan.
+ */
+async function openScanExportForEvent(page: Page, eventTitle: string): Promise<void> {
+    await page.goto('/admin/scan', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Export CSV' }).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 20_000 });
+    await dialog.getByRole('checkbox').filter({ hasText: eventTitle }).click();
+    await dialog.getByRole('button', { name: 'Unduh 1 file CSV' }).click();
 }
 
 /** Form fixture dibuat `closed_at = NULL`; builder autosave menuntutnya, jadi diisi dulu. */
@@ -63,10 +74,7 @@ async function openBuilder(page: Page, eventId: string, formId: string): Promise
 }
 
 function canvasForTitle(page: Page): Locator {
-    return page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    return page.getByTestId('form-builder-canvas');
 }
 
 /** Tambah blok gambar: drag palette di desktop, sheet FAB di mobile. */
@@ -87,7 +95,7 @@ async function openImageFieldEditor(page: Page, projectName: string): Promise<Lo
     if (isMobile(projectName)) {
         await page.getByRole('button', { name: 'Edit' }).last().click();
     } else {
-        await page.getByRole('button', { name: 'Pengaturan field' }).last().click();
+        await page.getByRole('button', { name: /^Ubah field/ }).last().click();
     }
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Properti field' });
@@ -293,16 +301,18 @@ test.describe('EP-07 UI unggah/unduh', () => {
         test.setTimeout(120_000);
 
         const identity = ownerIdentityForTest(testInfo);
+        const title = `E2E export wiring ${identity.ownerKey}`;
 
         try {
-            const fixture = runFixtureCommand({
+            runFixtureCommand({
                 marker: identity.marker,
                 slug: identity.slug,
-                title: `E2E export wiring ${identity.ownerKey}`,
+                title,
                 forms: [{ title: 'Form export', fields: [], submissions: 0 }],
+                ownerEmail: readEnvironment().adminEmail,
             });
 
-            await page.route(REGISTRATIONS_EXPORT_PATH, async (route) => {
+            await page.route(SCAN_EXPORT_PATH, async (route) => {
                 await new Promise<void>((resolve) => {
                     setTimeout(resolve, 900);
                 });
@@ -311,31 +321,25 @@ test.describe('EP-07 UI unggah/unduh', () => {
                     headers: {
                         'content-type': 'text/csv; charset=UTF-8',
                         'content-length': String(Buffer.byteLength(EXPORT_CSV_BODY)),
-                        'content-disposition': 'attachment; filename="registrations-event-e2e.csv"',
+                        'content-disposition': 'attachment; filename="attendance-event-e2e.csv"',
                     },
                     body: EXPORT_CSV_BODY,
                 });
             });
 
-            const response = await page.goto(laporanPath(fixture.eventId), { waitUntil: 'domcontentloaded' });
-            expect(response?.status()).toBe(200);
-
-            const button = page.getByRole('button', { name: 'Registrations CSV' });
-            await expect(button).toBeVisible({ timeout: 20_000 });
-
             const downloadPromise = page.waitForEvent('download', { timeout: 30_000 });
-            await button.click();
+            await openScanExportForEvent(page, title);
 
-            await expect(page.getByRole('progressbar', { name: /Progres unduhan Registrations CSV/ })).toBeVisible({
+            await expect(page.getByRole('progressbar', { name: /Progres unduhan Export CSV/ })).toBeVisible({
                 timeout: 20_000,
             });
 
             const download = await collectDownload(await downloadPromise);
-            expect(download.filename).toBe('registrations-event-e2e.csv');
+            expect(download.filename).toBe('attendance-event-e2e.csv');
             expect(download.raw).toBe(EXPORT_CSV_BODY);
             await expect(page.getByText('Unduhan selesai')).toBeVisible({ timeout: 20_000 });
         } finally {
-            await page.unroute(REGISTRATIONS_EXPORT_PATH);
+            await page.unroute(SCAN_EXPORT_PATH);
             cleanupOwnerFixture(identity);
         }
     });
@@ -346,29 +350,25 @@ test.describe('EP-07 UI unggah/unduh', () => {
         test.setTimeout(120_000);
 
         const identity = ownerIdentityForTest(testInfo);
+        const title = `E2E export stream ${identity.ownerKey}`;
 
         try {
-            const fixture = runFixtureCommand({
+            runFixtureCommand({
                 marker: identity.marker,
                 slug: identity.slug,
-                title: `E2E export stream ${identity.ownerKey}`,
+                title,
                 forms: [{ title: 'Form export', fields: [], submissions: 0 }],
+                ownerEmail: readEnvironment().adminEmail,
             });
 
-            const response = await page.goto(laporanPath(fixture.eventId), { waitUntil: 'domcontentloaded' });
-            expect(response?.status()).toBe(200);
-
-            const button = page.getByRole('button', { name: 'Registrations CSV' });
-            await expect(button).toBeVisible({ timeout: 20_000 });
-
             const downloadPromise = page.waitForEvent('download', { timeout: 30_000 });
-            await button.click();
+            await openScanExportForEvent(page, title);
 
             const download = await collectDownload(await downloadPromise);
 
             // Nama file dari `Content-Disposition` endpoint nyata (bukan segmen URL).
-            expect(download.filename).toMatch(/^registrations-event-.+\.csv$/);
-            expect(download.raw).toContain('submission_id');
+            expect(download.filename).toMatch(/^attendance-.+\.csv$/);
+            expect(download.raw).toContain('scanned_at');
             await expect(page.getByText('Unduhan selesai')).toBeVisible({ timeout: 20_000 });
         } finally {
             cleanupOwnerFixture(identity);
@@ -379,21 +379,24 @@ test.describe('EP-07 UI unggah/unduh', () => {
         test.setTimeout(120_000);
 
         const identity = ownerIdentityForTest(testInfo);
+        const title = `E2E export direct ${identity.ownerKey}`;
 
         try {
-            const fixture = runFixtureCommand({
+            runFixtureCommand({
                 marker: identity.marker,
                 slug: identity.slug,
-                title: `E2E export direct ${identity.ownerKey}`,
+                title,
                 forms: [{ title: 'Form export', fields: [], submissions: 0 }],
+                ownerEmail: readEnvironment().adminEmail,
             });
 
+            // Probe fetch menyatakan 60 MB; adapter harus menolak menahan payload lalu
+            // menyerahkan unduhan ke browser. Leg unduhan langsung bisa diintersepsi
+            // Playwright atau langsung ke server, jadi keduanya mengirim nama file.
             let requestCount = 0;
-            await page.route(REGISTRATIONS_EXPORT_PATH, async (route) => {
+            await page.route(SCAN_EXPORT_PATH, async (route) => {
                 requestCount += 1;
 
-                // Percobaan pertama (fetch) menyatakan 60 MB; adapter harus menolak
-                // menahan payload lalu menyerahkan unduhan ke browser.
                 if (requestCount === 1) {
                     await route.fulfill({
                         status: 200,
@@ -411,28 +414,22 @@ test.describe('EP-07 UI unggah/unduh', () => {
                     status: 200,
                     headers: {
                         'content-type': 'text/csv; charset=UTF-8',
-                        'content-disposition': 'attachment; filename="registrations-event-large.csv"',
+                        'content-disposition': 'attachment; filename="attendance-event-large.csv"',
                     },
                     body: EXPORT_CSV_BODY,
                 });
             });
 
-            const response = await page.goto(laporanPath(fixture.eventId), { waitUntil: 'domcontentloaded' });
-            expect(response?.status()).toBe(200);
-
-            const button = page.getByRole('button', { name: 'Registrations CSV' });
-            await expect(button).toBeVisible({ timeout: 20_000 });
-
             const downloadPromise = page.waitForEvent('download', { timeout: 30_000 });
-            await button.click();
+            await openScanExportForEvent(page, title);
 
             const download = await collectDownload(await downloadPromise);
 
-            // Nama file berasal dari `Content-Disposition` (server), bukan segmen URL.
-            expect(download.filename).toMatch(/^registrations-event-.+\.csv$/);
-            await expect(page.getByText('Mulai diunduh')).toBeVisible({ timeout: 20_000 });
+            // Nama file berasal dari `Content-Disposition` endpoint (bukan segmen URL).
+            expect(download.filename).toMatch(/^attendance-.+\.csv$/);
+            await expect(page.getByText('Mulai diunduh', { exact: true })).toBeVisible({ timeout: 20_000 });
         } finally {
-            await page.unroute(REGISTRATIONS_EXPORT_PATH);
+            await page.unroute(SCAN_EXPORT_PATH);
             cleanupOwnerFixture(identity);
         }
     });

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-vue-next';
 import FileUploadCard, { type TFileUploadState } from '@/components/core/FileUploadCard.vue';
 import type { IFormBannerState } from './formBanner';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { createObjectUrl, revokeObjectUrl } from '@/adapters/browser/objectUrl';
 import { ACCEPTED_IMAGE_EXTENSIONS, validateUploadFile } from '@/lib/uploadValidation';
+import { formatFileSize } from '@/lib/fileDisplay';
 import { uploadBuilderImage } from '@/adapters/http/forms';
 import { describeRequestErrorMessage } from '@/adapters/http/httpError';
 import { builderPendingUploads } from '@/hooks/useBuilderImageUpload';
@@ -14,33 +14,37 @@ import { useUploadedFileState, type IUploadedFileResult, type TUploader } from '
 
 const banner = defineModel<IFormBannerState>('banner', { required: true });
 
-/** `frame` = kartu mandiri (border + shadow sendiri); `plain` = panel di dalam section induk */
 const props = withDefaults(
     defineProps<{
-        variant?: 'frame' | 'plain';
         bannerPreviewSrc?: string;
         /** Endpoint `POST {form}/images`. Kosong = preview lokal saja (tidak dipersist). */
         uploadUrl?: string;
     }>(),
     {
-        variant: 'frame',
         bannerPreviewSrc: '',
         uploadUrl: '',
     }
 );
 
-/** MIME yang diterima tombol pilih banner; pesan error dipertahankan seperti sebelumnya. */
+/** MIME yang diterima pemilih banner; pesan error dipertahankan seperti sebelumnya. */
 const ALLOWED_BANNER_MIME_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif'];
 const BANNER_MAX_SIZE_KB = 5120;
 
 /** Object URL sementara untuk preview draf lokal (tanpa endpoint upload). */
 const localPreviewUrl = ref('');
-const hasUploadEndpoint = computed<boolean>(() => props.uploadUrl.trim() !== '');
+const pickerInput = ref<HTMLInputElement | null>(null);
 
+const hasUploadEndpoint = computed<boolean>(() => props.uploadUrl.trim() !== '');
 const previewSrc = computed(
     () => localPreviewUrl.value || props.bannerPreviewSrc || normalizePublicStorageUrl(banner.value.bannerUrl)
 );
 const hasImage = computed(() => previewSrc.value !== '');
+const displayFileName = computed<string>(() => banner.value.bannerFileName.trim());
+
+/** Satu baris bantuan: ukuran diambil dari konstanta agar tidak ada angka duplikat. */
+const bannerHint = computed<string>(
+    () => `Gambar sampul di bagian atas form. Rasio 3:1, maksimal ${formatFileSize(BANNER_MAX_SIZE_KB * 1024)}.`
+);
 
 function patch(partial: Partial<IFormBannerState>): void {
     Object.assign(banner.value, partial);
@@ -119,6 +123,18 @@ async function onBannerPick(file: File): Promise<void> {
     await startUpload(file);
 }
 
+function openPicker(): void {
+    pickerInput.value?.click();
+}
+
+function onPicked(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const file = target?.files?.[0];
+
+    if (file !== undefined) void onBannerPick(file);
+    if (target !== null) target.value = '';
+}
+
 function clearImage(): void {
     resetUpload();
     revokeObjectUrl(localPreviewUrl.value);
@@ -126,10 +142,11 @@ function clearImage(): void {
     patch({ bannerUrl: '', bannerFileName: '' });
 }
 
-/** Hasil upload ditampilkan oleh pratinjau 3:1, jadi kartu kembali ke idle setelah selesai. */
+/** Hasil upload ditampilkan oleh baris ringkas, jadi kartu kembali ke idle setelah selesai. */
 const cardState = computed<TFileUploadState>(() => (uploadPhase.value === 'completed' ? 'idle' : uploadPhase.value));
 const idleLabel = computed(() => (hasImage.value ? 'Ganti banner' : 'Tambahkan banner form'));
 const isUploading = computed<boolean>(() => uploadPhase.value === 'uploading');
+const showCompactRow = computed<boolean>(() => hasImage.value && cardState.value === 'idle');
 
 onUnmounted(() => {
     revokeObjectUrl(localPreviewUrl.value);
@@ -137,54 +154,70 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div
-        class="overflow-hidden transition-[border-color,box-shadow] duration-200"
-        :class="
-            variant === 'plain'
-                ? 'rounded-none border-0 bg-transparent shadow-none'
-                : 'border-border bg-card rounded-2xl border shadow-sm'
-        "
-    >
-        <div v-if="hasImage" class="relative aspect-[3/1] w-full overflow-hidden">
-            <img :src="previewSrc" alt="Pratinjau banner form" class="size-full object-cover" />
-        </div>
-        <div
-            v-if="hasImage"
-            class="border-border/70 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t px-5 py-2.5 sm:px-7"
-        >
-            <span class="text-muted-foreground min-w-0 truncate text-xs font-medium">
-                {{ banner.bannerFileName || 'banner-form' }}
-            </span>
-            <Button
-                radius="icon"
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                aria-label="Hapus banner"
-                :disabled="isUploading"
-                @click="clearImage"
-            >
-                <X class="size-4" aria-hidden="true" />
-            </Button>
+    <div class="w-full">
+        <input
+            ref="pickerInput"
+            type="file"
+            class="sr-only"
+            accept="image/png,image/jpeg,image/gif"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="onPicked"
+        />
+
+        <div v-if="showCompactRow" class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <img
+                :src="previewSrc"
+                alt="Pratinjau banner form"
+                data-testid="builder-banner-preview"
+                width="192"
+                height="64"
+                decoding="async"
+                class="border-border bg-muted h-24 w-full shrink-0 rounded-lg border object-cover sm:h-16 sm:w-32 md:w-48"
+            />
+            <div class="min-w-0 flex-1">
+                <p
+                    class="text-foreground truncate text-sm font-medium"
+                    :title="displayFileName === '' ? 'Banner form' : displayFileName"
+                >
+                    {{ displayFileName === '' ? 'Banner form' : displayFileName }}
+                </p>
+                <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" class="min-h-11 sm:min-h-9" @click="openPicker">
+                        Ganti banner
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        class="text-destructive hover:bg-destructive/10 hover:text-destructive min-h-11 sm:min-h-9"
+                        aria-label="Hapus banner"
+                        :disabled="isUploading"
+                        @click="clearImage"
+                    >
+                        Hapus
+                    </Button>
+                </div>
+            </div>
         </div>
 
-        <div class="px-5 py-3 sm:px-7">
-            <FileUploadCard
-                :state="cardState"
-                :idle-label="idleLabel"
-                accept="image/png,image/jpeg,image/gif"
-                hint="Gambar sampul di bagian atas form — rasio 3:1."
-                :max-size-kb="BANNER_MAX_SIZE_KB"
-                :file-name="uploadFileName"
-                :file-size="uploadFileSize"
-                :mime="uploadMime"
-                :progress="uploadProgress"
-                :error-message="uploadErrorMessage"
-                @pick="onBannerPick"
-                @cancel="cancelUpload"
-                @remove="clearImage"
-            />
-        </div>
+        <FileUploadCard
+            v-else
+            :state="cardState"
+            :idle-label="idleLabel"
+            accept="image/png,image/jpeg,image/gif"
+            :file-name="uploadFileName"
+            :file-size="uploadFileSize"
+            :mime="uploadMime"
+            :progress="uploadProgress"
+            :error-message="uploadErrorMessage"
+            @pick="onBannerPick"
+            @cancel="cancelUpload"
+            @remove="clearImage"
+        />
+
+        <p data-testid="builder-banner-hint" class="text-muted-foreground mt-1.5 text-xs">
+            {{ bannerHint }}
+        </p>
     </div>
 </template>

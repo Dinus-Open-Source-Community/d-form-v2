@@ -4,9 +4,9 @@ namespace App\Support\Export;
 
 use Illuminate\Database\Eloquent\Model;
 
-    /** Merge {@see KeysetPageIterator} streams using shared order; identifiers must be globally unique.
-     * @template TModel of Model
-     */
+/** Merge {@see KeysetPageIterator} streams using shared order; identifiers must be globally unique.
+ * @template TModel of Model
+ */
 final class KeysetMergeIterator
 {
     /**

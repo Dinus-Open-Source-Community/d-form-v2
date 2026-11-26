@@ -3,14 +3,24 @@ import { DFORM_WORDMARK_SRC } from '@/lib/brand';
 import { computed } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import AppToaster from '@/components/core/AppToaster.vue';
+import NavigationSkeletonHost from '@/components/modules/dashboard/skeletons/NavigationSkeletonHost.vue';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { useNavigationSkeleton } from '@/hooks/useNavigationSkeleton';
 import { goBack } from '@/adapters/browser/navigation';
+import type { ISkeletonContext } from '@/types/skeleton';
 
 const page = usePage();
 usePageFlashToast();
+
+/** Halaman undangan tim dibuka dari dashboard, jadi layout ini juga perlu host skeleton. */
+const { pending: navigationPending, skeletonKey: navigationSkeletonKey } = useNavigationSkeleton({
+    context: (): ISkeletonContext => ({
+        canManageEvents: page.props.auth.user?.can_manage_events === true,
+    }),
+});
 
 const fallbackBackHref = computed((): string => {
     const event = page.props.event as { id: string; slug?: string; title: string } | undefined;
@@ -43,7 +53,7 @@ function goBackToPreviousPage(): void {
                 </Button>
 
                 <Link :href="routes.home" class="hidden sm:block">
-                    <img :src="formFillLogoSrc" alt="DForm" class="h-9 w-auto select-none" width="160" height="40" />
+                    <img :src="formFillLogoSrc" alt="DForm" class="h-10 w-auto select-none" width="160" height="40" />
                 </Link>
             </div>
         </header>
@@ -52,6 +62,7 @@ function goBackToPreviousPage(): void {
             <div class="mx-auto max-w-7xl px-4 lg:px-8">
                 <slot />
             </div>
+            <NavigationSkeletonHost :pending="navigationPending" :skeleton-key="navigationSkeletonKey" />
         </main>
     </div>
     <AppToaster />

@@ -16,6 +16,15 @@ export interface IFixtureFormRequest {
     title: string;
     fields: IFixtureFieldRequest[];
     submissions: number;
+    purpose?: 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
+}
+
+/** Jawaban `review_status=accepted` ber-marker yang ditulis fixture untuk form tertentu. */
+export interface IFixtureAcceptedAnswerRequest {
+    formIndex?: number;
+    registrationCode: string;
+    answers: Record<string, string>;
+    attendance?: boolean;
 }
 
 export interface IFixtureRequest {
@@ -23,6 +32,7 @@ export interface IFixtureRequest {
     slug: string;
     title: string;
     forms: IFixtureFormRequest[];
+    acceptedAnswers?: IFixtureAcceptedAnswerRequest[];
     /** Email user yang sudah ada; bila diisi, kepemilikan fixture memakai user itu tanpa membuat marker user. */
     ownerEmail?: string;
 }
@@ -55,6 +65,8 @@ export interface IHarnessOptions {
     fixtureFormCount: number;
     fixtureFieldCount: number;
     fixtureSubmissionCount: number;
+    /** Email pemilik yang sudah ada (mis. admin proyek) untuk fixture otonom; kosong = user marker baru. */
+    fixtureOwnerEmail: string | undefined;
 }
 
 export interface IHarnessFixtures {
@@ -170,6 +182,7 @@ export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAut
     fixtureFormCount: [1, { option: true }],
     fixtureFieldCount: [1, { option: true }],
     fixtureSubmissionCount: [0, { option: true }],
+    fixtureOwnerEmail: [undefined, { option: true }],
 
     workerHeartbeat: [
         async ({}, use: () => Promise<void>, workerInfo: WorkerInfo): Promise<void> => {
@@ -202,9 +215,13 @@ export const test = base.extend<IHarnessOptions & IHarnessFixtures & IHarnessAut
         { auto: true },
     ],
 
-    fixtureOwner: async ({}, use: (owner: IFixtureOwner) => Promise<void>, testInfo: TestInfo): Promise<void> => {
+    fixtureOwner: async (
+        { fixtureOwnerEmail },
+        use: (owner: IFixtureOwner) => Promise<void>,
+        testInfo: TestInfo
+    ): Promise<void> => {
         const identity = ownerIdentityForTest(testInfo);
-        const owner = createOwnerFixture(identity);
+        const owner = createOwnerFixture(identity, fixtureOwnerEmail);
 
         try {
             await use(owner);

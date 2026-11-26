@@ -16,8 +16,8 @@ describe('formFillSlotUi', () => {
             showSubtitle: true,
             showDescription: true,
             headerBorderClass: '',
-            cardHeaderSpacingClass: 'gap-1 pb-1.5 pt-3',
-            cardContentSpacingClass: 'pb-3 pt-0',
+            cardHeaderSpacingClass: 'gap-1 pt-4 pb-0',
+            cardContentSpacingClass: 'pt-3 pb-5',
             errorSpacingClass: 'mt-1.5',
         });
     });
@@ -26,8 +26,8 @@ describe('formFillSlotUi', () => {
         const ui = formFillSlotUi({ ...LINEAR, variant: 'bundleParticipant', stackIndex: 0 });
 
         expect(ui.showSubtitle).toBe(false);
-        expect(ui.cardHeaderSpacingClass).toBe('gap-0.5 pt-2.5 pb-0.5');
-        expect(ui.cardContentSpacingClass).toBe('pb-2 pt-0');
+        expect(ui.cardHeaderSpacingClass).toBe('gap-1 pt-3 pb-0');
+        expect(ui.cardContentSpacingClass).toBe('pt-2 pb-3');
         expect(ui.errorSpacingClass).toBe('mt-1');
     });
 
@@ -35,7 +35,7 @@ describe('formFillSlotUi', () => {
         const ui = formFillSlotUi({ ...LINEAR, variant: 'bundleParticipant', stackIndex: 1 });
 
         expect(ui.headerBorderClass).toBe('border-t border-border');
-        expect(ui.cardHeaderSpacingClass).toBe('gap-0.5 pt-2 pb-0.5');
+        expect(ui.cardHeaderSpacingClass).toBe('gap-1 pt-2.5 pb-0');
     });
 
     it('shows the description on bundle rows even for participant slots', () => {

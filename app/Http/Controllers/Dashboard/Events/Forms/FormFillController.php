@@ -6,19 +6,23 @@ use App\Enums\FormAccessStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Form;
-use App\Models\FormField;
 use App\Services\Form\FormAccessGuard;
+use App\Services\Form\PublicFormFillPayload;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\TeamRegistrationSubmitter;
-use App\Support\FormFieldTypeMapping;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class FormFillController extends Controller
 {
-    public function __invoke(Request $request, Event $event, Form $form): Response
+    public function __invoke(Request $request, Event $event, Form $form): InertiaResponse|SymfonyResponse
     {
+        if ($request->user() === null) {
+            return app(GuestFormFillController::class)($request, $event, $form);
+        }
+
         abort_unless($form->event_id === $event->id, 404);
         // Draft belum dipublikasikan: isi form tidak boleh dirender ke peserta
         // walau id-nya bisa ditebak. Guard akses tetap memberi NotVisible untuk
@@ -34,10 +38,7 @@ class FormFillController extends Controller
         if ($status === FormAccessStatus::Allowed) {
             $form->load(['formFields' => fn ($q) => $q->orderBy('order')]);
 
-            $fields = $form->formFields
-                ->map(fn (FormField $f) => FormFieldTypeMapping::fieldToInertia($f))
-                ->values()
-                ->all();
+            $fields = PublicFormFillPayload::fieldsForFill($form);
         }
 
         $metadata = is_array($form->metadata) ? $form->metadata : [];
@@ -83,10 +84,13 @@ class FormFillController extends Controller
                 'closed_at'        => $closed ? $closed->toISOString() : null,
                 'banner_url'       => $form->banner_url,
                 'banner_caption'   => $form->banner_caption,
+                'referral_enabled' => $form->isReferralActive(),
             ],
             'fields'                => $fields,
             'sections'              => $sections,
             'submitUrl'             => route('dashboard.forms.submission', ['event' => $event, 'form' => $form]),
+            'referralPosition'      => $form->referralPosition(),
+            'referralCheckUrl'      => route('dashboard.forms.referral-check', ['event' => $event, 'form' => $form]),
             'accessStatus'          => $status->value,
             'accessMessage'       => $status->message(),
             'registrationMode'    => $registrationMode,

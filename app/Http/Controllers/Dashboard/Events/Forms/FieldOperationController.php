@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Dashboard\Events\Forms;
 
+use App\Enums\FormPurpose;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FieldModifyRequest;
-use App\Models\Form;
-use App\Models\FormField;
 use App\Models\Event;
-use App\Support\FormFieldTypeMapping;
+use App\Models\Form;
+use App\Services\Du\DuCourseFieldService;
+use App\Services\Form\FormFieldSnapshotSync;
 use App\Support\LegacyFormImage;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -43,37 +43,18 @@ class FieldOperationController extends Controller
             ]);
         }
 
+        // Field dengan flag redeem DU membekukan konten opsinya; field sistem D-Kelas
+        // dibekukan terpisah oleh enforceSnapshotIdentity. Keduanya di dalam try agar
+        // kegagalan memakai kontrak log/response yang sama dengan kegagalan tulis lain.
         try {
-            DB::transaction(function () use ($rows, $formId) {
-                $oldById = FormField::query()->where('form_id', $formId)->get()->keyBy('id');
-                $incomingIds = collect($rows)->pluck('id')->filter()->all();
+            $duFields = app(DuCourseFieldService::class);
+            $rows = $duFields->enforceLockedOptionContent($form, $rows);
 
-                $toDelete = $oldById->keys()->diff($incomingIds);
-                if ($toDelete->isNotEmpty()) {
-                    FormField::query()
-                        ->where('form_id', $formId)
-                        ->whereIn('id', $toDelete)
-                        ->delete();
-                }
+            if ($form->purpose() === FormPurpose::DKelas) {
+                $rows = $duFields->enforceSnapshotIdentity($form, $rows);
+            }
 
-                foreach ($rows as $row) {
-                    $id = $row['id'] ?? null;
-                    $attrs = $this->rowToModelAttributes($row);
-                    if (is_string($id) && $id !== '' && $oldById->has($id)) {
-                        $oldById->get($id)->update($attrs);
-
-                        continue;
-                    }
-
-                    FormField::query()->create(array_merge(
-                        $attrs,
-                        [
-                            'id' => (is_string($id) && $id !== '') ? $id : (string) Str::uuid(),
-                            'form_id' => $formId,
-                        ]
-                    ));
-                }
-            });
+            app(FormFieldSnapshotSync::class)->sync($formId, $rows);
 
             Inertia::flash('toast', [
                 'type' => 'success',
@@ -132,24 +113,5 @@ class FieldOperationController extends Controller
         $response->headers->set('X-Request-ID', $requestId);
 
         return $response;
-    }
-
-    /**
-     *
-     * @param  array<string, mixed>  $row
-     * @return array<string, mixed>
-     *
-     */
-    private function rowToModelAttributes(array $row): array
-    {
-        return [
-            'input_type' => FormFieldTypeMapping::toInputType($row['type']),
-            'label' => $row['label'],
-            'description' => $row['description'] ?? null,
-            'name' => $row['name'],
-            'order' => (int) $row['order'],
-            'metadata' => $row['metadata'],
-            'is_append' => (bool) ($row['is_append'] ?? false),
-        ];
     }
 }

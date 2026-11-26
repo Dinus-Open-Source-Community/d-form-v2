@@ -11,6 +11,7 @@ use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Services\Form\FormAnswerReviewService;
 use Illuminate\Http\JsonResponse;
+use App\Services\Du\DuRedeemIssuanceResult;
 
 class FormAnswerReviewController extends Controller
 {
@@ -44,6 +45,11 @@ class FormAnswerReviewController extends Controller
             'reviewed_by' => $answer->reviewed_by,
             'registration_code' => $answer->registration_code,
             'cascaded_rejections' => max(0, $rejectedIds->count() - 1),
+            'du_issuance' => isset($payload['du_issuance']) && $payload['du_issuance'] instanceof DuRedeemIssuanceResult ? [
+                'status' => $payload['du_issuance']->status->value,
+                'code' => $payload['du_issuance']->code,
+                'message' => $payload['du_issuance']->message,
+            ] : null,
         ]);
     }
 }

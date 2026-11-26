@@ -9,11 +9,13 @@ use App\Enums\FormAnswerReviewStatus;
 use App\Enums\EventFormVisibility;
 use App\Enums\MemberConfirmationStatus;
 use App\Enums\RegistrationRole;
+use App\Models\DuCourse;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
 use App\Models\User;
+use App\Services\Du\DuCourseFieldService;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Mail\RegistrationAcceptedMail;
 use App\Mail\RegistrationConfirmationMail;
@@ -132,11 +134,6 @@ class FormRegistrationTest extends TestCase
             'form' => $form,
             'formAnswer' => $answer,
         ], false);
-    }
-
-    private function registrantsPath(Event $event): string
-    {
-        return route('dashboard.events.registrants', ['event' => $event], false);
     }
 
     /** Post-submit redirect matches {@see FormSubmissionController} (members land on submit success page). */
@@ -260,6 +257,75 @@ class FormRegistrationTest extends TestCase
             );
     }
 
+    public function test_fill_applies_registration_window_to_d_kelas_team_form(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent(['registration_end' => now()->subDay()]);
+        $form = $this->openForm($event, [
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'team', 'team_size' => 2],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $form))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'registration_not_open'));
+    }
+
+    /**
+     * Ruling Important 3: D-Kelas memakai jalur pendaftaran, jadi satu form per event
+     * berlaku dua arah dengan form Pendaftaran.
+     */
+    public function test_fill_d_kelas_form_is_blocked_after_registration_form_submission(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $registrationForm = $this->openForm($event, ['title' => 'Pendaftaran']);
+        $this->textField($registrationForm);
+        $dKelasForm = $this->openForm($event, [
+            'title' => 'D-Kelas',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $registrationForm), ['full_name' => 'Jane Doe'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $registrationForm));
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $dKelasForm))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'event_form_already_chosen'));
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $dKelasForm), ['du_course_uid' => 'Kelas A'])
+            ->assertRedirect($this->fillPath($event, $dKelasForm));
+
+        $this->assertDatabaseMissing('form_answers', ['form_id' => $dKelasForm->id]);
+    }
+
+    public function test_fill_registration_form_is_blocked_after_d_kelas_form_submission(): void
+    {
+        $member = $this->member();
+        $event = $this->openEvent();
+        $registrationForm = $this->openForm($event, ['title' => 'Pendaftaran']);
+        $this->textField($registrationForm);
+        $dKelasForm = $this->openForm($event, [
+            'title' => 'D-Kelas',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+        app(DuCourseFieldService::class)->ensure($dKelasForm);
+        DuCourse::factory()->create(['uid' => 'course-a', 'title' => 'Kelas A', 'is_active' => true]);
+
+        $this->actingAs($member)
+            ->post($this->submitPath($event, $dKelasForm), ['du_course_uid' => 'Kelas A'])
+            ->assertRedirect($this->submitSuccessRedirect($event, $member, $dKelasForm));
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $registrationForm))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('accessStatus', 'event_form_already_chosen'));
+    }
+
     public function test_fill_returns_allowed_for_bundle_form_when_member(): void
     {
         $member = $this->member();
@@ -296,6 +362,24 @@ class FormRegistrationTest extends TestCase
             ->assertInertia(
                 fn ($page) => $page
                     ->where('accessStatus', 'allowed')
+            );
+    }
+
+    public function test_fill_returns_unsupported_registration_mode_for_invalid_configuration(): void
+    {
+        $member = $this->member();
+        $event  = $this->openEvent();
+        $form   = $this->openForm($event, [
+            'metadata' => ['registration_mode' => 'pair'],
+        ]);
+        $this->textField($form);
+
+        $this->actingAs($member)
+            ->get($this->fillPath($event, $form))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->where('accessStatus', 'unsupported_registration_mode')
             );
     }
 
@@ -473,7 +557,7 @@ class FormRegistrationTest extends TestCase
             ->assertRedirect($this->fillPath($event, $formB));
     }
 
-    public function test_register_picker_renders_all_event_forms(): void
+    public function test_event_detail_renders_all_registration_forms(): void
     {
         $member = $this->member();
         $event = $this->openEvent(['status' => EventStatus::Published]);
@@ -481,13 +565,15 @@ class FormRegistrationTest extends TestCase
         $formB = $this->openForm($event, ['title' => 'General']);
 
         $this->actingAs($member)
-            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Dashboard/User/EventRegistrationPickForm')
-                ->has('forms', 2)
-                ->where('forms.0.title', 'Early Bird')
-                ->where('forms.1.title', 'General'));
+                ->component('Dashboard/User/EventDetail')
+                ->has('registrationForms', 2)
+                ->where('registrationForms.0.title', 'Early Bird')
+                ->where('registrationForms.0.id', $formA->id)
+                ->where('registrationForms.1.title', 'General')
+                ->where('registrationForms.1.id', $formB->id));
     }
 
     public function test_registered_count_is_incremented_on_successful_submission(): void
@@ -1133,6 +1219,52 @@ class FormRegistrationTest extends TestCase
             'form_answer_id' => $leaderRow->id,
             'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
         ]);
+    }
+
+    /**
+     * Critical 1: field sistem `Kelas` wajib `duplicatable`, sehingga bundle mengirim satu
+     * pilihan kelas per peserta dan tiap baris menyimpan kelasnya sendiri.
+     */
+    public function test_bundle_d_kelas_submission_stores_one_course_per_participant(): void
+    {
+        Mail::fake();
+
+        $leader = $this->memberWithEmail('dkelas-bundle-leader-'.uniqid().'@example.com');
+        $guestEmail = 'dkelas-bundle-guest-'.uniqid().'@example.com';
+        $event = $this->openEvent();
+        $form = $this->openForm($event, [
+            'metadata' => [
+                'purpose' => 'd_kelas',
+                'registration_mode' => 'bundle',
+                'max_team_size' => 2,
+            ],
+        ]);
+        app(DuCourseFieldService::class)->ensure($form);
+        DuCourse::factory()->create(['uid' => 'course-a', 'title' => 'Kelas A', 'is_active' => true]);
+        DuCourse::factory()->create(['uid' => 'course-b', 'title' => 'Kelas B', 'is_active' => true]);
+
+        $this->actingAs($leader)
+            ->post($this->submitPath($event, $form), [
+                'du_course_uid' => 'Kelas A',
+                'bundle__du_course_uid__0' => 'Kelas B',
+                'team_member_emails' => [$guestEmail],
+            ])
+            ->assertRedirect($this->submitSuccessRedirect($event, $leader, $form));
+
+        $this->assertDatabaseCount('form_answers', 2);
+
+        $leaderRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('user_id', $leader->id)
+            ->firstOrFail();
+        $memberRow = FormAnswer::query()
+            ->where('form_id', $form->id)
+            ->where('invited_email', mb_strtolower($guestEmail))
+            ->firstOrFail();
+
+        $this->assertSame('Kelas A', $leaderRow->answers['du_course_uid']);
+        $this->assertSame('Kelas B', $memberRow->answers['du_course_uid']);
+        $this->assertSame($leaderRow->group_token, $memberRow->group_token);
     }
 
     public function test_bundle_submission_rejects_duplicate_guest_email(): void
@@ -1923,7 +2055,7 @@ class FormRegistrationTest extends TestCase
             ->patchJson($this->reviewPath($event, $form, $answer), [
                 'review_status' => FormAnswerReviewStatus::Accepted->value,
             ])
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_review_returns_404_when_submission_not_belong_to_form_or_event(): void
@@ -1956,7 +2088,7 @@ class FormRegistrationTest extends TestCase
 
         $this->actingAs($member)
              ->get($this->submissionsPath($event, $form))
-             ->assertRedirect(route('dashboard'));
+             ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_submissions_list_404_when_form_does_not_belong_to_event(): void
@@ -2003,32 +2135,6 @@ class FormRegistrationTest extends TestCase
             'form_answer_id' => $submission->id,
             'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
         ]);
-    }
-
-    public function test_admin_can_view_event_registrants_page(): void
-    {
-        $admin = $this->admin();
-        $event = $this->openEvent();
-        $form  = $this->openForm($event);
-        $member = $this->member();
-        $this->textField($form);
-
-        FormAnswer::factory()->create([
-            'form_id' => $form->id,
-            'user_id' => $member->id,
-            'answers' => ['full_name' => 'Jane Doe'],
-            'review_status' => FormAnswerReviewStatus::Pending,
-        ]);
-
-        $this->actingAs($admin)
-             ->get($this->registrantsPath($event))
-             ->assertOk()
-             ->assertInertia(
-                 fn ($page) => $page
-                     ->component('Dashboard/Events/Registrants')
-                     ->has('registrants', 1)
-                     ->where('forms.0.id', $form->id),
-             );
     }
 
     // =========================================================================

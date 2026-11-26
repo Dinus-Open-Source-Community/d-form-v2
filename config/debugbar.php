@@ -22,6 +22,13 @@ return [
         '_boost/browser-logs',
         'admin/scan/export*',
         'admin/scan/feed*',
+        // Endpoint tulis yang berat: kolektor Debugbar pernah kehabisan memori di sini
+        // dan membuat request 500 sesekali. Dikecualikan agar perilaku aplikasi yang teruji
+        // bukan perilaku dev tooling.
+        'joined/*/forms/*/submit*',
+        'admin/events/*/forms/*/fields*',
+        'admin/scan',
+        'admin/scan/*',
     ],
 
     /*

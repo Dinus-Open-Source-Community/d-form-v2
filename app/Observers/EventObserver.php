@@ -3,7 +3,6 @@
 namespace App\Observers;
 
 use App\Models\Event;
-use App\Services\Event\EventCategoryCounter;
 use App\Services\Event\EventCategoryOptionService;
 use App\Services\Event\EventSessionOptionService;
 use App\Models\Form;
@@ -11,19 +10,14 @@ use App\Models\FormField;
 use App\Services\Event\EventCache;
 use Illuminate\Support\Facades\DB;
 
-/** Side effect event: cascade form/field, cache, dan agregat kategori. */
+/** Side effect event: cascade form/field dan invalidasi cache. */
 class EventObserver
 {
-    public function __construct(private readonly EventCategoryCounter $categoryCounter)
-    {
-    }
-
     /** Handle the Event "created" event. */
     public function created(Event $event): void
     {
         $this->rememberOptionTokens($event);
-        $this->categoryCounter->applyDelta([], $this->liveCategoryTokens($event));
-        $this->invalidateEventCache(true);
+        $this->invalidateEventCache();
     }
 
     /** Handle the Event "updated" event. */
@@ -39,31 +33,17 @@ class EventObserver
 
         $categoryOrSessionChanged = $event->wasChanged(['category', 'session']);
 
-        if ($event->wasChanged(['category', 'deleted_at'])) {
-            $this->categoryCounter->applyDelta(
-                $this->previousCategoryTokens($event),
-                $this->liveCategoryTokens($event),
-            );
-        }
-
         if ($categoryOrSessionChanged) {
             $this->rememberOptionTokens($event);
         }
 
-        $this->invalidateEventCache($categoryOrSessionChanged, $onlyRegistrations);
+        $this->invalidateEventCache($onlyRegistrations);
     }
 
     /** Handle the Event "deleted" event. */
     public function deleted(Event $event): void
     {
-        // Soft delete mengubah deleted_at lewat query builder (tanpa event `updated`), jadi
-        // hitungan dilepas di sini. Force delete event yang sudah ter-soft-delete tidak
-        // mengurangi lagi karena kontribusinya sudah lepas saat soft delete.
-        if (! $event->isForceDeleting() || $event->getOriginal('deleted_at') === null) {
-            $this->categoryCounter->applyDelta(Event::tokensFromCsv((string) $event->category), []);
-        }
-
-        $this->invalidateEventCache(true);
+        $this->invalidateEventCache();
     }
 
     /** Cascade soft-delete to child forms (and their fields) so an event draft removal (wizard Cancel) does not leave orphaned forms behind. */
@@ -127,45 +107,13 @@ class EventObserver
                 ->update(['deleted_at' => null, 'archived_by_event_id' => null]);
         }, 3);
 
-        $this->invalidateEventCache(true);
+        $this->invalidateEventCache();
     }
 
     /** Handle the Event "force deleted" event. */
     public function forceDeleted(Event $event): void
     {
-        $this->invalidateEventCache(true);
-    }
-
-    /**
-     *
-     * Token kategori event saat ini; kosong bila event soft-deleted (tidak ikut chart).
-     *
-     * @return list<string>
-     *
-     */
-    private function liveCategoryTokens(Event $event): array
-    {
-        if ($event->trashed()) {
-            return [];
-        }
-
-        return Event::tokensFromCsv((string) $event->category);
-    }
-
-    /**
-     *
-     * Token kategori sebelum update; kosong bila sebelumnya sudah soft-deleted.
-     *
-     * @return list<string>
-     *
-     */
-    private function previousCategoryTokens(Event $event): array
-    {
-        if ($event->getOriginal('deleted_at') !== null) {
-            return [];
-        }
-
-        return Event::tokensFromCsv((string) $event->getOriginal('category'));
+        $this->invalidateEventCache();
     }
 
     /** Simpan token kategori/sesi event ini agar opsi filter tidak perlu DISTINCT 1 juta baris. */
@@ -175,8 +123,8 @@ class EventObserver
         EventCache::mergeOptionTokens(EventSessionOptionService::RAW_CACHE_KEY, $event->session);
     }
 
-    /** Invalidasi per kebutuhan: daftar & statistik selalu, kategori hanya bila berubah. */
-    private function invalidateEventCache(bool $categoryChanged, bool $registrationsOnly = false): void
+    /** Invalidasi per kebutuhan: daftar selalu, statistik seluruh tabel hanya bila bukan sekadar registrasi. */
+    private function invalidateEventCache(bool $registrationsOnly = false): void
     {
         EventCache::bump(EventCache::BUSTER_LIST);
 
@@ -188,9 +136,5 @@ class EventObserver
 
         EventCache::bump(EventCache::BUSTER_STATS);
         EventCache::bump(EventCache::BUSTER_REGISTRANTS);
-
-        if ($categoryChanged) {
-            EventCache::bump(EventCache::BUSTER_CATEGORY);
-        }
     }
 }

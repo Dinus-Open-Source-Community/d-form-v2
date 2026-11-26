@@ -161,6 +161,11 @@ export function optionImageUrl(entry: IFieldOptionEntry): string | undefined {
     return entry.imageUrl?.trim() || undefined;
 }
 
+/** Field sistem dan field sumber redeem DU tidak boleh dihapus dari kanvas. */
+export function isFieldDeletionBlocked(field: IBuilderField): boolean {
+    return field.metadata?.locked === true || field.metadata?.du_redeem_enabled === true;
+}
+
 function serializeOptionChoices(options: readonly IFieldOptionEntry[]): Record<string, unknown>[] {
     return options.map((o) => {
         const label = String(o.label ?? '').trim();
@@ -173,12 +178,23 @@ function serializeOptionChoices(options: readonly IFieldOptionEntry[]): Record<s
     });
 }
 
-function parseOptionChoices(raw: unknown): IFieldOptionEntry[] | null {
+/**
+ * `catalogValueIsId` hanya untuk field sistem DU: `DuCourseFieldService::applyOptions`
+ * menaruh UID kelas di `value` tanpa `id`. Field lain tetap memakai id lokal.
+ */
+function parseOptionChoices(raw: unknown, catalogValueIsId: boolean): IFieldOptionEntry[] | null {
     if (!Array.isArray(raw)) return null;
     const out: IFieldOptionEntry[] = [];
     for (const item of raw) {
         if (isRecord(item)) {
-            const id = typeof item.id === 'string' && item.id !== '' ? item.id : createUuid();
+            const catalogValue =
+                catalogValueIsId && typeof item.value === 'string' && item.value !== '' ? item.value : '';
+            const id =
+                typeof item.id === 'string' && item.id !== ''
+                    ? item.id
+                    : catalogValue !== ''
+                      ? catalogValue
+                      : createUuid();
             const type = item.type === 'image' ? 'image' : 'text';
             const label = typeof item.label === 'string' ? item.label.trim() : '';
             const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : '';
@@ -206,6 +222,17 @@ function preservedMeta(f: IBuilderField): TFormFieldMetadataBag {
     }
 
     return cleaned;
+}
+
+/** Aturan format pilihan admin; disimpan di `metadata.rules.format` dan harus ikut terkirim. */
+function withInputFormat(rules: Record<string, unknown>, f: IBuilderField): Record<string, unknown> {
+    const raw = f.metadata?.rules;
+
+    if (raw === null || typeof raw !== 'object') return rules;
+
+    const format = (raw as Record<string, unknown>).format;
+
+    return typeof format === 'string' && format !== '' ? { ...rules, format } : rules;
 }
 
 function withMeta(f: IBuilderField, specific: Record<string, unknown>): Record<string, unknown> {
@@ -250,7 +277,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'text',
                     placeholder: f.placeholder || '',
-                    rules: mergeTextRules(req, f),
+                    rules: withInputFormat(mergeTextRules(req, f), f),
                     builderType: 'short_text',
                 }),
             };
@@ -261,7 +288,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'email',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'email',
                 }),
             };
@@ -272,7 +299,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'tel',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'phone',
                 }),
             };
@@ -283,8 +310,41 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                 metadata: withMeta(f, {
                     type: 'number',
                     placeholder: f.placeholder || '',
-                    rules: req,
+                    rules: withInputFormat(req, f),
                     builderType: 'number',
+                }),
+            };
+        case 'nik':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'nik',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'nik',
+                }),
+            };
+        case 'nim':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'nim',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'nim',
+                }),
+            };
+        case 'postal_code':
+            return {
+                ...base,
+                type: 'input',
+                metadata: withMeta(f, {
+                    type: 'postal_code',
+                    placeholder: f.placeholder || '',
+                    rules: withInputFormat(req, f),
+                    builderType: 'postal_code',
                 }),
             };
         case 'time':
@@ -305,7 +365,21 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     maxStars: readMetaNumber(f.metadata, 'maxStars', 5),
                 }),
             };
-        case 'heading':
+        case 'heading': {
+            const metadata = withMeta(f, {
+                type: 'text',
+                placeholder: '',
+                rules: {},
+                builderType: 'heading',
+                content: readContentOrFallback(f.metadata, 'Section Heading'),
+            });
+
+            // Harga hanya milik tipe `price`; metadata lama pada heading dibuang.
+            delete metadata.price;
+
+            return { ...base, type: 'input', metadata };
+        }
+        case 'price':
             return {
                 ...base,
                 type: 'input',
@@ -313,8 +387,7 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
                     type: 'text',
                     placeholder: '',
                     rules: {},
-                    builderType: 'heading',
-                    content: readContentOrFallback(f.metadata, 'Section Heading'),
+                    builderType: 'price',
                 }),
             };
         case 'image':
@@ -361,6 +434,18 @@ export function toBackendField(f: IBuilderField, order: number): IBackendField {
             };
 
         case 'dropdown': {
+            // Field sistem DU: opsi berasal dari cache server, bukan snapshot statis builder.
+            // `preservedMeta` sudah membuang `options`; `optionChoices` masih perlu dihapus eksplisit.
+            if (f.name === 'du_course_uid') {
+                const metadata = withMeta(f, {
+                    is_multiple: false,
+                    rules: { ...req },
+                    builderType: 'dropdown',
+                });
+                delete metadata.optionChoices;
+
+                return { ...base, type: 'select', metadata };
+            }
             const choices = serializeOptionChoices(
                 (f.options || []).map((opt) => ({
                     ...opt,
@@ -449,6 +534,9 @@ function guessType(apiType: string, m: TFormFieldMetadataBag): string {
         if (m.type === 'email') return 'email';
         if (m.type === 'tel') return 'phone';
         if (m.type === 'number') return 'number';
+        if (m.type === 'nik') return 'nik';
+        if (m.type === 'nim') return 'nim';
+        if (m.type === 'postal_code') return 'postal_code';
         if (typeof m.imageUrl === 'string' || typeof m.caption === 'string') return 'image';
         return 'short_text';
     }
@@ -466,8 +554,10 @@ export function fromBackendField(bf: IBackendField): IBuilderField {
     delete m.options;
     const rules = readRuleSet(m);
     const bt = readMetaText(m, 'builderType') || guessType(bf.type, m);
+    // Harga hanya milik tipe `price`; heading tidak membawa harga meski data lama memilikinya.
+    if (bt === 'heading') delete m.price;
     const inStr = typeof rules.in === 'string' ? rules.in : '';
-    const parsedChoices = parseOptionChoices(m.optionChoices);
+    const parsedChoices = parseOptionChoices(m.optionChoices, bf.name === 'du_course_uid');
     const optsRaw: IFieldOptionEntry[] =
         parsedChoices ??
         (['dropdown', 'checkbox', 'radio'].includes(bt)

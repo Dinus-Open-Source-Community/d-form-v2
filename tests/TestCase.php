@@ -11,6 +11,9 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Blade @vite must not depend on built assets: CI runs tests without npm build output.
+        $this->withoutVite();
+
         // Feature tests use $this->post() / delete() without simulating a browser session token.
         $this->withoutMiddleware(ValidateCsrfToken::class);
     }

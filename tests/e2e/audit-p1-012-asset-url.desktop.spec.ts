@@ -97,10 +97,7 @@ async function openShowEditor(page: Page, form: IAdminOwnedForm): Promise<void> 
 async function addPaletteField(page: Page, searchTerm: string, label: string): Promise<Locator> {
     await page.getByPlaceholder('Cari komponen…').fill(searchTerm);
 
-    const canvas = page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    const canvas = page.getByTestId('form-builder-canvas');
     await page
         .getByText(label, { exact: true })
         .first()
@@ -242,7 +239,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             dialogs.clear();
 
             const row = await addPaletteField(page, 'Image', 'Image');
-            await row.getByRole('button', { name: 'Pengaturan field' }).click();
+            await row.getByRole('button', { name: /^Ubah field/ }).click();
 
             const urlInput = page.getByPlaceholder('atau tempel URL gambar…');
             await expect(urlInput).toBeVisible();
@@ -287,7 +284,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             dialogs.clear();
 
             const row = await addPaletteField(page, 'Checkbox', 'Checkbox');
-            await row.getByRole('button', { name: 'Kelola opsi' }).click();
+            await row.getByRole('button', { name: /^Ubah field/ }).click();
             await page.getByRole('button', { name: 'Tambah opsi' }).click();
             await page.getByText('Pakai gambar', { exact: true }).first().click();
 
@@ -430,7 +427,7 @@ test.describe('AUDIT-P1-012 normalisasi URL aset', () => {
             await openShowEditor(page, form);
 
             const row = await addPaletteField(page, 'Checkbox', 'Checkbox');
-            await row.getByRole('button', { name: 'Kelola opsi' }).click();
+            await row.getByRole('button', { name: /^Ubah field/ }).click();
             await page.getByRole('button', { name: 'Tambah opsi' }).click();
             await page.getByText('Pakai gambar', { exact: true }).first().click();
 

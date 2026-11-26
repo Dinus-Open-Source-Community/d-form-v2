@@ -145,7 +145,7 @@ class RecruitmentPermissionTest extends TestCase
     {
         $this->actingAs($this->member)
             ->get(route('dashboard.recruitment.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_p02_staff_can_access_recruitment_dashboard(): void

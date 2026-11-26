@@ -93,7 +93,8 @@ interface EventFormPayload {
     session: string;
     category: string;
     banner: File | null;
-    publish: boolean;
+    /** Hanya create: flag publikasi saat simpan. Edit tidak mengirim flag ini. */
+    publish?: boolean;
 }
 
 function buildFormPayload(): EventFormPayload {
@@ -136,7 +137,6 @@ function buildFormPayload(): EventFormPayload {
         session: initialSessions.join(','),
         category: initialCategories.join(','),
         banner: null,
-        publish: e.status === 'published',
     };
 }
 
@@ -211,11 +211,6 @@ function isRequired(fieldName: string): boolean {
 /** Sesi & kategori: perilaku input sama (multi, daftar + ketik). */
 const multiValueFieldHint = 'Pilih dari daftar atau ketik; boleh lebih dari satu.';
 
-const primaryActionLabel = computed(() => {
-    if (props.wizardMode && props.variant === 'create') return 'Simpan & lanjutkan';
-    return props.variant === 'create' ? 'Terbitkan' : 'Simpan & terbitkan';
-});
-
 const secondaryActionLabel = computed(() => {
     if (props.wizardMode && props.variant === 'create') return 'Simpan draf';
     return props.variant === 'create' ? 'Simpan draf' : 'Simpan perubahan';
@@ -226,7 +221,7 @@ const pageTitle = computed(() => (props.variant === 'create' ? 'Buat event baru'
 const pageSubtitle = computed(() =>
     props.variant === 'create'
         ? 'Lengkapi informasi event kamu — judul, jadwal, dan detail pendaftaran.'
-        : 'Perbarui detail event kamu — simpan perubahan atau terbitkan kembali.'
+        : 'Perbarui detail event kamu, lalu simpan perubahan.'
 );
 
 /** Banner yang sudah tersimpan: URL server dari props (diperbarui setelah submit sukses). */
@@ -345,7 +340,10 @@ onUnmounted(() => {
 });
 
 function submitForm(publish: boolean): void {
-    form.publish = publish;
+    // Flag publikasi hanya milik alur create; edit tidak pernah mengirim `publish`.
+    if (props.variant === 'create') {
+        form.publish = publish;
+    }
     commitQuotaPriceFromFields();
     if (typeof form.start_date === 'string') form.start_date = form.start_date.trim();
     if (typeof form.end_date === 'string') form.end_date = form.end_date.trim();
@@ -381,15 +379,11 @@ function submitForm(publish: boolean): void {
                 // otomatis pindah ke step forms via watcher di Create.vue.
                 return;
             }
-            if (publish) {
-                showSuccessToast(
-                    props.variant === 'create'
-                        ? 'Acara berhasil dipublikasikan.'
-                        : 'Acara diperbarui dan dipublikasikan.'
-                );
-            } else {
-                showSuccessToast(props.variant === 'create' ? 'Disimpan sebagai draf.' : 'Perubahan disimpan.');
+            if (props.variant === 'edit') {
+                // Toast sukses berasal dari flash server (`EventController@update`).
+                return;
             }
+            showSuccessToast(publish ? 'Acara berhasil dipublikasikan.' : 'Disimpan sebagai draf.');
         },
         onError: (errors) => {
             shakeFields(Object.keys(errors));
@@ -456,12 +450,13 @@ defineExpose({ submitForm, validateRequired, form });
                     {{ secondaryActionLabel }}
                 </Button>
                 <Button
+                    v-if="props.variant === 'create'"
                     type="button"
                     :disabled="form.processing"
-                    @click="submitForm(props.wizardMode && props.variant === 'create' ? false : true)"
+                    @click="submitForm(true)"
                 >
                     <Send class="size-4 shrink-0 stroke-[1.75]" aria-hidden="true" />
-                    {{ primaryActionLabel }}
+                    Terbitkan
                 </Button>
             </div>
         </div>

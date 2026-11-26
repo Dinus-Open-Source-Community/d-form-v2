@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PostAuthDestination;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +19,7 @@ class EnsureBroadcastAccess
         }
 
         if (! $user->can('email-broadcast.view')) {
-            return redirect()->route('dashboard');
+            return redirect()->to(PostAuthDestination::urlFor($user));
         }
 
         return $next($request);

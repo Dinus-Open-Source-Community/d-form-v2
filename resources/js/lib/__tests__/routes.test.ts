@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSidebarNavActive, pathWithoutQuery, resolveNavbarFallbackBackHref, routes } from '@/lib/routes';
+import { isSidebarNavActive, pathWithoutQuery, routes } from '@/lib/routes';
 
 /** Ambil leaf key route tanpa mengevaluasi getter/fungsi (descriptor, bukan nilai). */
 function collectRouteKeys(value: object, prefix = ''): string[] {
@@ -33,10 +33,23 @@ const SURVIVING_ROUTE_KEYS = [
     'auth.register',
     'auth.passwordResetLink',
     'auth.registerWithIntended',
+    'auth.twoFactorChallenge',
+    'auth.twoFactorVerify',
+    'auth.twoFactorRecoverySend',
+    'auth.twoFactorRecoveryConfirm',
+    'auth.twoFactorRecoveryPin',
+    'auth.verificationNotice',
+    'auth.verificationSend',
+    'auth.verificationConfirm',
     'dashboard.index',
     'dashboard.profile',
     'dashboard.profileAvatar',
     'dashboard.profilePassword',
+    'dashboard.profileTwoFactorEnable',
+    'dashboard.profileTwoFactorChange',
+    'dashboard.profileTwoFactorDisable',
+    'dashboard.profileConnectionRedirect',
+    'dashboard.profileConnectionDestroy',
     'admin.index',
     'admin.recruitment.index',
     'admin.recruitment.reports.exportFunnel',
@@ -78,23 +91,24 @@ const SURVIVING_ROUTE_KEYS = [
     'admin.recruitment.myInterviews.primaryAssign',
     'admin.events.index',
     'admin.events.create',
+    'admin.events.archived',
     'admin.events.show',
     'admin.events.edit',
-    'admin.events.registrants',
-    'admin.events.laporan',
     'admin.events.exports.registrations',
     'admin.events.forms.create',
     'admin.events.forms.show',
     'admin.events.forms.store',
     'admin.events.forms.draft',
     'admin.events.forms.destroy',
+    'admin.events.forms.duFieldMap',
+    'admin.events.forms.duIssuance',
     'admin.scan.index',
     'admin.scan.export',
+    'admin.duCourses.index',
+    'admin.duCourses.sync',
     'admin.users.index',
-    'admin.users.create',
     'admin.users.store',
     'admin.users.show',
-    'admin.users.edit',
     'admin.users.update',
     'admin.users.destroy',
     'admin.broadcasts.index',
@@ -116,7 +130,6 @@ const SURVIVING_ROUTE_KEYS = [
     'member.browse',
     'member.checkEmail',
     'member.event.show',
-    'member.event.register',
     'member.event.registration',
 ];
 
@@ -163,6 +176,12 @@ describe('routes builders', () => {
 
     it('builds admin index path', () => {
         expect(routes.admin.index).toBe('/admin');
+    });
+
+    it('builds the email verification paths', () => {
+        expect(routes.auth.verificationNotice).toBe('/email/verify');
+        expect(routes.auth.verificationSend).toBe('/email/verify/send');
+        expect(routes.auth.verificationConfirm).toBe('/email/verify/confirm');
     });
 
     it('keeps the surviving key set deliberate', () => {
@@ -234,6 +253,16 @@ describe('routes builders', () => {
             ],
             ['event show', routes.admin.events.show(eventId), `/admin/events/${eventId}`],
             ['event edit', routes.admin.events.edit(eventId), `/admin/events/${eventId}/edit`],
+            [
+                'form du field map',
+                routes.admin.events.forms.duFieldMap(eventId, 'f-1'),
+                `/admin/events/${eventId}/forms/f-1/du-field-map`,
+            ],
+            [
+                'form du issuance',
+                routes.admin.events.forms.duIssuance(eventId, 'f-1', 'a-1'),
+                `/admin/events/${eventId}/forms/f-1/submissions/a-1/du-issuance`,
+            ],
         ];
 
         for (const [label, actual, expected] of cases) {
@@ -256,17 +285,15 @@ describe('routes builders', () => {
         expect(isSidebarNavActive(routes.member.joined, '/joined')).toBe(true);
     });
 
+    it('separates the archived events item from the active events list', () => {
+        expect(isSidebarNavActive(routes.admin.events.archived, '/admin/events/archived')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events/archived')).toBe(false);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events')).toBe(true);
+        expect(isSidebarNavActive(routes.admin.events.index, '/admin/events/e-1/edit')).toBe(true);
+    });
+
     it('strips query strings before comparing paths', () => {
         expect(pathWithoutQuery('/admin/events?page=2')).toBe('/admin/events');
         expect(pathWithoutQuery('/admin/events')).toBe('/admin/events');
-    });
-
-    it('resolves navbar back targets per domain', () => {
-        expect(resolveNavbarFallbackBackHref('/admin/events/e-1')).toBe('/admin/events');
-        expect(resolveNavbarFallbackBackHref('/admin/users/u-1')).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/profile')).toBe('/dashboard');
-        expect(resolveNavbarFallbackBackHref('/browse')).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/joined/e-1')).toBe('/joined');
-        expect(resolveNavbarFallbackBackHref('/')).toBe('/');
     });
 });

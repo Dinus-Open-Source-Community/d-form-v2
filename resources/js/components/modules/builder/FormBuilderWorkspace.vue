@@ -20,12 +20,15 @@ const props = withDefaults(
         fieldErrors?: Partial<Record<'title' | 'description', string>>;
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
+        /** Fitur referral aktif; menampilkan blok kode referral di kanvas. */
+        referralEnabled?: boolean;
     }>(),
     {
         processing: false,
         shell: 'dashboard',
         fieldErrors: () => ({}),
         imageUploadUrl: '',
+        referralEnabled: false,
     }
 );
 
@@ -36,7 +39,6 @@ const emit = defineEmits<{
 
 const formTitle = defineModel<string>('formTitle', { required: true });
 const formDescription = defineModel<string>('formDescription', { required: true });
-const successContent = defineModel<string>('successContent', { required: true });
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const banner = defineModel<IFormBannerState>('banner', { required: true });
@@ -55,7 +57,6 @@ const wb = reactive(
             formFields,
             formMetadata,
             canvasScrollContainer,
-            successContent,
         },
         { onSave: () => emit('save') }
     )
@@ -115,9 +116,7 @@ defineExpose({
                 <FormBuilderCanvasBuildView
                     v-model:form-title="formTitle"
                     v-model:form-description="formDescription"
-                    v-model:success-content="successContent"
                     v-model:banner="banner"
-                    :show-success-zone="wb.showSuccessZone"
                     :banner-preview-src="wb.bannerPreviewSrc"
                     :title-error="fieldErrors.title"
                     :description-error="fieldErrors.description"
@@ -129,23 +128,29 @@ defineExpose({
                     :selected-field-id="wb.selectedFieldId"
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
+                    :referral-enabled="referralEnabled"
+                    :referral-insert-index="wb.referralInsertIndex"
+                    :referral-dragging="wb.isDraggingReferral"
                     :banner-upload-url="imageUploadUrl"
-                    @remove="wb.hideSuccessZone"
                     @canvas-drag-enter="wb.onCanvasDragEnter"
                     @canvas-drag-over="wb.onCanvasDragOver"
                     @canvas-drag-leave="wb.onCanvasDragLeave"
                     @canvas-drop="wb.onCanvasDrop"
                     @gap-drag-enter="wb.onGapDragEnter"
                     @canvas-drag-start="wb.onCanvasDragStart"
+                    @referral-drag-start="wb.onReferralDragStart"
+                    @referral-drag-end="wb.onReferralDragEnd"
+                    @move-referral="wb.moveReferral"
                     @drag-end="wb.onDragEnd"
                     @select-field="wb.selectField"
-                    @update-field="wb.updateField"
                     @manage-field="wb.openFieldManage"
                     @delete-field="wb.deleteField"
                     @duplicate-field="wb.duplicateField"
                     @move-field="wb.moveField"
                     @open-add-sheet="wb.showAddSheet = true"
                     @add-section="wb.addSection"
+                    @rename-section="wb.renameSection"
+                    @remove-section="wb.removeSection"
                     @go-to-section="wb.goToSection"
                 />
             </main>
@@ -184,6 +189,9 @@ defineExpose({
         v-model:open="wb.showMobileEditor"
         :field="wb.selectedField"
         :upload-url="imageUploadUrl"
+        :purpose="formMetadata.purpose"
+        :du-owner-id="wb.duOwner?.id ?? null"
+        :du-owner-label="wb.duOwner?.label ?? ''"
         @update-field="wb.updateField"
         @done="wb.showMobileEditor = false"
     />

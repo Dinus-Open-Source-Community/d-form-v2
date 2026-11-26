@@ -9,6 +9,7 @@ use App\Models\PendingRegistration;
 use App\Models\User;
 use App\Services\Auth\RegistrationOtpService;
 use App\Support\PendingRegistrationSession;
+use App\Support\PostAuthDestination;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -62,7 +63,7 @@ class VerifyOtpController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'verified' => true,
-                'redirect' => route('dashboard', absolute: false),
+                'redirect' => PostAuthDestination::urlFor($user),
             ]);
         }
 
@@ -71,7 +72,7 @@ class VerifyOtpController extends Controller
             'message' => 'Email berhasil diverifikasi.',
         ]);
 
-        return redirect()->route('dashboard');
+        return redirect()->to(PostAuthDestination::urlFor($user));
     }
 
     /** Kirim ulang kode memakai email sesi; outcome selain sukses dipetakan ke pesan. */

@@ -40,7 +40,7 @@ class FormAnswerDuplicateConstraintTest extends TestCase
         return true;
     }
 
-    public function test_active_answer_for_same_user_and_form_is_rejected_by_database(): void
+    public function test_active_answers_for_same_user_and_form_can_be_counted_by_the_application_cap(): void
     {
         $user = User::factory()->create();
         $form = Form::factory()->create();
@@ -50,12 +50,12 @@ class FormAnswerDuplicateConstraintTest extends TestCase
             'form_id' => (string) $form->id,
         ]));
 
-        $this->assertFalse($this->insertAnswer([
+        $this->assertTrue($this->insertAnswer([
             'user_id' => (string) $user->id,
             'form_id' => (string) $form->id,
-        ]), 'Database must reject a second active registration for the same user and form.');
+        ]), 'Variable submission limits require multiple active rows to be representable.');
 
-        $this->assertSame(1, DB::table('form_answers')->count());
+        $this->assertSame(2, DB::table('form_answers')->count());
     }
 
     public function test_rejected_answer_does_not_block_a_new_active_answer(): void

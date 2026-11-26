@@ -1,106 +1,158 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import EventBannerImage from '@/components/core/EventBannerImage.vue';
 import { categoryLabelMap } from '@/constants/eventDisplay';
 import { formatDateTime } from '@/lib/dateTime';
 import { toCategoryList } from '@/lib/eventCategories';
-import { CalendarDays, MapPin, ArrowRight } from 'lucide-vue-next';
+import { eventPublicationBadge, eventQuotaFillPercent, eventRegistrationBadge } from '@/lib/eventStatusUi';
+import type { IEventStatusBadge } from '@/lib/eventStatusUi';
 import { routes } from '@/lib/routes';
-import { EVENT_CARD_BANNER_ASPECT } from '@/lib/eventBannerAspect';
-import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { CalendarDays, CalendarX2, SquarePen } from 'lucide-vue-next';
 
-const props = defineProps<{
+defineProps<{
     events?: IEvent[];
-    viewAllHref?: string;
-    eventBaseHref?: string;
+    createEventHref?: string | null;
 }>();
 
-const recentEvents = computed(() =>
-    [...(props.events ?? [])]
-        .filter((e) => !e.deleted_at)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 4)
-);
+// 44px ditulis literal karena `resources/css/app.css` memakai `html { font-size: 15px }`
+// di bawah 640px, sehingga `h-11` hanya 41.25px dan gagal target sentuh 44px.
+const ACTION_BUTTON_CLASS = 'h-[44px] min-w-[44px] flex-1 md:h-8 md:min-w-0 md:flex-none';
 
-/** Banner server sudah absolut; normalisasi menjaga payload lama/relatif tetap inert. */
-function bannerSrc(event: IEvent): string {
-    return normalizePublicStorageUrl(event.banner_url ?? '');
+/** Chip status satu baris: badge publikasi (draf) lalu badge pendaftaran, maksimal dua. */
+function statusBadges(event: IEvent): IEventStatusBadge[] {
+    const publication = eventPublicationBadge(event.status);
+    const registration = eventRegistrationBadge(event.registration_status);
+
+    return publication ? [publication, registration] : [registration];
 }
 
-const allHref = computed(() => props.viewAllHref ?? routes.admin.events.index);
-const baseHref = computed(() => props.eventBaseHref ?? routes.admin.events.index);
+/** Teks kuota baris: `terdaftar/kuota`, atau `-` bila kuota tidak tersedia. */
+function quotaText(event: IEvent): string {
+    return event.quota > 0 ? `${event.registered_count}/${event.quota}` : '-';
+}
+
+/** Persentase isi kuota untuk bar dan label aksesibilitas. */
+function quotaFillPercent(event: IEvent): number {
+    return eventQuotaFillPercent({ registered: event.registered_count, quota: event.quota });
+}
+
+/** Label kategori pertama acara, string kosong bila tidak ada. */
+function categoryLabel(event: IEvent): string {
+    const [first] = toCategoryList(event.category);
+
+    return first ? (categoryLabelMap[first] ?? first) : '';
+}
 </script>
 
 <template>
-    <Card class="border-border/70 rounded-2xl shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
-        <CardHeader class="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
-            <div>
-                <CardTitle class="font-display text-lg font-bold tracking-[-0.02em]">Acara terbaru</CardTitle>
-                <p class="text-muted-foreground mt-1 text-xs leading-snug">Aktivitas terakhir di workspace Anda</p>
-            </div>
-            <Button variant="outline" size="sm" class="h-8 shrink-0 gap-1 text-xs" as-child>
-                <Link :href="allHref">
-                    Lihat semua
-                    <ArrowRight class="size-3" :stroke-width="2.4" />
-                </Link>
-            </Button>
-        </CardHeader>
-        <CardContent class="flex flex-col gap-1 pt-0">
-            <Link
-                v-for="event in recentEvents"
+    <Card class="gap-0 overflow-hidden rounded-2xl py-0 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+        <ul v-if="(events ?? []).length > 0" class="divide-border/60 divide-y">
+            <li
+                v-for="event in events ?? []"
                 :key="event.id"
-                :href="`${baseHref}/${event.id}`"
-                class="group hover:border-border hover:bg-muted/40 flex items-start gap-3 rounded-xl border border-transparent p-2 transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-2.5"
+                data-testid="recent-event-row"
+                class="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center md:gap-4 md:px-4"
             >
-                <div
-                    :class="[
-                        'border-border bg-muted hidden w-16 shrink-0 overflow-hidden rounded-lg border sm:block',
-                        EVENT_CARD_BANNER_ASPECT,
-                    ]"
-                >
-                    <img :src="bannerSrc(event)" :alt="event.title" class="size-full object-cover" />
-                </div>
-                <div class="min-w-0 flex-1">
-                    <p
-                        class="text-foreground group-hover:text-primary truncate text-[13px] font-semibold transition-colors sm:text-sm"
+                <div class="flex min-w-0 flex-1 items-center gap-3">
+                    <Link
+                        :href="routes.admin.events.show(event.id)"
+                        class="app-focus-ring group hover:bg-muted/40 flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 transition-colors duration-150"
                     >
-                        {{ event.title }}
-                    </p>
-                    <div
-                        class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium"
-                    >
-                        <span class="inline-flex items-center gap-1">
-                            <CalendarDays class="size-3" :stroke-width="2" />
-                            {{ formatDateTime({ value: event.start_date }) }}
-                        </span>
-                        <span class="xs:inline-flex hidden items-center gap-1 sm:inline-flex">
-                            <MapPin class="size-3" :stroke-width="2" />
-                            {{ event.location?.split('—')[0]?.trim() ?? event.location }}
-                        </span>
-                    </div>
-                    <div class="mt-1.5 hidden flex-wrap gap-1 sm:flex">
-                        <Badge
-                            v-for="cat in toCategoryList(event.category)"
-                            :key="cat"
-                            variant="secondary"
-                            class="text-[10px]"
+                        <div
+                            class="border-border/60 bg-muted h-[42px] w-[56px] shrink-0 overflow-hidden rounded-lg border md:h-[60px] md:w-[80px]"
                         >
-                            {{ categoryLabelMap[cat] ?? cat }}
-                        </Badge>
+                            <EventBannerImage
+                                :src="event.banner_url"
+                                :alt="event.title"
+                                img-class="size-full object-cover"
+                            />
+                        </div>
+                        <div class="min-w-0 flex-1 space-y-1">
+                            <h3
+                                class="text-foreground group-hover:text-primary min-w-0 truncate text-sm leading-snug font-semibold tracking-tight transition-colors"
+                            >
+                                {{ event.title }}
+                            </h3>
+                            <div class="flex flex-wrap items-center gap-1">
+                                <Badge
+                                    v-for="badge in statusBadges(event)"
+                                    :key="`${event.id}-${badge.label}`"
+                                    variant="outline"
+                                    :class="['px-2 py-0.5 text-[11px] font-medium whitespace-nowrap', badge.className]"
+                                >
+                                    {{ badge.label }}
+                                </Badge>
+                            </div>
+                            <div
+                                class="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                            >
+                                <span class="inline-flex items-center gap-1">
+                                    <CalendarDays class="size-3 shrink-0" aria-hidden="true" />
+                                    {{ formatDateTime({ value: event.start_date, variant: 'date-medium' }) }}
+                                </span>
+                                <span v-if="event.location" class="min-w-0 truncate">
+                                    {{ event.location.split('—')[0]?.trim() ?? event.location }}
+                                </span>
+                                <span v-if="categoryLabel(event)" class="hidden sm:inline">
+                                    {{ categoryLabel(event) }}
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <div
+                        class="flex w-20 shrink-0 flex-col items-end gap-1"
+                        role="group"
+                        :aria-label="`${event.registered_count} dari ${event.quota} pendaftar (${quotaFillPercent(event)}%)`"
+                    >
+                        <span
+                            data-testid="recent-event-quota"
+                            class="text-foreground text-xs font-semibold tabular-nums"
+                        >
+                            {{ quotaText(event) }}
+                        </span>
+                        <Progress
+                            v-if="event.quota > 0"
+                            :model-value="quotaFillPercent(event)"
+                            :max="100"
+                            aria-hidden="true"
+                            class="bg-muted/70 h-1 w-16"
+                        />
                     </div>
                 </div>
-                <span
-                    class="border-border bg-card text-foreground shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-xs sm:px-2 sm:text-[11px]"
-                >
-                    {{ event.registered_count }}/{{ event.quota }}
-                </span>
-            </Link>
-            <p v-if="recentEvents.length === 0" class="text-muted-foreground py-6 text-center text-sm">
-                Belum ada acara. Buat acara pertama untuk mulai.
-            </p>
-        </CardContent>
+
+                <div class="flex items-center md:shrink-0">
+                    <Button variant="ghost" size="sm" :class="['app-focus-ring', ACTION_BUTTON_CLASS]" as-child>
+                        <Link
+                            :href="routes.admin.events.show(event.id)"
+                            data-testid="recent-event-action-manage"
+                            class="text-xs"
+                        >
+                            <SquarePen aria-hidden="true" />
+                            Kelola
+                        </Link>
+                    </Button>
+                </div>
+            </li>
+        </ul>
+
+        <div v-else class="flex flex-col items-center gap-1.5 px-4 py-10 text-center">
+            <CalendarX2 class="text-muted-foreground size-8 shrink-0" aria-hidden="true" />
+            <p class="text-foreground text-sm font-semibold">Belum ada acara di workspace ini</p>
+            <p class="text-muted-foreground text-xs leading-snug">Acara yang dibuat akan muncul di sini.</p>
+            <Button
+                v-if="createEventHref"
+                variant="outline"
+                size="sm"
+                class="app-focus-ring mt-2 h-[44px] gap-1 text-xs sm:h-8"
+                as-child
+            >
+                <Link :href="createEventHref">Buat acara</Link>
+            </Button>
+        </div>
     </Card>
 </template>

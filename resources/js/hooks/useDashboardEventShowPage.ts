@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { humanizeErrorMessage } from '@/lib/error-message';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import {
     destroy as destroyEvent,
@@ -17,7 +16,7 @@ import type { IEventFormSummary } from '@/types/form';
  * jaringan/UI ditangani di dalam hook, bukan di komponen.
  */
 export function useDashboardEventShowPage(event: IEvent, forms: IEventFormSummary[]) {
-    const { handleInertiaFormErrors, showSuccessToast } = useToastNotifications();
+    const { handleInertiaFormErrors } = useToastNotifications();
     const showDeleteModal = ref(false);
     const showRestoreModal = ref(false);
     const isDeleting = ref(false);
@@ -62,7 +61,7 @@ export function useDashboardEventShowPage(event: IEvent, forms: IEventFormSummar
     function handleDelete() {
         isDeleting.value = true;
         router.delete(destroyEvent(event.id).url, {
-            onSuccess: () => showSuccessToast(humanizeErrorMessage('Event has been archived.')),
+            // Toast sukses berasal dari flash server (`EventController@destroy`).
             onError: (errors) => handleInertiaFormErrors(errors, { title: 'Gagal mengarsipkan event' }),
             onFinish: () => {
                 isDeleting.value = false;
@@ -77,7 +76,7 @@ export function useDashboardEventShowPage(event: IEvent, forms: IEventFormSummar
             restoreEvent(event.id).url,
             {},
             {
-                onSuccess: () => showSuccessToast(humanizeErrorMessage('Event has been restored.')),
+                // Toast sukses berasal dari flash server (`EventController@restore`).
                 onError: (errors) => handleInertiaFormErrors(errors, { title: 'Gagal memulihkan event' }),
                 onFinish: () => {
                     isRestoring.value = false;

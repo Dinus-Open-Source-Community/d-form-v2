@@ -199,7 +199,7 @@ defineEmits<{
                                     <FieldRenderer
                                         :field="previewField(field)"
                                         :is-selected="selectedFieldId === field.id"
-                                        @select="$emit('selectField', field.id)"
+                                        @open="$emit('selectField', field.id)"
                                         @delete="$emit('deleteField', field.id)"
                                         @duplicate="$emit('duplicateField', field.id)"
                                     />

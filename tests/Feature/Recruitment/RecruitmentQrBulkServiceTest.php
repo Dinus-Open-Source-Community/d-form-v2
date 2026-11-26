@@ -133,10 +133,10 @@ class RecruitmentQrBulkServiceTest extends TestCase
         $member->assignRole('member');
 
         // Member tanpa recruitment.dashboard.view ditolak di middleware
-        // EnsureRecruitmentAccess via redirect ke dashboard (bukan 403 policy).
+        // EnsureRecruitmentAccess via redirect ke portal peserta (bukan 403 policy).
         $this->actingAs($member)
             ->post(route('dashboard.recruitment.periods.send-qr', $this->period))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_bulk_qr_email_lists_division_sessions_without_empty_shell(): void

@@ -16,7 +16,8 @@ use Throwable;
 /** Stores registration uploads on the private disk and resolves routed access URLs. */
 final class FormAnswerFileStorage
 {
-    private const DIRECTORY_PREFIX = 'form-uploads';
+    /** Prefix direktori jawaban; dipakai juga saat purge storage acara. */
+    public const DIRECTORY_PREFIX = 'form-uploads';
 
     public function __construct(private readonly SafeUploadStorage $uploads)
     {

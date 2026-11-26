@@ -23,7 +23,7 @@ class EventResource extends JsonResource
             'description' => $this->description,
             'location' => $this->location,
             'banner' => $this->banner,
-            'banner_url' => PublicStorage::url($this->banner, $request),
+            'banner_url' => PublicStorage::existingUrl($this->banner, $request),
             'price' => $this->price,
             'quota' => $this->quota,
             'registered_count' => $this->registered_count,

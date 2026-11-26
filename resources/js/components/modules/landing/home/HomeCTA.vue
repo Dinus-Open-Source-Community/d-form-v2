@@ -25,7 +25,7 @@ const { visible } = useViewportReveal({ targetId: 'section-cta', threshold: 0.2 
                 visible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0',
             ]"
         >
-            <LocalLottie name="landingCta" :height="80" :width="80" class="mx-auto mb-6" :lazy="false" />
+            <LocalLottie name="landingCta" :height="80" :width="80" class="mx-auto mb-6" />
 
             <h2 class="font-display text-primary-foreground text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
                 Siap menyederhanakan pendaftaran acara?

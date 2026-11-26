@@ -1,14 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Input } from '@/components/ui/input';
 import { SplitDateTimeField } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
+import { Switch } from '@/components/ui/switch';
+import DeferredRender from '@/components/core/DeferredRender.vue';
+import { LazyTipTapEditor } from '@/components/core/lazyTipTapEditor';
 import type { TFormPurpose, IFormRegistrationMetadata, IFormSiblingOption } from '@/types/form';
+import {
+    filterFormSubmissionLimitInput,
+    hasFormSubmissionLimitFormatError,
+    validateFormSubmissionLimitInput,
+} from '@/lib/formSubmissionLimitInput';
 
 const closedAt = defineModel<string>('closedAt', { required: true });
 const visibleFor = defineModel<string[]>('visibleFor', { required: true });
 const formMetadata = defineModel<IFormRegistrationMetadata>('formMetadata', { required: true });
+const successContent = defineModel<string>('successContent', { required: true });
+
+/** Teks bermakna = ada isi di luar tag HTML dan `&nbsp;`. */
+function hasMeaningfulHtmlText(html: string): boolean {
+    return (
+        html
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .trim() !== ''
+    );
+}
+
+/** Toggle lokal: hidup bila sudah ada pesan tersimpan, dan mati berarti konten dikosongkan. */
+const successEnabled = ref<boolean>(hasMeaningfulHtmlText(successContent.value));
+
+function onSuccessToggle(value: boolean): void {
+    successEnabled.value = value;
+
+    if (!value) {
+        successContent.value = '';
+    }
+}
 
 const props = withDefaults(
     defineProps<{
@@ -26,10 +56,11 @@ defineEmits<{
     toggleVisibility: [value: string, checked: boolean];
 }>();
 
-const isRegistrationPurpose = computed(() => formMetadata.value.purpose !== 'other');
+const isRegistrationPurpose = computed(() => formMetadata.value.purpose === 'registration');
+const isGuestSubmissionEligible = computed(() => !isRegistrationPurpose.value && !isDKelasPurpose.value);
 
 const isTeamStyleRegistration = computed(() => {
-    if (!isRegistrationPurpose.value) {
+    if (!isRegistrationPurpose.value && formMetadata.value.purpose !== 'd_kelas') {
         return false;
     }
     const m = formMetadata.value.registration_mode;
@@ -41,8 +72,13 @@ const requiresFormSelectSentinel = '__none__' as const;
 
 const purposeOptions: SimpleSelectOption[] = [
     { value: 'registration', label: 'Pendaftaran' },
-    { value: 'other', label: 'Lainnya (feedback, survei, …)' },
+    { value: 'answer_collection', label: 'Pengumpulan Jawaban' },
+    { value: 'feedback', label: 'Feedback' },
+    { value: 'd_kelas', label: 'D-Kelas (terkunci)' },
 ];
+
+/** D-Kelas permanen: tujuan tidak boleh diubah dari pengaturan. */
+const isDKelasPurpose = computed<boolean>(() => formMetadata.value.purpose === 'd_kelas');
 
 const requiresFormOptions = computed<SimpleSelectOption[]>(() => [
     { value: requiresFormSelectSentinel, label: 'Tidak ada' },
@@ -57,12 +93,16 @@ const registrationModeOptions: SimpleSelectOption[] = [
 ];
 
 function onPurposeChange(value: string): void {
-    const purpose: TFormPurpose = value === 'other' ? 'other' : 'registration';
-    formMetadata.value = {
-        ...formMetadata.value,
-        purpose,
-        ...(purpose === 'other' ? { registration_mode: null, max_team_size: null, team_size: null } : {}),
-    };
+    const allowed: readonly TFormPurpose[] = ['registration', 'answer_collection', 'feedback', 'd_kelas'];
+    const purpose = allowed.find((entry) => entry === value);
+
+    if (purpose === undefined) return;
+
+    // Tujuan selain pendaftaran selalu single; server menegakkan aturan yang sama.
+    formMetadata.value =
+        purpose === 'registration'
+            ? { ...formMetadata.value, purpose }
+            : { ...formMetadata.value, purpose, registration_mode: 'single', max_team_size: null, team_size: null };
 }
 
 function onRequiresFormChange(value: string): void {
@@ -100,6 +140,47 @@ function setTeamSize(v: string | number): void {
     formMetadata.value = {
         ...formMetadata.value,
         team_size: n === null || Number.isNaN(n) ? null : n,
+    };
+}
+
+const maxSubmissionsInput = ref<string>(String(formMetadata.value.max_submissions || ''));
+const maxSubmissionsError = ref<string | null>(null);
+const hasMalformedMaxSubmissionsInput = ref<boolean>(false);
+
+watch(
+    () => formMetadata.value.max_submissions,
+    (value: number): void => {
+        const nextValue: string = value > 0 ? String(value) : '';
+        if (nextValue !== maxSubmissionsInput.value) maxSubmissionsInput.value = nextValue;
+    }
+);
+
+function setMaxSubmissions(v: string | number): void {
+    const rawValue: string = typeof v === 'number' ? String(v) : vString(v);
+    const filteredValue: string = filterFormSubmissionLimitInput(rawValue);
+    const rawValidation = validateFormSubmissionLimitInput(rawValue);
+    hasMalformedMaxSubmissionsInput.value = hasFormSubmissionLimitFormatError(rawValue);
+    maxSubmissionsInput.value = filteredValue;
+    maxSubmissionsError.value = rawValidation.message;
+    if (rawValidation.valid && rawValidation.value !== null) {
+        formMetadata.value = { ...formMetadata.value, max_submissions: rawValidation.value };
+    }
+}
+
+function validateMaxSubmissions(): void {
+    const validation = validateFormSubmissionLimitInput(maxSubmissionsInput.value);
+    maxSubmissionsError.value = hasMalformedMaxSubmissionsInput.value
+        ? 'Gunakan angka bulat tanpa tanda atau desimal.'
+        : validation.message;
+}
+
+function onMultipleSubmissionsToggle(value: boolean): void {
+    formMetadata.value = {
+        ...formMetadata.value,
+        allow_multiple_submissions: value,
+        max_submissions: value
+            ? Math.max(2, formMetadata.value.max_submissions || 2)
+            : formMetadata.value.max_submissions,
     };
 }
 
@@ -151,6 +232,7 @@ function vString(v: unknown): string {
                     :id="`${idPrefix}-purpose`"
                     class="border-border/80 bg-background/80 h-10 w-full text-xs sm:text-sm"
                     aria-label="Tujuan form"
+                    :disabled="isDKelasPurpose"
                     @update:model-value="onPurposeChange"
                 />
                 <p class="text-muted-foreground text-xs leading-snug">
@@ -173,7 +255,7 @@ function vString(v: unknown): string {
                 </p>
             </div>
 
-            <div v-if="isRegistrationPurpose" class="space-y-2">
+            <div v-if="isRegistrationPurpose || isDKelasPurpose" class="space-y-2">
                 <Label :for="`${idPrefix}-reg-mode`" class="text-sm font-medium">Registration mode</Label>
                 <SimpleSelect
                     :model-value="formMetadata.registration_mode ?? registrationModeSelectSentinel"
@@ -184,6 +266,120 @@ function vString(v: unknown): string {
                     @update:model-value="onRegistrationModeSelect"
                 />
             </div>
+
+            <div v-if="isGuestSubmissionEligible" class="border-border space-y-3 border-t pt-5">
+                <h3 class="text-sm font-semibold">Akses pengisian</h3>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-guest-submissions-toggle`" class="text-sm font-medium"
+                            >Izinkan pengisian tanpa login</Label
+                        >
+                        <p
+                            :id="`${idPrefix}-guest-submissions-description`"
+                            class="text-muted-foreground text-xs leading-snug"
+                        >
+                            {{
+                                formMetadata.allow_guest_submissions
+                                    ? 'Siapa pun yang memiliki tautan dapat mengisi form ini tanpa masuk ke akun.'
+                                    : 'Peserta harus masuk ke akun sebelum mengisi form ini.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-guest-submissions-toggle`"
+                        :model-value="formMetadata.allow_guest_submissions"
+                        :aria-describedby="`${idPrefix}-guest-submissions-description`"
+                        aria-label="Izinkan pengisian tanpa login"
+                        @update:model-value="
+                            (value) => (formMetadata = { ...formMetadata, allow_guest_submissions: value })
+                        "
+                    />
+                </div>
+            </div>
+
+            <div v-if="isGuestSubmissionEligible" class="border-border space-y-3 border-t pt-5">
+                <h3 class="text-sm font-semibold">Pengiriman ulang</h3>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-multiple-submissions-toggle`" class="text-sm font-medium"
+                            >Izinkan peserta mengirim jawaban lebih dari sekali</Label
+                        >
+                        <p
+                            :id="`${idPrefix}-multiple-submissions-description`"
+                            class="text-muted-foreground text-xs leading-snug"
+                        >
+                            {{
+                                formMetadata.allow_multiple_submissions
+                                    ? 'Peserta dapat mengirim jawaban ulang sampai batas yang ditentukan.'
+                                    : 'Setiap peserta hanya dapat mengirim jawaban satu kali.'
+                            }}
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-multiple-submissions-toggle`"
+                        :model-value="formMetadata.allow_multiple_submissions"
+                        :aria-describedby="`${idPrefix}-multiple-submissions-description`"
+                        aria-label="Izinkan peserta mengirim jawaban lebih dari sekali"
+                        @update:model-value="onMultipleSubmissionsToggle"
+                    />
+                </div>
+                <div v-if="formMetadata.allow_multiple_submissions" class="space-y-2">
+                    <Label :for="`${idPrefix}-max-submissions`" class="text-sm font-medium"
+                        >Jumlah pengiriman maksimum</Label
+                    >
+                    <Input
+                        :id="`${idPrefix}-max-submissions`"
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]+"
+                        autocomplete="off"
+                        :model-value="maxSubmissionsInput"
+                        :class="[
+                            'min-h-12 px-4 !py-3.5 text-sm',
+                            maxSubmissionsError ? 'border-destructive focus-visible:ring-destructive' : '',
+                        ]"
+                        :aria-describedby="`${idPrefix}-max-submissions-help ${idPrefix}-max-submissions-error`"
+                        :aria-invalid="maxSubmissionsError !== null"
+                        @update:modelValue="setMaxSubmissions"
+                        @blur="validateMaxSubmissions"
+                    />
+                    <p :id="`${idPrefix}-max-submissions-help`" class="text-muted-foreground text-xs leading-snug">
+                        Termasuk pengiriman pertama. Contoh: 2 berarti peserta dapat mengirim sekali lagi.
+                    </p>
+                    <p
+                        v-if="maxSubmissionsError"
+                        :id="`${idPrefix}-max-submissions-error`"
+                        class="text-destructive text-xs"
+                    >
+                        {{ maxSubmissionsError }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="border-border space-y-3 border-t pt-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-1">
+                        <Label :for="`${idPrefix}-success-toggle`" class="text-sm font-medium">
+                            Pesan setelah submit
+                        </Label>
+                        <p class="text-muted-foreground text-xs leading-snug">
+                            Tampil ke peserta setelah form terkirim. Bila nonaktif, peserta melihat pesan bawaan.
+                        </p>
+                    </div>
+                    <Switch
+                        :id="`${idPrefix}-success-toggle`"
+                        :model-value="successEnabled"
+                        aria-label="Aktifkan pesan setelah submit"
+                        @update:model-value="onSuccessToggle"
+                    />
+                </div>
+                <div v-if="successEnabled" class="border-border bg-background rounded-xl border">
+                    <DeferredRender min-height="12rem">
+                        <LazyTipTapEditor v-model="successContent" />
+                    </DeferredRender>
+                </div>
+            </div>
+
             <div v-if="isTeamStyleRegistration" class="grid gap-4 sm:grid-cols-2">
                 <div class="space-y-2">
                     <Label :for="`${idPrefix}-max-team`" class="text-sm font-medium">Max team size</Label>

@@ -9,6 +9,7 @@ import type {
     IFormReviewSuccessResponse,
     TFormReviewStatus,
 } from '@/types/forms';
+import type { TFormPurpose } from '@/types/form';
 import type { IBackendField, TBackendFieldType } from '@/types/form-builder';
 import type { THttpMethod, IUploadTransferOptions } from '@/types/http';
 import { isPersistableImageUrl } from '@/lib/urlPolicy';
@@ -222,25 +223,34 @@ function readDraftField(value: unknown): IBackendField | null {
 }
 
 /**
+ * Tujuan/mode draf yang dikirim ke server; server memvalidasi ulang dengan allowlist.
+ * `mode` mengikuti `FormPurposeRules::prefill()`.
+ */
+export interface IFormDraftRequest {
+    purpose: TFormPurpose;
+    mode: 'single' | 'team' | 'bundle';
+}
+
+/**
  * Ambil atau buat draf server-side untuk halaman "buat form". Backend idempoten per
- * user+event dan mengembalikan snapshot lengkap (`{ form, fields }`) supaya halaman
+ * user+event+tujuan dan mengembalikan snapshot lengkap (`{ form, fields }`) supaya halaman
  * bisa melanjutkan draf setelah reload. 403 = draf milik pembuat event.
  */
-export async function requestFormDraft(url: string): Promise<IFormDraftResult> {
-    return requestJson({ url, method: 'POST' }, (payload) => {
-        if (!isRecord(payload)) return null;
+export async function requestFormDraft(url: string, payload: IFormDraftRequest): Promise<IFormDraftResult> {
+    return requestJson({ url, method: 'POST', body: payload }, (body) => {
+        if (!isRecord(body)) return null;
 
-        const form = readDraftForm(payload.form);
+        const form = readDraftForm(body.form);
         if (form === null) return null;
 
-        const editUrl = isRecord(payload.form) ? payload.form.edit_url : undefined;
+        const editUrl = isRecord(body.form) ? body.form.edit_url : undefined;
         if (typeof editUrl !== 'string' || editUrl === '') return null;
 
         const fields: IBackendField[] = [];
-        if (payload.fields !== undefined) {
-            if (!Array.isArray(payload.fields)) return null;
+        if (body.fields !== undefined) {
+            if (!Array.isArray(body.fields)) return null;
 
-            for (const row of payload.fields) {
+            for (const row of body.fields) {
                 const field = readDraftField(row);
                 if (field === null) return null;
                 fields.push(field);

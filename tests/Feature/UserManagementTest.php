@@ -31,7 +31,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('dashboard.users.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_admin_cannot_view_users_index(): void
@@ -249,8 +249,8 @@ class UserManagementTest extends TestCase
         $otherSuper->assignRole('super-admin');
 
         $this->actingAs($superAdmin)
-            ->get(route('dashboard.users.edit', $otherSuper))
-            ->assertForbidden();
+            ->get("/admin/users/{$otherSuper->id}/edit")
+            ->assertNotFound();
 
         $this->actingAs($superAdmin)
             ->put(route('dashboard.users.update', $otherSuper), [

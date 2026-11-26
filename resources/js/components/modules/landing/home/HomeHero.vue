@@ -1,30 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import LocalLottie from '@/components/core/LocalLottie.vue';
 import { ArrowRight } from 'lucide-vue-next';
 import { routes } from '@/lib/routes';
-
-const show = ref(false);
-onMounted(() => requestAnimationFrame(() => (show.value = true)));
 </script>
 
 <template>
     <section class="relative isolate overflow-hidden pt-36 pb-20 md:pt-48 md:pb-28">
         <div
-            class="bg-primary/[0.07] pointer-events-none absolute -top-48 left-1/2 -z-10 size-[900px] -translate-x-1/2 rounded-full blur-[160px]"
+            class="landing-glow pointer-events-none absolute -top-48 left-1/2 -z-10 size-[900px] -translate-x-1/2"
             aria-hidden="true"
         />
         <div class="app-noise pointer-events-none absolute inset-0 -z-10 opacity-40" aria-hidden="true" />
 
         <div class="relative mx-auto max-w-7xl px-6 lg:px-10">
             <div class="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-                <div
-                    :class="[
-                        'transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                        show ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
-                    ]"
-                >
+                <div class="landing-reveal">
                     <h1
                         class="font-display text-foreground mt-7 text-4xl leading-[1.08] font-bold tracking-tight text-balance sm:text-5xl lg:text-[3.5rem]"
                     >
@@ -70,12 +61,7 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)));
                     </div>
                 </div>
 
-                <div
-                    :class="[
-                        'transition-all delay-150 duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                        show ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0',
-                    ]"
-                >
+                <div class="landing-reveal-wide landing-reveal-delay-150">
                     <div class="relative">
                         <div
                             class="border-border/30 from-card to-muted/20 overflow-hidden rounded-2xl border bg-gradient-to-b p-6 shadow-sm sm:p-8"
@@ -95,11 +81,7 @@ onMounted(() => requestAnimationFrame(() => (show.value = true)));
             </div>
 
             <div
-                :class="[
-                    'border-border/30 mt-20 grid grid-cols-2 gap-6 border-t pt-10 sm:grid-cols-4',
-                    'transition-all delay-300 duration-600 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                    show ? 'opacity-100' : 'opacity-0',
-                ]"
+                class="border-border/30 landing-reveal-fade landing-reveal-delay-300 mt-20 grid grid-cols-2 gap-6 border-t pt-10 sm:grid-cols-4"
             >
                 <div
                     v-for="stat in [

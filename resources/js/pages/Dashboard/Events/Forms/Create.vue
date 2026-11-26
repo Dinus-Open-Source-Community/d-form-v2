@@ -21,7 +21,12 @@ import { useFormBuilderAutosave } from '@/hooks/useFormBuilderAutosave';
 import type { IFormBuilderAutosaveEndpoints } from '@/hooks/useFormBuilderAutosave';
 import type { TAutosaveStatus } from '@/hooks/useAutosaveSync';
 import type { IBackendField, IBuilderField } from '@/types/form-builder';
-import type { ICreateDashboardFormPayload, IFormSiblingOption } from '@/types/form';
+import type {
+    ICreateDashboardFormPayload,
+    IFormRegistrationMetadata,
+    IFormSiblingOption,
+    TFormPurpose,
+} from '@/types/form';
 import { emptyFormRegistrationMetadata } from '@/lib/formRegistrationMetadata';
 import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
@@ -48,6 +53,9 @@ defineOptions({ layout: DashboardLayout });
 const props = defineProps<{
     event: { id: string; title: string };
     siblingForms?: IFormSiblingOption[];
+    /** Sudah divalidasi server; query string tidak dipercaya di klien. */
+    initialPurpose?: TFormPurpose;
+    initialMode?: 'single' | 'team' | 'bundle';
 }>();
 
 const { handleInertiaFormErrors, notifyAutosaveFailure, showErrorToast, showSuccessToast, showValidationErrorToast } =
@@ -65,7 +73,11 @@ const closedAt = ref<string>('');
 const visibleFor = ref<string[]>([]);
 const bannerState = ref(defaultFormBannerState());
 const formFields = ref<IBuilderField[]>([]);
-const formMetadata = ref(emptyFormRegistrationMetadata());
+const formMetadata = ref<IFormRegistrationMetadata>({
+    ...emptyFormRegistrationMetadata(),
+    purpose: props.initialPurpose ?? 'registration',
+    registration_mode: props.initialMode ?? 'single',
+});
 
 /** Sama dengan `wb.isEmpty` di workspace: kanvas belum punya field. */
 const builderEmpty = computed<boolean>(() => formFields.value.length === 0);
@@ -124,7 +136,10 @@ async function ensureDraftForm(): Promise<string | null> {
 
     draftRequest = (async (): Promise<string | null> => {
         try {
-            const draft = await requestFormDraft(routes.admin.events.forms.draft(props.event.id));
+            const draft = await requestFormDraft(routes.admin.events.forms.draft(props.event.id), {
+                purpose: props.initialPurpose ?? 'registration',
+                mode: props.initialMode ?? 'single',
+            });
 
             if (isBuilderPristine()) applyDraftSnapshot(draft);
             draftEditUrl.value = draft.editUrl;
@@ -273,7 +288,7 @@ function submitStoreForm(): void {
             fields: autosave.buildFieldsPayload(),
         }))
         .post(routes.admin.events.forms.store(props.event.id), {
-            onSuccess: () => showSuccessToast(humanizeErrorMessage('Form created successfully!')),
+            // Toast sukses berasal dari flash server (`FormController@store`).
             onError: (errors) => {
                 applyFieldErrors(readFormFieldErrors(errors));
                 handleInertiaFormErrors(errors, { title: 'Gagal menyimpan form' });
@@ -374,7 +389,11 @@ async function publishForm(): Promise<void> {
 
 onMounted(() => {
     // Topbar builder: judul + konteks acara, tanpa strip breadcrumb (konsisten dengan tab).
-    setTopbar({ title: 'Buat form', subtitle: props.event.title });
+    setTopbar({
+        title: 'Buat form',
+        subtitle: props.event.title,
+        segmentLabels: { [props.event.id]: props.event.title },
+    });
     // Siapkan draf sekali di awal supaya autosave punya form id sejak edit pertama.
     void ensureDraftForm();
 });
@@ -389,6 +408,7 @@ onMounted(() => {
             v-model:closed-at="closedAt"
             v-model:visible-for="visibleFor"
             v-model:form-metadata="formMetadata"
+            v-model:success-content="successContent"
             id-prefix="create"
             :field-errors="fieldErrors"
             :sibling-forms="siblingForms ?? []"
@@ -433,7 +453,6 @@ onMounted(() => {
                 ref="workspaceRef"
                 v-model:form-title="formTitle"
                 v-model:form-description="formDescription"
-                v-model:success-content="successContent"
                 v-model:closed-at="closedAt"
                 v-model:visible-for="visibleFor"
                 v-model:banner="bannerState"

@@ -6,8 +6,10 @@ use App\Enums\EventFormVisibility;
 use App\Enums\EventStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\IndexEventRequest;
+use App\Http\Requests\RestoreEventRequest;
 use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
+use App\Http\Requests\UpdateEventStatusRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\Form;
@@ -183,6 +185,24 @@ class EventController extends Controller
         return redirect()->route('dashboard.events.show', $event);
     }
 
+    /** Ubah status event dari detail tanpa mengirim ulang seluruh field edit. */
+    public function updateStatus(UpdateEventStatusRequest $request, Event $event): RedirectResponse
+    {
+        $this->authorize('update', $event);
+
+        $status = EventStatus::from($request->validated('status'));
+        $this->eventService->updateStatus($event, $status);
+
+        Inertia::flash('toast', [
+            'message' => __($status === EventStatus::Published
+                ? 'messages.event.publish.success'
+                : 'messages.event.draft.success'),
+            'type' => 'success',
+        ]);
+
+        return redirect()->route('dashboard.events.show', $event);
+    }
+
     public function destroy(Event $event): RedirectResponse
     {
         $this->authorize('delete', $event);
@@ -197,10 +217,14 @@ class EventController extends Controller
         return redirect()->route('dashboard.events.index');
     }
 
-    public function restore(Event $event): RedirectResponse
+    /** Pulihkan event terarsip, kembali ke halaman asal yang diminta klien. */
+    public function restore(RestoreEventRequest $request, Event $event): RedirectResponse
     {
         $this->authorize('restore', $event);
 
+        // Default diisi RestoreEventRequest::prepareForValidation(); fallback ini
+        // menangani `return_to: null` eksplisit yang lolos rule nullable.
+        $returnTo = $request->validated('return_to') ?? RestoreEventRequest::DEFAULT_RETURN_TO;
         $this->eventService->restore($event);
 
         Inertia::flash('toast', [
@@ -208,7 +232,11 @@ class EventController extends Controller
             'type' => 'success',
         ]);
 
-        return redirect()->route('dashboard.events.show', $event);
+        return match ($returnTo) {
+            'archived' => redirect()->route('dashboard.events.archived'),
+            'index' => redirect()->route('dashboard.events.index'),
+            default => redirect()->route('dashboard.events.show', $event),
+        };
     }
 
     /**

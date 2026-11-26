@@ -14,24 +14,6 @@ export const lotties = {
         src: '/lotties/field-selected.json',
         label: 'Ilustrasi field terpilih',
     },
-    errorState: {
-        src: '/lotties/error-state.json',
-        label: 'Ilustrasi kesalahan',
-    },
-    /** Error 404 Page (loop) — Artem Peretrukhin, via LottieFiles (Simple License). */
-    error404Page: {
-        src: '/lotties/error-404-page.json',
-        label: 'Ilustrasi halaman tidak ditemukan',
-    },
-    emptyData: {
-        src: '/lotties/empty-data.json',
-        label: 'Ilustrasi data kosong',
-    },
-    /** Waiting / empty roster — asset from LottieFiles (robot idle). */
-    registrantsWaiting: {
-        src: '/lotties/registrants-waiting.json',
-        label: 'Ilustrasi menunggu pendaftar',
-    },
     landingHero: {
         src: '/lotties/landing-hero.json',
         label: 'Ilustrasi pengisian checklist formulir',

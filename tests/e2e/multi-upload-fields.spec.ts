@@ -205,7 +205,7 @@ test.describe('multi upload fields', () => {
                 waitUntil: 'domcontentloaded',
             });
             await expect(page.locator('#f-title')).toBeVisible({ timeout: 20_000 });
-            const settings = page.getByRole('button', { name: 'Pengaturan field' }).last();
+            const settings = page.getByRole('button', { name: /^Ubah field/ }).last();
             await settings.click();
 
             const sheet = page.getByRole('dialog').filter({ hasText: 'Properti field' });

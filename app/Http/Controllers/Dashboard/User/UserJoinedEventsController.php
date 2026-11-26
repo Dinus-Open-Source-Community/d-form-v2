@@ -29,7 +29,7 @@ class UserJoinedEventsController
 
         $events = $joinedEventsQuery()
             ->forListPage()
-            ->orderByDesc('start_date')
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(EventService::USER_JOINED_LIMIT)
             ->get();

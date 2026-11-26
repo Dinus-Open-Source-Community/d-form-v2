@@ -2,6 +2,7 @@
 
 namespace App\Services\Registration;
 
+use App\Enums\FormPurpose;
 use App\Enums\FormSubmissionMode;
 use App\Models\Form;
 use App\Models\FormField;
@@ -9,6 +10,7 @@ use App\Services\Form\RulesBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 /** Validation seam for the form submission boundary: resolves the mode, builds the Laravel rules per mode, and returns only validated input. */
 final class FormSubmissionRules
@@ -19,15 +21,21 @@ final class FormSubmissionRules
         $isTeam = TeamRegistrationSubmitter::isTeamForm($form);
         $isBundle = BundleRegistrationSubmitter::isBundleForm($form);
 
-        if (! $form->isRegistrationForm()) {
+        $isRegistrationPurpose = $form->isRegistrationForm() || $form->purpose() === FormPurpose::DKelas;
+        if (! $isRegistrationPurpose) {
             return $isTeam || $isBundle ? null : FormSubmissionMode::Other;
         }
 
-        if ($isTeam) {
-            return FormSubmissionMode::Team;
-        }
+        $metadata = is_array($form->metadata) ? $form->metadata : [];
+        $rawMode = $metadata['registration_mode'] ?? FormSubmissionMode::Single->value;
+        $mode = is_string($rawMode) && $rawMode !== '' ? strtolower($rawMode) : FormSubmissionMode::Single->value;
 
-        return $isBundle ? FormSubmissionMode::Bundle : FormSubmissionMode::Single;
+        return match ($mode) {
+            FormSubmissionMode::Single->value => FormSubmissionMode::Single,
+            FormSubmissionMode::Team->value => $isTeam ? FormSubmissionMode::Team : null,
+            FormSubmissionMode::Bundle->value => $isBundle ? FormSubmissionMode::Bundle : null,
+            default => null,
+        };
     }
 
     /** Validate the payload in load-bearing order: bundle size before fields, team size after fields.
@@ -36,15 +44,41 @@ final class FormSubmissionRules
      * @return array<string, mixed> validated input only
      * @throws ValidationException
      */
-    public static function validate(array $input, Collection $fields, FormSubmissionMode $mode, int $teamSize): array
-    {
+    public static function validate(
+        array $input,
+        Collection $fields,
+        FormSubmissionMode $mode,
+        int $teamSize,
+        ?array $allowedCourseValues = null,
+        ?Form $form = null,
+    ): array {
         if ($mode === FormSubmissionMode::Bundle && $teamSize < 2) {
             throw ValidationException::withMessages([
                 'team_member_emails' => __('This bundle form requires a team size of at least 2 in form settings.'),
             ]);
         }
 
-        $validated = Validator::make($input, self::forMode($fields, $mode, $teamSize))->validate();
+        $rules = self::forMode($fields, $mode, $teamSize);
+        $courseField = $fields->first(fn (FormField $field): bool => $field->name === 'du_course_uid');
+        if ($courseField !== null && $allowedCourseValues !== null) {
+            // Defense in depth: the orchestrator pre-check is the stricter gate (unique resolution);
+            // Rule::in alone would still accept an ambiguous title listed in the catalog.
+            $courseRule = ['required', 'string', Rule::in($allowedCourseValues)];
+            $rules['du_course_uid'] = $courseRule;
+            if ($mode === FormSubmissionMode::Bundle) {
+                for ($index = 0; $index < $teamSize - 1; $index++) {
+                    $rules[BundleSubmissionRules::slotInputName('du_course_uid', $index)] = $courseRule;
+                }
+            }
+        }
+
+        if ($form?->isReferralActive() === true) {
+            $rules['referral_code'] = ['nullable', 'string', 'max:29'];
+        } else {
+            $rules['referral_code'] = ['prohibited'];
+        }
+
+        $validated = Validator::make($input, $rules)->validate();
 
         if ($mode === FormSubmissionMode::Team && $teamSize < 2) {
             throw ValidationException::withMessages([

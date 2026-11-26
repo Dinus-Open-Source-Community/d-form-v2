@@ -177,7 +177,7 @@ test.describe('tautan berbagi form', () => {
                 .poll(() => page.evaluate(() => localStorage.getItem('e2e-form-share-copied-text')))
                 .toBe(`${origin}/s/${secondAlias}`);
 
-            await dialog.getByRole('button', { name: 'Generate barcode', exact: true }).click();
+            await dialog.getByRole('button', { name: 'Buat barcode', exact: true }).click();
             const barcode = dialog.locator('img[alt^="Barcode untuk "]');
             await expect(barcode).toBeVisible();
             await expect
@@ -216,7 +216,7 @@ test.describe('tautan berbagi form', () => {
                 dialog.getByText('Terbitkan formulir terlebih dahulu untuk membagikan link peserta.')
             ).toBeVisible();
             await expect(dialog.getByRole('button', { name: 'Salin link peserta', exact: true })).toBeDisabled();
-            await expect(dialog.getByRole('button', { name: 'Generate barcode', exact: true })).toBeDisabled();
+            await expect(dialog.getByRole('button', { name: 'Buat barcode', exact: true })).toBeDisabled();
             await expect(dialog.getByRole('textbox', { name: 'Alias short link' })).toBeDisabled();
             await expect(dialog.getByRole('button', { name: 'Simpan alias', exact: true })).toBeDisabled();
             await expect(dialog.getByRole('button', { name: 'Salin short link', exact: true })).toBeDisabled();

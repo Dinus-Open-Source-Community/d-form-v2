@@ -36,6 +36,10 @@ class AuthUserColumnsTest extends TestCase
         $this->assertStringNotContainsString('"password"', $sql);
         $this->assertStringContainsString('has_local_password', $sql);
         $this->assertTrue($retrieved->has_local_password);
+        // Sejak faktor kedua ada, provider juga menghitung keberadaan PIN lewat subquery
+        // (spec §6.1) sehingga tidak perlu query tabel kredensial per request.
+        $this->assertStringContainsString('user_pin_credentials', $sql);
+        $this->assertFalse((bool) $retrieved->has_pin_2fa);
         // Kolom alur khusus tidak ikut di setiap request.
         $this->assertStringNotContainsString('"google_id"', $sql);
         $this->assertStringNotContainsString('"remember_token"', $sql);
@@ -56,6 +60,8 @@ class AuthUserColumnsTest extends TestCase
         $this->assertNotNull($retrieved);
         $this->assertStringContainsString('"remember_token"', $sql);
         $this->assertStringNotContainsString('select *', $sql);
+        // Subquery status PIN juga ikut pada pemulihan dari cookie remember-me.
+        $this->assertStringContainsString('user_pin_credentials', $sql);
     }
 
     public function test_request_setelah_login_tidak_select_semua_kolom_users(): void

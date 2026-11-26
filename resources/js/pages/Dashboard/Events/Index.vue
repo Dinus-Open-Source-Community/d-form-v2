@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
+import EventCardSkeleton from '@/components/modules/dashboard/events/EventCardSkeleton.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ import { routes } from '@/lib/routes';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { useAuth } from '@/hooks/useAuth';
 import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
+import { useEventListQueryFilters } from '@/hooks/useEventListQueryFilters';
+import { useInertiaReloading } from '@/hooks/useInertiaReloading';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -60,12 +63,11 @@ const props = defineProps<{
 }>();
 const { goToPage, changePerPage } = usePaginationNavigation();
 
-const searchQuery = ref('');
-const filterCategory = ref('all');
-const filterSession = ref('all');
-
-/** Mencegah permintaan ganda saat state disamakan ulang dari URL/Inertia. */
-let suppressFilterApply = false;
+const { filterCategory, filterSession } = useEventListQueryFilters({
+    query: () => props.query,
+    perPage: () => props.events.per_page,
+    targetUrl: eventsIndex().url,
+});
 
 const categoryOptions = computed(() => props.filterOptions.categories);
 const sessionOptions = computed(() => props.filterOptions.sessions);
@@ -74,51 +76,11 @@ const categoryFilterOptions = computed(() => [{ value: 'all', label: 'Semua kate
 
 const sessionFilterOptions = computed(() => [{ value: 'all', label: 'Semua sesi' }, ...sessionOptions.value]);
 
-function readQueryFromProps() {
-    suppressFilterApply = true;
-    const q = props.query;
-    searchQuery.value = (q?.search as string) ?? '';
-    filterCategory.value = q?.filter?.categories?.[0] ?? 'all';
-    filterSession.value = q?.filter?.sessions?.[0] ?? 'all';
-    void nextTick(() => {
-        suppressFilterApply = false;
-    });
-}
-
-readQueryFromProps();
-watch(
-    () => props.query,
-    () => readQueryFromProps(),
-    { deep: true }
-);
-
-function buildQueryParams() {
-    const params: Record<string, unknown> = {};
-    if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
-    // Filter yang berubah tidak boleh mereset pilihan jumlah baris per halaman.
-    params.per_page = props.events.per_page;
-
-    const filter: Record<string, unknown> = {};
-    if (filterCategory.value !== 'all') filter.categories = [filterCategory.value];
-    if (filterSession.value !== 'all') filter.sessions = [filterSession.value];
-
-    if (Object.keys(filter).length > 0) params.filter = filter;
-
-    return params;
-}
-
-function applyFilters() {
-    if (suppressFilterApply) return;
-    router.get(eventsIndex().url, buildQueryParams() as never, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['events', 'query'],
-    });
-}
-
-watch([filterCategory, filterSession], applyFilters);
-
 const eventsList = computed(() => props.events.data);
+
+/** Reload filter/pagination memakai skeleton di dalam grid, bukan overlay satu layar. */
+const { reloading } = useInertiaReloading();
+const skeletonCardCount = computed<number>(() => Math.min(eventsList.value.length || props.events.per_page, 8));
 
 function confirmDelete(event: IEvent): void {
     deleteTarget.value = event;
@@ -161,7 +123,17 @@ function handleDeleteConfirm(): void {
         </div>
 
         <div
-            v-if="eventsList.length > 0"
+            v-if="reloading"
+            data-testid="event-list-skeleton"
+            aria-busy="true"
+            class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4"
+        >
+            <span class="sr-only">Memuat daftar acara</span>
+            <EventCardSkeleton v-for="card in skeletonCardCount" :key="card" aria-hidden="true" />
+        </div>
+
+        <div
+            v-else-if="eventsList.length > 0"
             class="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-4"
         >
             <EventCard
@@ -191,14 +163,14 @@ function handleDeleteConfirm(): void {
         />
 
         <EmptyState
-            v-if="eventsList.length === 0"
+            v-if="!reloading && eventsList.length === 0"
+            kind="filter"
             title="Tidak ada acara"
             description="Sesuaikan pencarian, kategori, atau sesi — atau buat acara baru."
-            animation-name="errorState"
         />
 
         <AppPagination
-            v-if="eventsList.length > 0"
+            v-if="events.last_page > 1"
             :current-page="events.current_page"
             :last-page="events.last_page"
             :total="events.total"

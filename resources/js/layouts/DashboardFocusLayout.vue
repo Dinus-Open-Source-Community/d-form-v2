@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import AppToaster from '@/components/core/AppToaster.vue';
@@ -8,8 +8,11 @@ import { userAvatarSeed } from '@/lib/userAvatarFallback';
 import { Button } from '@/components/ui/button';
 import DashboardSidebar from '@/components/modules/dashboard/DashboardSidebar.vue';
 import DashboardTopbar from '@/components/modules/dashboard/DashboardTopbar.vue';
+import NavigationSkeletonHost from '@/components/modules/dashboard/skeletons/NavigationSkeletonHost.vue';
 import { usePageFlashToast } from '@/hooks/usePageFlashToast';
+import { useNavigationSkeleton } from '@/hooks/useNavigationSkeleton';
 import { provideTopbar } from '@/hooks/useDashboardTopbar';
+import type { ISkeletonContext } from '@/types/skeleton';
 
 usePageFlashToast();
 import {
@@ -21,6 +24,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Settings } from 'lucide-vue-next';
+import { Spinner } from '@/components/ui/spinner';
 import logout from '@/actions/App/Http/Controllers/Auth/LogoutController';
 import { routes } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,8 +49,28 @@ const isFormBuilderPage = computed(() => {
 
 const userName = computed(() => user.value?.name);
 
+/** Skeleton tujuan memakai capability yang sama dengan guard server pada `/dashboard`. */
+const { pending: navigationPending, skeletonKey: navigationSkeletonKey } = useNavigationSkeleton({
+    context: (): ISkeletonContext => ({
+        canManageEvents: page.props.auth.user?.can_manage_events === true,
+    }),
+});
+
+const isLoggingOut = ref(false);
+
 function handleLogout(): void {
-    router.post(logout().url);
+    if (isLoggingOut.value) return;
+
+    isLoggingOut.value = true;
+    router.post(
+        logout().url,
+        {},
+        {
+            onFinish: (): void => {
+                isLoggingOut.value = false;
+            },
+        }
+    );
 }
 </script>
 
@@ -59,7 +83,7 @@ function handleLogout(): void {
                 class="pointer-events-none absolute inset-x-0 top-0 z-0 h-[360px] bg-[radial-gradient(120%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_70%)]"
             />
 
-            <DashboardTopbar v-if="!isFormBuilderPage" />
+            <DashboardTopbar v-if="!isFormBuilderPage" :pending="navigationPending" />
 
             <header
                 v-if="isFormBuilderPage"
@@ -116,21 +140,25 @@ function handleLogout(): void {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 class="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                :disabled="isLoggingOut"
                                 @click="handleLogout"
                             >
-                                <LogOut class="mr-2 size-4" />Log out
+                                <Spinner v-if="isLoggingOut" class="mr-2 size-4" />
+                                <LogOut v-else class="mr-2 size-4" />
+                                Log out
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
             </header>
             <main
-                class="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-14 md:px-6 lg:px-8"
+                class="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-14 md:px-6 lg:px-8"
                 :class="isFormBuilderPage ? 'pt-3 sm:pt-4 lg:pt-5' : 'pt-6 md:pt-8'"
             >
-                <div class="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col">
+                <div class="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col overflow-y-auto">
                     <slot />
                 </div>
+                <NavigationSkeletonHost :pending="navigationPending" :skeleton-key="navigationSkeletonKey" />
             </main>
         </SidebarInset>
     </SidebarProvider>

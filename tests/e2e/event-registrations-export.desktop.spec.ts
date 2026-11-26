@@ -119,10 +119,6 @@ function fixtureOrThrow(): IProbeResult {
     return fixture;
 }
 
-function laporanPath(eventId: string): string {
-    return `/admin/events/${eventId}/laporan`;
-}
-
 function exportPath(eventId: string): string {
     return `/admin/events/${eventId}/exports/registrations.csv`;
 }
@@ -405,18 +401,14 @@ async function openAdminPage(browser: Browser): Promise<{ context: BrowserContex
  * `intended` tidak dibutuhkan: response redirect tidak diikuti (`maxRedirects: 0`).
  */
 async function downloadRegistrationsCsv(page: Page, eventId: string): Promise<ICsvDownload> {
-    const response = await page.goto(laporanPath(eventId), { waitUntil: 'domcontentloaded' });
-    expect(response?.status()).toBe(200);
+    // Halaman laporan sudah dihapus. Endpoint registrations.csv tetap dipakai menu
+    // "Export data" pada kartu acara; spec ini menjaga kontrak file, bukan host UI-nya.
+    const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 30_000 }),
+        page.goto(exportPath(eventId), { waitUntil: 'commit' }).catch(() => null),
+    ]);
 
-    // Tombol export kini memakai `downloadWithProgress` (bukan anchor), jadi unduhan
-    // tetap berupa event download browser dengan nama file dari `Content-Disposition`.
-    const button = page.getByRole('button', { name: 'Registrations CSV' }).first();
-    await expect(button).toBeVisible({ timeout: 30_000 });
-
-    const downloadPromise = page.waitForEvent('download');
-    await button.click();
-
-    return collectDownload(await downloadPromise);
+    return collectDownload(download);
 }
 
 test.describe('BE-P2-009 export CSV pendaftaran event', () => {
@@ -537,7 +529,9 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
         }
     });
 
-    test('user role member diarahkan ke dashboard oleh middleware organizer', async ({ browser }): Promise<void> => {
+    test('user role member diarahkan ke portal peserta oleh middleware organizer', async ({
+        browser,
+    }): Promise<void> => {
         test.setTimeout(120_000);
 
         const probe = fixtureOrThrow();
@@ -555,9 +549,9 @@ test.describe('BE-P2-009 export CSV pendaftaran event', () => {
                 maxRedirects: 0,
             });
 
-            // `EnsureOrganizerDashboardAccess`: tanpa `events.list` → redirect ke route dashboard.
+            // `EnsureOrganizerDashboardAccess`: tanpa `events.list` → redirect ke portal peserta.
             expect(response.status()).toBe(302);
-            expect(response.headers()['location'] ?? '').toMatch(/\/dashboard$/);
+            expect(response.headers()['location'] ?? '').toMatch(/\/joined$/);
             expect(response.headers()['content-disposition']).toBeUndefined();
         } finally {
             await context.close();

@@ -185,7 +185,18 @@ class FormDraftTest extends TestCase
         $this->assertSame('', $form->title);
         $this->assertSame('', $form->description);
         $this->assertNull($form->closed_at);
-        $this->assertNull($form->metadata);
+        // Draft placeholder dibuat dengan tujuan default yang sudah dinormalisasi server.
+        $this->assertSame(
+            [
+                'purpose' => FormPurpose::Registration->value,
+                'registration_mode' => 'single',
+                'allow_multiple_submissions' => false,
+                'allow_guest_submissions' => false,
+                'max_submissions' => 1,
+                'referral_position' => 'end',
+            ],
+            $form->metadata,
+        );
         $this->assertSame($owner->id, $form->created_by);
         $this->assertSame($event->id, $form->event_id);
         $this->assertSame(
@@ -221,7 +232,7 @@ class FormDraftTest extends TestCase
 
         $this->actingAs($this->member())
             ->postJson($this->draftPath($event))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
 
         $this->assertSame(0, Form::query()->where('event_id', $event->id)->count());
     }
@@ -696,7 +707,7 @@ class FormDraftTest extends TestCase
         ]);
     }
 
-    public function test_draft_is_hidden_from_the_registration_form_picker(): void
+    public function test_draft_is_hidden_from_the_member_event_detail_registration_forms(): void
     {
         $owner = $this->organizer();
         $event = $this->eventOwnedBy($owner);
@@ -709,12 +720,12 @@ class FormDraftTest extends TestCase
         $this->draft($event, $owner, ['title' => 'Hidden Draft']);
 
         $this->actingAs($this->member())
-            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard/User/EventRegistrationPickForm')
-                ->has('forms', 1)
-                ->where('forms.0.id', $published->id));
+                ->component('Dashboard/User/EventDetail')
+                ->has('registrationForms', 1)
+                ->where('registrationForms.0.id', $published->id));
     }
 
     public function test_draft_is_hidden_from_the_member_event_detail_form_list(): void
@@ -742,7 +753,7 @@ class FormDraftTest extends TestCase
                 ->where('participantForms.0.id', $published->id));
     }
 
-    public function test_draft_is_hidden_from_registrants_and_the_registrations_export(): void
+    public function test_draft_is_hidden_from_the_registrations_export(): void
     {
         $owner = $this->organizer();
         $event = $this->eventOwnedBy($owner);
@@ -753,11 +764,6 @@ class FormDraftTest extends TestCase
             'form_id' => $form->id,
             'user_id' => $participant->id,
         ]);
-
-        $this->actingAs($owner)
-            ->get(route('dashboard.events.registrants', ['event' => $event], false))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('forms', 0)->has('registrants', 0));
 
         $export = $this->actingAs($owner)
             ->get(route('dashboard.events.exports.registrations-csv', $event));
@@ -856,6 +862,58 @@ class FormDraftTest extends TestCase
                 ->where('forms.0.id', $published->id)
                 ->where('forms.0.is_draft', false))
             ->assertDontSee($draft->id);
+    }
+
+    public function test_creatorless_event_lists_a_draft_without_an_owner_for_an_organizer(): void
+    {
+        $organizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        // Baris lama/seeder: event tanpa pembuat dan form draft tanpa `created_by`.
+        $draft = $this->draft($event, $organizer, ['created_by' => null, 'title' => 'Zeta Draft']);
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.events.show', ['event' => $event], false))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Show')
+                ->has('forms', 1)
+                ->where('forms.0.id', $draft->id)
+                ->where('forms.0.status', FormStatus::Draft->value)
+                ->where('forms.0.is_draft', true));
+    }
+
+    public function test_creatorless_event_lets_an_organizer_open_a_draft_without_an_owner(): void
+    {
+        $organizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        $draft = $this->draft($event, $organizer, ['created_by' => null]);
+
+        $this->actingAs($organizer)
+            ->get($this->showPath($event, $draft))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Forms/Show')
+                ->where('form.id', $draft->id)
+                ->where('form.is_draft', true));
+    }
+
+    public function test_creatorless_event_hides_a_draft_owned_by_another_organizer(): void
+    {
+        $organizer = $this->organizer();
+        $otherOrganizer = $this->organizer();
+        $event = $this->eventOwnedBy($organizer, ['created_by' => null]);
+        $draft = $this->draft($event, $otherOrganizer, ['title' => 'Zeta Draft']);
+
+        $this->actingAs($organizer)
+            ->get(route('dashboard.events.show', ['event' => $event], false))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Events/Show')
+                ->has('forms', 0));
+
+        $this->actingAs($organizer)
+            ->get($this->showPath($event, $draft))
+            ->assertNotFound();
     }
 
     public function test_creator_can_open_the_draft_edit_page(): void

@@ -23,7 +23,7 @@ class Form extends Model
     /** Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`. */
     public const ROUTE_BINDING_COLUMNS = [
         'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
-        'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'created_at',
+        'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'referral_enabled', 'created_at',
         'updated_at', 'deleted_at', 'created_by', 'share_slug',
     ];
 
@@ -49,6 +49,7 @@ class Form extends Model
         'banner_caption',
         'metadata',
         'status',
+        'referral_enabled',
         'created_by',
         'share_slug',
     ];
@@ -60,7 +61,14 @@ class Form extends Model
             'visible_for' => AsEnumCollection::of(EventFormVisibility::class),
             'metadata' => 'array',
             'status' => FormStatus::class,
+            'referral_enabled' => 'boolean',
         ];
+    }
+
+    public function isReferralActive(): bool
+    {
+        return (bool) $this->referral_enabled
+            && in_array($this->purpose()->value, FormPurpose::registrationValues(), true);
     }
 
     /** Draft adalah form yang masih disusun penyelenggara: tidak pernah masuk daftar publik/peserta dan hanya boleh dibuka pembuat event. */
@@ -104,7 +112,12 @@ class Form extends Model
                 $draftQuery->where('status', FormStatus::Draft->value);
 
                 if ($event->created_by === null) {
-                    $draftQuery->where('created_by', $viewerId);
+                    // Baris draft tanpa `created_by` (data lama/seeder) tidak punya pemilik
+                    // eksplisit, jadi mengikuti aturan event: admin mana pun yang lolos
+                    // policy update event boleh melihatnya.
+                    $draftQuery->where(function (Builder $ownerQuery) use ($viewerId): void {
+                        $ownerQuery->whereNull('created_by')->orWhere('created_by', $viewerId);
+                    });
                 }
             });
         });
@@ -123,7 +136,11 @@ class Form extends Model
             return false;
         }
 
-        return $event->created_by !== null || $this->created_by === $viewerId;
+        // Draft tanpa pemilik eksplisit mengikuti aturan event; pemanggil tetap wajib
+        // lolos policy `update` event sebelum guard ini dipakai.
+        return $event->created_by !== null
+            || $this->created_by === null
+            || $this->created_by === $viewerId;
     }
 
     /** Shared ownership predicate for admin lists, draft access, and draft creation. */
@@ -141,14 +158,22 @@ class Form extends Model
     {
         $raw = is_array($this->metadata) ? ($this->metadata['purpose'] ?? null) : null;
 
-        return $raw === FormPurpose::Other->value
-            ? FormPurpose::Other
+        return is_string($raw)
+            ? (FormPurpose::tryFrom($raw) ?? FormPurpose::Registration)
             : FormPurpose::Registration;
     }
 
     public function isRegistrationForm(): bool
     {
         return $this->purpose() === FormPurpose::Registration;
+    }
+
+    /** Posisi blok referral di halaman isi: `start`, `end`, atau id field jangkar. */
+    public function referralPosition(): string
+    {
+        $raw = is_array($this->metadata) ? ($this->metadata['referral_position'] ?? null) : null;
+
+        return is_string($raw) && $raw !== '' ? $raw : 'end';
     }
 
     public function requiresFormId(): ?string
@@ -188,6 +213,11 @@ class Form extends Model
         return $this->hasMany(FormField::class, 'form_id');
     }
 
+    public function formSessions(): HasMany
+    {
+        return $this->hasMany(FormSession::class, 'form_id');
+    }
+
     /**
      *
      * @return HasMany<FormAnswer, $this>
@@ -196,5 +226,10 @@ class Form extends Model
     public function formAnswers(): HasMany
     {
         return $this->hasMany(FormAnswer::class, 'form_id');
+    }
+
+    public function referralCodes(): HasMany
+    {
+        return $this->hasMany(ReferralCode::class, 'form_id');
     }
 }

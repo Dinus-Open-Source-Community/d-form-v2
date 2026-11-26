@@ -478,7 +478,10 @@ const periodName = computed((): string => {
                         <Card
                             v-if="isFieldVisible(field)"
                             :id="fieldCardId(field)"
-                            :class="['border-border bg-card rounded-2xl border shadow-sm', cardErrorClass(field)]"
+                            :class="[
+                                'border-border bg-card gap-0 rounded-2xl border py-0 shadow-sm',
+                                cardErrorClass(field),
+                            ]"
                             :tabindex="fieldHasError(field) ? -1 : undefined"
                             :role="fieldHasError(field) ? 'group' : undefined"
                             :aria-label="fieldHasError(field) ? field.label : undefined"

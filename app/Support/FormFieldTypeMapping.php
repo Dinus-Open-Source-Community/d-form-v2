@@ -47,6 +47,7 @@ final class FormFieldTypeMapping
             'order' => $field->order,
             'metadata' => $meta,
             'is_append' => (bool) $field->is_append,
+            'is_locked' => (($meta['locked'] ?? false) === true),
         ];
     }
 }

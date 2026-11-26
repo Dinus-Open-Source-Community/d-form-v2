@@ -44,7 +44,6 @@ class UpdateEventRequest extends FormRequest
             'session' => ['required', 'string', 'max:2048', new CommaSeparatedEventSessions()],
             'category' => ['required', 'string', 'max:2048', new CommaSeparatedEventCategories()],
             'banner' => ['sometimes', ...SafeUploadFile::rules(false, UploadPurpose::Image)],
-            'publish' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -93,7 +92,6 @@ class UpdateEventRequest extends FormRequest
             'category.max' => 'Event categories cannot exceed 2,048 characters.',
             'banner.image' => 'Banner must be an image file (JPG, PNG, etc.).',
             'banner.max' => 'Banner image size cannot exceed 5 MB.',
-            'publish.boolean' => 'Publish status must be true or false.',
         ];
     }
 

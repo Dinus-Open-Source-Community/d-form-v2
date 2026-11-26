@@ -81,7 +81,7 @@ class AttendanceScanTest extends TestCase
     {
         [$event] = $this->eventWithForm();
 
-        $this->actingAs($this->member())->get(route('dashboard.events.scan', $event))->assertRedirect(route('dashboard'));
+        $this->actingAs($this->member())->get(route('dashboard.events.scan', $event))->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_admin_scan_page_redirects_to_global_scan(): void

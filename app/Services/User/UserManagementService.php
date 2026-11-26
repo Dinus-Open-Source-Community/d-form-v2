@@ -32,17 +32,31 @@ class UserManagementService
     ];
 
     /**
+     * Ukuran halaman yang boleh diminta direktori pengguna.
      *
-     * @param  array{search?: string|null, role?: string|null}  $filters
+     * @var list<int>
+     */
+    public const ALLOWED_PER_PAGE = [10, 20, 50, 100];
+
+    public const DEFAULT_PER_PAGE = 20;
+
+    /**
+     *
+     * @param  array{search?: string|null, role?: string|null, per_page?: int|string|null}  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
      *
      */
-    public function paginateForAdminIndex(array $filters, int $page = 1): LengthAwarePaginator
+    public function paginateForAdminIndex(array $filters, User $actor, int $page = 1, ?Request $request = null): LengthAwarePaginator
     {
         $search = trim((string) ($filters['search'] ?? ''));
         $role = $filters['role'] ?? null;
-        // Aturan global: 20 data per halaman; pager hanya bila total > 20.
-        $perPage = 20;
+        $requestedPerPage = $filters['per_page'] ?? null;
+        // Klien tidak menentukan batas query: hanya nilai whitelist yang dipakai.
+        $perPage = in_array($requestedPerPage, self::ALLOWED_PER_PAGE, true)
+            ? (int) $requestedPerPage
+            : self::DEFAULT_PER_PAGE;
+
+        $page = max(1, $page);
 
         $query = User::query()
             ->with('roles:id,name')
@@ -63,7 +77,9 @@ class UserManagementService
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
         $paginator->setCollection(
-            $paginator->getCollection()->map(fn (User $user) => $this->toInertiaArray($user))
+            $paginator->getCollection()->map(
+                fn (User $user) => $this->toInertiaRow($user, $actor, $request)
+            )
         );
 
         return $paginator;
@@ -71,16 +87,21 @@ class UserManagementService
 
     /**
      *
-     * @return array{id: string, name: string, email: string, roles: list<string>, created_at: string|null, deleted_at: string|null}
+     * Baris direktori pengguna: identitas, avatar, dan hak aksi dari policy.
+     *
+     * @return array{id: string, name: string, email: string, roles: list<string>, avatar_url: string|null, can_edit: bool, can_delete: bool, created_at: string|null, deleted_at: string|null}
      *
      */
-    public function toInertiaArray(User $user): array
+    public function toInertiaRow(User $user, User $actor, ?Request $request = null): array
     {
         return [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
             'roles' => $user->getRoleNames()->values()->all(),
+            'avatar_url' => UserAvatarService::resolvePublicUrl($user->avatar, $request),
+            'can_edit' => Gate::forUser($actor)->allows('update', $user),
+            'can_delete' => Gate::forUser($actor)->allows('delete', $user),
             'created_at' => $user->created_at?->toIso8601String(),
             'deleted_at' => $user->deleted_at?->toIso8601String(),
         ];
@@ -319,12 +340,16 @@ class UserManagementService
 
     public function delete(User $user): void
     {
+        // Unique index tidak parsial di MySQL: id harus dilepas agar tidak memblokir provider selamanya.
+        $user->forceFill(['google_id' => null, 'github_id' => null])->save();
         $user->delete();
     }
 
     /**
      *
-     * @return list<array{value: string, label: string}>
+     * Opsi role yang bisa diberikan, lengkap dengan konsekuensi aksesnya.
+     *
+     * @return list<array{value: string, label: string, description: string}>
      *
      */
     public function roleOptions(): array
@@ -336,10 +361,18 @@ class UserManagementService
             'recruitment-interviewer' => 'Recruitment Interviewer',
         ];
 
+        $descriptions = [
+            'admin' => 'Kelola event dan formulir. Tidak bisa mengelola pengguna.',
+            'member' => 'Ikut event, isi formulir, dan lihat riwayat pendaftaran sendiri.',
+            'recruitment-staff' => 'Saring berkas, jadwalkan interview, dan nilai peserta OpRec.',
+            'recruitment-interviewer' => 'Nilai peserta interview di divisi yang ditugaskan.',
+        ];
+
         return array_map(
             fn (string $role) => [
                 'value' => $role,
                 'label' => $labels[$role] ?? $role,
+                'description' => $descriptions[$role] ?? '',
             ],
             self::ASSIGNABLE_ROLES
         );

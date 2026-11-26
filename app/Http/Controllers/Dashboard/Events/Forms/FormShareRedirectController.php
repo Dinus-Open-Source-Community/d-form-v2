@@ -21,12 +21,6 @@ final class FormShareRedirectController extends Controller
             'form' => $form,
         ], false);
 
-        if (auth()->guest()) {
-            return redirect()->to(route('auth.login', [
-                'intended' => $participantPath,
-            ], false));
-        }
-
         return redirect()->to($participantPath);
     }
 }

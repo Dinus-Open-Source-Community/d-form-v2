@@ -1,6 +1,8 @@
 import type { TFormPurpose, IFormRegistrationMetadata, TFormMetadataPayload } from '@/types/form';
 import type { IFormBuilderSection } from '@/types/form-builder';
 import { isRecord } from '@/lib/isRecord';
+import { normalizeReferralPosition } from '@/lib/referralPlacement';
+import { REFERRAL_POSITION_END } from '@/constants/referral';
 
 /** Stable fallback for legacy forms that predate persisted section metadata. */
 export const DEFAULT_FORM_SECTION_ID = 'section-1';
@@ -30,7 +32,12 @@ export function emptyFormRegistrationMetadata(): IFormRegistrationMetadata {
         registration_mode: null,
         max_team_size: null,
         team_size: null,
+        allow_multiple_submissions: false,
+        allow_guest_submissions: false,
+        max_submissions: 1,
         sections: defaultFormBuilderSections(),
+        referral_position: REFERRAL_POSITION_END,
+        meeting_schedule_enabled: false,
     };
 }
 
@@ -53,20 +60,46 @@ function parseTeamSize(value: unknown): number | null {
 export function parseFormRegistrationMetadata(raw: unknown): IFormRegistrationMetadata {
     const m = isRecord(raw) ? raw : {};
     const purposeRaw = m['purpose'];
-    const purpose: TFormPurpose = purposeRaw === 'other' ? 'other' : 'registration';
+    const purpose: TFormPurpose =
+        purposeRaw === 'registration' ||
+        purposeRaw === 'answer_collection' ||
+        purposeRaw === 'feedback' ||
+        purposeRaw === 'd_kelas' ||
+        purposeRaw === 'other'
+            ? purposeRaw
+            : 'registration';
     const requiresRaw = m['requires_form_id'];
     const requires_form_id = typeof requiresRaw === 'string' && requiresRaw !== '' ? requiresRaw : null;
     const mode = m['registration_mode'];
     const rm = mode === 'single' || mode === 'bundle' || mode === 'team' ? mode : null;
     const maxTs = m['max_team_size'];
     const teamS = m['team_size'];
+    const allowMultiple =
+        purpose !== 'registration' && purpose !== 'd_kelas' && m['allow_multiple_submissions'] === true;
+    const allowGuestSubmissions =
+        purpose !== 'registration' && purpose !== 'd_kelas' && m['allow_guest_submissions'] === true;
+    const parsedMaxSubmissions = parseTeamSize(m['max_submissions']);
+    const maxSubmissions =
+        allowMultiple &&
+        parsedMaxSubmissions !== null &&
+        Number.isInteger(parsedMaxSubmissions) &&
+        parsedMaxSubmissions >= 2
+            ? parsedMaxSubmissions
+            : allowMultiple
+              ? 2
+              : 1;
     return {
         purpose,
         requires_form_id,
         registration_mode: purpose === 'other' ? (rm === 'team' || rm === 'bundle' ? null : rm) : rm,
         max_team_size: parseTeamSize(maxTs),
         team_size: parseTeamSize(teamS),
+        allow_multiple_submissions: allowMultiple,
+        allow_guest_submissions: allowGuestSubmissions,
+        max_submissions: maxSubmissions,
         sections: parseBuilderSections(m['sections']),
+        referral_position: normalizeReferralPosition(m['referral_position']),
+        meeting_schedule_enabled: m['meeting_schedule_enabled'] === true,
     };
 }
 
@@ -75,8 +108,11 @@ export function parseFormRegistrationMetadata(raw: unknown): IFormRegistrationMe
  * Inertia null omission does not wipe unrelated metadata.
  */
 export function toFormMetadataPayload(m: IFormRegistrationMetadata): TFormMetadataPayload {
-    const purpose = m.purpose === 'other' ? 'other' : 'registration';
-    const isOther = purpose === 'other';
+    const purpose: TFormPurpose = m.purpose;
+    const isOther = purpose !== 'registration' && purpose !== 'd_kelas';
+    const allowMultiple = isOther && m.allow_multiple_submissions === true;
+    const allowGuestSubmissions = isOther && m.allow_guest_submissions === true;
+    const parsedMaxSubmissions = parseTeamSize(m.max_submissions);
     return {
         purpose,
         requires_form_id:
@@ -88,6 +124,19 @@ export function toFormMetadataPayload(m: IFormRegistrationMetadata): TFormMetada
             : (m.registration_mode ?? null),
         max_team_size: isOther ? null : parseTeamSize(m.max_team_size),
         team_size: isOther ? null : parseTeamSize(m.team_size),
+        allow_multiple_submissions: allowMultiple,
+        allow_guest_submissions: allowGuestSubmissions,
+        max_submissions:
+            allowMultiple &&
+            parsedMaxSubmissions !== null &&
+            Number.isInteger(parsedMaxSubmissions) &&
+            parsedMaxSubmissions >= 2
+                ? parsedMaxSubmissions
+                : allowMultiple
+                  ? 2
+                  : 1,
         sections: parseBuilderSections(m.sections),
+        referral_position: normalizeReferralPosition(m.referral_position),
+        meeting_schedule_enabled: m.meeting_schedule_enabled === true,
     };
 }

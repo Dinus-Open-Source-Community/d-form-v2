@@ -54,18 +54,24 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             \App\Http\Middleware\AddRobotsTagForPrivateAreas::class,
             \App\Http\Middleware\DisableSsrForPrivatePages::class,
+            // Gerbang faktor kedua: berlaku untuk seluruh route web, hanya bertindak bila user
+            // ber-PIN sudah terautentikasi (spec §6.3).
+            \App\Http\Middleware\EnsureTwoFactorVerified::class,
         ]);
 
         // TLS terminates at the ingress, so client IP/scheme/host only resolve correctly
         // through trusted X-Forwarded-* headers. The list is applied by
         // TrustedProxyServiceProvider::boot() so it also runs for every artisan command.
         $middleware->alias([
+            'event.not-archived' => \App\Http\Middleware\EnsureEventIsNotArchived::class,
+            'form.participant' => \App\Http\Middleware\EnsureFormParticipantAccess::class,
             'organizer' => \App\Http\Middleware\EnsureOrganizerDashboardAccess::class,
             'member_portal' => \App\Http\Middleware\EnsureMemberPortalAccess::class,
             'broadcast.access' => \App\Http\Middleware\EnsureBroadcastAccess::class,
             'recruitment.access' => \App\Http\Middleware\EnsureRecruitmentAccess::class,
             'recruitment.period.open' => \App\Http\Middleware\EnsureRecruitmentPeriodOpen::class,
             'recruitment.tracking.session' => \App\Http\Middleware\EnsureTrackingSession::class,
+            'two-factor' => \App\Http\Middleware\EnsureTwoFactorVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -129,7 +135,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            if (! in_array($status, [403, 404, 429, 500, 502, 503], true)) {
+            if (! in_array($status, [403, 404, 409, 429, 500, 502, 503], true)) {
                 return $response;
             }
 

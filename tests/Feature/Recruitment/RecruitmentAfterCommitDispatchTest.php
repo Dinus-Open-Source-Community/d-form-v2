@@ -42,9 +42,11 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
         $this->seed(RecruitmentDivisionSeeder::class);
 
         $this->queueName = 'be-p1-003-'.Str::lower((string) Str::uuid());
+        // Database driver keeps the test hermetic (no Redis service) while still using
+        // the framework-level after-commit job property under test.
         config([
-            'queue.default' => 'redis',
-            'queue.connections.redis.queue' => $this->queueName,
+            'queue.default' => 'database',
+            'queue.connections.database.queue' => $this->queueName,
         ]);
 
         $this->staff = User::factory()->create();
@@ -64,9 +66,11 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
 
     protected function tearDown(): void
     {
-        Queue::connection('redis')->clear($this->queueName);
-
-        parent::tearDown();
+        try {
+            Queue::connection('database')->clear($this->queueName);
+        } finally {
+            parent::tearDown();
+        }
     }
 
     public function test_screening_notification_is_discarded_when_outer_transaction_rolls_back(): void
@@ -81,7 +85,7 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
             $this->assertSame('Force transaction rollback for regression test.', $exception->getMessage());
         }
 
-        $this->assertSame(0, Queue::connection('redis')->size($this->queueName));
+        $this->assertSame(0, Queue::connection('database')->size($this->queueName));
         $this->assertDatabaseCount('recruitment_screenings', 0);
         $this->assertDatabaseHas('recruitment_applications', [
             'id' => $this->application->id,
@@ -94,10 +98,10 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
         DB::transaction(function (): void {
             app(ScreeningService::class)->pass($this->staff, $this->application);
 
-            $this->assertSame(0, Queue::connection('redis')->size($this->queueName));
+            $this->assertSame(0, Queue::connection('database')->size($this->queueName));
         });
 
-        $this->assertSame(1, Queue::connection('redis')->size($this->queueName));
+        $this->assertSame(1, Queue::connection('database')->size($this->queueName));
     }
 
     public function test_all_recruitment_dispatches_wait_for_outer_transaction_commit(): void
@@ -148,7 +152,7 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
             $this->assertJobIsDeferredUntilCommit($operation);
         }
 
-        $this->assertSame(5, Queue::connection('redis')->size($this->queueName));
+        $this->assertSame(5, Queue::connection('database')->size($this->queueName));
     }
 
     public function test_interview_scheduled_notification_is_deferred_until_commit(): void
@@ -167,28 +171,28 @@ final class RecruitmentAfterCommitDispatchTest extends TestCase
         DB::transaction(function (): void {
             app(ScreeningService::class)->pass($this->staff, $this->application);
 
-            $this->assertSame(0, Queue::connection('redis')->size($this->queueName));
+            $this->assertSame(0, Queue::connection('database')->size($this->queueName));
         });
 
-        $this->assertSame(2, Queue::connection('redis')->size($this->queueName));
+        $this->assertSame(2, Queue::connection('database')->size($this->queueName));
     }
 
     private function assertJobIsDeferredUntilCommit(Closure $operation): void
     {
-        $queueSizeBeforeTransaction = Queue::connection('redis')->size($this->queueName);
+        $queueSizeBeforeTransaction = Queue::connection('database')->size($this->queueName);
 
         DB::transaction(function () use ($operation, $queueSizeBeforeTransaction): void {
             $operation();
 
             $this->assertSame(
                 $queueSizeBeforeTransaction,
-                Queue::connection('redis')->size($this->queueName),
+                Queue::connection('database')->size($this->queueName),
             );
         });
 
         $this->assertSame(
             $queueSizeBeforeTransaction + 1,
-            Queue::connection('redis')->size($this->queueName),
+            Queue::connection('database')->size($this->queueName),
         );
     }
 

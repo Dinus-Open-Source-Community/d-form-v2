@@ -4,6 +4,7 @@
  */
 
 import type { IBackendField, IFieldOptionEntry, IFormBuilderSection } from '@/types/form-builder';
+import type { TReferralPosition } from '@/types/referralPlacement';
 
 /** Access gate for the public form fill route */
 export type TFormAccessStatus =
@@ -19,11 +20,27 @@ export type TFormAccessStatus =
     | 'event_form_already_chosen'
     | 'prerequisite_not_met';
 
-export type TFormPurpose = 'registration' | 'other';
+export type TFormPurpose = 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
+
+/** Harga final dari endpoint cek referral; client tidak pernah menghitung diskon sendiri. */
+export interface IFormPriceQuote {
+    base: number;
+    discount_type: 'percentage' | 'fixed' | null;
+    discount_value: number | null;
+    discount: number;
+    final: number;
+}
 
 export interface IFormSiblingOption {
     id: string;
     title: string;
+}
+
+export interface IFormSession {
+    id: string;
+    session_date: string;
+    label: string | null;
+    attendance_count: number;
 }
 
 /**
@@ -34,6 +51,18 @@ export interface IEventFormSummary {
     id: string;
     title: string;
     is_draft: boolean;
+}
+
+/** Form access row returned by the member event portal detail payload. */
+export interface IEventPortalFormSummary {
+    id: string;
+    title: string;
+    description: string | null;
+    fill_url: string;
+    access_status: TFormAccessStatus;
+    can_start: boolean;
+    requires_form_title: string | null;
+    purpose: TFormPurpose;
 }
 
 export interface IFormFillPageEvent {
@@ -134,6 +163,8 @@ export interface IFormFieldMetadata {
     is_multiple?: boolean;
     maxStars?: number;
     maxLength?: number;
+    /** Harga per submission dalam rupiah; 0 atau absen berarti field biasa. */
+    price?: number;
     sectionId?: string;
     optionChoices?: IFieldOptionEntry[];
     rules?: TFormFieldRules;
@@ -148,7 +179,14 @@ export interface IFormRegistrationMetadata {
     registration_mode: 'single' | 'bundle' | 'team' | null;
     max_team_size: number | null;
     team_size: number | null;
+    allow_multiple_submissions: boolean;
+    allow_guest_submissions: boolean;
+    max_submissions: number;
     sections: IFormBuilderSection[];
+    /** `start` | `end` | id field: posisi blok kode referral di halaman isi. */
+    referral_position: TReferralPosition;
+    /** Check-in per tanggal pertemuan untuk form pendaftaran multi-hari. */
+    meeting_schedule_enabled: boolean;
 }
 
 /**
@@ -158,7 +196,16 @@ export interface IFormRegistrationMetadata {
 export type TFormMetadataPayload = Required<
     Pick<
         IFormRegistrationMetadata,
-        'purpose' | 'requires_form_id' | 'registration_mode' | 'max_team_size' | 'team_size'
+        | 'purpose'
+        | 'requires_form_id'
+        | 'registration_mode'
+        | 'max_team_size'
+        | 'team_size'
+        | 'allow_multiple_submissions'
+        | 'allow_guest_submissions'
+        | 'max_submissions'
+        | 'referral_position'
+        | 'meeting_schedule_enabled'
     > & {
         sections: IFormBuilderSection[];
     }

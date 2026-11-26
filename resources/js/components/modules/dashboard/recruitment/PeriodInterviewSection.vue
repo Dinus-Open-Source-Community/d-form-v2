@@ -73,6 +73,7 @@ function destroyPath(id: string): string {
 }
 
 const sessionToDelete = ref<SessionRow | null>(null);
+const isDeletingSession = ref<boolean>(false);
 
 function handleDelete(session: SessionRow): void {
     sessionToDelete.value = session;
@@ -80,11 +81,15 @@ function handleDelete(session: SessionRow): void {
 
 function confirmDelete(): void {
     const session = sessionToDelete.value;
-    if (!session) return;
-    sessionToDelete.value = null;
+    if (!session || isDeletingSession.value) return;
+    isDeletingSession.value = true;
     router.delete(destroyPath(session.id), {
         preserveScroll: true,
         only: ['period', 'tab', 'query', 'sessions', 'interview_division_options', 'queue_counts'],
+        onFinish: (): void => {
+            isDeletingSession.value = false;
+            sessionToDelete.value = null;
+        },
     });
 }
 
@@ -456,6 +461,7 @@ function submitExport(): void {
         confirm-text="Ya, hapus"
         cancel-text="Batal"
         variant="destructive"
+        :loading="isDeletingSession"
         @confirm="confirmDelete"
         @cancel="sessionToDelete = null"
         @update:open="

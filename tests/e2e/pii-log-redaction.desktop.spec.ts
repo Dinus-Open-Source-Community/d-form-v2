@@ -171,7 +171,7 @@ test.describe('AUDIT-P2-006 PII and raw exception redaction', () => {
         await otpBoxes(page).first().click();
         await page.keyboard.type(code);
 
-        await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+        await expect(page).toHaveURL(/\/joined/, { timeout: 30_000 });
         expect(usersFor(email)).toBe(1);
 
         let jobLines: string[] = [];

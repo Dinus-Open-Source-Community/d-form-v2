@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ObservedBy(FormAnswerObserver::class)]
 class FormAnswer extends Model
@@ -29,6 +30,7 @@ class FormAnswer extends Model
         'answers',
         'form_id',
         'user_id',
+        'guest_token_hash',
         'leader_form_answer_id',
         'registration_role',
         'member_confirmation_status',
@@ -42,6 +44,7 @@ class FormAnswer extends Model
         'reviewed_by',
         'registration_code',
         'is_active',
+        'pricing',
     ];
 
     /**
@@ -60,6 +63,7 @@ class FormAnswer extends Model
             'member_confirmed_at' => 'datetime',
             'invitation_expired_at' => 'datetime',
             'is_active' => 'integer',
+            'pricing' => 'array',
         ];
     }
 
@@ -148,6 +152,17 @@ class FormAnswer extends Model
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function referralRedemption(): HasOne
+    {
+        return $this->hasOne(ReferralRedemption::class, 'form_answer_id');
+    }
+
+    /** Return the DU redemption issuance associated with this submission. */
+    public function duRedeemIssuance(): HasOne
+    {
+        return $this->hasOne(DuRedeemIssuance::class);
     }
 
     public function teamLeaderSubmission(): BelongsTo

@@ -9,14 +9,22 @@ interface IEventBannerImageProps {
     src?: string | null;
     alt: string;
     imgClass?: string;
+    loading?: 'lazy' | 'eager';
 }
 
-const props = withDefaults(defineProps<IEventBannerImageProps>(), { src: '', imgClass: '' });
+const props = withDefaults(defineProps<IEventBannerImageProps>(), { src: '', imgClass: '', loading: 'lazy' });
+
+/**
+ * `loadError` dipancarkan sekali per URL gagal agar pemakai (mis. hero detail acara)
+ * dapat menyesuaikan layout ketika aset banner tidak tersedia.
+ */
+const emit = defineEmits<{ loadError: [] }>();
 
 const failed = ref(false);
 
 function onError(): void {
     failed.value = true;
+    emit('loadError');
 }
 
 watch(
@@ -41,7 +49,7 @@ const showImg = computed<boolean>(() => resolvedSrc.value !== '' && !failed.valu
             v-if="showImg"
             :src="resolvedSrc"
             :alt="props.alt"
-            loading="lazy"
+            :loading="props.loading"
             decoding="async"
             :class="cn('absolute inset-0 size-full object-cover', props.imgClass)"
             @error="onError"

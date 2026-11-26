@@ -36,7 +36,6 @@ function createWorkspaceEntry(): IParityEntry {
         formFields: ref<IBuilderField[]>([]),
         formMetadata: ref(emptyFormRegistrationMetadata()),
         canvasScrollContainer: ref<HTMLElement | null>(null),
-        successContent: ref(''),
     };
     const workspace = useFormBuilderWorkspace(models, { onSave: (): void => undefined });
     /** Label mengikuti palette agar sama dengan label yang dipakai `addFieldFromPicker` demo. */

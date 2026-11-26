@@ -17,8 +17,13 @@ import type { TFormReviewDecision, TFormSubmissionBulkReviewStatus } from '@/typ
 export interface IUseFormSubmissionBulkReviewOptions {
     eventId: string;
     formId: string;
-    /** Baris yang sedang tampil; seleksi mengikuti daftar ini setiap reload. */
+    /** Baris yang sedang tampil (satu halaman). */
     submissions: ComputedRef<readonly IFormSubmission[]>;
+    /**
+     * Semua ID yang boleh dipilih lewat "select all" lintas halaman. Bila tidak
+     * diberikan, select-all mengikuti baris yang tampil (test lama).
+     */
+    selectableSubmissionIds?: ComputedRef<readonly string[]>;
     /** Prop Inertia yang direload setelah batch berhasil maupun saat konflik. */
     reloadOnly: readonly string[];
     /** Dipanggil setelah reload sukses dengan jumlah baris yang diproses. */
@@ -28,7 +33,7 @@ export interface IUseFormSubmissionBulkReviewOptions {
 export interface IFormSubmissionBulkReview {
     selectedSubmissionIds: Readonly<Ref<ReadonlySet<string>>>;
     selectedCount: ComputedRef<number>;
-    visibleSelectionState: ComputedRef<TVisibleSubmissionSelectionState>;
+    selectableSelectionState: ComputedRef<TVisibleSubmissionSelectionState>;
     /** Baris terpilih yang tidak lolos aturan bulk server (tim/bundle atau sudah direview). */
     ineligibleSelectedCount: ComputedRef<number>;
     isSubmitting: Readonly<Ref<boolean>>;
@@ -39,7 +44,7 @@ export interface IFormSubmissionBulkReview {
     /** Keputusan yang menunggu konfirmasi pengguna; `null` berarti tidak ada keputusan tertunda. */
     pendingDecision: Readonly<Ref<TFormReviewDecision | null>>;
     isSelected: (submissionId: string) => boolean;
-    setVisibleSelection: (checked: TVisibleSubmissionSelectionState) => void;
+    setSelectableSelection: (checked: TVisibleSubmissionSelectionState) => void;
     setSubmissionSelection: (submissionId: string, checked: TVisibleSubmissionSelectionState) => void;
     clearSelection: () => void;
     requestBulkReview: (decision: TFormReviewDecision) => void;
@@ -71,20 +76,29 @@ export function useFormSubmissionBulkReview(options: IUseFormSubmissionBulkRevie
     const actionError = ref<string | null>(null);
 
     const visibleSubmissionIds = computed<string[]>(() => options.submissions.value.map((submission) => submission.id));
+    const selectableSubmissionIds = computed<readonly string[]>(
+        () => options.selectableSubmissionIds?.value ?? visibleSubmissionIds.value
+    );
     const submissionsById = computed<Map<string, IFormSubmission>>(
         () => new Map(options.submissions.value.map((submission) => [submission.id, submission]))
     );
 
     const selectedCount = computed<number>(() => selectedSubmissionIds.value.size);
-    const visibleSelectionState = computed<TVisibleSubmissionSelectionState>(() =>
-        getVisibleSubmissionSelectionState(visibleSubmissionIds.value, selectedSubmissionIds.value)
+    const selectableSelectionState = computed<TVisibleSubmissionSelectionState>(() =>
+        getVisibleSubmissionSelectionState(selectableSubmissionIds.value, selectedSubmissionIds.value)
     );
     const ineligibleSelectedCount = computed<number>(() => {
+        const selectableIdSet = new Set(selectableSubmissionIds.value);
         let count = 0;
 
         for (const submissionId of selectedSubmissionIds.value) {
             const submission = submissionsById.value.get(submissionId);
-            if (submission === undefined || !isSubmissionBulkReviewEligible(submission)) count += 1;
+            if (submission !== undefined) {
+                if (!isSubmissionBulkReviewEligible(submission)) count += 1;
+                continue;
+            }
+            // ID dari halaman lain: server hanya mengirim ID yang eligible.
+            if (!selectableIdSet.has(submissionId)) count += 1;
         }
 
         return count;
@@ -94,11 +108,11 @@ export function useFormSubmissionBulkReview(options: IUseFormSubmissionBulkRevie
         return selectedSubmissionIds.value.has(submissionId);
     }
 
-    function setVisibleSelection(checked: TVisibleSubmissionSelectionState): void {
+    function setSelectableSelection(checked: TVisibleSubmissionSelectionState): void {
         if (checked === 'indeterminate') return;
 
         selectedSubmissionIds.value = setVisibleSubmissionSelection(
-            visibleSubmissionIds.value,
+            selectableSubmissionIds.value,
             selectedSubmissionIds.value,
             checked
         );
@@ -227,7 +241,7 @@ export function useFormSubmissionBulkReview(options: IUseFormSubmissionBulkRevie
     return {
         selectedSubmissionIds,
         selectedCount,
-        visibleSelectionState,
+        selectableSelectionState,
         ineligibleSelectedCount,
         isSubmitting: submitting,
         actionStatus,
@@ -235,7 +249,7 @@ export function useFormSubmissionBulkReview(options: IUseFormSubmissionBulkRevie
         isConfirmOpen,
         pendingDecision,
         isSelected,
-        setVisibleSelection,
+        setSelectableSelection,
         setSubmissionSelection,
         clearSelection,
         requestBulkReview,

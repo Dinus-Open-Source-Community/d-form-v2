@@ -220,9 +220,7 @@ describe('formFillFields: field presentation helpers', () => {
             metadata: { builderType: 'image_upload', rules: { mimes: 'png, jpg', max_size: 2048 } },
         });
 
-        expect(formFieldFileHint(field)).toBe(
-            'Recommended: 1200 x 900 px (4:3) · Allowed: png, jpg · Max size: 2048 KB'
-        );
+        expect(formFieldFileHint(field)).toBe('Disarankan 1200 x 900 px (4:3) · PNG, JPG · Maks. 2 MB');
         expect(formFieldAcceptAttribute(field)).toBe('.png,.jpg');
         expect(formFieldAcceptAttribute(makeFormField({ name: 'plain' }))).toBeUndefined();
     });
@@ -239,7 +237,16 @@ describe('formFillFields: field presentation helpers', () => {
             },
         });
 
-        expect(formFieldFileHint(field)).toContain('Allowed: pdf, docx');
+        expect(formFieldFileHint(field)).toContain('PDF, DOCX');
+    });
+
+    it('writes the max size in the largest readable unit', () => {
+        const field = makeFormField({
+            name: 'documents',
+            metadata: { builderType: 'file_upload', rules: { mimes: 'pdf', max_size: 5120 } },
+        });
+
+        expect(formFieldFileHint(field)).toBe('PDF · Maks. 5 MB');
     });
 
     it('resolves display-only image sources and metadata text', () => {

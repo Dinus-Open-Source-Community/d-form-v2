@@ -4,14 +4,13 @@ import { useForm } from '@inertiajs/vue3';
 import { Check, Loader2, X } from 'lucide-vue-next';
 import { AuthField } from '@/components/core/field';
 import { AuthSubmitButton } from '@/components/core/button';
+import PasswordMatchHint from '@/components/core/PasswordMatchHint.vue';
+import PasswordStrengthMeter from '@/components/core/PasswordStrengthMeter.vue';
 import { store as register } from '@/actions/App/Http/Controllers/Auth/RegisterController';
 import { getFieldError } from '@/lib/error-message';
+import { PASSWORD_STRENGTH_HINT, passwordSubmitBlockerMessage } from '@/lib/passwordStrength';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { useEmailAvailability } from '@/hooks/useEmailAvailability';
-import type { IPasswordRule } from '@/types/auth';
-
-/** Jumlah segmen indikator kekuatan; level 0–4 dipetakan ke segmen terisi. */
-const STRENGTH_SEGMENT_TOTAL = 4;
 
 const props = defineProps<{ isActive: boolean }>();
 
@@ -33,33 +32,10 @@ const { status: emailStatus, message: emailMessage } = useEmailAvailability({
     enabled: isEffectEnabled,
 });
 
-const rules = computed<IPasswordRule[]>(() => [
-    { label: 'Minimal 8 karakter', met: form.password.length >= 8 },
-    { label: 'Huruf besar', met: /[A-Z]/.test(form.password) },
-    { label: 'Angka', met: /\d/.test(form.password) },
-]);
-
-/** Jumlah kriteria yang sudah terpenuhi. */
-const metRuleCount = computed<number>(() => rules.value.filter((rule) => rule.met).length);
-
-/** Segmen terisi: kosong = 0, sudah mengetik = 1, lalu +1 untuk tiap kriteria (maksimal 4). */
-const filledSegmentCount = computed<number>(() => {
-    if (form.password.length === 0) return 0;
-    return Math.min(STRENGTH_SEGMENT_TOTAL, metRuleCount.value + 1);
-});
-
-/** Indikator kecocokan hanya muncul setelah kolom konfirmasi diisi. */
-const isConfirmationFilled = computed<boolean>(() => form.password_confirmation.length > 0);
-
-const doPasswordsMatch = computed<boolean>(() => form.password === form.password_confirmation);
-
 function submit(): void {
-    if (form.password.length < 8) {
-        showErrorToast('Password must be at least 8 characters.');
-        return;
-    }
-    if (form.password !== form.password_confirmation) {
-        showErrorToast('Password does not match');
+    const blockerMessage = passwordSubmitBlockerMessage(form.password, form.password_confirmation);
+    if (blockerMessage !== null) {
+        showErrorToast(blockerMessage);
         return;
     }
 
@@ -144,27 +120,11 @@ function submit(): void {
             />
 
             <!-- Indikator kekuatan selalu tampil: 4 segmen terisi kiri→kanan + satu baris aturan. -->
-            <div class="space-y-2">
-                <div
-                    class="flex gap-1.5"
-                    role="progressbar"
-                    aria-label="Kekuatan kata sandi"
-                    aria-describedby="register-password-hint"
-                    aria-valuemin="0"
-                    :aria-valuemax="STRENGTH_SEGMENT_TOTAL"
-                    :aria-valuenow="filledSegmentCount"
-                >
-                    <span
-                        v-for="segment in STRENGTH_SEGMENT_TOTAL"
-                        :key="segment"
-                        class="h-1 flex-1 rounded-full transition-colors duration-300 ease-out"
-                        :class="segment <= filledSegmentCount ? 'bg-success' : 'bg-muted'"
-                    />
-                </div>
-                <p id="register-password-hint" class="text-muted-foreground text-xs">
-                    Minimal 8 karakter dengan huruf besar dan angka.
-                </p>
-            </div>
+            <PasswordStrengthMeter
+                :password="form.password"
+                hint-id="register-password-hint"
+                :hint="PASSWORD_STRENGTH_HINT"
+            />
 
             <div class="space-y-1.5">
                 <AuthField
@@ -179,18 +139,7 @@ function submit(): void {
                     :focus="false"
                 />
 
-                <!-- Live region selalu ada agar perubahan status kecocokan diumumkan screen reader. -->
-                <div class="min-h-5" aria-live="polite" aria-atomic="true">
-                    <p
-                        v-if="isConfirmationFilled"
-                        class="flex items-center gap-1.5 text-[11px] font-medium"
-                        :class="doPasswordsMatch ? 'text-success' : 'text-destructive'"
-                    >
-                        <Check v-if="doPasswordsMatch" class="size-3.5 shrink-0" :stroke-width="3" aria-hidden="true" />
-                        <X v-else class="size-3.5 shrink-0" :stroke-width="3" aria-hidden="true" />
-                        {{ doPasswordsMatch ? 'Kata sandi cocok' : 'Kata sandi belum cocok' }}
-                    </p>
-                </div>
+                <PasswordMatchHint :password="form.password" :confirmation="form.password_confirmation" />
             </div>
 
             <AuthSubmitButton :form="form">

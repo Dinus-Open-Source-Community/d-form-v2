@@ -124,10 +124,7 @@ function fieldRows(page: Page): Locator {
 }
 
 function canvasForTitle(page: Page): Locator {
-    return page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    return page.getByTestId('form-builder-canvas');
 }
 
 /** Tambah field dari palette lewat pencarian + drag (jalur desktop). */
@@ -183,7 +180,7 @@ test.describe('builder tanpa crypto.randomUUID (HTTP LAN)', () => {
 
         // 4. Dropdown + opsi: field baru, opsi default factory, lalu opsi tambahan FieldEditor.
         await addPaletteField(page, 'Dropdown', 'Dropdown');
-        await fieldRows(page).last().getByRole('button', { name: 'Kelola opsi' }).click();
+        await fieldRows(page).last().getByRole('button', { name: /^Ubah field/ }).click();
         await page.getByRole('button', { name: 'Tambah opsi' }).click();
 
         // Payload final harus memuat 4 field dan dropdown dengan 2 opsi.

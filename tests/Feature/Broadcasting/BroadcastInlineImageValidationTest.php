@@ -13,29 +13,12 @@ use Tests\TestCase;
 
 /**
  * Validasi unggahan inline image editor broadcast.
- * Modul broadcast nonaktif secara default (`FEATURE_BROADCAST=false`), jadi flag
- * dinyalakan sebelum app boot agar route ikut terdaftar — hanya untuk test ini.
+ * Modul broadcast nonaktif secara default (`FEATURE_BROADCAST=false`); test env
+ * menyalakannya lewat `phpunit.xml` agar route ikut terdaftar saat boot.
  */
 class BroadcastInlineImageValidationTest extends TestCase
 {
     use RefreshDatabase;
-
-    public static function setUpBeforeClass(): void
-    {
-        parent::setUpBeforeClass();
-
-        $_SERVER['FEATURE_BROADCAST'] = 'true';
-        $_ENV['FEATURE_BROADCAST'] = 'true';
-        putenv('FEATURE_BROADCAST=true');
-    }
-
-    public static function tearDownAfterClass(): void
-    {
-        unset($_SERVER['FEATURE_BROADCAST'], $_ENV['FEATURE_BROADCAST']);
-        putenv('FEATURE_BROADCAST');
-
-        parent::tearDownAfterClass();
-    }
 
     protected function setUp(): void
     {

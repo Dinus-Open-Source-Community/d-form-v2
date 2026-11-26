@@ -9,8 +9,6 @@ final class EventCache
 {
     public const BUSTER_LIST = 'events:list:cache:buster';
 
-    public const BUSTER_CATEGORY = 'events:category:cache:buster';
-
     public const BUSTER_STATS = 'events:stats:cache:buster';
 
     /** Khusus agregat jumlah pendaftar; registrasi tidak boleh membuang statistik event. */

@@ -37,7 +37,7 @@ class EventManagementTest extends TestCase
 
         $this->actingAs($member)
             ->get(route('dashboard.events.index'))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard.user.events'));
     }
 
     public function test_member_can_view_joined_events_portal(): void
@@ -105,9 +105,10 @@ class EventManagementTest extends TestCase
                     ->component('Dashboard/User/Events')
                     ->has('events', 1)
                     ->where('events.0.id', $event->id)
-                    ->has('pagination.links')
-                    ->where('pagination.currentPage', null)
-                    ->where('pagination.hasMore', false)
+                    ->where('pagination.currentPage', 1)
+                    ->where('pagination.lastPage', 1)
+                    ->where('pagination.total', 1)
+                    ->where('pagination.perPage', 8)
                     ->where('filters.category', 'rkt')
                     ->where('filters.session', 'general')
                     ->where('listMode', 'browse')
@@ -206,7 +207,7 @@ class EventManagementTest extends TestCase
         $this->post(route('auth.login.store'), [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect(route('dashboard', absolute: false));
+        ])->assertRedirect(route('dashboard.user.events', absolute: false));
     }
 
     public function test_admin_can_view_events_index(): void

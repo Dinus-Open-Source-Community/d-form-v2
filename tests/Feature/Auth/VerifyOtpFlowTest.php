@@ -44,7 +44,7 @@ class VerifyOtpFlowTest extends TestCase
         $this->withSession(['otp.pending_email' => 'auto-verify@example.test'])
             ->postJson(route('auth.otp.verify'), ['code' => $code])
             ->assertOk()
-            ->assertJson(['verified' => true, 'redirect' => route('dashboard', absolute: false)]);
+            ->assertJson(['verified' => true, 'redirect' => route('dashboard.user.events', absolute: false)]);
 
         $this->assertAuthenticated();
     }
@@ -57,7 +57,7 @@ class VerifyOtpFlowTest extends TestCase
         $this->withSession($this->pendingSession());
 
         $this->post(route('auth.otp.verify'), ['code' => $code])
-            ->assertRedirect(route('dashboard'))
+            ->assertRedirect(route('dashboard.user.events'))
             ->assertSessionMissing('otp.pending_email')
             ->assertSessionMissing('otp.cancel_token');
 
@@ -135,7 +135,7 @@ class VerifyOtpFlowTest extends TestCase
         $this->post(route('auth.otp.verify'), [
             'email' => 'penyerang@example.test',
             'code' => $code,
-        ])->assertRedirect(route('dashboard'));
+        ])->assertRedirect(route('dashboard.user.events'));
 
         $this->assertAuthenticatedAs(User::query()->where('email', self::EMAIL)->firstOrFail());
         $this->assertDatabaseMissing('users', ['email' => 'penyerang@example.test']);

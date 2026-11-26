@@ -1,41 +1,31 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { computed, onMounted } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import DeferredRender from '@/components/core/DeferredRender.vue';
 import KpiCard from '@/components/modules/dashboard/KpiCard.vue';
 import RecentEventsCard from '@/components/modules/dashboard/RecentEventsCard.vue';
-import { CalendarCheck2, CalendarDays, Gauge, UsersRound } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, CalendarCheck2, CalendarDays, Gauge, UsersRound } from 'lucide-vue-next';
 import { setTopbar } from '@/hooks/useDashboardTopbar';
 import { routes } from '@/lib/routes';
 import type { IWeeklyKpiTrends } from '@/types/kpi';
 
 defineOptions({ layout: DashboardLayout });
 
-// Chart.js + vue-chartjs hanya diunduh saat bagian analitik mendekati viewport.
-const RegistrationChart = defineAsyncComponent(() => import('@/components/modules/dashboard/RegistrationChart.vue'));
-const CategoryChart = defineAsyncComponent(() => import('@/components/modules/dashboard/CategoryChart.vue'));
-
 const props = defineProps<{
     recentEvents: IEvent[];
+    canCreateEvent: boolean;
     stats: {
         totalEvents: number;
         activeEvents: number;
         totalRegistrants: number;
         completionRate: number;
     };
-    adminCharts?: {
-        registrationTrend: { key: string; label: string; count: number }[];
-        categoryBreakdown: { token: string; count: number }[];
-    } | null;
     weeklyKpiTrends: IWeeklyKpiTrends;
 }>();
 
 const events = computed(() => props.recentEvents);
-const registrationPoints = computed(
-    () => props.adminCharts?.registrationTrend.map(({ label, count }) => ({ label, count })) ?? []
-);
-const categoryBreakdown = computed(() => props.adminCharts?.categoryBreakdown ?? []);
+const createEventHref = computed<string | null>(() => (props.canCreateEvent ? routes.admin.events.create : null));
 
 const totalEvents = computed(() => props.stats.totalEvents);
 const activeEvents = computed(() => props.stats.activeEvents);
@@ -86,23 +76,27 @@ onMounted(() => {
             </div>
         </section>
 
-        <section class="space-y-4">
-            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Aktivitas terbaru</h2>
-            <RecentEventsCard
-                :events="events"
-                :view-all-href="routes.admin.events.index"
-                :event-base-href="routes.admin.events.index"
-            />
-        </section>
-
-        <section v-if="adminCharts" class="space-y-4">
-            <h2 class="font-display text-foreground text-base font-bold tracking-tight">Analitik singkat</h2>
-            <DeferredRender min-height="20rem">
-                <div class="grid gap-5 lg:grid-cols-2">
-                    <RegistrationChart :points="registrationPoints" />
-                    <CategoryChart :breakdown="categoryBreakdown" />
+        <section class="space-y-4" data-testid="recent-events-section">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h2 class="font-display text-foreground text-base font-bold tracking-tight">Aktivitas terbaru</h2>
+                    <p class="text-muted-foreground mt-1 text-xs leading-snug">
+                        {{ events.length }} acara terbaru di workspace Anda
+                    </p>
                 </div>
-            </DeferredRender>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="app-focus-ring h-[44px] shrink-0 gap-1 self-start text-xs sm:h-8 sm:self-auto"
+                    as-child
+                >
+                    <Link :href="routes.admin.events.index">
+                        Lihat semua
+                        <ArrowRight class="size-3" :stroke-width="2.4" aria-hidden="true" />
+                    </Link>
+                </Button>
+            </div>
+            <RecentEventsCard :events="events" :create-event-href="createEventHref" />
         </section>
     </div>
 </template>

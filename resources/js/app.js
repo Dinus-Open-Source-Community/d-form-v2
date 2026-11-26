@@ -14,12 +14,8 @@ useAuthHistoryGuard();
 const lazyPageModules = import.meta.glob('./pages/**/*.vue');
 
 createInertiaApp({
-    progress: {
-        delay: 180,
-        color: '#FFD84D',
-        includeCSS: true,
-        showSpinner: false,
-    },
+    // Bar progres global diganti skeleton per halaman; aksi non-form memakai spinner lokal.
+    progress: false,
     resolve: (name) => {
         const pageModule = lazyPageModules[`./pages/${name}.vue`];
         if (!pageModule) throw new Error(`Halaman Inertia tidak ditemukan: ${name}`);

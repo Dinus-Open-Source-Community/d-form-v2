@@ -54,7 +54,7 @@ class FieldModifyRequest extends FormRequest
             [
                 // `present` (bukan `required`): array kosong adalah payload sah
                 // untuk menghapus field terakhir pada channel autosave fields.
-                'fields' => 'present|array',
+                'fields' => 'present|array|max:'.FormFieldsRequestValidation::MAX_FIELDS,
             ],
             FormFieldsRequestValidation::nestedFieldRules(),
         );
@@ -71,6 +71,7 @@ class FieldModifyRequest extends FormRequest
         return [
             'fields.present' => 'Please provide form fields to update.',
             'fields.array' => 'Form fields must be a valid list.',
+            'fields.max' => 'Maksimal '.FormFieldsRequestValidation::MAX_FIELDS.' field per form.',
         ];
     }
 

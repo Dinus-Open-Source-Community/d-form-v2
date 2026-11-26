@@ -11,6 +11,8 @@ use App\Jobs\SendRegistrationConfirmationJob;
 use App\Jobs\SendTeamInvitationLeaderNoticeJob;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Services\Du\DuCourseFieldService;
+use App\Services\Du\DuCourseRepository;
 use App\Services\Form\RulesBuilder;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
@@ -34,6 +36,8 @@ class TeamInvitationController extends Controller
         private EventRegistrationCounter $registrationCounter,
         private FormAnswerFileStorage $formAnswerFiles,
         private FormAnswerInputMapper $formAnswerInputMapper,
+        private DuCourseFieldService $duCourseFieldService,
+        private DuCourseRepository $duCourses,
     ) {
     }
 
@@ -63,7 +67,7 @@ class TeamInvitationController extends Controller
         $form->loadMissing(['formFields' => fn ($q) => $q->orderBy('order'), 'event']);
 
         $fields = $form->formFields
-            ->map(fn (FormField $f) => $this->fieldToInertia($f))
+            ->map(fn (FormField $f) => $this->duCourseFieldService->applyOptions($this->fieldToInertia($f)))
             ->values()
             ->all();
 
@@ -182,6 +186,16 @@ class TeamInvitationController extends Controller
         $rawRules     = RulesBuilder::extractRulesFromFields($appendableFields);
         $laravelRules = RulesBuilder::build($rawRules);
         $laravelRules = $this->relaxFileRulesWhenPathExists($appendableFields, $laravelRules, $answers);
+
+        // Field sistem D-Kelas tidak membawa `rules.in`, jadi pilihan kelas anggota
+        // divalidasi terhadap katalog aktif di boundary ini; judul yang sah tersimpan
+        // di answers anggota dan diresolusi ke UID saat issuance. Form yang memilih
+        // subset course hanya menerima nilai dari subset itu.
+        if (in_array('du_course_uid', $names, true)) {
+            $allowedCourses = $this->duCourseFieldService->selectableValues($form)
+                ?? $this->duCourses->activeSelectableValues();
+            $laravelRules['du_course_uid'] = ['required', 'string', Rule::in($allowedCourses)];
+        }
 
         $validator = Validator::make(
             array_merge($request->only($names), $request->allFiles()),

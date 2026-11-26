@@ -6,7 +6,6 @@ use App\Enums\EventStatus;
 use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormField;
-use App\Services\Event\EventCategoryCounter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,18 +20,15 @@ class EventObserverCascadeQueryTest extends TestCase
 
     /**
      * Batas atas query per operasi penuh `$event->delete()`/`$event->restore()`:
-     * baris event, update agregat kategori, dan dua statement cascade — bukan hanya cascade.
-     * Nilai harus tetap sama untuk 1 maupun 500 field.
+     * baris event dan statement cascade — bukan hanya cascade. Nilai batas diambil
+     * dari pengukuran (delete 3, restore 4) dan harus tetap sama untuk 1 maupun 500 field.
      */
-    private const MAX_QUERIES_PER_OPERATION = 8;
+    private const MAX_QUERIES_PER_OPERATION = 4;
 
     public function test_query_count_is_constant_regardless_of_field_volume(): void
     {
         $small = $this->createEventWithChildren(1, 1);
         $large = $this->createEventWithChildren(25, 20);
-
-        // Buat agregat kategori deterministik sebelum pengukuran agar query counter sama.
-        app(EventCategoryCounter::class)->rebuild();
 
         $smallDelete = $this->queryCount(fn () => $small->delete());
         $smallRestore = $this->queryCount(fn () => $small->restore());
@@ -86,8 +82,6 @@ class EventObserverCascadeQueryTest extends TestCase
             'status' => EventStatus::Draft,
         ]);
 
-        app(EventCategoryCounter::class)->rebuild();
-
         $deleteQueries = $this->queryCount(fn () => $event->delete());
         $restoreQueries = $this->queryCount(fn () => $event->restore());
 
@@ -139,8 +133,6 @@ class EventObserverCascadeQueryTest extends TestCase
         $archivedForm->delete();
         DB::table('forms')->where('id', $archivedForm->id)->update(['deleted_at' => '2020-01-01 00:00:00']);
         DB::table('form_fields')->where('id', $archivedField->id)->update(['deleted_at' => '2020-01-01 00:00:00']);
-
-        app(EventCategoryCounter::class)->rebuild();
 
         $event->delete();
 

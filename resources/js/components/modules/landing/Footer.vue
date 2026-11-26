@@ -1,10 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import { Separator } from '@/components/ui/separator';
 import { DFORM_WORDMARK_SRC } from '@/lib/brand';
-import { routes } from '@/lib/routes';
+import { resolveDashboardHomeHref, routes } from '@/lib/routes';
+import { useAuth } from '@/hooks/useAuth';
 import { MapPin, Mail, Globe } from 'lucide-vue-next';
 
-const linkGroups = [
+const page = usePage();
+const user = useAuth(page.props);
+
+/** Tautan Dasbor mengikuti capability: peserta diarahkan ke portal `/joined`. */
+const dashboardHref = computed(() => resolveDashboardHomeHref(user.value?.can_manage_events === true));
+
+const linkGroups = computed(() => [
     {
         title: 'Platform',
         items: [
@@ -18,7 +27,7 @@ const linkGroups = [
         items: [
             { label: 'Masuk', href: routes.auth.login },
             { label: 'Buat akun', href: routes.auth.register },
-            { label: 'Dasbor', href: routes.dashboard.index },
+            { label: 'Dasbor', href: dashboardHref.value },
         ],
     },
     {
@@ -28,7 +37,7 @@ const linkGroups = [
             { label: 'Universitas Dian Nuswantoro', href: 'https://dinus.ac.id', external: true },
         ],
     },
-];
+]);
 
 const mapEmbedUrl =
     'https://maps.google.com/maps?q=Gedung+D+Universitas+Dian+Nuswantoro,+Jl.+Nakula+I+No.5-11,+Semarang&t=&z=17&ie=UTF8&iwloc=B&output=embed';
@@ -85,7 +94,7 @@ const mapEmbedUrl =
                     <div class="grid grid-cols-1 gap-6 min-[420px]:grid-cols-2 sm:grid-cols-3 md:gap-8 lg:grid-cols-3">
                         <div v-for="group in linkGroups" :key="group.title">
                             <p
-                                class="text-foreground/50 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4"
+                                class="text-foreground/70 mb-3 text-[0.75rem] font-semibold tracking-[0.14em] uppercase sm:mb-4"
                             >
                                 {{ group.title }}
                             </p>
@@ -128,7 +137,7 @@ const mapEmbedUrl =
                 <p class="text-muted-foreground text-[0.75rem] leading-relaxed">
                     &copy; {{ new Date().getFullYear() }} DForm — Doscom, Universitas Dian Nuswantoro
                 </p>
-                <p class="text-muted-foreground/60 text-[0.75rem] leading-relaxed">Semarang, Indonesia</p>
+                <p class="text-muted-foreground text-[0.75rem] leading-relaxed">Semarang, Indonesia</p>
             </div>
         </div>
     </footer>

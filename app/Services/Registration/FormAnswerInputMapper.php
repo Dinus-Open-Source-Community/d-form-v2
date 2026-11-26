@@ -44,7 +44,9 @@ final class FormAnswerInputMapper
 
             if (! isset($duplicatable[$name])) {
                 foreach (array_keys($members) as $index) {
-                    $members[$index][$name] = $leader[$name];
+                    $members[$index][$name] = $name === 'du_course_uid'
+                        ? $this->valueFor($validated, $field, $form, BundleSubmissionRules::slotInputName($name, $index))
+                        : $leader[$name];
                 }
 
                 continue;

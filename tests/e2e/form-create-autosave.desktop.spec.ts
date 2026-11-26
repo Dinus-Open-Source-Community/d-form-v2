@@ -96,9 +96,6 @@ function saveButton(page: Page): Locator {
     return page.getByRole('button', { name: 'Save Form' });
 }
 
-function fieldLabelInput(page: Page): Locator {
-    return page.locator('input[placeholder^="Label pertanyaan"]').first();
-}
 
 /** Tambah satu field Short Text dari palette (drag diulang sekali bila drop tidak sampai). */
 async function addShortTextField(page: Page): Promise<void> {
@@ -108,10 +105,7 @@ async function addShortTextField(page: Page): Promise<void> {
     await expect(shortText).toBeVisible();
 
     const fieldRows = page.locator('.fb-field-row');
-    const canvas = page
-        .locator('section')
-        .filter({ has: page.locator('#f-title') })
-        .first();
+    const canvas = page.getByTestId('form-builder-canvas');
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
         await shortText.dragTo(canvas, { targetPosition: { x: 40, y: 60 }, timeout: 20_000 });
@@ -223,7 +217,7 @@ test.describe('create form: autosave draf + publish', () => {
             await waitForHydration(page);
 
             await expect(page.locator('#f-title')).toHaveValue('Form Autosave E2E');
-            await expect(fieldLabelInput(page)).toHaveValue('Short Text');
+            await expect(page.locator('[data-testid="field-card"]').first()).toContainText('Short Text');
             await page.waitForTimeout(1_500);
             expect(writesAfterReload, 'hidrasi tidak boleh memicu autosave baru').toEqual([]);
 

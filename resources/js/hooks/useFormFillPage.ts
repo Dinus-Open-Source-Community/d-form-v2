@@ -1,4 +1,5 @@
 import { readFieldMetadata } from '@/lib/formFieldMetadata';
+import { findElement } from '@/adapters/browser/domQuery';
 import {
     formFieldAcceptAttribute,
     formFieldAnswerKey,
@@ -18,6 +19,7 @@ import { useFormFillData } from '@/hooks/useFormFillData';
 import { useFormFillSubmit } from '@/hooks/useFormFillSubmit';
 import { useFormFillUpload } from '@/hooks/useFormFillUpload';
 import { useFormFillValidation } from '@/hooks/useFormFillValidation';
+import { computed, nextTick, watch } from 'vue';
 import type { IFormFillPageEvent, IFormFillPageForm, TFormAccessStatus } from '@/types/form';
 
 export interface IFormFillPageOptions {
@@ -29,6 +31,7 @@ export interface IFormFillPageOptions {
     accessMessage: string;
     memberSlots: number;
     registrationMode: string;
+    referralEnabled?: boolean;
 }
 
 /**
@@ -46,6 +49,17 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         accessMessage: props.accessMessage,
         memberSlots: props.memberSlots,
         registrationMode: props.registrationMode,
+    });
+    data.answerForm.referral_code = '';
+
+    const referralCode = computed<string>({
+        get: () => {
+            const value = data.answerForm.referral_code;
+            return typeof value === 'string' ? value : '';
+        },
+        set: (value: string) => {
+            data.answerForm.referral_code = value;
+        },
     });
 
     const validation = useFormFillValidation({
@@ -65,6 +79,40 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         isBlocked: data.isBlocked,
     });
 
+    let focusErrorCardOnNextValidationError = false;
+
+    /**
+     * Fokus ke kartu pertama yang punya error validasi (bukan ke input) supaya peserta
+     * langsung melihat bagian yang gagal tanpa keyboard muncul di mobile.
+     */
+    function focusFirstErrorCard(): void {
+        const errorCard = findElement('[data-field-error-card]');
+        if (errorCard === null) return;
+
+        errorCard.focus({ preventScroll: true });
+        errorCard.scrollIntoView({ block: 'center' });
+    }
+
+    /** Submit lewat jalur yang sama dengan `submitter`, sambil menandai bahwa error berikutnya harus difokuskan. */
+    function submit(): void {
+        if (data.isBlocked.value) return;
+
+        focusErrorCardOnNextValidationError = true;
+        submitter.submit();
+    }
+
+    watch(
+        () => data.answerForm.errors,
+        (errors) => {
+            if (!focusErrorCardOnNextValidationError) return;
+            if (Object.keys(errors).length === 0) return;
+
+            focusErrorCardOnNextValidationError = false;
+            void nextTick(() => focusFirstErrorCard());
+        },
+        { deep: true, flush: 'post' }
+    );
+
     function isBundleDuplicatable(field: IFormField): boolean {
         return isBundleDuplicatableField(field, props.registrationMode);
     }
@@ -82,6 +130,8 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         metadata: readFieldMetadata,
         builderType: formFillBuilderType,
         registrationMode: data.registrationMode,
+        referralEnabled: props.referralEnabled ?? false,
+        referralCode,
         formBannerImageSrc: data.formBannerImageSrc,
         formBannerCaption: data.formBannerCaption,
         formHasDescription: data.formHasDescription,
@@ -114,7 +164,7 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         filePreviewUrls: upload.filePreviewUrls,
         multiFilePreviewUrls: upload.multiFilePreviewUrls,
         fileAnswerName: data.fileAnswerName,
-        submit: submitter.submit,
+        submit,
         submitProgress: submitter.progress,
         cancelSubmit: submitter.cancel,
         fieldError: validation.fieldError,

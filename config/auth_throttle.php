@@ -38,4 +38,24 @@ return [
         'max_attempts' => (int) env('AUTH_OTP_ADDRESS_MAX_ATTEMPTS', 5),
         'decay_minutes' => (int) env('AUTH_OTP_ADDRESS_DECAY_MINUTES', 60),
     ],
+    'verify_email_send' => [
+        'max_attempts' => (int) env('AUTH_VERIFY_EMAIL_SEND_MAX_ATTEMPTS', 5),
+        'decay_minutes' => (int) env('AUTH_VERIFY_EMAIL_SEND_DECAY_MINUTES', 10),
+    ],
+    'verify_email_confirm' => [
+        'max_attempts' => (int) env('AUTH_VERIFY_EMAIL_CONFIRM_MAX_ATTEMPTS', 10),
+        'decay_minutes' => (int) env('AUTH_VERIFY_EMAIL_CONFIRM_DECAY_MINUTES', 1),
+    ],
+    'two_factor_verify' => [
+        'max_attempts' => (int) env('AUTH_TWO_FACTOR_VERIFY_MAX_ATTEMPTS', 10),
+        'decay_minutes' => (int) env('AUTH_TWO_FACTOR_VERIFY_DECAY_MINUTES', 1),
+    ],
+    'two_factor_recovery' => [
+        'max_attempts' => (int) env('AUTH_TWO_FACTOR_RECOVERY_MAX_ATTEMPTS', 5),
+        'decay_minutes' => (int) env('AUTH_TWO_FACTOR_RECOVERY_DECAY_MINUTES', 10),
+    ],
+    'oauth_connection' => [
+        'max_attempts' => (int) env('AUTH_OAUTH_CONNECTION_MAX_ATTEMPTS', 10),
+        'decay_minutes' => (int) env('AUTH_OAUTH_CONNECTION_DECAY_MINUTES', 1),
+    ],
 ];

@@ -4,12 +4,13 @@ namespace App\Jobs;
 
 use App\Jobs\Concerns\AppliesOutgoingEmailDelay;
 use App\Jobs\Concerns\TracksOutgoingEmail;
-use App\Enums\EmailNotificationType;
 use App\Enums\FormAnswerReviewStatus;
 use App\Enums\RegistrationRole;
-use App\Mail\RegistrationConfirmationMail;
 use App\Models\FormAnswer;
+use App\Services\Form\FormSessionSchedule;
 use App\Services\Registration\FormAnswerRecipientResolver;
+use App\Services\Registration\FormReceiptContext;
+use App\Services\Registration\FormReceiptMailResolver;
 use App\Services\Registration\RegistrationAnswersSummarizer;
 use App\Services\Registration\RegistrationQrPngGenerator;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -33,7 +34,11 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         RegistrationAnswersSummarizer $summarizer,
         RegistrationQrPngGenerator $qrGenerator,
         FormAnswerRecipientResolver $recipientResolver,
+        ?FormReceiptMailResolver $mailResolver = null,
+        ?FormSessionSchedule $schedule = null,
     ): void {
+        $mailResolver ??= app(FormReceiptMailResolver::class);
+        $schedule ??= app(FormSessionSchedule::class);
         $submission = FormAnswer::query()
             ->with(['form.event', 'user'])
             ->find($this->formAnswerId);
@@ -49,12 +54,13 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         $recipientEmail = $recipientResolver->email($submission);
         $event = $submission->form->event;
 
+        $notificationType = $mailResolver->notificationType($submission->form);
         $logAttributes = [
             'form_answer_id' => $submission->id,
             'event_id' => $event->id,
             'user_id' => $recipientResolver->userIdForLog($submission),
             'recipient_email' => $recipientEmail ?? '',
-            'notification_type' => EmailNotificationType::RegistrationSubmitted,
+            'notification_type' => $notificationType,
         ];
 
         if ($recipientEmail === null || $recipientEmail === '') {
@@ -72,10 +78,15 @@ class SendRegistrationConfirmationJob implements ShouldQueue
         $isTeamOrBundleLeader = $submission->registration_role === RegistrationRole::Leader;
         $isAccepted = $submission->review_status === FormAnswerReviewStatus::Accepted;
 
-        // Only generate QR code for accepted submissions (except team/bundle leaders)
-        $qrPng = ($isTeamOrBundleLeader || ! $isAccepted)
-            ? null
-            : $qrGenerator->pngForSubmission($submission->id);
+        $isDKelas = $submission->form->purpose()->value === 'd_kelas';
+        $qrPng = $isDKelas || (! $isTeamOrBundleLeader && $isAccepted)
+            ? $qrGenerator->pngForSubmission($submission->id)
+            : null;
+        $context = new FormReceiptContext(
+            $answersSummary,
+            $qrPng,
+            $isDKelas ? $schedule->datesFor($submission->form) : [],
+        );
 
         $this->applyOutgoingEmailJitter();
 
@@ -87,7 +98,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
 
         try {
             Mail::to($recipientEmail)->send(
-                new RegistrationConfirmationMail($submission, $answersSummary, $qrPng)
+                $mailResolver->make($submission, $context)
             );
 
             $this->markEmailLogSent($log, $recipientEmail);
@@ -95,7 +106,7 @@ class SendRegistrationConfirmationJob implements ShouldQueue
             $this->markEmailLogFailed($log, $e);
 
             Log::error('[SendRegistrationConfirmationJob] Email send failed.', [
-                'notification_type' => EmailNotificationType::RegistrationSubmitted->value,
+                'notification_type' => $notificationType->value,
                 'form_answer_id' => $submission->id,
                 'event_id' => $event->id,
                 'delivery_key' => $this->deliveryKey,

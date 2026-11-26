@@ -17,6 +17,8 @@ class EventAttendance extends Model
     protected $fillable = [
         'event_id',
         'form_answer_id',
+        'form_session_id',
+        'attendance_slot',
         'scanned_by_user_id',
         'scanned_at',
     ];
@@ -36,6 +38,11 @@ class EventAttendance extends Model
     public function formAnswer(): BelongsTo
     {
         return $this->belongsTo(FormAnswer::class);
+    }
+
+    public function formSession(): BelongsTo
+    {
+        return $this->belongsTo(FormSession::class);
     }
 
     public function scannedBy(): BelongsTo

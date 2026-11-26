@@ -10,8 +10,11 @@ use App\Models\Event;
 use App\Models\Form;
 use App\Models\FormAnswer;
 use App\Models\FormField;
+use App\Models\ReferralCode;
 use App\Models\User;
 use App\Services\Form\FormAccessGuard;
+use App\Services\Form\FormPriceService;
+use App\Services\Form\FormSubmissionLimit;
 use App\Services\Registration\BundleRegistrationSubmitter;
 use App\Services\Registration\EventRegistrationCounter;
 use App\Services\Registration\FormAnswerWriter;
@@ -20,6 +23,8 @@ use App\Services\Registration\FormSubmissionContext;
 use App\Services\Registration\FormSubmissionOrchestrator;
 use App\Services\Registration\FormSubmissionRules;
 use App\Services\Registration\TeamRegistrationSubmitter;
+use App\Services\Form\ReferralRedemptionContext;
+use App\Services\Form\ReferralRedemptionService;
 use App\Support\SecretAnswerInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,14 +41,19 @@ class FormSubmissionController extends Controller
         private FormAnswerWriter $formAnswerWriter,
         private FormSubmissionOrchestrator $formSubmissionOrchestrator,
         private FormAnswerFileStorage $formAnswerFileStorage,
+        private ReferralRedemptionService $referralRedemptionService,
+        private FormPriceService $formPriceService,
     ) {
     }
 
     public function __invoke(Request $request, Event $event, Form $form): RedirectResponse
     {
-        abort_unless($form->event_id === $event->id, 404);
-
         $user = $request->user();
+        if ($user === null) {
+            return app(GuestFormSubmissionController::class)($request, $event, $form);
+        }
+
+        abort_unless($form->event_id === $event->id, 404);
         FormAccessGuard::assertEventAvailable($event, $user);
 
         $status = FormAccessGuard::check($form, $event, $user);
@@ -95,6 +105,7 @@ class FormSubmissionController extends Controller
         $answers = $payload->answers;
         $participantEmails = $payload->participantEmails;
         $resolvedGuestIdsByEmail = $payload->resolvedGuestIdsByEmail;
+        $referralCode = $payload->referralCode;
 
         $isAdmin = $user->can('events.list');
 
@@ -112,6 +123,7 @@ class FormSubmissionController extends Controller
                     $user,
                     $isAdmin,
                     $resolvedGuestIdsByEmail,
+                    $referralCode,
                 );
             } catch (ValidationException $exception) {
                 $this->formAnswerFileStorage->discardMappedUploads($form, $answers);
@@ -131,6 +143,7 @@ class FormSubmissionController extends Controller
                 $user,
                 $isAdmin,
                 SecretAnswerInput::flashable($request, $fields, 0),
+                $referralCode,
             );
         }
 
@@ -147,15 +160,23 @@ class FormSubmissionController extends Controller
         }
 
         try {
-            $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin): FormAnswer {
+            $submission = DB::transaction(function () use ($answers, $form, $user, $event, $isAdmin, $referralCode): FormAnswer {
                 $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
 
                 if ($lockedEvent === null) {
                     throw new \RuntimeException('Event not found.');
                 }
 
+                $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+
+                if ($lockedForm === null) {
+                    throw new \RuntimeException('Form not found.');
+                }
+
+                $resolvedReferralCode = $this->referralRedemptionService->resolveLocked($lockedForm, $referralCode);
+
                 if (FormAnswer::query()
-                    ->where('form_id', $form->id)
+                    ->where('form_id', $lockedForm->id)
                     ->where('user_id', $user->id)
                     ->excludeRejectedSubmissions()
                     ->lockForUpdate()
@@ -169,11 +190,24 @@ class FormSubmissionController extends Controller
 
                 $submission = $this->formAnswerWriter->create([
                     'answers' => $answers['leader'],
-                    'form_id' => $form->id,
+                    'form_id' => $lockedForm->id,
                     'user_id' => (string) $user->id,
                 ]);
 
                 $this->registrationCounter->reserveLocked($lockedEvent, 1);
+
+                if ($resolvedReferralCode !== null) {
+                    $this->redeemReferral(
+                        $lockedForm,
+                        $resolvedReferralCode,
+                        $submission,
+                        null,
+                        $this->participantName($answers['leader'], $user->name),
+                        $user->email,
+                    );
+                }
+
+                $this->snapshotPrice($lockedForm, $submission, [], $resolvedReferralCode);
 
                 return $submission;
             });
@@ -196,29 +230,23 @@ class FormSubmissionController extends Controller
     }
 
     /**
-     *
-     * Non-registration forms: single submission, no quota / confirmation email.
+     * Non-registration forms use the configured total active-submission limit.
      *
      * @param  array<string, mixed>  $answers
-     *
      */
     private function submitOtherForm(array $answers, Form $form, User $user, Event $event): RedirectResponse
     {
         DB::transaction(function () use ($answers, $form, $user): void {
-            if (FormAnswer::query()
-                ->where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->excludeRejectedSubmissions()
-                ->lockForUpdate()
-                ->exists()) {
-                throw ValidationException::withMessages([
-                    'form' => __('You have already submitted this form.'),
-                ]);
+            $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+            if ($lockedForm === null) {
+                throw new \RuntimeException('Form not found.');
             }
+
+            FormSubmissionLimit::assertAvailable($lockedForm, $user);
 
             $this->formAnswerWriter->create([
                 'answers' => $answers,
-                'form_id' => $form->id,
+                'form_id' => $lockedForm->id,
                 'user_id' => (string) $user->id,
             ]);
         });
@@ -246,17 +274,56 @@ class FormSubmissionController extends Controller
         User $leaderUser,
         bool $isAdmin,
         ?array $resolvedGuestIdsByEmail,
+        ?string $referralCode,
     ): RedirectResponse {
-        $result = $this->bundleRegistrationSubmitter->submit(
+        $result = DB::transaction(function () use (
             $form,
             $event,
             $leaderUser,
-            $answers['leader'],
-            $answers['members'],
+            $answers,
             $memberEmails,
             $isAdmin,
             $resolvedGuestIdsByEmail,
-        );
+            $referralCode,
+        ): array {
+            $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
+            if ($lockedEvent === null) {
+                throw new \RuntimeException('Event not found.');
+            }
+
+            $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+            if ($lockedForm === null) {
+                throw new \RuntimeException('Form not found.');
+            }
+
+            $resolvedReferralCode = $this->referralRedemptionService->resolveLocked($lockedForm, $referralCode);
+            $result = $this->bundleRegistrationSubmitter->submit(
+                $form,
+                $event,
+                $leaderUser,
+                $answers['leader'],
+                $answers['members'],
+                $memberEmails,
+                $isAdmin,
+                $resolvedGuestIdsByEmail,
+            );
+
+            if ($resolvedReferralCode !== null) {
+                $this->redeemReferral(
+                    $lockedForm,
+                    $resolvedReferralCode,
+                    $result['leader'],
+                    $result['leader']->group_token,
+                    $this->participantName($answers['leader'], $leaderUser->name),
+                    $leaderUser->email,
+                    $this->bundleReferralMembers($result['members'], $memberEmails),
+                );
+            }
+
+            $this->snapshotPrice($lockedForm, $result['leader'], $result['members'], $resolvedReferralCode);
+
+            return $result;
+        });
 
         SendRegistrationConfirmationJob::dispatch($result['leader']->id)->afterCommit();
 
@@ -291,6 +358,7 @@ class FormSubmissionController extends Controller
         User $leaderUser,
         bool $isAdmin,
         array $flashableInput,
+        ?string $referralCode,
     ): RedirectResponse {
         $memberUsers = [];
         $usersByEmail = User::resolveByNormalizedEmails($memberEmails);
@@ -310,14 +378,51 @@ class FormSubmissionController extends Controller
         }
 
         try {
-            $result = $this->teamRegistrationSubmitter->submit(
+            $result = DB::transaction(function () use (
                 $form,
                 $event,
                 $leaderUser,
                 $answers,
                 $memberUsers,
                 $isAdmin,
-            );
+                $referralCode,
+            ): array {
+                $lockedEvent = Event::query()->lockForUpdate()->find($event->id);
+                if ($lockedEvent === null) {
+                    throw new \RuntimeException('Event not found.');
+                }
+
+                $lockedForm = Form::query()->lockForUpdate()->find($form->id);
+                if ($lockedForm === null) {
+                    throw new \RuntimeException('Form not found.');
+                }
+
+                $resolvedReferralCode = $this->referralRedemptionService->resolveLocked($lockedForm, $referralCode);
+                $result = $this->teamRegistrationSubmitter->submit(
+                    $form,
+                    $event,
+                    $leaderUser,
+                    $answers,
+                    $memberUsers,
+                    $isAdmin,
+                );
+
+                if ($resolvedReferralCode !== null) {
+                    $this->redeemReferral(
+                        $lockedForm,
+                        $resolvedReferralCode,
+                        $result['leader'],
+                        null,
+                        $this->participantName($answers, $leaderUser->name),
+                        $leaderUser->email,
+                        $this->userReferralMembers($memberUsers),
+                    );
+                }
+
+                $this->snapshotPrice($lockedForm, $result['leader'], $result['members'], $resolvedReferralCode);
+
+                return $result;
+            });
         } catch (ValidationException $exception) {
             $this->formAnswerFileStorage->discardMappedUploads($form, $answers);
 
@@ -344,6 +449,13 @@ class FormSubmissionController extends Controller
         return $this->successRedirect($leaderUser, $event, $form);
     }
 
+    /** @param iterable<FormAnswer> $members */
+    private function snapshotPrice(Form $form, FormAnswer $leader, iterable $members, ?ReferralCode $code): void
+    {
+        $quote = $this->formPriceService->quote($this->formPriceService->basePrice($form), $code);
+        $this->formPriceService->snapshot($leader, $members, $quote, $code);
+    }
+
     private function fillRedirect(Event $event, Form $form): RedirectResponse
     {
         return redirect()->route('dashboard.events.forms.fill', ['event' => $event, 'form' => $form]);
@@ -356,6 +468,60 @@ class FormSubmissionController extends Controller
         }
 
         return $teamSize - 1;
+    }
+
+    /** @param array<string, mixed> $answers */
+    private function participantName(array $answers, string $fallback): ?string
+    {
+        $name = $answers['full_name'] ?? null;
+
+        return is_string($name) && trim($name) !== '' ? $name : $fallback;
+    }
+
+    /** @param list<User> $users @return list<array{name: string|null, email: string|null}> */
+    private function userReferralMembers(array $users): array
+    {
+        return array_map(static fn (User $user): array => [
+            'name' => $user->name,
+            'email' => $user->email,
+        ], $users);
+    }
+
+    /** @param list<FormAnswer> $answers @param list<string> $emails @return list<array{name: string|null, email: string|null}> */
+    private function bundleReferralMembers(array $answers, array $emails): array
+    {
+        $members = [];
+
+        foreach ($answers as $index => $answer) {
+            $name = is_array($answer->answers) ? ($answer->answers['full_name'] ?? null) : null;
+            $members[] = [
+                'name' => is_string($name) ? $name : null,
+                'email' => $emails[$index] ?? null,
+            ];
+        }
+
+        return $members;
+    }
+
+    /** @param list<array{name: string|null, email: string|null}> $members */
+    private function redeemReferral(
+        Form $form,
+        ReferralCode $code,
+        FormAnswer $answer,
+        ?string $groupToken,
+        ?string $participantName,
+        ?string $participantEmail,
+        array $members = [],
+    ): void {
+        $this->referralRedemptionService->redeem(new ReferralRedemptionContext(
+            form: $form,
+            code: $code,
+            answer: $answer,
+            groupToken: $groupToken,
+            participantName: $participantName,
+            participantEmail: $participantEmail,
+            members: $members,
+        ));
     }
 
     /** Only land on the event page when the policy actually allows it; otherwise a non-owner organizer would hit a 403 right after a successful submit. */

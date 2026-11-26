@@ -3,6 +3,7 @@ import FieldEditor from '@/components/modules/builder/FieldEditor.vue';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import type { IBuilderField } from '@/types/form-builder';
+import type { TFormPurpose } from '@/types/form';
 import { computed, ref } from 'vue';
 
 const open = defineModel<boolean>('open', { required: true });
@@ -12,8 +13,13 @@ const props = withDefaults(
         field: IBuilderField | null;
         /** Endpoint `POST {form}/images` untuk upload gambar blok/opsi. */
         uploadUrl?: string;
+        /** Tujuan form; D-Kelas tidak menampilkan toggle redeem field kustom. */
+        purpose?: TFormPurpose;
+        /** Field pemegang flag redeem DU; field lain diblokir. */
+        duOwnerId?: string | null;
+        duOwnerLabel?: string;
     }>(),
-    { uploadUrl: '' }
+    { uploadUrl: '', purpose: 'registration', duOwnerId: null, duOwnerLabel: '' }
 );
 
 defineEmits<{
@@ -42,12 +48,12 @@ const isChoiceType = computed(
 <template>
     <Sheet v-model:open="open">
         <SheetContent side="right" class="flex w-full flex-col p-0 sm:max-w-md" @open-auto-focus="onOpenAutoFocus">
-            <SheetHeader class="border-border bg-muted/30 shrink-0 border-b p-5 text-left">
+            <SheetHeader class="border-border shrink-0 border-b p-5 text-left">
                 <div ref="focusTarget" tabindex="-1" class="outline-none">
                     <SheetTitle class="font-display tracking-[-0.01em]">
                         {{ isChoiceType ? 'Kelola opsi' : 'Pengaturan field' }}
                     </SheetTitle>
-                    <SheetDescription>Customize the selected field.</SheetDescription>
+                    <SheetDescription>Ubah label, teks bantu, dan validasi field ini.</SheetDescription>
                 </div>
             </SheetHeader>
             <div class="bg-background flex-1 overflow-y-auto px-5 py-5">
@@ -55,11 +61,15 @@ const isChoiceType = computed(
                     v-if="field"
                     :field="field"
                     :upload-url="uploadUrl"
+                    :purpose="purpose"
+                    :du-owner-id="duOwnerId"
+                    :du-owner-label="duOwnerLabel"
+                    allow-du-integration
                     @update:field="$emit('updateField', $event)"
                 />
             </div>
-            <div class="border-border bg-muted/30 shrink-0 border-t p-4">
-                <Button class="h-11 w-full" @click="$emit('done')">Done</Button>
+            <div class="border-border shrink-0 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <Button class="h-11 w-full" @click="$emit('done')">Selesai</Button>
             </div>
         </SheetContent>
     </Sheet>

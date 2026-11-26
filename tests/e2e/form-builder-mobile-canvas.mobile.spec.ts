@@ -32,7 +32,7 @@ test.describe('kanvas builder mobile', () => {
         await openEditCanvas(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
         // Buka editor field (short text dari fixture).
-        await page.getByRole('button', { name: 'Pengaturan field' }).first().tap();
+        await page.getByRole('button', { name: /^Ubah field/ }).first().tap();
 
         const sheet = page.getByRole('dialog');
 
@@ -84,7 +84,7 @@ test.describe('kanvas builder mobile', () => {
             .getByRole('dialog')
             .getByRole('button', { name: /Long Text/ })
             .tap();
-        await page.getByRole('button', { name: 'Pengaturan field' }).last().tap();
+        await page.getByRole('button', { name: /^Ubah field/ }).last().tap();
 
         const longSheet = page.getByRole('dialog');
 

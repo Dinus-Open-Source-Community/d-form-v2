@@ -39,7 +39,7 @@ const advantages: Advantage[] = [
 <template>
     <section id="section-showcase" class="bg-muted/30 relative overflow-hidden py-24 md:py-32">
         <div
-            class="bg-primary/[0.04] pointer-events-none absolute top-1/2 -left-40 size-[500px] -translate-y-1/2 rounded-full blur-[120px]"
+            class="landing-glow-soft pointer-events-none absolute top-1/2 -left-40 size-[500px] -translate-y-1/2"
             aria-hidden="true"
         />
 

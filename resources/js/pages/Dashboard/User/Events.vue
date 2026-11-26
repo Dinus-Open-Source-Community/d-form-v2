@@ -2,13 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
-import EmptyState from '@/components/modules/dashboard/EmptyState.vue';
+import EmptyState from '@/components/core/EmptyState.vue';
 import EventCard from '@/components/modules/dashboard/events/EventCard.vue';
 import EventFilterBar from '@/components/modules/dashboard/events/EventFilterBar.vue';
 import AppPagination from '@/components/core/AppPagination.vue';
 import { Button } from '@/components/ui/button';
 import { FilterX } from 'lucide-vue-next';
-import { findCursorUrls, formatCompactNumber } from '@/lib/pagination';
+import { formatCompactNumber } from '@/lib/pagination';
 import { categoryLabelMap, sessionLabelMap } from '@/constants/eventDisplay';
 import { toCategoryList } from '@/lib/eventCategories';
 import { routes } from '@/lib/routes';
@@ -17,16 +17,11 @@ import { usePaginationNavigation } from '@/hooks/usePaginationNavigation';
 
 defineOptions({ layout: DashboardLayout });
 
-interface IEventPaginationLink {
-    url: string | null;
-    label: string;
-    active: boolean;
-}
-
 interface IEventPagination {
-    links: IEventPaginationLink[];
-    currentPage?: number | null;
-    hasMore: boolean;
+    currentPage: number;
+    lastPage: number;
+    total: number;
+    perPage: number;
 }
 
 interface IEventFilters {
@@ -49,7 +44,7 @@ const props = withDefaults(
     }>(),
     { listMode: 'browse', totalJoined: 0, truncated: false }
 );
-const { goToCursorUrl } = usePaginationNavigation();
+const { goToPage, changePerPage } = usePaginationNavigation();
 
 const filterCategory = ref(props.filters?.category ?? ALL_FILTER_VALUE);
 const filterSession = ref(props.filters?.session ?? ALL_FILTER_VALUE);
@@ -153,14 +148,9 @@ const filteredEvents = computed((): IEvent[] => {
     return list;
 });
 
-/** Paginasi simple (prev/next) hanya dirender bila backend mengirim minimal satu link. */
+/** Paginasi bernomor dari server; hanya dirender bila ada lebih dari satu halaman. */
 const shownPagination = computed((): IEventPagination | null =>
-    props.pagination !== undefined && props.pagination.links.length > 0 ? props.pagination : null
-);
-
-/** Cursor pagination: navigasi hanya lewat URL prev/next dari server. */
-const cursorUrls = computed((): { previous: string | null; next: string | null } =>
-    findCursorUrls(shownPagination.value?.links ?? [])
+    props.pagination !== undefined && props.pagination.lastPage > 1 ? props.pagination : null
 );
 
 /** Keterangan potongan daftar "diikuti"; hanya relevan saat server memotong. */
@@ -182,7 +172,12 @@ onMounted(() => {
 </script>
 
 <template>
-    <Head :title="headTitle" />
+    <Head :title="headTitle">
+        <meta
+            name="description"
+            content="Jelajahi acara terbuka DOSCOM dan lihat acara yang sudah Anda ikuti di DForm."
+        />
+    </Head>
 
     <div class="flex flex-col gap-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -217,7 +212,7 @@ onMounted(() => {
             />
         </div>
 
-        <EmptyState v-else :title="emptyTitle" :description="emptyDescription">
+        <EmptyState v-else kind="empty" :surface="false" :title="emptyTitle" :description="emptyDescription">
             <Link
                 v-if="!isBrowse"
                 :href="routes.member.browse"
@@ -231,11 +226,12 @@ onMounted(() => {
 
         <template v-if="shownPagination">
             <AppPagination
-                :current-page="shownPagination.currentPage ?? 1"
-                :prev-url="cursorUrls.previous"
-                :next-url="cursorUrls.next"
-                :per-page-options="[]"
-                @cursor-change="goToCursorUrl"
+                :current-page="shownPagination.currentPage"
+                :last-page="shownPagination.lastPage"
+                :total="shownPagination.total"
+                :per-page="shownPagination.perPage"
+                @page-change="goToPage"
+                @per-page-change="changePerPage"
             />
         </template>
     </div>

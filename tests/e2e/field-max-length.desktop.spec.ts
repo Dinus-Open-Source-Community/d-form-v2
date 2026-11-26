@@ -56,7 +56,7 @@ test.describe('Maks. karakter: data lama di luar batas', () => {
         await waitForHydration(page);
 
         // Palet kanvas: buka editor field (desktop memakai panel properti field).
-        await page.getByRole('button', { name: 'Pengaturan field' }).first().click();
+        await page.getByRole('button', { name: /^Ubah field/ }).first().click();
 
         const maxLength = page.getByPlaceholder('Tanpa batas');
 
@@ -86,7 +86,7 @@ test.describe('Maks. karakter: data lama di luar batas', () => {
         await expect(page.locator('#f-title')).toBeVisible({ timeout: 20_000 });
         await waitForHydration(page);
 
-        await page.getByRole('button', { name: 'Pengaturan field' }).first().click();
+        await page.getByRole('button', { name: /^Ubah field/ }).first().click();
         await expect(page.getByPlaceholder('Tanpa batas')).toHaveValue('');
 
         await page.keyboard.press('Escape');

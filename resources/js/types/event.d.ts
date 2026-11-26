@@ -2,8 +2,10 @@ import type {
     TBundleGroupReviewStatus,
     TFormAnswerReviewStatus,
     TMemberConfirmationStatus,
-    TRegistrantStatus,
 } from '@/types/registrationStatus';
+import type { IFormSession } from '@/types/form';
+import type { IDuSubmission } from '@/types/du';
+import type { ISubmissionReferral } from '@/types/referral';
 
 declare global {
     interface IEvent {
@@ -55,7 +57,9 @@ declare global {
         status?: 'draft' | 'published';
         is_draft?: boolean;
         registration_mode?: 'single' | 'bundle';
-        purpose?: 'registration' | 'other';
+        purpose?: 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
+        sessions?: IFormSession[];
+        hasSubmissions?: boolean;
     }
 
     type TFormFieldOptionType = 'text' | 'image';
@@ -74,6 +78,9 @@ declare global {
         | 'email'
         | 'phone'
         | 'number'
+        | 'nik'
+        | 'nim'
+        | 'postal_code'
         | 'time'
         | 'dropdown'
         | 'checkbox'
@@ -83,6 +90,7 @@ declare global {
         | 'date'
         | 'rating'
         | 'heading'
+        | 'price'
         | 'paragraph'
         | 'divider'
         | 'banner'
@@ -110,24 +118,6 @@ declare global {
         options?: IFormFieldOption[];
     }
 
-    interface IRegistrant {
-        id: string;
-        form_id: string;
-        form: { id: string; title: string };
-        user: {
-            id: string;
-            name: string;
-            email: string;
-            avatar: string | null;
-        };
-        event_id: string;
-        status: TRegistrantStatus;
-        submitted_at: string;
-        answers: Record<string, string>;
-        registration_code?: string | null;
-        reviewed_at?: string | null;
-    }
-
     interface IFormSubmission {
         id: string;
         user: { id: string; name: string; email: string; avatar?: string | null } | null;
@@ -140,6 +130,9 @@ declare global {
         registration_role?: 'leader' | 'member' | null;
         member_confirmation_status?: TMemberConfirmationStatus | null;
         group_token?: string | null;
+        referral?: ISubmissionReferral | null;
+        /** Status redeem DU per jawaban; `null` untuk form tanpa integrasi DU. */
+        du?: IDuSubmission | null;
     }
 
     interface IKpiCard {

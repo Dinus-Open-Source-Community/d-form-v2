@@ -307,7 +307,7 @@ class FormPurposePrerequisiteTest extends TestCase
         $this->assertSame(1, $event->registered_count);
     }
 
-    public function test_registration_picker_excludes_other_purpose_forms(): void
+    public function test_event_detail_registration_forms_exclude_other_purpose_forms(): void
     {
         $member = $this->member();
         $event = $this->openEvent();
@@ -315,14 +315,14 @@ class FormPurposePrerequisiteTest extends TestCase
         $feedback = $this->otherForm($event, $registration->id, ['title' => 'Feedback Hidden']);
 
         $this->actingAs($member)
-            ->get(route('dashboard.user.events.register', ['event_segment' => $event->slug], false))
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug], false))
             ->assertOk()
             ->assertInertia(
                 fn ($page) => $page
-                ->component('Dashboard/User/EventRegistrationPickForm')
-                ->has('forms', 1)
-                ->where('forms.0.id', $registration->id)
-                ->where('forms.0.title', 'Registration Only')
+                    ->component('Dashboard/User/EventDetail')
+                    ->has('registrationForms', 1)
+                    ->where('registrationForms.0.id', $registration->id)
+                    ->where('registrationForms.0.title', 'Registration Only')
             );
 
         $this->assertNotSame($feedback->id, $registration->id);

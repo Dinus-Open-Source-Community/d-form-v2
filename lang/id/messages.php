@@ -19,9 +19,26 @@ return [
         'restore' => [
             'success' => 'event berhasil dipulihkan',
             'failed' => 'gagal memulihkan event ini'
+        ],
+        'publish' => [
+            'success' => 'event berhasil dipublikasikan',
+            'incomplete' => 'lengkapi data wajib event sebelum mempublikasikan'
+        ],
+        'draft' => [
+            'success' => 'event dipindahkan ke draft'
+        ],
+        'force_delete' => [
+            'success' => 'event berhasil dihapus permanen',
+            'active' => 'hanya event terarsip yang dapat dihapus permanen'
+        ],
+        'archived' => [
+            'read_only' => 'event sedang diarsipkan; pulihkan dulu sebelum melakukan perubahan'
         ]
     ],
     'form' => [
+        'export' => [
+            'too_large' => 'Arsip terlalu besar. Unduh CSV atau kurangi jumlah jawaban.',
+        ],
         'create' => [
             'success' => 'berhasil membuat form baru',
             'failed' => 'gagal membuat form baru'

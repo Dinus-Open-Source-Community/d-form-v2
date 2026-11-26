@@ -35,13 +35,29 @@ export const ACTION_LABELS: Record<string, string> = {
     users: 'Pengguna',
     'check-email': 'Cek Email',
     scan: 'Scan',
-    registrants: 'Peserta',
-    laporan: 'Laporan',
     exports: 'Ekspor',
     'attendance-scan': 'Scan Kehadiran',
     create: 'Buat',
     edit: 'Ubah',
+    archived: 'Arsip',
+    periods: 'Periode',
+    applications: 'Pendaftar',
+    'interview-sessions': 'Sesi Interview',
+    'my-interviews': 'Interview Saya',
+    divisions: 'Divisi',
+    submissions: 'Jawaban',
+    'registration-status': 'Status Pendaftaran',
+    'activity-logs': 'Aktivitas',
+    reports: 'Laporan',
 };
+
+/** Sumber label tampilan yang hanya diketahui halaman (mis. UUID → nama entitas). */
+export interface IBreadcrumbOptions {
+    /** Peta segmen URL mentah → label tampilan. */
+    readonly segmentLabels?: Readonly<Record<string, string>>;
+    /** Halaman utama untuk crumb induk halaman di luar base path (mis. Profil). */
+    readonly homeHref?: string;
+}
 
 /**
  * Bangun breadcrumb yang benar-benar mengikuti segmen URL:
@@ -56,8 +72,17 @@ export const ACTION_LABELS: Record<string, string> = {
  *   tanpa period_id me-422 (filter wajib by-design), jadi bukan halaman nyata.
  *   Hapus permanen skip ini hanya bila index tanpa-filter mendarat.
  */
-export function buildBreadcrumbs(url: string, pageTitle: string): IBreadcrumbItem[] {
+export function buildBreadcrumbs(url: string, pageTitle: string, options: IBreadcrumbOptions = {}): IBreadcrumbItem[] {
     const path = pathWithoutQuery(url);
+
+    // Profil berada di luar base path, tetapi tetap milik halaman utama peran aktif.
+    if (path === routes.dashboard.profile && options.homeHref !== undefined) {
+        return [
+            { label: 'Beranda', href: options.homeHref },
+            { label: pageTitle, href: path },
+        ];
+    }
+
     const base = BASE_PATHS.find((b) => path === b.href || path.startsWith(`${b.href}/`));
 
     if (!base) {
@@ -85,10 +110,13 @@ export function buildBreadcrumbs(url: string, pageTitle: string): IBreadcrumbIte
         }
         prefix += `/${seg}`;
         const isLast = idx === rest.length - 1;
+        const entityLabel = options.segmentLabels?.[seg];
         const actionLabel = ACTION_LABELS[seg];
 
         let label: string;
-        if (actionLabel) {
+        if (entityLabel) {
+            label = entityLabel;
+        } else if (actionLabel) {
             label = actionLabel;
         } else if (isLast && pageTitle !== seg) {
             label = pageTitle;
@@ -107,4 +135,14 @@ export function buildBreadcrumbs(url: string, pageTitle: string): IBreadcrumbIte
     });
 
     return crumbs;
+}
+
+/** Href induk terdekat dari breadcrumb: crumb sebelum halaman aktif yang masih berupa link. */
+export function parentBreadcrumbHref(items: IBreadcrumbItem[]): string | null {
+    for (let idx = items.length - 2; idx >= 0; idx -= 1) {
+        const href = items[idx].href;
+        if (href !== null) return href;
+    }
+
+    return null;
 }

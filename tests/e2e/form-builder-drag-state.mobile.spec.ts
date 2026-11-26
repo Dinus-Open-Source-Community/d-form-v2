@@ -36,7 +36,7 @@ test.describe('builder drag state (mobile)', () => {
         // Grip reorder desktop disembunyikan di mobile; tidak ada drag HTML5 untuk sentuh.
         await expect(page.locator(GRIP).first()).toBeHidden();
 
-        const labels = page.locator('input[placeholder^="Label pertanyaan"]');
+        const labels = page.locator('[data-testid="field-card"]');
 
         await expect(labels).toHaveCount(1);
 

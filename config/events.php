@@ -55,11 +55,24 @@ return [
         /* Bulk review is bounded by selected IDs and additionally throttled per organizer/form. */
         'bulk_review_rate_limit_per_minute' => max(1, (int) env('FORMS_BULK_REVIEW_RATE_LIMIT_PER_MINUTE', 30)),
         /*
+         * Issuance manual kode redeem DU memanggil API DU: kuota per admin per submission
+         * supaya retry satu jawaban tidak memblokir jawaban lain.
+         */
+        'du_issuance_rate_limit_per_minute' => max(1, (int) env('FORMS_DU_ISSUANCE_RATE_LIMIT_PER_MINUTE', 10)),
+        /*
          * TTL URL bertanda tangan untuk berkas jawaban yang dikirim lewat email
          * atau CSV. Halaman web memakai route terautentikasi tanpa kedaluwarsa.
          */
         'upload_temporary_url_ttl_minutes' => max(1, (int) env('FORMS_UPLOAD_URL_TTL_MINUTES', 10080)),
         /* Batas unduhan berkas jawaban per user/IP per menit. */
         'file_download_rate_limit_per_minute' => max(1, (int) env('FORMS_FILE_DOWNLOAD_RATE_LIMIT_PER_MINUTE', 120)),
+        /*
+         * Export jawaban form (CSV/ZIP). ZIP menahan file sementara di disk dan
+         * menyalin semua lampiran, jadi batas jumlah file dan byte mencegah satu
+         * request menghabiskan disk/worker. Respons 413 bila melewati batas.
+         */
+        'answers_export_rate_limit_per_minute' => max(1, (int) env('FORMS_ANSWERS_EXPORT_RATE_LIMIT_PER_MINUTE', 10)),
+        'answers_zip_max_files' => max(1, (int) env('FORMS_ANSWERS_ZIP_MAX_FILES', 2000)),
+        'answers_zip_max_bytes' => max(1, (int) env('FORMS_ANSWERS_ZIP_MAX_BYTES', 536870912)),
     ],
 ];
