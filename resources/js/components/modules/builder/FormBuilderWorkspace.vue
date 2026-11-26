@@ -20,12 +20,15 @@ const props = withDefaults(
         fieldErrors?: Partial<Record<'title' | 'description', string>>;
         /** Endpoint `POST {form}/images` untuk upload banner/gambar blok/opsi. */
         imageUploadUrl?: string;
+        /** Fitur referral aktif; menampilkan blok kode referral di kanvas. */
+        referralEnabled?: boolean;
     }>(),
     {
         processing: false,
         shell: 'dashboard',
         fieldErrors: () => ({}),
         imageUploadUrl: '',
+        referralEnabled: false,
     }
 );
 
@@ -125,6 +128,9 @@ defineExpose({
                     :selected-field-id="wb.selectedFieldId"
                     :drop-indicator-index="wb.dropIndicatorIndex"
                     :drag-source-id="wb.dragSourceId"
+                    :referral-enabled="referralEnabled"
+                    :referral-insert-index="wb.referralInsertIndex"
+                    :referral-dragging="wb.isDraggingReferral"
                     :banner-upload-url="imageUploadUrl"
                     @canvas-drag-enter="wb.onCanvasDragEnter"
                     @canvas-drag-over="wb.onCanvasDragOver"
@@ -132,6 +138,9 @@ defineExpose({
                     @canvas-drop="wb.onCanvasDrop"
                     @gap-drag-enter="wb.onGapDragEnter"
                     @canvas-drag-start="wb.onCanvasDragStart"
+                    @referral-drag-start="wb.onReferralDragStart"
+                    @referral-drag-end="wb.onReferralDragEnd"
+                    @move-referral="wb.moveReferral"
                     @drag-end="wb.onDragEnd"
                     @select-field="wb.selectField"
                     @manage-field="wb.openFieldManage"
@@ -180,6 +189,9 @@ defineExpose({
         v-model:open="wb.showMobileEditor"
         :field="wb.selectedField"
         :upload-url="imageUploadUrl"
+        :purpose="formMetadata.purpose"
+        :du-owner-id="wb.duOwner?.id ?? null"
+        :du-owner-label="wb.duOwner?.label ?? ''"
         @update-field="wb.updateField"
         @done="wb.showMobileEditor = false"
     />

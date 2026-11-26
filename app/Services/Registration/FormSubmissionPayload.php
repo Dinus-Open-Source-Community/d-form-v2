@@ -19,6 +19,7 @@ final readonly class FormSubmissionPayload
         public array $answers,
         public array $participantEmails,
         public ?array $resolvedGuestIdsByEmail,
+        public ?string $referralCode,
     ) {
     }
 }

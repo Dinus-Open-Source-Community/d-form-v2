@@ -17,6 +17,7 @@
         "date": { "displayOnly": false, "apiType": "datePicker" },
         "rating": { "displayOnly": false, "apiType": "input" },
         "heading": { "displayOnly": true, "apiType": "input" },
+        "price": { "displayOnly": true, "apiType": "input" },
         "paragraph": { "displayOnly": true, "apiType": "textarea" },
         "divider": { "displayOnly": true, "apiType": "input" },
         "banner": { "displayOnly": true, "apiType": "fileUpload" },

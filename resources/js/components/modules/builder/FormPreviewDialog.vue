@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
+import FormPriceBlock from '@/components/core/FormPriceBlock.vue';
+import { formFieldPrice } from '@/lib/formPrice';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
 
@@ -189,8 +191,17 @@ function ratingStars(field: IFormPreviewField): number[] {
                                 :class="hasFormDescription ? 'mt-5 gap-3' : 'mt-2 gap-2.5'"
                             >
                                 <template v-for="field in fieldsSafe" :key="field.id">
+                                    <FormPriceBlock
+                                        v-if="field.type === 'price' && formFieldPrice(field.metadata) > 0"
+                                        :label="field.label"
+                                        :base="formFieldPrice(field.metadata)"
+                                        :quote="null"
+                                    />
+
+                                    <div v-else-if="field.type === 'price'" class="hidden" />
+
                                     <div
-                                        v-if="field.type === 'heading'"
+                                        v-else-if="field.type === 'heading'"
                                         class="border-primary/20 bg-primary/5 rounded-2xl border px-5 py-4 shadow-xs"
                                     >
                                         <h2 class="font-display text-foreground text-2xl font-bold tracking-tight">
