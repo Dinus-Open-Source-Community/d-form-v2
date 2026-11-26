@@ -19,7 +19,7 @@ import { useFormFillData } from '@/hooks/useFormFillData';
 import { useFormFillSubmit } from '@/hooks/useFormFillSubmit';
 import { useFormFillUpload } from '@/hooks/useFormFillUpload';
 import { useFormFillValidation } from '@/hooks/useFormFillValidation';
-import { nextTick, watch } from 'vue';
+import { computed, nextTick, watch } from 'vue';
 import type { IFormFillPageEvent, IFormFillPageForm, TFormAccessStatus } from '@/types/form';
 
 export interface IFormFillPageOptions {
@@ -31,6 +31,7 @@ export interface IFormFillPageOptions {
     accessMessage: string;
     memberSlots: number;
     registrationMode: string;
+    referralEnabled?: boolean;
 }
 
 /**
@@ -48,6 +49,17 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         accessMessage: props.accessMessage,
         memberSlots: props.memberSlots,
         registrationMode: props.registrationMode,
+    });
+    data.answerForm.referral_code = '';
+
+    const referralCode = computed<string>({
+        get: () => {
+            const value = data.answerForm.referral_code;
+            return typeof value === 'string' ? value : '';
+        },
+        set: (value: string) => {
+            data.answerForm.referral_code = value;
+        },
     });
 
     const validation = useFormFillValidation({
@@ -118,6 +130,8 @@ export function useFormFillPage(props: IFormFillPageOptions) {
         metadata: readFieldMetadata,
         builderType: formFillBuilderType,
         registrationMode: data.registrationMode,
+        referralEnabled: props.referralEnabled ?? false,
+        referralCode,
         formBannerImageSrc: data.formBannerImageSrc,
         formBannerCaption: data.formBannerCaption,
         formHasDescription: data.formHasDescription,

@@ -1,6 +1,8 @@
 import type { TFormPurpose, IFormRegistrationMetadata, TFormMetadataPayload } from '@/types/form';
 import type { IFormBuilderSection } from '@/types/form-builder';
 import { isRecord } from '@/lib/isRecord';
+import { normalizeReferralPosition } from '@/lib/referralPlacement';
+import { REFERRAL_POSITION_END } from '@/constants/referral';
 
 /** Stable fallback for legacy forms that predate persisted section metadata. */
 export const DEFAULT_FORM_SECTION_ID = 'section-1';
@@ -34,6 +36,8 @@ export function emptyFormRegistrationMetadata(): IFormRegistrationMetadata {
         allow_guest_submissions: false,
         max_submissions: 1,
         sections: defaultFormBuilderSections(),
+        referral_position: REFERRAL_POSITION_END,
+        meeting_schedule_enabled: false,
     };
 }
 
@@ -94,6 +98,8 @@ export function parseFormRegistrationMetadata(raw: unknown): IFormRegistrationMe
         allow_guest_submissions: allowGuestSubmissions,
         max_submissions: maxSubmissions,
         sections: parseBuilderSections(m['sections']),
+        referral_position: normalizeReferralPosition(m['referral_position']),
+        meeting_schedule_enabled: m['meeting_schedule_enabled'] === true,
     };
 }
 
@@ -130,5 +136,7 @@ export function toFormMetadataPayload(m: IFormRegistrationMetadata): TFormMetada
                   ? 2
                   : 1,
         sections: parseBuilderSections(m.sections),
+        referral_position: normalizeReferralPosition(m.referral_position),
+        meeting_schedule_enabled: m.meeting_schedule_enabled === true,
     };
 }

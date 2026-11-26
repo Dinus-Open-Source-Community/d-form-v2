@@ -14,6 +14,7 @@ import {
     Clock,
     Star,
     Heading as HeadingIcon,
+    Banknote,
     TextCursorInput,
     Minus,
 } from 'lucide-vue-next';
@@ -79,6 +80,7 @@ const SOURCE: IFormBuilderPaletteCategory[] = [
         isOpen: false,
         fields: [
             { type: 'heading', label: 'Heading', icon: HeadingIcon, description: 'Section title' },
+            { type: 'price', label: 'Price', icon: Banknote, description: 'Display-only price block' },
             { type: 'image', label: 'Image', icon: ImagePlus, description: 'Display-only image block' },
             { type: 'paragraph', label: 'Paragraph', icon: TextCursorInput, description: 'Descriptive text block' },
             { type: 'divider', label: 'Divider', icon: Minus, description: 'Visual separator line' },

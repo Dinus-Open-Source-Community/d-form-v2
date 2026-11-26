@@ -11,9 +11,11 @@ use App\Mail\RegistrationAcceptedMail;
 use App\Mail\RegistrationConfirmationMail;
 use App\Mail\RegistrationRejectedMail;
 use App\Models\Event;
+use App\Models\DuRedeemIssuance;
 use App\Models\EventAttendance;
 use App\Models\Form;
 use App\Models\FormAnswer;
+use App\Models\FormField;
 use App\Models\User;
 use App\Services\Registration\RegistrationQrPngGenerator;
 use App\Services\Registration\FormAnswerRecipientResolver;
@@ -125,6 +127,72 @@ class UserEventRegistrationPortalTest extends TestCase
                     ->where('registrationForms.0.requires_form_title', null)
                     ->where('registrationForms.1.id', $later->id)
                     ->where('registrationForms.1.title', 'Zeta Registration')
+            );
+    }
+
+    public function test_event_detail_lists_d_kelas_forms_as_registration_forms(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'detail-d-kelas-event']);
+
+        $registration = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Alpha Registration',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => ['purpose' => 'registration', 'registration_mode' => 'single'],
+        ]);
+
+        $dKelas = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Kelas DU',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->has('registrationForms', 2)
+                    ->where('registrationForms.0.id', $registration->id)
+                    ->where('registrationForms.0.purpose', 'registration')
+                    ->where('registrationForms.1.id', $dKelas->id)
+                    ->where('registrationForms.1.purpose', 'd_kelas')
+                    ->has('participantForms', 0)
+            );
+    }
+
+    public function test_d_kelas_answer_counts_as_a_portal_registration(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'd-kelas-registration-event']);
+
+        $dKelas = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Kelas DU',
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+        ]);
+
+        FormAnswer::factory()->create([
+            'form_id' => $dKelas->id,
+            'user_id' => $member->id,
+            'answers' => [],
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard.user.events.show', ['event_segment' => $event->slug]))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventDetail')
+                    ->where('isRegistered', true)
+                    ->where('check_in_form_title', 'Kelas DU')
             );
     }
 
@@ -280,6 +348,221 @@ class UserEventRegistrationPortalTest extends TestCase
                 ->where('registration.registration_code', 'CHK-999')
                 ->where('registration.qr_base64', fn ($b64) => is_string($b64) && strlen($b64) > 50)
             );
+    }
+
+    public function test_d_kelas_owner_receives_own_redeem_status_and_code(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent();
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'D-Kelas portal form',
+            'metadata' => [
+                'purpose' => 'd_kelas',
+                'registration_mode' => 'single',
+            ],
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => [],
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'CHK-OWN',
+            'reviewed_at' => now(),
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $answer->id,
+            'course_uid' => 'course-portal',
+            'status' => 'issued',
+            'redeem_code' => 'DU-OWN-001',
+            'attempted_at' => now(),
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($member)->get($this->registrationUrl($event))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventRegistration')
+                    ->where('registration.du_issuance.status', 'issued')
+                    ->where('registration.du_issuance.code', 'DU-OWN-001')
+            );
+    }
+
+    public function test_flagged_registration_form_owner_receives_redeem_status_and_code(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'flagged-registration-event']);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Flagged registration form',
+            'metadata' => ['purpose' => 'registration', 'registration_mode' => 'single'],
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'class',
+            'order' => 1,
+            'metadata' => ['du_redeem_enabled' => true],
+        ]);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['class' => 'AI Engineer'],
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'CHK-FLAG',
+            'reviewed_at' => now(),
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $answer->id,
+            'course_uid' => 'course-ai',
+            'status' => 'issued',
+            'redeem_code' => 'DU-FLAG-001',
+            'attempted_at' => now(),
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($member)->get($this->registrationUrl($event))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventRegistration')
+                    ->where('registration.du_issuance.status', 'issued')
+                    ->where('registration.du_issuance.code', 'DU-FLAG-001')
+            );
+    }
+
+    public function test_disabled_flag_keeps_an_issued_code_visible_on_the_portal(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'disabled-flag-event']);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'Disabled flag registration form',
+            'metadata' => ['purpose' => 'registration', 'registration_mode' => 'single'],
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        FormField::factory()->create([
+            'form_id' => $form->id,
+            'name' => 'class',
+            'order' => 1,
+            'metadata' => ['du_redeem_enabled' => false],
+        ]);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'answers' => ['class' => 'AI Engineer'],
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'registration_code' => 'CHK-DISABLED',
+            'reviewed_at' => now(),
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $answer->id,
+            'course_uid' => 'course-ai',
+            'status' => 'issued',
+            'redeem_code' => 'DU-DISABLED-001',
+            'attempted_at' => now(),
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($member)->get($this->registrationUrl($event))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->component('Dashboard/User/EventRegistration')
+                    ->where('registration.du_issuance.status', 'issued')
+                    ->where('registration.du_issuance.code', 'DU-DISABLED-001')
+            );
+    }
+
+    public function test_d_kelas_non_issued_status_never_exposes_redeem_code(): void
+    {
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'd-kelas-status-event']);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'D-Kelas status form',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'single'],
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        $answer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'answers' => [],
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $answer->id,
+            'course_uid' => 'course-status',
+            'status' => 'unknown',
+            'redeem_code' => 'MUST-NOT-LEAK',
+            'attempted_at' => now(),
+        ]);
+
+        $this->actingAs($member)->get($this->registrationUrl($event))
+            ->assertOk()
+            ->assertInertia(
+                fn ($page) => $page
+                    ->where('registration.du_issuance.status', 'unknown')
+                    ->where('registration.du_issuance.code', null)
+            );
+    }
+
+    public function test_d_kelas_team_owner_cannot_see_other_member_redeem_code(): void
+    {
+        $leader = $this->member();
+        $member = $this->member();
+        $event = $this->publishedEvent(['slug' => 'd-kelas-team-event']);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'title' => 'D-Kelas team form',
+            'metadata' => ['purpose' => 'd_kelas', 'registration_mode' => 'team', 'team_size' => 2],
+            'visible_for' => [EventFormVisibility::Public->value],
+            'closed_at' => now()->addDays(30),
+        ]);
+        $groupToken = 'team-portal-token';
+        $leaderAnswer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $leader->id,
+            'registration_role' => RegistrationRole::Leader,
+            'group_token' => $groupToken,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'answers' => [],
+        ]);
+        $memberAnswer = FormAnswer::factory()->create([
+            'form_id' => $form->id,
+            'user_id' => $member->id,
+            'registration_role' => RegistrationRole::Member,
+            'group_token' => $groupToken,
+            'review_status' => FormAnswerReviewStatus::Accepted,
+            'answers' => [],
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $leaderAnswer->id,
+            'course_uid' => 'course-team',
+            'status' => 'issued',
+            'redeem_code' => 'DU-LEADER',
+            'attempted_at' => now(),
+            'issued_at' => now(),
+        ]);
+        DuRedeemIssuance::query()->create([
+            'form_answer_id' => $memberAnswer->id,
+            'course_uid' => 'course-team',
+            'status' => 'issued',
+            'redeem_code' => 'DU-MEMBER',
+            'attempted_at' => now(),
+            'issued_at' => now(),
+        ]);
+
+        $this->actingAs($leader)->get($this->registrationUrl($event))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('registration.du_issuance.code', 'DU-LEADER'))
+            ->assertDontSee('DU-MEMBER');
     }
 
     public function test_BE_P3_001_event_portal_preserves_detail_props_and_accepted_qr_data(): void

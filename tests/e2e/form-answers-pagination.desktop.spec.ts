@@ -57,13 +57,12 @@ test.describe('pagination jawaban', () => {
             await expect(page.getByRole('navigation', { name: 'pagination' })).toBeVisible({ timeout: 20_000 });
             await expect(page.getByText('1–10 dari 25')).toBeVisible();
 
-            const answersCard = page
-                .locator('.app-surface')
-                .filter({ has: page.getByRole('heading', { name: 'Daftar jawaban' }) });
+            const answersCard = page.getByTestId('form-answers-card');
             const rows = answersCard.locator('tbody tr');
             await expect(rows).toHaveCount(10);
-            await expect(rows.first().locator('td').nth(1)).toHaveText('1');
-            await expect(rows.last().locator('td').nth(1)).toHaveText('10');
+            // Nomor baris tidak lagi berupa kolom; urutannya melekat pada label aksesibel.
+            await expect(page.getByRole('checkbox', { name: /Pilih jawaban nomor 1 dari/ })).toBeVisible();
+            await expect(page.getByRole('checkbox', { name: /Pilih jawaban nomor 10 dari/ })).toBeVisible();
 
             // Select all mengikuti seluruh ID eligible, bukan hanya 10 baris halaman ini.
             await page.getByRole('checkbox', { name: 'Pilih semua jawaban' }).click();
@@ -74,7 +73,7 @@ test.describe('pagination jawaban', () => {
             await expect(page).toHaveURL(/page=2/);
             await expect(page.getByText('11–20 dari 25')).toBeVisible();
             await expect(rows).toHaveCount(10);
-            await expect(rows.first().locator('td').nth(1)).toHaveText('11');
+            await expect(page.getByRole('checkbox', { name: /Pilih jawaban nomor 11 dari/ })).toBeVisible();
             await expect(page.getByText('25 dipilih').first()).toBeVisible();
 
             const pageTwoBoxes = page.getByRole('checkbox', { name: /Pilih jawaban nomor/ });

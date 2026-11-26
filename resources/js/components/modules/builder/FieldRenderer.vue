@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping';
+import { isFieldDeletionBlocked, optionLabel, optionImageUrl } from '@/components/modules/builder/fieldMapping';
 import { FIELD_TONE_CHIP_CLASS, resolveFieldTypeMeta } from '@/components/modules/builder/fieldTypePresentation';
 import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
+import FormPriceBlock from '@/components/core/FormPriceBlock.vue';
+import { formFieldPrice } from '@/lib/formPrice';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import {
     FIELD_INPUT_PATTERNS,
@@ -32,6 +34,12 @@ const emit = defineEmits<{
 }>();
 
 const config = computed(() => resolveFieldTypeMeta(props.field.type));
+
+/** Field sistem terkunci tidak boleh digandakan atau dihapus dari kanvas. */
+const isLockedField = computed((): boolean => props.field.metadata?.locked === true);
+
+/** Field sumber redeem DU tetap bisa digandakan, tetapi tidak bisa dihapus. */
+const isDeleteBlocked = computed((): boolean => isFieldDeletionBlocked(props.field));
 
 /** Teks aksesibel trigger: label field bila ada, fallback label tipe. */
 const triggerLabel = computed(() => `Ubah field ${props.field.label.trim() || config.value.label}`);
@@ -106,9 +114,15 @@ const filledStars = computed<number>(() => {
     return typeof raw === 'number' && Number.isFinite(raw) ? raw : 5;
 });
 
+/** Dropdown dengan opsi dari cache server tidak boleh memakai opsi contoh karangan. */
+const isDuCatalogField = computed(
+    (): boolean => props.field.metadata?.options_source === 'du_catalog' || props.field.name === 'du_course_uid'
+);
+
 const choiceOptions = computed((): IFieldOptionEntry[] => {
     const raw = props.field.options;
     if (Array.isArray(raw) && raw.length > 0) return raw as IFieldOptionEntry[];
+    if (isDuCatalogField.value) return [];
     return ['Option 1', 'Option 2', 'Option 3'].map((label) => ({
         id: label.toLowerCase().replace(/\s+/g, '-'),
         type: 'text',
@@ -125,6 +139,11 @@ function choiceImageSrc(entry: IFieldOptionEntry): string | undefined {
 function builderImageSrc(f: IBuilderField): string {
     const raw = f.metadata?.imageUrl;
     return typeof raw === 'string' ? normalizePublicStorageUrl(raw) : '';
+}
+
+/** Harga blok field ini; 0 berarti belum diisi. */
+function builderPrice(f: IBuilderField): number {
+    return formFieldPrice(f.metadata);
 }
 
 function builderImageCaption(f: IBuilderField): string {
@@ -170,7 +189,10 @@ function builderImageAlt(f: IBuilderField): string {
                     {{ config.label }}
                 </span>
 
-                <div class="pointer-events-auto relative z-20 -mr-2 ml-auto flex shrink-0 items-center gap-0.5">
+                <div
+                    v-if="!isLockedField"
+                    class="pointer-events-auto relative z-20 -mr-2 ml-auto flex shrink-0 items-center gap-0.5"
+                >
                     <button
                         type="button"
                         class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 inline-flex size-11 min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-[3px]"
@@ -181,6 +203,7 @@ function builderImageAlt(f: IBuilderField): string {
                         <Copy class="size-4" />
                     </button>
                     <button
+                        v-if="!isDeleteBlocked"
                         type="button"
                         class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/40 inline-flex size-11 min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-[3px]"
                         title="Hapus"
@@ -242,6 +265,12 @@ function builderImageAlt(f: IBuilderField): string {
                             }}</span>
                             <ChevronDown class="text-muted-foreground/70 size-4 shrink-0" aria-hidden="true" />
                         </div>
+                        <p
+                            v-if="isDuCatalogField && choiceOptions.length === 0"
+                            class="text-muted-foreground text-[11px]"
+                        >
+                            Belum ada kelas tersinkron.
+                        </p>
                         <div class="space-y-1.5">
                             <div
                                 v-for="(opt, i) in choiceOptions"
@@ -375,6 +404,19 @@ function builderImageAlt(f: IBuilderField): string {
                         <h3 class="font-display text-foreground text-lg font-bold">
                             {{ field.metadata?.content || 'Judul bagian' }}
                         </h3>
+                    </div>
+
+                    <div v-else-if="field.type === 'price'">
+                        <FormPriceBlock
+                            v-if="builderPrice(field) > 0"
+                            :label="field.label"
+                            :base="builderPrice(field)"
+                            :quote="null"
+                            :show-label="false"
+                        />
+                        <p v-else class="text-muted-foreground text-xs">
+                            Harga belum diisi. Atur nominal lewat properti field.
+                        </p>
                     </div>
 
                     <div v-else-if="field.type === 'image'">

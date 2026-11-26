@@ -145,7 +145,7 @@ function onRemove(): void {
                 <Upload class="size-4 shrink-0" aria-hidden="true" />
                 {{ idleLabel }}
             </button>
-            <p v-if="hint" class="text-muted-foreground text-xs">{{ hint }}</p>
+            <p v-if="hint" class="text-muted-foreground text-xs leading-relaxed">{{ hint }}</p>
             <p v-if="maxSizeKb" class="text-muted-foreground text-[11px]">
                 Maksimal {{ formatFileSize(maxSizeKb * 1024) }}.
             </p>

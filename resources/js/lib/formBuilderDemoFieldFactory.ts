@@ -21,6 +21,7 @@ export function createDemoBuilderField(type: TFormBuilderType, label: string): I
         file_upload: { accepts: formatDefaultUploadFormats('file_upload') },
         rating: { maxStars: 5 },
         heading: { content: 'Section Heading' },
+        price: { price: 0 },
         paragraph: { content: '' },
     };
 

@@ -31,6 +31,8 @@ const EMPTY_METADATA = {
     allow_guest_submissions: false,
     max_submissions: 1,
     sections: [{ id: 'section-1', title: 'Bagian 1' }],
+    referral_position: 'end',
+    meeting_schedule_enabled: false,
 };
 
 interface IHarness {

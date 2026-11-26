@@ -4,6 +4,7 @@
  */
 
 import type { IBackendField, IFieldOptionEntry, IFormBuilderSection } from '@/types/form-builder';
+import type { TReferralPosition } from '@/types/referralPlacement';
 
 /** Access gate for the public form fill route */
 export type TFormAccessStatus =
@@ -20,6 +21,15 @@ export type TFormAccessStatus =
     | 'prerequisite_not_met';
 
 export type TFormPurpose = 'registration' | 'answer_collection' | 'feedback' | 'd_kelas' | 'other';
+
+/** Harga final dari endpoint cek referral; client tidak pernah menghitung diskon sendiri. */
+export interface IFormPriceQuote {
+    base: number;
+    discount_type: 'percentage' | 'fixed' | null;
+    discount_value: number | null;
+    discount: number;
+    final: number;
+}
 
 export interface IFormSiblingOption {
     id: string;
@@ -153,6 +163,8 @@ export interface IFormFieldMetadata {
     is_multiple?: boolean;
     maxStars?: number;
     maxLength?: number;
+    /** Harga per submission dalam rupiah; 0 atau absen berarti field biasa. */
+    price?: number;
     sectionId?: string;
     optionChoices?: IFieldOptionEntry[];
     rules?: TFormFieldRules;
@@ -171,6 +183,10 @@ export interface IFormRegistrationMetadata {
     allow_guest_submissions: boolean;
     max_submissions: number;
     sections: IFormBuilderSection[];
+    /** `start` | `end` | id field: posisi blok kode referral di halaman isi. */
+    referral_position: TReferralPosition;
+    /** Check-in per tanggal pertemuan untuk form pendaftaran multi-hari. */
+    meeting_schedule_enabled: boolean;
 }
 
 /**
@@ -188,6 +204,8 @@ export type TFormMetadataPayload = Required<
         | 'allow_multiple_submissions'
         | 'allow_guest_submissions'
         | 'max_submissions'
+        | 'referral_position'
+        | 'meeting_schedule_enabled'
     > & {
         sections: IFormBuilderSection[];
     }

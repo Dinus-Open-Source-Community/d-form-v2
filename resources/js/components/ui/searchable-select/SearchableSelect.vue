@@ -24,6 +24,7 @@ const props = withDefaults(
         searchPlaceholder?: string
         emptyText?: string
         disabled?: boolean
+        showInitials?: boolean
         class?: HTMLAttributes['class']
     }>(),
     {
@@ -31,6 +32,7 @@ const props = withDefaults(
         searchPlaceholder: 'Cari…',
         emptyText: 'Tidak ada hasil',
         disabled: false,
+        showInitials: true,
     },
 )
 
@@ -209,6 +211,7 @@ const listboxId = computed<string>(() => `${props.id ?? 'searchable-select'}-lis
                 </span>
                 <span v-else class="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span
+                        v-if="showInitials"
                         aria-hidden="true"
                         class="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold tracking-wide text-muted-foreground"
                     >
@@ -262,6 +265,7 @@ const listboxId = computed<string>(() => `${props.id ?? 'searchable-select'}-lis
                         @mouseenter="opt.disabled === true ? undefined : (highlightedValue = opt.value)"
                     >
                         <span
+                            v-if="showInitials"
                             aria-hidden="true"
                             class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold tracking-wide text-muted-foreground"
                         >

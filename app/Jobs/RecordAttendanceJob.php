@@ -110,7 +110,7 @@ class RecordAttendanceJob implements ShouldQueue
         }
 
         try {
-            if ($isSessionAttendance) {
+            if ($isDKelas && $isSessionAttendance) {
                 $total = $schedule->totalFor($submission->form);
                 $recorded = EventAttendance::query()
                     ->where('form_answer_id', $submission->id)

@@ -6,6 +6,7 @@ import FormFillHeaderBlock from '@/components/modules/dashboard/FormFillHeaderBl
 import FormFillBlockedCard from '@/components/modules/dashboard/FormFillBlockedCard.vue';
 import FormFillFieldsList from '@/components/modules/dashboard/FormFillFieldsList.vue';
 import { useFormFillPage } from '@/hooks/useFormFillPage';
+import { useReferralCodeCheck } from '@/hooks/useReferralCodeCheck';
 import type { TFormAccessStatus, IFormFillPageEvent, IFormFillPageForm } from '@/types/form';
 import type { IFormBuilderSection } from '@/types/form-builder';
 
@@ -14,7 +15,7 @@ defineOptions({ layout: FormFillLayout });
 const props = withDefaults(
     defineProps<{
         event: IFormFillPageEvent;
-        form: IFormFillPageForm;
+        form: IFormFillPageForm & { referral_enabled: boolean };
         fields: IFormField[];
         submitUrl: string;
         accessStatus: TFormAccessStatus;
@@ -23,6 +24,8 @@ const props = withDefaults(
         registrationMode?: string;
         memberSlots?: number;
         pendingInvitationUrl?: string | null;
+        referralPosition: string;
+        referralCheckUrl: string;
     }>(),
     {
         registrationMode: 'single',
@@ -41,6 +44,7 @@ const ctx = reactive(
         accessMessage: props.accessMessage,
         memberSlots: props.memberSlots,
         registrationMode: props.registrationMode,
+        referralEnabled: props.form.referral_enabled,
     })
 );
 
@@ -48,6 +52,16 @@ const invitationActionHref =
     props.accessStatus === 'pending_team_confirmation' && props.pendingInvitationUrl
         ? props.pendingInvitationUrl
         : undefined;
+
+const {
+    status: referralStatus,
+    message: referralMessage,
+    price: referralPrice,
+} = useReferralCodeCheck({
+    url: () => props.referralCheckUrl,
+    code: () => ctx.referralCode,
+    enabled: () => !ctx.isBlocked,
+});
 </script>
 
 <template>
@@ -72,10 +86,16 @@ const invitationActionHref =
         />
 
         <FormFillFieldsList
-            v-else
+            v-if="!ctx.isBlocked"
+            v-model:referral-code="ctx.referralCode"
             :fields="props.fields"
             :sections="props.sections"
             :event-id="props.event.id"
+            :referral-position="props.referralPosition"
+            :referral-status="referralStatus"
+            :referral-message="referralMessage"
+            :referral-error="ctx.fieldError('referral_code') ?? ''"
+            :referral-price="referralPrice"
             :ctx="ctx"
             @submit="ctx.submit"
         />

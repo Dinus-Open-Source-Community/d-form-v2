@@ -19,6 +19,8 @@ describe('emptyFormRegistrationMetadata', () => {
             allow_guest_submissions: false,
             max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
     });
 });
@@ -155,7 +157,9 @@ describe('toFormMetadataPayload', () => {
             'allow_multiple_submissions',
             'max_submissions',
             'max_team_size',
+            'meeting_schedule_enabled',
             'purpose',
+            'referral_position',
             'registration_mode',
             'requires_form_id',
             'sections',
@@ -174,6 +178,8 @@ describe('toFormMetadataPayload', () => {
             allow_guest_submissions: false,
             max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(payload).toEqual({
@@ -186,6 +192,8 @@ describe('toFormMetadataPayload', () => {
             allow_guest_submissions: false,
             max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(
@@ -199,6 +207,8 @@ describe('toFormMetadataPayload', () => {
                 allow_guest_submissions: false,
                 max_submissions: 1,
                 sections: DEFAULT_SECTIONS,
+                referral_position: 'end',
+                meeting_schedule_enabled: false,
             }).registration_mode
         ).toBe('single');
     });
@@ -214,6 +224,8 @@ describe('toFormMetadataPayload', () => {
             allow_guest_submissions: false,
             max_submissions: 1,
             sections: DEFAULT_SECTIONS,
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         });
 
         expect(payload.registration_mode).toBe('team');
@@ -241,6 +253,8 @@ describe('toFormMetadataPayload', () => {
                 { id: 'section-1', title: 'Data Ketua' },
                 { id: 'section-2', title: 'Data Anggota' },
             ],
+            referral_position: 'end',
+            meeting_schedule_enabled: false,
         };
 
         expect(parseFormRegistrationMetadata(toFormMetadataPayload(teamMetadata))).toEqual(teamMetadata);

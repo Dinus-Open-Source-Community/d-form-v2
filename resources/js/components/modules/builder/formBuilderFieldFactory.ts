@@ -11,6 +11,7 @@ export function createFormBuilderField(type: TFormBuilderType, label: string): I
         radio: { options: [{ id: createUuid(), type: 'text', label: 'Radio 1' }] },
         rating: { metadata: { maxStars: 5 } },
         heading: { metadata: { content: 'Section Heading' } },
+        price: { metadata: { price: 0 } },
         image: { metadata: { imageUrl: '', caption: '', alt: '' } },
         paragraph: { metadata: { content: 'Description text goes here...' } },
     };

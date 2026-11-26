@@ -54,6 +54,9 @@ test('nama bagian bisa diubah lalu bagian dihapus lewat konfirmasi', async ({ pa
     try {
         await openBuilder(page, form.eventId, form.formId);
 
+        // Satu bagian: nama bagian belum perlu diubah.
+        await expect(page.locator('input[aria-label="Nama bagian"]')).toHaveCount(0);
+
         await page.getByRole('button', { name: /tambah bagian setelah ini/i }).click();
 
         const titleInput = page.locator('input[aria-label="Nama bagian"]');
@@ -65,7 +68,8 @@ test('nama bagian bisa diubah lalu bagian dihapus lewat konfirmasi', async ({ pa
         await page.getByTestId('confirm-remove-section').click();
 
         await expect(page.getByRole('button', { name: 'Hapus bagian ini' })).toHaveCount(0);
-        await expect(page.locator('input[aria-label="Nama bagian"]')).not.toHaveValue('Berkas Pendukung');
+        // Kembali ke satu bagian: input nama bagian ikut disembunyikan.
+        await expect(page.locator('input[aria-label="Nama bagian"]')).toHaveCount(0);
     } finally {
         cleanupOwnerFixture(form.identity);
     }

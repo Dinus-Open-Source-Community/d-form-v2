@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { IBuilderField, IFieldOptionEntry } from '@/types/form-builder';
+import type { TFormPurpose } from '@/types/form';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
 import { createUuid } from '@/lib/uuid';
 import {
@@ -21,6 +22,13 @@ import {
     stripNonDigits,
 } from '@/lib/fieldMaxLength';
 import BuilderImageUploadCard from '@/components/modules/builder/BuilderImageUploadCard.vue';
+import DuCourseSyncCard from '@/components/modules/builder/DuCourseSyncCard.vue';
+import DuFieldOptionMappingCard from '@/components/modules/builder/DuFieldOptionMappingCard.vue';
+import { duFlagState } from '@/components/modules/builder/duFieldMapping';
+import { useDuCourseCatalog } from '@/hooks/useDuCourseCatalog';
+import { useDuCourseSync } from '@/hooks/useDuCourseSync';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { routes } from '@/lib/routes';
 import { FIELD_TONE_CHIP_CLASS, resolveFieldTypeMeta } from '@/components/modules/builder/fieldTypePresentation';
 import { Switch } from '@/components/ui/switch';
 import { SimpleSelect, type SimpleSelectOption } from '@/components/ui/simple-select';
@@ -35,8 +43,16 @@ const props = withDefaults(
         field: IBuilderField;
         /** Endpoint `POST {form}/images`. Kosong = unggah belum tersedia (mis. demo builder). */
         uploadUrl?: string;
+        /** Tampilkan integrasi redeem DU; hanya builder form asli yang mengaktifkan. */
+        allowDuIntegration?: boolean;
+        /** D-Kelas memakai field sistem DU; toggle redeem pada field kustom disembunyikan. */
+        purpose?: TFormPurpose;
+        /** Field yang saat ini memegang flag redeem DU (null = belum ada owner). */
+        duOwnerId?: string | null;
+        /** Label owner untuk hint; hanya dipakai saat toggle field ini diblokir. */
+        duOwnerLabel?: string;
     }>(),
-    { uploadUrl: '' }
+    { uploadUrl: '', allowDuIntegration: false, purpose: 'registration', duOwnerId: null, duOwnerLabel: '' }
 );
 
 const emit = defineEmits<{
@@ -44,9 +60,103 @@ const emit = defineEmits<{
 }>();
 
 const config = computed(() => resolveFieldTypeMeta(props.field.type));
+const isLockedSystemField = computed(
+    () => props.field.name === 'du_course_uid' && props.field.metadata?.locked === true
+);
+
+/** Integrasi redeem DU hanya untuk field pilihan kustom, bukan field sistem DU. */
+const duFieldEligible = computed<boolean>(
+    () =>
+        props.allowDuIntegration &&
+        props.purpose !== 'd_kelas' &&
+        !isLockedSystemField.value &&
+        (props.field.type === 'dropdown' || props.field.type === 'radio')
+);
+const duRedeemEnabled = computed<boolean>(() => props.field.metadata?.du_redeem_enabled === true);
+const hasFieldOptions = computed<boolean>(() => optionRows().length > 0);
+const isDuOwner = computed<boolean>(() => duRedeemEnabled.value || props.field.id === props.duOwnerId);
+const hasOtherDuOwner = computed<boolean>(() => props.duOwnerId != null && props.duOwnerId !== props.field.id);
+const duFlag = computed(() =>
+    duFlagState({
+        eligible: duFieldEligible.value,
+        isOwner: isDuOwner.value,
+        hasOptions: hasFieldOptions.value,
+        hasOtherOwner: hasOtherDuOwner.value,
+    })
+);
+/** Toggle tampil untuk semua field pilihan; status disabled menjelaskan alasannya. */
+const showDuRedeemToggle = computed<boolean>(() => duFlag.value !== 'hidden');
+const duToggleDisabled = computed<boolean>(
+    () => duFlag.value === 'disabled-owner' || duFlag.value === 'disabled-no-options'
+);
+const duToggleHint = computed<string>(() => {
+    if (duFlag.value === 'disabled-owner') {
+        return `Redeem DU sedang dipakai field ${props.duOwnerLabel}. Matikan di field itu untuk memilih field lain.`;
+    }
+
+    if (duFlag.value === 'disabled-no-options') return 'Tambahkan opsi dulu sebelum mengaktifkan Redeem DU.';
+
+    return '';
+});
+const optionsLocked = computed<boolean>(() => duFieldEligible.value && isDuOwner.value);
+
+const {
+    catalog: duCatalog,
+    loading: duCatalogLoading,
+    error: duCatalogError,
+    refresh: refreshDuCatalog,
+    ensureLoaded: ensureDuCatalog,
+} = useDuCourseCatalog(routes.admin.duCourses.index);
+const { syncing: duCatalogSyncing, sync: syncDuCatalog } = useDuCourseSync(routes.admin.duCourses.sync);
+const { showErrorToast } = useToastNotifications();
+
+watch(
+    () => optionsLocked.value,
+    (isMappingVisible) => {
+        if (isMappingVisible) void ensureDuCatalog();
+    },
+    { immediate: true }
+);
+
+/** Sync meremajakan cache server lalu memuat ulang katalog; kegagalan sudah ditangani toast. */
+async function syncDuCatalogThenRefresh(): Promise<void> {
+    const ok = await syncDuCatalog();
+
+    if (ok) await refreshDuCatalog();
+}
+
+function setDuRedeemEnabled(enabled: boolean): void {
+    updateMeta('du_redeem_enabled', enabled);
+}
+
+function onDuRedeemChange(event: Event): void {
+    if (!(event.target instanceof HTMLInputElement)) return;
+
+    const shouldEnable = event.target.checked;
+
+    if (!shouldEnable) {
+        setDuRedeemEnabled(false);
+        return;
+    }
+
+    if (hasOtherDuOwner.value) {
+        event.target.checked = false;
+        showErrorToast(`Matikan Redeem DU di field ${props.duOwnerLabel} dulu.`);
+        return;
+    }
+
+    if (!hasFieldOptions.value) {
+        event.target.checked = false;
+        showErrorToast('Tambahkan opsi dulu sebelum mengaktifkan Redeem DU.');
+        return;
+    }
+
+    setDuRedeemEnabled(true);
+}
 
 // --- helpers to mutate without losing reactivity ---
 function update<K extends keyof IBuilderField>(key: K, value: IBuilderField[K]) {
+    if (isLockedSystemField.value && key !== 'label' && key !== 'description') return;
     emit('update:field', { ...props.field, [key]: value });
 }
 /** Pilihan format isian; satu daftar dengan pola yang dipakai halaman isi dan backend. */
@@ -92,6 +202,7 @@ function setFormat(value: string): void {
 }
 
 function updateMeta(key: string, value: unknown) {
+    if (isLockedSystemField.value) return;
     const meta = { ...(props.field.metadata || {}) };
     meta[key] = value;
     emit('update:field', { ...props.field, metadata: meta });
@@ -121,19 +232,21 @@ function emitOptions(next: IFieldOptionEntry[]) {
 }
 
 function addOption() {
+    if (isLockedSystemField.value || optionsLocked.value) return;
     const text = newOption.value;
     emitOptions([...optionRows(), { id: createUuid(), type: 'text', label: text, imageUrl: '' }]);
     newOption.value = '';
 }
 
 function removeOption(index: number) {
+    if (optionsLocked.value) return;
     const opts = [...optionRows()];
     opts.splice(index, 1);
     emitOptions(opts);
 }
 
 function toggleOptionType(index: number) {
-    if (props.field.type === 'dropdown') return;
+    if (props.field.type === 'dropdown' || optionsLocked.value) return;
     const opts = [...optionRows()];
     const cur = opts[index];
     opts[index] = { ...cur, type: cur.type === 'text' ? 'image' : 'text' };
@@ -141,18 +254,21 @@ function toggleOptionType(index: number) {
 }
 
 function setOptionLabel(index: number, label: string) {
+    if (optionsLocked.value) return;
     const opts = [...optionRows()];
     opts[index] = { ...opts[index], label: String(label ?? '') };
     emitOptions(opts);
 }
 
 function setOptionImageUrl(index: number, url: string) {
+    if (optionsLocked.value) return;
     const opts = [...optionRows()];
     opts[index] = { ...opts[index], imageUrl: url.trim() };
     emitOptions(opts);
 }
 
 function setOptionImageUrlById(optionId: string, url: string) {
+    if (optionsLocked.value) return;
     const opts = [...optionRows()];
     const index = opts.findIndex((row) => row.id === optionId);
     if (index === -1) return;
@@ -201,6 +317,39 @@ watch(
     }
 );
 
+const showPriceInput = computed<boolean>(
+    () => props.field.type === 'price' && (props.purpose === 'registration' || props.purpose === 'd_kelas')
+);
+
+const priceText = ref<string>('');
+
+watch(
+    () => [props.field.id, props.field.metadata?.price],
+    () => {
+        const raw = props.field.metadata?.price;
+        const parsed = typeof raw === 'number' ? raw : Number.parseInt(stripNonDigits(String(raw ?? '')), 10);
+
+        priceText.value = Number.isFinite(parsed) && parsed > 0 ? String(Math.floor(parsed)) : '';
+    },
+    { immediate: true }
+);
+
+/** Digit saja; kosong menghapus harga sehingga field kembali menjadi field biasa. */
+function onPriceInput(value: string | number): void {
+    const digits = stripNonDigits(String(value ?? ''));
+    priceText.value = digits;
+
+    const metadata = { ...(props.field.metadata || {}) };
+
+    if (digits === '') {
+        delete metadata.price;
+    } else {
+        metadata.price = Number.parseInt(digits, 10);
+    }
+
+    emit('update:field', { ...props.field, metadata });
+}
+
 /**
  * Input teks (bukan number) agar mobile membuka keypad numerik tanpa spinner.
  * Digit disaring; mengetik melebihi batas berhenti di batas tipe (tidak melompat ke
@@ -233,7 +382,7 @@ const hasPlaceholder = computed(() =>
 const hasOptions = computed(() => ['dropdown', 'checkbox', 'radio'].includes(props.field.type));
 const isContent = computed(() => ['heading', 'paragraph', 'divider', 'image'].includes(props.field.type));
 const hasAdvancedFlags = computed(
-    () => !['heading', 'paragraph', 'divider', 'banner', 'image'].includes(props.field.type)
+    () => !['heading', 'price', 'paragraph', 'divider', 'banner', 'image'].includes(props.field.type)
 );
 const uploadType = computed((): 'image_upload' | 'file_upload' | null =>
     props.field.type === 'image_upload' || props.field.type === 'file_upload' ? props.field.type : null
@@ -298,6 +447,10 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </div>
 
+        <p v-if="isLockedSystemField" class="text-muted-foreground text-sm">
+            Field sistem DU terkunci dan dikelola server.
+        </p>
+
         <hr class="app-divider" />
 
         <div class="flex flex-col gap-2">
@@ -312,7 +465,7 @@ function readUploadLimit(value: unknown): number | string | undefined {
             <p class="text-muted-foreground text-xs">Judul yang tampil di atas kolom.</p>
         </div>
 
-        <div v-if="!isContent" class="flex flex-col gap-2">
+        <div v-if="!isContent && field.type !== 'price'" class="flex flex-col gap-2">
             <Label for="field-editor-description" class="text-sm font-medium">Teks bantu</Label>
             <Textarea
                 id="field-editor-description"
@@ -358,6 +511,22 @@ function readUploadLimit(value: unknown): number | string | undefined {
                 Nilai tersimpan ({{ maxLengthStoredValue === null ? '' : formatMaxLengthNumber(maxLengthStoredValue) }})
                 di luar batas. Isi ulang maksimal {{ formatMaxLengthNumber(maxLengthLimits.max) }} karakter.
             </p>
+        </div>
+
+        <div v-if="showPriceInput" class="flex flex-col gap-1.5">
+            <Label for="field-editor-price" class="text-xs font-semibold">Harga (Rp)</Label>
+            <Input
+                id="field-editor-price"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="off"
+                :model-value="priceText"
+                placeholder="cth. 95000"
+                class="text-xs"
+                @update:model-value="onPriceInput"
+            />
+            <p class="text-muted-foreground text-xs">Satu form hanya boleh punya satu harga.</p>
         </div>
 
         <div v-if="field.type === 'heading'" class="flex flex-col gap-1.5">
@@ -528,104 +697,175 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </fieldset>
 
-        <div v-if="hasOptions" class="flex flex-col gap-2">
-            <Label class="text-xs font-semibold">Daftar opsi</Label>
-            <p class="text-muted-foreground text-[10px]">
-                {{
-                    field.type === 'dropdown'
-                        ? 'Satu baris satu pilihan teks untuk dropdown.'
-                        : 'Tiap opsi bisa teks saja atau gambar saja (pakai tombol ganti).'
-                }}
-            </p>
-            <div class="flex flex-col gap-2">
-                <div
-                    v-for="(opt, i) in optionRows()"
-                    :key="opt.id || i"
-                    class="border-border bg-muted/30 rounded-xl border p-2.5"
-                >
-                    <div class="flex items-start gap-2">
-                        <div class="flex min-w-0 flex-1 flex-col gap-2">
-                            <div class="flex items-center justify-between">
-                                <span class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                                    Opsi {{ i + 1 }} ({{ opt.type === 'text' ? 'teks' : 'gambar' }})
-                                </span>
-                                <button
-                                    v-if="field.type !== 'dropdown'"
-                                    type="button"
-                                    @click="toggleOptionType(i)"
-                                    class="text-primary text-[9px] font-bold underline-offset-2 hover:underline"
-                                >
-                                    {{ opt.type === 'text' ? 'Pakai gambar' : 'Pakai teks' }}
-                                </button>
-                            </div>
+        <DuCourseSyncCard v-if="isLockedSystemField" :field="field" @update:field="emit('update:field', $event)" />
 
-                            <div v-if="opt.type === 'text'">
-                                <Input
-                                    :model-value="opt.label"
-                                    placeholder="Teks opsi"
-                                    class="text-xs"
-                                    @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
-                                />
-                            </div>
-                            <div v-else class="flex flex-col gap-1.5">
-                                <BuilderImageUploadCard
-                                    :upload-url="uploadUrl"
-                                    :preview-url="optionPreviewSrc(opt)"
-                                    :alt="opt.label"
-                                    idle-label="Unggah gambar"
-                                    @uploaded="(url) => setOptionImageUrlById(opt.id, url)"
-                                    @cleared="setOptionImageUrlById(opt.id, '')"
-                                />
-                                <Input
-                                    :model-value="opt.imageUrl"
-                                    placeholder="URL gambar"
-                                    class="text-[11px]"
-                                    @update:model-value="(v) => setOptionImageUrl(i, String(v ?? ''))"
-                                />
-                                <div class="flex flex-wrap gap-1.5">
-                                    <span
-                                        class="border-primary/20 bg-primary/8 text-primary rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                                    >
-                                        1:1
+        <template v-else>
+            <label
+                v-if="showDuRedeemToggle"
+                class="border-border/60 bg-muted/20 flex min-h-11 items-center justify-between gap-4 rounded-xl border px-4 py-3"
+                :class="duToggleDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'"
+            >
+                <span class="min-w-0">
+                    <span class="text-foreground block text-sm font-medium">Redeem code DU</span>
+                    <span class="text-muted-foreground block text-xs">
+                        Kaitkan opsi kelas ini dengan course DU. Hanya satu field per form yang bisa aktif.
+                    </span>
+                    <span v-if="duToggleHint" class="text-muted-foreground mt-1 block text-xs">
+                        {{ duToggleHint }}
+                    </span>
+                </span>
+                <span class="flex items-center gap-2">
+                    <span class="text-muted-foreground text-[10px] font-semibold">
+                        {{ duRedeemEnabled ? 'ON' : 'OFF' }}
+                    </span>
+                    <input
+                        id="field-editor-du-redeem"
+                        type="checkbox"
+                        class="peer sr-only"
+                        aria-label="Redeem code DU"
+                        :checked="duRedeemEnabled"
+                        :disabled="duToggleDisabled"
+                        @change="onDuRedeemChange"
+                    />
+                    <span
+                        aria-hidden="true"
+                        class="bg-muted after:bg-background peer-checked:bg-primary peer-focus-visible:ring-ring relative h-5 w-9 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"
+                    />
+                </span>
+            </label>
+
+            <div v-if="hasOptions && optionsLocked" class="flex flex-col gap-2">
+                <Label class="text-xs font-semibold">Daftar opsi</Label>
+                <p class="text-muted-foreground text-[10px]">
+                    Opsi terkunci selama redeem code DU aktif. Matikan toggle untuk mengubah opsi.
+                </p>
+                <ul class="flex flex-col gap-2">
+                    <li
+                        v-for="(opt, i) in optionRows()"
+                        :key="opt.id || i"
+                        class="border-border bg-muted/30 text-foreground rounded-xl border px-3 py-2 text-sm break-words"
+                    >
+                        {{ opt.label }}
+                    </li>
+                </ul>
+            </div>
+
+            <div v-else-if="hasOptions" class="flex flex-col gap-2">
+                <Label class="text-xs font-semibold">Daftar opsi</Label>
+                <p class="text-muted-foreground text-[10px]">
+                    {{
+                        field.type === 'dropdown'
+                            ? 'Satu baris satu pilihan teks untuk dropdown.'
+                            : 'Tiap opsi bisa teks saja atau gambar saja (pakai tombol ganti).'
+                    }}
+                </p>
+                <div class="flex flex-col gap-2">
+                    <div
+                        v-for="(opt, i) in optionRows()"
+                        :key="opt.id || i"
+                        class="border-border bg-muted/30 rounded-xl border p-2.5"
+                    >
+                        <div class="flex items-start gap-2">
+                            <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+                                        Opsi {{ i + 1 }} ({{ opt.type === 'text' ? 'teks' : 'gambar' }})
                                     </span>
-                                    <span
-                                        class="border-border bg-background text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                    <button
+                                        v-if="field.type !== 'dropdown'"
+                                        type="button"
+                                        @click="toggleOptionType(i)"
+                                        class="text-primary text-[9px] font-bold underline-offset-2 hover:underline"
                                     >
-                                        800 x 800
-                                    </span>
+                                        {{ opt.type === 'text' ? 'Pakai gambar' : 'Pakai teks' }}
+                                    </button>
                                 </div>
-                                <!-- Keep the option label synced for accessibility fallback. -->
-                                <div class="hidden">
+
+                                <div v-if="opt.type === 'text'">
                                     <Input
                                         :model-value="opt.label"
-                                        placeholder="Label aksesibilitas"
+                                        placeholder="Teks opsi"
+                                        class="text-xs"
                                         @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
                                     />
                                 </div>
+                                <div v-else class="flex flex-col gap-1.5">
+                                    <BuilderImageUploadCard
+                                        :upload-url="uploadUrl"
+                                        :preview-url="optionPreviewSrc(opt)"
+                                        :alt="opt.label"
+                                        idle-label="Unggah gambar"
+                                        @uploaded="(url) => setOptionImageUrlById(opt.id, url)"
+                                        @cleared="setOptionImageUrlById(opt.id, '')"
+                                    />
+                                    <Input
+                                        :model-value="opt.imageUrl"
+                                        placeholder="URL gambar"
+                                        class="text-[11px]"
+                                        @update:model-value="(v) => setOptionImageUrl(i, String(v ?? ''))"
+                                    />
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <span
+                                            class="border-primary/20 bg-primary/8 text-primary rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                        >
+                                            1:1
+                                        </span>
+                                        <span
+                                            class="border-border bg-background text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                        >
+                                            800 x 800
+                                        </span>
+                                    </div>
+                                    <!-- Keep the option label synced for accessibility fallback. -->
+                                    <div class="hidden">
+                                        <Input
+                                            :model-value="opt.label"
+                                            placeholder="Label aksesibilitas"
+                                            @update:model-value="(v) => setOptionLabel(i, String(v ?? ''))"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="flex shrink-0 flex-col gap-1">
-                            <button
-                                type="button"
-                                class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-8 items-center justify-center transition-colors"
-                                title="Hapus opsi"
-                                @click="removeOption(i)"
-                            >
-                                <X class="size-3.5" />
-                            </button>
+                            <div class="flex shrink-0 flex-col gap-1">
+                                <button
+                                    type="button"
+                                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex size-8 items-center justify-center transition-colors"
+                                    title="Hapus opsi"
+                                    @click="removeOption(i)"
+                                >
+                                    <X class="size-3.5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
+                <div class="mt-1 flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="w-full text-xs font-bold"
+                        type="button"
+                        @click="addOption"
+                    >
+                        <Plus class="mr-1 size-3.5" />Tambah opsi
+                    </Button>
+                </div>
             </div>
-            <div class="mt-1 flex gap-2">
-                <Button variant="outline" size="sm" class="w-full text-xs font-bold" type="button" @click="addOption">
-                    <Plus class="mr-1 size-3.5" />Tambah opsi
-                </Button>
-            </div>
-        </div>
 
-        <div v-if="hasAdvancedFlags" class="mt-2 space-y-4">
+            <DuFieldOptionMappingCard
+                v-if="optionsLocked"
+                :field="field"
+                :catalog="duCatalog"
+                :loading="duCatalogLoading"
+                :syncing="duCatalogSyncing"
+                :error="duCatalogError"
+                @update:field="emit('update:field', $event)"
+                @sync="syncDuCatalogThenRefresh"
+            />
+        </template>
+
+        <div v-if="hasAdvancedFlags && !isLockedSystemField" class="mt-2 space-y-4">
             <hr class="app-divider" />
             <p class="text-foreground text-sm font-semibold">Lanjutan</p>
             <div
@@ -676,7 +916,7 @@ function readUploadLimit(value: unknown): number | string | undefined {
             </div>
         </div>
 
-        <div v-if="!isContent" class="mt-2">
+        <div v-if="!isContent && field.type !== 'price' && !isLockedSystemField" class="mt-2">
             <hr class="app-divider mb-5" />
             <div
                 class="border-border/60 bg-muted/20 flex items-center justify-between gap-4 rounded-xl border px-4 py-3"

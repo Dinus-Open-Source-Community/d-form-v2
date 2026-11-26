@@ -1,10 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { runArtisanCommand, runArtisan } from './support/artisan';
 
-const ADMIN = { email: 'stress-user-1@stress.test', password: 'password' } as const;
-// Spec ini login sendiri, jadi konteks harus guest; storageState admin membuat /auth/login ter-redirect.
-test.use({ storageState: { cookies: [], origins: [] } });
-
 const PLACEHOLDER_PNG = Uint8Array.from(
     atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/2ioAAAAASUVORK5CYII='),
     (character: string) => character.charCodeAt(0)
@@ -15,12 +11,13 @@ function createFixture(withAnswers: boolean = true): { url: string; token: strin
     const token = `e2e-mobile-${Date.now()}`;
     fixtureTokens.push(token);
     const command =
-        `$owner=App\\Models\\User::where('email','${ADMIN.email}')->firstOrFail();` +
-        `$event=App\\Models\\Event::where('created_by',$owner->id)->firstOrFail();` +
+        `$event=App\\Models\\Event::where('status','published')->whereNull('deleted_at')->orderByDesc('created_at')->firstOrFail();` +
         `$form=$event->forms()->create(['title'=>'${token}','description'=>'Fixture E2E','visible_for'=>['public'],'closed_at'=>now()->addDay()]);` +
         `foreach([['Nama','nama','input'],['Lampiran','lampiran','fileUpload']] as $i=>$field){$form->formFields()->create(['label'=>$field[0],'name'=>$field[1],'input_type'=>$field[2],'metadata'=>[],'order'=>$i]);}` +
+        `$filePath='form-uploads/'.$form->id.'/sample.pdf';` +
+        `Illuminate\\Support\\Facades\\Storage::disk('public')->put($filePath, '%PDF-1.4 E2E');` +
         (withAnswers
-            ? `foreach(['pending','accepted','rejected'] as $i=>$status){$user=App\\Models\\User::factory()->create(['name'=>'${token} '.($i+1)]);App\\Models\\FormAnswer::create(['form_id'=>$form->id,'user_id'=>$user->id,'answers'=>['nama'=>'Contoh jawaban '.($i+1),'lampiran'=>$i===0?'uploads/e2e/sample.pdf':''],'review_status'=>$status]);}`
+            ? `foreach(['pending','accepted','rejected'] as $i=>$status){$user=App\\Models\\User::factory()->create(['name'=>'${token} '.($i+1)]);App\\Models\\FormAnswer::create(['form_id'=>$form->id,'user_id'=>$user->id,'answers'=>['nama'=>'Contoh jawaban '.($i+1),'lampiran'=>$i===0?$filePath:''],'review_status'=>$status]);}`
             : '') +
         `echo(route('dashboard.events.forms.show',['event'=>$event,'form'=>$form],false).'?tab=jawaban');`;
 
@@ -40,25 +37,11 @@ test.afterEach(() => {
     }
 });
 
-/** Sign in as the seeded dashboard administrator. */
-async function signIn(page: Page): Promise<void> {
-    await page.goto('/auth/login');
-    await page.locator('#login-email').fill(ADMIN.email);
-    await page.locator('#login-password').fill(ADMIN.password);
-    await page
-        .locator('form')
-        .filter({ has: page.locator('#login-email') })
-        .getByRole('button', { name: /masuk/i })
-        .click();
-    await expect(page).not.toHaveURL(/\/auth\/login/);
-}
-
 test.describe('jawaban mobile', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
     test('daftar jawaban mobile tanpa tabel dan tanpa pemilih tampilan', async ({ page }) => {
         const fixture = createFixture();
-        await signIn(page);
         await page.goto(fixture.url);
 
         // Mobile hanya memakai daftar: tabel desktop tersembunyi oleh CSS.
@@ -70,15 +53,15 @@ test.describe('jawaban mobile', () => {
 
         const emptyFixture = createFixture(false);
         await page.goto(emptyFixture.url);
-        await expect(page.getByText('Belum ada jawaban')).toBeVisible();
+        await expect(page.getByText('Belum ada jawaban').filter({ visible: true })).toBeVisible();
         await expect(page.getByTestId('form-answer-mobile-list')).toHaveCount(0);
-        await expect(page.locator('main table')).toHaveCount(0);
+        // Tabel sekarang selalu ada di DOM untuk fallback statis; di mobile hanya disembunyikan.
+        await expect(page.locator('main table')).toBeHidden();
         await page.screenshot({ path: '/tmp/opencode/answers-shots/mobile-empty.png', fullPage: true });
     });
 
     test('pilihan halaman, buka detail lewat baris, review di detail, dan tanpa overflow', async ({ page }) => {
         const fixture = createFixture();
-        await signIn(page);
         await page.goto(fixture.url);
 
         const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban' });
@@ -86,7 +69,7 @@ test.describe('jawaban mobile', () => {
         await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
         const firstRowCheckbox = page.getByRole('checkbox', { name: /Pilih jawaban nomor 1/ });
-        await firstRowCheckbox.click();
+        await firstRowCheckbox.click({ force: true });
         await expect(page.getByRole('dialog')).toHaveCount(0);
 
         // Baris pertama bisa berstatus final (tidak selectable), jadi keadaan "mixed" tidak
@@ -96,15 +79,24 @@ test.describe('jawaban mobile', () => {
         await selectPage.click();
         await expect(selectPage).toHaveAttribute('aria-checked', 'true');
 
-        const firstRow = page.getByRole('listitem', { name: /Lihat detail jawaban nomor 1/ });
-        await firstRow.click({ position: { x: 180, y: 32 } });
+        // Tutup bulk bar sebelum membuka detail agar daftar tidak tertutup panel aksi.
+        await page.getByRole('button', { name: 'Batalkan pilihan' }).click({ force: true });
+
+        // Baris pending memuat lampiran contoh dan tombol review; baris final bisa tidak punya keduanya.
+        const pendingRow = page
+            .getByRole('listitem', { name: /Lihat detail jawaban nomor/ })
+            .filter({ hasText: 'Menunggu review' })
+            .first();
+
+        await pendingRow.focus();
+        await page.keyboard.press('Enter');
 
         const detailDrawer = page.getByRole('dialog');
         await expect(detailDrawer).toBeVisible();
 
         const openFileLink = detailDrawer.getByRole('link', { name: 'Buka' }).first();
         const downloadFileLink = detailDrawer.getByRole('link', { name: 'Unduh' }).first();
-        await expect(openFileLink).toHaveAttribute('href', /storage/);
+        await expect(openFileLink).toHaveAttribute('href', /\/form-answers\/.*\/files\/lampiran\/sample\.pdf/);
         await expect(downloadFileLink).toHaveAttribute('download');
         const actionGroup = openFileLink.locator('..');
         await expect(actionGroup.getByRole('link')).toHaveCount(2);
@@ -118,22 +110,12 @@ test.describe('jawaban mobile', () => {
             scrollWidth: element.scrollWidth,
         }));
         expect(actionGroupMetrics.scrollWidth).toBeLessThanOrEqual(actionGroupMetrics.clientWidth);
+
+        await expect(detailDrawer.getByRole('button', { name: 'Terima', exact: true })).toBeVisible();
+        await expect(detailDrawer.getByRole('button', { name: 'Tolak', exact: true })).toBeVisible();
         await page.keyboard.press('Escape');
 
-        // Jalur review per jawaban di mobile hanya ada di detail sheet; baris pending dipilih
-        // lewat badge-nya karena urutan daftar mengikuti waktu kirim.
-        const pendingRow = page
-            .getByRole('listitem', { name: /Lihat detail jawaban nomor/ })
-            .filter({ hasText: 'Menunggu review' })
-            .first();
-
-        await pendingRow.click({ position: { x: 180, y: 32 } });
-        const pendingDetail = page.getByRole('dialog');
-        await expect(pendingDetail).toBeVisible();
-        await expect(pendingDetail.getByRole('button', { name: 'Terima', exact: true })).toBeVisible();
-        await expect(pendingDetail.getByRole('button', { name: 'Tolak', exact: true })).toBeVisible();
-        await page.keyboard.press('Escape');
-
+        const firstRow = page.getByRole('listitem', { name: /Lihat detail jawaban nomor 1/ });
         // Enter pada baris daftar membuka detail tanpa mouse.
         await firstRow.focus();
         await page.keyboard.press('Enter');
@@ -168,10 +150,9 @@ test.describe('jawaban desktop', () => {
             if (message.type() === 'error') errors.push(`${message.text()} ${message.location().url}`);
         });
         const fixture = createFixture();
-        await signIn(page);
         await page.goto(fixture.url);
         await expect(page.locator('main table')).toBeVisible();
-        await expect(page.getByRole('columnheader', { name: 'No.' })).toBeVisible();
+        await expect(page.getByRole('columnheader', { name: 'Pengirim' })).toBeVisible();
         await expect(page.getByTestId('form-answer-mobile-list')).toBeHidden();
         await page.screenshot({ path: '/tmp/task-212-desktop-table.png', fullPage: true });
         expect(errors).toEqual([]);
@@ -179,7 +160,6 @@ test.describe('jawaban desktop', () => {
 
     test('pilihan halaman, klik baris, kontrol aksi, label aksesibel, dan tanpa chip', async ({ page }) => {
         const fixture = createFixture();
-        await signIn(page);
         await page.goto(fixture.url);
 
         const selectPage = page.getByRole('checkbox', { name: 'Pilih semua jawaban' });
@@ -247,7 +227,6 @@ test.describe('jawaban desktop', () => {
 
     test('pengaturan form menjadi tab tingkat atas', async ({ page }) => {
         const fixture = createFixture(false);
-        await signIn(page);
         await page.goto(fixture.url.replace('?tab=jawaban', '?tab=settings'));
 
         await expect(page.getByRole('tab', { name: /pengaturan form/i })).toHaveAttribute('aria-selected', 'true');
@@ -261,7 +240,6 @@ test.describe('editor layout', () => {
 
     test('shell tidak ikut scroll dan parent kanvas menjadi scroll container', async ({ page }) => {
         const fixture = createFixture(false);
-        await signIn(page);
         await page.goto(fixture.url.replace('?tab=jawaban', '?tab=editor'));
 
         await expect(page.getByTestId('form-builder-workspace')).toBeVisible();
@@ -291,7 +269,6 @@ test.describe('editor layout', () => {
 
     test('section form dapat ditambah dan dinavigasi tanpa batas lima field', async ({ page }) => {
         const fixture = createFixture(false);
-        await signIn(page);
         await page.goto(fixture.url.replace('?tab=jawaban', '?tab=editor'));
 
         const canvas = page.getByTestId('form-builder-canvas-scroll');

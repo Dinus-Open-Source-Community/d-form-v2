@@ -2,6 +2,7 @@ import { formFieldBuilderType } from '@/lib/formFieldOptions';
 import { FORM_FILL_DISPLAY_ONLY_TYPES } from '@/lib/formFieldContract';
 import { readFieldMetadata, readFieldRules, readMetaBoolean } from '@/lib/formFieldMetadata';
 import { normalizePublicStorageUrl } from '@/lib/publicStorageUrl';
+import { formatFileSize } from '@/lib/fileDisplay';
 import { formatAllowedUploadFormats } from '@/lib/formUploadFormats';
 import type {
     IFormFieldParticipationSlot,
@@ -197,19 +198,45 @@ function positiveInteger(value: unknown): number | undefined {
     return undefined;
 }
 
-/** Upload helper line: aspect hint for images, allowed mimes, and max size. */
+/** Daftar ekstensi seragam: uppercase, tanpa titik, dipisah koma. */
+function formatExtensionList(value: string): string {
+    return value
+        .split(',')
+        .map((part) => part.trim().replace(/^\./, ''))
+        .filter((part) => part !== '')
+        .map((part) => part.toUpperCase())
+        .join(', ');
+}
+
+/** Upload helper line: aspect hint for images, accepted formats, and a readable max size. */
 export function formFieldFileHint(field: IFormField): string {
     const parts: string[] = [];
     const metadata = readFieldMetadata(field);
     const fieldRules = readFieldRules(field);
-    if (formFillBuilderType(field) === 'image_upload') parts.push('Recommended: 1200 x 900 px (4:3)');
+
+    if (formFillBuilderType(field) === 'image_upload') {
+        parts.push('Disarankan 1200 x 900 px (4:3)');
+    }
+
     const allowedMimeTypes = metadata.allowed_mime_types;
     const allowedFormats = Array.isArray(allowedMimeTypes)
         ? formatAllowedUploadFormats(allowedMimeTypes.filter((value): value is string => typeof value === 'string'))
         : '';
     const rulesFormats = fieldRules.mimes ? String(fieldRules.mimes) : '';
-    if (allowedFormats || rulesFormats) parts.push(`Allowed: ${allowedFormats || rulesFormats}`);
-    if (fieldRules.max_size) parts.push(`Max size: ${String(fieldRules.max_size)} KB`);
+    const formats = formatExtensionList(allowedFormats || rulesFormats);
+
+    if (formats !== '') {
+        parts.push(formats);
+    }
+
+    const maxSizeKb = positiveInteger(fieldRules.max_size);
+
+    if (maxSizeKb !== undefined) {
+        // Angka bulat lebih mudah dibaca tanpa desimal: "5 MB", bukan "5,0 MB".
+        const sizeLabel = formatFileSize(maxSizeKb * 1024).replace(',0 ', ' ');
+        parts.push(`Maks. ${sizeLabel}`);
+    }
+
     return parts.join(' · ');
 }
 

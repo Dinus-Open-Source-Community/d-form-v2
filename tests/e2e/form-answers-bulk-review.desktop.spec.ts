@@ -1,5 +1,6 @@
 import { expect, test } from './support/fixtures';
 import { runArtisanCommand } from './support/artisan';
+import { readEnvironment } from './support/environment';
 import type { Page, TestInfo } from '@playwright/test';
 
 type TReviewStatus = 'pending' | 'accepted';
@@ -16,7 +17,12 @@ interface IBrowserDiagnostics {
     badResponses: string[];
 }
 
-test.use({ fixtureFormCount: 1, fixtureFieldCount: 1, fixtureSubmissionCount: 1 });
+test.use({
+    fixtureFormCount: 1,
+    fixtureFieldCount: 1,
+    fixtureSubmissionCount: 1,
+    fixtureOwnerEmail: readEnvironment().adminEmail,
+});
 
 /** Set the fixture form to the single-registration mode required by bulk review. */
 function enableSingleRegistrationMode(formId: string): void {
@@ -61,7 +67,9 @@ function installBrowserDiagnostics(page: Page): IBrowserDiagnostics {
     });
     page.on('pageerror', (error) => diagnostics.pageErrors.push(error.message));
     page.on('requestfailed', (request) => {
-        diagnostics.failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText ?? 'unknown'}`);
+        diagnostics.failedRequests.push(
+            `${request.method()} ${request.url()}: ${request.failure()?.errorText ?? 'unknown'}`
+        );
     });
     page.on('response', (response) => {
         if (response.status() >= 400) diagnostics.badResponses.push(`${response.status()} ${response.url()}`);
@@ -70,11 +78,16 @@ function installBrowserDiagnostics(page: Page): IBrowserDiagnostics {
     return diagnostics;
 }
 
+/** Tabel jawaban versi desktop; daftar mobile ada di DOM tetapi tersembunyi, jadi tidak dihitung. */
+function answersTable(page: Page) {
+    return page.getByTestId('form-answers-card');
+}
+
 /** Open the answer tab through the same authenticated fixture owner flow used by the harness. */
 async function openAnswers(page: Page, eventId: string, formId: string): Promise<void> {
     await page.goto(`/admin/events/${eventId}/forms/${formId}?tab=jawaban`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('tab', { name: /jawaban/i })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' })).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Pilih semua jawaban' })).toBeVisible();
 }
 
 /** Assert responsive overflow and retain a screenshot for the task verification report. */
@@ -105,11 +118,15 @@ function isBulkReviewRequestPayload(value: unknown): value is IBulkReviewRequest
 }
 
 test.beforeEach(async ({ page }): Promise<void> => {
-    installBrowserDiagnostics(page);
+    (page as Page & { __task4Diagnostics?: IBrowserDiagnostics }).__task4Diagnostics = installBrowserDiagnostics(page);
 });
 
 test.afterEach(async ({ page }, testInfo): Promise<void> => {
     const diagnostics = (page as Page & { __task4Diagnostics?: IBrowserDiagnostics }).__task4Diagnostics;
+
+    if (diagnostics !== undefined && testInfo.status !== 'passed') {
+        console.log('bulk-review diagnostics', JSON.stringify(diagnostics));
+    }
 
     if (diagnostics !== undefined && testInfo.status === 'passed') {
         expect(diagnostics.consoleErrors, 'console errors').toEqual([]);
@@ -129,10 +146,10 @@ test.describe('bulk form answer review', () => {
         createGuestAnswer(fixtureForm.primary.formId, 'pending');
         await openAnswers(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
-        const selectAll = page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' });
+        const selectAll = page.getByRole('checkbox', { name: 'Pilih semua jawaban' });
         await selectAll.click();
 
-        await expect(page.getByText('2 dipilih', { exact: true })).toBeVisible();
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toBeVisible();
         const acceptButton = page.getByRole('button', { name: 'Terima', exact: true });
         const rejectButton = page.getByRole('button', { name: 'Tolak', exact: true });
         await expect(acceptButton).toBeVisible();
@@ -149,16 +166,16 @@ test.describe('bulk form answer review', () => {
         await expect(dialog.getByRole('button', { name: 'Batal', exact: true })).toBeFocused();
         await page.keyboard.press('Escape');
         await expect(dialog).toHaveCount(0);
-        await expect(page.getByText('2 dipilih', { exact: true })).toBeVisible();
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toBeVisible();
 
         await rejectButton.click();
         await expect(page.getByRole('heading', { name: 'Tolak 2 jawaban terpilih?' })).toBeVisible();
         await page.getByRole('dialog').getByRole('button', { name: 'Batal', exact: true }).click();
         await expect(page.getByRole('dialog')).toHaveCount(0);
-        await expect(page.getByText('2 dipilih', { exact: true })).toBeVisible();
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toBeVisible();
 
         await page.getByRole('button', { name: 'Batalkan pilihan', exact: true }).click();
-        await expect(page.getByText('2 dipilih', { exact: true })).toHaveCount(0);
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Terima', exact: true })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Tolak', exact: true })).toHaveCount(0);
         await expect(selectAll).toHaveAttribute('aria-checked', 'false');
@@ -181,7 +198,11 @@ test.describe('bulk form answer review', () => {
                 const body: unknown = JSON.parse(request.postData() ?? '{}');
                 if (isBulkReviewRequestPayload(body)) payload = body;
             }
-            if (request.method() === 'GET' && request.headers()['x-inertia'] === 'true' && request.url().includes(fixtureForm.primary.formId)) {
+            if (
+                request.method() === 'GET' &&
+                request.headers()['x-inertia'] === 'true' &&
+                request.url().includes(fixtureForm.primary.formId)
+            ) {
                 partialReloads += 1;
             }
         });
@@ -190,7 +211,7 @@ test.describe('bulk form answer review', () => {
         const rowCheckboxes = page.getByRole('checkbox', { name: /Pilih jawaban nomor/ });
         await rowCheckboxes.nth(0).click();
         await rowCheckboxes.nth(1).click();
-        await expect(page.getByText('2 dipilih', { exact: true })).toBeVisible();
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toBeVisible();
 
         await page.getByRole('button', { name: 'Terima', exact: true }).click();
         await page.getByRole('dialog').getByRole('button', { name: 'Terima jawaban', exact: true }).click();
@@ -198,8 +219,8 @@ test.describe('bulk form answer review', () => {
         await expect(page.getByText('2 jawaban diterima.')).toBeVisible();
         await expect.poll(() => payload).toEqual({ submission_ids: expectedIds, review_status: 'accepted' });
         await expect.poll(() => partialReloads).toBeGreaterThan(0);
-        await expect(page.getByText('Diterima', { exact: true })).toHaveCount(2);
-        await expect(page.getByText('2 dipilih', { exact: true })).toHaveCount(0);
+        await expect(answersTable(page).locator('tbody').getByText('Diterima', { exact: true })).toHaveCount(2);
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toHaveCount(0);
         await captureResponsiveEvidence(page, testInfo, 'bulk-accept-reload');
     });
 
@@ -212,13 +233,16 @@ test.describe('bulk form answer review', () => {
         createGuestAnswer(fixtureForm.primary.formId, 'accepted');
         await openAnswers(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
-        await page.getByRole('checkbox', { name: 'Pilih semua jawaban di halaman ini' }).click();
-        await expect(page.getByText('2 dipilih', { exact: true })).toBeVisible();
+        await page.getByRole('checkbox', { name: 'Pilih semua jawaban' }).click();
+        // Select all hanya mengambil jawaban yang masih bisa direview; baris yang sudah
+        // accepted dipilih manual agar kondisinya benar-benar campuran.
+        await answersTable(page).locator('tbody tr').filter({ hasText: 'Diterima' }).getByRole('checkbox').click();
+        await expect(answersTable(page).getByText('2 dipilih', { exact: true }).first()).toBeVisible();
         await expect(page.getByRole('button', { name: 'Terima', exact: true })).toBeDisabled();
         await expect(page.getByRole('button', { name: 'Tolak', exact: true })).toBeDisabled();
         await expect(page.getByText(/jawaban terpilih tidak bisa diproses massal/i)).toBeVisible();
-        await expect(page.getByText('Menunggu review', { exact: true })).toHaveCount(1);
-        await expect(page.getByText('Diterima', { exact: true })).toHaveCount(1);
+        await expect(answersTable(page).locator('tbody').getByText('Menunggu review', { exact: true })).toHaveCount(1);
+        await expect(answersTable(page).locator('tbody').getByText('Diterima', { exact: true })).toHaveCount(1);
         await captureResponsiveEvidence(page, testInfo, 'mixed-ineligible-rollback');
     });
 
@@ -231,15 +255,21 @@ test.describe('bulk form answer review', () => {
         createGuestAnswer(fixtureForm.primary.formId, 'pending');
         await openAnswers(page, fixtureEvent.eventId, fixtureForm.primary.formId);
 
-        await page.getByRole('button', { name: /Terima jawaban dari/i }).first().click();
+        await page
+            .getByRole('button', { name: /Terima jawaban dari/i })
+            .first()
+            .click();
         await expect(page.getByRole('dialog')).toHaveCount(0);
         await expect(page.getByText('Jawaban diterima.')).toBeVisible();
-        await expect(page.getByText('Diterima', { exact: true })).toHaveCount(1);
+        await expect(answersTable(page).locator('tbody').getByText('Diterima', { exact: true })).toHaveCount(1);
 
-        await page.getByRole('button', { name: /Tolak jawaban dari/i }).first().click();
+        // Reload setelah accept harus selesai dulu agar tombol "Tolak" milik baris lain
+        // tidak terklik dari DOM lama (server menjawab 409 untuk status yang sudah berubah).
+        await expect(page.getByRole('button', { name: /Tolak jawaban dari/i })).toHaveCount(1);
+        await page.getByRole('button', { name: /Tolak jawaban dari/i }).click();
         await expect(page.getByRole('dialog')).toHaveCount(0);
         await expect(page.getByText('Jawaban ditolak.')).toBeVisible();
-        await expect(page.getByText('Ditolak', { exact: true })).toHaveCount(1);
+        await expect(answersTable(page).locator('tbody').getByText('Ditolak', { exact: true })).toHaveCount(1);
         await captureResponsiveEvidence(page, testInfo, 'individual-actions');
     });
 });

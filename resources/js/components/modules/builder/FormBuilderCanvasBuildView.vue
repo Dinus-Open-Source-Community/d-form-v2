@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import FieldRenderer from '@/components/modules/builder/FieldRenderer.vue';
+import { isFieldDeletionBlocked } from '@/components/modules/builder/fieldMapping';
 import { Button } from '@/components/ui/button';
 import {
     GripVertical,
@@ -18,6 +19,7 @@ import {
 import type { IBuilderField, IFormBuilderSection } from '@/types/form-builder';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import FormBuilderHeaderSettings from './FormBuilderHeaderSettings.vue';
+import FormBuilderReferralBlock from './FormBuilderReferralBlock.vue';
 import type { IFormBannerState } from './formBanner';
 
 const formTitle = defineModel<string>('formTitle', { required: true });
@@ -37,6 +39,12 @@ const props = defineProps<{
     selectedFieldId: string | null;
     dropIndicatorIndex: number;
     dragSourceId: string | null;
+    /** Fitur referral aktif untuk form ini; blok kode referral hanya tampil bila true. */
+    referralEnabled: boolean;
+    /** Indeks sisip blok referral di bagian aktif; `null` = tidak tampil di bagian ini. */
+    referralInsertIndex: number | null;
+    /** Blok referral sedang diseret (dimiringkan seperti field sumber). */
+    referralDragging: boolean;
     /** Endpoint `POST {form}/images` untuk upload banner. */
     bannerUploadUrl?: string;
 }>();
@@ -48,6 +56,9 @@ const emit = defineEmits<{
     canvasDrop: [e: DragEvent];
     gapDragEnter: [index: number];
     canvasDragStart: [e: DragEvent, field: IBuilderField, index: number];
+    referralDragStart: [e: DragEvent];
+    referralDragEnd: [];
+    moveReferral: [direction: -1 | 1];
     dragEnd: [];
     selectField: [id: string, isMobile?: boolean];
     manageField: [id: string];
@@ -128,13 +139,17 @@ const showDropChrome = computed(
             @drop="$emit('canvasDrop', $event)"
         >
             <section class="flex flex-col gap-3">
-                <div class="flex items-center justify-between gap-3">
+                <div v-if="sections.length > 1" class="flex flex-col gap-1.5">
+                    <label for="form-section-name" class="text-muted-foreground text-[11px] font-semibold">
+                        Nama bagian
+                    </label>
                     <input
+                        id="form-section-name"
                         :value="sections[currentSectionIndex]?.title ?? ''"
                         maxlength="60"
-                        placeholder="Nama bagian"
+                        placeholder="Contoh: Data peserta"
                         aria-label="Nama bagian"
-                        class="text-muted-foreground placeholder:text-muted-foreground/50 focus-visible:text-foreground w-full border-0 bg-transparent p-0 text-xs font-semibold outline-none"
+                        class="text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-ring/30 hover:border-primary/30 border-input bg-card w-full rounded-lg border px-3 py-2 text-sm font-semibold shadow-xs transition-colors outline-none focus-visible:ring-[3px]"
                         @input="
                             $emit(
                                 'renameSection',
@@ -219,6 +234,16 @@ const showDropChrome = computed(
                     <div v-if="!isEmpty" data-testid="form-builder-fields-scroll" class="pr-0.5">
                         <TransitionGroup name="fb-field" tag="div" class="flex flex-col gap-3 lg:gap-4">
                             <div v-for="(field, localIdx) in formFields" :key="field.id" class="fb-field-row">
+                                <FormBuilderReferralBlock
+                                    v-if="referralEnabled && referralInsertIndex === localIdx"
+                                    class="mb-3 lg:mt-5 lg:mb-4"
+                                    :insert-index="referralInsertIndex"
+                                    :field-count="formFields.length"
+                                    :dragging="referralDragging"
+                                    @drag-start="$emit('referralDragStart', $event)"
+                                    @drag-end="$emit('referralDragEnd')"
+                                    @move="$emit('moveReferral', $event)"
+                                />
                                 <!-- Zona drop: area besar + chip saat aktif -->
                                 <div
                                     class="relative z-10 -my-1 hidden min-h-5 w-full py-1 lg:block"
@@ -337,6 +362,7 @@ const showDropChrome = computed(
                                             Edit
                                         </Button>
                                         <Button
+                                            v-if="!isFieldDeletionBlocked(field)"
                                             radius="icon"
                                             variant="ghost"
                                             size="icon-sm"
@@ -350,6 +376,17 @@ const showDropChrome = computed(
                                 </div>
                             </div>
                         </TransitionGroup>
+
+                        <FormBuilderReferralBlock
+                            v-if="referralEnabled && referralInsertIndex === formFields.length"
+                            class="mt-3 lg:mt-9"
+                            :insert-index="referralInsertIndex"
+                            :field-count="formFields.length"
+                            :dragging="referralDragging"
+                            @drag-start="$emit('referralDragStart', $event)"
+                            @drag-end="$emit('referralDragEnd')"
+                            @move="$emit('moveReferral', $event)"
+                        />
 
                         <div
                             class="relative z-10 mt-1 hidden min-h-5 w-full py-1 lg:block"

@@ -35,7 +35,7 @@ class UserEventPortalController
                         $purposeQuery
                             ->whereNull('metadata')
                             ->orWhereNull('metadata->purpose')
-                            ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                            ->orWhereIn('metadata->purpose', FormPurpose::registrationValues());
                     });
             })
             ->excludeTerminatedInvitationMembers();
@@ -68,7 +68,10 @@ class UserEventPortalController
         }
 
         $checkInAttendance = $isPortalRegistered && $activeRegistration !== null
-            ? EventAttendance::query()->where('form_answer_id', $activeRegistration->id)->first()
+            ? EventAttendance::query()
+                ->where('form_answer_id', $activeRegistration->id)
+                ->latest('scanned_at')
+                ->first()
             : null;
         $checkedInAt = $checkInAttendance?->scanned_at?->toIso8601String();
         $checkInFormTitle = $activeRegistration?->form?->title;
@@ -98,7 +101,7 @@ class UserEventPortalController
                 $purposeQuery
                     ->whereNull('metadata')
                     ->orWhereNull('metadata->purpose')
-                    ->orWhere('metadata->purpose', FormPurpose::Registration->value);
+                    ->orWhereIn('metadata->purpose', FormPurpose::registrationValues());
             })
             ->published()
             ->orderBy('title')
@@ -163,8 +166,10 @@ class UserEventPortalController
         $metadata = $form->metadata;
         $purpose = is_array($metadata) ? ($metadata['purpose'] ?? null) : null;
 
-        return $purpose === FormPurpose::Other->value
-            ? FormPurpose::Other->value
-            : FormPurpose::Registration->value;
+        if (is_string($purpose) && FormPurpose::tryFrom($purpose) !== null) {
+            return $purpose;
+        }
+
+        return FormPurpose::Registration->value;
     }
 }

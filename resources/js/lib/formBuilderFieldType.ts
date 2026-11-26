@@ -21,6 +21,7 @@ const BUILDER_FIELD_TYPE_FLAGS: Record<TFormBuilderType, true> = {
     date: true,
     rating: true,
     heading: true,
+    price: true,
     paragraph: true,
     divider: true,
     banner: true,

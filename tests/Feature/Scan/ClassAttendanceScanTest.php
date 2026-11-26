@@ -54,6 +54,14 @@ class ClassAttendanceScanTest extends TestCase
         return [$form, $answer];
     }
 
+    /** Aktifkan check-in per tanggal untuk form pendaftaran multi-hari. */
+    private function enableMeetingSchedule(Form $form): void
+    {
+        $form->forceFill([
+            'metadata' => [...$form->metadata, 'meeting_schedule_enabled' => true],
+        ])->save();
+    }
+
     public function test_scan_is_rejected_outside_a_scheduled_date(): void
     {
         $this->travelTo(Carbon::parse('2026-12-08 10:00:00', 'Asia/Jakarta'));
@@ -62,7 +70,7 @@ class ClassAttendanceScanTest extends TestCase
         $this->actingAs($this->admin)
             ->postJson(route('dashboard.scan.store'), ['raw' => RegistrationQrPayload::encode($answer->id)])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Hari ini tidak ada jadwal kelas untuk form ini.')
+            ->assertJsonPath('message', 'Hari ini tidak ada jadwal untuk form ini.')
             ->assertJsonStructure(['type', 'eventTitle', 'attendee', 'message']);
     }
 
@@ -81,6 +89,66 @@ class ClassAttendanceScanTest extends TestCase
         $this->travelTo(Carbon::parse('2026-12-14 19:00:00', 'Asia/Jakarta'));
         $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
         $this->assertDatabaseCount('event_attendances', 2);
+    }
+
+    public function test_registration_with_sessions_records_one_attendance_per_day(): void
+    {
+        $this->travelTo(Carbon::parse('2026-12-07 19:00:00', 'Asia/Jakarta'));
+        [$form, $answer] = $this->submission('registration', ['2026-12-07', '2026-12-14']);
+        $this->enableMeetingSchedule($form);
+        $payload = ['raw' => RegistrationQrPayload::encode($answer->id)];
+
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)
+            ->assertOk()->assertJsonPath('status', 'success')->assertJsonPath('session.session_date', '2026-12-07');
+        $sessionId = FormSession::query()->where('form_id', $form->id)->whereDate('session_date', '2026-12-07')->value('id');
+        $this->assertDatabaseHas('event_attendances', ['form_answer_id' => $answer->id, 'form_session_id' => $sessionId, 'attendance_slot' => $sessionId]);
+
+        // Hari yang sama tidak boleh tercatat dua kali.
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertStatus(409);
+
+        $this->travelTo(Carbon::parse('2026-12-14 19:00:00', 'Asia/Jakarta'));
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
+        $this->assertDatabaseCount('event_attendances', 2);
+    }
+
+    public function test_registration_without_sessions_keeps_single_attendance(): void
+    {
+        [, $answer] = $this->submission('registration');
+        $payload = ['raw' => RegistrationQrPayload::encode($answer->id)];
+
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertStatus(409);
+        $this->assertDatabaseHas('event_attendances', [
+            'form_answer_id' => $answer->id,
+            'attendance_slot' => 'default',
+            'form_session_id' => null,
+        ]);
+    }
+
+    public function test_registration_with_sessions_rejects_a_day_without_schedule(): void
+    {
+        $this->travelTo(Carbon::parse('2026-12-08 10:00:00', 'Asia/Jakarta'));
+        [$form, $answer] = $this->submission('registration', ['2026-12-07']);
+        $this->enableMeetingSchedule($form);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('dashboard.scan.store'), ['raw' => RegistrationQrPayload::encode($answer->id)])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Hari ini tidak ada jadwal untuk form ini.');
+    }
+
+    public function test_registration_sessions_are_ignored_when_schedule_toggle_is_off(): void
+    {
+        [$form, $answer] = $this->submission('registration', ['2026-12-07']);
+        $payload = ['raw' => RegistrationQrPayload::encode($answer->id)];
+
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertOk();
+        $this->actingAs($this->admin)->postJson(route('dashboard.scan.store'), $payload)->assertStatus(409);
+        $this->assertDatabaseHas('event_attendances', [
+            'form_answer_id' => $answer->id,
+            'attendance_slot' => 'default',
+            'form_session_id' => null,
+        ]);
     }
 
     public function test_answer_collection_and_feedback_forms_reject_scanning(): void

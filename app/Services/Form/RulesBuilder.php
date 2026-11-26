@@ -27,7 +27,7 @@ class RulesBuilder
      * @var list<string>
      *
      */
-    public const DISPLAY_ONLY_BUILDER_TYPES = ['heading', 'paragraph', 'divider', 'banner', 'image'];
+    public const DISPLAY_ONLY_BUILDER_TYPES = ['heading', 'paragraph', 'divider', 'banner', 'image', 'price'];
 
     /** Field whose validated key must never reach `form_answers.answers`. */
     public static function isDisplayOnlyField(FormField $field): bool

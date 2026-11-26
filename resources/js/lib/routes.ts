@@ -21,9 +21,11 @@ import {
     create as formCreate,
     destroy as formDestroy,
     draft as formDraft,
+    duFieldMap as formDuFieldMap,
     show as formShow,
     store as formStore,
 } from '@/routes/dashboard/events/forms';
+import { duIssuance as submissionDuIssuance } from '@/routes/dashboard/events/forms/submissions';
 import { index as recruitmentIndex } from '@/routes/dashboard/recruitment';
 import { index as activityLogsIndex } from '@/routes/dashboard/recruitment/activity-logs';
 import {
@@ -72,6 +74,7 @@ import {
 import { exportMethod as periodExportInterviews } from '@/routes/dashboard/recruitment/periods/interviews';
 import { applicants as applicantsExport, funnel as funnelExport } from '@/routes/dashboard/recruitment/reports/export';
 import { exportMethod as scanExport, index as scanIndex } from '@/routes/dashboard/scan';
+import { index as duCourseList, sync as duCourseSync } from '@/routes/dashboard/du/courses';
 import { events as memberJoined } from '@/routes/dashboard/user';
 import {
     browse as memberBrowse,
@@ -336,6 +339,14 @@ export const routes = {
                 draft: (eventId: string | number): string => formDraft.url({ event: String(eventId) }),
                 destroy: (eventId: string | number, formId: string | number): string =>
                     formDestroy.url({ event: String(eventId), form: String(formId) }),
+                duFieldMap: (eventId: string | number, formId: string | number): string =>
+                    formDuFieldMap.url({ event: String(eventId), form: String(formId) }),
+                duIssuance: (eventId: string | number, formId: string | number, answerId: string): string =>
+                    submissionDuIssuance.url({
+                        event: String(eventId),
+                        form: String(formId),
+                        formAnswer: answerId,
+                    }),
             },
         },
         scan: {
@@ -344,6 +355,14 @@ export const routes = {
             },
             export: (params: { kind: 'event' | 'oprec'; target: string; format: 'csv' | 'xlsx' }): string =>
                 scanExport.url({ query: { kind: params.kind, target: params.target, format: params.format } }),
+        },
+        duCourses: {
+            get index() {
+                return duCourseList.url();
+            },
+            get sync() {
+                return duCourseSync.url();
+            },
         },
         users: {
             get index() {

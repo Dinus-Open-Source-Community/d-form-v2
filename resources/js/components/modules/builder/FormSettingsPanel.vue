@@ -60,7 +60,7 @@ const isRegistrationPurpose = computed(() => formMetadata.value.purpose === 'reg
 const isGuestSubmissionEligible = computed(() => !isRegistrationPurpose.value && !isDKelasPurpose.value);
 
 const isTeamStyleRegistration = computed(() => {
-    if (!isRegistrationPurpose.value) {
+    if (!isRegistrationPurpose.value && formMetadata.value.purpose !== 'd_kelas') {
         return false;
     }
     const m = formMetadata.value.registration_mode;
@@ -255,7 +255,7 @@ function vString(v: unknown): string {
                 </p>
             </div>
 
-            <div v-if="isRegistrationPurpose" class="space-y-2">
+            <div v-if="isRegistrationPurpose || isDKelasPurpose" class="space-y-2">
                 <Label :for="`${idPrefix}-reg-mode`" class="text-sm font-medium">Registration mode</Label>
                 <SimpleSelect
                     :model-value="formMetadata.registration_mode ?? registrationModeSelectSentinel"

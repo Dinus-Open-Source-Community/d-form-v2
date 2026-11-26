@@ -23,7 +23,7 @@ class Form extends Model
     /** Kolom saat form di-resolve dari route (`{form}`) — eksplisit, bukan `select *`. */
     public const ROUTE_BINDING_COLUMNS = [
         'id', 'title', 'description', 'success_content', 'visible_for', 'closed_at',
-        'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'created_at',
+        'banner_url', 'banner_caption', 'metadata', 'event_id', 'status', 'referral_enabled', 'created_at',
         'updated_at', 'deleted_at', 'created_by', 'share_slug',
     ];
 
@@ -49,6 +49,7 @@ class Form extends Model
         'banner_caption',
         'metadata',
         'status',
+        'referral_enabled',
         'created_by',
         'share_slug',
     ];
@@ -60,7 +61,14 @@ class Form extends Model
             'visible_for' => AsEnumCollection::of(EventFormVisibility::class),
             'metadata' => 'array',
             'status' => FormStatus::class,
+            'referral_enabled' => 'boolean',
         ];
+    }
+
+    public function isReferralActive(): bool
+    {
+        return (bool) $this->referral_enabled
+            && in_array($this->purpose()->value, FormPurpose::registrationValues(), true);
     }
 
     /** Draft adalah form yang masih disusun penyelenggara: tidak pernah masuk daftar publik/peserta dan hanya boleh dibuka pembuat event. */
@@ -160,6 +168,14 @@ class Form extends Model
         return $this->purpose() === FormPurpose::Registration;
     }
 
+    /** Posisi blok referral di halaman isi: `start`, `end`, atau id field jangkar. */
+    public function referralPosition(): string
+    {
+        $raw = is_array($this->metadata) ? ($this->metadata['referral_position'] ?? null) : null;
+
+        return is_string($raw) && $raw !== '' ? $raw : 'end';
+    }
+
     public function requiresFormId(): ?string
     {
         $raw = is_array($this->metadata) ? ($this->metadata['requires_form_id'] ?? null) : null;
@@ -210,5 +226,10 @@ class Form extends Model
     public function formAnswers(): HasMany
     {
         return $this->hasMany(FormAnswer::class, 'form_id');
+    }
+
+    public function referralCodes(): HasMany
+    {
+        return $this->hasMany(ReferralCode::class, 'form_id');
     }
 }

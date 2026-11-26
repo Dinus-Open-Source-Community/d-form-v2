@@ -4,6 +4,8 @@ import type {
     TMemberConfirmationStatus,
 } from '@/types/registrationStatus';
 import type { IFormSession } from '@/types/form';
+import type { IDuSubmission } from '@/types/du';
+import type { ISubmissionReferral } from '@/types/referral';
 
 declare global {
     interface IEvent {
@@ -88,6 +90,7 @@ declare global {
         | 'date'
         | 'rating'
         | 'heading'
+        | 'price'
         | 'paragraph'
         | 'divider'
         | 'banner'
@@ -127,6 +130,9 @@ declare global {
         registration_role?: 'leader' | 'member' | null;
         member_confirmation_status?: TMemberConfirmationStatus | null;
         group_token?: string | null;
+        referral?: ISubmissionReferral | null;
+        /** Status redeem DU per jawaban; `null` untuk form tanpa integrasi DU. */
+        du?: IDuSubmission | null;
     }
 
     interface IKpiCard {

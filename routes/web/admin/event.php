@@ -8,6 +8,10 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormController as EventFormContr
 use App\Http\Controllers\Dashboard\Events\Forms\FormImageUploadController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerFileController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswerReviewController;
+use App\Http\Controllers\Dashboard\Events\Forms\DuRedeemIssuanceController;
+use App\Http\Controllers\Dashboard\Events\Forms\DuFieldMappingController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormReferralController;
+use App\Http\Controllers\Dashboard\Events\Forms\FormReferralCheckController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswersCsvExportController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormAnswersZipExportController;
 use App\Http\Controllers\Dashboard\Events\Forms\BulkFormAnswerReviewController;
@@ -20,6 +24,19 @@ use App\Http\Controllers\Dashboard\Events\Forms\FormShareLinkController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormShareRedirectController;
 use App\Http\Controllers\Dashboard\Events\Forms\FormSessionController;
 use App\Http\Controllers\Dashboard\User\UserValidationController;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+
+RateLimiter::for('form-referral-write', static function (Request $request): Limit {
+    return Limit::perMinute((int) config('events.forms.referral.write_rate_limit_per_minute', 30))
+        ->by($request->user()?->id ?? $request->ip());
+});
+
+RateLimiter::for('form-referral-check', static function (Request $request): Limit {
+    return Limit::perMinute((int) config('events.forms.referral.check_rate_limit_per_minute', 60))
+        ->by($request->user()?->id ?? $request->ip());
+});
 
 // Authorized access to registration uploads. Kept outside the auth-only groups
 // so email links with a valid temporary signature still resolve for guest
@@ -41,6 +58,10 @@ Route::name('dashboard.')->prefix('/joined')->middleware(['form.participant', 'e
     Route::post('/{event}/forms/{form}/submit', FormSubmissionController::class)
         ->middleware('throttle:form-submit')
         ->name('forms.submission');
+
+    Route::post('/{event}/forms/{form}/referral-code/check', FormReferralCheckController::class)
+        ->middleware('throttle:form-referral-check')
+        ->name('forms.referral-check');
 
     Route::get('/{event}/forms/{form}/submitted', FormSubmitSuccessController::class)
         ->name('events.forms.submitted');
@@ -95,10 +116,15 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer', 'e
     Route::put('/events/{event}/forms/{form}/share-link', FormShareLinkController::class)
         ->name('events.forms.share-link');
 
+    Route::put('/events/{event}/forms/{form}/du-field-map', DuFieldMappingController::class)
+        ->middleware('throttle:du-mapping')
+        ->name('events.forms.du-field-map');
+
     Route::get('/events/{event}/forms/{form}/share-link/barcode', FormShareBarcodeController::class)
         ->name('events.forms.share-link.barcode');
 
     Route::post('/events/{event}/forms/draft', [EventFormController::class, 'storeDraft'])
+        ->middleware('throttle:du-sync')
         ->name('events.forms.draft');
 
     // Halaman daftar form sudah dihapus (draft tampil di halaman detail event).
@@ -132,6 +158,25 @@ Route::name('dashboard.')->prefix('/admin')->middleware(['auth', 'organizer', 'e
     Route::patch('/events/{event}/forms/{form}/submissions/bulk-review', BulkFormAnswerReviewController::class)
         ->middleware('throttle:form-review-bulk')
         ->name('events.forms.submissions.bulk-review');
+
+    Route::post('/events/{event}/forms/{form}/submissions/{formAnswer}/du-issuance', DuRedeemIssuanceController::class)
+        ->middleware('throttle:du-issuance')
+        ->name('events.forms.submissions.du-issuance');
+
+    Route::patch('/events/{event}/forms/{form}/referral', [FormReferralController::class, 'updateSettings'])
+        ->name('events.forms.referral.update');
+
+    Route::post('/events/{event}/forms/{form}/referral-codes', [FormReferralController::class, 'storeCode'])
+        ->middleware('throttle:form-referral-write')
+        ->name('events.forms.referral-codes.store');
+
+    Route::patch('/events/{event}/forms/{form}/referral-codes/{referralCode}', [FormReferralController::class, 'updateCode'])
+        ->middleware('throttle:form-referral-write')
+        ->name('events.forms.referral-codes.update');
+
+    Route::delete('/events/{event}/forms/{form}/referral-codes/{referralCode}', [FormReferralController::class, 'destroyCode'])
+        ->middleware('throttle:form-referral-write')
+        ->name('events.forms.referral-codes.destroy');
 
     Route::patch('/events/{event}/forms/{form}/submissions/{formAnswer}/review', FormAnswerReviewController::class)
         ->name('events.forms.submissions.review');

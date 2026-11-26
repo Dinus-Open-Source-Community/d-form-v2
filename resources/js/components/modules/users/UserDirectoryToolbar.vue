@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next';
+import ChipToggle from '@/components/core/ChipToggle.vue';
 import { Input } from '@/components/ui/input';
 import type { IUserRoleOption } from '@/types/user-management';
 
@@ -15,13 +16,6 @@ const emit = defineEmits<{
     'update:search': [value: string];
     'update:role': [value: string];
 }>();
-
-/** Chip aktif memakai token primary; chip pasif tetap tenang sampai disentuh. */
-function chipClass(isActive: boolean): string {
-    return isActive
-        ? 'border-primary bg-primary/10 text-primary'
-        : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground';
-}
 </script>
 
 <template>
@@ -60,30 +54,22 @@ function chipClass(isActive: boolean): string {
         </div>
 
         <div class="-mx-1 flex scrollbar-none gap-2 overflow-x-auto px-1 sm:flex-wrap sm:overflow-visible">
-            <button
-                type="button"
+            <ChipToggle
                 data-testid="user-role-filter"
                 data-role=""
-                :aria-pressed="role === ''"
-                class="inline-flex min-h-[44px] shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:min-h-0"
-                :class="chipClass(role === '')"
-                @click="emit('update:role', '')"
-            >
-                Semua
-            </button>
-            <button
+                label="Semua"
+                :active="role === ''"
+                @select="emit('update:role', '')"
+            />
+            <ChipToggle
                 v-for="option in roleOptions"
                 :key="option.value"
-                type="button"
                 data-testid="user-role-filter"
                 :data-role="option.value"
-                :aria-pressed="role === option.value"
-                class="inline-flex min-h-[44px] shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:min-h-0"
-                :class="chipClass(role === option.value)"
-                @click="emit('update:role', option.value)"
-            >
-                {{ option.label }}
-            </button>
+                :label="option.label"
+                :active="role === option.value"
+                @select="emit('update:role', option.value)"
+            />
         </div>
     </div>
 </template>

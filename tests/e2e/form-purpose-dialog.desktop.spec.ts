@@ -15,7 +15,7 @@ function createAdminOwnedEvent(testInfo: TestInfo): IAdminOwnedEvent {
     return { identity, eventId: owner.eventId };
 }
 
-test('modal tujuan form tampil sebelum membuat form dan D-Kelas terkunci', async ({ page }, testInfo) => {
+test('modal tujuan form tampil sebelum membuat form dan D-Kelas membuka pilihan mode', async ({ page }, testInfo) => {
     test.setTimeout(60_000);
 
     const owned = createAdminOwnedEvent(testInfo);
@@ -36,10 +36,15 @@ test('modal tujuan form tampil sebelum membuat form dan D-Kelas terkunci', async
         await expect(page.getByRole('dialog')).toBeVisible();
         await expect(page.getByText('Form ini untuk apa?')).toBeVisible();
 
-        const dKelas = page.getByRole('button', { name: /D-Kelas/ });
-        await expect(dKelas).toBeDisabled();
+        await page.getByRole('button', { name: /D-Kelas/ }).click();
+        await page.getByRole('button', { name: 'Lanjut' }).click();
 
-        await page.getByRole('button', { name: /Pengumpulan Jawaban/ }).click();
+        await expect(page.getByText('Bagaimana peserta mendaftar?')).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Single/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Bundle/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Team/ })).toBeVisible();
+
+        await page.getByRole('button', { name: /^Team/ }).click();
         await page.getByRole('button', { name: 'Buat form' }).click();
 
         await expect(page).toHaveURL(/\/forms\/create/);

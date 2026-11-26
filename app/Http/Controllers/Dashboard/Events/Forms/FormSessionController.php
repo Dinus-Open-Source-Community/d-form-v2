@@ -60,6 +60,9 @@ class FormSessionController extends Controller
     {
         $this->authorize('update', $event);
         abort_unless($form->event_id === $event->id, 404);
-        abort_unless($form->purpose() === FormPurpose::DKelas, 403);
+        abort_unless(
+            in_array($form->purpose()->value, FormPurpose::registrationValues(), true),
+            403
+        );
     }
 }

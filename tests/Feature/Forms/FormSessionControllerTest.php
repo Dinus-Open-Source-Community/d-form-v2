@@ -36,13 +36,31 @@ class FormSessionControllerTest extends TestCase
         $this->assertSame(FormPurpose::DKelas, $form->purpose());
     }
 
-    public function test_only_d_kelas_forms_can_store_sessions(): void
+    public function test_non_registration_forms_cannot_store_sessions(): void
     {
         $form = Form::factory()->create(['event_id' => Event::factory()->create(['created_by' => $this->owner->id])->id, 'metadata' => ['purpose' => 'feedback']]);
 
         $this->actingAs($this->owner)
             ->post(route('dashboard.events.forms.sessions.store', [$form->event, $form]), ['session_date' => '2026-12-07'])
             ->assertForbidden();
+    }
+
+    public function test_registration_forms_can_store_sessions(): void
+    {
+        $event = Event::factory()->create(['created_by' => $this->owner->id]);
+        $form = Form::factory()->create([
+            'event_id' => $event->id,
+            'metadata' => ['purpose' => 'registration', 'registration_mode' => 'single'],
+        ]);
+        $date = now()->addDays(3)->toDateString();
+
+        $this->actingAs($this->owner)
+            ->post(route('dashboard.events.forms.sessions.store', [$event, $form]), ['session_date' => $date])
+            ->assertRedirect();
+
+        $this->assertTrue(
+            FormSession::query()->where('form_id', $form->id)->whereDate('session_date', $date)->exists()
+        );
     }
 
     public function test_session_cannot_be_deleted_when_attendance_exists(): void

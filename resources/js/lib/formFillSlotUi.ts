@@ -11,12 +11,10 @@ export function formFillSlotUi(input: IFormFillSlotUiInput): IFormFillSlotUi {
         headerBorderClass: isBundleParticipant && input.stackIndex > 0 ? 'border-t border-border' : '',
         cardHeaderSpacingClass: isBundleParticipant
             ? input.stackIndex > 0
-                ? 'gap-0.5 pt-2 pb-0.5'
-                : 'gap-0.5 pt-2.5 pb-0.5'
-            : showSubtitle
-              ? 'gap-2 pt-3 pb-1.5'
-              : 'gap-0.5 pt-2.5 pb-1',
-        cardContentSpacingClass: isBundleParticipant ? 'pb-2 pt-0' : 'pb-2.5 pt-0',
+                ? 'gap-1 pt-2.5 pb-0'
+                : 'gap-1 pt-3 pb-0'
+            : 'gap-1 pt-4 pb-0',
+        cardContentSpacingClass: isBundleParticipant ? 'pt-2 pb-3' : 'pt-3 pb-5',
         errorSpacingClass: isBundleParticipant ? 'mt-1' : 'mt-1.5',
     };
 }

@@ -136,7 +136,10 @@ async function ensureDraftForm(): Promise<string | null> {
 
     draftRequest = (async (): Promise<string | null> => {
         try {
-            const draft = await requestFormDraft(routes.admin.events.forms.draft(props.event.id));
+            const draft = await requestFormDraft(routes.admin.events.forms.draft(props.event.id), {
+                purpose: props.initialPurpose ?? 'registration',
+                mode: props.initialMode ?? 'single',
+            });
 
             if (isBuilderPristine()) applyDraftSnapshot(draft);
             draftEditUrl.value = draft.editUrl;

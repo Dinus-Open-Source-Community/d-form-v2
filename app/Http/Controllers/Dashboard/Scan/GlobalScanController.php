@@ -142,18 +142,25 @@ class GlobalScanController extends Controller
             ], 422);
         }
 
-        $session = $purpose === FormPurpose::DKelas ? $this->schedule->todayFor($form) : null;
-        if ($purpose === FormPurpose::DKelas && $session === null) {
-            return response()->json([
-                'type' => 'event',
-                'eventTitle' => $event->title,
-                'attendee' => [
-                    'name' => $this->displayNameResolver->resolve($answer),
-                    'email' => $this->recipientResolver->email($answer) ?? '',
-                    'form_answer_id' => $answer->id,
-                ],
-                'message' => 'Hari ini tidak ada jadwal kelas untuk form ini.',
-            ], 422);
+        $session = null;
+        $isDKelas = $purpose === FormPurpose::DKelas;
+        $wantsSessionCheckIn = $isDKelas || (($form->metadata['meeting_schedule_enabled'] ?? false) === true);
+
+        if ($wantsSessionCheckIn) {
+            $session = $this->schedule->todayFor($form);
+
+            if ($session === null) {
+                return response()->json([
+                    'type' => 'event',
+                    'eventTitle' => $event->title,
+                    'attendee' => [
+                        'name' => $this->displayNameResolver->resolve($answer),
+                        'email' => $this->recipientResolver->email($answer) ?? '',
+                        'form_answer_id' => $answer->id,
+                    ],
+                    'message' => 'Hari ini tidak ada jadwal untuk form ini.',
+                ], 422);
+            }
         }
 
         $attendanceSlot = $session?->id ?? 'default';

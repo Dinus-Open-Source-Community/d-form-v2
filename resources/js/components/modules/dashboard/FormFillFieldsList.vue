@@ -5,29 +5,43 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import ConfirmationModal from '@/components/core/ConfirmationModal.vue';
 import FormFillFieldSlotRows from '@/components/modules/dashboard/FormFillFieldSlotRows.vue';
+import FormFillReferralField from '@/components/modules/dashboard/FormFillReferralField.vue';
+import FormPriceBlock from '@/components/core/FormPriceBlock.vue';
 import FormParagraphContent from '@/components/core/FormParagraphContent.vue';
 import FormFillParticipantEmailsSection from '@/components/modules/dashboard/FormFillParticipantEmailsSection.vue';
 import { formFieldImageSrc, formFieldMetadataText } from '@/lib/formFillFields';
+import { formFieldPrice } from '@/lib/formPrice';
+import { referralInsertIndexWithinSection } from '@/lib/referralPlacement';
 import { useFormFillFieldsList } from '@/hooks/useFormFillFieldsList';
+import type { TReferralCheckStatus } from '@/hooks/useReferralCodeCheck';
 import { Send } from 'lucide-vue-next';
 import { computed, type UnwrapNestedRefs } from 'vue';
 import type { TFormFillPageContext } from '@/hooks/useFormFillPage';
 import { routes } from '@/lib/routes';
 import type { IFormBuilderSection } from '@/types/form-builder';
+import type { IFormPriceQuote, TFormFillSegment } from '@/types/form';
 
 const props = defineProps<{
     fields: IFormField[];
     sections: IFormBuilderSection[];
     eventId: string;
     ctx: UnwrapNestedRefs<TFormFillPageContext>;
+    referralPosition: string;
+    referralStatus: TReferralCheckStatus;
+    referralMessage: string;
+    referralError: string;
+    referralCode: string;
+    referralPrice: IFormPriceQuote | null;
 }>();
 
 const emit = defineEmits<{
     submit: [];
+    'update:referralCode': [value: string];
 }>();
 
 const {
     currentSectionIndex,
+    currentSectionFields,
     formSegments,
     previousSection,
     nextSection,
@@ -61,6 +75,11 @@ function confirmSubmit(): void {
 /** Kunci stabil per kartu jawaban supaya pesan error kartu dihitung sekali per render. */
 function linearErrorKey(field: IFormField): string {
     return `linear:${field.id}`;
+}
+
+/** Harga field dalam rupiah; 0 berarti field ini bukan blok harga. */
+function fieldPrice(field: IFormField): number {
+    return formFieldPrice(props.ctx.metadata(field));
 }
 
 function bundleErrorKey(field: IFormField, slotIndex: number | null): string {
@@ -102,13 +121,67 @@ function firstMessageForCard(key: string): string {
 function cardHasErrors(key: string): boolean {
     return messagesForCard(key).length > 0;
 }
+
+/** Satu item render: segmen field seperti biasa, atau kartu referral di posisinya. */
+type TFillListRenderItem = { type: 'segment'; segment: TFormFillSegment } | { type: 'referral' };
+
+/**
+ * Indeks sisip referral pada daftar field bagian ini. Indeks yang jatuh di tengah
+ * bundle digeser ke akhir bundle agar kartu tidak memotong satu grup peserta.
+ */
+const referralInsertIndex = computed<number | null>(() => {
+    if (!props.ctx.referralEnabled) return null;
+
+    const rawIndex = referralInsertIndexWithinSection(props.fields, currentSectionFields.value, props.referralPosition);
+    if (rawIndex === null) return null;
+
+    let offset = 0;
+    for (const segment of formSegments.value) {
+        const start = offset;
+        offset += segment.fields.length;
+        if (segment.type === 'bundleGroup' && rawIndex > start && rawIndex < offset) return offset;
+    }
+
+    return rawIndex;
+});
+
+const renderItems = computed<TFillListRenderItem[]>(() => {
+    const insertIndex = referralInsertIndex.value;
+    const items: TFillListRenderItem[] = [];
+    let offset = 0;
+
+    for (const segment of formSegments.value) {
+        const start = offset;
+        const end = start + segment.fields.length;
+        offset = end;
+
+        if (insertIndex === start) items.push({ type: 'referral' });
+
+        if (insertIndex !== null && segment.type === 'linear' && insertIndex > start && insertIndex < end) {
+            const cutIndex = insertIndex - start;
+            items.push({ type: 'segment', segment: { type: 'linear', fields: segment.fields.slice(0, cutIndex) } });
+            items.push({ type: 'referral' });
+            items.push({ type: 'segment', segment: { type: 'linear', fields: segment.fields.slice(cutIndex) } });
+            continue;
+        }
+
+        items.push({ type: 'segment', segment });
+    }
+
+    if (insertIndex !== null && insertIndex === offset) items.push({ type: 'referral' });
+
+    return items;
+});
 </script>
 
 <template>
     <form class="flex flex-col gap-6" @submit.prevent="requestSubmitConfirm">
         <FormFillParticipantEmailsSection v-if="ctx.memberSlots > 0 && currentSectionIndex === 0" :ctx="ctx" />
 
-        <div class="border-border bg-card flex items-center justify-between rounded-xl border px-4 py-3">
+        <div
+            v-if="props.sections.length > 1"
+            class="border-border bg-card flex items-center justify-between rounded-xl border px-4 py-3"
+        >
             <div>
                 <p class="text-foreground text-xs font-semibold">
                     {{ props.sections[currentSectionIndex]?.title }}
@@ -119,11 +192,30 @@ function cardHasErrors(key: string): boolean {
             </div>
         </div>
 
-        <template v-for="(segment, segIdx) in formSegments" :key="'seg-' + segIdx">
-            <template v-if="segment.type === 'linear'">
-                <template v-for="field in segment.fields" :key="field.id">
+        <template v-for="(item, itemIdx) in renderItems" :key="'item-' + itemIdx">
+            <div v-if="item.type === 'referral'" class="border-border bg-card rounded-2xl border p-5 shadow-xs">
+                <FormFillReferralField
+                    :model-value="props.referralCode"
+                    :error="props.referralError"
+                    :status="props.referralStatus"
+                    :status-message="props.referralMessage"
+                    @update:model-value="(value: string | number) => emit('update:referralCode', String(value))"
+                />
+            </div>
+
+            <template v-else-if="item.segment.type === 'linear'">
+                <template v-for="field in item.segment.fields" :key="field.id">
+                    <FormPriceBlock
+                        v-if="ctx.builderType(field) === 'price' && fieldPrice(field) > 0"
+                        :label="field.label"
+                        :base="fieldPrice(field)"
+                        :quote="props.referralPrice"
+                    />
+
+                    <div v-else-if="ctx.builderType(field) === 'price'" class="hidden" />
+
                     <div
-                        v-if="ctx.builderType(field) === 'heading'"
+                        v-else-if="ctx.builderType(field) === 'heading'"
                         class="border-border bg-card rounded-2xl border px-5 py-4 shadow-xs"
                     >
                         <h2 class="font-display text-foreground text-2xl font-bold tracking-[-0.025em]">
@@ -172,7 +264,7 @@ function cardHasErrors(key: string): boolean {
 
                     <Card
                         v-else
-                        class="overflow-hidden"
+                        class="gap-0 overflow-hidden py-0"
                         :class="
                             cardHasErrors(linearErrorKey(field))
                                 ? 'border-destructive/60 bg-destructive/[0.03]'
@@ -212,24 +304,24 @@ function cardHasErrors(key: string): boolean {
 
             <template v-else>
                 <Card
-                    v-for="slot in ctx.participationSlotsForField(segment.fields[0])"
-                    :key="'bundle-' + (slot.slotIndex ?? 'lead') + '-' + segIdx"
-                    class="overflow-hidden"
+                    v-for="slot in ctx.participationSlotsForField(item.segment.fields[0])"
+                    :key="'bundle-' + (slot.slotIndex ?? 'lead') + '-' + itemIdx"
+                    class="gap-0 overflow-hidden py-0"
                     :class="
-                        cardHasErrors(bundleErrorKey(segment.fields[0], slot.slotIndex))
+                        cardHasErrors(bundleErrorKey(item.segment.fields[0], slot.slotIndex))
                             ? 'border-destructive/60 bg-destructive/[0.03]'
                             : undefined
                     "
                     :data-field-error-card="
-                        cardHasErrors(bundleErrorKey(segment.fields[0], slot.slotIndex)) ? '' : undefined
+                        cardHasErrors(bundleErrorKey(item.segment.fields[0], slot.slotIndex)) ? '' : undefined
                     "
-                    :tabindex="cardHasErrors(bundleErrorKey(segment.fields[0], slot.slotIndex)) ? -1 : undefined"
+                    :tabindex="cardHasErrors(bundleErrorKey(item.segment.fields[0], slot.slotIndex)) ? -1 : undefined"
                 >
                     <div v-if="slot.title" class="border-border bg-muted/20 border-b px-5 py-2 sm:px-6">
                         <p class="text-foreground text-sm font-semibold">{{ slot.title }}</p>
                     </div>
                     <FormFillFieldSlotRows
-                        v-for="(field, fi) in segment.fields"
+                        v-for="(field, fi) in item.segment.fields"
                         :key="field.id + '-' + (slot.slotIndex ?? 'lead')"
                         :ctx="ctx"
                         :field="field"
@@ -245,10 +337,10 @@ function cardHasErrors(key: string): boolean {
                         "
                     />
                     <p
-                        v-if="cardHasErrors(bundleErrorKey(segment.fields[0], slot.slotIndex))"
+                        v-if="cardHasErrors(bundleErrorKey(item.segment.fields[0], slot.slotIndex))"
                         class="text-destructive mt-1.5 px-6 text-xs font-medium"
                     >
-                        {{ firstMessageForCard(bundleErrorKey(segment.fields[0], slot.slotIndex)) }}
+                        {{ firstMessageForCard(bundleErrorKey(item.segment.fields[0], slot.slotIndex)) }}
                     </p>
                 </Card>
             </template>
