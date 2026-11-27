@@ -85,3 +85,20 @@ docs/adr/
 
 /docs/adr
 /docs/big-changes
+
+# Diagram alur (hasil generate lokal, lihat docs/flows/README.md)
+docs/flows/*.excalidraw
+docs/flows/preview/
+
+# Crop review diagram (artefak sesi audit, bukan deliverable)
+/f[0-9]_*.png
+/clip_*.png
+/fit-*.png
+/[a-g]1*.png
+/legend*.png
+/top1x.png
+/loop3x.png
+/c-head.png
+/r-*.png
+docs/plane
+docs/flows
