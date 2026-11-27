@@ -247,18 +247,16 @@ const renderItems = computed<TFillListRenderItem[]>(() => {
                         <div
                             v-if="field.label || field.description"
                             class="space-y-1 px-5 pt-4"
-                            :class="fillImageSrc(field) || fillImageText(field, 'caption').trim() ? 'pb-3' : 'pb-4'"
+                            :class="
+                                formFieldImageSrc(field) || formFieldMetadataText(field, 'caption').trim()
+                                    ? 'pb-3'
+                                    : 'pb-4'
+                            "
                         >
-                            <h3
-                                v-if="field.label"
-                                class="text-sm font-semibold text-foreground"
-                            >
+                            <h3 v-if="field.label" class="text-foreground text-sm font-semibold">
                                 {{ field.label }}
                             </h3>
-                            <p
-                                v-if="field.description"
-                                class="text-xs leading-relaxed text-muted-foreground"
-                            >
+                            <p v-if="field.description" class="text-muted-foreground text-xs leading-relaxed">
                                 {{ field.description }}
                             </p>
                         </div>
@@ -271,7 +269,7 @@ const renderItems = computed<TFillListRenderItem[]>(() => {
                                 field.label
                             "
                             class="w-full object-cover"
-                            :class="(field.label || field.description) ? 'border-t border-border' : ''"
+                            :class="field.label || field.description ? 'border-border border-t' : ''"
                         />
                         <p
                             v-if="formFieldMetadataText(field, 'caption').trim()"

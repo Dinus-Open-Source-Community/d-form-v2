@@ -231,17 +231,19 @@ function ratingStars(field: IFormPreviewField): number[] {
                                         <div
                                             v-if="field.label || field.description"
                                             class="space-y-1 px-5 pt-4"
-                                            :class="choiceThumb(metaString(field, 'imageUrl')) || metaString(field, 'caption').trim() ? 'pb-3' : 'pb-4'"
+                                            :class="
+                                                choiceThumb(metaString(field, 'imageUrl')) ||
+                                                metaString(field, 'caption').trim()
+                                                    ? 'pb-3'
+                                                    : 'pb-4'
+                                            "
                                         >
-                                            <h3
-                                                v-if="field.label"
-                                                class="text-sm font-semibold text-foreground"
-                                            >
+                                            <h3 v-if="field.label" class="text-foreground text-sm font-semibold">
                                                 {{ field.label }}
                                             </h3>
                                             <p
                                                 v-if="field.description"
-                                                class="text-xs leading-relaxed text-muted-foreground"
+                                                class="text-muted-foreground text-xs leading-relaxed"
                                             >
                                                 {{ field.description }}
                                             </p>
@@ -253,7 +255,7 @@ function ratingStars(field: IFormPreviewField): number[] {
                                                 metaString(field, 'alt') || metaString(field, 'caption') || field.label
                                             "
                                             class="w-full object-cover"
-                                            :class="(field.label || field.description) ? 'border-t border-border' : ''"
+                                            :class="field.label || field.description ? 'border-border border-t' : ''"
                                         />
                                         <p
                                             v-if="metaString(field, 'caption').trim()"
